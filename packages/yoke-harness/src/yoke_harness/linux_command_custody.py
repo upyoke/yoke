@@ -9,9 +9,17 @@ import uuid
 from yoke_harness import linux_command_supervisor as remote
 from yoke_harness import linux_platform_payload
 
+# Each cleanup opens a fresh SSH session to the host; cloud hosts routinely
+# need several seconds for the handshake alone.
+CLEANUP_TIMEOUT_SECONDS = 20
+
 
 def _program(expression, *arguments):
-    source = Path(remote.__file__).read_text(encoding="utf-8") + "\n" + linux_platform_payload.source()
+    source = (
+        Path(remote.__file__).read_text(encoding="utf-8")
+        + "\n"
+        + linux_platform_payload.source()
+    )
     return shlex.join(
         [
             "/usr/bin/python3",
@@ -85,8 +93,26 @@ def run_command(control, argv, environment, *, timeout):
         )
     result.returncode = int(receipt["returncode"])
     result.command_custody = receipt
-    # A cleanup failure retains a private receipt; it cannot invalidate settlement.
-    control._run(
-        _program("remove_settled(json.loads(sys.argv[1]))", directory), timeout=5
-    )
+    # Settlement is proven above. A cleanup failure of any transport (timeout,
+    # refusal, dropped SSH) retains the private receipt directory and is
+    # reported beside the settled result; it never replaces that result.
+    try:
+        cleanup = control._run(
+            _program("remove_settled(json.loads(sys.argv[1]))", directory),
+            timeout=CLEANUP_TIMEOUT_SECONDS,
+        )
+        failure = (
+            None
+            if cleanup.returncode == 0
+            else f"exit {cleanup.returncode}: {cleanup.stderr.strip()}"
+        )
+    except Exception as exc:  # noqa: BLE001 - every transport failure is retained
+        failure = f"{type(exc).__name__}: {exc}"
+    if failure is not None:
+        result.command_custody_cleanup = {"retained": directory, "error": failure}
+        result.stderr += (
+            f"\nlinux_command_custody_cleanup_retained: {directory}; {failure}; "
+            "the command settled and its result stands; remove the retained "
+            "receipt directory on the host\n"
+        )
     return result
