@@ -14,6 +14,7 @@ from yoke_harness.baseline_probe_failure_causes import (
     UNDECLARED_EXIT,
     failure_evidence,
 )
+from yoke_harness.macos_claude_desktop_probe import CLAUDE_DESKTOP_PROBE_PROGRAM
 from yoke_harness.ssh_mac_host_session_state import (
     SCREEN_SAVER_DISABLE_COMMAND,
     SCREEN_SAVER_READ_COMMAND,
@@ -31,6 +32,7 @@ RECOVERIES = {
     "Codex real request": "Sign in Codex with codex login in the test user's session.",
     "Cursor real request": "Sign in Cursor with agent login in the test user's session.",
     "Claude bypass accepted": "Have the operator accept Claude's one-time bypass prompt in the test user's session.",
+    "Claude desktop signed in": "Open Claude for Mac in the test user's GUI session, complete onboarding and sign in to the chat view, then quit Claude.",
     "macOS login keychain readable": "Use GUI Terminal to unlock/re-key the login keychain after a password change and sign in Claude again; the keychain stays live through resets.",
     "macOS screen saver disabled": f"As the GUI test user run {SCREEN_SAVER_DISABLE_COMMAND} before capture; save a new golden and prove the reset roundtrip.",
     "Linux desktop input available": "Provision xdotool as a baseline package before capture, not as a QA package; capture a new golden and prove the fresh-host reset roundtrip.",
@@ -161,6 +163,7 @@ sys.exit(0 if ok else EXIT['probe_check_unmet'])
         )
     )
     if os_name == "macos":
+        probes.append(_probe("Claude desktop signed in", CLAUDE_DESKTOP_PROBE_PROGRAM))
         saver_argv = shlex.split("/usr/bin/" + SCREEN_SAVER_READ_COMMAND)
         probes.append(
             _probe(

@@ -26,14 +26,14 @@ OS_PROTECTED_CACHE_HOME_ENTRIES = (
     f"{_CORE_SPEECH_CACHE_ROOT}/secondPassChecker",
 )
 REQUIRED_PRESERVED_HOME_ENTRIES = (".ssh",)
-# The live harness logins. Claude and Cursor keep theirs in the login Keychain
-# (Claude falls back to its credentials file); Codex keeps its in auth.json, or
-# in the Keychain when configured for it. A restored copy of any of them is the
-# golden's rotated token, so they stay live and are kept only when present.
+# The live harness logins. The CLI credentials and Claude's native desktop
+# profile can rotate after capture. Keep the current stores on the fixture.
+CLAUDE_DESKTOP_HOME_ENTRY = "Library/Application Support/Claude"
 HARNESS_LOGIN_HOME_ENTRIES = (
     "Library/Keychains",
     ".claude/.credentials.json",
     ".codex/auth.json",
+    CLAUDE_DESKTOP_HOME_ENTRY,
 )
 # The live browser identity profiles. Sites rotate session cookies, so a
 # restored copy is the golden's stale sign-in for the same reason a restored
@@ -91,6 +91,7 @@ def render_preserved_state_contract() -> str:
         (
             "os_managed_entries=(" + shlex.join(OS_MANAGED_HOME_ENTRIES) + ")",
             "os_protected_cache_entries=(" + shlex.join(OS_PROTECTED_CACHE_HOME_ENTRIES) + ")",
+            "claude_desktop_entry=" + shlex.quote(CLAUDE_DESKTOP_HOME_ENTRY),
             "os_managed_owner="
             + shlex.quote(":".join(map(str, OS_MANAGED_FILE_OWNER))),
             "os_managed_manifest_line="
@@ -149,7 +150,7 @@ assert_os_managed_preserved_state() {
       return 1
     fi
   done
-  for suffix in "${os_protected_cache_entries[@]}"; do
+  for suffix in "${os_protected_cache_entries[@]}" "$claude_desktop_entry"; do
     target="$home/$suffix"
     assert_preserved_state_ancestors "$target" || return 1
     lexists "$target" || continue
