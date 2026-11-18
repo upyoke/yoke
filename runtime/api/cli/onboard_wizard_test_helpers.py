@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from runtime.api.cli.onboard_wizard_folder_test_helpers import stub_folder_environment
+from runtime.api.cli.onboard_wizard_view_test_support import wait_for_view
 
 from yoke_cli.config import onboard_wizard_flow_checkout_inspection as inspection
 from yoke_cli.config import path_doctor
@@ -316,8 +317,8 @@ async def submit_public_item_prefix(pilot, prefix: str = "WIDG") -> None:
     """Replace the prefilled item prefix and submit the project-details form."""
     from textual.widgets import Input
 
-    focused = pilot.app.focused
-    assert isinstance(focused, Input)
+    await wait_for_view(pilot, "project.details", "#onboard-input-prefix")
+    focused = pilot.app.query_one("#onboard-input-prefix", Input)
     focused.value = prefix
     focused.cursor_position = len(prefix)
     await pilot.press("enter")
@@ -330,8 +331,8 @@ async def accept_project_details(
     prefix: str = "WIDG",
 ) -> None:
     """Accept the prefilled identity fields, then set the requested prefix."""
-    await pilot.press("enter")  # project id
-    await pilot.press("enter")  # display name
-    if not branch_from_source:
-        await pilot.press("enter")  # default branch
+    fields = ("slug", "name") if branch_from_source else ("slug", "name", "branch")
+    for field in fields:
+        await wait_for_view(pilot, "project.details", f"#onboard-input-{field}")
+        await pilot.press("enter")
     await submit_public_item_prefix(pilot, prefix)

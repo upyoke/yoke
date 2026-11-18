@@ -13,6 +13,7 @@ from yoke_core.domain import (
     api_tokens,
     db_backend,
     db_helpers,
+    postgres_binaries,
     universe_source_pause as pause,
 )
 from yoke_core.domain import universe_database_pause as database
@@ -28,6 +29,9 @@ from yoke_core.domain.org_schema import seed_default_org
 def test_paused_restart_keeps_auth_checks_and_resume_uses_original(
     monkeypatch, tmp_path
 ):
+    # Keep the real Postgres tools available after isolating the test machine home.
+    postgres_bin = postgres_binaries.pinned_bin_dir() or postgres_binaries.ensure_binaries()
+    monkeypatch.setenv(postgres_binaries.BIN_DIR_ENV, str(postgres_bin))
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
     monkeypatch.setenv("YOKE_SERVER_MODE", "self-host")
     with pg_testdb.test_database() as source:

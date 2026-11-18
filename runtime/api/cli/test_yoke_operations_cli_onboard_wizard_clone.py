@@ -52,6 +52,7 @@ async def _to_clone_outcome(app, pilot) -> None:
     await type_text(pilot, "git@github.com:acme/widgets.git")  # remote url
     await pilot.press("enter")  # remote -> clone-folder input (default ~/code/widgets)
     await pilot.press("enter")  # accept default folder -> clone-outcome screen
+    await wait_for_view(pilot, "project.clone_outcome", "SelectionList")
 
 
 def test_clone_it_keeps_origin_on_source() -> None:
@@ -208,6 +209,7 @@ def test_back_from_duplicate_to_clone_clears_future_publish_state() -> None:
                 ):
                     break
                 await pilot.press("escape")
+            await wait_for_view(pilot, "project.clone_outcome", "SelectionList")
             # Back keeps "Duplicate it" chosen; move up to "Clone it".
             await pilot.press("up", "enter")  # outcome: Clone it
             await accept_project_details(pilot, branch_from_source=True)

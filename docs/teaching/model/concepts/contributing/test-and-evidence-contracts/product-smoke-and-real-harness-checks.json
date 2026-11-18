@@ -5,6 +5,6 @@
  "audience": "Maintainers",
  "page": "test-and-evidence-contracts",
  "position": 6,
- "summary": "Windows and macOS product smoke and full-suite workflows run only on demand. Product smoke has Ubuntu x86, Ubuntu arm, macOS and Windows legs, and all four run the full flow: candidate wheel installation, yoke status, onboarding, hook replay and source development. There is no per-PR Windows check or required Windows merge-queue context. Targeted Windows source tests still use literal pytest.mark.windows declarations and skip unmarked modules before import; the on-demand full suite runs every test with shrink-only known-failure baselines.",
+ "summary": "Windows and macOS product smoke and full-suite workflows run only on demand. Product smoke has Ubuntu x86, Ubuntu arm, macOS and Windows legs, and all four run the full flow: candidate wheel installation, yoke status, onboarding, hook replay and source development. There is no per-PR Windows check or required Windows merge-queue context. Targeted Windows source tests still use literal pytest.mark.windows declarations and skip unmarked modules before import; the on-demand full suite runs the suite under the declared OS scopes and reports failures directly.",
  "sources": ["docs/testing-verification.md", ".github/workflows/product-smoke.yml", ".github/workflows/yoke-suite.yml", "runtime/windows_test_selection.py", "runtime/api/tools/product_runner_source_tests.py", "runtime/api/tools/product_runner_stages.py"]
 }

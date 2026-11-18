@@ -71,12 +71,13 @@ def test_current_native_exit_replaces_the_initialized_capture(tmp_path: Path, mo
         f"supervisor exit={processes[0].returncode if processes else 'not spawned'}; "
         f"custody={stages}; stderr={errors.read_bytes()[-4096:] if errors.exists() else b''!r}"
     )
-    refusal = immediate_native_refusal(started.capture_path)
+    # Read the settled capture after the supervisor publishes it and exits.
+    assert reaped.wait(timeout=10), "the owner reaper must wait for this supervisor"
+    assert processes[0].returncode == 0
+    refusal = immediate_native_refusal(started.capture_path, window_seconds=0)
     assert refusal is not None
     assert refusal.exit_code == 7
     assert b"current refusal" in refusal.stderr
-    assert reaped.wait(timeout=10), "the owner reaper must wait for this supervisor"
-    assert processes[0].returncode == 0
 
 
 @pytest.mark.parametrize("token", [b"", b"invalid\n", supervisor.CUSTODY_READY])

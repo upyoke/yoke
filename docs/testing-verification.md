@@ -332,10 +332,9 @@ hook skips unmarked modules before import, then pytest filters tests; no shared
 roster needs editing. The product source-test runner still uses this selection.
 
 The [full suite on Windows and macOS](testing-verification/multi-os-suite.md)
-also runs only on demand, with shrink-only known-failure baselines.
+also runs only on demand.
 
 Declare native OS tests with `posix_only`, `windows_only`, `macos_only` or
 `linux_only`, each with `reason="why this OS is required"`. Module `pytestmark`
-scopes skip before import. Hand-written OS skips are refused; OS-scoped tests
-leave that OS's known-failure baseline. Only `windows_only` can also carry the
-`windows` smoke marker.
+scopes skip before import. Hand-written OS skips are refused. Only `windows_only` can
+also carry the `windows` smoke marker.
