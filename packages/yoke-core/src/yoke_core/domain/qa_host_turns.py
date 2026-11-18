@@ -231,16 +231,13 @@ def reservation_for(conn: Any, claim: Any, session_id: str) -> bool:
 
 
 def host_claim_released(conn: Any, claim: Any) -> None:
-    """Drop the unconsumed reservation and serve the line."""
+    """Drop the unconsumed reservation, ending a wait it orphans; serve the line."""
+    from yoke_core.domain.qa_host_turn_release import cancel_released_reservation
+
     if not claim.target.test_machine:
         return
     if _has_line(conn):
-        p = _p(conn)
-        conn.execute(
-            f"UPDATE qa_test_machine_waits SET state='cancelled',settled_at={p} "
-            f"WHERE claim_id={p} AND state='reserved'",
-            (instant_parameter(conn, utc_now()), claim.id),
-        )
+        cancel_released_reservation(conn, claim)
         reserve_host_turn(conn, claim.target)
     note_released_host(conn, claim.target)
 
