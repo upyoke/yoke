@@ -174,6 +174,7 @@ def test_complete_guest_provisioning_and_real_ssh_rdp_forward(monkeypatch, tmp_p
             settings={"os": "windows", "host": "127.0.0.1", "user": name},
             key_path=key, secret_values=(custody["password"],),
         )
+        assert transport._control_path is None
         assert transport.windows_facts["admin"] is False
         assert transport.windows_facts["user"].split("\\")[-1].lower() == name
         assert transport.windows_facts["build"].isdigit()

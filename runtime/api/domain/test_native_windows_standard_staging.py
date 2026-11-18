@@ -19,6 +19,7 @@ def control():
     c = object.__new__(transport.WindowsTransport)
     c.home = r"C:\Users\controller 雪 with spaces"
     c._key_path, c._host, c._user, c._control_path = "key", "host", "qa", None
+    c.os = "windows"
     c.secret_values = ()
     return c
 
@@ -29,6 +30,7 @@ def test_staging_cleans_terminal_work_and_preserves_ambiguous_execution(monkeypa
 
     def stage(ssh, payload, root, diagnostic, **kwargs):
         assert ssh[-1] == "qa@host" and "EncodedCommand" not in " ".join(ssh)
+        assert all(option in ssh for option in ("ControlMaster=no", "ControlPersist=no", "ControlPath=none"))
         diagnostic["remote_directory_owned"] = True
         diagnostic["last_verified_offset"] = len(payload)
 

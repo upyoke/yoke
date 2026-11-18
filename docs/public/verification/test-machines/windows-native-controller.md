@@ -22,3 +22,8 @@ desktop, successful authentication or completion of Windows first-run choices.
 Keep the VM deallocated while waiting for controller installation or operator
 authentication. Complete approved Windows privacy choices only after verifying
 the target identity and private route; retain the window's final power receipt.
+
+Native Windows SSH and SFTP explicitly disable multiplexing on every controller,
+including macOS and Linux. A local master can answer `ssh -O check` while its
+session requests stall after VM power cycles; local master liveness does not
+prove guest connectivity. Never replay a command after an ambiguous failure.

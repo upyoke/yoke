@@ -108,7 +108,7 @@ class SshTestMachineTransport:
         self.golden_baseline_path = (
             str(settings.get("golden_baseline_path") or "") or None
         )
-        self._control_path = (None if sys.platform == 'win32' else
+        self._control_path = (None if sys.platform == 'win32' or self.os == 'windows' else
                               _control_socket(self._host, self._user, self._key_path))
         facts = self._host_facts()
         self.home = str(facts["home"])
@@ -120,17 +120,21 @@ class SshTestMachineTransport:
         self.path_state: PathStateContract = resolve_path_state_contract(target="windows" if self.os == "windows" else "posix", env=path_env)
 
     def _ssh_argv(self, command: str) -> list[str]:
-        # Windows OpenSSH has no multiplexing/control sockets.
-        options = SSH_OPTIONS if self._control_path is not None else tuple(
+        # Native Windows hosts must not retain a master across VM power cycles.
+        # Explicit values also override controller SSH configuration.
+        windows_target = getattr(self, "os", None) == "windows"
+        options = SSH_OPTIONS if self._control_path is not None and not windows_target else tuple(
             option for option in SSH_OPTIONS if not option.startswith(('ControlMaster=', 'ControlPersist='))
         )
+        if windows_target:
+            options += ("ControlMaster=no", "ControlPersist=no", "ControlPath=none")
         return [
             "ssh",
             "-i",
             str(self._key_path),
             *[part for option in options for part in ("-o", option)],
             *getattr(self, "_host_key_options", []),
-            *(['-o', f'ControlPath={self._control_path}'] if self._control_path is not None else []),
+            *(['-o', f'ControlPath={self._control_path}'] if self._control_path is not None and not windows_target else []),
             f"{self._user}@{self._host}",
             command,
         ]
@@ -148,7 +152,7 @@ class SshTestMachineTransport:
             argv[1:1] = ["-vvv", "-E", str(debug_log)]
         started = time.monotonic()
         try:
-            control_path = getattr(self, "_control_path", None)
+            control_path = None if getattr(self, "os", None) == "windows" else getattr(self, "_control_path", None)
             warned = False
             if control_path is not None and control_path.exists():
                 # A control request never executes a remote command. It also
