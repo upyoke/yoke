@@ -259,7 +259,7 @@ The Remote Login controller is `/usr/libexec/sshd-keygen-wrapper`.
 | Automation | Remote Login controller | System Events, Terminal |
 | Automation | Terminal.app | System Events |
 | Device Control and Data Access (Accessibility on older macOS) | Remote Login controller and Terminal.app | — |
-| Screen & System Audio Recording (Screen Recording on older macOS) | Terminal.app | — |
+| Screen & System Audio Recording (Screen Recording on older macOS) | Terminal.app and, when macOS attributes remote capture to it, the Remote Login controller | — |
 
 SSH `osascript` Terminal control uses the Remote Login controller.
 The helper shows separate macOS consent prompts for System Events and
@@ -269,6 +269,11 @@ Access** replaces the **Accessibility** row in Privacy & Security. If the
 helper is absent from that list, use **+**, press Command+Shift+G, and enter
 `/usr/libexec/sshd-keygen-wrapper`. Enable the helper's toggle. A grant for
 Terminal alone still leaves the remote keystroke check refused.
+On macOS 27, TCC can attribute `screencapture` from an SSH-driven Terminal
+command to the Remote Login controller. Keep Terminal enabled for local
+capture. On the dedicated test Mac, add `/usr/libexec/sshd-keygen-wrapper`
+under **Screen & System Audio Recording** if TCC names it for the failed
+capture. Then rerun `bridge-diagnose` and verify that it captures window content.
 GUI-session commands (`--gui-session`)
 need Terminal → System Events. Safari
 needs no grant: browser approval runs in the operator identity's Chromium

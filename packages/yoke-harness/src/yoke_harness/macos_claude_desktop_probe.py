@@ -41,7 +41,7 @@ func windowNumber(of app: NSRunningApplication) -> Int? {
     }?[kCGWindowNumber as String] as? Int
 }
 
-func labels(in window: Int) -> Set<String>? {
+func labels(in window: Int) -> (text: Set<String>, sidebar: Set<String>)? {
     try? FileManager.default.removeItem(at: screenshot)
     guard run("/usr/sbin/screencapture", ["-x", "-o", "-l", String(window), screenshot.path])
     else { return nil }
@@ -50,10 +50,29 @@ func labels(in window: Int) -> Set<String>? {
     request.recognitionLanguages = ["en-US"]
     let handler = VNImageRequestHandler(url: screenshot, options: [:])
     do { try handler.perform([request]) } catch { return nil }
-    return Set((request.results ?? []).compactMap {
-        $0.topCandidates(1).first?.string
-            .trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-    })
+    let observations = request.results ?? []
+    func recognized(_ rows: [VNRecognizedTextObservation]) -> Set<String> {
+        Set(rows.compactMap {
+            $0.topCandidates(1).first?.string
+                .trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        })
+    }
+    let navigation = observations.filter {
+        $0.boundingBox.midX < 0.32 && $0.boundingBox.midY > 0.60
+    }
+    return (recognized(observations), recognized(navigation))
+}
+
+func isSignedInChat(_ sidebar: Set<String>) -> Bool {
+    func hasLabel(_ label: String) -> Bool {
+        sidebar.contains { $0 == label || $0.hasSuffix(" " + label) }
+    }
+    // The current desktop renders New, Projects and Artifacts. Vision may
+    // include a leading icon glyph in a navigation label.
+    return hasLabel("projects") && (
+        (hasLabel("new") && hasLabel("artifacts"))
+            || (hasLabel("new chat") && hasLabel("chats"))
+    )
 }
 
 func observe() -> Int32 {
@@ -62,16 +81,14 @@ func observe() -> Int32 {
     let deadline = ProcessInfo.processInfo.systemUptime + 35
     var observedWindow = false
     while ProcessInfo.processInfo.systemUptime < deadline {
-        if let app = claude(), let window = windowNumber(of: app), let text = labels(in: window) {
+        if let app = claude(), let window = windowNumber(of: app), let frame = labels(in: window) {
             observedWindow = true
-            if text.contains("sign in")
-                && !text.isDisjoint(with: ["continue with google", "continue with email"]) {
+            if frame.text.contains("sign in")
+                && !frame.text.isDisjoint(with: ["continue with google", "continue with email"]) {
                 return 10
             }
-            if text.contains("claude for mac") && text.contains("get started") { return 10 }
-            if text.contains("new chat") && text.contains("projects") && text.contains("chats") {
-                return 0
-            }
+            if frame.text.contains("claude for mac") && frame.text.contains("get started") { return 10 }
+            if isSignedInChat(frame.sidebar) { return 0 }
         }
         Thread.sleep(forTimeInterval: 1)
     }
