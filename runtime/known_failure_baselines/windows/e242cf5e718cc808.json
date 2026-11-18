@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_verification_tree_binding.py::TestEvaluateTreeBinding::test_free_path_tree_passes_through",
- "reason": "assert \"test_surface TREE-BINDING REFUSAL: session abc (session label unavailable; retry sessions list) holds an active work-claim whose recorded worktree '/Users/anyone/.worktrees/lane' no longer exi"
-}

@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_workspace_authority.py::test_free_path_allowlist_passes",
- "reason": "RuntimeError: workspace_authority: refusing write to 'D:\\\\tmp\\\\scratch.txt' -- session sess-a (session label unavailable; retry sessions list) holds 1 active worktree claim(s) but the target is not un"
-}

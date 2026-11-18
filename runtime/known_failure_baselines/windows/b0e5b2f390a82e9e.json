@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_lint_session_cwd_target_extract.py::test_apply_patch_extracts_directives_without_fixture_literals",
- "reason": "AssertionError: assert [] == ['/claimed/lane/source.py']"
-}

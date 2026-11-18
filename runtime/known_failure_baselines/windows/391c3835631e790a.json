@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_lint_session_cwd_governed_scope.py::test_installed_tree_writes_stay_protected[/executing/home/.local/share/uv/tools/yoke-cli-releases/current/lib/yoke_core/guard.py]",
- "reason": "AssertionError: assert not True"
-}

@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_lint_lane_main_write_workdir.py::test_cd_out_of_the_lane_follows_the_shell",
- "reason": "AssertionError: assert True is False"
-}

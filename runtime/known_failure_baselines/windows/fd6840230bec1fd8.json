@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_path_claim_bash_execution_cwd.py::TestGitDirectoryOption::test_repeated_git_dirs_apply_in_order",
- "reason": "AssertionError: assert ['/repo\\\\.wor...ne\\\\src/a.py'] == ['/repo/.work...ane/src/a.py']"
-}

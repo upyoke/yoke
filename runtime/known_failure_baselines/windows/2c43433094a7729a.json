@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_lint_lane_main_write_git_stash.py::test_other_stash_actions_on_main_stay_refused[pop]",
- "reason": "AssertionError: assert True is False"
-}

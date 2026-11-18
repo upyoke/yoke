@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_shell_path_use.py::test_github_api_routes_and_local_file_operands[gh api -X POST /repos/x/y --input /etc/passwd-targets1]",
- "reason": "AssertionError: assert {'D:\\\\etc\\\\passwd'} == {'\\\\etc\\\\passwd'}"
-}

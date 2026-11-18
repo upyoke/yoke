@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_guard_directory_resolution.py::test_variable_naming_main_still_resolves_to_main",
- "reason": "AssertionError: assert 'C:\\\\Users\\\\r...ain_stil0main' == 'C:\\\\Users\\\\r...n_stil0\\\\main'"
-}

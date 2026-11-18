@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_path_claim_bash_execution_cwd.py::TestRelativeTargetAfterCd::test_basename_redirect_from_free_folder_is_allowed",
- "reason": "FileNotFoundError: [WinError 3] The system cannot find the path specified: '/var/tmp\\\\yoke-lane-xuyy_v82'"
-}

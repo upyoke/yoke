@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_lint_session_cwd_repo_command.py::TestQuotedRepositorySelector::test_exact_remote_selector_exposes_claimed_checkout",
- "reason": "AssertionError: assert [] == ['/opt/claimed lane']"
-}

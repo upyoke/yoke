@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_worktree_public_ref_naming.py::test_worktree_named_by_public_ref_and_resolves_back",
- "reason": "AssertionError: assert False"
-}

@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_lint_destructive_git.py::TestEvaluatePayload::test_AC2_reset_hard_with_modified_blocks",
- "reason": "AssertionError: unexpectedly None"
-}

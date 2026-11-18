@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_lint_lane_main_write_ignored_paths.py::test_unproven_metadata_refuses_without_an_impossible_lane_destination",
- "reason": "AssertionError: assert 'C:\\\\Users\\\\r...ees\\\\YOK-2014' == ''"
-}

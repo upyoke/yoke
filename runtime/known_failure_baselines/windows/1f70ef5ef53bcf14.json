@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_shell_path_use_authority.py::test_leading_cd_home_is_the_executing_machine",
- "reason": "assert False"
-}

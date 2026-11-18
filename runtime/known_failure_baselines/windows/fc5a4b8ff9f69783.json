@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_lint_session_cwd_installed_tool_write.py::test_local_write_cannot_borrow_installed_tool_read_access[yoke dev run -- touch ~/.local/bin/zz-/.local/bin/zz]",
- "reason": "AssertionError: assert not True"
-}

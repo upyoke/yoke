@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_lint_destructive_git.py::TestEvaluatePayload::test_checkout_force_branch_blocks_only_when_dirty",
- "reason": "TypeError: 'NoneType' object is not subscriptable"
-}

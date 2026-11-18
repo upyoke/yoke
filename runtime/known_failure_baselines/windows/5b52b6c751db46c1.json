@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_lint_session_cwd_control_plane.py::TestPythonPathEquivalence::test_pythonpath_with_non_runtime_module_not_overridden",
- "reason": "AssertionError: assert True is False"
-}

@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_path_claims_tentative.py::TestReadinessRefs::test_tentative_target_suppresses_unresolved_function_ref",
- "reason": "AssertionError: assert False is True"
-}

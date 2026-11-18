@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_lint_destructive_git_variable_shape.py::TestStashDropVariableShape::test_suppression_token_says_the_check_cannot_be_suppressed",
- "reason": "AssertionError: unexpectedly None"
-}

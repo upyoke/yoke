@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_lint_destructive_git_variable_shape.py::TestStashDropVariableShape::test_named_selector_is_the_only_listed_target",
- "reason": "AssertionError: unexpectedly None"
-}

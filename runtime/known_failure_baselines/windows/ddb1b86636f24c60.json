@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/cli/test_yoke_qa_artifact_output.py::test_read_without_output_lands_bytes_at_a_guard_admitted_path",
- "reason": "AssertionError: assert False"
-}

@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_path_claim_bash_parser.py::TestGitVerbs::test_git_global_c_read_only_allowed_but_checkout_blocks",
- "reason": "assert False"
-}

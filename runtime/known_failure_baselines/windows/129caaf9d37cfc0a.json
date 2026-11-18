@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_lint_session_cwd_machine_home_relay.py::test_home_derived_free_paths_expand_client_home[~/.codex/attachments/input.png]",
- "reason": "AssertionError: assert <Outcome.DENY: 'deny'> is <Outcome.NOOP: 'noop'>"
-}

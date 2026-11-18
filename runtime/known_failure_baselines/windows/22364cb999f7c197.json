@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_lint_session_cwd_lane_git_inspection.py::test_compound_unsafe_calls_keep_lane_authority[git -C {lane} log; rm {lane}/f]",
- "reason": "AssertionError: assert True is False"
-}

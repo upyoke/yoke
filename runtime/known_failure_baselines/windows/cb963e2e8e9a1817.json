@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_lint_session_cwd_target_extract.py::test_relative_apply_patch_target_resolves_from_declared_workdir",
- "reason": "AssertionError: assert ['D:\\\\checkou...1\\\\source.py'] == ['/checkout/....-1/source.py']"
-}

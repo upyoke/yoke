@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_shell_path_use.py::test_quoting_and_normalization_preserve_capacity_role[/clients/operator/.private directory]",
- "reason": "AssertionError: assert 'D:\\\\clients\\...ate directory' == '/clients/ope...ate directory'"
-}

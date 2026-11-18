@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_lint_lane_main_write_transport.py::TestWriteClassification::test_glued_redirect_to_main_denies",
- "reason": "assert 'C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-runneradmin\\\\pytest-0\\\\popen-gw0\\\\test_glued_redirect_to_main_de0\\\\repo\\\\AGENTS.md' in \"BLOCKED: source write to the main checkout while"
-}

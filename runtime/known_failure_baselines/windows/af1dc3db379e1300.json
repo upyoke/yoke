@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_worktree_create_multiworktree.py::TestCreateWorktreeMultiWorktree::test_single_worktree_unchanged_when_no_epic_chains",
- "reason": "AssertionError: assert False"
-}

@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_lint_unmatched_path_glob.py::test_glob_denial_lists_bounded_stem_matches",
- "reason": "assert 'docs/deploy-guide.md' in \"BLOCKED: unquoted path glob matches no files after home and cwd resolution.\\n\\nDetected: `docs/deploy*.py`\\nChecked pattern: `C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\"
-}
