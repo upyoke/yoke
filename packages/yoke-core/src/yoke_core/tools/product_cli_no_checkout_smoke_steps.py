@@ -87,9 +87,8 @@ def step_missing_config(ctx: SmokeContext, run: StepRunner) -> dict[str, Any]:
     result = run([str(ctx.yoke), "status", "--json"], STEP_MISSING_CONFIG)
     codes = issue_codes(parse_json_output(result.stdout))
     failures = _expect_nonzero(result)
-    for required in ("config_missing", "connections_required"):
-        if required not in codes:
-            failures.append(f"status issues did not include {required!r}")
+    if "machine_not_set_up" not in codes:
+        failures.append("status issues did not include 'machine_not_set_up'")
     return step_entry(
         STEP_MISSING_CONFIG,
         failures,

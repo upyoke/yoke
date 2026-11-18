@@ -136,7 +136,7 @@ class _InstallPyRunner:
                         "yoke-core": self.version,
                     }
                 },
-                "issues": [{"severity": "error", "code": "config_missing"}],
+                "issues": [{"severity": "error", "code": "machine_not_set_up"}],
                 "connection": {"client_authority": "prod"},
             }
             return subprocess.CompletedProcess(command, 1, json.dumps(status), "")

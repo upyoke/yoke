@@ -91,10 +91,7 @@ def smoke(
     assert status.returncode == 1, _format_result(status)
     status_payload = json.loads(status.stdout)
     assert status_payload["ok"] is False
-    assert _issue_codes(status_payload) >= {
-        "config_missing",
-        "connections_required",
-    }
+    assert _issue_codes(status_payload) >= {"machine_not_set_up"}
 
     config_example = _run([str(yoke), "config", "example"], cwd=checkout, env=env)
     example_payload = json.loads(config_example.stdout)

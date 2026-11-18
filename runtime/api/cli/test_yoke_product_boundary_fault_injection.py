@@ -31,8 +31,8 @@ def test_status_missing_config_reports_locally_without_authority_import(
     assert report["ok"] is False
     assert report["repo_root"] == run.boundary["cwd"]
     issue_codes = {issue["code"] for issue in report["issues"]}
-    assert "config_missing" in issue_codes
-    assert "connections_required" in issue_codes
+    assert "machine_not_set_up" in issue_codes
+    assert "connections_required" not in issue_codes
     assert set(report["runtime"]["package_versions"].values()) == {""}
     assert run.stderr == ""
     _assert_clean_client_boundary(run)

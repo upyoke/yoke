@@ -17,7 +17,7 @@ from yoke_core.domain.machine_status_diagnostics import (
 )
 from yoke_contracts import install_binding as install_binding_contract
 from yoke_contracts import owner_private_path
-from yoke_contracts.machine_config import schema as contract
+from yoke_contracts.machine_config import schema as contract, setup_status
 from yoke_contracts.runtime_identity import (
     detect_install,
     human_identity_line,
@@ -52,39 +52,40 @@ def build_status(
                 )
             ],
         )
-    if not selected_path.is_file():
-        issues.append(
-            _issue(
-                "error",
-                "config_missing",
-                f"machine config not found at {selected_path}",
-                "Create it from `yoke config example > ~/.yoke/config.json`.",
+    # An unset-up machine owes one answer, `yoke setup`: it writes the config,
+    # env, paths and project mapping the skipped checks would otherwise flag.
+    set_up = selected_path.is_file()
+    if not set_up:
+        issues.append(setup_status.not_set_up_issue(selected_path))
+    else:
+        issues.extend(
+            issue.as_dict()
+            for issue in contract.validate_payload(
+                payload,
+                explicit_env=explicit_env,
             )
         )
-    issues.extend(
-        issue.as_dict()
-        for issue in contract.validate_payload(
-            payload,
-            explicit_env=explicit_env,
-        )
-    )
-    issues.extend(_permission_issues(selected_path))
+        issues.extend(_permission_issues(selected_path))
     normalized = contract.normalize_payload(payload)
     connection, connection_issues = _connection_status(
         normalized,
         config_path=selected_path,
         explicit_env=explicit_env,
     )
-    issues.extend(connection_issues)
     temp = _path_status(machine_config.temp_root(selected_path), "temp_root")
     cache = _path_status(machine_config.cache_dir(selected_path), "cache_dir")
-    issues.extend(temp.pop("issues"))
-    issues.extend(cache.pop("issues"))
     from yoke_contracts.hook_runner.folder_scope import disabled_folder
 
     project = _project_status(selected_repo, selected_path)
     project["hooks_disabled_by"] = disabled_folder(selected_repo, payload)
-    issues.extend(project.pop("issues"))
+    setup_issues = (
+        connection_issues
+        + temp.pop("issues")
+        + cache.pop("issues")
+        + project.pop("issues")
+    )
+    if set_up:
+        issues.extend(setup_issues)
     runtime = _runtime_status(connection, home=selected_path.parent, repo=selected_repo)
     issues.extend(runtime.pop("issues"))
     db = _db_status(connection, check_reachability=check_reachability)
@@ -125,7 +126,7 @@ def render_human(report: Mapping[str, Any]) -> str:
         "Yoke status",
         f"  ok: {str(report.get('ok')).lower()}",
         f"  config: {report.get('config_path')}",
-        f"  checkout: {report.get('repo_root')}",
+        setup_status.folder_line(report),
     ]
     install = report.get("install")
     if isinstance(install, Mapping):
@@ -234,6 +235,7 @@ def _report(
             "ok": ok,
             "config_path": str(config_path),
             "repo_root": str(repo_root),
+            "repo_is_git_checkout": setup_status.is_git_checkout(repo_root),
             "install": _install_binding(),
             "issues": issues,
         }

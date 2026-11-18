@@ -84,10 +84,10 @@ def status(run: SmokeRun) -> None:
     payload = payload.get("result", payload)
     codes = {issue.get("code") for issue in payload.get("issues", [])}
     config = Path(payload.get("config_path") or "")
-    if payload.get("ok") is not False or "config_missing" not in codes:
+    if payload.get("ok") is not False or "machine_not_set_up" not in codes:
         raise run.commands.failure(
             "status_not_unset",
-            f"expected ok=false naming config_missing, got ok={payload.get('ok')} codes={sorted(codes)}",
+            f"expected ok=false naming machine_not_set_up, got ok={payload.get('ok')} codes={sorted(codes)}",
         )
     if not config.is_relative_to(run.home):
         raise run.commands.failure(

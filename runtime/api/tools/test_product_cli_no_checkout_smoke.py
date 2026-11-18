@@ -65,27 +65,27 @@ def write_owner_only_config(ctx: steps.SmokeContext, monkeypatch) -> None:
     monkeypatch.setattr(steps, "_owner_only_mode", lambda path: 0o600 if path.is_file() else None)
 
 
-def test_missing_config_step_requires_codes_and_nonzero_exit(tmp_path) -> None:
+def test_missing_config_step_requires_setup_code_and_nonzero_exit(tmp_path) -> None:
     ctx = make_ctx(tmp_path)
-    both_codes = status_payload(False, ("config_missing", "connections_required"))
+    setup_code = status_payload(False, ("machine_not_set_up",))
     good = steps.step_missing_config(ctx, FakeRunner({
-        steps.STEP_MISSING_CONFIG: [(1, both_codes, "")],
+        steps.STEP_MISSING_CONFIG: [(1, setup_code, "")],
     }))
     assert good["status"] == steps.STATUS_PASS
     assert good["evidence"]["issue_codes"] == [
-        "config_missing", "connections_required",
+        "machine_not_set_up",
     ]
 
     exit_zero = steps.step_missing_config(ctx, FakeRunner({
-        steps.STEP_MISSING_CONFIG: [(0, both_codes, "")],
+        steps.STEP_MISSING_CONFIG: [(0, setup_code, "")],
     }))
     assert exit_zero["status"] == steps.STATUS_FAIL
 
     missing_code = steps.step_missing_config(ctx, FakeRunner({
-        steps.STEP_MISSING_CONFIG: [(1, status_payload(False, ("config_missing",)), "")],
+        steps.STEP_MISSING_CONFIG: [(1, status_payload(False, ("connections_required",)), "")],
     }))
     assert missing_code["status"] == steps.STATUS_FAIL
-    assert any("connections_required" in f for f in missing_code["failures"])
+    assert any("machine_not_set_up" in f for f in missing_code["failures"])
 
 
 def test_writer_bootstrap_asserts_ok_envs_and_owner_only_config(tmp_path, monkeypatch) -> None:
@@ -273,7 +273,7 @@ def test_execute_steps_offline_happy_path_report(tmp_path, monkeypatch) -> None:
     envelope = json.dumps({"error": {"code": "https_transport_failed"}})
     runner = FakeRunner({
         steps.STEP_MISSING_CONFIG: [
-            (1, status_payload(False, ("config_missing", "connections_required")), ""),
+            (1, status_payload(False, ("machine_not_set_up",)), ""),
         ],
         steps.STEP_WRITER_BOOTSTRAP: BOOTSTRAP_OK_RESPONSES,
         steps.STEP_MISSING_CREDENTIAL: [

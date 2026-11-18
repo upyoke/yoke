@@ -177,7 +177,7 @@ def test_product_boundary_audit_accepts_fresh_machine_status() -> None:
                 "runtime": _installed_runtime(),
                 "connection": {"client_authority": "api"},
                 "issues": [
-                    {"code": "config_missing", "severity": "error"},
+                    {"code": "machine_not_set_up", "severity": "error"},
                     {"code": "schema_version", "severity": "error"},
                     {"code": "connections_required", "severity": "error"},
                     {"code": "active_env_required", "severity": "error"},

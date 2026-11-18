@@ -28,7 +28,7 @@ from yoke_cli.config.status_surface_policy import attach_live_marks
 from yoke_contracts.engine_version import ENGINE_DISTRIBUTION_NAME
 from yoke_contracts.install_binding import distribution_version_for_module
 from yoke_contracts.owner_private_path import is_owner_private_file
-from yoke_contracts.machine_config import schema as contract
+from yoke_contracts.machine_config import schema as contract, setup_status
 
 REQUIRED_IMPORTS = (
     "yoke_cli",
@@ -77,36 +77,37 @@ def build_status(
                 )
             ],
         )
-    if not selected_path.is_file():
-        issues.append(
-            _issue(
-                "error",
-                "config_missing",
-                f"machine config not found at {selected_path}",
-                "Create it from `yoke config example > ~/.yoke/config.json`.",
-            )
+    # An unset-up machine owes one answer, `yoke setup`: it writes the config,
+    # env, paths and project mapping the skipped checks would otherwise flag.
+    set_up = selected_path.is_file()
+    if not set_up:
+        issues.append(setup_status.not_set_up_issue(selected_path))
+    else:
+        issues.extend(
+            issue.as_dict()
+            for issue in contract.validate_payload(payload, explicit_env=explicit_env)
         )
-    issues.extend(
-        issue.as_dict()
-        for issue in contract.validate_payload(payload, explicit_env=explicit_env)
-    )
-    issues.extend(permission_issues(selected_path))
+        issues.extend(permission_issues(selected_path))
     normalized = contract.normalize_payload(payload)
     connection, connection_issues = _connection_status(
         normalized,
         config_path=selected_path,
         explicit_env=explicit_env,
     )
-    issues.extend(connection_issues)
+    if set_up:
+        issues.extend(connection_issues)
     temp = _path_status(machine_config.temp_root(selected_path), "temp_root")
     cache = _path_status(machine_config.cache_dir(selected_path), "cache_dir")
-    issues.extend(temp.pop("issues"))
-    issues.extend(cache.pop("issues"))
+    path_issues = temp.pop("issues") + cache.pop("issues")
+    if set_up:
+        issues.extend(path_issues)
     from yoke_contracts.hook_runner.folder_scope import disabled_folder
 
     project = _project_status(selected_repo, selected_path)
     project["hooks_disabled_by"] = disabled_folder(selected_repo, payload)
-    issues.extend(project.pop("issues"))
+    project_issues = project.pop("issues")
+    if set_up:
+        issues.extend(project_issues)
     runtime = _runtime_status(connection)
     issues.extend(runtime.pop("issues"))
     db = _db_status(connection, runtime=runtime, check_reachability=check_reachability)
@@ -317,6 +318,7 @@ def _report(
         "ok": ok,
         "config_path": str(config_path),
         "repo_root": str(repo_root),
+        "repo_is_git_checkout": setup_status.is_git_checkout(repo_root),
         "install": install_binding.detect(),
         "issues": issues,
     }

@@ -33,7 +33,7 @@ def _run(tmp_path: Path, monkeypatch, stdout: str, returncode: int = 1):
     return stages.SmokeRun(tmp_path, tmp_path, commands, {})
 
 
-def _status(home: Path, codes=("config_missing",), ok=False) -> str:
+def _status(home: Path, codes=("machine_not_set_up",), ok=False) -> str:
     issues = [{"code": code} for code in codes]
     return json.dumps(
         {"ok": ok, "config_path": str(home / ".yoke/config.json"), "issues": issues}
@@ -43,15 +43,15 @@ def _status(home: Path, codes=("config_missing",), ok=False) -> str:
 def test_status_stage_accepts_the_named_not_set_up_answer(tmp_path, monkeypatch):
     run = _run(tmp_path, monkeypatch, _status(tmp_path / "home"))
     stages.status(run)
-    assert run.report["status_issues"] == ["config_missing"]
+    assert run.report["status_issues"] == ["machine_not_set_up"]
 
 
 @pytest.mark.parametrize(
     ("codes", "ok", "returncode", "reason"),
     [
         ((), False, 1, "status_not_unset"),
-        (("config_missing",), True, 1, "status_not_unset"),
-        (("config_missing",), False, 0, "command_failed"),
+        (("machine_not_set_up",), True, 1, "status_not_unset"),
+        (("machine_not_set_up",), False, 0, "command_failed"),
     ],
 )
 def test_status_stage_refuses_any_other_answer(
