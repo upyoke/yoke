@@ -96,6 +96,7 @@ def self_host_report(*, host: str | None, port: int | None) -> dict[str, Any] | 
         "mode": "self-host",
         "env": connection.get("env"),
         "auth_method": method,
+        "url": self_host_url(connection),
         "private_url": f"{self_host_url(connection)}{path}",
     }
 

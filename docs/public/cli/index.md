@@ -166,7 +166,8 @@ company sign-in opens its URL; without OIDC, the API token gets a single-use
 link valid for two minutes. Rerun to replace an expired link. On Local
 (typically `http://127.0.0.1:8688`), it starts a machine daemon: closing the
 terminal leaves it serving; macOS brings it back after reboot until `ui down`.
-Sign-in links go straight to the browser and never appear in text or JSON.
+Sign-in links go straight to the browser and never appear in text or JSON;
+self-host output names the server's origin, such as `https://localhost:8443`.
 Agents, headless callers and `--no-browser` get a named browser reason: run
 `yoke ui up` from your own terminal on a machine with a display to sign in.
 
