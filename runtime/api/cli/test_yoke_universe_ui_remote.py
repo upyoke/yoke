@@ -87,7 +87,7 @@ def test_up_opens_server_door_with_active_credential(
         "s." + "c" * (BROWSER_SIGN_IN_MAX_LENGTH - 2),
     ],
 )
-def test_no_browser_teaches_human_terminal_without_printing_link(
+def test_no_browser_stays_quiet_without_printing_link(
     setup, monkeypatch, capsys, code
 ):
     # The server owns entropy/length choices; the CLI validates the wire shape.
@@ -106,8 +106,8 @@ def test_no_browser_teaches_human_terminal_without_printing_link(
     )
     assert code not in output
     assert "#" not in output
-    assert "browser_open_disabled" in output
-    assert "your own terminal" in output
+    assert "Run `yoke ui up`" not in output
+    assert "your own terminal" not in output
 
 
 @pytest.mark.parametrize(
