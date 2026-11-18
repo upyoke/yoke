@@ -34,14 +34,17 @@ class DeliveryMemberCloseOut:
 
     ``applies`` is the predicate the wake sites read: false means this is
     not an automatic-close case, so the ordinary delivery wake fires. True
-    with ``ok=False`` carries either real failure ``detail`` or expected
-    ``pending_credit``; the owner gets recovery or the named target wait.
+    with ``ok=False`` carries a refusal ``detail``, expected
+    ``pending_credit``, or both; the owner gets every one of them.
+    ``blockers`` names each one by a stable identity
+    (:mod:`member_close_out_blockers`) so the notice wakes once per set.
     """
 
     applies: bool
     ok: bool = False
     detail: str = ""
     pending_credit: str = ""
+    blockers: tuple[str, ...] = ()
 
 
 def recorded_no_obligation(conn: Any, item_id: int) -> bool:
@@ -132,6 +135,10 @@ def close_out_satisfied_delivery_member(
     """
     from yoke_core.domain import delivery_member_close_steps as steps
     from yoke_core.domain.deployment_qa_plan_credit import other_target_plan_wait
+    from yoke_core.domain.member_close_out_blockers import (
+        blocker_identities,
+        refusal_token,
+    )
     from yoke_core.domain.project_identity import render_item_ref
 
     if not satisfied_delivery_member(conn, item_id=int(item_id), run_id=run_id):
@@ -141,37 +148,37 @@ def close_out_satisfied_delivery_member(
         refusal = steps.prepare_member_close(
             conn, item_id=int(item_id), public_ref=named, run_id=run_id
         )
-        pending = (
-            ""
-            if refusal
-            else other_target_plan_wait(conn, item_id=int(item_id), run_id=run_id)
-        )
+        pending = other_target_plan_wait(conn, item_id=int(item_id), run_id=run_id)
         written = (
             None
             if refusal or pending
             else steps.stage_member_close(conn, item_id=int(item_id), public_ref=named, run_id=run_id)
+        )
+        if written is not None and written.refusal:
+            refusal = written.refusal
+        blockers = (
+            blocker_identities(conn, item_id=int(item_id), refusal=refusal)
+            if refusal or pending
+            else ()
         )
     except Exception as exc:  # noqa: BLE001 - never reverse the succeeded run
         try:
             conn.rollback()
         except Exception:  # noqa: BLE001 - the notice path reports its own failure
             pass
+        detail = str(exc) or exc.__class__.__name__
         return DeliveryMemberCloseOut(
-            applies=True, ok=False, detail=str(exc) or exc.__class__.__name__
+            applies=True, ok=False, detail=detail, blockers=(refusal_token(detail),)
         )
-    if written is not None and written.refusal:
-        refusal = written.refusal
-    if pending:
-        return DeliveryMemberCloseOut(applies=True, pending_credit=pending)
-    if refusal:
-        conn.rollback()
+    if refusal or pending:
+        if refusal:
+            conn.rollback()
         return DeliveryMemberCloseOut(
             applies=True,
             ok=False,
-            detail=(
-                f"{named} has satisfied post-deploy delivery but cannot "
-                f"auto-close: {refusal}"
-            ),
+            detail=f"{named} cannot auto-close: {refusal}" if refusal else "",
+            pending_credit=pending,
+            blockers=blockers,
         )
     if written is None or written.receipt is None:
         return DeliveryMemberCloseOut(applies=True, ok=True, detail="already done")

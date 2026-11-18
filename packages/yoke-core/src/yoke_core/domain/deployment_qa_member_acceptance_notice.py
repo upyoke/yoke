@@ -21,7 +21,6 @@ cannot undo the acceptance that just committed.
 
 from __future__ import annotations
 
-import hashlib
 import time
 
 from yoke_contracts.timestamps import parse_instant, utc_now
@@ -42,6 +41,10 @@ from yoke_core.domain.deployment_run_driver_notice import push_member_notice
 from yoke_core.domain.deployment_member_independent_close_out import (
     independent_member_delivery_ready,
 )
+from yoke_core.domain.member_close_out_blockers import (
+    blocked_key,
+    blocker_set_announced,
+)
 from yoke_core.domain.merge_queue_landing_notice import HOLDER
 from yoke_core.domain.release_wait_ownership import item_at_release_wait
 from yoke_core.domain.qa_plan_execution_schema import LIVE_PLAN_EXECUTION_SQL
@@ -58,18 +61,14 @@ _SEND_SAVEPOINT = "_yoke_item_qa_accepted_notice"
 
 
 def item_qa_accepted_idempotency_key(
-    item_id: int, run_id: str, close_out_failure: str = "", pending_credit: str = ""
+    item_id: int, run_id: str, blockers: tuple[str, ...] = ()
 ) -> str:
-    """One notice per member, accepting run, and distinct refusal or credit wait.
+    """One notice per member, accepting run, and distinct blocker set.
 
-    A retried close-out that refuses for a new reason tells the owner again;
-    the same refusal repeated does not.
+    ``blockers`` are stable identities (:mod:`member_close_out_blockers`),
+    never refusal prose, so a blocker's status change wakes nobody.
     """
-    key = f"{ITEM_QA_ACCEPTED_KEY_PREFIX}{item_id}:{run_id}"
-    if reason := close_out_failure or pending_credit:
-        digest = hashlib.sha256(reason.encode()).hexdigest()[:12]
-        key += f":{'refused' if close_out_failure else 'waiting'}-{digest}"
-    return key
+    return blocked_key(f"{ITEM_QA_ACCEPTED_KEY_PREFIX}{item_id}:{run_id}", blockers)
 
 
 def item_qa_accepted_message(
@@ -88,8 +87,12 @@ def item_qa_accepted_message(
         if close_out_failure
         else "The completion flow will auto-close this item when its remaining delivery and QA obligations clear. "
     )
-    if pending_credit and not close_out_failure:
-        recovery = f"{pending_credit} Automatic close-out retries when that credit arrives. "
+    if pending_credit:
+        recovery = (
+            f"{pending_credit} "
+            + (recovery if close_out_failure else "")
+            + "Automatic close-out retries when that credit arrives. "
+        )
     if route == HOLDER:
         return (
             f"{lead} You hold its work claim and parked on this wait, so this "
@@ -276,6 +279,7 @@ def _close_or_notify(
     )
 
     close_out_failure = pending_credit = ""
+    blockers: tuple[str, ...] = ()
     public_ref = str(member["public_ref"])
     if delivered_here:
         closed = close_out_satisfied_delivery_member(
@@ -289,7 +293,11 @@ def _close_or_notify(
         if closed.ok:
             return "closed"
         close_out_failure, pending_credit = closed.detail, closed.pending_credit
+        blockers = tuple(closed.blockers)
     if recorded_no_obligation(conn, int(item_id)) and not (close_out_failure or pending_credit):
+        return ""
+    base = item_qa_accepted_idempotency_key(int(member["item_id"]), str(run_id))
+    if blocker_set_announced(conn, base=base, blockers=blockers):
         return ""
     stamp = now
     try:
@@ -305,9 +313,7 @@ def _close_or_notify(
                     close_out_failure=close_out_failure,
                     pending_credit=pending_credit,
                 ),
-                idempotency_key=item_qa_accepted_idempotency_key(
-                    int(member["item_id"]), str(run_id), close_out_failure, pending_credit
-                ),
+                idempotency_key=blocked_key(base, blockers),
                 now=stamp,
             )
     except SavepointLostError:

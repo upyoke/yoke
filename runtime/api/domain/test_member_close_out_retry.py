@@ -63,7 +63,7 @@ def _blocked_member(conn: Any) -> tuple[int, int]:
 
 
 def _refusal_bodies(conn: Any, item_id: int) -> list[str]:
-    key = item_qa_accepted_idempotency_key(item_id, RUN_ID) + ":refused-%"
+    key = item_qa_accepted_idempotency_key(item_id, RUN_ID) + ":blocked:%"
     rows = conn.execute(
         "SELECT body FROM session_messages WHERE idempotency_key LIKE %s ORDER BY 1",
         (key,),

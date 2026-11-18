@@ -69,13 +69,13 @@ def evaluate(
             gate_conn.close()
     if not blockers:
         return None
-    summaries = "; ".join(_summarize(line) for line in blockers)
+    records = "".join(f"\n  - {_summarize(line)}" for line in blockers)
     return {
         "success": False,
         "error_code": _ERROR_CODE,
         "error": (
             f"Cannot complete this item — {len(blockers)} closure "
-            f"dependency(ies) remain unsatisfied: {summaries}. "
+            f"dependency(ies) remain unsatisfied:{records}\n"
             "Work and merge now; close only after it clears."
         ),
         "remediation_hint": (
