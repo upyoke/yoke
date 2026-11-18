@@ -39,6 +39,7 @@ BOOTSTRAP_TIMEOUT_SECONDS = 5400
 
 
 def admin_script(key, host, user, script, *, input_text=None):
+    """Keep completed output on cleanup errors as their private primary_result."""
     path = rf"C:\ProgramData\YokeQaProvision-{uuid4().hex}.ps1"
     ssh = [
         "ssh",
@@ -56,7 +57,7 @@ def admin_script(key, host, user, script, *, input_text=None):
         f"{user}@{host}",
     ]
     payload = script.encode("utf-8-sig")
-    failure = None
+    failure = result = None
     try:
         deadline = time.monotonic() + 30
         for offset in range(0, len(payload), 2048):
@@ -74,7 +75,7 @@ def admin_script(key, host, user, script, *, input_text=None):
                     "windows_admin_script_upload_failed: verify administrator SSH key access; "
                     + uploaded.stderr[-800:]
                 )
-        return subprocess.run(
+        result = subprocess.run(
             [*ssh, "powershell.exe -NoProfile -NonInteractive -File " + path],
             input=frame_bytes(input_text.encode("utf-8"))
             if input_text is not None
@@ -83,6 +84,7 @@ def admin_script(key, host, user, script, *, input_text=None):
             text=True,
             timeout=300,
         )
+        return result
     except BaseException as exc:
         failure = exc
         raise
@@ -97,6 +99,8 @@ def admin_script(key, host, user, script, *, input_text=None):
                 raise RuntimeError("windows_admin_staging_cleanup_failed: " + removed.stderr[-800:])
         except (RuntimeError, OSError, subprocess.SubprocessError) as exc:
             if failure is None:
+                exc.primary_result = result
+                exc.add_note("Completed command diagnostics retained in primary_result; cleanup remains unverified")
                 raise
             failure.add_note("Owned Windows staging cleanup failed: " + str(exc))
 
