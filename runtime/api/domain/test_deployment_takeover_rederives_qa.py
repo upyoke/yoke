@@ -82,7 +82,7 @@ def test_requirement_waived_after_takeover_does_not_block_freeze(test_db, monkey
 
 
 def test_pre_start_park_on_predecessor_survives_takeover(test_db, monkeypatch):
-    """A pre-start park survives takeover and can still be explicitly undone."""
+    """A pre-start park survives takeover; add-item ends it and keeps its audit."""
     _seed_old(test_db, run_qa=False)
     removed_at = test_db.execute(
         "SELECT composition_frozen_at - interval '1 second' FROM deployment_runs WHERE id=%s",
@@ -99,10 +99,18 @@ def test_pre_start_park_on_predecessor_survives_takeover(test_db, monkeypatch):
     assert removed == {REMOVED, WAITING}
     # The takeover's own transfer entry for WAITING is not an operator removal.
     assert enrollment_removed_item_ids(test_db, NEW) == {REMOVED}
-    # A later add-item on the successor clears the inherited removal.
-    assert clear_membership_removal(test_db, NEW, REMOVED)
+    # A later add-item on the successor clears only the successor's entry;
+    # the predecessor's park stays as audit and membership ends its effect.
+    assert not clear_membership_removal(test_db, NEW, REMOVED)
+    test_db.execute(
+        "INSERT INTO deployment_run_items (run_id,item_id,added_at) VALUES (%s,%s,NOW())",
+        (NEW, REMOVED),
+    )
     assert enrollment_removed_item_ids(test_db, NEW) == frozenset()
-    assert {int(entry["item_id"]) for entry in membership_removals(test_db, OLD)} == {WAITING}
+    assert {int(entry["item_id"]) for entry in membership_removals(test_db, OLD)} == {
+        REMOVED,
+        WAITING,
+    }
 
 
 def test_row_that_ran_keeps_its_verdict_on_the_successor(test_db, monkeypatch):

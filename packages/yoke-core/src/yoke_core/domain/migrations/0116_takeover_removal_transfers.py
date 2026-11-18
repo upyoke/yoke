@@ -68,6 +68,6 @@ def invariants(conn):
         for entry in _decode(raw) or ():
             if _taker(entry):
                 raise AssertionError(
-                    f"deployment run {run_id!r} still has a takeover removal for "
-                    f"item {entry.get('item_id')!r} without transferred_to_run_id"
+                    f"deployment run {run_id!r} still has a takeover removal "
+                    "without transferred_to_run_id; rerun this migration"
                 )
