@@ -12,6 +12,8 @@ def test_distinct_roots_include_released_and_nested_lanes(test_db):
         '/repo/.worktrees/nested/.worktrees/inner',
         '/plain/checkout',
         '/.worktrees/root-lane',
+        'C:/repo/.worktrees/upper-drive',
+        'c:/repo/.worktrees/lower-drive',
     ]
     for number, path in enumerate(paths, 300):
         insert_item(test_db, id=number, title='recorded lane')
@@ -22,5 +24,5 @@ def test_distinct_roots_include_released_and_nested_lanes(test_db):
         )
     test_db.commit()
     assert recorded_repo_roots(test_db) == [
-        '/', '/other', '/repo', '/repo/.worktrees/nested',
+        '/', '/other', '/repo', '/repo/.worktrees/nested', 'c:/repo',
     ]

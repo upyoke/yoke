@@ -13,33 +13,27 @@ from yoke_contracts.working_directory import WorkingDirectoryMissing, current_di
 
 
 @contextmanager
-def deleted_directory(tmp_path):
-    original = os.open(".", os.O_RDONLY)
-    folder = tmp_path / "removed"
-    folder.mkdir()
-    os.chdir(folder)
-    folder.rmdir()
-    try:
+def deleted_directory(monkeypatch):
+    def missing_directory():
+        raise FileNotFoundError
+
+    with monkeypatch.context() as patch:
+        patch.setattr(os, "getcwd", missing_directory)
         yield
-    finally:
-        os.fchdir(original)
-        os.close(original)
 
 
 def test_current_directory_returns_process_directory():
     assert current_directory() == os.getcwd()
 
 
-@pytest.mark.posix_only(reason="Windows cannot delete an in-use working directory")
-def test_checkout_connection_names_deleted_directory(tmp_path):
-    with deleted_directory(tmp_path):
+def test_checkout_connection_names_deleted_directory(monkeypatch):
+    with deleted_directory(monkeypatch):
         with pytest.raises(WorkingDirectoryMissing, match="working_directory_missing"):
             checkout_connection({})
 
 
-@pytest.mark.posix_only(reason="Windows cannot delete an in-use working directory")
-def test_command_refuses_deleted_directory(tmp_path, capsys):
-    with deleted_directory(tmp_path):
+def test_command_refuses_deleted_directory(monkeypatch, capsys):
+    with deleted_directory(monkeypatch):
         code = main(["items", "get", "X-1", "status"])
     captured = capsys.readouterr()
     assert code == 1
@@ -50,14 +44,13 @@ def test_command_refuses_deleted_directory(tmp_path, capsys):
 
 
 @pytest.mark.parametrize("executor", ["claude-code", "codex", "cursor"])
-@pytest.mark.posix_only(reason="Windows cannot delete an in-use working directory")
-def test_hook_allows_deleted_directory(tmp_path, monkeypatch, capsys, executor):
+def test_hook_allows_deleted_directory(monkeypatch, capsys, executor):
     monkeypatch.setenv("YOKE_EXECUTOR", executor)
     monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
     monkeypatch.delenv("YOKE_HOOKS_OFF", raising=False)
     monkeypatch.delenv("YOKE_HOOK_CONFIG_OWNER", raising=False)
     monkeypatch.setattr("sys.stdin", io.StringIO("{}"))
-    with deleted_directory(tmp_path):
+    with deleted_directory(monkeypatch):
         code = main(["hook", "evaluate", "PreToolUse"])
     captured = capsys.readouterr()
     assert code == 0
