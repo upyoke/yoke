@@ -120,7 +120,7 @@ export function itemClaimantControl(
  *
  * Every live holder gets its chip, an abandoned one included: the card always
  * names who holds the item, and the chip's own status says whether it is
- * Working, Waiting or Ended.
+ * Working, Idle or Ended.
  *
  * Returns how many were drawn, so a caller can say "unclaimed" where that is
  * the fact rather than inferring it from an empty element.

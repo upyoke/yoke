@@ -55,7 +55,7 @@ function statValues(root) {
 }
 
 const BASE_ROW = {
-  session_state: {status: "waiting", active_at: null, reason: "Waiting."},
+  session_state: {status: "idle", active_at: null, reason: "Waiting."},
   project: "yoke", project_id: 1, executor: "codex",
   executor_surface: "codex-cli", execution_level: "DARIUS",
   executor_mark: "X", executor_class_name: "h-codex",
@@ -165,7 +165,7 @@ test("the sessions-shown tile carries the page against the filtered match", asyn
 
   // Unfiltered counts open and ended rows together, so its denominator means
   // the same thing as either single-state one.
-  setStatuses(root, ["working", "waiting", "ended"]);
+  setStatuses(root, ["working", "idle", "ended"]);
   await settle();
   assert.deepEqual(statValues(root)[0], ["5 of 4,759", "sessions shown"]);
   mounted.unmount();
@@ -181,16 +181,16 @@ test("Open excludes gone processes while Parked retains present parked claims", 
         { ...BASE_ROW, session_id: "running", liveness: "active",
           session_state: { status: "working", active_at: null, reason: "Waiting for the next turn.", presence: "present", activity: "working", intent: { state: "none" } } },
         { ...BASE_ROW, session_id: "parked", liveness: "waiting", mode: "parked",
-          session_state: { status: "waiting", active_at: null, reason: "Waiting for the next turn.", presence: "present", activity: "silent", intent: { state: "parked" } } },
+          session_state: { status: "idle", active_at: null, reason: "Waiting for the next turn.", presence: "present", activity: "silent", intent: { state: "parked" } } },
         { ...BASE_ROW, session_id: "gone", liveness: "stale",
-          session_state: { status: "waiting", active_at: null, reason: "Waiting for the next turn.", presence: "gone", activity: "silent", intent: { state: "none" } } },
+          session_state: { status: "idle", active_at: null, reason: "Waiting for the next turn.", presence: "gone", activity: "silent", intent: { state: "none" } } },
       ] });
     },
   });
   assert.deepEqual(statValues(root)[0], ["3", "sessions shown"]);
   assert.equal(byClass(root, "session-card").length, 3);
 
-  setStatuses(root, ["waiting"]);
+  setStatuses(root, ["idle"]);
   await settle();
   assert.deepEqual(statValues(root).slice(0, 2), [
     ["2", "sessions shown"], ["1", "item claimed"],

@@ -114,9 +114,9 @@ runtime imports and name the command to use instead.
 
 ## Session and item state reads
 
-`yoke sessions list` shows server status (Working, Waiting or Ended), one plain
+`yoke sessions list` shows server status (Working, Idle or Ended), one plain
 reason, active age and holds. Filter before pagination with
-`--status working|waiting|ended`. `yoke sessions get SESSION --full` keeps
+`--status working|idle|ended`. `yoke sessions get SESSION --full` keeps
 presence, activity, intent, custody and next actor as detail. The old state
 selectors are removed. An older server lacking status, active time or reason
 requires the carrying server upgrade before the client can show its roster.

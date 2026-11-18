@@ -8,7 +8,7 @@ test("session reasons and next actor appear only in details; work cards omit the
   const doc = new FakeDocument();
   const reason = "Waiting for the release to finish.";
   const next_actor = {actor: "ci_or_deploy", reason: "release_run_in_progress", sentence: reason};
-  const session = sessionCard(doc, {session_state: {status: "waiting", active_at: null, reason, next_actor}}, () => {});
+  const session = sessionCard(doc, {session_state: {status: "idle", active_at: null, reason, next_actor}}, () => {});
   const item = workItemCard(doc, {public_ref: "item", next_actor}, "all");
   for (const card of [session, item]) {
     assert.doesNotMatch(card.textContent, /Waiting for the release|release_run_in_progress|Next actor/);

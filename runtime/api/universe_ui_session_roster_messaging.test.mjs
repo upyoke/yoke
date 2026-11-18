@@ -25,7 +25,7 @@ function sessionRow(sessionId, liveness, overrides = {}) {
   return {
     session_id: sessionId,
     liveness,
-    session_state: {status: liveness === "ended" ? "ended" : "waiting", active_at: null, reason: "Waiting for direction."},
+    session_state: {status: liveness === "ended" ? "ended" : "idle", active_at: null, reason: "Waiting for direction."},
     executor: "codex",
     executor_surface: "codex-cli",
     model: "gpt-5.6-sol",
@@ -117,14 +117,14 @@ test("roster defaults to Open and exposes only the supported filters", async (t)
     ["Search", "Project", "Harness", "Machine"],
   );
   assert.deepEqual(statusChecks(root).map((check) => [check.value, check.getAttribute("aria-pressed") === "true"]),
-    [["working", true], ["waiting", true], ["ended", false]]);
+    [["working", true], ["idle", true], ["ended", false]]);
   assert.deepEqual(cardIds(root), ["active-codex", "stale-cursor"]);
   const staleCard = byClass(root, "session-card").find(
     (card) => card.getAttribute("data-session-id") === "stale-cursor",
   );
   assert.equal(staleCard.classList.contains("is-stale"), false);
   assert.deepEqual(byClass(staleCard, "session-status-pill").map((pill) => pill.textContent),
-    ["Waiting"]);
+    ["Idle"]);
   // One roster read, this view's own scoped load; the page's durable 24h
   // spend read fires beside it, because the window it answers for is not
   // the filtered roster. The app-wide steering-color read
@@ -138,7 +138,7 @@ test("roster defaults to Open and exposes only the supported filters", async (t)
     ],
   );
 
-  setStatuses(root, ["working", "waiting", "ended"]);
+  setStatuses(root, ["working", "idle", "ended"]);
   await settle();
   assert.deepEqual(
     cardIds(root), ["active-codex", "stale-cursor", "ended-cursor"],
@@ -151,7 +151,7 @@ test("roster defaults to Open and exposes only the supported filters", async (t)
   setStatuses(root, ["ended"]);
   await settle();
   assert.deepEqual(cardIds(root), ["ended-cursor"]);
-  setStatuses(root, ["working", "waiting", "ended"]);
+  setStatuses(root, ["working", "idle", "ended"]);
   await settle();
   const harness = fields.find(
     (field) => field.children[0].textContent === "Harness",
@@ -200,7 +200,7 @@ test("Message all sends to the exact current roster result without a preview ste
   const harness = fields.find(
     (field) => field.children[0].textContent === "Harness",
   ).children[1];
-  setStatuses(root, ["working", "waiting", "ended"]);
+  setStatuses(root, ["working", "idle", "ended"]);
   await settle();
   harness.value = "cursor";
   harness.dispatchEvent(new Event("input"));
@@ -216,7 +216,7 @@ test("Message all sends to the exact current roster result without a preview ste
   });
   assert.equal(
     byClass(root, "session-message-filter-summary")[0].textContent,
-    "Filters: Status: working, waiting, ended · Harness: cursor",
+    "Filters: Status: working, idle, ended · Harness: cursor",
   );
   assert.equal(byClass(root, "session-message-preview-list")[0].children.length, 2);
   assert.equal(button(root, "Preview recipients"), undefined);

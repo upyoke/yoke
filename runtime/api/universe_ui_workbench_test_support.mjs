@@ -43,7 +43,7 @@ function session(sessionId, project, projectId) {
   return {
     session_id: sessionId,
     liveness: "active",
-    session_state: {status: "waiting", active_at: null, reason: "Waiting for direction."},
+    session_state: {status: "idle", active_at: null, reason: "Waiting for direction."},
     project,
     project_id: projectId,
     executor: "codex",

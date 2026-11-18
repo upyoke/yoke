@@ -123,7 +123,7 @@ test("a kill reads as a cause of death on ended, never as its own liveness", () 
 
 
 test("one server status appears; reason and raw facts stay in the header info", () => {
-  for (const status of ["working", "waiting", "ended"]) {
+  for (const status of ["working", "idle", "ended"]) {
     const reason = "Waiting for CI to finish.";
     const rendered = card({ ...quietHolder({}),
       session_state: { status, active_at: null, reason,
@@ -147,7 +147,7 @@ test("one server status appears; reason and raw facts stay in the header info", 
 
 test("an older server missing any status field refuses without guessing", () => {
   for (const missing of ["status", "active_at", "reason"]) {
-    const state = {status: "waiting", active_at: null, reason: "Waiting."};
+    const state = {status: "idle", active_at: null, reason: "Waiting."};
     delete state[missing];
     const rendered = card(quietHolder({session_state: state}));
     assert.equal(byClass(rendered, "session-status-pill")[0].textContent, "Unavailable");

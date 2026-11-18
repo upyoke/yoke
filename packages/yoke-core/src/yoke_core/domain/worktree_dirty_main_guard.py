@@ -281,7 +281,7 @@ def format_dirty_main_narrative(
         lines.append(
             "No live session on this machine is recorded as working on main. "
             "Commit, stash, or drop the files, then retry. "
-            "Find peers with: yoke sessions list --status waiting"
+            "Find peers with: yoke sessions list --status idle"
         )
     return "\n".join(lines)
 

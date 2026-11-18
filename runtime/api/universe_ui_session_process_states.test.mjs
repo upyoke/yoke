@@ -6,12 +6,12 @@ import { setStatuses, statusChecks } from "./universe_ui_sessions_view_test_supp
 
 test("every chip combination filters the server status, including exited processes", () => {
   const filters = sessionRosterFilters(new FakeDocument(), () => {});
-  const rows = ["working", "waiting", "ended"].map((status) => ({
+  const rows = ["working", "idle", "ended"].map((status) => ({
     session_id: status, native_process_exited_at: "2026-11-06T12:00:00Z",
     session_state: {status, active_at: null, reason: "A plain sentence."},
   }));
   assert.deepEqual(statusChecks(filters.host).map((c) => c.getAttribute("aria-pressed") === "true"), [true, true, false]);
-  assert.deepEqual(filters.apply(rows).map((r) => r.session_id), ["working", "waiting"]);
+  assert.deepEqual(filters.apply(rows).map((r) => r.session_id), ["working", "idle"]);
   for (let mask = 0; mask < 8; mask++) {
     const selected = rows.filter((_, i) => mask & (1 << i)).map((r) => r.session_id);
     setStatuses(filters.host, selected);

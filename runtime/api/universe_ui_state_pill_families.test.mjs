@@ -33,9 +33,9 @@ test("healthy is green and genuinely neutral states stay grey", () => {
 });
 
 test("the three session statuses share deliberate colors on every card", () => {
-  assert.deepEqual(["working", "waiting", "ended"].map(
+  assert.deepEqual(["working", "idle", "ended"].map(
     (status) => [status, pillFamilyForState(status)],
-  ), [["working", "good"], ["waiting", "warn"], ["ended", "idle"]]);
+  ), [["working", "good"], ["idle", "idle"], ["ended", "idle"]]);
 });
 
 test("planning stages show readiness and ongoing work", () => {

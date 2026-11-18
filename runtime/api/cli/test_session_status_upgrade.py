@@ -8,7 +8,7 @@ from yoke_contracts.api.function_call import FunctionCallResponse
 
 @pytest.mark.parametrize("missing", ["status", "active_at", "reason"])
 def test_old_server_state_names_the_upgrade_instead_of_guessing(missing):
-    state = {"status": "waiting", "active_at": None, "reason": "Waiting."}
+    state = {"status": "idle", "active_at": None, "reason": "Waiting."}
     del state[missing]
     response = FunctionCallResponse(
         success=True, function="sessions.list", version="v1", request_id="test",

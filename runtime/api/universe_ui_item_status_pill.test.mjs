@@ -16,7 +16,7 @@ async function bandCard(t, bandKey, overrides) {
   const documentNode = new FakeDocument();
   documentNode.defaultView.location.href = "/frontier?project=1";
   const root = documentNode.createElement("div");
-  const mounted = mountUniverseApp(root, { client: workbenchClient({ homes: { "YOK-9": { section: bandKey === "active" ? "in_progress" : "on_hold", activity: "waiting", reason: "session_process_gone" } }, ...overrides }) });
+  const mounted = mountUniverseApp(root, { client: workbenchClient({ homes: { "YOK-9": { section: bandKey === "active" ? "in_progress" : "on_hold", activity: "idle", reason: "session_process_gone" } }, ...overrides }) });
   t.after(() => mounted.unmount());
   await settle();
   const band = byClass(root, `work-band-${bandKey}`)[0];
@@ -43,7 +43,7 @@ test("a gone holder's pill retains the actual process reason", async (t) => {
   });
   assert.equal(byClass(card, "item-status-pill").length, 0);
   assert.equal(byClass(card, "item-claimant-intent").length, 0);
-  assert.match(byClass(card, "session-status-pill")[0].textContent, /Waiting/);
+  assert.match(byClass(card, "session-status-pill")[0].textContent, /Idle/);
   assert.doesNotMatch(card.textContent, /Held, not working|session process gone/);
 });
 

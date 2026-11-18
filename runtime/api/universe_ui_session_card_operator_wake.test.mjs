@@ -44,7 +44,7 @@ test("Message button offers quiet desktop messaging without a queued note", asyn
   });
   await settle();
 
-  setStatuses(root, ["working", "waiting", "ended"]);
+  setStatuses(root, ["working", "idle", "ended"]);
   assert.equal(byClass(root, "session-message-delivery-note").length, 0);
   assert.equal(byClass(root, "session-chat-title")[0].textContent, "[PILLS]");
   assert.ok(byClass(root, "session-card")[0].textContent.includes("[PILLS]"));

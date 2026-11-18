@@ -13,7 +13,7 @@ const item = (ref, section, activity = null) => ({
 });
 
 test("home membership and counts stay exclusive across the full chain", () => {
-  const items = [item("I-1", "in_progress", "held"), item("I-2", "waiting"), item("I-3", "on_hold")];
+  const items = [item("I-1", "in_progress", "idle"), item("I-2", "waiting"), item("I-3", "on_hold")];
   const rows = frontierBandRows({ items, readyRows: [], blockedRows: [], sessionRows: [] });
   const edges = [
     { blocking_item: "I-1", dependent_item: "I-2", gate_point: "activation", satisfaction: "status:done" },
@@ -29,7 +29,7 @@ test("home membership and counts stay exclusive across the full chain", () => {
   const tile = frontierTile(new FakeDocument(), model, "I-1", { claimantFor: () => null });
   assert.equal(tile.classList.contains("is-reference"), true);
   assert.equal(byClass(tile, "fdv-tile-ref")[0].href, "#frontier-home-I-1");
-  assert.match(byClass(tile, "fdv-reference-home")[0].textContent, /In progress.*Waiting/);
+  assert.match(byClass(tile, "fdv-reference-home")[0].textContent, /In progress.*Idle/);
   assert.equal(byClass(tile, "next-actor").length, 0);
 });
 

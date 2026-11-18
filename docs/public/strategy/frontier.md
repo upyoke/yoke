@@ -54,10 +54,9 @@ sentence; JSON and named-field item reads retain its next-actor projection.
 
 Each item has one server-assigned home section (`frontier_group`). On hold
 contains frozen, blocked, missing-spec and halted work. It keeps that home
-when other items depend on it. In progress separates Working from Waiting using the holder's shared server
-status. A finished turn is Waiting; process exits never change status or
-custody. Session cards keep reasons and next actor in their information
-disclosure; item cards omit next-actor text. Dependency references in the graph are smaller outlined
+when other items depend on it. In progress separates Working from Idle using
+the holder's shared server status. Session cards display awaiting intent when
+present. Reasons and next actor are available in the information disclosure. Dependency references in the graph are smaller outlined
 cards naming their home and activity, with a link to their home card. Section
 counts exclude references. The project filter keeps whole dependency chains
 across projects, and session chips open the holder's session card.

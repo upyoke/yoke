@@ -26,7 +26,7 @@ function includes(value, query) {
   return !query || String(value || "").toLowerCase().includes(query);
 }
 
-const DEFAULT_STATUSES = ["working", "waiting"];
+const DEFAULT_STATUSES = ["working", "idle"];
 const OUTSIDE_PROJECT = "outside-project";
 
 function setOptions(documentNode, control, defaultLabel, values) {
@@ -71,7 +71,7 @@ export function sessionRosterFilters(documentNode, onChange) {
   statusHost.appendChild(el(documentNode, "span", "session-filter-label", "Status"));
   const chips = el(documentNode, "span", "session-status-chips");
   statusHost.appendChild(chips);
-  for (const value of ["working", "waiting", "ended"]) {
+  for (const value of ["working", "idle", "ended"]) {
     const chip = el(documentNode, "button", "session-status-chip",
       value[0].toUpperCase() + value.slice(1));
     chip.type = "button";

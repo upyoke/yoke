@@ -182,6 +182,7 @@ def render_session_roster_rows(
                         "native_turn_end_recorded_at",
                     )
                 },
+                "open_tool_call_at": temporal_wire(row.get("open_tool_call_at")),
                 "liveness": state,
                 "ended_cause": cause,
                 "reclaimable": state == LIVENESS_STALE,

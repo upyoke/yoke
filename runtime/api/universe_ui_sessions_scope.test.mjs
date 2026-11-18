@@ -13,7 +13,7 @@ import { FakeDocument, allNodes, byClass, settle } from "./universe_ui_dom_test_
 const orgRow = {
   display_label: "codex · outside a project", session_label: "codex · outside a project",
   session_id: "org-owner", project_id: null, org_id: 7, scope_kind: "org",
-  session_state: {status: "waiting", active_at: null, reason: "Waiting."},
+  session_state: {status: "idle", active_at: null, reason: "Waiting."},
   project: null, liveness: "active", executor: "codex", claims: [],
 };
 const projectRow = {
@@ -148,7 +148,7 @@ test("outside facet filters active, ended and all while paging honest loaded cou
   await settle();
   assert.deepEqual(cardIds(main), [endedOrg.session_id]);
   assert.equal(byClass(main, "n")[0].textContent, "1");
-  setStatuses(main, ["working", "waiting", "ended"]);
+  setStatuses(main, ["working", "idle", "ended"]);
   assert.deepEqual(new Set(cardIds(main)), new Set([orgRow.session_id, endedOrg.session_id]));
   assert.equal(byClass(main, "n")[0].textContent, "2");
   assert.ok(requests.filter((r) => r.payload.history).every((r) => !r.payload.history.projects.includes(outside)));

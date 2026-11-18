@@ -8,6 +8,7 @@ from yoke_contracts.session_queue_posture import (
     session_pause_declared,
     session_pause_mode_sql,
 )
+from yoke_contracts.timestamps import format_instant
 from yoke_core.domain.session_native_process_observation import (
     current_native_process_observation,
 )
@@ -170,35 +171,46 @@ def test_an_explicit_wait_carries_its_reason_and_addressee():
 
 
 @pytest.mark.parametrize("executor", ["codex", "claude-code", "cursor"])
-@pytest.mark.parametrize(
-    "stamp",
-    [
-        "last_tool_call_at",
-        "last_heartbeat",
-        "turn_posture_at",
-        "native_turn_end_recorded_at",
-    ],
-)
-@pytest.mark.parametrize(
-    "posture,expected",
-    [("running", "working"), ("unknown", "working"), ("waiting", "waiting")],
-)
-def test_status_uses_all_signs_of_life_and_finished_turn_wins(
-    executor, stamp, posture, expected
+@pytest.mark.parametrize("posture", ["running", "unknown", "waiting"])
+@pytest.mark.parametrize("minutes,expected", [(19, "working"), (20, "working"), (21, "idle")])
+def test_status_and_age_use_tools_regardless_of_turn_or_heartbeat(
+    executor, posture, minutes, expected
 ):
-    old = NOW - timedelta(hours=1)
+    tool = NOW - timedelta(minutes=minutes)
     facts = row(
         executor=executor,
-        last_tool_call_at=old,
-        last_heartbeat=old,
+        last_tool_call_at=tool,
         turn_posture=posture,
+        last_heartbeat=NOW,
+        turn_posture_at=NOW,
+        native_turn_end_recorded_at=NOW,
         native_process_gone_at=NOW,
     )
-    facts[stamp] = NOW
     state = session_state(facts, now=NOW)
     assert state["status"] == expected
-    assert state["active_at"] == "2026-11-06T12:00:00.000000Z"
+    assert state["active_at"] == format_instant(tool)
     assert "_" not in state["reason"]
+
+
+def test_heartbeat_and_turn_markers_do_not_create_tool_activity():
+    state = session_state(
+        row(last_tool_call_at=None, turn_posture_at=NOW, native_turn_end_recorded_at=NOW),
+        now=NOW,
+    )
+    assert state["status"] == "idle"
+    assert state["active_at"] is None
+
+
+@pytest.mark.parametrize("minutes,expected", [(44, "working"), (45, "idle")])
+def test_display_counts_open_tool_start_without_a_running_turn(minutes, expected):
+    started = NOW - timedelta(minutes=minutes)
+    state = session_state(
+        row(last_tool_call_at=None, open_tool_call_at=started, turn_posture="waiting"),
+        now=NOW,
+    )
+    assert state["status"] == expected
+    assert state["active_at"] == format_instant(started)
+    assert state["in_flight"] is False
 
 
 def test_status_respects_project_threshold_and_ended_override():
@@ -206,7 +218,7 @@ def test_status_respects_project_threshold_and_ended_override():
     assert session_state(facts, now=NOW)["status"] == "working"
     assert (
         session_state({**facts, "session_idle_minutes": 5}, now=NOW)["status"]
-        == "waiting"
+        == "idle"
     )
     assert session_state({**facts, "ended_at": NOW}, now=NOW)["status"] == "ended"
     assert (

@@ -11,8 +11,8 @@ together to understand a session; an active claim alone does not prove progress.
 
 | Term | Meaning |
 | --- | --- |
-| Session status | Working for an in-flight tool or a recent unfinished turn; Waiting for other non-ended sessions; Ended for end stamps. All card surfaces and the session CLI share it. |
-| Active time | Latest tool call, heartbeat, prompt/stop marker or recorded finished turn. The project recent window defaults to 20 minutes. |
+| Session status | Working for a recent tool call or an open call under 45 minutes. Idle for other live sessions. Ended for end stamps. All card surfaces and the session CLI share it. |
+| Active time | Latest tool-call timestamp or open tool-call start. The project recent window defaults to 20 minutes. |
 | Presence | `present` unless end stamps or unsuperseded native process death prove `ended` or `gone`. A later tool call proves presence again; heartbeat alone does not. |
 | Activity | `working`, `between_turns`, or `silent`, based on tool activity and turn posture. This diagnostic tool-progress classification is separate from the display status. |
 | Intent | An explicit pause: `parked` or `awaiting`, with a reason; otherwise `none`. Between turns does not mean parked. |

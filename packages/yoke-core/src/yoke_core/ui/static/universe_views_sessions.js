@@ -17,6 +17,7 @@ import {
   appendSessionMessageLine,
   appendSessionPrimaryStatus,
   appendSessionHeaderDetails,
+  appendSessionIntent,
   appendSessionChatTitle,
 } from "./universe_session_diagnostics.js";
 import { appendSessionAge } from "./universe_session_age.js";
@@ -135,6 +136,7 @@ export function sessionCard(
   appendSessionPrimaryStatus(documentNode, state, row);
   appendModel(documentNode, state, row);
   body.appendChild(state);
+  appendSessionIntent(documentNode, body, row);
   appendSessionUsage(documentNode, body, row);
   // Every state uses the same section sequence; empty sections stay silent.
   appendSteeringHoldings(documentNode, body, row, projects);
