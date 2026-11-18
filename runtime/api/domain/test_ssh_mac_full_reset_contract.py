@@ -67,6 +67,7 @@ def test_preserved_and_absent_surface_contract() -> None:
         "Library/Keychains",
         ".claude/.credentials.json",
         ".codex/auth.json",
+        "Library/Application Support/Claude",
         *OS_MANAGED_HOME_ENTRIES,
         *OS_PROTECTED_CACHE_HOME_ENTRIES,
         ".yoke-browser-identities",
