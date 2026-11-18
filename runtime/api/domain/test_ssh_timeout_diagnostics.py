@@ -1,4 +1,4 @@
-"""Timed-out host reads preserve safe partial evidence for their callers."""
+"""SSH host reads: safe partial evidence on timeout, and a closed stdin without input."""
 
 import subprocess
 from types import SimpleNamespace
@@ -35,3 +35,19 @@ def test_ssh_timeout_retains_partial_output_without_registered_secrets(
         "host_control subprocess timed out: Preparing modules [REDACTED]"
     )
     assert secret not in result.stderr and len(result.stderr) < 600
+
+
+def test_a_command_without_input_gets_a_closed_stdin(monkeypatch):
+    """An inherited open stdin makes `codex exec` wait for EOF over SSH."""
+    calls = []
+
+    def run(argv, **kwargs):
+        calls.append(kwargs)
+        return subprocess.CompletedProcess(argv, 0, "", "")
+
+    monkeypatch.setattr(subprocess, "run", run)
+    control = SimpleNamespace(secret_values=(), _ssh_argv=lambda command: ["ssh", command])
+    SshTestMachineTransport._run(control, "codex exec --json 'Reply exactly OK.'")
+    SshTestMachineTransport._run(control, "cat", input_text="framed\n")
+    assert calls[0]["stdin"] is subprocess.DEVNULL and "input" not in calls[0]
+    assert calls[1]["input"] == "framed\n" and "stdin" not in calls[1]

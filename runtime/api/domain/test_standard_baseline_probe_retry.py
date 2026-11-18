@@ -252,3 +252,36 @@ def test_timeout_diagnostics_sanitize_empty_and_unrecognized_events(output):
     assert record["event_types"] == (
         [] if not output else [None if isinstance(output, str) else "<other>"]
     )
+
+
+@pytest.mark.posix_only(reason="runs on the POSIX test machine")
+def test_a_codex_that_waits_for_stdin_eof_answers_when_stdin_stays_open(tmp_path):
+    """Over SSH the probe's stdin stays open; codex exec waits for its EOF."""
+    codex = tmp_path / ".local/bin/codex"
+    codex.parent.mkdir(parents=True)
+    reply = [{"type": "turn.started"}, {"type": "item.completed", "item": {"type": "agent_message", "text": "OK"}}, {"type": "turn.completed"}]
+    stream = "".join(json.dumps(event) + "\n" for event in reply)
+    codex.write_text(
+        f"#!{sys.executable}\n"
+        "import sys\n"
+        "sys.stdin.read()\n"
+        f"sys.stdout.write({stream!r})\n"
+    )
+    codex.chmod(0o700)
+    probe = next(
+        p for p in standard_probes("linux") if p["name"] == "Codex real request"
+    )
+    read_end, write_end = os.pipe()
+    try:
+        result = subprocess.run(
+            probe["argv"],
+            env={**os.environ, "HOME": str(tmp_path), "PATH": str(tmp_path / ".local/bin")},
+            stdin=read_end,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    finally:
+        os.close(read_end)
+        os.close(write_end)
+    assert result.returncode == 0, result.stdout + result.stderr

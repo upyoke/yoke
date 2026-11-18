@@ -168,9 +168,12 @@ class SshTestMachineTransport:
                     warned = True
                 if warned:
                     print(SSH_REUSE_WARNING, file=sys.stderr)
+            # Without input, the remote command gets a closed stdin; an inherited
+            # open one makes `codex exec` wait for EOF instead of answering.
+            stdin = {"input": input_text} if input_text is not None else {"stdin": subprocess.DEVNULL}
             result = subprocess.run(
                 argv,
-                input=input_text,
+                **stdin,
                 encoding="utf-8",
                 errors="backslashreplace",
                 capture_output=True,

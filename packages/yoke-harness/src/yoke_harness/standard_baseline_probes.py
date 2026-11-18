@@ -112,7 +112,9 @@ def attempt(limit=None):
         sys.exit(EXIT['probe_request_timed_out'])
     timeout = min(limit, remaining) if limit is not None else max(1, remaining)
     try:
-        return subprocess.run(request.argv, cwd=REQUEST_WORKSPACE, capture_output=True, text=True, timeout=timeout)
+        # A closed stdin: over SSH an inherited stdin stays open, and codex exec
+        # then waits for EOF until the deadline instead of answering.
+        return subprocess.run(request.argv, cwd=REQUEST_WORKSPACE, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=timeout)
     except subprocess.TimeoutExpired as exc:
         # Every harness keeps the sanitized tail of a stalled stream, so a
         # timeout receipt shows how far the request got before it hung.
