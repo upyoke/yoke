@@ -9,6 +9,11 @@ import tempfile
 import time
 from typing import Callable, TypeVar
 
+if __package__:
+    from yoke_contracts import windows_private_directory
+else:
+    import _yoke_windows_private_directory as windows_private_directory
+
 # Windows refuses to open, replace or delete a file while another handle holds
 # it without delete sharing, or while a replaced file is still delete-pending,
 # and reports that transient state as PermissionError. Elsewhere a
@@ -65,8 +70,15 @@ def atomic_replace_bytes(
     *,
     mode: int = 0o644,
 ) -> None:
-    """Atomically replace *target* through an unpredictable sibling file."""
+    """Atomically replace *target* through an unpredictable sibling file.
+
+    An existing regular file (or symlink target) keeps its mode. On Windows,
+    where mode bits carry no access list, an owner-private existing file keeps
+    a protected owner-only access list: the temporary is made private before
+    the payload is written.
+    """
     selected_mode = mode
+    existing: Path | None = None
     try:
         target_info = target.lstat()
     except FileNotFoundError:
@@ -74,6 +86,7 @@ def atomic_replace_bytes(
     else:
         if stat.S_ISREG(target_info.st_mode):
             selected_mode = stat.S_IMODE(target_info.st_mode)
+            existing = target
         elif stat.S_ISLNK(target_info.st_mode):
             try:
                 effective_info = target.stat()
@@ -82,6 +95,8 @@ def atomic_replace_bytes(
             else:
                 if stat.S_ISREG(effective_info.st_mode):
                     selected_mode = stat.S_IMODE(effective_info.st_mode)
+                    existing = target.resolve()
+    keep_private = os.name == "nt" and existing is not None and _is_windows_private(existing)
     descriptor = -1
     temporary: Path | None = None
     try:
@@ -89,6 +104,8 @@ def atomic_replace_bytes(
             prefix=f".{target.name}.", suffix=".tmp", dir=target.parent,
         )
         temporary = Path(raw_temporary)
+        if keep_private:
+            windows_private_directory.make_private_file(temporary)
         with os.fdopen(descriptor, "wb", closefd=False) as stream:
             stream.write(payload)
             stream.flush()
@@ -109,6 +126,14 @@ def atomic_replace_bytes(
                 temporary.unlink(missing_ok=True)
             except OSError:
                 pass
+
+
+def _is_windows_private(existing: Path) -> bool:
+    """Return whether an existing Windows file allows only trusted principals."""
+    try:
+        return windows_private_directory.is_private_file(existing)
+    except OSError:
+        return False
 
 
 __all__ = [

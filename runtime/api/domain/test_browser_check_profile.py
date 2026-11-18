@@ -9,6 +9,7 @@ import pytest
 from yoke_harness import browser_check_profile as checks
 from yoke_harness import browser_client
 from yoke_contracts.browser_daemon_profile import selected_profile
+from yoke_contracts.owner_private_path import is_owner_private_directory, is_owner_private_file
 
 
 @pytest.fixture()
@@ -46,8 +47,8 @@ def test_copy_preserves_sign_in_and_storage_and_deletes_only_private_copy(profil
         ).read_bytes() == b"synthetic-storage"
         assert not (profile / "SingletonLock").exists()
         assert not (profile / "secret-outside-profile").is_symlink()
-        assert profile.stat().st_mode & 0o777 == 0o700
-        assert (profile / "Cookies").stat().st_mode & 0o777 == 0o600
+        assert is_owner_private_directory(profile)
+        assert is_owner_private_file(profile / "Cookies")
         (profile / "Cookies").write_bytes(b"check-only-rotation")
     assert not check.directory.exists()
     assert source.joinpath("Cookies").read_bytes() == b"synthetic-sign-in"

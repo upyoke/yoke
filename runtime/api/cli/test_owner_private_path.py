@@ -45,7 +45,8 @@ def test_windows_owner_private_file_uses_dacl_validator(
 def test_owner_private_path_exports_only_file_validator() -> None:
     assert {"is_current_user_owned_path", "is_others_unwritable_directory", "is_others_unwritable_file",
             "is_owner_private_file", "is_owner_private_directory",
-            "create_owner_private_directory", "write_owner_private"} == set(owner_private_path.__all__)
+            "create_owner_private_directory", "create_owner_private_temporary",
+            "write_owner_private"} == set(owner_private_path.__all__)
 
 
 @pytest.mark.windows
@@ -164,3 +165,27 @@ def test_private_write_retries_windows_sharing_violation(monkeypatch, tmp_path):
     assert owner_private_path.is_owner_private_file(path)
     assert len(attempts) == 3
     assert list(tmp_path.iterdir()) == [path]
+
+
+def test_private_temporary_is_private_before_the_first_write(tmp_path: Path) -> None:
+    descriptor, created = owner_private_path.create_owner_private_temporary(
+        prefix="log-", suffix=".log", directory=tmp_path,
+    )
+    try:
+        assert created.parent == tmp_path and created.name.endswith(".log")
+        assert owner_private_path.is_owner_private_file(created)
+        os.write(descriptor, b"evidence\n")
+    finally:
+        os.close(descriptor)
+    assert created.read_bytes() == b"evidence\n"
+
+
+def test_private_temporary_refusal_removes_the_file(
+    monkeypatch, tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(owner_private_path, "is_owner_private_file", lambda path: False)
+    with pytest.raises(OSError, match="owner_private_write_denied"):
+        owner_private_path.create_owner_private_temporary(
+            prefix="log-", suffix=".log", directory=tmp_path,
+        )
+    assert list(tmp_path.iterdir()) == []

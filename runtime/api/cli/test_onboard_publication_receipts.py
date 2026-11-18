@@ -6,6 +6,7 @@ from runtime.api.cli.onboard_publication_receipts_test_support import (
 
 
 import json
+import subprocess
 
 import pytest
 
@@ -86,7 +87,7 @@ def test_publication_head_is_not_creation_proof(tmp_path, monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "change", ["branch", "source", "project", "identity", "permissions"]
+    "change", ["branch", "source", "project", "identity"]
 )
 def test_receipts_do_not_cross_binding_or_private_file_boundary(
     tmp_path, monkeypatch, change
@@ -113,9 +114,26 @@ def test_receipts_do_not_cross_binding_or_private_file_boundary(
         for row in writer.payload["created_commits"]:
             row["binding"]["git_inode"] += 1
         writer.write()
-    else:
-        writer.path.chmod(0o644)
     assert not receipts.verified_commits(world.checkout, branch)
+
+
+@pytest.mark.posix_only(reason="POSIX mode bits: chmod 644 exposes the report")
+def test_group_readable_report_is_not_a_receipt(tmp_path, monkeypatch):
+    world, writer, _, _ = setup_read_only(tmp_path, monkeypatch)
+    assert receipts.verified_commits(world.checkout, "main")
+    writer.path.chmod(0o644)
+    assert not receipts.verified_commits(world.checkout, "main")
+
+
+@pytest.mark.windows_only(reason="native Windows DACL: another SID can read the report")
+def test_report_readable_by_other_users_is_not_a_receipt(tmp_path, monkeypatch):
+    world, writer, _, _ = setup_read_only(tmp_path, monkeypatch)
+    assert receipts.verified_commits(world.checkout, "main")
+    subprocess.run(
+        ["icacls", str(writer.path), "/grant", "*S-1-5-32-545:(R)"],
+        check=True, capture_output=True,
+    )
+    assert not receipts.verified_commits(world.checkout, "main")
 
 
 def test_resume_retains_exact_receipts_and_step_detail(tmp_path, monkeypatch):

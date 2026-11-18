@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/harness/test_qa_host_package_fixture.py::test_unrestorable_owned_change_preserves_journal_and_refuses",
- "reason": "AttributeError: module 'os' has no attribute 'O_NOFOLLOW'"
-}

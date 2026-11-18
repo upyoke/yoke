@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_github_app_runtime_attestation.py::test_hard_startup_deadline_cannot_publish_a_late_network_result",
- "reason": "AssertionError: assert 'hard startup deadline' in 'WARNING  yoke.api.startup:github_app_public_runtime.py:221 GitHub App runtime identity attestation failed; startup continued without verified App aut"
-}

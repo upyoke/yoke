@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/cli/test_github_operation_lock_errors.py::test_refresh_lock_wraps_parent_creation_failure",
- "reason": "Failed: a failed lock open must refuse"
-}

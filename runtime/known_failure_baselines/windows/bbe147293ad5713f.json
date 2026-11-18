@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/harness/test_qa_host_package_fixture.py::test_remote_apt_failure_keeps_operation_and_safe_output[install-packages1]",
- "reason": "AttributeError: module 'os' has no attribute 'O_NOFOLLOW'"
-}

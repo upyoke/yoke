@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/cli/test_onboard_publication_receipts.py::test_fresh_writable_setup_publishes_receipted_install_and_art",
- "reason": "AssertionError: assert set() == {'95fceaf119c...1bf127d721dc'}"
-}

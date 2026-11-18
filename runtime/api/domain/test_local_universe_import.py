@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from pathlib import Path
+import subprocess
 from types import SimpleNamespace
 
 import psycopg
 import pytest
 
+from yoke_contracts.owner_private_path import write_owner_private
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
@@ -140,19 +142,37 @@ def test_local_import_authority_refuses_nonlocal_connection(monkeypatch):
         raise AssertionError("nonlocal connection should be refused")
 
 
-def test_local_import_refuses_nonprivate_archive(tmp_path):
-    archive = tmp_path / "archive.tar"
-    archive.write_bytes(b"not relevant")
-    archive.chmod(0o644)
+def _assert_nonprivate_archive_refused(archive: Path, repair: str) -> None:
     try:
         local_universe_import.import_universe(
             archive,
             dsn="postgresql://not-reached",
         )
     except local_universe_import.LocalUniverseImportError as exc:
-        assert "chmod 600" in str(exc)
+        assert "must be owner-only" in str(exc)
+        assert repair in str(exc)
     else:
         raise AssertionError("nonprivate archive should be refused")
+
+
+@pytest.mark.posix_only(reason="POSIX mode bits: chmod 644 exposes the archive")
+def test_local_import_refuses_nonprivate_archive(tmp_path):
+    archive = tmp_path / "archive.tar"
+    archive.write_bytes(b"not relevant")
+    archive.chmod(0o644)
+    _assert_nonprivate_archive_refused(archive, "chmod 600")
+
+
+@pytest.mark.windows_only(reason="native Windows DACL: icacls grants Users read access")
+def test_local_import_refuses_archive_readable_by_other_users(tmp_path):
+    archive = tmp_path / "archive.tar"
+    write_owner_private(archive, b"not relevant")
+    subprocess.run(
+        ["icacls", str(archive), "/grant", "*S-1-5-32-545:(R)"],
+        check=True,
+        capture_output=True,
+    )
+    _assert_nonprivate_archive_refused(archive, "icacls")
 
 
 @pytest.mark.parametrize("active_human", [True, False])

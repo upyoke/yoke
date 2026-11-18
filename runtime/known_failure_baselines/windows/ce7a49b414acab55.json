@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_machine_config_writer.py::TestSetConnection::test_create_writes_valid_config_and_activates_first_env",
- "reason": "assert 438 == 384"
-}

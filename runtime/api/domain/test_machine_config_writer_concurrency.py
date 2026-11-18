@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-import stat
 import threading
 
 import pytest
@@ -12,6 +11,7 @@ import pytest
 from yoke_cli.config import machine_config_file
 from yoke_cli.config import writer
 from yoke_contracts.machine_config import schema as contract
+from yoke_contracts.owner_private_path import is_owner_private_file
 
 
 def _github(ref: str, *, slug: str = "yoke") -> dict:
@@ -80,7 +80,7 @@ def test_writer_waits_for_stable_lock_then_merges_latest_payload(
     assert entry["project_id"] == 7
     lock_path = config.with_name(config.name + ".lock")
     assert lock_path.is_file()
-    assert stat.S_IMODE(lock_path.stat().st_mode) == 0o600
+    assert is_owner_private_file(lock_path)
 
 
 def test_every_public_writer_mutation_is_serialized() -> None:

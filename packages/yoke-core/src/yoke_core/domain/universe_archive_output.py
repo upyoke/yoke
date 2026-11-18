@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import os
 import stat
-import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import BinaryIO
 
-from yoke_contracts import platform_file_sync, windows_private_directory
-from yoke_contracts.owner_private_path import is_owner_private_file
+from yoke_contracts import platform_file_sync
+from yoke_contracts.owner_private_path import (
+    create_owner_private_temporary,
+    is_owner_private_file,
+)
 
 _WINDOWS = os.name == "nt"
 
@@ -90,16 +92,11 @@ def prepare_private_archive_output(destination: Path) -> PrivateArchiveOutput:
     descriptor = -1
     temporary: Path | None = None
     try:
-        descriptor, raw_path = tempfile.mkstemp(
+        descriptor, temporary = create_owner_private_temporary(
             prefix=f".{destination.name}.",
             suffix=".tmp",
-            dir=destination.parent,
+            directory=destination.parent,
         )
-        temporary = Path(raw_path)
-        if _WINDOWS:
-            windows_private_directory.make_private_file(temporary)
-        else:
-            os.fchmod(descriptor, 0o600)
         stream = os.fdopen(descriptor, "wb")
         descriptor = -1
         return PrivateArchiveOutput(destination, temporary, stream)

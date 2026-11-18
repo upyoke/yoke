@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_universe_artifact_transfer.py::test_two_member_archive_imports_without_rewriting_handles",
- "reason": "yoke_core.domain.local_universe_import.LocalUniverseImportError: the universe archive must be owner-only; run `chmod 600 C:\\Users\\runneradmin\\AppData\\Local\\Temp\\pytest-of-runneradmin\\pytest-0\\popen-gw"
-}

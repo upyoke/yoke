@@ -8,6 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from yoke_contracts.owner_private_path import is_owner_private_file
 from yoke_harness.ssh_linux_golden_diagnostics import run_golden_command
 from yoke_harness.ssh_test_machine_transport import SshTestMachineTransport
 
@@ -53,7 +54,7 @@ def test_golden_debug_and_journal_preserve_original_result(
     assert evidence["sshd_journal_exit_code"] == 1
     for key in ("ssh_client_log", "sshd_journal_log"):
         path = Path(evidence[key])
-        assert path.stat().st_mode & 0o777 == 0o600
+        assert is_owner_private_file(path)
         assert (
             "SECRET" not in path.read_text()
             and "private program" not in path.read_text()

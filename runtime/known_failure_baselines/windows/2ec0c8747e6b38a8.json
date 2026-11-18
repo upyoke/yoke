@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/cli/test_onboard_publication_receipts.py::test_receipts_do_not_cross_binding_or_private_file_boundary[project]",
- "reason": "AssertionError: assert ()"
-}

@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/harness/test_qa_host_package_fixture.py::test_declared_package_is_restored_after_interrupted_fixture",
- "reason": "AttributeError: module 'os' has no attribute 'O_NOFOLLOW'"
-}

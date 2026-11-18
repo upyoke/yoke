@@ -9,14 +9,14 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-import tempfile
 import time
 from contextlib import contextmanager
 from contextvars import ContextVar
 from pathlib import Path
 
-from yoke_contracts import platform_file_sync
+from yoke_contracts import platform_file_sync, windows_private_directory
 from yoke_contracts.machine_config.paths import yoke_home
+from yoke_contracts.owner_private_path import write_owner_private
 from yoke_contracts.refusal_recovery import compose_refusal
 
 _RESUMING: ContextVar[bool] = ContextVar("universe_resuming", default=False)
@@ -51,8 +51,8 @@ def operation(dsn: str, *, wait: bool = False):
     if _OPERATION.get() == str(target):
         yield
         return
-    target.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    descriptor = os.open(target, os.O_RDWR | os.O_CREAT, 0o600)
+    _private_pause_directory(target.parent)
+    descriptor = _open_private_lock(target)
     acquired = False
     try:
         try:
@@ -234,18 +234,24 @@ def resuming_source(dsn: str):
             _RESUMING.reset(token)
 
 
-def _save(marker, state):
-    marker.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    descriptor, temporary = tempfile.mkstemp(dir=marker.parent, prefix=".pause-")
+def _private_pause_directory(directory: Path) -> None:
+    directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+
+
+def _open_private_lock(target: Path) -> int:
+    """Open the shared lock file, creating it owner-only on every platform."""
+    if os.name != "nt":
+        return os.open(target, os.O_RDWR | os.O_CREAT, 0o600)
     try:
-        with os.fdopen(descriptor, "w") as handle:
-            json.dump(state, handle)
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.replace(temporary, marker)
-        platform_file_sync.sync_directory(marker.parent)
-    finally:
-        Path(temporary).unlink(missing_ok=True)
+        return windows_private_directory.create_private_file(target)
+    except FileExistsError:
+        return os.open(target, os.O_RDWR | os.O_BINARY)
+
+
+def _save(marker, state):
+    _private_pause_directory(marker.parent)
+    write_owner_private(marker, json.dumps(state))
+    platform_file_sync.sync_directory(marker.parent)
 
 
 def recover(dsn):

@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/cli/test_yoke_operations_cli_config_write.py::test_connection_set_https_direct_token_infers_transport",
- "reason": "AssertionError"
-}

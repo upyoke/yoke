@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/cli/test_browser_persistent_profile.py::test_ensure_profile_dir_is_owner_only",
- "reason": "AssertionError: C:\\Users\\runneradmin\\AppData\\Local\\Temp\\pytest-of-runneradmin\\pytest-0\\popen-gw1\\test_ensure_profile_dir_is_own0\\machine-home\\secrets\\capability-secrets\\acme\\browser-control\\profile is"
-}

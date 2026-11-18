@@ -58,6 +58,7 @@ def _execute(
     return json.loads(output.getvalue())
 
 
+@pytest.mark.posix_only(reason="Linux QA host: the package script runs on the apt host")
 def test_stock_fixture_removes_previous_direct_and_transitive_installs(
     monkeypatch, tmp_path
 ):
@@ -81,6 +82,7 @@ def test_stock_fixture_removes_previous_direct_and_transitive_installs(
     assert journal.stat().st_mode & 0o777 == 0o600
 
 
+@pytest.mark.posix_only(reason="Linux QA host: the package script runs on the apt host")
 def test_declared_present_package_does_not_leak_to_next_mission(monkeypatch, tmp_path):
     journal = tmp_path / "golden.qa-packages.json"
     inventory = {"tmux": "3.4"}
@@ -104,6 +106,7 @@ def test_declared_present_package_does_not_leak_to_next_mission(monkeypatch, tmp
     assert json.loads(journal.read_text())["base_packages"] == {"tmux": "3.5"}
 
 
+@pytest.mark.posix_only(reason="Linux QA host: the package script runs on the apt host")
 def test_ambient_security_upgrade_is_rebased_without_package_mutation(
     monkeypatch, tmp_path
 ):
@@ -120,6 +123,7 @@ def test_ambient_security_upgrade_is_rebased_without_package_mutation(
     assert json.loads(journal.read_text())["base_packages"] == inventory
 
 
+@pytest.mark.posix_only(reason="Linux QA host: the package script runs on the apt host")
 def test_fixture_removed_and_changed_packages_are_reinstated(monkeypatch, tmp_path):
     journal = tmp_path / "golden.qa-packages.json"
     inventory = {"removed": "1", "changed": "1", "ambient": "1"}
@@ -135,6 +139,7 @@ def test_fixture_removed_and_changed_packages_are_reinstated(monkeypatch, tmp_pa
     assert json.loads(journal.read_text())["base_packages"] == inventory
 
 
+@pytest.mark.posix_only(reason="Linux QA host: the package script runs on the apt host")
 def test_unrestorable_owned_change_preserves_journal_and_refuses(monkeypatch, tmp_path):
     journal = tmp_path / "golden.qa-packages.json"
     inventory = {"changed": "1"}
@@ -149,6 +154,7 @@ def test_unrestorable_owned_change_preserves_journal_and_refuses(monkeypatch, tm
     assert inventory == {"changed": "2"}
 
 
+@pytest.mark.posix_only(reason="Linux QA host: the package script runs on the apt host")
 def test_missing_attribution_refuses_before_mutation(monkeypatch, tmp_path):
     journal = tmp_path / "golden.qa-packages.json"
     journal.write_text(json.dumps({"base_packages": {"changed": "1"}}))
@@ -161,6 +167,7 @@ def test_missing_attribution_refuses_before_mutation(monkeypatch, tmp_path):
 @pytest.mark.parametrize(
     "declaration", [None, {"os_packages": None}, {"os_packages": {"present": "tmux"}}]
 )
+@pytest.mark.posix_only(reason="Linux QA host: the package script runs on the apt host")
 def test_malformed_attribution_refuses_before_mutation(
     monkeypatch, tmp_path, declaration
 ):
@@ -178,6 +185,7 @@ def test_malformed_attribution_refuses_before_mutation(
         _execute(monkeypatch, journal, {}, "restore", apt_failure=True)
 
 
+@pytest.mark.posix_only(reason="Linux QA host: the package script runs on the apt host")
 def test_declared_package_is_restored_after_interrupted_fixture(monkeypatch, tmp_path):
     journal = tmp_path / "golden.qa-packages.json"
     journal.write_text(
@@ -219,6 +227,7 @@ def test_declaration_on_unsupported_host_refuses_before_any_command():
 @pytest.mark.parametrize(
     "operation,packages", [("purge", ["tmux"]), ("install", ["xdotool"])]
 )
+@pytest.mark.posix_only(reason="Linux QA host: the package script runs on the apt host")
 def test_remote_apt_failure_keeps_operation_and_safe_output(
     monkeypatch, tmp_path, operation, packages
 ):

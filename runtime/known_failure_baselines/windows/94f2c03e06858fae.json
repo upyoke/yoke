@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/cli/test_pack_receipt.py::test_receipt_round_trip_preserves_the_version_render_baseline",
- "reason": "AssertionError: assert (33206 & 511) == 420"
-}

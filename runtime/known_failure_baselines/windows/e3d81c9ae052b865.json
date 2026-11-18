@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_rdp_desktop_view.py::test_view_uses_actual_geometry_stdin_and_always_closes_forward[linux-True]",
- "reason": "AssertionError: assert 438 == 384"
-}

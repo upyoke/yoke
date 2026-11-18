@@ -17,6 +17,7 @@ from pathlib import Path
 import subprocess
 import sys
 
+from yoke_contracts.owner_private_path import is_owner_private_directory, is_owner_private_file
 from yoke_contracts.process_ancestry import process_start_time
 from yoke_harness.session_launch_containment import record_supervised_native
 from yoke_harness import session_launch_handles
@@ -187,6 +188,6 @@ def test_the_directory_is_the_machine_cache_and_owner_only(
     path = native_handle_path(LAUNCH_ID)
 
     assert path.parent == cache / NATIVE_HANDLE_DIRECTORY_NAME
-    assert path.stat().st_mode & 0o777 == 0o600
-    assert path.parent.stat().st_mode & 0o777 == 0o700
+    assert is_owner_private_file(path)
+    assert is_owner_private_directory(path.parent)
     assert json.loads(path.read_text())["target_session_id"] == SESSION_ID

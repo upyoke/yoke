@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_api_token_bootstrap_safety.py::test_post_replace_directory_sync_failure_keeps_stored_token_active",
- "reason": "AssertionError: assert 438 == 384"
-}

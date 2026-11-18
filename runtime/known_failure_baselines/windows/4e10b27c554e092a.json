@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_machine_screenshot_client.py::test_screenshot_cli_keeps_only_accepted_png_and_fails_error_receipt[verified]",
- "reason": "AssertionError: assert (33206 & 511) == 384"
-}

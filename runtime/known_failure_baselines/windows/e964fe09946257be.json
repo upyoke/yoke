@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/cli/test_private_directory_creation.py::test_bootstrap_writers_create_private_home_before_config_lock[checklist]",
- "reason": "AssertionError: assert 511 == 448"
-}

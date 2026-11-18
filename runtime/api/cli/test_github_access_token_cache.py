@@ -6,7 +6,6 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 import json
 from pathlib import Path
-import stat
 from typing import Any
 import urllib.parse
 
@@ -15,6 +14,7 @@ import pytest
 from yoke_cli.config import github_user_tokens, machine_config
 from yoke_cli.config import github_git_credential_store as credential_store
 from yoke_contracts import github_app_tokens as token_contract
+from yoke_contracts.owner_private_path import is_owner_private_file
 from yoke_contracts.timestamps import format_instant
 
 from runtime.api.cli.github_user_token_test_support import (
@@ -124,7 +124,7 @@ def test_renewed_access_token_is_persisted_beside_the_refresh_token(
             "token_type": "bearer",
         },
     }
-    assert stat.S_IMODE(credential_path.stat().st_mode) == 0o600
+    assert is_owner_private_file(credential_path)
 
 
 def test_concurrent_callers_share_one_token_instead_of_revoking_each_other(

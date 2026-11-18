@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import os
-import secrets
 import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any
 
+from yoke_contracts.owner_private_path import create_owner_private_temporary
 from yoke_contracts.bounded_http_open_policy import (
     HttpFinalUrlError,
     HttpOpenPolicyError,
@@ -76,13 +76,8 @@ def download_artifact(url: str, destination: Path) -> int:
 
 
 def _write_response(response: Any, target: Path, deadline: float) -> int:
-    temporary = target.with_name(
-        f".{target.name}.tmp-{os.getpid()}-{secrets.token_hex(6)}"
-    )
-    descriptor = os.open(
-        temporary,
-        os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0),
-        0o600,
+    descriptor, temporary = create_owner_private_temporary(
+        prefix=f".{target.name}.tmp-", suffix="", directory=target.parent
     )
     try:
         with os.fdopen(descriptor, "wb") as stream:
@@ -95,7 +90,6 @@ def _write_response(response: Any, target: Path, deadline: float) -> int:
             stream.flush()
             os.fsync(stream.fileno())
         os.replace(temporary, target)
-        target.chmod(0o600)
         return written
     finally:
         temporary.unlink(missing_ok=True)

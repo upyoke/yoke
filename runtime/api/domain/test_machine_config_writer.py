@@ -11,6 +11,7 @@ import pytest
 from yoke_cli.config import writer as writer
 from yoke_cli.config.writer import MachineConfigWriteError
 from yoke_contracts.machine_config import schema as contract
+from yoke_contracts.owner_private_path import is_owner_private_file
 
 
 @pytest.fixture()
@@ -52,8 +53,7 @@ class TestSetConnection:
         assert entry["transport"] == "https"
         assert entry["api_url"] == "https://api.example"
         assert entry["credential_source"]["kind"] == "token_file"
-        mode = (home / "config.json").stat().st_mode & 0o777
-        assert mode == 0o600
+        assert is_owner_private_file(home / "config.json")
 
     def test_second_env_does_not_steal_active(self, home, tmp_path):
         _seed_https(home, tmp_path, env="prod")
@@ -307,7 +307,7 @@ class TestSetCredential:
         token_path = Path(result["credential_source"]["path"])
         assert token_path == home / "secrets" / "stage.token"
         assert token_path.read_text() == "s3cret-token\n"
-        assert token_path.stat().st_mode & 0o777 == 0o600
+        assert is_owner_private_file(token_path)
         entry = _config(home)["connections"]["stage"]
         assert entry["credential_source"]["path"] == str(token_path)
 

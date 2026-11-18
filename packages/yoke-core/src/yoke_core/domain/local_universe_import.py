@@ -21,6 +21,7 @@ from typing import Optional
 import psycopg
 
 from yoke_contracts.machine_config.schema import connection_is_protected
+from yoke_contracts.owner_private_path import is_owner_private_file
 from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_core.domain import (
     actors,
@@ -274,15 +275,24 @@ def _validated_archive_path(archive: Path | str) -> Path:
             f"the universe archive must be a regular file, not a symlink: {selected}"
         )
     getuid = getattr(os, "geteuid", None)
-    if callable(getuid) and (info.st_uid != getuid() or info.st_nlink != 1):
+    if (callable(getuid) and info.st_uid != getuid()) or info.st_nlink != 1:
         raise LocalUniverseImportError(
             "the universe archive must be a current-owner, single-link regular file"
         )
-    if stat.S_IMODE(info.st_mode) & 0o077:
+    if not is_owner_private_file(selected):
         raise LocalUniverseImportError(
-            f"the universe archive must be owner-only; run `chmod 600 {selected}`"
+            f"the universe archive must be owner-only; {_private_repair(selected)}"
         )
     return selected
+
+
+def _private_repair(selected: Path) -> str:
+    if os.name == "nt":
+        return (
+            "remove other users' access (icacls) so only your account, "
+            f"SYSTEM and Administrators can read {selected}"
+        )
+    return f"run `chmod 600 {selected}`"
 
 
 __all__ = [

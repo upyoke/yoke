@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 from yoke_contracts.machine_config.directories import create_private_directory
+from yoke_contracts.owner_private_path import is_owner_private_file, write_owner_private
 
 from dataclasses import dataclass
 import hashlib
 import json
 import os
 from pathlib import Path
-import secrets
 import stat
 import time
 from typing import Mapping
@@ -73,62 +73,35 @@ def _prune_expired(directory: Path, *, now: float) -> None:
 
 
 def _write_owner_only(path: Path, payload: Mapping[str, object]) -> bool:
-    temporary = path.parent / f".{path.name}.{secrets.token_hex(8)}.tmp"
-    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
-    if hasattr(os, "O_NOFOLLOW"):
-        flags |= os.O_NOFOLLOW
-    descriptor = None
+    body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+    if len(body) > _MAX_HANDOFF_BYTES:
+        return False
     try:
-        descriptor = os.open(temporary, flags, 0o600)
-        body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
-        if len(body) > _MAX_HANDOFF_BYTES:
-            return False
-        with os.fdopen(descriptor, "wb") as handle:
-            descriptor = None
-            handle.write(body)
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.replace(temporary, path)
-        path.chmod(0o600)
-        return True
+        write_owner_private(path, body)
     except OSError:
         return False
-    finally:
-        if descriptor is not None:
-            os.close(descriptor)
-        try:
-            temporary.unlink(missing_ok=True)
-        except OSError:
-            pass
+    return True
 
 
 def _read_owner_only(path: Path, *, now: float) -> dict[str, object] | None:
-    flags = os.O_RDONLY
-    if hasattr(os, "O_NOFOLLOW"):
-        flags |= os.O_NOFOLLOW
-    try:
-        descriptor = os.open(path, flags)
-    except OSError:
+    if not is_owner_private_file(path):
         return None
     try:
-        info = os.fstat(descriptor)
+        info = path.stat(follow_symlinks=False)
         if (
             not stat.S_ISREG(info.st_mode)
-            or stat.S_IMODE(info.st_mode) != 0o600
-            or info.st_uid != os.getuid()
             or now - info.st_mtime > HANDOFF_TTL_SECONDS
             or info.st_size > _MAX_HANDOFF_BYTES
         ):
             return None
-        body = os.read(descriptor, _MAX_HANDOFF_BYTES + 1)
+        with path.open("rb") as handle:
+            body = handle.read(_MAX_HANDOFF_BYTES + 1)
         if len(body) > _MAX_HANDOFF_BYTES:
             return None
         payload = json.loads(body)
         return payload if isinstance(payload, dict) else None
     except (OSError, UnicodeDecodeError, ValueError):
         return None
-    finally:
-        os.close(descriptor)
 
 
 def _environment_context(environ: Mapping[str, str]) -> dict[str, object] | None:

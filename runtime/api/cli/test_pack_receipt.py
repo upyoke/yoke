@@ -24,6 +24,12 @@ def test_receipt_round_trip_preserves_the_version_render_baseline(
 
     assert path == tmp_path / ".yoke" / "packs.json"
     assert load_receipt(tmp_path) == receipt
+
+
+@pytest.mark.posix_only(reason="POSIX mode bits: the receipt is a shared 0o644 project file")
+def test_receipt_is_written_world_readable(tmp_path: Path) -> None:
+    path = write_receipt(tmp_path, _receipt())
+
     assert path.stat().st_mode & 0o777 == 0o644
 
 
