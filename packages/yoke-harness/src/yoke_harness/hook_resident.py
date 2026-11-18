@@ -173,6 +173,7 @@ class _ResidentServer(_TransportServer):
                 evaluator="resident",
                 warm_duration_ms=int((time.monotonic() - self.started_at) * 1000),
                 client_timing_id=request.client_timing_id,
+                client_started_monotonic=request.client_started_monotonic,
             )
             hook_wait_ms = int((time.monotonic() - started) * 1000)
             if deferred is not None:

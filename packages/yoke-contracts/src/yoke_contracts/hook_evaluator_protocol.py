@@ -119,6 +119,8 @@ class HookEvaluatorRequest:
     environment: dict[str, str]
     revision: str
     client_timing_id: str = ""
+    #: The hook client's system-monotonic start; same machine as the resident.
+    client_started_monotonic: float | None = None
 
     def to_mapping(self) -> dict[str, Any]:
         return {
@@ -132,6 +134,7 @@ class HookEvaluatorRequest:
             "environment": self.environment,
             "revision": self.revision,
             "client_timing_id": self.client_timing_id,
+            "client_started_monotonic": self.client_started_monotonic,
         }
 
     @classmethod
@@ -155,6 +158,9 @@ class HookEvaluatorRequest:
             raise HookEvaluatorProtocolError("dry_run must be a boolean")
         raw_timing_id = value.get("client_timing_id")
         timing_id = "" if raw_timing_id in (None, "") else _event_id(raw_timing_id)
+        started = value.get("client_started_monotonic")
+        if isinstance(started, bool) or not isinstance(started, (int, float)):
+            started = None
         return cls(
             event_name=_string(value.get("event_name"), "event_name"),
             stdin=_string(value.get("stdin"), "stdin"),
@@ -165,6 +171,7 @@ class HookEvaluatorRequest:
             environment=dict(raw_environment),
             revision=_string(value.get("revision"), "revision"),
             client_timing_id=timing_id,
+            client_started_monotonic=None if started is None else float(started),
         )
 
 

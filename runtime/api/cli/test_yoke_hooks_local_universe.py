@@ -48,6 +48,9 @@ def test_bound_local_universe_runs_complete_engine_chain(monkeypatch) -> None:
     payload = json.loads(args[1])
     timing_id = payload["yoke_hook_evaluator"].pop("client_timing_id")
     assert str(UUID(timing_id)) == timing_id
+    # The hand-off stamps the hook's age since its client started.
+    age = payload["yoke_hook_evaluator"].pop("hook_age_ms")
+    assert isinstance(age, int) and age >= 0
     assert payload == {
         "session_id": "s1",
         "yoke_hook_evaluator": {

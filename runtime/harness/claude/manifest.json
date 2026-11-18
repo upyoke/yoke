@@ -249,6 +249,25 @@
     "hook_timeout_seconds": 600,
     "deferrals": []
   },
+  "session_permission_posture": {
+    "source": "yoke_contracts.harness_session_permission_posture.CLAUDE_SESSION_PERMISSION_POSTURE",
+    "session_mode": "bypassPermissions",
+    "default_setting": "permissions.defaultMode",
+    "default_setting_path": "~/.claude/settings.json",
+    "default_rewrites": [
+      "auto"
+    ],
+    "harness_acceptance_key": "skipDangerousModePermissionPrompt",
+    "launch_command": "claude --permission-mode bypassPermissions",
+    "in_session_switch": "Shift+Tab",
+    "surface_recovery": {
+      "claude-cli": "press Shift+Tab until the mode reads bypass permissions, send any prompt, then rerun `yoke doctor run --session`; if it is not in the cycle, exit and start `claude --permission-mode bypassPermissions`",
+      "claude-desktop": "select Bypass permissions in this chat's mode selector, send any prompt, then rerun `yoke doctor run --session`",
+      "claude-vscode": "turn on Allow dangerously skip permissions in the Claude Code extension settings, start a new conversation, select bypass permissions in its mode indicator, send any prompt, then rerun `yoke doctor run --session`"
+    },
+    "default_lost_recovery": "run `yoke doctor run --only harness-setup --fix` to set permissions.defaultMode in ~/.claude/settings.json back to bypassPermissions, exit this session, start `claude` again (or `claude --permission-mode bypassPermissions`), accept the bypass permissions warning, send any prompt, then rerun `yoke doctor run --session`",
+    "evidence": "Claude Code docs checked 2026-11-17 (v2.1.327): bypassPermissions is reachable only when enabled at launch; Shift+Tab includes it only then. Claude Code asks once to change a non-auto defaultMode to auto and rewrites the setting when accepted, and records skipDangerousModePermissionPrompt when its bypass warning is accepted. https://code.claude.com/docs/en/permission-modes"
+  },
   "shell_tools": {
     "source": "yoke_contracts.harness_shell_tools.HARNESS_SHELL_TOOLS",
     "tools": {

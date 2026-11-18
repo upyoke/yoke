@@ -17,6 +17,7 @@ post-transient-end revival must not depend on lifecycle events firing.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Optional
 from yoke_core.domain.db_savepoint import SavepointLostError
 
@@ -253,11 +254,21 @@ def ensure_registered_from_hook(
     actor_id: Optional[int] = None,
     project_id: Optional[int] = None,
     first_user_prompt: bool = False,
+    observed_at: Optional[datetime] = None,
 ) -> str:
-    """Return the authoritative registration outcome without changing hook decisions."""
+    """Return the authoritative registration outcome without changing hook decisions.
+
+    A hook observed at or before its ended row's end (a timed-out hook the
+    resident finished late) reports ``skipped:stale_replay`` on every path,
+    forced and first-prompt included, and never revives the row.
+    """
     if not session_id or session_id == "unknown" or conn is None:
         return "skipped:session_identity_missing"
     try:
+        from yoke_core.hooks.ended_session_stale_replay import stale_replay
+
+        if stale_replay(conn, session_id, payload_json, observed_at=observed_at):
+            return "skipped:stale_replay"
         unsaved_codex = not transcript_path and not first_user_prompt and _requires_start_transcript(executor_hint)
         if force_reregister and unsaved_codex:
             return "skipped:unsaved_transcript"

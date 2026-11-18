@@ -15,6 +15,10 @@ from yoke_contracts.harness_unattended_posture import (
     claude_config_path,
     claude_settings_path,
 )
+from yoke_contracts.harness_session_permission_posture import (
+    CLAUDE_BYPASS_ACCEPTANCE_KEY,
+    CLAUDE_DEFAULT_MODE_REWRITES,
+)
 from yoke_contracts.session_control.launch_permission_bypass import (
     CLAUDE_SETTINGS_PERMISSION_MODE,
     CLAUDE_SETTINGS_PERMISSION_MODE_KEY,
@@ -98,10 +102,9 @@ def configure_claude_cli_permission_mode(
     if not target.parent.is_dir():
         return []
     out = stream if stream is not None else sys.stdout
+    created = not target.is_file()
     try:
-        data = (
-            json.loads(target.read_text(encoding="utf-8")) if target.is_file() else {}
-        )
+        data = json.loads(target.read_text(encoding="utf-8")) if not created else {}
     except (OSError, json.JSONDecodeError) as exc:
         return [f"claude-code: {target} could not be read ({exc})"]
     if not isinstance(data, dict):
@@ -122,18 +125,30 @@ def configure_claude_cli_permission_mode(
     except OSError as exc:
         out.write(f"Could not write Claude CLI settings at {target}: {exc}\n")
         return [f"claude-code: {target} could not be updated ({exc})"]
-    unrecorded = ledger.record(
+    entries = [
         ledger.json_entry(
             target,
             [CLAUDE_PERMISSIONS_CONTAINER, CLAUDE_SETTINGS_PERMISSION_MODE_KEY],
             CLAUDE_SETTINGS_PERMISSION_MODE,
             existing_depth=existing,
+            derived=CLAUDE_DEFAULT_MODE_REWRITES,
             **({"previous": current} if had_current else {}),
         )
-    )
+    ]
+    if CLAUDE_BYPASS_ACCEPTANCE_KEY not in data:
+        # Claude Code writes this when a person accepts the bypass warning
+        # Yoke's default raises; absent now, uninstall removes it again.
+        entries.append(
+            ledger.json_entry(
+                target, [CLAUDE_BYPASS_ACCEPTANCE_KEY], True, existing_depth=0
+            )
+        )
+    if created:
+        entries.append(ledger.json_container_entry(target, []))
+    unrecorded = [line for line in map(ledger.record, entries) if line]
     return [
         f"claude-code: enabled unattended mode in {target} "
         f"({CLAUDE_PERMISSIONS_CONTAINER}."
         f"{CLAUDE_SETTINGS_PERMISSION_MODE_KEY})",
-        *([f"claude-code: {unrecorded}"] if unrecorded else []),
+        *(f"claude-code: {line}" for line in unrecorded[:1]),
     ]

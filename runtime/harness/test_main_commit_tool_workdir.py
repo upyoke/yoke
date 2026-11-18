@@ -6,6 +6,7 @@ from unittest.mock import Mock
 import pytest
 
 from yoke_contracts.hook_runner.main_commit import CLIENT_GIT_COMMIT_FACTS_KEY
+from yoke_contracts.hook_runner.repo_paths import normalize_repo_path
 from yoke_contracts.hook_runner.shell_parse import parse_shell
 from yoke_contracts.hook_runner.repo_paths import normalize_repo_path
 from yoke_harness.hooks import local_policy_common, main_commit_client
@@ -34,7 +35,7 @@ def test_commit_repo_root_resolves_repository_identity(tmp_path, via):
     from types import SimpleNamespace
     from unittest.mock import patch
 
-    repo = tmp_path / "repo"
+    repo = tmp_path / "repo with spaces"
     repo.mkdir()
 
     def git(*args):

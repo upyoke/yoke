@@ -81,6 +81,7 @@ def _request(
     stdin_data: str,
     dry_run: bool,
     client_timing_id: str,
+    client_started_monotonic: float | None = None,
 ) -> HookEvaluatorRequest:
     return HookEvaluatorRequest(
         event_name=event_name,
@@ -92,6 +93,7 @@ def _request(
         environment=dict(os.environ),
         revision=str(collect_execution_provenance().get("source_sha") or "unknown"),
         client_timing_id=client_timing_id,
+        client_started_monotonic=client_started_monotonic,
     )
 
 
@@ -225,7 +227,9 @@ def evaluate_with_resident(
     refusal = resident_transport_refusal(paths)
     if refusal is not None:
         raise ResidentUnavailable(*refusal, log_path=paths.log)
-    request = _request(event_name, stdin_data, dry_run, client_timing_id)
+    request = _request(
+        event_name, stdin_data, dry_run, client_timing_id, client_started_monotonic
+    )
     deadline = _budget_deadline(request.environment, client_started_monotonic)
     started = time.monotonic()
     launched: subprocess.Popen | None = None

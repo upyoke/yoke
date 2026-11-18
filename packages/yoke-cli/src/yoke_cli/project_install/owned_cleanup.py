@@ -115,22 +115,15 @@ def _lanes_dir(root: Path, payload: dict) -> Path:
 @serialized_mutation
 def _cleanup(root: Path, manifest: dict, *, path=None) -> dict:
     payload, cfg = load_payload(path)
-    projects = contract.projects_for_connection(payload)
     groups = contract.connection_project_maps(payload)
-    connection = contract.project_connection(payload) if groups else ""
+    owners = owning_connections(payload, root)
+    connection = registration_connection(payload, owners)
+    projects = normalize_projects(groups.get(connection))
     all_projects = [
         entry for entries in groups.values() for entry in normalize_projects(entries)
     ]
-    shared_connection = any(
-        key != connection
-        and any(
-            Path(entry["checkout"]).expanduser().resolve() == root
-            for entry in normalize_projects(entries)
-        )
-        for key, entries in groups.items()
-    )
     reason = (
-        ("checkout_shared_with_other_connection" if shared_connection else "")
+        ("checkout_shared_with_other_connection" if len(owners) > 1 else "")
         or _config_reason(manifest, cfg)
         or _shared_reason(root, all_projects, manifest.get("project_id"))
     )
@@ -219,6 +212,31 @@ def _cleanup(root: Path, manifest: dict, *, path=None) -> dict:
         "complete": registration["status"] in {"removed", "absent"}
         and all(row["status"] != "failed" for row in trust),
     }
+
+
+def owning_connections(payload: dict, root: Path) -> list[str]:
+    """Name every connection whose project map registers this exact checkout."""
+    return [
+        key
+        for key, entries in contract.connection_project_maps(payload).items()
+        if any(
+            Path(entry["checkout"]).expanduser().resolve() == root
+            for entry in normalize_projects(entries)
+        )
+    ]
+
+
+def registration_connection(payload: dict, owners: list[str]) -> str:
+    """Select the map holding this checkout's registration.
+
+    Machine uninstall runs under whichever connection is active, and each
+    universe numbers its projects from 1, so a checkout registered only on
+    another connection is retired from that connection's map.
+    """
+    if not contract.connection_project_maps(payload):
+        return ""
+    selected = contract.project_connection(payload)
+    return owners[0] if len(owners) == 1 and selected not in owners else selected
 
 
 def _config_reason(manifest: dict, cfg: Path) -> str:

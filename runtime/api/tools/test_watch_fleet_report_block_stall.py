@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
+from yoke_contracts.platform_process import pid_alive
 from yoke_core.domain.steering_fleet_report_render import REPORT_BEGIN, REPORT_END
 from yoke_core.tools import watch_fleet
 
@@ -79,20 +81,22 @@ def test_a_probe_blocked_inside_snapshot_read_aborts_and_is_reaped(
     from yoke_core.tools import watch_tail
     import time
     import psutil
-    from yoke_contracts import platform_process
 
     monkeypatch.setenv("YOKE_WATCH_PROGRESS_STALL_SECONDS", "0.5")
     monkeypatch.setattr(
         gate_stall_report, "diagnose_quiet_run",
         lambda _: gate_stall_report.StallReport(waiting_on="child process"),
     )
-    pid_path = tmp_path / "child.pid"
+    identity_path = tmp_path / "child.json"
     stdout = RecordingStream()
     started = time.monotonic()
     rc = run_probe_script(
         tmp_path,
-        "import os, pathlib, time\n"
-        f"pathlib.Path({str(pid_path)!r}).write_text(str(os.getpid()))\n"
+        "import json, os, pathlib, psutil, time\n"
+        "process = psutil.Process()\n"
+        "identity = dict(pid=process.pid, start_time=process.create_time(), "
+        "parent_pid=os.getppid())\n"
+        f"pathlib.Path({str(identity_path)!r}).write_text(json.dumps(identity))\n"
         "print('probe header', flush=True)\n"
         "def read_snapshot():\n"
         "    time.sleep(30)\n"
@@ -107,9 +111,9 @@ def test_a_probe_blocked_inside_snapshot_read_aborts_and_is_reaped(
         assert "aborted: fleet_probe_stalled" in text
         assert "waiting_on=child process" in text
         assert "fleet pass" not in text
-    pid = int(pid_path.read_text())
-    assert not platform_process.pid_alive(pid)
-    assert not psutil.pid_exists(pid)
+    identity = json.loads(identity_path.read_text())
+    assert not pid_alive(identity["pid"], identity["start_time"]), identity
+    assert not psutil.pid_exists(identity["pid"]), identity
     follower = RecordingStream()
     assert watch_tail.follow(tmp_path / "progress.log", out=follower) == 0
     assert "aborted: fleet_probe_stalled" in follower.getvalue()

@@ -2,6 +2,28 @@
 
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
 from yoke_core.domain.qa_plan_execution import QaPlanExecutionError, execute_plan
+from yoke_core.domain.qa_plan_execution_schema import TERMINAL_PLAN_EXECUTION_STATES
+
+
+def _standalone_refusal(case: dict) -> str:
+    """Name the one recipe that walks this mission from its execution's state."""
+    execution_id = case["standalone_execution_id"]
+    state = case.get("standalone_execution_state")
+    fresh = f"yoke qa plan run --plan {case['plan_id']} --project {case['project']}"
+    resume = f"`{fresh} --resume-execution-id {execution_id}`"
+    owner = f"qa_single_mission_standalone: this case belongs to standalone execution {execution_id}"
+    if state in TERMINAL_PLAN_EXECUTION_STATES:
+        return (
+            f"{owner}, which ended as {state} and can no longer walk it; "
+            f"start a fresh execution of its plan with `{fresh}`"
+        )
+    if state is None:
+        # A serving release older than this client does not report the state.
+        return (
+            f"{owner}; resume it with {resume}, or when that refuses "
+            f"qa_resume_terminal start a fresh execution with `{fresh}`"
+        )
+    return f"{owner}; resume it with {resume}"
 
 
 def execute_mission_case(case: dict, **kwargs) -> dict:
@@ -13,11 +35,7 @@ def execute_mission_case(case: dict, **kwargs) -> dict:
             "run its attached plan with `yoke qa plan run --help` for the subject flags"
         )
     if case.get("standalone_execution_id"):
-        raise QaCaseExecutionError(
-            "qa_single_mission_standalone: this case already belongs to a standalone execution; "
-            f"resume it with `yoke qa plan run --plan {case['plan_id']} --project {case['project']} "
-            f"--resume-execution-id {case['standalone_execution_id']}`"
-        )
+        raise QaCaseExecutionError(_standalone_refusal(case))
     subject = {"project": case["project"], "requirement_id": requirement_id}
     if case.get("deployment_run_id"):
         subject.update(

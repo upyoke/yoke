@@ -100,6 +100,17 @@ def handle_case_execution_begin(
                 checkout_path=selection.checkout_path,
                 expected_branch=selection.expected_branch,
             )
+            if result.get("standalone_execution_id") and (
+                result.get("runner_id") == "agent_mission"
+            ):
+                from yoke_core.domain.qa_standalone_context import (
+                    standalone_execution_state,
+                )
+
+                # The client refuses this case; the state picks its recovery.
+                result["standalone_execution_state"] = standalone_execution_state(
+                    conn, str(result["standalone_execution_id"])
+                )
             # The dispatcher just verified this session's claim to admit
             # the call. Hand that verified claim back on the contract so
             # the run records against it later instead of re-deriving
