@@ -10,10 +10,11 @@ from yoke_harness.native_windows.desktop import capture_desktop
 from yoke_harness.native_windows.journal import journal_operation
 from yoke_harness.native_windows.features import feature_states, features_absent
 from yoke_contracts.machine_qa_failures import HostControlLocalError
+from yoke_harness.native_windows.mission import WindowsMissionOperations
 from yoke_harness.native_windows.transport import WindowsTransport
 
 
-class SshNativeWindowsHostOperations(WindowsTransport):
+class SshNativeWindowsHostOperations(WindowsMissionOperations, WindowsTransport):
     """A standard Windows user; no WSL commands or Linux desktop intermediates."""
 
     def bind_qa_lease(self, lease_id):

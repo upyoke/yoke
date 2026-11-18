@@ -15,14 +15,24 @@ from yoke_contracts.qa_continuity_fingerprint import check_continuity
 from yoke_core.domain.machine_qa_continuity import continuity_failure
 from yoke_core.domain.qa_method_config_validation import validate_method_config
 from yoke_core.domain.machine_qa_method_contracts import validate_machine_method_config
+from yoke_harness.posix_mission_operations import PosixMissionOperations
 
 
 pytestmark = pytest.mark.posix_only(reason="runs the host continuity script with POSIX shell paths and utilities")
 
 
-class LocalControl:
+class LocalControl(PosixMissionOperations):
     def run_command(self, argv, *, timeout):
         return subprocess.run(argv, timeout=timeout, text=True, capture_output=True)
+
+
+def _posix_control(run_command):
+    """A POSIX host whose command route is ``run_command``."""
+    return type(
+        "ScriptedPosixControl",
+        (PosixMissionOperations,),
+        {"run_command": lambda self, *a, **k: run_command(*a, **k)},
+    )()
 
 
 def fingerprint(path):
@@ -67,8 +77,8 @@ def test_lost_continuity_refuses_before_a_case_starts(tmp_path, state):
     "reply", ["not json", '{"ok":true}', '{"ok":false,"failures":[]}']
 )
 def test_unprovable_checker_reply_refuses(reply):
-    control = SimpleNamespace(
-        run_command=lambda *a, **k: SimpleNamespace(returncode=0, stdout=reply)
+    control = _posix_control(
+        lambda *a, **k: SimpleNamespace(returncode=0, stdout=reply)
     )
     with pytest.raises(HostControlLocalError, match="could not be checked"):
         check_continuity(control, {"continuity_fingerprint": {"~/state": "a" * 64}})
@@ -80,7 +90,7 @@ def test_checker_timeout_refuses():
 
     with pytest.raises(HostControlLocalError) as caught:
         check_continuity(
-            SimpleNamespace(run_command=timeout),
+            _posix_control(timeout),
             {"continuity_fingerprint": {"~/state": "a" * 64}},
         )
     assert caught.value.code == "continuity_lost"

@@ -30,6 +30,7 @@ from yoke_core.domain.machine_qa_chain_restore import (
     restore_summary,
 )
 from yoke_core.domain.machine_qa_mission_scratch import (
+    MissionScratchStateUnknownError,
     MissionScratchUnavailableError,
 )
 
@@ -116,7 +117,11 @@ def run_end(args: list[str]) -> int:
         result = execute_agent_mission_walk_end(
             contract, timeout_seconds=parsed.timeout_seconds
         )
-    except (MissionScratchIdentityError, MissionScratchUnavailableError) as exc:
+    except (
+        MissionScratchIdentityError,
+        MissionScratchStateUnknownError,
+        MissionScratchUnavailableError,
+    ) as exc:
         print(f"{PROG_END}: {exc}", file=sys.stderr)
         return 2
     except Exception as exc:
@@ -167,9 +172,10 @@ def run_end(args: list[str]) -> int:
         )
     if not result["removed"]:
         failures.append(
-            f"mission_scratch_not_removed: {result['scratch_path']} still "
-            f"exists after removal exited {result['removal_exit_code']} "
-            f"({result['removal_stderr'] or 'no stderr'}). Report this as a "
+            f"mission_scratch_not_removed: {result['scratch_path']} was not "
+            f"proven gone: removal exited {result['removal_exit_code']} "
+            f"({result['removal_stderr'] or 'no stderr'}) and removal counts "
+            "only when it exits 0 and the probe finds no directory. Report this as a "
             "finding against your own walk, then re-run this command; if it "
             "still refuses, the operator must remove that path on the host "
             "before the machine is handed to anyone else"

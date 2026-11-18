@@ -15,7 +15,9 @@ from runtime.api.domain.agent_mission_qa_test_support import (
     ACTOR,
 )
 from yoke_contracts.api.function_call import ActorContext
-from yoke_contracts.qa_mission_scratch import mission_scratch_path
+from yoke_harness.posix_mission_operations import (
+    posix_mission_scratch_path as mission_scratch_path,
+)
 from yoke_core.domain.agent_mission_recording import (
     handle_agent_mission_access,
 )

@@ -18,6 +18,7 @@ import pytest
 
 from yoke_contracts.machine_qa_host_control import HOST_TEST_COMMAND
 from yoke_contracts.qa_mission_scratch import STALE_OWNER_MARKER
+from yoke_harness.posix_mission_operations import PosixMissionOperations
 from yoke_core.domain.machine_qa_mission_scratch import (
     MissionScratchUnavailableError,
     create_mission_scratch,
@@ -27,7 +28,7 @@ from yoke_core.domain.machine_qa_mission_scratch import (
 CURRENT = "01JQ8P4Z9K2M7V6T5R3N1B0CUR"
 
 
-class _YokeFreeHost:
+class _YokeFreeHost(PosixMissionOperations):
     """Runs ``/bin/sh`` argv locally under a Yoke-free PATH; others record."""
 
     def __init__(self, home: Path) -> None:

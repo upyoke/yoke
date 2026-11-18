@@ -14,7 +14,6 @@ from yoke_contracts.runtime_ports.ssh_mac_gui_session import get_ssh_mac_gui_ses
 from yoke_contracts.machine_qa_execution import GUI_SESSION_CONTEXT
 from yoke_contracts.machine_qa_failures import SSH_UNAVAILABLE, HostControlLocalError
 from yoke_core.domain.machine_qa_host_unreachable import unreachable_submission
-from yoke_contracts.qa_mission_scratch import mission_scratch_path
 
 from yoke_core.domain.agent_mission_preparation import (
     mission_manages_packages as _mission_manages_packages,
@@ -73,7 +72,7 @@ def _execution(
         }
     )
     control.baseline_preserved_temp_paths = tuple(
-        mission_scratch_path(str(value))
+        control.mission_scratch_path(str(value))
         for value in (contract.plan_execution_id, contract.continues_execution_id)
         if value
     )

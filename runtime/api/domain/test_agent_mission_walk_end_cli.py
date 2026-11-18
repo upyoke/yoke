@@ -5,7 +5,9 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from yoke_contracts.qa_mission_scratch import mission_scratch_path
+from yoke_harness.posix_mission_operations import (
+    posix_mission_scratch_path as mission_scratch_path,
+)
 from yoke_core.domain import (
     agent_mission_walk_cli,
     machine_qa_mission_walk,

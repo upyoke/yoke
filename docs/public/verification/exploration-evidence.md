@@ -78,10 +78,15 @@ inherit chain, owes a reset to the host's last verified baseline, and the
 next case on that host resets first.
 
 Missions are walked one at a time, in bundle order, because they share the
-plan's retained hosts. The walker dispatch carries the scratch path and two
-commands. `walk-start` runs before any other host command: it re-reaches the
-baseline the docket proved, since later cases ran (never in a continuation),
-restores declared OS packages and creates the `0700` scratch. `walk-end`:
+plan's retained hosts. The walker dispatch carries two commands.
+`walk-start` runs before any other host command: it re-reaches the baseline
+the docket proved, since later cases ran (never in a continuation), checks
+disk space, restores declared OS packages and creates the owner-only scratch,
+printing its `scratch_path`. The Test Machine's OS owns that location and its
+commands: `/tmp/yoke-qa-mission/<execution-id>` (mode `0700`) on macOS, Linux
+and WSL; `%USERPROFILE%\AppData\Local\YokeQaMission\<execution-id>`, with an
+ACL that names only the test user, on native Windows, where the profile reset
+preserves it. `walk-end`:
 
 ```text
 yoke --env <connection> qa mission walk-end --item PREFIX-N \
@@ -90,11 +95,14 @@ yoke --env <connection> qa mission walk-end --item PREFIX-N \
 
 Where the product reads a secret on stdin, pipe it and touch no disk at all.
 Otherwise every file carrying a token or password is staged inside that
-directory and nowhere else, never a loose `/tmp` path. `walk-end`
+directory and nowhere else, never a loose temp-directory path. `walk-end`
 removes the directory with plain OS commands (no Yoke install on the host),
 restores the declared starting state, and records that restore as a
 `starting_state_restore` artifact on the mission's run. A failed restore records reset debt. The command exits non-zero
-naming `mission_scratch_not_removed`, `starting_state_restore_failed` (with the
+naming `mission_scratch_not_removed` (removal counts only when the removal
+command exits 0 and the probe finds no directory), `mission_scratch_state_unknown`
+(the probe itself never ran: SSH lost, timed out or the command was missing;
+restore SSH access and re-run), `starting_state_restore_failed` (with the
 `yoke test-machine reset` recovery) or `starting_state_restore_unrecorded`.
 `yoke qa plan review-submit` refuses with `mission_walk_unfinished` while any
 mission's scratch is still on the host. Both delete a stale owner marker.

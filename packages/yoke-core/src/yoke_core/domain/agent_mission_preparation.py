@@ -17,16 +17,13 @@ from yoke_contracts.machine_qa_failures import (
     bounded_machine_qa_diagnostic,
     host_control_failure,
 )
-from yoke_contracts.qa_mission_scratch import mission_scratch_path
-from yoke_contracts.runtime_ports.test_machine_temp_state import get_test_machine_temp_state
+from yoke_contracts.qa_mission_scratch import mission_scratch_identity
 from yoke_core.domain.machine_qa_phase_heartbeat import heartbeat_during
 from yoke_core.domain.qa_controller_candidate import stamp_controller_runtime
 from yoke_contracts.machine_qa_result_safety import redact_machine_qa_value
 from yoke_core.domain.machine_qa_submission_artifacts import ensure_secret_free_result
 
 
-
-require_mission_disk_space = get_test_machine_temp_state().require_mission_disk_space
 
 def mission_manages_packages(contract: Any) -> bool:
     if not contract.cases:
@@ -81,7 +78,10 @@ def prepare_mission(
         "evidence": stamp_controller_runtime(
             {"baseline_outcome": outcome, "scratch_created": False}
         ),
-        "scratch_path": mission_scratch_path(str(contract.plan_execution_id)),
+        # The Test Machine's OS owns where its scratch lives; until the host
+        # creates it and names the path, report the scratch's identity
+        # (servers require a non-empty value even when preparation fails).
+        "scratch_path": mission_scratch_identity(str(contract.plan_execution_id)),
     }
     secrets: tuple[str, ...] = ()
     phase = "credential_materialization"
@@ -147,8 +147,8 @@ def prepare_mission(
         if progress_callback is not None:
             progress_callback()
         phase = "disk_preflight"
-        preparation["evidence"]["disk_preflight"] = require_mission_disk_space(
-            execution.control
+        preparation["evidence"]["disk_preflight"] = (
+            execution.control.require_mission_disk_space()
         )
         if mission_manages_packages(contract) and not contract.continues_execution_id:
             restore_host_packages = get_qa_host_package_fixture().restore_host_packages

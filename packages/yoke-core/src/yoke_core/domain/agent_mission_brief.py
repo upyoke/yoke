@@ -10,7 +10,6 @@ from yoke_contracts.machine_qa_execution import (
 from yoke_contracts.machine_qa_terminal_bridge import (
     TERMINAL_SCREEN_RECORDING_REQUIRED_ERROR_CODE,
 )
-from yoke_contracts.qa_mission_scratch import mission_scratch_path
 from yoke_core.domain.agent_mission_browser_identities import (
     walker_identity_dispatch,
 )
@@ -142,7 +141,6 @@ def _walker_dispatch(
         "LOCAL_PATH` from your machine. host-copy refuses paths inside the "
         "mission scratch directory on the target, which holds staged secrets. "
     )
-    scratch_path = mission_scratch_path(execution_id)
     walk_start_command = f"yoke qa mission walk-start {mission_flags}"
     run_id = int(case["capture_run_id"])
     walk_end_command = f"yoke qa mission walk-end {mission_flags} --run-id {run_id}"
@@ -197,10 +195,12 @@ def _walker_dispatch(
         + "Never install Yoke on a Test Machine to get a browser. "
         "Add `--gui-session` to the outer host command for macOS "
         "window-server or login-keychain work. This lease owns one "
-        f"owner-only staging directory on the target, `{scratch_path}`: pipe "
-        "a secret on stdin where the product accepts it, and otherwise stage "
-        "every file carrying a token or password inside that directory, "
-        "never a loose path under /tmp. Before you return, run "
+        "owner-only staging directory on the target, the `scratch_path` "
+        "walk-start prints in its `preparation`; its location depends on "
+        "the target's operating system. Pipe a secret on stdin where the "
+        "product accepts it, and otherwise stage every file carrying a token "
+        "or password inside that directory, never a loose path in a temp "
+        "directory. Before you return, run "
         f"`{walk_end_command}`: it removes that directory, restores the "
         "declared starting state, and records the restore on this mission's "
         "run. State the scratch removal and the restore in your report; "
@@ -225,7 +225,6 @@ def _walker_dispatch(
         "context_policy": "project-informed",
         "host_command": host_command,
         "host_copy_command": host_copy_command,
-        "scratch_path": scratch_path,
         "walk_start_command": walk_start_command,
         "walk_end_command": walk_end_command,
         "browser_setup_command": browser_setup_command,

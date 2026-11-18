@@ -16,11 +16,17 @@ from yoke_contracts.machine_config.test_machine import (
     validate_test_machine_os,
 )
 from yoke_contracts.machine_qa_execution import HostControlExecutionContract
+from yoke_contracts.qa_mission_scratch import MissionHostOperations
 from yoke_contracts.test_machine_types import HostActionResult
 
 
-class HostOperations(Protocol):
-    """What every kind of test machine must be able to do."""
+class HostOperations(MissionHostOperations, Protocol):
+    """What every kind of test machine must be able to do.
+
+    ``MissionHostOperations`` adds the exploratory-mission disk preflight,
+    scratch staging and continuity check, so a mission never runs one
+    operating system's commands on another.
+    """
 
     secret_values: Sequence[str]
 

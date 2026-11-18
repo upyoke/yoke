@@ -21,7 +21,9 @@ from yoke_contracts.machine_qa_execution import (
 from yoke_contracts.machine_qa_terminal_bridge import (
     TERMINAL_SCREEN_RECORDING_REQUIRED_ERROR_CODE,
 )
-from yoke_contracts.qa_mission_scratch import mission_scratch_path
+from yoke_harness.posix_mission_operations import (
+    posix_mission_scratch_path as mission_scratch_path,
+)
 from yoke_core.domain.agent_mission_recording import (
     handle_agent_mission_access,
     handle_agent_mission_ready,
@@ -149,7 +151,7 @@ def test_mission_parks_resumes_and_persists_the_main_report(
         in (walker["artifact_add_command"])
     )
     assert "WALK_STATUS: HUMAN_GATE" in walker["prompt"]
-    assert walker["scratch_path"] == scratch_path
+    assert "scratch_path" not in walker
     assert walker["walk_end_command"] in walker["prompt"]
 
     command_control = _CommandHostControl()

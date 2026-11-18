@@ -50,10 +50,11 @@ from yoke_harness.ssh_mac_terminal_bridge_check import (
     verify_terminal_app_control,
 )
 from yoke_contracts.test_machine_types import HostActionResult
+from yoke_harness.posix_mission_operations import PosixMissionOperations
 from yoke_harness.ssh_test_machine_transport import SSH_OPTIONS, SshTestMachineTransport
 
 
-class SshMacTransport(SshTestMachineTransport):
+class SshMacTransport(PosixMissionOperations, SshTestMachineTransport):
     """Bounded SSH operations shared by Test Machine client adapters."""
 
     def _host_facts(self) -> dict[str, Any]:

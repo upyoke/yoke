@@ -14,6 +14,7 @@ from yoke_contracts.machine_config.test_machine import (
     validate_test_machine_settings,
 )
 from yoke_contracts.machine_qa_failures import HostControlLocalError
+from yoke_contracts.qa_mission_scratch import MissionHostOperations
 from yoke_contracts.test_machine_types import HostActionResult
 
 from yoke_contracts.machine_config.capability_secret_store import (
@@ -32,7 +33,7 @@ if TYPE_CHECKING:
     )
 
 
-class HostControl(Protocol):
+class HostControl(MissionHostOperations, Protocol):
     """Structured operations an approved controlled-host adapter implements."""
 
     home: str
