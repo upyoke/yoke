@@ -10,9 +10,8 @@ Declare a Machine case's starting state and read its subject, execution and evid
 
 Test Machine cases (`host_control` and exploratory missions declaring a host)
 declare starting state. A hostless mission explores on the controller and
-declares no host starting state. Authoring, `qa.requirement.add`, and materialization refuse missing state;
-`HC-qa-plan-machine-starting-state` fails stored cases missing it, and
-`yoke qa plan get` shows each choice:
+declares no host starting state. Authoring, `qa.requirement.add`, and
+materialization refuse missing state. `yoke qa plan get` shows each choice:
 
 - `host_baselines: ["fresh-host"]` (or `shell-preconfigured`, or both): the
   runner resets to each named baseline; one requirement row per baseline. [Temporary cleanup](test-machine-desktop.md) preserves baseline/home/live scratch and reports freed space.
