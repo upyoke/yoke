@@ -122,7 +122,7 @@ FAILURE_REASON_MAX_CHARS = 600
 _URL_RE = re.compile(r"https?://[^\s'\"<>]+", re.IGNORECASE)
 FRESH_STATUS_ERROR_CODES = frozenset(
     {
-        "config_missing",
+        "machine_not_set_up",
         "schema_version",
         "connections_required",
         "active_env_required",

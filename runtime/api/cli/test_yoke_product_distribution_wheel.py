@@ -84,7 +84,7 @@ def test_product_wheels_exercise_installer_plan_surfaces(
         env,
         ["status", "--json"],
         1,
-        "config_missing",
+        "machine_not_set_up",
     )
     status_payload = json.loads(status.stdout)
     assert status_payload["ok"] is False

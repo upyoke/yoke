@@ -42,7 +42,7 @@ def status(argv, env, cwd):
         if row.get("severity") == "error"
         and row.get("code")
         not in {
-            "config_missing",
+            "machine_not_set_up",
             "connections_required",
             "active_env_required",
             "active_env",

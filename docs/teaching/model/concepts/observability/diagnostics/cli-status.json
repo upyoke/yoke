@@ -3,5 +3,7 @@
  "title": "CLI status",
  "status": "draft-copy",
  "page": "observability",
- "position": 0
+ "position": 0,
+ "current": "On a machine with no machine config, yoke status reports one machine_not_set_up issue whose hint is Run `yoke setup`; it omits env, path and project-mapping issues that setup itself resolves. The folder line reads checkout: only when the folder has .git; any other folder shows folder: <path> (not a git checkout).",
+ "sources": ["packages/yoke-contracts/src/yoke_contracts/machine_config/setup_status.py", "packages/yoke-cli/src/yoke_cli/config/status.py", "runtime/api/cli/test_status_machine_not_set_up.py"]
 }
