@@ -188,13 +188,6 @@ that its own harness CLI is signed in and runs `yoke` without approval
 prompts. Other installed harnesses do not block it. Agent setup ends with this
 check and `/yoke onboard` runs it first.
 
-The sign-in checks (`harness-cli-auth`, `session-harness-cli-auth`) tell a
-signed-out CLI from a probe that failed. A CLI that answers signed out warns
-`HARNESS_SIGNED_OUT` with its sign-in command. A status command that times out,
-exits non-zero or prints no readable status warns `HARNESS_AUTH_PROBE_FAILED`,
-naming the command and how it failed; signing in again does not fix it, so
-rerun the named command in the same shell to see why it fails.
-
 The session posture check reads the active mode for its registered surface:
 
 - Claude CLI, Desktop and VS Code read the latest parent-session hook's
