@@ -131,7 +131,7 @@ class TestCaptureFirstWriteTargets:
         neither operand may resolve under the main checkout.
         """
         lane = "/Users/dev/yoke/.worktrees/YOK-1"
-        payload = _bash(_capture_first(f'git -C {lane} commit -m "msg"'))
+        payload = _bash(_capture_first(f'git -C {Path(lane).as_posix()} commit -m "msg"'))
         assert extract_payload_write_targets(payload) == [CAPTURE_TEMPLATE, lane]
 
     def test_os_temp_root_capture_resolves_there_too(self):
@@ -241,7 +241,7 @@ class TestCaptureFirstLaneGuard:
 
     def test_lane_git_commit_with_temp_capture_is_allowed(self, conn, repo):
         worktree = _seed_lane(conn, repo)
-        command = _capture_first(f'git -C {worktree} commit -m "msg"')
+        command = _capture_first(f'git -C {Path(worktree).as_posix()} commit -m "msg"')
         verdict = lint_lane_main_write.evaluate_pre_tool_use({
             "session_id": "sid-capture",
             "tool_name": "Bash",
@@ -264,7 +264,7 @@ class TestCaptureFirstLaneGuard:
         self, conn, repo,
     ):
         worktree = _seed_lane(conn, repo)
-        command = f'_d=$(mktemp -d {CAPTURE_TEMPLATE})\ngit -C "$_d" add {worktree}/f.py'
+        command = f'_d=$(mktemp -d {CAPTURE_TEMPLATE})\ngit -C "$_d" add {Path(worktree).as_posix()}/f.py'
         verdict = lint_lane_main_write.evaluate_pre_tool_use({
             "session_id": "sid-capture",
             "tool_name": "Bash",
@@ -330,7 +330,7 @@ class TestCaptureFirstLaneGuard:
                 "session_id": "sid-capture",
                 "tool_name": "Bash",
                 "cwd": str(repo),
-                "tool_input": {"command": f'out={target}\necho hi > "$out"'},
+                "tool_input": {"command": f'out={Path(target).as_posix()}\necho hi > "$out"'},
             })
         assert verdict.allow is False
         assert str(target) in verdict.reason

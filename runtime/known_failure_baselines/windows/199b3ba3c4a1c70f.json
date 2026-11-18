@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_lint_destructive_git_modes.py::TestDenyAndSuppression::test_token_records_attempt_still_denies",
- "reason": "AssertionError: unexpectedly None"
-}

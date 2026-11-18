@@ -240,7 +240,7 @@ def test_path_globs_use_the_executing_filesystem(
     if operand == "home":
         token = f"~/Downloads/{stem}*"
     elif operand == "absolute":
-        token = str(downloads / f"{stem}*")
+        token = (downloads / f"{stem}*").as_posix()
     else:
         token = f"../home/Downloads/{stem}*"
     payload = _payload(f"ls {token}", cwd=str(cwd))
@@ -291,8 +291,9 @@ def test_home_glob_repair_enumerates_expanded_parent(tmp_path: Path, monkeypatch
     cwd = tmp_path / "repository"
     cwd.mkdir()
     reason = _eval("ls ~/Downloads/Meeting*.pdf", cwd=str(cwd))[0]
-    assert str(notes) in reason
-    assert f"'{downloads}'" in reason
+    # Repair commands and their candidates use Bash spellings on every host.
+    assert notes.as_posix() in reason
+    assert f"'{downloads.as_posix()}'" in reason
     assert "Checked pattern:" in reason
 
 
@@ -306,9 +307,9 @@ def test_cd_and_unexpanded_globs_follow_the_segment_base(tmp_path: Path) -> None
     (tmp_path / "docs" / "deploy.md").write_text("ok\n", encoding="utf-8")
     checked = str(other.resolve())
     cases = [
-        (f"cd {other} && ls infra/Pulumi*.yaml*", True, ""),
-        (f"cd {other} && ls nomatch/*", False, checked),
-        (f"cd {other} && ls docs/deploy*", False, checked),
+        (f"cd {Path(other).as_posix()} && ls infra/Pulumi*.yaml*", True, ""),
+        (f"cd {Path(other).as_posix()} && ls nomatch/*", False, checked),
+        (f"cd {Path(other).as_posix()} && ls docs/deploy*", False, checked),
         ("S=/x; wc -l $S/*.md", True, ""),
         ("wc -l ${S}/*.md", True, ""),
         ("cd $D && ls a/*", True, ""),

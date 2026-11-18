@@ -102,11 +102,11 @@ _POLICY_HOMES: dict[str, PolicyPlacement] = {
     _D + "lint_main_commit": _facts(CLIENT_GIT_COMMIT_FACTS_KEY),
     _D + "lint_session_cwd": _facts(
         CLIENT_MACHINE_HOME_KEY,
-        SOURCE_ROOT_KEY,
+        SOURCE_ROOT_KEY, WRITE_TARGETS_KEY,
     ),
     _D + "observe_pre": _facts(HEADLESS_LAUNCH_KEY),
     _D + "path_claim_bash_guard": _facts(
-        CLIENT_SCRATCH_ROOT_KEY, CLIENT_MACHINE_HOME_KEY
+        CLIENT_SCRATCH_ROOT_KEY, CLIENT_MACHINE_HOME_KEY, WRITE_TARGETS_KEY
     ),
     _D + "turn_end_promised_work_gate": _facts(TURN_END_EVIDENCE_KEY),
     _H + "session_message_delivery": _facts(
@@ -128,7 +128,7 @@ _POLICY_HOMES: dict[str, PolicyPlacement] = {
     _D + "lint_subagent_fleet_messaging": _SERVER,
     _D + "lint_tc_label": _SERVER,
     _D + "lint_watcher_module_form": _SERVER,
-    _D + "lint_workspace_cwd_match": _SERVER,
+    _D + "lint_workspace_cwd_match": _facts(WRITE_TARGETS_KEY, CLIENT_MACHINE_HOME_KEY),
     _D + "lint_write_path": _SERVER,
     _D + "lint_yoke_adapter_stderr_visibility": _SERVER,
     _D + "lint_yoke_quoted_shell_substitution": _SERVER,

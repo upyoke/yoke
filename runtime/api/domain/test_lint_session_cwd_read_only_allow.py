@@ -130,7 +130,7 @@ class TestNonReadOnlyStillDenies:
         verdict = lint_session_cwd.evaluate_pre_tool_use({
             "session_id": "sid-1",
             "cwd": str(repo),
-            "tool_input": {"command": f"touch {repo}/.worktrees/unclaimed/out.py"},
+            "tool_input": {"command": f"touch {Path(repo).as_posix()}/.worktrees/unclaimed/out.py"},
         })
 
         assert verdict.allow is False

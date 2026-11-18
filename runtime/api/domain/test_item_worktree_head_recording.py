@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pytest
 from contextlib import nullcontext
 from types import SimpleNamespace
 
@@ -29,13 +30,14 @@ def _lane(test_db, *, item_id: int, path: str) -> None:
     test_db.commit()
 
 
-def test_records_the_head_for_the_exact_active_checkout(test_db) -> None:
-    _lane(test_db, item_id=941, path="/tmp/yoke-941")
+@pytest.mark.parametrize("path", ["/tmp/yoke-941", r"C:\Repo\.worktrees\YOK-941"])
+def test_records_the_head_for_the_exact_active_checkout(test_db, path) -> None:
+    _lane(test_db, item_id=941, path=path)
 
     lane_id = record_head_for_checkout(
         test_db,
         project_id=1,
-        checkout_path="/tmp/yoke-941",
+        checkout_path=path,
         commit_sha="a" * 40,
     )
 

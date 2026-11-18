@@ -5,6 +5,7 @@ from __future__ import annotations
 from contextlib import nullcontext
 
 import pytest
+from yoke_contracts.hook_runner.repo_paths import normalize_repo_path
 
 from runtime.api.fixtures.backlog import insert_item
 from yoke_contracts.api.function_call import (
@@ -168,7 +169,7 @@ def test_path_record_registration_requires_the_item_claim() -> None:
         "//?/C:/lane",
     ],
 )
-def test_client_path_round_trip_preserves_spelling(test_db, monkeypatch, path):
+def test_client_path_round_trip_uses_portable_storage_form(test_db, monkeypatch, path):
     from yoke_core.domain.handlers import item_worktrees as lane_handlers
     from yoke_core.domain.item_worktree_resolution import recorded_item_worktree_records
 
@@ -183,15 +184,15 @@ def test_client_path_round_trip_preserves_spelling(test_db, monkeypatch, path):
         )
     )
     assert recorded.primary_success, recorded.error
-    assert recorded.result_payload["worktree"]["path"] == path
+    assert recorded.result_payload["worktree"]["path"] == normalize_repo_path(path)
     listed = item_worktree_paths.handle_list(_request("item_worktrees.list", 983))
-    assert listed.result_payload["worktrees"][0]["path"] == path
+    assert listed.result_payload["worktrees"][0]["path"] == normalize_repo_path(path)
     fetched = lane_handlers.handle_get(
         _request("item_worktrees.get", 983, payload={"lane_role": "worker"})
     )
-    assert fetched.result_payload["worktree"]["path"] == path
+    assert fetched.result_payload["worktree"]["path"] == normalize_repo_path(path)
     resolved = recorded_item_worktree_records(test_db, 983, "/repo", ".worktrees")
-    assert next(row for row in resolved if row["id"] == lane["id"])["path"] == path
+    assert next(row for row in resolved if row["id"] == lane["id"])["path"] == normalize_repo_path(path)
 
 
 @pytest.mark.parametrize(
@@ -266,7 +267,7 @@ def test_client_path_registration_preserves_safeguards(
         test_db.execute("UPDATE items SET status='done' WHERE id=%s", (985,))
     else:
         test_db.execute(
-            "UPDATE item_worktrees SET path=%s WHERE id=%s", (path, foreign["id"])
+            "UPDATE item_worktrees SET path=%s WHERE id=%s", (normalize_repo_path(path), foreign["id"])
         )
     test_db.commit()
     before = list_item_worktrees(test_db, 985)

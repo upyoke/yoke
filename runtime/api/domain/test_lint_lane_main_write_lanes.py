@@ -204,3 +204,9 @@ def test_lane_suggestion_never_resolves_against_server_filesystem(tmp_path, targ
     assert suggestion == (
         "" if target.startswith(".git/") else str(root / ".worktrees" / "held" / target)
     )
+
+
+def test_windows_lane_recovery_keeps_source_suffix_across_drive_case():
+    claim = ClaimedWorktree(item_id=1, task_num=None, worktree_path="C:/Repo/.worktrees/held")
+    assert lane_equivalent_path("C:/Repo/source.py", claim).replace("\\", "/") == "C:/Repo/.worktrees/held/source.py"
+    assert lane_equivalent_path("c:/Repo/.worktrees/foreign/sub/file.py", claim).replace("\\", "/") == "C:/Repo/.worktrees/held/sub/file.py"

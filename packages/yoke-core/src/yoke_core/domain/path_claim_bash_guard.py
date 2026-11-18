@@ -12,6 +12,8 @@ orientation, refinement, or verification.
 
 from __future__ import annotations
 
+from yoke_contracts.hook_runner.bash_paths import with_client_paths
+
 from yoke_core.hooks.decision_render import render_codex_decision
 from yoke_core.domain.events_project_identity import working_project_for_event
 
@@ -56,11 +58,9 @@ from yoke_core.domain.path_claim_target_resolver import (
 )
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
-
 # Verbs the parser may emit for a sentinel mutation tuple.
 _AMBIGUOUS_VERB = "ambiguous"
 _SUPPRESSED_VERB = "suppressed"
-
 
 @dataclass
 class BashGuardVerdict:
@@ -80,6 +80,7 @@ def _resolve_cwd(record: ToolEventRecord) -> str:
     return (record.cwd or "").strip()
 
 
+@with_client_paths(refuse=lambda message: BashGuardVerdict(outcome="deny", narrative=message))
 def evaluate_payload(
     payload: Dict[str, Any],
     claim: Optional[Dict[str, Any]] = None,

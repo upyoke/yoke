@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_lint_destructive_git_config_resolution.py::ConfigResolutionTest::test_narrative_reports_threatened_state",
- "reason": "TypeError: 'NoneType' object is not subscriptable"
-}

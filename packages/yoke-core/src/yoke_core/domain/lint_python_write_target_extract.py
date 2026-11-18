@@ -18,7 +18,7 @@ from __future__ import annotations
 import ast
 import posixpath
 from dataclasses import dataclass
-from pathlib import PurePath
+from pathlib import PurePosixPath as PurePath
 from typing import List, Optional, Sequence, Tuple
 
 from yoke_contracts.free_paths import STATIC_FREE_PATH_PREFIXES

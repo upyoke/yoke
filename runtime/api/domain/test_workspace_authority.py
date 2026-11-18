@@ -10,6 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from yoke_contracts.hook_runner.bash_paths import resolve_bash_path
 
 from yoke_core.domain.workspace_authority import (
     SESSION_ID_ENV_VAR,
@@ -51,8 +52,8 @@ def test_main_cwd_target_with_worktree_claim_refuses(
     msg = str(exc.value)
     assert "refusing write" in msg
     assert SESSION_A in msg
-    assert "/opt/yoke-test/.worktrees/YOK-42" in msg
-    assert "/opt/yoke-test/runtime/x.py" in msg
+    assert str(Path("/opt/yoke-test/.worktrees/YOK-42").resolve()) in msg.replace("\\\\", "\\")
+    assert str(Path("/opt/yoke-test/runtime/x.py").resolve()) in msg.replace("\\\\", "\\")
 
 
 def test_session_with_only_no_worktree_claims_is_no_op(
@@ -106,7 +107,7 @@ def test_free_path_allowlist_passes(
     _seed_project(patch_conn, "/opt/yoke-test")
     _seed_item(patch_conn, item_id=42, branch="YOK-42")
     _seed_claim(patch_conn, SESSION_A, item_id=42)
-    assert_target_under_session_work_authority(Path("/tmp/scratch.txt"))
+    assert_target_under_session_work_authority(Path(resolve_bash_path("/tmp/scratch.txt")))
 
 
 def test_multiple_active_claims_first_covering_match_passes(

@@ -11,11 +11,11 @@ its variable; that is how one call cleans up after itself.
 
 from __future__ import annotations
 
-import os
 import re
 from dataclasses import dataclass
 from typing import Iterator, Sequence
 
+from yoke_contracts.hook_runner.bash_paths import resolve_bash_path
 from yoke_contracts.hook_runner.local_privacy_command_parse import unwrap
 from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
 from yoke_contracts.machine_config.scratch_roots import scratch_path_roots
@@ -125,10 +125,7 @@ def _substitute(raw: str, bindings: dict[str, object]) -> str | None:
 
 
 def _resolve(raw: str, cwd: str) -> str:
-    expanded = os.path.expanduser(raw)
-    if not os.path.isabs(expanded):
-        expanded = os.path.join(cwd or os.getcwd(), expanded)
-    return os.path.normpath(expanded)
+    return resolve_bash_path(raw, cwd).replace("\\", "/")
 
 
 def _sweeps_shared_root(path: str, roots: Sequence[str]) -> bool:
@@ -147,6 +144,7 @@ def recursive_rm_refusal(
 ) -> RecursiveRmRefusal | None:
     """Return the first recursive delete this command must not run, if any."""
     shared_roots = list(roots) if roots is not None else scratch_path_roots()
+    shared_roots = [_resolve(root, cwd) for root in shared_roots]
     for raw_targets, bindings, segment_cwd in _walk(command or "", cwd):
         unresolved: list[str] = []
         shared: list[str] = []

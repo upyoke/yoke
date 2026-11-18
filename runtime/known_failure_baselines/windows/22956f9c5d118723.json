@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/test_path_claims_boundary_aggregation.py::TestAggregationGitignoreFilter::test_gate_accepts_when_only_undeclared_paths_are_gitignored",
- "reason": "AssertionError: {'error': \"Path-claim boundary check blocked transition to 'reviewed-implementation'."
-}

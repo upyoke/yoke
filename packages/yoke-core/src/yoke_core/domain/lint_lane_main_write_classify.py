@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from yoke_contracts.hook_runner.bash_paths import is_absolute, join_path, canonical_native_path, resolve_bash_path
+
 import fnmatch
-import os
 import re
 from typing import Any, Mapping, Sequence
 
@@ -140,7 +141,8 @@ def lane_path_exists_on_disk(
     live = live_worktrees(payload)
     if live is None:
         return True
-    return raw in {path.rstrip("/") for path in live}
+    normalized = canonical_native_path(raw).replace("\\", "/").rstrip("/").casefold()
+    return normalized in {canonical_native_path(path).replace("\\", "/").rstrip("/").casefold() for path in live}
 
 
 def is_write_operation(
@@ -178,7 +180,7 @@ def is_write_operation(
 
 
 def _client_target(
-    payload: Mapping[str, Any], raw: str, fallback_cwd: str
+    payload: Mapping[str, Any], raw: str, fallback_cwd: str, *, shell_kind: str = "bash"
 ) -> tuple[str, bool]:
     """Return ``(path, ignored)`` for one operand.
 
@@ -196,7 +198,7 @@ def _client_target(
     fact = write_target(payload, raw)
     client_path = fact.get("path") if fact is not None else None
     client = (
-        (client_path, fact.get("ignored") is True)
+        (canonical_native_path(client_path), fact.get("ignored") is True)
         if isinstance(client_path, str)
         else None
     )
@@ -204,9 +206,9 @@ def _client_target(
     if target.startswith("~"):
         # No client home: only the client can say where this names.
         return client or (target, False)
-    if os.path.isabs(target) or not fallback_cwd.strip():
-        return client or (os.path.normpath(target), False)
-    target = os.path.normpath(os.path.join(fallback_cwd, target))
+    if is_absolute(target) or not fallback_cwd.strip():
+        return client or (resolve_bash_path(target, fallback_cwd, shell=shell_kind), False)
+    target = canonical_native_path(join_path(fallback_cwd, target))
     if client is not None and client[0] == target:
         return client
     return target, False
@@ -263,7 +265,7 @@ def collect_main_write_targets(
     for raw in raw_targets:
         if not isinstance(raw, str) or not raw.strip():
             continue
-        target, ignored = _client_target(payload, raw, fallback_cwd)
+        target, ignored = _client_target(payload, raw, fallback_cwd, shell_kind=payload_shell_kind(payload) if tool_name == "Bash" else "powershell")
         claim = matching_claim_for_main_target(target, claims, repo_roots)
         if claim is None:
             continue

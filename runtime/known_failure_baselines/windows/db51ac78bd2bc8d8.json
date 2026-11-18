@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_lint_session_cwd_repo_command.py::TestClaimedLaneCommands::test_targetless_git_write_names_exact_claimed_lane[git commit -m 'save it']",
- "reason": "AssertionError: assert True is False"
-}

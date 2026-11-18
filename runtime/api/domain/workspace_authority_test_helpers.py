@@ -8,6 +8,7 @@ from yoke_contracts.timestamps import parse_instant
 import json
 import os
 import tempfile
+from pathlib import Path
 
 import pytest
 
@@ -120,7 +121,7 @@ _REGISTERED_CHECKOUT: "str | None" = None
 
 def _seed_project(conn, checkout: str, project: str = "yoke") -> None:
     global _REGISTERED_CHECKOUT
-    _REGISTERED_CHECKOUT = str(checkout)
+    _REGISTERED_CHECKOUT = str(Path(checkout).absolute())
     conn.execute(
         "INSERT INTO projects (id, slug) VALUES (%s, %s)",
         (_project_id(project), project),

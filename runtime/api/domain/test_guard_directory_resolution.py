@@ -13,6 +13,7 @@ from pathlib import Path
 import pytest
 
 from runtime.api.domain import test_lint_lane_main_write_workdir as workdir_guard
+from yoke_contracts.hook_runner.bash_paths import resolve_bash_path
 from yoke_contracts.hook_runner.command_extract import substitute_bound_variables
 from yoke_contracts.hook_runner.shell_parse import advance_cwd, parse_shell
 from yoke_core.domain.command_workdir import (
@@ -34,7 +35,7 @@ def _payload(command: str, cwd: str) -> dict:
 
 
 def _resolved(path) -> str:
-    return str(Path(path).resolve())
+    return resolve_bash_path(str(path))
 
 
 def test_mktemp_bound_cd_moves_the_execution_cwd(tmp_path):
@@ -57,7 +58,7 @@ def test_mktemp_bound_cd_moves_later_segments(tmp_path):
 def test_literal_lane_variable_cd_resolves_to_the_lane(tmp_path):
     lane = tmp_path / "main" / ".worktrees" / "YOK-1"
     lane.mkdir(parents=True)
-    command = f"L={lane}; cd ${{L}} && echo x > f.py"
+    command = f"L={Path(lane).as_posix()}; cd ${{L}} && echo x > f.py"
     assert command_execution_cwd(_payload(command, str(tmp_path / "main"))) == (
         _resolved(lane)
     )
@@ -66,7 +67,7 @@ def test_literal_lane_variable_cd_resolves_to_the_lane(tmp_path):
 def test_variable_naming_main_still_resolves_to_main(tmp_path):
     main = tmp_path / "main"
     main.mkdir()
-    command = f"S={main}; cd $S; echo x > f.py"
+    command = f"S={Path(main).as_posix()}; cd $S; echo x > f.py"
     assert command_execution_cwd(_payload(command, str(tmp_path))) == _resolved(main)
 
 
@@ -74,7 +75,7 @@ def test_variable_bound_after_the_cd_does_not_move_it(tmp_path):
     main = tmp_path / "main"
     lane = main / ".worktrees" / "YOK-1"
     lane.mkdir(parents=True)
-    command = f"cd $S && echo x>f.py; S={lane}"
+    command = f"cd $S && echo x>f.py; S={Path(lane).as_posix()}"
     payload = _payload(command, str(main))
     assert command_execution_cwd(payload) == _resolved(main)
     cwd, segment_cwds = command_segment_cwds(payload)
@@ -139,7 +140,7 @@ def test_assignment_statements_run_nothing():
 )
 def test_guard_allows_a_variable_cd_out_of_main(lane_repo, command):
     repo, lane = lane_repo
-    verdict = _evaluate(command.format(lane=lane), cwd=repo)
+    verdict = _evaluate(command.format(lane=Path(lane).as_posix()), cwd=repo)
     assert verdict.allow is True, verdict.reason
 
 
@@ -154,6 +155,6 @@ def test_guard_allows_a_variable_cd_out_of_main(lane_repo, command):
 def test_guard_still_denies_main_writes(lane_repo, command, cwd_is_lane):
     repo, lane = lane_repo
     verdict = _evaluate(
-        command.format(repo=repo, lane=lane), cwd=lane if cwd_is_lane else repo
+        command.format(repo=Path(repo).as_posix(), lane=Path(lane).as_posix()), cwd=lane if cwd_is_lane else repo
     )
     assert verdict.allow is False

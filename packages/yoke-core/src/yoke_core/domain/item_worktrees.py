@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any, Optional
+from yoke_contracts.hook_runner.repo_paths import normalize_repo_path
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import instant_parameter, utc_now
@@ -90,7 +91,7 @@ def record_item_worktree(
 ) -> dict[str, Any]:
     """Create or refresh one active lane while preserving released history."""
     clean_branch = branch.strip()
-    clean_path = (path or "").strip() or None
+    clean_path = normalize_repo_path((path or "").strip()) or None
     if not clean_branch:
         raise ValueError("item worktree branch must be non-empty")
     lock_item_workflow_bindings(conn, (int(item_id),))
@@ -176,7 +177,7 @@ def record_released_item_worktree_history(
 ) -> dict[str, Any]:
     """Persist migration history without ever creating an active lane."""
     clean_branch = branch.strip()
-    clean_path = (path or "").strip() or None
+    clean_path = normalize_repo_path((path or "").strip()) or None
     if not clean_branch:
         raise ValueError("item worktree branch must be non-empty")
     if lane_role not in LANE_ROLES:

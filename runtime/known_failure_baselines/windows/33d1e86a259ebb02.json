@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_lint_destructive_git.py::TestEvaluatePayload::test_AC5_stash_drop_with_stash_blocks",
- "reason": "AssertionError: unexpectedly None"
-}

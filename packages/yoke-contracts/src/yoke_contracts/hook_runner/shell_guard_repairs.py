@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.hook_runner.bash_paths import resolve_bash_path
+
 import glob
 import os
 import re
@@ -75,8 +77,7 @@ def ripgrep_replace_repair(command: str | ShellParse) -> str | None:
 
 def expanded_glob_path(token: str, cwd: str) -> Path:
     """Expand the executing user's home before resolving relative operands."""
-    path = Path(os.path.expanduser(token))
-    return path if path.is_absolute() else Path(os.path.expanduser(cwd)) / path
+    return Path(resolve_bash_path(token, cwd))
 
 
 def _brace_alternatives(token: str):
@@ -243,7 +244,7 @@ def _repaired_glob_command(
     )
     found = list(islice(local, STEM_MATCH_LIMIT))
     matches = sorted(
-        str(path.relative_to(cwd)) if path.is_relative_to(cwd) else str(path)
+        path.relative_to(cwd).as_posix() if path.is_relative_to(cwd) else path.as_posix()
         for path in found
     )
     if not matches and stem:
@@ -263,12 +264,15 @@ def _repaired_glob_command(
         except (OSError, subprocess.TimeoutExpired):
             pass
     # rg anchors slash-containing globs at its cwd, not its search operand.
-    relative = os.path.relpath(expanded, cwd)
-    outside = relative == ".." or relative.startswith("../")
+    try:
+        relative = os.path.relpath(expanded, cwd).replace("\\", "/")
+        outside = relative == ".." or relative.startswith("../")
+    except ValueError:  # Windows roots on different drives have no relative path.
+        relative, outside = "", True
     pattern = "/" + (name if outside or relative == "." else relative + "/" + name)
     repaired = shlex.join(["rg", *arguments, "." if outside else parent, "--glob", pattern])
     if outside:
-        repaired = shlex.join(["cd", str(expanded)]) + " && " + repaired
+        repaired = shlex.join(["cd", expanded.as_posix()]) + " && " + repaired
     return repaired, matches
 
 

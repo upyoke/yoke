@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_workspace_authority.py::test_main_cwd_target_with_worktree_claim_refuses",
- "reason": "assert '/opt/yoke-test/.worktrees/YOK-42' in \"workspace_authority: refusing write to 'D:\\\\\\\\opt\\\\\\\\yoke-test\\\\\\\\runtime\\\\\\\\x.py' -- session sess-a (session label unavailable; retry sessions list) hold"
-}

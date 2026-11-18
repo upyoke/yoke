@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_lint_destructive_git.py::TestEvaluatePayload::test_worktree_remove_dirty_linked_worktree_blocks",
- "reason": "AssertionError: unexpectedly None"
-}

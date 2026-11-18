@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_lint_lane_main_write_declared_cwd.py::test_relative_touch_from_session_cwd_denies",
- "reason": "assert 'C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-runneradmin\\\\pytest-0\\\\popen-gw1\\\\test_relative_touch_from_sessi0\\\\repo\\\\.worktrees\\\\YOK-2013\\\\probe-guard-check.txt' in \"BLOCKED: sourc"
-}

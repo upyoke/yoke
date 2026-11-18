@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_lint_unmatched_path_glob.py::test_cd_and_unexpanded_globs_follow_the_segment_base",
- "reason": "AssertionError: cd C:\\Users\\runneradmin\\AppData\\Local\\Temp\\pytest-of-runneradmin\\pytest-0\\popen-gw0\\test_cd_and_unexpanded_globs_f0\\other && ls infra/Pulumi*.yaml*"
-}

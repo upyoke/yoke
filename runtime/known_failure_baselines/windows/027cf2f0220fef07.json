@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_lint_workspace_cwd_match_command_position.py::test_leading_cd_into_the_lane_moves_the_writer",
- "reason": "AssertionError: assert ('BLOCKED: writer-class command invoked from a cross-checkout cwd.\\n\\nClaimed worktrees: C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-runneradmin\\\\pytest-0\\\\popen-gw1"
-}

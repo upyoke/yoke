@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_lint_session_cwd_target_extract.py::test_tool_alias_keeps_patch_content_out_of_target_paths",
- "reason": "AssertionError: assert [] == ['/checkout/....1/layout.tsx']"
-}

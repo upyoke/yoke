@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_lint_destructive_git_config_resolution.py::ConfigResolutionTest::test_deny_config_keeps_the_block",
- "reason": "AssertionError: <Outcome.NOOP: 'noop'> is not <Outcome.DENY: 'deny'>"
-}

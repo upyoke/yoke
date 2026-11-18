@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_lint_session_cwd_installed_tool_write.py::test_local_write_cannot_borrow_installed_tool_read_access[cp -t ~/.local/bin /tmp/a-/.local/bin]",
- "reason": "AssertionError: assert not True"
-}

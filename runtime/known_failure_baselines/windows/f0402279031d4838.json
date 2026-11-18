@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_lint_session_cwd_control_plane.py::TestPythonPathEquivalence::test_override_needs_the_source_root_fact",
- "reason": "AssertionError: assert '/__foreign_cwd__' == '\\\\__yoke_test_root__'"
-}

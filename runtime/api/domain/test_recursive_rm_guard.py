@@ -7,6 +7,8 @@ session's ``tmp.*`` entry in the shared macOS temp dir.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from yoke_contracts.hook_runner import recursive_rm_guard as guard
@@ -68,43 +70,43 @@ def test_mktemp_dir_removed_in_its_creating_call_passes(roots, command):
 
 def test_literal_assignment_resolves_before_checking(roots):
     shared, _ = roots
-    assert _shape(f'D={shared}/mine; rm -rf "$D"') is None
-    assert _shape(f'D={shared}; rm -rf "$D"/*') == guard.SHARED_TEMP_SHAPE
+    assert _shape(f'D={Path(shared).as_posix()}/mine; rm -rf "$D"') is None
+    assert _shape(f'D={Path(shared).as_posix()}; rm -rf "$D"/*') == guard.SHARED_TEMP_SHAPE
 
 
 def test_shared_temp_glob_is_refused(roots):
     shared, scratch = roots
-    assert _shape(f"rm -rf {shared}/tmp.*") == guard.SHARED_TEMP_SHAPE
-    assert _shape(f"rm -rf {scratch}/*") == guard.SHARED_TEMP_SHAPE
+    assert _shape(f"rm -rf {Path(shared).as_posix()}/tmp.*") == guard.SHARED_TEMP_SHAPE
+    assert _shape(f"rm -rf {Path(scratch).as_posix()}/*") == guard.SHARED_TEMP_SHAPE
     assert _shape("rm -rf *", cwd=str(shared)) == guard.SHARED_TEMP_SHAPE
 
 
 def test_shared_root_and_its_parent_are_refused(roots):
     shared, scratch = roots
-    assert _shape(f"rm -rf {shared}") == guard.SHARED_TEMP_SHAPE
-    assert _shape(f"rm -r {scratch}/") == guard.SHARED_TEMP_SHAPE
-    assert _shape(f"rm -rf {shared.parent}") == guard.SHARED_TEMP_SHAPE
+    assert _shape(f"rm -rf {Path(shared).as_posix()}") == guard.SHARED_TEMP_SHAPE
+    assert _shape(f"rm -r {Path(scratch).as_posix()}/") == guard.SHARED_TEMP_SHAPE
+    assert _shape(f"rm -rf {Path(shared.parent).as_posix()}") == guard.SHARED_TEMP_SHAPE
 
 
 def test_session_scratch_dir_and_named_paths_pass(roots):
     shared, scratch = roots
     session_dir = scratch / "1" / "sessions" / "sess-a"
-    assert _shape(f"rm -rf {session_dir}") is None
-    assert _shape(f"rm -rf {session_dir}/runs/*") is None
-    assert _shape(f"rm -rf {shared}/tmp.AbC123") is None
+    assert _shape(f"rm -rf {Path(session_dir).as_posix()}") is None
+    assert _shape(f"rm -rf {Path(session_dir).as_posix()}/runs/*") is None
+    assert _shape(f"rm -rf {Path(shared).as_posix()}/tmp.AbC123") is None
 
 
 def test_non_recursive_and_force_only_rm_are_ignored(roots):
     shared, _ = roots
-    assert _shape(f"rm -f {shared}/tmp.*") is None
-    assert _shape(f"rm --force {shared}/tmp.*") is None
+    assert _shape(f"rm -f {Path(shared).as_posix()}/tmp.*") is None
+    assert _shape(f"rm --force {Path(shared).as_posix()}/tmp.*") is None
     assert _shape('rm "$T"') is None
 
 
 def test_wrapped_and_chained_rm_is_checked(roots):
     shared, _ = roots
-    assert _shape(f"cd /x && sudo rm -Rf {shared}/*") == guard.SHARED_TEMP_SHAPE
-    assert _shape(f"echo ok\nrm --recursive {shared}/a*") == guard.SHARED_TEMP_SHAPE
+    assert _shape(f"cd /x && sudo rm -Rf {Path(shared).as_posix()}/*") == guard.SHARED_TEMP_SHAPE
+    assert _shape(f"echo ok\nrm --recursive {Path(shared).as_posix()}/a*") == guard.SHARED_TEMP_SHAPE
 
 
 def test_reason_names_shape_targets_and_recovery():
@@ -135,7 +137,7 @@ def test_engine_guard_passes_creating_call_cleanup(roots, monkeypatch):
 
 def test_client_guard_denies_shared_temp_glob(roots):
     shared, _ = roots
-    command = f"rm -rf {shared}/tmp.*"
+    command = f"rm -rf {Path(shared).as_posix()}/tmp.*"
     result = local_policies.lint_destructive_git(
         _payload(command, "/"), parse_shell(command)
     )

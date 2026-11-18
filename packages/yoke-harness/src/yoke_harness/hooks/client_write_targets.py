@@ -22,6 +22,10 @@ from pathlib import Path
 from typing import Iterable, Mapping
 
 from yoke_contracts.hook_runner import client_facts as cf
+from yoke_contracts.hook_runner.bash_paths import (
+    resolve_bash_path,
+    canonical_native_path,
+)
 from yoke_contracts.hook_runner.shell_parse import (
     ShellParse,
     advance_cwd,
@@ -75,21 +79,24 @@ def execution_cwd(payload: Mapping[str, object], shell: ShellParse) -> str:
         if isinstance(declared, str) and declared
         else cwd_from_payload(dict(payload))
     )
-    cwd = os.path.realpath(os.path.expanduser(cwd))
+    cwd = canonical_native_path(os.path.expanduser(cwd))
     for segment in shell.segments:
+        if segment.assignments and not segment.argv:
+            continue
         destination = cd_destination(segment.argv)
-        moved = advance_cwd(cwd, destination) if destination is not None else ""
+        moved = (
+            advance_cwd(cwd, destination, shell=shell.shell)
+            if destination is not None
+            else ""
+        )
         if not moved:
             break
         cwd = moved
     return cwd
 
 
-def _resolve(raw: str, cwd: str) -> str:
-    path = os.path.expanduser(raw)
-    if not os.path.isabs(path):
-        path = os.path.join(cwd, path)
-    return os.path.realpath(path)
+def _resolve(raw: str, cwd: str, shell: str = "bash") -> str:
+    return resolve_bash_path(raw, cwd, shell=shell)
 
 
 def _repo_root(path: str) -> str:
@@ -121,7 +128,11 @@ def _ignored(repo: str, paths: Iterable[str]) -> dict[str, bool | None]:
         repo, ["rev-parse", "--path-format=absolute", "--git-common-dir", "--git-dir"]
     )
     roots = (
-        [os.path.realpath(p) for p in probe.stdout.splitlines() if os.path.isabs(p)]
+        [
+            canonical_native_path(p)
+            for p in probe.stdout.splitlines()
+            if os.path.isabs(p)
+        ]
         if probe is not None and probe.returncode == 0
         else []
     )
@@ -147,7 +158,7 @@ def _ignored(repo: str, paths: Iterable[str]) -> dict[str, bool | None]:
     if result is None or result.returncode not in (0, 1):
         answers.update({path: None for path in source_paths})
     else:
-        ignored = {p for p in result.stdout.split("\0") if p}
+        ignored = {canonical_native_path(p) for p in result.stdout.split("\0") if p}
         answers.update({path: path in ignored for path in source_paths})
     return answers
 
@@ -157,7 +168,7 @@ def _worktrees(repo: str) -> list[str]:
     if result is None or result.returncode != 0:
         return []
     return [
-        line[len("worktree ") :]
+        canonical_native_path(line[len("worktree ") :])
         for line in result.stdout.splitlines()
         if line.startswith("worktree ") and os.path.isdir(line[len("worktree ") :])
     ]
@@ -166,9 +177,44 @@ def _worktrees(repo: str) -> list[str]:
 def write_targets_fact(payload: Mapping[str, object], shell: ShellParse) -> dict:
     """Report resolution, ignore status and live lanes for every operand."""
     cwd = execution_cwd(payload, shell)
-    resolved = {
-        raw: _resolve(raw, cwd) for raw in _operands(payload, shell.command, cwd)
-    }
+    operands = _operands(payload, shell.command, cwd)
+    operands.extend(
+        token
+        for segment in shell.segments
+        for token in segment.argv
+        if _path_shaped(token)
+    )
+    resolved = {raw: _resolve(raw, cwd, shell.shell if shell.command else "powershell") for raw in dict.fromkeys(operands)}
+    mount_paths = {raw: path for raw, path in resolved.items() if raw.startswith("/")}
+    if os.name == "nt":
+        from yoke_contracts.free_paths import STATIC_FREE_PATH_PREFIXES
+
+        for root in STATIC_FREE_PATH_PREFIXES:
+            mount_paths[root] = _resolve(root, cwd)
+    canonical = {}
+    data = tool_input(dict(payload))
+    native_paths = [
+        cwd,
+        payload.get("cwd"),
+        data.get("workdir"),
+        data.get("working_directory"),
+        str(Path.home()),
+    ]
+    native_paths.extend(
+        raw if os.path.isabs(raw) else os.path.join(cwd, raw)
+        for raw in resolved
+        if not (os.name == "nt" and raw.startswith("/"))
+    )
+    for raw in native_paths:
+        if not isinstance(raw, str) or not raw:
+            continue
+        for ancestor in (Path(raw), *Path(raw).parents):
+            key = str(ancestor).replace("\\", "/").rstrip("/")
+            if key:
+                canonical[key] = (
+                    canonical_native_path(str(ancestor)).replace("\\", "/").rstrip("/")
+                    or "/"
+                )
     by_repo: dict[str, list[str]] = {}
     cwd_repo = _repo_root(cwd)
     for path in resolved.values():
@@ -185,7 +231,20 @@ def write_targets_fact(payload: Mapping[str, object], shell: ShellParse) -> dict
         for raw, path in resolved.items()
     }
     return cf.client_fact(
-        cf.WRITE_TARGETS_KEY, {"paths": entries, "worktrees": sorted(worktrees)}
+        cf.WRITE_TARGETS_KEY,
+        {
+            "paths": entries,
+            "worktrees": sorted(worktrees),
+            "bash_paths": {
+                "windows": os.name == "nt",
+                "tmpdir": canonical_native_path(os.environ["TMPDIR"])
+                if os.path.isabs(os.environ.get("TMPDIR", ""))
+                else "",
+                "home": canonical_native_path(str(Path.home())),
+                "mount_paths": mount_paths,
+                "canonical": canonical,
+            },
+        },
     )
 
 

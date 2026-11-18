@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_lint_lane_main_write_workdir.py::test_python_write_follows_the_cd_before_its_segment",
- "reason": "assert False"
-}

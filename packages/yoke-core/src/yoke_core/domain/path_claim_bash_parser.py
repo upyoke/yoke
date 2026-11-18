@@ -3,18 +3,16 @@
 File verbs, redirects and Git file mutations yield concrete targets; reads
 yield none. Parseable heredoc redirects yield their target. Opaque executable
 shells yield an ambiguous sentinel and fail closed. The suppression token
-yields an auditable sentinel. ``Mutation`` and ``extract_mutations`` are pure.
+yields an auditable sentinel. Path identity comes from the executing client.
 """
 
 from __future__ import annotations
-
-from yoke_contracts.platform_paths import POSIX_TMP
 
 from yoke_contracts.hook_runner.shell_statements import (
     has_unquoted_heredoc as _has_unquoted_heredoc,
 )
 
-import os
+from yoke_contracts.hook_runner.bash_paths import join_path
 import shlex
 from dataclasses import dataclass
 from typing import List
@@ -23,6 +21,7 @@ from yoke_core.domain.path_claim_bash_segment_cwd import rebase_targets, stages_
 from yoke_core.domain.path_claim_bash_substitution import classify_substitution_bodies
 from yoke_core.domain.path_claim_bash_temp_vars import (
     is_temp_file_var_ref,
+    is_tmp_path as _is_tmp_path,
     temp_file_vars,
 )
 from yoke_core.domain.lint_session_cwd_host_command import local_argv_text
@@ -64,10 +63,6 @@ _FAIL_CLOSED_C_RES = ("bash -c", "sh -c")
 # Tokens that look like flag args; everything else is a candidate path.
 def _is_flag(token: str) -> bool:
     return token.startswith("-") and token != "-"
-
-
-def _is_tmp_path(path: str) -> bool:
-    return path.startswith(POSIX_TMP + "/") or path == POSIX_TMP
 
 
 def _strip_redirect_targets(tokens: List[str]) -> List[str]:
@@ -144,14 +139,14 @@ def _extract_verb_paths(verb: str, args: List[str]) -> List[Mutation]:
     return out
 
 
-def _extract_git_paths(args: List[str], cwd: str) -> List[Mutation]:
+def _extract_git_paths(args: List[str], cwd: str, *, shell: str = "bash") -> List[Mutation]:
     """Pull paths from ``git rm``/``git restore``/``git checkout --``.
 
     Read-only git inspection is an explicit allow case, including
     path-specific forms such as ``git diff -- path``. Relative paths join
     the ``-C`` directory, itself resolved from ``cwd``, as git does.
     """
-    base, args = _split_git_global_options(args, cwd)
+    base, args = _split_git_global_options(args, cwd, shell=shell)
     if not args:
         return []
     sub = args[0]
@@ -169,14 +164,14 @@ def _extract_git_paths(args: List[str], cwd: str) -> List[Mutation]:
     out: List[Mutation] = []
     verb = f"git {sub}"
     for p in paths:
-        target = os.path.join(base, p)
+        target = join_path(base, p, shell=shell)
         if _is_tmp_path(target):
             continue
         out.append(Mutation(verb=verb, target_path=target))
     return out
 
 
-def _split_git_global_options(args: List[str], cwd: str) -> tuple[str, List[str]]:
+def _split_git_global_options(args: List[str], cwd: str, *, shell: str = "bash") -> tuple[str, List[str]]:
     """Return the ``-C`` directory (``""`` when absent) and the subcommand on.
 
     Each ``-C DIR`` applies relative to the previous one, then to ``cwd``.
@@ -187,7 +182,7 @@ def _split_git_global_options(args: List[str], cwd: str) -> tuple[str, List[str]
         token = args[i]
         if token in ("-C", "-c") and i + 1 < len(args):
             if token == "-C":
-                base = os.path.join(base or cwd, args[i + 1])
+                base = join_path(base or cwd, args[i + 1], shell=shell)
             i += 2
             continue
         if token.startswith(("--git-dir=", "--work-tree=")):

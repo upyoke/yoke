@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/harness/test_main_commit_tool_workdir.py::test_commit_facts_use_tool_workdir[working_directory]",
- "reason": "AssertionError: assert 'D:\\\\explicit' == '/explicit'"
-}

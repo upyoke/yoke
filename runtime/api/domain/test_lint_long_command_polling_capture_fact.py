@@ -12,6 +12,8 @@ tests build the fact from real watcher capture pairs to prove:
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import os
 import unittest
 from unittest import mock
@@ -28,8 +30,12 @@ from yoke_core.domain.lint_long_command_polling_test_helpers import (
 
 
 class TestEvaluatePayloadFromObservedCapture(CapturePairHelpers, unittest.TestCase):
+    def _make_pair(self, kind="merge"):
+        raw, progress = super()._make_pair(kind)
+        return Path(raw).resolve().as_posix(), Path(progress).resolve().as_posix()
+
     def _peek_payload(self, raw: str) -> dict:
-        command = f"tail -80 {raw}"
+        command = f"tail -80 {Path(raw).as_posix()}"
         roots = (os.path.dirname(raw),)
         # Guard: the peek extractor must see this path, else an "allowed"
         # result would be a false pass.
@@ -42,7 +48,7 @@ class TestEvaluatePayloadFromObservedCapture(CapturePairHelpers, unittest.TestCa
         )
 
     def _evaluate_after_prior_peek(self, raw: str):
-        recent = [("tu-prior", "2026-05-28T17:00:00", f"tail -80 {raw}")]
+        recent = [("tu-prior", "2026-05-28T17:00:00", f"tail -80 {Path(raw).as_posix()}")]
         with (
             mock.patch.object(lint, "_db_available", return_value=True),
             mock.patch.object(lint, "_recent_bash_commands", return_value=recent),

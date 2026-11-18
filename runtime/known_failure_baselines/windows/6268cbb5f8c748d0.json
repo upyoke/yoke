@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_recursive_rm_guard.py::test_shared_temp_glob_is_refused",
- "reason": "AssertionError: assert None == 'rm_shared_temp'"
-}

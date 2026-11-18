@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_guard_directory_resolution.py::test_guard_still_denies_main_writes[S={repo}; cd $S; echo x > f.py-True]",
- "reason": "AssertionError: assert True is False"
-}

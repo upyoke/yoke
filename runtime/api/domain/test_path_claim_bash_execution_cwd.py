@@ -61,7 +61,10 @@ def lane_root():
     Absolute targets under ``/tmp`` are never claim-checked, so lanes that
     must be refused cannot live in a ``/tmp`` based ``tmp_path``.
     """
-    root = os.path.realpath(tempfile.mkdtemp(prefix="yoke-lane-", dir="/var/tmp"))
+    base = Path("/var/tmp")
+    if not base.is_dir():
+        base = Path(tempfile.gettempdir())
+    root = os.path.realpath(tempfile.mkdtemp(prefix="yoke-lane-", dir=base))
     yield Path(root)
     shutil.rmtree(root, ignore_errors=True)
 
@@ -77,7 +80,7 @@ class TestGuardExecutionDirectory:
         main, worktree, claim = self._lanes(lane_root)
         verdict = evaluate_payload(
             _payload(
-                command=f"git -C {worktree} rm runtime/api/domain/a.py",
+                command=f"git -C {Path(worktree).as_posix()} rm runtime/api/domain/a.py",
                 cwd=str(main),
             ),
             claim=claim,
@@ -87,7 +90,7 @@ class TestGuardExecutionDirectory:
     def test_git_dir_into_lane_outside_claim_is_refused(self, lane_root):
         main, worktree, claim = self._lanes(lane_root)
         verdict = evaluate_payload(
-            _payload(command=f"git -C {worktree} rm docs/oof.md", cwd=str(main)),
+            _payload(command=f"git -C {Path(worktree).as_posix()} rm docs/oof.md", cwd=str(main)),
             claim=claim,
         )
         assert verdict.outcome == "deny"
@@ -123,7 +126,7 @@ class TestGuardExecutionDirectory:
         main, worktree, claim = self._lanes(lane_root)
         verdict = evaluate_payload(
             _payload(
-                command=f"cd {worktree} && rm runtime/api/domain/a.py",
+                command=f"cd {Path(worktree).as_posix()} && rm runtime/api/domain/a.py",
                 cwd=str(main),
             ),
             claim=claim,
@@ -159,7 +162,7 @@ class TestPerTaskLaneFromMain:
         repo = self._seed(lane_root, live_db)
         verdict = evaluate_payload(
             _payload(
-                command=f"git -C {repo}/.worktrees/lane-a rm runtime/api/domain/a.py",
+                command=f"git -C {Path(repo).as_posix()}/.worktrees/lane-a rm runtime/api/domain/a.py",
                 cwd=str(repo),
                 session_id="engineer-1",
             )
@@ -173,14 +176,14 @@ class TestPerTaskLaneFromMain:
             cwd=str(repo),
             session_id="engineer-1",
         )
-        payload["tool_input"]["workdir"] = f"{repo}/.worktrees/lane-b"
+        payload["tool_input"]["workdir"] = f"{Path(repo).as_posix()}/.worktrees/lane-b"
         assert evaluate_payload(payload).outcome == "allow"
 
     def test_git_dir_into_task_lane_outside_claim_is_refused(self, lane_root, live_db):
         repo = self._seed(lane_root, live_db)
         verdict = evaluate_payload(
             _payload(
-                command=f"git -C {repo}/.worktrees/lane-a rm docs/never-covered.md",
+                command=f"git -C {Path(repo).as_posix()}/.worktrees/lane-a rm docs/never-covered.md",
                 cwd=str(repo),
                 session_id="engineer-1",
             )
@@ -216,19 +219,19 @@ class TestRelativeTargetAfterCd:
 
     def test_append_to_claimed_file_from_sub_folder_is_allowed(self, lane):
         worktree, claim = lane
-        command = f"cd {worktree}/runtime/api/domain && cat >> claimed.py"
+        command = f"cd {Path(worktree).as_posix()}/runtime/api/domain && cat >> claimed.py"
         assert self._bash(command, worktree, claim).outcome == "allow"
 
     def test_unclaimed_file_in_sub_folder_widens_lane_relative_path(self, lane):
         worktree, claim = lane
-        verdict = self._bash(f"cd {worktree}/docs && rm unclaimed.py", worktree, claim)
+        verdict = self._bash(f"cd {Path(worktree).as_posix()}/docs && rm unclaimed.py", worktree, claim)
         assert verdict.outcome == "deny"
         assert verdict.failure_mode == "out-of-claim"
         assert "--add-paths docs/unclaimed.py --reason" in verdict.narrative
 
     def test_repo_shaped_path_resolves_under_sub_folder(self, lane):
         worktree, claim = lane
-        command = f"cd {worktree}/docs && rm runtime/api/domain/claimed.py"
+        command = f"cd {Path(worktree).as_posix()}/docs && rm runtime/api/domain/claimed.py"
         verdict = self._bash(command, worktree, claim)
         assert verdict.outcome == "deny"
         assert verdict.failure_mode == "out-of-claim"
@@ -273,7 +276,7 @@ class TestRelativeTargetAfterCd:
         worktree, claim = lane
         command = "rm runtime/api/domain/a.py; cd docs && rm b.py"
         targets = [m.target_path for m in extract_mutations(command, str(worktree))]
-        assert targets == ["runtime/api/domain/a.py", f"{worktree}/docs/b.py"]
+        assert targets == ["runtime/api/domain/a.py", str(worktree / "docs/b.py")]
         verdict = self._bash(command, worktree, claim)
         assert verdict.outcome == "deny"
         assert verdict.failure_mode == "out-of-claim"

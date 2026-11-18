@@ -1,10 +1,13 @@
 """Capacity inspection retains content, lane, and machine boundaries."""
 
 from yoke_contracts.testing.real_home_isolation import set_home
+from pathlib import Path
 
 from contextlib import nullcontext
 
 import pytest
+from runtime.api.domain.bash_paths_test_support import posix_client_paths as posix_client_paths
+
 
 from yoke_contracts.hook_runner.session_cwd import client_machine_home_fact
 from yoke_core.domain import lint_session_cwd as guard
@@ -14,6 +17,8 @@ from yoke_core.domain.lint_shell_path_use import PathRole, analyze_shell_path_us
 from yoke_core.domain.lint_payload_path_use import extract_payload_path_uses
 from yoke_core.domain.session_claimed_worktrees import ClaimedWorktree
 from yoke_core.hooks.types import HookContext, Outcome
+
+pytestmark = pytest.mark.usefixtures("posix_client_paths")
 
 
 HOME = "/clients/operator"
@@ -122,8 +127,8 @@ def test_capacity_does_not_mutate_a_foreign_lane(isolated_authority, monkeypatch
         "occupying_claim",
         lambda _c, *, target, **_k: occupant if target.startswith(foreign) else None,
     )
-    assert evaluate(f"df -k {foreign} && touch {LANE}/out").outcome is Outcome.NOOP
-    assert evaluate(f"df -k {foreign} && touch {foreign}/out").outcome is Outcome.DENY
+    assert evaluate(f"df -k {Path(foreign).as_posix()} && touch {LANE}/out").outcome is Outcome.NOOP
+    assert evaluate(f"df -k {Path(foreign).as_posix()} && touch {Path(foreign).as_posix()}/out").outcome is Outcome.DENY
 
 
 def test_lane_write_is_allowed_whatever_the_item_status(isolated_authority):

@@ -194,13 +194,13 @@ class TestNeighbourLaneInspection:
     @pytest.mark.parametrize("command", [ALLOWED_COMMANDS[0]])
     def test_allowed_while_holding_another_lane(self, conn, repo, command):
         held, _own = _neighbouring_lanes(conn, repo)
-        verdict = _bash_verdict(command.format(lane=held))
+        verdict = _bash_verdict(command.format(lane=Path(held).as_posix()))
         assert verdict.allow is True
 
     @pytest.mark.parametrize("command", [ALLOWED_COMMANDS[2]])
     def test_allowed_while_holding_no_claim_at_all(self, conn, repo, command):
         held = _seed_lane(conn, repo, session_id=HOLDER, item_id=HELD_ITEM)
-        verdict = _bash_verdict(command.format(lane=held), session_id="sid-claimless")
+        verdict = _bash_verdict(command.format(lane=Path(held).as_posix()), session_id="sid-claimless")
         assert verdict.allow is True
 
     def test_allowed_when_the_lane_carries_no_live_claim(self, conn, repo):
@@ -216,7 +216,7 @@ class TestNeighbourLaneInspection:
 
     def test_inspection_of_own_lane_is_unaffected(self, conn, repo):
         _held, own = _neighbouring_lanes(conn, repo)
-        verdict = _bash_verdict(f"git -C {own} diff --stat")
+        verdict = _bash_verdict(f"git -C {Path(own).as_posix()} diff --stat")
         assert verdict.allow is True
 
 
@@ -228,7 +228,7 @@ class TestNeighbourLaneFileReads:
     @pytest.mark.parametrize("command", NEIGHBOUR_FILE_READS)
     def test_file_read_of_a_held_lane_is_allowed(self, conn, repo, command):
         held, _own = _neighbouring_lanes(conn, repo)
-        verdict = _bash_verdict(command.format(lane=held))
+        verdict = _bash_verdict(command.format(lane=Path(held).as_posix()))
         assert verdict.allow is True
 
 
@@ -236,7 +236,7 @@ class TestNeighbourLaneWritesStillRefused:
     @pytest.mark.parametrize("command", [REFUSED_COMMANDS[0]])
     def test_refused_while_holding_another_lane(self, conn, repo, command):
         held, _own = _neighbouring_lanes(conn, repo)
-        verdict = _bash_verdict(command.format(lane=held))
+        verdict = _bash_verdict(command.format(lane=Path(held).as_posix()))
         assert verdict.allow is False
         assert verdict.failure_class == FOREIGN_LANE_FAILURE_CLASS
 
@@ -272,7 +272,7 @@ def test_compound_reads_before_implementation(conn, repo, command, target):
     conn.execute("UPDATE items SET status = 'idea' WHERE id = %s", (NEIGHBOUR_ITEM,))
     conn.commit()
     lane = own if target == "own" else held
-    verdict = _bash_verdict(command.format(lane=lane))
+    verdict = _bash_verdict(command.format(lane=Path(lane).as_posix()))
     assert verdict.allow is True, verdict.reason
 
 
@@ -288,7 +288,7 @@ def test_compound_reads_before_implementation(conn, repo, command, target):
 )
 def test_compound_unsafe_calls_keep_lane_authority(conn, repo, command):
     held, _own = _neighbouring_lanes(conn, repo)
-    verdict = _bash_verdict(command.format(lane=held))
+    verdict = _bash_verdict(command.format(lane=Path(held).as_posix()))
     assert verdict.allow is False
 
 
@@ -305,7 +305,7 @@ def test_compound_unsafe_calls_keep_lane_authority(conn, repo, command):
 )
 def test_inline_program_is_not_a_path(conn, repo, command):
     _held, own = _neighbouring_lanes(conn, repo)
-    verdict = _bash_verdict(command.format(lane=own))
+    verdict = _bash_verdict(command.format(lane=Path(own).as_posix()))
     assert verdict.allow is True, verdict.reason
 
 

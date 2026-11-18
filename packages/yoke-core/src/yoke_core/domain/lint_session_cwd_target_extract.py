@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from pathlib import Path, PurePath
+from yoke_contracts.hook_runner.bash_paths import resolve_bash_path, is_absolute
 from typing import Any, List, Mapping, Sequence, Tuple
 
 from yoke_contracts.harness_shell_tools import payload_shell_kind
@@ -133,15 +134,13 @@ def _resolve_target_paths(
     cwd: str,
     *,
     machine_home: str | None = None,
+    shell: str = "bash",
 ) -> List[str]:
     out: List[str] = []
     for raw in paths:
-        path = Path(expand_machine_home(raw.strip(), machine_home=machine_home))
-        if path.is_absolute():
-            out.append(str(path))
-        elif cwd:
-            base = expand_machine_home(cwd, machine_home=machine_home)
-            out.append(str((Path(base) / path).resolve()))
+        expanded = expand_machine_home(raw.strip(), machine_home=machine_home)
+        if is_absolute(expanded) or cwd:
+            out.append(resolve_bash_path(expanded, cwd, home=machine_home, shell=shell))
     return out
 
 

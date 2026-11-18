@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_lint_lane_main_write_ignored_paths.py::test_tracked_source_in_the_same_checkout_is_still_denied",
- "reason": "assert 'C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-runneradmin\\\\pytest-0\\\\popen-gw0\\\\test_tracked_source_in_the_sam0\\\\repo\\\\.worktrees\\\\YOK-2014\\\\packages\\\\yoke-core\\\\src\\\\yoke_core\\\\doma"
-}

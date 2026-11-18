@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 from yoke_contracts.testing.real_home_isolation import set_home
-
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import pytest
 
@@ -26,8 +25,8 @@ from yoke_contracts.hook_runner.session_cwd import (
 
 SESSION_ID = "session-machine-home"
 ITEM_ID = 2197
-CLIENT_HOME = Path("/clients/alice")
-SERVER_HOME = Path("/srv/yoke-server-home")
+CLIENT_HOME = PurePosixPath("/clients/alice")
+SERVER_HOME = PurePosixPath("/srv/yoke-server-home")
 ICLOUD_DOCUMENT = CLIENT_HOME / (
     "Library/Mobile Documents/com~apple~CloudDocs/Docs/Yoke/icon/build/animate_yoke.py"
 )
@@ -76,6 +75,9 @@ def _remote_evaluation(
     }
     if include_home:
         payload.update(client_machine_home_fact(str(client_home)))
+    from yoke_contracts.hook_runner.client_facts import client_fact, WRITE_TARGETS_KEY
+    from yoke_contracts.hook_runner.bash_paths import windows_path
+    payload.update(client_fact(WRITE_TARGETS_KEY, {"bash_paths": {"windows": windows_path(str(client_home)), "home": str(client_home), "canonical": {}}}))
     return lint_session_cwd.evaluate(
         HookContext(
             event_name="PreToolUse",
@@ -289,7 +291,7 @@ def test_external_cache_write_needs_no_home_evidence(
     tool_input = (
         {"file_path": target, "content": "wheel"}
         if tool_name == "Write"
-        else {"command": f"touch '{target}'"}
+        else {"command": f"touch '{Path(target).as_posix()}'"}
     )
     decision = _remote_evaluation(
         tool_name,

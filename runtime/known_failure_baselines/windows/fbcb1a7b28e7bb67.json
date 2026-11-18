@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_path_claims_boundary.py::TestGitignoreFiltering::test_ignored_committed_path_not_reported_as_undeclared",
- "reason": "AssertionError: 1 committed file(s) outside declared coverage; remediate via amend (widen), revert, or split"
-}

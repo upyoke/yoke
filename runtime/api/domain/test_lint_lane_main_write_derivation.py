@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from yoke_contracts.hook_runner.repo_paths import normalize_repo_path
 from unittest import mock
 
 import pytest
@@ -132,8 +133,8 @@ class TestExtractedTargetRefusal:
         assert verdict.derivation.source == COMMAND_TOKEN
         assert verdict.derivation.token == "docs/notes.md"
         assert "Extracted:     docs/notes.md" in verdict.reason
-        assert f"working directory {repo} -> {repo}/docs/notes.md" in verdict.reason
-        assert f"Main checkout: {repo}" in verdict.reason
+        assert f"working directory {repo} -> {repo / 'docs/notes.md'}" in verdict.reason
+        assert f"Main checkout: {normalize_repo_path(str(repo))}" in verdict.reason
 
     def test_tool_target_refusal_names_the_file_path(self, conn, repo):
         _seed_lane(conn, repo)
@@ -240,7 +241,7 @@ class TestComputedCommitMessageRecovery:
 
     def _computed_commit(self, lane: Path) -> str:
         return (
-            f"cd {lane} && git commit -m \"$(cat <<'EOF'\n"
+            f"cd {Path(lane).as_posix()} && git commit -m \"$(cat <<'EOF'\n"
             "Fix the thing\n"
             "\n"
             "Longer body explaining why.\n"
@@ -267,7 +268,7 @@ class TestComputedCommitMessageRecovery:
     def test_computed_commit_refusal_names_the_lane_recovery(self, conn, repo):
         lane = _seed_lane(conn, repo)
         verdict = _evaluate(self._computed_commit(repo), repo)
-        assert f"git -C {lane} commit -F {RECOVERY_MESSAGE_FILE}" in verdict.reason
+        assert f"git -C {Path(lane).as_posix()} commit -F {RECOVERY_MESSAGE_FILE}" in verdict.reason
 
     def test_refusal_teaches_the_effective_workdir(
         self,
@@ -276,8 +277,8 @@ class TestComputedCommitMessageRecovery:
     ):
         lane = _seed_lane(conn, repo)
         verdict = _evaluate(self._computed_commit(repo), repo)
-        assert f"declare {lane} as the call's workdir" in verdict.reason
-        assert f"make `cd {lane}` the command's first statement" in verdict.reason
+        assert f"declare {Path(lane).as_posix()} as the call's workdir" in verdict.reason
+        assert f"make `cd {Path(lane).as_posix()}` the command's first statement" in verdict.reason
 
     def test_recovery_message_file_is_readable_from_a_claimed_lane(self):
         assert is_free_path(RECOVERY_MESSAGE_FILE)

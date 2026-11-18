@@ -114,3 +114,12 @@ def test_terminal_item_cannot_recreate_active_lane(test_db, status):
             path=None,
             lane_role=LANE_IMPLEMENTATION,
         )
+
+
+def test_native_windows_lane_is_stored_for_the_indexed_root_reader(test_db):
+    from yoke_core.domain.lint_session_cwd_path_authority import recorded_repo_roots
+
+    insert_item(test_db, id=941, workflow_id="issue")
+    lane = record_item_worktree(test_db, item_id=941, branch="YOK-941", path=r"C:\Repo\.worktrees\YOK-941", lane_role=LANE_IMPLEMENTATION)
+    assert lane["path"] == "c:/Repo/.worktrees/YOK-941"
+    assert recorded_repo_roots(test_db) == ["c:/Repo"]

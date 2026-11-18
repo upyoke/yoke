@@ -2,8 +2,16 @@
 
 from __future__ import annotations
 
-import os
-from pathlib import Path
+import posixpath
+from pathlib import PurePosixPath, PureWindowsPath
+from yoke_contracts.hook_runner.bash_paths import (
+    lexical_client_path,
+    windows_path,
+    canonical_native_path,
+    is_absolute,
+    resolve_bash_path,
+    is_under,
+)
 from typing import Any, Iterable, List, Optional, Sequence
 
 from yoke_contracts.hook_runner.repo_paths import normalize_repo_path
@@ -57,13 +65,15 @@ def is_yoke_watcher_capture_path(
     try:
         from yoke_core.domain.project_scratch_dir import global_scratch_root
 
-        resolved = Path(resolve_for_display(target))
+        resolved_text = resolve_for_display(target)
+        path_type = PureWindowsPath if windows_path(resolved_text) else PurePosixPath
+        resolved = path_type(resolved_text)
         root = (
-            Path(scratch_root).expanduser().resolve()
+            path_type(canonical_native_path(scratch_root))
             if scratch_root
-            else global_scratch_root().resolve()
+            else path_type(global_scratch_root().resolve())
         )
-        if not root.is_absolute() or root == Path(root.anchor):
+        if not root.is_absolute() or root == path_type(root.anchor):
             return False
         parts = resolved.relative_to(root).parts
     except Exception:
@@ -79,7 +89,12 @@ def is_yoke_watcher_capture_path(
 
 def is_dev_family_path(target: str) -> bool:
     """True for ``/dev/null`` and the rest of the ``/dev`` discard family."""
-    return is_free_path(target, prefixes=(DEV_FAMILY_PREFIX,))
+    if not is_absolute(target):
+        return False
+    if target.startswith("/dev/") or target == "/dev":
+        normalized = posixpath.normpath(target)
+        return normalized == "/dev" or normalized.startswith("/dev/")
+    return is_free_path(target, prefixes=(resolve_bash_path(DEV_FAMILY_PREFIX),))
 
 
 def is_free_path(
@@ -93,7 +108,8 @@ def is_free_path(
     active = free_path_prefixes(machine_home) if prefixes is None else prefixes
     for cand in candidates:
         for prefix in active:
-            if cand == prefix or cand.startswith(prefix + os.sep):
+            prefix = resolve_bash_path(prefix)
+            if is_under(cand, prefix):
                 return True
         if prefixes is None and is_yoke_watcher_capture_path(cand):
             return True
@@ -102,31 +118,16 @@ def is_free_path(
 
 def is_inside(target: str, root: str) -> bool:
     """``target`` is the same path as ``root`` or under it."""
-    if not target or not root:
-        return False
-    try:
-        t = str(Path(target).resolve())
-        r = str(Path(root).resolve())
-    except OSError:
-        return False
-    if t == r:
-        return True
-    return t.startswith(r + os.sep)
+    return is_under(target, root)
 
 
 def is_inside_control_plane(target: str, repo_root: str) -> bool:
     """Return true for project control-plane paths outside ``.worktrees``."""
     if not is_inside(target, repo_root):
         return False
-    try:
-        r = Path(repo_root).resolve()
-        t = str(Path(target).resolve())
-    except OSError:
-        return False
-    worktrees_dir = str(r / ".worktrees")
-    if t == worktrees_dir or t.startswith(worktrees_dir + os.sep):
-        return False
-    return True
+    from yoke_contracts.hook_runner.bash_paths import join_path
+
+    return not is_inside(target, join_path(repo_root, ".worktrees"))
 
 
 def outside_worktree_lanes(
@@ -139,14 +140,16 @@ def outside_worktree_lanes(
     answers "is this a checkout path outside every lane?", this one
     selects the targets no lane contains.
     """
-    lanes = [str(Path(root) / ".worktrees") for root in repo_roots]
+    from yoke_contracts.hook_runner.bash_paths import join_path
+
+    lanes = [join_path(root, ".worktrees") for root in repo_roots]
     return [t for t in targets if not any(is_inside(t, lane) for lane in lanes)]
 
 
 def resolve_for_display(target: str, *, machine_home: str | None = None) -> str:
     try:
         expanded = expand_machine_home(target, machine_home=machine_home)
-        return str(Path(expanded).resolve())
+        return resolve_bash_path(expanded)
     except OSError:
         return target
 
@@ -197,7 +200,7 @@ def recorded_repo_roots(conn: Any) -> List[str]:
 
 
 def repo_root_from_worktree_path(worktree_path: str) -> Optional[str]:
-    normalized = normalize_repo_path(worktree_path)
+    normalized = normalize_repo_path(lexical_client_path(worktree_path))
     root, marker, _ = normalized.rpartition("/.worktrees/")
     if marker:
         return root or "/"

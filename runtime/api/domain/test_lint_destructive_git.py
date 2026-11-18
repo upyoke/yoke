@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 
 import pathlib
 import shutil
@@ -107,7 +109,7 @@ class TestEvaluatePayload(unittest.TestCase):
 
     def test_AC2_reset_hard_with_modified_blocks(self):
         repo = self._dirty()
-        result = self._eval(f"git -C {repo} reset --hard HEAD~1")
+        result = self._eval(f"git -C {Path(repo).as_posix()} reset --hard HEAD~1")
         self.assertIsNotNone(result)
         reason, outcome = result
         self.assertEqual(outcome, "denied")
@@ -116,11 +118,11 @@ class TestEvaluatePayload(unittest.TestCase):
 
     def test_AC2_reset_hard_clean_allows(self):
         repo = self._repo(initial_files={"a.txt": "v1\n"})
-        self.assertIsNone(self._eval(f"git -C {repo} reset --hard HEAD"))
+        self.assertIsNone(self._eval(f"git -C {Path(repo).as_posix()} reset --hard HEAD"))
 
     def test_AC3_checkout_path_modified_blocks(self):
         repo = self._dirty()
-        result = self._eval(f"git -C {repo} checkout -- a.txt")
+        result = self._eval(f"git -C {Path(repo).as_posix()} checkout -- a.txt")
         self.assertIsNotNone(result)
         self.assertEqual(result[1], "denied")
         self.assertIn("a.txt", result[0])
@@ -129,63 +131,63 @@ class TestEvaluatePayload(unittest.TestCase):
         repo = self._repo(initial_files={"a.txt": "v1\n", "b.txt": "v1\n"})
         _modify(repo, "a.txt", "v2\n")
         # b.txt is unmodified — checkout of b.txt should allow
-        self.assertIsNone(self._eval(f"git -C {repo} checkout -- b.txt"))
+        self.assertIsNone(self._eval(f"git -C {Path(repo).as_posix()} checkout -- b.txt"))
 
     def test_newline_separated_reset_hard_blocks(self):
         repo = self._dirty()
-        result = self._eval(f"echo preparing\ngit -C {repo} reset --hard HEAD~1")
+        result = self._eval(f"echo preparing\ngit -C {Path(repo).as_posix()} reset --hard HEAD~1")
         self.assertIsNotNone(result)
         self.assertEqual(result[1], "denied")
         self.assertIn("a.txt", result[0])
 
     def test_checkout_dot_modified_blocks(self):
         repo = self._dirty()
-        result = self._eval(f"git -C {repo} checkout .")
+        result = self._eval(f"git -C {Path(repo).as_posix()} checkout .")
         self.assertIsNotNone(result)
         self.assertEqual(result[1], "denied")
         self.assertIn("a.txt", result[0])
 
     def test_checkout_ref_then_dot_modified_blocks(self):
         repo = self._dirty()
-        result = self._eval(f"git -C {repo} checkout HEAD .")
+        result = self._eval(f"git -C {Path(repo).as_posix()} checkout HEAD .")
         self.assertIsNotNone(result)
         self.assertEqual(result[1], "denied")
 
     def test_checkout_existing_path_modified_blocks(self):
         repo = self._dirty()
-        result = self._eval(f"git -C {repo} checkout a.txt")
+        result = self._eval(f"git -C {Path(repo).as_posix()} checkout a.txt")
         self.assertIsNotNone(result)
         self.assertEqual(result[1], "denied")
         self.assertIn("a.txt", result[0])
 
     def test_checkout_branch_name_dirty_allows(self):
         repo = self._dirty()
-        self.assertIsNone(self._eval(f"git -C {repo} checkout main"))
+        self.assertIsNone(self._eval(f"git -C {Path(repo).as_posix()} checkout main"))
 
     def test_AC3_restore_worktree_modified_blocks(self):
         repo = self._dirty()
-        result = self._eval(f"git -C {repo} restore --worktree a.txt")
+        result = self._eval(f"git -C {Path(repo).as_posix()} restore --worktree a.txt")
         self.assertIsNotNone(result)
         self.assertEqual(result[1], "denied")
 
     def test_AC3_restore_worktree_unmodified_allows(self):
         repo = self._repo(initial_files={"a.txt": "v1\n"})
-        self.assertIsNone(self._eval(f"git -C {repo} restore --worktree a.txt"))
+        self.assertIsNone(self._eval(f"git -C {Path(repo).as_posix()} restore --worktree a.txt"))
 
     def test_checkout_force_branch_blocks_only_when_dirty(self):
         repo = self._repo(initial_files={"a.txt": "v1\n"})
-        self.assertIsNone(self._eval(f"git -C {repo} checkout -f main"))
+        self.assertIsNone(self._eval(f"git -C {Path(repo).as_posix()} checkout -f main"))
         _modify(repo, "a.txt", "v2\n")
-        result = self._eval(f"git -C {repo} checkout -f main")
+        result = self._eval(f"git -C {Path(repo).as_posix()} checkout -f main")
         self.assertIn("a.txt", result[0])
 
     def test_AC4_clean_force_with_untracked_blocks(self):
         repo = self._repo(initial_files={"a.txt": "v1\n"})
         _modify(repo, "junk.tmp", "x")  # untracked
         for cmd in (
-            f"git -C {repo} clean -f",
-            f"git -C {repo} clean -fd",
-            f"git -C {repo} clean -fdx",
+            f"git -C {Path(repo).as_posix()} clean -f",
+            f"git -C {Path(repo).as_posix()} clean -fd",
+            f"git -C {Path(repo).as_posix()} clean -fdx",
         ):
             result = self._eval(cmd)
             self.assertIsNotNone(result, f"clean variant should block: {cmd}")
@@ -193,31 +195,31 @@ class TestEvaluatePayload(unittest.TestCase):
 
     def test_AC4_clean_force_no_untracked_allows(self):
         repo = self._repo(initial_files={"a.txt": "v1\n"})
-        self.assertIsNone(self._eval(f"git -C {repo} clean -f"))
+        self.assertIsNone(self._eval(f"git -C {Path(repo).as_posix()} clean -f"))
 
     def test_AC4_clean_force_path_scope_ignores_unrelated_untracked(self):
         repo = self._repo(initial_files={"a.txt": "v1\n"})
         _modify(repo, "other/junk.tmp", "x")
-        self.assertIsNone(self._eval(f"git -C {repo} clean -f target"))
+        self.assertIsNone(self._eval(f"git -C {Path(repo).as_posix()} clean -f target"))
         _modify(repo, "target/junk.tmp", "x")
-        result = self._eval(f"git -C {repo} clean -f target")
+        result = self._eval(f"git -C {Path(repo).as_posix()} clean -f target")
         self.assertIn("target/", result[0])
         self.assertNotIn("other/junk.tmp", result[0])
 
     def test_AC4_clean_force_uses_git_dry_run_scope(self):
         repo = self._repo(initial_files={".gitignore": "ignored.tmp\n"})
         _modify(repo, "dir/junk.tmp", "x")
-        self.assertIsNone(self._eval(f"git -C {repo} clean -f"))
-        self.assertIsNotNone(self._eval(f"git -C {repo} clean -fd"))
+        self.assertIsNone(self._eval(f"git -C {Path(repo).as_posix()} clean -f"))
+        self.assertIsNotNone(self._eval(f"git -C {Path(repo).as_posix()} clean -fd"))
         shutil.rmtree(pathlib.Path(repo) / "dir")
         _modify(repo, "ignored.tmp", "x")
-        self.assertIsNone(self._eval(f"git -C {repo} clean -fd"))
-        self.assertIsNotNone(self._eval(f"git -C {repo} clean -fdx"))
+        self.assertIsNone(self._eval(f"git -C {Path(repo).as_posix()} clean -fd"))
+        self.assertIsNotNone(self._eval(f"git -C {Path(repo).as_posix()} clean -fdx"))
 
     def test_AC5_stash_drop_with_stash_blocks(self):
         repo = self._dirty()
         _git_run(repo, "stash", "push", "-m", "wip")
-        result = self._eval(f"git -C {repo} stash drop")
+        result = self._eval(f"git -C {Path(repo).as_posix()} stash drop")
         self.assertIsNotNone(result)
         self.assertEqual(result[1], "denied")
         self.assertIn("stash", result[0].lower())
@@ -225,39 +227,39 @@ class TestEvaluatePayload(unittest.TestCase):
     def test_AC5_stash_clear_with_stashes_blocks(self):
         repo = self._dirty()
         _git_run(repo, "stash", "push", "-m", "wip")
-        self.assertIsNotNone(self._eval(f"git -C {repo} stash clear"))
+        self.assertIsNotNone(self._eval(f"git -C {Path(repo).as_posix()} stash clear"))
 
     def test_AC5_stash_drop_no_stash_allows(self):
         repo = self._repo(initial_files={"a.txt": "v1\n"})
-        self.assertIsNone(self._eval(f"git -C {repo} stash drop"))
+        self.assertIsNone(self._eval(f"git -C {Path(repo).as_posix()} stash drop"))
 
     def test_AC6_reset_soft_allows_regardless(self):
         repo = self._dirty()
-        self.assertIsNone(self._eval(f"git -C {repo} reset --soft HEAD~1"))
+        self.assertIsNone(self._eval(f"git -C {Path(repo).as_posix()} reset --soft HEAD~1"))
 
     def test_AC6_reset_mixed_allows_regardless(self):
         repo = self._dirty()
-        self.assertIsNone(self._eval(f"git -C {repo} reset HEAD"))
-        self.assertIsNone(self._eval(f"git -C {repo} reset --mixed HEAD"))
+        self.assertIsNone(self._eval(f"git -C {Path(repo).as_posix()} reset HEAD"))
+        self.assertIsNone(self._eval(f"git -C {Path(repo).as_posix()} reset --mixed HEAD"))
 
     def test_AC7_stash_push_allows(self):
         repo = self._dirty()
-        self.assertIsNone(self._eval(f"git -C {repo} stash push -u"))
-        self.assertIsNone(self._eval(f"git -C {repo} stash"))
+        self.assertIsNone(self._eval(f"git -C {Path(repo).as_posix()} stash push -u"))
+        self.assertIsNone(self._eval(f"git -C {Path(repo).as_posix()} stash"))
 
     def test_AC7_restore_staged_allows(self):
         repo = self._dirty()
         _git_run(repo, "add", "a.txt")
-        self.assertIsNone(self._eval(f"git -C {repo} restore --staged a.txt"))
+        self.assertIsNone(self._eval(f"git -C {Path(repo).as_posix()} restore --staged a.txt"))
 
     def test_restore_staged_short_flag_allows(self):
         repo = self._dirty()
         _git_run(repo, "add", "a.txt")
-        self.assertIsNone(self._eval(f"git -C {repo} restore -S a.txt"))
+        self.assertIsNone(self._eval(f"git -C {Path(repo).as_posix()} restore -S a.txt"))
 
     def test_restore_staged_and_worktree_blocks(self):
         repo = self._dirty()
-        result = self._eval(f"git -C {repo} restore -S -W a.txt")
+        result = self._eval(f"git -C {Path(repo).as_posix()} restore -S -W a.txt")
         self.assertIsNotNone(result)
         self.assertEqual(result[1], "denied")
         self.assertIn("a.txt", result[0])
@@ -267,7 +269,7 @@ class TestEvaluatePayload(unittest.TestCase):
         wt = self._linked_worktree(repo)
         _modify(wt, "a.txt", "v2\n")
 
-        result = self._eval(f"git -C {repo} worktree remove {wt}")
+        result = self._eval(f"git -C {Path(repo).as_posix()} worktree remove {Path(wt).as_posix()}")
 
         self.assertIsNotNone(result)
         self.assertEqual(result[1], "denied")
@@ -278,7 +280,7 @@ class TestEvaluatePayload(unittest.TestCase):
         repo = self._repo(initial_files={"a.txt": "v1\n"})
         wt = self._linked_worktree(repo)
 
-        self.assertIsNone(self._eval(f"git -C {repo} worktree remove {wt}"))
+        self.assertIsNone(self._eval(f"git -C {Path(repo).as_posix()} worktree remove {Path(wt).as_posix()}"))
 
     def test_rm_rf_worktree_with_ignored_file_blocks(self):
         repo = self._repo(initial_files={".gitignore": "cache/\n", "a.txt": "v1\n"})

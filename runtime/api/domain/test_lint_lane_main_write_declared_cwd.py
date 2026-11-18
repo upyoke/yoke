@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from yoke_contracts.testing.real_home_isolation import set_home
+from pathlib import Path
 
 from unittest import mock
 
@@ -76,7 +77,7 @@ def test_leading_absolute_cd_resolves_relative_write_in_lane(tmp_path):
         verdict = lint_lane_main_write.evaluate_pre_tool_use(
             _bash(
                 "sid-lane",
-                f"cd {worktree} && touch probe.txt",
+                f"cd {Path(worktree).as_posix()} && touch probe.txt",
                 cwd=str(repo),
             )
         )
@@ -92,7 +93,7 @@ def test_leading_absolute_cd_to_main_still_denies(tmp_path):
             verdict = lint_lane_main_write.evaluate_pre_tool_use(
                 _bash(
                     "sid-lane",
-                    f"cd {repo} && touch probe.txt",
+                    f"cd {Path(repo).as_posix()} && touch probe.txt",
                     cwd=str(tmp_path),
                 )
             )
@@ -138,7 +139,7 @@ def test_cd_then_relative_write_with_client_facts_denies(tmp_path, monkeypatch, 
     with test_database() as conn:
         _seed_lane(conn, repo)
         payload = _client_bash(
-            f"cd {hop.format(repo=repo)} && touch probe.txt",
+            f"cd {hop.format(repo=Path(repo).as_posix())} && touch probe.txt",
             cwd=str(client_home / "elsewhere"),
             client_home=client_home,
             monkeypatch=monkeypatch,
@@ -228,7 +229,7 @@ def test_absolute_main_target_still_denies(tmp_path):
             verdict = lint_lane_main_write.evaluate_pre_tool_use(
                 _bash(
                     "sid-lane",
-                    f"touch {target}",
+                    f"touch {Path(target).as_posix()}",
                     cwd=str(repo),
                     workdir=str(worktree),
                 )

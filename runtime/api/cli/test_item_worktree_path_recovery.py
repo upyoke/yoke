@@ -1,6 +1,7 @@
 """Existing physical checkouts survive path persistence refusal and recovery."""
 
 from contextlib import nullcontext
+from yoke_contracts.hook_runner.repo_paths import normalize_repo_path
 import subprocess
 
 from runtime.api.fixtures.backlog import insert_item
@@ -91,7 +92,7 @@ def test_path_record_cli_recovers_existing_checkout(test_db, monkeypatch, tmp_pa
         assert item_worktrees.item_worktrees_path_record([*args, str(checkout)]) == 0
         assert outcomes[-1].result_payload["worktree"]["id"] == lane["id"]
         assert item_worktrees.item_worktrees_list([f"YOK-{item_id}"]) == 0
-        assert outcomes[-1].result_payload["worktrees"][0]["path"] == str(checkout)
+        assert outcomes[-1].result_payload["worktrees"][0]["path"] == normalize_repo_path(str(checkout))
     assert len(list_item_worktrees(test_db, item_id)) == 1
     assert git("-C", checkout, "rev-parse", "HEAD") == head
     assert git("-C", checkout, "branch", "--show-current").strip() == branch

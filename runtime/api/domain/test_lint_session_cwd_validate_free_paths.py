@@ -9,6 +9,7 @@ import shutil
 from pathlib import Path
 
 import pytest
+from yoke_contracts.hook_runner.bash_paths import resolve_bash_path, canonical_native_path
 
 from runtime.api.domain.lint_session_cwd_test_helpers import (
     seed_item,
@@ -62,7 +63,7 @@ class TestFreePathPrefixesContainExpectedRoots:
     """Static check: the expansion landed and the literal forms are present."""
 
     def test_dev_family_in_free_paths(self) -> None:
-        assert "/dev" in free_path_prefixes()
+        assert resolve_bash_path("/dev") in free_path_prefixes()
 
     def test_harness_internal_literal_form_in_free_paths(self) -> None:
         assert "~/.claude/projects" in free_path_prefixes()
@@ -70,7 +71,7 @@ class TestFreePathPrefixesContainExpectedRoots:
     def test_harness_internal_expanded_form_in_free_paths(self) -> None:
         home = str(Path.home().resolve())
         expected = os.path.join(home, ".claude", "projects")
-        assert expected in free_path_prefixes()
+        assert canonical_native_path(expected) in free_path_prefixes()
 
     def test_codex_sessions_literal_form_in_free_paths(self) -> None:
         assert "~/.codex/sessions" in free_path_prefixes()
@@ -78,7 +79,7 @@ class TestFreePathPrefixesContainExpectedRoots:
     def test_codex_sessions_expanded_form_in_free_paths(self) -> None:
         home = str(Path.home().resolve())
         expected = os.path.join(home, ".codex", "sessions")
-        assert expected in free_path_prefixes()
+        assert canonical_native_path(expected) in free_path_prefixes()
 
     def test_codex_archived_sessions_literal_form_in_free_paths(self) -> None:
         assert "~/.codex/archived_sessions" in free_path_prefixes()
@@ -86,7 +87,7 @@ class TestFreePathPrefixesContainExpectedRoots:
     def test_codex_archived_sessions_expanded_form_in_free_paths(self) -> None:
         home = str(Path.home().resolve())
         expected = os.path.join(home, ".codex", "archived_sessions")
-        assert expected in free_path_prefixes()
+        assert canonical_native_path(expected) in free_path_prefixes()
 
 
 class TestDevFamilyAllowed:

@@ -1,6 +1,7 @@
 """Multi-worktree coverage for the unified ``create_worktree``."""
 
 from __future__ import annotations
+from yoke_contracts.hook_runner.repo_paths import normalize_repo_path
 
 from runtime.api.domain.worktree_create_multiworktree_test_support import (_config_path as _config_path, seed_multiworktree_epic as seed_multiworktree_epic)
 from runtime.api.domain.worktree_create_test_support import (_placeholder as _placeholder)
@@ -102,7 +103,7 @@ class TestCreateWorktreeMultiWorktree:
             entries,
         ):
             assert wt_result.branch == expected_branch
-            assert wt_result.path == expected_path
+            assert wt_result.path == normalize_repo_path(expected_path)
             assert os.path.isdir(expected_path)
 
     def test_multiworktree_creation_ignores_retired_cap(self, git_repo, yoke_db):
@@ -132,7 +133,7 @@ class TestCreateWorktreeMultiWorktree:
             conn.execute(
                 f"UPDATE item_worktrees SET path = {p} "
                 f"WHERE item_id = {p} AND branch = {p}",
-                (entries[0][1], 99209, branches[1]),
+                (normalize_repo_path(entries[0][1]), 99209, branches[1]),
             )
         conn.close()
         assert not os.path.isdir(entries[0][1])

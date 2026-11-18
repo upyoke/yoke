@@ -7,10 +7,11 @@ and shell tokens are classified by the production helpers.
 
 from __future__ import annotations
 
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from unittest import mock
 
 import pytest
+from runtime.api.domain.bash_paths_test_support import posix_client_paths as posix_client_paths  # noqa: F401
 
 from runtime.api.domain.lint_session_cwd_test_helpers import (
     seed_item,
@@ -60,10 +61,11 @@ def _stale_claim(conn, session_id="sid-lane"):
 
 
 class TestHttpsShapeDeniesRecordedLane:
+    @pytest.mark.usefixtures("posix_client_paths")
     def test_fresh_claim_denies_when_path_absent_on_evaluator(self, conn):
-        repo = Path("/client-host/yoke")
+        repo = PurePosixPath("/client-host/yoke")
         wt = _seed_lane(conn, repo, mkdir=False)
-        assert wt.is_dir() is False
+        assert Path(str(wt)).is_dir() is False
         target = repo / "runtime/api/foo.py"
         with mock.patch.object(lint_lane_main_write, "emit_denied", return_value=None):
             verdict = lint_lane_main_write.evaluate_pre_tool_use(
@@ -100,7 +102,7 @@ class TestWriteClassification:
                     "session_id": "sid-lane",
                     "tool_name": "Bash",
                     "cwd": str(repo),
-                    "tool_input": {"command": f"echo x >{target}"},
+                    "tool_input": {"command": f"echo x >{Path(target).as_posix()}"},
                 }
             )
         assert verdict.allow is False
@@ -165,7 +167,7 @@ class TestStrandedAdvisoryBounds:
         assert first.allow is True
         assert second.allow is True
         assert emit_advisory.call_count == 2
-        assert emit_advisory.call_args.kwargs["lane_path"] == str(wt)
+        assert emit_advisory.call_args.kwargs["lane_path"] == wt.as_posix()
 
     def test_lane_absence_needs_the_client_worktree_list(self, conn, repo):
         """Without the client's worktree list a missing lane is not proven."""
@@ -193,6 +195,7 @@ class TestStrandedAdvisoryBounds:
     "ignored, allowed", [(True, True), (None, False), (False, False)]
 )
 @pytest.mark.parametrize("harness", ["claude-code", "codex", "cursor"])
+@pytest.mark.usefixtures("posix_client_paths")
 def test_remote_metadata_fact_needs_no_corresponding_checkout(
     conn,
     monkeypatch,
@@ -205,7 +208,7 @@ def test_remote_metadata_fact_needs_no_corresponding_checkout(
     from yoke_contracts.hook_runner import client_facts as cf
 
     harness_family(harness)
-    repo = Path("/client-only/project")
+    repo = PurePosixPath("/client-only/project")
     lane = _seed_lane(conn, repo, mkdir=False)
     target = str(repo / ".git/info/exclude")
     payload = {

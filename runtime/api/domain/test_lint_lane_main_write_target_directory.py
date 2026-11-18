@@ -1,5 +1,7 @@
 """Main-source destinations stay protected through copy options and dev run."""
 
+from pathlib import Path
+
 from unittest import mock
 
 import pytest
@@ -28,7 +30,7 @@ def test_main_write_destination_is_denied(conn, repo, template):
     lane = _seed_lane(conn, repo)
     with mock.patch.object(lint_lane_main_write, "emit_denied"):
         verdict = lint_lane_main_write.evaluate_pre_tool_use(
-            _bash(template.format(repo=repo, lane=lane), cwd=str(lane))
+            _bash(template.format(repo=Path(repo).as_posix(), lane=Path(lane).as_posix()), cwd=str(lane))
         )
     assert not verdict.allow
     assert str(repo / "sub") in verdict.reason
@@ -43,6 +45,6 @@ def test_main_write_destination_is_denied(conn, repo, template):
 def test_legitimate_lane_or_scratch_write_is_allowed(conn, repo, template):
     lane = _seed_lane(conn, repo)
     verdict = lint_lane_main_write.evaluate_pre_tool_use(
-        _bash(template.format(repo=repo, lane=lane), cwd=str(lane))
+        _bash(template.format(repo=Path(repo).as_posix(), lane=Path(lane).as_posix()), cwd=str(lane))
     )
     assert verdict.allow

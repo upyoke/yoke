@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_lint_lane_main_write_workdir.py::test_relative_write_after_an_in_command_cd_to_main_denies",
- "reason": "AssertionError: assert True is False"
-}

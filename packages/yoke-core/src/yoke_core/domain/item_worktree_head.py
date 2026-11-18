@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from yoke_contracts.hook_runner.repo_paths import normalize_repo_path
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend
@@ -28,7 +29,7 @@ def record_head_for_checkout(
     commit identity locally. Matching both project and active lane path keeps
     ordinary commits outside a registered lane as a no-op.
     """
-    clean_path = str(checkout_path).strip()
+    clean_path = normalize_repo_path(str(checkout_path).strip())
     clean_sha = str(commit_sha).strip()
     if not clean_path:
         raise ValueError("checkout_path is required")

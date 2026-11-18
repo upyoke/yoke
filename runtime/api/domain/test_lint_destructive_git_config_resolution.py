@@ -9,6 +9,8 @@ These tests run the real resolution path (no stubbed mode).
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import dataclasses
 import pathlib
 import shutil
@@ -52,7 +54,7 @@ class ConfigResolutionTest(unittest.TestCase):
         lint_config.reset_cache()
 
     def _repo(self, guard_line: str) -> str:
-        root = tempfile.mkdtemp(prefix="yoke-lint-cfg-")
+        root = str(Path(tempfile.mkdtemp(prefix="yoke-lint-cfg-")).resolve())
         self.roots.append(root)
         _git_run(root, "init", "-q", "-b", "main")
         _git_run(root, "config", "user.email", "test@example.invalid")
@@ -70,7 +72,7 @@ class ConfigResolutionTest(unittest.TestCase):
 
     def _gated_clean(self, repo: str):
         context = dataclasses.replace(
-            ldg._build_context_from_payload(_payload(f"git -C {repo} clean -f")),
+            ldg._build_context_from_payload(_payload(f"git -C {Path(repo).as_posix()} clean -f")),
             target_root=repo,
         )
         decision = ldg.evaluate(context)
@@ -91,14 +93,14 @@ class ConfigResolutionTest(unittest.TestCase):
 
     def test_narrative_names_the_resolved_config_file(self):
         deny_repo = self._repo(GUARD_LINE_DENY)
-        reason = ldg.evaluate_payload(_payload(f"git -C {deny_repo} clean -f"))[0]
+        reason = ldg.evaluate_payload(_payload(f"git -C {Path(deny_repo).as_posix()} clean -f"))[0]
         expected = str(pathlib.Path(deny_repo) / ".yoke" / "lint-config")
         self.assertIn(expected, reason)
         self.assertIn("lint_destructive_git=deny", reason)
 
     def test_narrative_reports_threatened_state(self):
         deny_repo = self._repo(GUARD_LINE_DENY)
-        reason = ldg.evaluate_payload(_payload(f"git -C {deny_repo} clean -f"))[0]
+        reason = ldg.evaluate_payload(_payload(f"git -C {Path(deny_repo).as_posix()} clean -f"))[0]
         self.assertIn("junk.tmp", reason)
         self.assertIn("Remediation:", reason)
 
@@ -111,7 +113,7 @@ class DescribeConfigSourceTest(unittest.TestCase):
         lint_config.reset_cache()
 
     def test_names_path_and_effective_mode(self):
-        root = tempfile.mkdtemp(prefix="yoke-lint-desc-")
+        root = str(Path(tempfile.mkdtemp(prefix="yoke-lint-desc-")).resolve())
         self.addCleanup(shutil.rmtree, root, True)
         note = lint_config.describe_config_source(
             "lint_destructive_git", "deny", root=root)
@@ -120,7 +122,7 @@ class DescribeConfigSourceTest(unittest.TestCase):
 
     def test_reports_the_passed_mode_not_a_second_lookup(self):
         """Callers resolving from a payload snapshot still get a truthful note."""
-        root = tempfile.mkdtemp(prefix="yoke-lint-desc-")
+        root = str(Path(tempfile.mkdtemp(prefix="yoke-lint-desc-")).resolve())
         self.addCleanup(shutil.rmtree, root, True)
         config = pathlib.Path(root) / ".yoke" / "lint-config"
         config.parent.mkdir(parents=True, exist_ok=True)

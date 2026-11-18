@@ -12,6 +12,7 @@ provisioning loop reads top-to-bottom.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from yoke_contracts.hook_runner.repo_paths import normalize_repo_path
 from typing import List, Optional, Sequence, Tuple
 
 from yoke_core.domain.workflow_behavior import LANE_IMPLEMENTATION
@@ -121,6 +122,7 @@ def preflight_worktree_plan(
             plan.error = f"malformed worktree entry: branch='{branch}' path='{path}'"
             plan.failed_branch = branch or path
             return plan
+        path = normalize_repo_path(path)
         if path in seen_paths:
             plan.error = f"duplicate worktree path '{path}'"
             plan.failed_branch = branch

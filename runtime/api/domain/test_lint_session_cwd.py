@@ -16,9 +16,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from yoke_contracts.hook_runner.repo_paths import normalize_repo_path
 from yoke_contracts.session_identity import AMBIENT_ENV_VARS
 import pytest
+from yoke_contracts.hook_runner.repo_paths import normalize_repo_path
 
 from runtime.api.domain.lint_session_cwd_test_helpers import (
     seed_item,
@@ -87,7 +87,7 @@ class TestClaimedWorktreeAuthorized:
         fixture = "/" + "repo"
         body = (
             "*** Begin Patch\n"
-            f"*** Update File: {target}\n"
+            f"*** Update File: {Path(target).as_posix()}\n"
             "@@\n"
             f"+fixture = {fixture!r}\n"
             "*** End Patch"
@@ -155,7 +155,7 @@ class TestUnauthorizedTarget:
             "tool_input": {"file_path": target},
         })
         assert verdict.allow is False
-        assert verdict.offending_target.endswith("YOK-OTHER/file.py")
+        assert Path(verdict.offending_target).parts[-2:] == ("YOK-OTHER", "file.py")
         assert "BLOCKED" in verdict.reason
         assert "YOK-1691" in verdict.reason
 
@@ -227,7 +227,7 @@ class TestBashTargetExtraction:
             "session_id": "sid-1",
             "cwd": str(repo),
             "tool_input": {
-                "command": f"cp {claimed_file} {repo}/.worktrees/unclaimed/out.py",
+                "command": f"cp {claimed_file} {Path(repo).as_posix()}/.worktrees/unclaimed/out.py",
             },
         })
 

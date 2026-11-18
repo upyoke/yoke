@@ -17,7 +17,14 @@ DB-side traversal in :func:`evaluate_target` does not currently read.
 from __future__ import annotations
 
 import os
-from pathlib import Path
+import ntpath
+from yoke_contracts.hook_runner.bash_paths import (
+    canonical_native_path,
+    resolve_bash_path,
+    is_absolute,
+    join_path,
+    windows_path,
+)
 from typing import Any, Optional, Tuple
 
 from yoke_contracts.public_ref import unresolved_item_ref
@@ -74,15 +81,19 @@ def _make_repo_relative(target_path: str, cwd: str) -> str:
     cleaned = target_path.strip()
     if cleaned.startswith("./"):
         cleaned = cleaned[2:]
-    if not os.path.isabs(cleaned):
+    if not is_absolute(cleaned):
         return cleaned.replace(os.sep, "/")
     try:
-        rel = os.path.relpath(cleaned, cwd)
+        rel = (
+            ntpath.relpath(cleaned, cwd)
+            if windows_path(cleaned) or windows_path(cwd)
+            else os.path.relpath(cleaned, cwd)
+        )
     except ValueError:
         return cleaned.replace(os.sep, "/")
     if rel.startswith(".."):
         return cleaned.replace(os.sep, "/")
-    return rel.replace(os.sep, "/")
+    return rel.replace("\\", "/").replace(os.sep, "/")
 
 
 def _effective_worktree_for(target_path: str, cwd: str, ctx: ClaimContext) -> str:
@@ -96,8 +107,8 @@ def _effective_worktree_for(target_path: str, cwd: str, ctx: ClaimContext) -> st
     """
     if ctx.task_lanes and ctx.chain_worktrees:
         candidate = target_path
-        if candidate and not os.path.isabs(candidate) and cwd:
-            candidate = str(Path(cwd) / candidate)
+        if candidate and not is_absolute(candidate) and cwd:
+            candidate = join_path(cwd, candidate)
         branch = _pick_chain_for_target(candidate, ctx.chain_worktrees)
         if not branch:
             return ""
@@ -166,9 +177,9 @@ def evaluate_target(
     # Inside the lane, a relative target lands under the folder the command
     # runs in (``cd sub && rm x.py`` writes ``sub/x.py``), so coverage and
     # the recovery path both use that lane-relative path.
-    in_lane = bool(cwd) and path_is_under(Path(cwd).resolve(), effective_wt)
-    if in_lane and not os.path.isabs(target_path):
-        target_path = os.path.join(cwd, target_path)
+    in_lane = bool(cwd) and path_is_under(canonical_native_path(cwd), effective_wt)
+    if in_lane and not is_absolute(target_path):
+        target_path = join_path(cwd, target_path)
 
     if outside_claim_domain(
         target_path=target_path, cwd=cwd, ctx=ctx, effective_worktree=effective_wt
@@ -211,17 +222,13 @@ def evaluate_target(
     if not effective_wt:
         return None  # claim is not worktree-bound; in-coverage suffices
 
-    resolved = (Path(cwd) / target_path).resolve()
-
-    expected_root = Path(effective_wt).resolve()
-    expected_str = str(expected_root)
-    resolved_parent = str(resolved.parent)
-
-    if resolved_parent == expected_str or resolved_parent.startswith(
-        expected_str + os.sep
-    ):
-        return None
-    if str(resolved) == expected_str:
+    resolved = resolve_bash_path(target_path, cwd)
+    resolved_parent = (
+        ntpath.dirname(resolved)
+        if windows_path(resolved)
+        else os.path.dirname(resolved)
+    )
+    if path_is_under(resolved, effective_wt):
         return None
 
     # In-coverage but physical path lives elsewhere — wrong-cwd.

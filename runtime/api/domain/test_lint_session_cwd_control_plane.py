@@ -10,9 +10,11 @@ names the Yoke control plane separately from project control planes.
 from __future__ import annotations
 
 import tempfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import pytest
+from runtime.api.domain.bash_paths_test_support import posix_client_paths as posix_client_paths
+
 
 from runtime.api.domain.lint_session_cwd_test_helpers import (
     project_id,
@@ -27,6 +29,8 @@ from yoke_core.domain import (
     lint_session_cwd_control_plane,
     lint_session_cwd_path_authority,
 )
+
+pytestmark = pytest.mark.usefixtures("posix_client_paths")
 
 
 @pytest.fixture
@@ -43,7 +47,7 @@ def fake_yoke_root(monkeypatch):
     the free-path allowlist cannot mask the carve-out logic this module
     is meant to exercise.
     """
-    yoke_root = Path("/__yoke_test_root__")
+    yoke_root = PurePosixPath("/__yoke_test_root__")
     # Keep ``/tmp`` free (production semantics — operators live there)
     # but drop ``/var/folders`` so pytest's ``tmp_path`` fixtures stop
     # incidentally short-circuiting the carve-out logic via the
@@ -64,7 +68,7 @@ def _source_root_fact(yoke_root) -> dict:
 
 @pytest.fixture
 def cross_project_repo():
-    return Path("/__externalwebapp_test_repo__")
+    return PurePosixPath("/__externalwebapp_test_repo__")
 
 
 def _seed_claimed_checkout(conn, repo_path, project="externalwebapp"):
@@ -128,7 +132,7 @@ class TestYokeControlPlaneCarveOut:
                 **_source_root_fact(fake_yoke_root),
                 "session_id": "sid-cross",
                 "tool_input": {
-                    "command": f"test -d {fake_yoke_root}/.worktrees/YOK-42",
+                    "command": f"test -d {Path(fake_yoke_root).as_posix()}/.worktrees/YOK-42",
                 },
             }
         )
@@ -184,7 +188,7 @@ class TestPythonPathEquivalence:
                 "cwd": str(foreign_cwd),
                 "tool_input": {
                     "command": (
-                        f"PYTHONPATH={fake_yoke_root} python3 -m "
+                        f"PYTHONPATH={Path(fake_yoke_root).as_posix()} python3 -m "
                         f"yoke_core.cli.db_router items get YOK-42 status"
                     ),
                 },
@@ -201,7 +205,7 @@ class TestPythonPathEquivalence:
                 "cwd": "/tmp",
                 "tool_input": {
                     "command": (
-                        f"cd /tmp && PYTHONPATH={fake_yoke_root} python3 -m "
+                        f"cd /tmp && PYTHONPATH={Path(fake_yoke_root).as_posix()} python3 -m "
                         f"yoke_core.cli.db_router items get YOK-42 status"
                     ),
                 },
@@ -222,7 +226,7 @@ class TestPythonPathEquivalence:
                 "cwd": str(foreign_cwd),
                 "tool_input": {
                     "command": (
-                        f"PYTHONPATH={fake_yoke_root} python3 -m pip install foo"
+                        f"PYTHONPATH={Path(fake_yoke_root).as_posix()} python3 -m pip install foo"
                     ),
                 },
             }
@@ -257,7 +261,7 @@ class TestPythonPathEquivalence:
         ["cd /tmp && ", "cd /tmp;", "env -i _X=1 ", "cd /tmp; env -i _X=1 "],
     )
     def test_override_reads_the_first_non_cd_command(self, fake_yoke_root, prefix):
-        cmd = f"{prefix}PYTHONPATH={fake_yoke_root} python3 -m runtime.api.x"
+        cmd = f"{prefix}PYTHONPATH={Path(fake_yoke_root).as_posix()} python3 -m runtime.api.x"
         override = lint_session_cwd_control_plane.extract_pythonpath_yoke_cwd_override(
             cmd, str(fake_yoke_root)
         )
@@ -265,7 +269,7 @@ class TestPythonPathEquivalence:
 
     def test_override_needs_the_source_root_fact(self, fake_yoke_root):
         cmd = (
-            f"PYTHONPATH={fake_yoke_root} python3 -m "
+            f"PYTHONPATH={Path(fake_yoke_root).as_posix()} python3 -m "
             f"yoke_core.cli.db_router items get YOK-42 status"
         )
         payload = {"cwd": "/__foreign_cwd__", "tool_input": {"command": cmd}}

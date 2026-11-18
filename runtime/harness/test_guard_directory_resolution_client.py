@@ -7,13 +7,13 @@ identifier stamps that directory.
 
 from __future__ import annotations
 
-from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
 
 from yoke_contracts.hook_runner.main_commit import CLIENT_GIT_COMMIT_FACTS_KEY
 from yoke_contracts.hook_runner.shell_parse import parse_shell
+from yoke_contracts.hook_runner.bash_paths import resolve_bash_path
 from yoke_harness.hooks import main_commit_client
 from yoke_harness.hooks.command_workdir_stamp import (
     exec_command_calls,
@@ -38,13 +38,13 @@ def _commit_cwd(monkeypatch, command: str, workdir: str = "") -> str:
 
 def test_commit_after_cd_reads_the_lane(monkeypatch):
     assert _commit_cwd(monkeypatch, f"cd {LANE} && git commit -m fix") == (
-        str(Path(LANE).resolve())
+        resolve_bash_path(LANE)
     )
 
 
 def test_commit_after_cd_to_tmp_reads_tmp(monkeypatch):
     command = "cd /tmp/scratch && git add a && git commit -m fix"
-    assert _commit_cwd(monkeypatch, command) == str(Path("/tmp/scratch").resolve())
+    assert _commit_cwd(monkeypatch, command) == resolve_bash_path("/tmp/scratch")
 
 
 def test_plain_commit_on_main_reads_main(monkeypatch):
@@ -53,7 +53,7 @@ def test_plain_commit_on_main_reads_main(monkeypatch):
 
 def test_commit_after_hopping_back_to_main_reads_main(monkeypatch):
     command = f"cd {LANE} && cd {MAIN} && git commit -m fix"
-    assert _commit_cwd(monkeypatch, command) == str(Path(MAIN).resolve())
+    assert _commit_cwd(monkeypatch, command) == resolve_bash_path(MAIN)
 
 
 def test_commit_after_unreadable_cd_keeps_the_payload_cwd(monkeypatch):
@@ -62,7 +62,7 @@ def test_commit_after_unreadable_cd_keeps_the_payload_cwd(monkeypatch):
 
 def test_git_c_still_wins_over_cd(monkeypatch):
     command = f"cd /tmp && git -C {LANE} commit -m fix"
-    assert _commit_cwd(monkeypatch, command) == LANE
+    assert _commit_cwd(monkeypatch, command) == resolve_bash_path(LANE)
 
 
 def test_commit_uses_the_declared_workdir_as_base(monkeypatch):

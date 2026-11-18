@@ -6,6 +6,7 @@ import tempfile
 from pathlib import Path
 
 import pytest
+from yoke_contracts.hook_runner.repo_paths import normalize_repo_path
 
 from runtime.api.domain.lint_session_cwd_test_helpers import (
     project_id,
@@ -30,7 +31,7 @@ def conn():
 
 @pytest.fixture
 def fake_yoke_root(monkeypatch):
-    yoke_root = Path("/__yoke_test_root__")
+    yoke_root = Path("/__yoke_test_root__").absolute()
     monkeypatch.delenv("TMPDIR", raising=False)
     monkeypatch.setattr(
         lint_session_cwd_path_authority,
@@ -46,7 +47,7 @@ def _fact(yoke_root) -> dict:
 
 
 def _seed_two_projects(conn, fake_yoke_root):
-    other = Path("/__other_project_repo__")
+    other = Path("/__other_project_repo__").absolute()
     register_machine_checkout(
         Path(tempfile.mkdtemp(prefix="yoke-machine-config-")),
         fake_yoke_root,
@@ -138,8 +139,8 @@ def test_refusal_lists_both_project_roots(conn, fake_yoke_root):
     )
     assert verdict.allow is False
     assert "Any project control plane:" in verdict.reason
-    assert str(fake_yoke_root) in verdict.reason
-    assert str(other) in verdict.reason
+    assert normalize_repo_path(str(fake_yoke_root)) in verdict.reason
+    assert normalize_repo_path(str(other)) in verdict.reason
 
 
 @pytest.mark.parametrize(

@@ -1,5 +1,7 @@
 """Installed tool read access never authorizes local writes."""
 
+from pathlib import Path
+
 import pytest
 
 from runtime.api.domain.lint_session_cwd_read_shaped_access_test_support import (
@@ -25,15 +27,15 @@ def test_local_write_cannot_borrow_installed_tool_read_access(
 ):
     lane = _seed_lane(conn, repo, session_id="sid-lane")
     other = _seed_lane(conn, repo, session_id="sid-other", item_id=2221)
-    verdict = _verdict(template.format(other=other), lane)
+    verdict = _verdict(template.format(other=Path(other).as_posix()), lane)
     assert not verdict.allow
     if "{other}" in template:
         assert verdict.failure_class in {"scope_mismatch", "foreign_lane"}
-        assert str(other) in verdict.reason
+        assert str(other).replace("\\", "/") in verdict.reason.replace("\\", "/")
     else:
         assert verdict.failure_class == "scope_mismatch"
-        assert "/__yoke_relay_home__" + target in verdict.reason
-    assert target in verdict.reason
+        assert "/__yoke_relay_home__" + target in verdict.reason.replace("\\", "/")
+    assert target in verdict.reason.replace("\\", "/")
 
 
 @pytest.mark.parametrize("template", [
@@ -42,12 +44,12 @@ def test_local_write_cannot_borrow_installed_tool_read_access(
 ])
 def test_installed_tool_reads_and_lane_writes_are_allowed(conn, repo, template):
     lane = _seed_lane(conn, repo, session_id="sid-lane")
-    assert _verdict(template.format(lane=lane), lane).allow
+    assert _verdict(template.format(lane=Path(lane).as_posix()), lane).allow
 
 
 def _verdict(command, lane):
     return lint_session_cwd.evaluate_pre_tool_use(
         {"session_id": "sid-lane", "tool_name": "Bash", "cwd": str(lane),
          "tool_input": {"command": command}},
-        machine_home="/__yoke_relay_home__",
+        machine_home=str(Path("/__yoke_relay_home__").absolute()),
     )

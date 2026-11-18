@@ -57,7 +57,7 @@ def test_expand_client_home_rewrites_only_tilde_targets(tmp_path):
         payload,
     )
     assert [m.target_path for m in out] == [
-        f"{home}/notes/a.md",
+        str(home / "notes/a.md"),
         str(home),
         "~other/x",
         "relative/x",

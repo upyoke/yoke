@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_lint_destructive_git.py::TestEvaluatePayload::test_AC4_clean_force_uses_git_dry_run_scope",
- "reason": "AssertionError: unexpectedly None"
-}

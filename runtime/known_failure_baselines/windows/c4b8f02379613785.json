@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_shell_parse.py::test_unreadable_cd_makes_later_directories_unknown",
- "reason": "AssertionError: assert ['/repo', '', '', ''] == ['/repo', '', '', 'D:\\\\tmp']"
-}

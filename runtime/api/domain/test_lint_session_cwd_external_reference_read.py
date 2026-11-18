@@ -299,10 +299,10 @@ class TestExternalWriteShapes:
 )
 def test_claimed_session_reads_any_root(conn, lane, repo, command):
     for target in (repo, repo / ".worktrees/unclaimed", Path("/other/checkout")):
-        payload = _bash(command.format(target=target), lane)
+        payload = _bash(command.format(target=Path(target).as_posix()), lane)
         verdict = lint_session_cwd.evaluate_pre_tool_use(payload)
         assert verdict.allow is True, verdict.reason
-    in_main = _bash(command.format(target=repo), repo)
+    in_main = _bash(command.format(target=Path(repo).as_posix()), repo)
     assert lint_session_cwd.evaluate_pre_tool_use(in_main).allow is True
     assert lint_lane_main_write.evaluate_pre_tool_use(in_main).allow is True
 
@@ -332,7 +332,7 @@ def test_mutating_commands_in_governed_roots_refuse(conn, lane, repo, external, 
     seed_item(conn, item_id=ITEM_ID + 1, branch="YOK-other", repo_path=repo)
     seed_item_claim(conn, "sid-neighbour", item_id=ITEM_ID + 1)
     for target in (repo, repo / ".worktrees/YOK-other"):
-        payload = _bash(command.format(target=target), lane)
+        payload = _bash(command.format(target=Path(target).as_posix()), lane)
         verdict = lint_session_cwd.evaluate_pre_tool_use(payload)
         source_verdict = lint_lane_main_write.evaluate_pre_tool_use(payload)
         assert not (verdict.allow and source_verdict.allow), (command, target)

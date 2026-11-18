@@ -100,7 +100,7 @@ class TestMainWriteRefused:
         assert "BLOCKED" in verdict.reason
         assert str(wt) in verdict.reason
         assert str(target) in verdict.reason
-        assert f"{wt}/runtime/api/foo.py" in verdict.reason
+        assert str(wt / "runtime/api/foo.py") in verdict.reason
 
     def test_bash_redirect_to_main_denies(self, conn, repo):
         _seed_lane(conn, repo)
@@ -112,7 +112,7 @@ class TestMainWriteRefused:
                     "session_id": "sid-lane",
                     "tool_name": "Bash",
                     "cwd": str(repo),
-                    "tool_input": {"command": f"echo hi > {target}"},
+                    "tool_input": {"command": f"echo hi > {Path(target).as_posix()}"},
                 }
             )
         assert verdict.allow is False
@@ -272,7 +272,7 @@ class TestUnaffectedCases:
                 "session_id": "sid-lane",
                 "tool_name": "Bash",
                 "cwd": str(repo),
-                "tool_input": {"command": f"cat {target}"},
+                "tool_input": {"command": f"cat {Path(target).as_posix()}"},
             }
         )
         assert verdict.allow is True
@@ -290,7 +290,7 @@ class TestSuppressionAndSubagent:
                     "tool_name": "Bash",
                     "cwd": str(repo),
                     "tool_input": {
-                        "command": f"touch {target} {SUPPRESSION_TOKEN}",
+                        "command": f"touch {Path(target).as_posix()} {SUPPRESSION_TOKEN}",
                     },
                 }
             )

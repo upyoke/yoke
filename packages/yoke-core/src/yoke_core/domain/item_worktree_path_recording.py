@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import PurePosixPath, PureWindowsPath
 from typing import Any
+from yoke_contracts.hook_runner.repo_paths import normalize_repo_path
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import instant_parameter, utc_now
@@ -69,6 +70,7 @@ def record_item_worktree_path(
             "with its absolute client path and the current lane id/branch "
             "from item_worktrees.list."
         )
+    clean_path = normalize_repo_path(clean_path)
     if not clean_branch:
         raise ValueError("expected item worktree branch must be non-empty")
 

@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_lint_lane_main_write_declared_cwd.py::test_leading_absolute_cd_to_main_still_denies",
- "reason": "AssertionError: assert True is False"
-}

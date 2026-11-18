@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_lint_lane_main_write_target_directory.py::test_main_write_destination_is_denied[cp -t {repo}/sub /tmp/a]",
- "reason": "AssertionError: assert not True"
-}

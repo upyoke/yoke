@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from pathlib import PureWindowsPath, PurePosixPath
+from yoke_contracts.hook_runner.bash_paths import lexical_client_path, is_absolute, windows_path
 from typing import Any, Mapping
 
 
@@ -14,8 +15,8 @@ CLIENT_MACHINE_HOME_SCHEMA = 1
 
 def _valid_root(root: object) -> str:
     value = root.strip() if isinstance(root, str) else ""
-    path = Path(value).expanduser()
-    if not value or not path.is_absolute() or path == Path(path.anchor):
+    path = PureWindowsPath(value) if windows_path(value) else PurePosixPath(value)
+    if not value or not is_absolute(value) or str(path) == path.anchor:
         return ""
     return value
 
@@ -49,9 +50,11 @@ def _valid_machine_home(root: object) -> str:
     value = _valid_root(root)
     if not value:
         return ""
-    path = Path(value)
-    resolved = path.resolve()
-    if value != str(resolved):
+    resolved = lexical_client_path(value)
+    expected, actual = value, resolved
+    if windows_path(value):
+        expected, actual = value.replace("\\", "/").casefold(), resolved.replace("\\", "/").casefold()
+    if expected != actual:
         return ""
     return value
 

@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_lint_long_command_polling_capture_fact.py::TestEvaluatePayloadFromObservedCapture::test_stale_capture_without_sentinel_allowed",
- "reason": "AssertionError: None != 'C:\\\\Users\\\\RUNNER~1\\\\AppData\\\\Local\\\\Tem[63 chars].log'"
-}

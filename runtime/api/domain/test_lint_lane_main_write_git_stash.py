@@ -8,6 +8,8 @@ stays refused.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from runtime.api.domain.lint_session_cwd_test_helpers import (
@@ -61,7 +63,7 @@ def _verdict(command: str, cwd):
 def test_stash_list_on_main_is_a_read(lane_and_main) -> None:
     lane, main = lane_and_main
     command = (
-        f"git -C {main} stash list | head -0; "
+        f"git -C {Path(main).as_posix()} stash list | head -0; "
         "git show main:docs/teaching/model/topics/x.json >/dev/null"
     )
     assert _verdict(command, lane).allow is True
@@ -69,13 +71,13 @@ def test_stash_list_on_main_is_a_read(lane_and_main) -> None:
 
 def test_stash_show_on_main_is_a_read(lane_and_main) -> None:
     lane, main = lane_and_main
-    assert _verdict(f"git -C {main} stash show -p stash@{{0}}", lane).allow is True
+    assert _verdict(f"git -C {Path(main).as_posix()} stash show -p stash@{{0}}", lane).allow is True
 
 
 @pytest.mark.parametrize("action", ["pop"])
 def test_other_stash_actions_on_main_stay_refused(lane_and_main, action) -> None:
     lane, main = lane_and_main
-    command = f"git -C {main} stash {action}".rstrip()
+    command = f"git -C {Path(main).as_posix()} stash {action}".rstrip()
     assert _verdict(command, lane).allow is False
 
 

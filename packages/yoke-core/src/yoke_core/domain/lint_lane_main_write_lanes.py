@@ -21,15 +21,14 @@ not to the checkout root, so the suggestion never nests one lane's
 
 from __future__ import annotations
 
-import os
-from pathlib import Path, PurePosixPath
+from pathlib import PureWindowsPath, PurePosixPath
+from yoke_contracts.hook_runner.bash_paths import lexical_client_path, join_path, windows_path
 from typing import Optional, Sequence
 
 from yoke_core.domain.lint_session_cwd_path_authority import (
     is_inside,
     is_inside_control_plane,
     repo_root_from_worktree_path,
-    resolve_for_display,
 )
 from yoke_core.domain.session_claimed_worktrees import ClaimedWorktree
 
@@ -37,7 +36,8 @@ _WORKTREES_DIR = ".worktrees"
 
 
 def held_lane_for(
-    target: str, claims: Sequence[ClaimedWorktree],
+    target: str,
+    claims: Sequence[ClaimedWorktree],
 ) -> Optional[ClaimedWorktree]:
     """The held claim whose lane contains *target*, if any."""
     for claim in claims:
@@ -47,13 +47,13 @@ def held_lane_for(
 
 
 def _under_worktrees(target: str, repo_root: str) -> bool:
-    worktrees = str(Path(repo_root).resolve() / _WORKTREES_DIR)
-    resolved = resolve_for_display(target)
-    return resolved == worktrees or resolved.startswith(worktrees + os.sep)
+    return is_inside(target, join_path(repo_root, _WORKTREES_DIR))
 
 
 def is_lane_escape(
-    target: str, claims: Sequence[ClaimedWorktree], repo_root: str,
+    target: str,
+    claims: Sequence[ClaimedWorktree],
+    repo_root: str,
 ) -> bool:
     """True when *target* is under ``.worktrees`` but inside no held lane."""
     if held_lane_for(target, claims) is not None:
@@ -91,21 +91,22 @@ def lane_equivalent_path(main_target: str, claim: ClaimedWorktree) -> str:
     root = repo_root_from_worktree_path(claim.worktree_path)
     if not root:
         return claim.worktree_path
+    path_type = PureWindowsPath if windows_path(main_target) or windows_path(root) else PurePosixPath
     try:
-        rel = PurePosixPath(os.path.normpath(main_target)).relative_to(
-            PurePosixPath(os.path.normpath(root))
+        rel = path_type(lexical_client_path(main_target)).relative_to(
+            path_type(lexical_client_path(root))
         )
     except (OSError, ValueError):
         return claim.worktree_path
     parts = rel.parts
     if len(parts) >= 2 and parts[0] == _WORKTREES_DIR:
         # A foreign lane's file: keep only its lane-relative path.
-        rel = Path(*parts[2:]) if len(parts) > 2 else Path(".")
+        rel = path_type(*parts[2:]) if len(parts) > 2 else path_type(".")
     if ".git" in rel.parts:
         # No source equivalent: linked worktrees have a .git file. Without
         # client proof the write still refuses, but cannot be redirected there.
         return ""
-    return str(PurePosixPath(claim.worktree_path) / rel)
+    return join_path(claim.worktree_path, str(rel).replace("\\", "/"))
 
 
 __all__ = [

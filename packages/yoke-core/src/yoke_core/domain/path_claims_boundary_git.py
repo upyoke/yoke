@@ -200,8 +200,8 @@ def filter_gitignored_paths(
     if not paths:
         return [], []
     proc = subprocess.run(
-        ["git", "-C", repo_path, "check-ignore", "--no-index", "--stdin"],
-        input="\n".join(paths) + "\n",
+        ["git", "-C", repo_path, "check-ignore", "--no-index", "-z", "--stdin"],
+        input="\0".join(paths) + "\0",
         capture_output=True,
         text=True,
         check=False,
@@ -211,7 +211,7 @@ def filter_gitignored_paths(
             f"git check-ignore failed in {repo_path}: "
             f"{(proc.stderr or proc.stdout).strip()}"
         )
-    ignored = {line for line in proc.stdout.splitlines() if line}
+    ignored = {path for path in proc.stdout.split("\0") if path}
     kept = [path for path in paths if path not in ignored]
     ignored_ordered = [path for path in paths if path in ignored]
     return kept, ignored_ordered

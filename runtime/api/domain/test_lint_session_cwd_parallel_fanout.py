@@ -174,9 +174,9 @@ class TestParallelFanoutLint:
         # One item claim, every lane recorded under the item, lane order.
         assert [c.task_num for c in verdict.claims] == [None, None, None]
         assert [c.worktree_path for c in verdict.claims] == [
-            str(repo / ".worktrees" / "YOK-1872"),
-            str(repo / ".worktrees" / "YOK-1872-substrate"),
-            str(repo / ".worktrees" / "YOK-1872-propagation"),
+            (repo / ".worktrees" / "YOK-1872").as_posix(),
+            (repo / ".worktrees" / "YOK-1872-substrate").as_posix(),
+            (repo / ".worktrees" / "YOK-1872-propagation").as_posix(),
         ]
         # The recorded task lane itself is writable through that claim.
         allowed = validate_targets(

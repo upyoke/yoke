@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_lint_session_cwd_other_project_control_plane.py::test_claim_in_a_refuses_project_b_worktree",
- "reason": "AssertionError: assert True is False"
-}

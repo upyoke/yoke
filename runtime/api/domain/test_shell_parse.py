@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from yoke_contracts.hook_runner.bash_paths import resolve_bash_path
 
 from yoke_contracts.hook_runner.local_privacy_guard import classify_shell_command
 from yoke_contracts.hook_runner.shell_parse import parse_shell
@@ -76,7 +77,7 @@ def test_cd_after_an_earlier_command_moves_later_segments(tmp_path: Path) -> Non
     target = tmp_path / "ci"
     target.mkdir()
     parsed = parse_shell(
-        f"yoke messages acknowledge M; mkdir -p {target} && cd {target} "
+        f"yoke messages acknowledge M; mkdir -p {Path(target).as_posix()} && cd {Path(target).as_posix()} "
         "&& gh run view > job.log"
     )
     cwds = parsed.segment_cwds("/repo")
@@ -86,7 +87,7 @@ def test_cd_after_an_earlier_command_moves_later_segments(tmp_path: Path) -> Non
 
 def test_unreadable_cd_makes_later_directories_unknown() -> None:
     parsed = parse_shell('cd "$WORK" && ls; cd /tmp && ls')
-    assert parsed.segment_cwds("/repo") == ["/repo", "", "", str(Path("/tmp").resolve())]
+    assert parsed.segment_cwds("/repo") == ["/repo", "", "", resolve_bash_path("/tmp")]
 
 
 def test_hook_context_parses_once_for_every_guard() -> None:
@@ -105,5 +106,5 @@ def test_privacy_resolves_dot_dot_against_the_in_command_cd(tmp_path: Path) -> N
     repo = home / "repo"
     (repo / "docs").mkdir(parents=True)
     assert classify_shell_command("ls ..", home=home, cwd=str(repo)) is not None
-    command = f"cd {repo / 'docs'} && ls .. && find .. -name x"
+    command = f"cd {Path(repo / 'docs').as_posix()} && ls .. && find .. -name x"
     assert classify_shell_command(command, home=home, cwd=str(repo)) is None

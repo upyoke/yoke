@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from typing import Any, Callable, Sequence
 
+from textual import events
 from textual.widgets import Input, Static
 
 from yoke_cli.config.onboard_wizard_state import _PendingForm
@@ -53,6 +54,42 @@ class InputEntry:
     """Entry rules for every view that takes a typed answer."""
 
     # ── keystroke rescue ────────────────────────────────────
+
+    async def on_event(self, event: events.Event) -> None:
+        # Capture raw keys before Textual forwards them to an outgoing widget.
+        # The next view registers its input only after the awaited unmount, so
+        # on_key cannot find a target throughout the transition.
+        if (
+            isinstance(event, events.Key)
+            and not event.is_forwarded
+            and event.character
+            and event.character.isprintable()
+            and (self._selection_pending or self._swap_pending or self._body_swap_active)
+        ):
+            self._transition_text += event.character
+            return
+        if (
+            isinstance(event, events.Key)
+            and not event.is_forwarded
+            and event.key in {"enter", "ctrl+j", "space"}
+            and isinstance(self.focused, SelectionList)
+            and self.focused.rows
+        ):
+            # Selected bubbles through widget queues after the raw activation.
+            # Protect the next key before forwarding activation to that queue.
+            self._selection_pending = True
+        await super().on_event(event)
+
+    def _flush_transition_text(self) -> None:
+        text, self._transition_text = self._transition_text, ""
+        if not text or not self.is_running:
+            return
+        target = self._active_input()
+        if target is not None:
+            self.set_focus(target)
+            self._insert_input_text(target, text)
+        # A selection/checking view takes no typed answer: discard its keys so
+        # they cannot become text on an unrelated later screen.
 
     def on_key(self, event: Any) -> None:
         text = str(getattr(event, "character", "") or "")
@@ -96,6 +133,8 @@ class InputEntry:
         cursor = int(getattr(widget, "cursor_position", len(value)) or 0)
         widget.value = value[:cursor] + text + value[cursor:]
         widget.cursor_position = cursor + len(text)
+        if isinstance(widget, FocusInput):
+            widget.preserve_typed_cursor()
 
     # ── submission ──────────────────────────────────────────
 

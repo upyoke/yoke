@@ -99,7 +99,7 @@ def test_exact_path_restore_names_patch_level_recovery_and_only_target(
     for name in ("generated-a.md", "generated-b.md", "owned-change.md"):
         (repo / name).write_text("after\n", encoding="utf-8")
 
-    command = f"git -C {repo} restore -- generated-a.md generated-b.md"
+    command = f"git -C {Path(repo).as_posix()} restore -- generated-a.md generated-b.md"
     with (
         mock.patch.object(
             destructive_git, "_claimed_worktree_threats", return_value=[]
@@ -116,7 +116,7 @@ def test_exact_path_restore_names_patch_level_recovery_and_only_target(
 
 
 def test_destructive_git_denial_names_the_config_file(tmp_path: Path) -> None:
-    note = f"Policy source: {tmp_path}/.yoke/lint-config (lint_destructive_git=deny)."
+    note = f"Policy source: {Path(tmp_path).as_posix()}/.yoke/lint-config (lint_destructive_git=deny)."
     with (
         mock.patch.object(
             destructive_git.lint_config, "describe_config_source", return_value=note

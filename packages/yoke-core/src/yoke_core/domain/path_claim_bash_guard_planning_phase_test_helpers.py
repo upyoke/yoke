@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 import pytest
+from pathlib import Path
 
 from yoke_core.domain import project_scratch_dir as scratch
 from yoke_core.domain import project_scratch_roots as scratch_roots
 from yoke_core.domain.schema_init_apply import execute_schema_script
 
 
-PROJECT_REPO_ROOT = "/opt/yoke-test"
-SCRATCH_ROOT = f"{PROJECT_REPO_ROOT}/.scratch-root"
+PROJECT_REPO_ROOT = str(Path("/opt/yoke-test").absolute())
+SCRATCH_ROOT = str(Path(PROJECT_REPO_ROOT) / ".scratch-root")
 RETIRED_DISPATCH_ROOT = "data/sessions/dispatch-inputs"
 RUN_ID = "test-run"
 

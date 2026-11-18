@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_path_claim_bash_execution_cwd.py::TestRelativeTargetAfterCd::test_relative_edit_target_resolves_against_cwd",
- "reason": "FileNotFoundError: [WinError 3] The system cannot find the path specified: '/var/tmp\\\\yoke-lane-oh9xfju8'"
-}

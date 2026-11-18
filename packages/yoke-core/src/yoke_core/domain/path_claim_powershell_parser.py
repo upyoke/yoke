@@ -22,6 +22,9 @@ the parser cannot read marks them ``cwd_unresolved``.
 
 from __future__ import annotations
 
+from dataclasses import replace
+from yoke_contracts.hook_runner.bash_paths import windows_path, join_path
+
 import os
 import re
 from typing import List, Sequence
@@ -159,7 +162,7 @@ def _classify(program: str, argv: tuple[str, ...], cwd: str, text: str) -> List[
     if _is_opaque(program, args):
         return [Mutation(verb="ambiguous", target_path=text[:80])]
     if program == "git":
-        out.extend(_extract_git_paths(args, cwd))
+        out.extend(_extract_git_paths(args, cwd, shell="powershell"))
         return out
     cmdlet = _ALIASES.get(program, program)
     if cmdlet in _FIRST_PATH | _ALL_PATHS | _TO_DESTINATION:
@@ -218,15 +221,19 @@ def extract_powershell_mutations(command: str, cwd: str = "", home: str = "") ->
         destination = cd_destination(segment.argv)
         if destination is not None:
             if not leading and not unresolved:
-                moved = advance_cwd(folder, destination, home=home)
+                moved = advance_cwd(folder, destination, home=home, shell="powershell")
                 unresolved = not moved
                 folder = moved or folder
             elif leading:
-                unresolved = unresolved or not advance_cwd("/", destination, home="/")
+                unresolved = unresolved or not advance_cwd("/", destination, home="/", shell="powershell")
             continue
         if segment.argv:
             leading = False
         muts = _classify(segment.program, segment.argv, folder, segment.text)
+        if windows_path(folder):
+            muts = [replace(mut, target_path=join_path(folder, mut.target_path, shell="powershell"))
+                    if mut.verb not in {"ambiguous", "suppressed"} and mut.target_path.startswith(("/", "\\"))
+                    else mut for mut in muts]
         out.extend(rebase_targets(muts, folder, cwd, unresolved))
     return out
 

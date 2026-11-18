@@ -66,7 +66,8 @@ def headless_launch(payload: Mapping[str, Any]) -> bool:
 def yoke_source_root(payload: Mapping[str, Any]) -> str:
     """Return the client's Yoke source checkout root, or ``""``."""
     value = read_client_fact(payload, SOURCE_ROOT_KEY)
-    return value if isinstance(value, str) and value.startswith("/") else ""
+    from yoke_contracts.hook_runner.bash_paths import is_absolute
+    return value if isinstance(value, str) and is_absolute(value) else ""
 
 
 def capture_roots(payload: Mapping[str, Any]) -> tuple[str, ...]:
@@ -75,7 +76,8 @@ def capture_roots(payload: Mapping[str, Any]) -> tuple[str, ...]:
     roots = fact.get("roots") if isinstance(fact, Mapping) else None
     if not isinstance(roots, list):
         return ()
-    return tuple(r for r in roots if isinstance(r, str) and r.startswith("/"))
+    from yoke_contracts.hook_runner.bash_paths import is_absolute
+    return tuple(r for r in roots if isinstance(r, str) and is_absolute(r))
 
 
 def capture_file_state(

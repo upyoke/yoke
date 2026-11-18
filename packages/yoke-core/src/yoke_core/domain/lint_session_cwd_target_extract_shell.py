@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import os
+from yoke_contracts.hook_runner.bash_paths import join_path, is_absolute, canonical_native_path
 import re
 from typing import List, Mapping, Optional, Sequence, Tuple
 
@@ -92,8 +92,8 @@ def in_segment_cwd(
     """Join relative ``paths`` to segment ``index``'s moved directory, if any."""
     cwd = segment_cwds[index] if index < len(segment_cwds) else ""
     return [
-        os.path.normpath(os.path.join(cwd, path))
-        if cwd and path and not os.path.isabs(path) and not path.startswith("~")
+        canonical_native_path(join_path(cwd, path))
+        if cwd and path and not is_absolute(path) and not path.startswith("~")
         else path
         for path in paths
     ]

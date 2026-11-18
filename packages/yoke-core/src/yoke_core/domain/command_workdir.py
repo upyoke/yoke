@@ -19,7 +19,7 @@ destination.
 
 from __future__ import annotations
 
-from pathlib import Path
+from yoke_contracts.hook_runner.bash_paths import canonical_native_path
 from typing import Any, Mapping, Sequence
 
 from yoke_contracts.hook_runner.shell_parse import (
@@ -39,7 +39,7 @@ from yoke_core.domain.lint_shell_target_tokens import (
 
 
 def _absolute(raw: str, machine_home: str | None = None) -> str:
-    return str(Path(expand_machine_home(raw, machine_home=machine_home)).resolve())
+    return canonical_native_path(expand_machine_home(raw, machine_home=machine_home))
 
 
 def _declared_cwd(payload: Mapping[str, Any], machine_home: str | None) -> str:
@@ -72,7 +72,7 @@ def _leading_cd_cwd(
         moved = (
             ""
             if expanded.startswith("~")
-            else advance_cwd(cwd, expanded, bindings=bindings[index])
+            else advance_cwd(cwd, expanded, bindings=bindings[index], shell=parsed.shell)
         )
         if not moved:
             break

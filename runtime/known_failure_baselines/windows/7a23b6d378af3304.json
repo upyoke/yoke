@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_lint_session_cwd_governed_scope.py::test_foreign_lane_write_still_refuses",
- "reason": "AssertionError: assert not True"
-}
