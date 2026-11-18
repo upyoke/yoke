@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any, Callable, Sequence
 
 from yoke_cli.self_host import atomic_file, bundle, env_file
+from yoke_contracts.onboard_destinations import is_hosted_url
 from yoke_contracts.self_host_bootstrap_output import connect_url_from_publish_spec
 
 _RUN = subprocess.run
@@ -65,9 +66,10 @@ def tear_down(
     docker = _require_docker()
     images = _bundle_images(docker, target) if remove_images else ()
     connection_report = None
+    connections_left: list[dict[str, str]] = []
     machine_locks_removed: list[str] = []
     if not keep_connection:
-        connection_report = _retire_connections(
+        connection_report, connections_left = _retire_connections(
             target,
             activate=activate,
             config_path=config_path,
@@ -99,6 +101,7 @@ def tear_down(
         "bundle_files_removed": [],
         "bundle_files_retained": [],
         "connection": connection_report,
+        "connections_left": connections_left,
         "machine_locks_removed": machine_locks_removed,
     }
     for image in images:
@@ -190,8 +193,14 @@ def _retire_connections(
     activate: str | None,
     config_path: str | None,
     remove: Callable[..., dict[str, Any]] | None,
-) -> dict[str, Any] | None:
-    """Atomically remove every connection that points at this bundle."""
+) -> tuple[dict[str, Any] | None, list[dict[str, str]]]:
+    """Atomically remove every connection that reaches this bundle.
+
+    A connection reaches it when its URL is the bundle's published URL, or
+    when its own token proves an identity at that URL while the stack is
+    still up: a client behind a TLS proxy holds a token this universe minted.
+    A connection whose probe fails is kept and returned as left, named.
+    """
     from yoke_cli.config import machine_config, writer
 
     retire = remove or writer.remove_connections
@@ -199,26 +208,50 @@ def _retire_connections(
     connections = payload.get("connections")
     connections = connections if isinstance(connections, dict) else {}
     url = bundle_connect_url(target)
-    selected = sorted(
-        str(name)
-        for name, entry in connections.items()
-        if isinstance(entry, dict)
-        and str(entry.get("api_url") or "").rstrip("/") == url
-    )
+    selected: list[str] = []
+    left: list[dict[str, str]] = []
+    for name, entry in sorted(connections.items()):
+        if not isinstance(entry, dict):
+            continue
+        api_url = str(entry.get("api_url") or "").rstrip("/")
+        if api_url == url:
+            selected.append(str(name))
+        elif entry.get("transport") == "https" and not is_hosted_url(api_url):
+            refusal = _identity_refusal(url, entry)
+            if refusal is None:
+                selected.append(str(name))
+            else:
+                left.append({"env": str(name), "api_url": api_url, "reason": refusal})
     if not selected:
         if activate is not None:
             raise SelfHostTeardownError(
                 f"--activate {activate} has no effect because no machine "
-                f"connection points at {url}; omit --activate and re-run"
+                f"connection reaches {url}; omit --activate and re-run"
             )
-        return None
+        return None, left
     try:
-        return retire(selected, activate=activate, path=config_path)
+        return retire(selected, activate=activate, path=config_path), left
     except Exception as exc:  # noqa: BLE001 - reported as a teardown refusal
         raise SelfHostTeardownError(
             f"connection retirement refused before the stack was touched: {exc}. "
             "Correct the connection choice or machine-config state, then re-run"
         ) from exc
+
+
+def _identity_refusal(url: str, entry: dict[str, Any]) -> str | None:
+    """Why ``entry``'s own token proves no identity at ``url``; None if it does."""
+    from yoke_cli.config import server_connect
+    from yoke_cli.transport.https_credentials import TransportError, resolve_token
+
+    try:
+        server_connect.verify_server_identity(url, token=resolve_token(entry))
+    except (
+        TransportError,
+        server_connect.ServerConnectError,
+        server_connect.ServerIdentityError,
+    ) as exc:
+        return str(exc)
+    return None
 
 
 def _remove_machine_lock_files(config_path: str | None) -> list[str]:
