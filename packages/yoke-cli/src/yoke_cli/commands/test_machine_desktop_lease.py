@@ -1,7 +1,7 @@
 """Hold a host command's lease before starting its cloud machine.
 
 Desktop access, browser sign-in and ``yoke test-machine exec`` share this one
-lease-then-power-on path; releasing the last lease stops the cloud machine.
+lease-then-power-on path; cloud machines stay running after release.
 """
 
 from contextlib import contextmanager

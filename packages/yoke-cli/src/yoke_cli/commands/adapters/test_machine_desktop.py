@@ -55,7 +55,7 @@ def test_machine_desktop_access(args: list[str]) -> int:
             "Remove the private password copy after use. "
             "Takes an unleased host or borrows your own lease, starts a stopped cloud machine "
             "before desktop work, and releases only its acquired lease in cleanup. "
-            "Last release stops cloud machines. "
+            "Cloud machines stay running after release. "
             " A session holding a live steering seat on the project can assist an actively leased "
             "desktop without taking or releasing its lease; any other session must own the lease and "
             "otherwise receives steering_seat_required. The output names the assisting operator, "

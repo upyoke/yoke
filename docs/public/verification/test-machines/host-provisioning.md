@@ -133,17 +133,15 @@ older validators reject unknown settings; the CLI names
 `next-release`). Existing AWS settings work without the optional field.
 
 Power starts the instance without reading or writing the registered host, then
-waits for SSH on MagicDNS. Last release stops EC2 or **deallocates** Azure under
-the host's lease; a reserved waiter's turn keeps it running.
+waits for SSH on MagicDNS. Cloud Test Machines stay running after lease release
+until an operator stops them.
 `yoke test-machine exec`, desktop access and browser authorization each take
 the host's lease for their duration (or borrow the caller's own), power a
 stopped host on, and release afterwards; a foreign lease refuses them. EC2 uses auto-assigned
 public IPv4 while running; no Elastic IP. Azure keeps the private subnet: its
 sole NIC IP configuration receives a Standard public IP named `VM-yoke-power`
-created on start, detached/deleted after deallocation, supplying outbound access.
-Basic public IP is retired; Standard is static and bills while it exists.
-A failed IP delete reports `test_machine_power_stop_failed`; repair permissions
-and retry verify/release, then confirm the IP is gone, even if already deallocated.
+created on start to supply outbound access. Standard public IPs are static and
+bill while they exist.
 Keep NSG TCP22 open from anywhere and desktop ports closed. The one-time IP/NSG setup uses the recorded operator exception.
 A permanent attachment refuses as unmanaged; detach/delete it after deallocation.
 
@@ -153,7 +151,28 @@ detach/delete the permanent Azure IP (existing native lab: `20.124.243.250`).
 Re-registering before deploy permits an old client to rebind to public IPv4.
 Upgrade clients: retired host_rebind calls refuse `function_version_skew` with a
 required client floor. The target-changed guard still refuses a changed lease
-target; do not bypass it. Stop each cloud lab, run `yoke test-machine verify`,
-and prove unchanged host, no remaining QA_HOST and no Azure public IP afterward.
-A release no client hears leaves the VM running until its next lease cycles;
-there is no idle sweep.
+target. Run `yoke test-machine verify` and confirm the registered host stays
+unchanged, the lease is released and the provider still reports the VM running.
+
+### Stop a cloud Test Machine
+
+Coordinate with the host's users and hold its QA_HOST lease during a manual
+shutdown so another session cannot start work on it. On EC2, stop the instance:
+
+```text
+yoke aws exec --project P -- ec2 stop-instances --instance-ids INSTANCE_ID
+```
+
+On Azure, deallocate the VM, then detach and delete its `VM-yoke-power`
+public IP. Use the VM, NIC IP configuration and public IP resource IDs from
+the provider. If a network command fails, inspect its error, repair the named
+permission or resource and retry the failed step.
+
+```text
+yoke azure exec --project P -- vm deallocate --ids VM_RESOURCE_ID
+yoke azure exec --project P -- network nic ip-config update --ids CONFIG_ID --remove publicIPAddress
+yoke azure exec --project P -- network public-ip delete --ids IP_ID
+```
+
+Release the lease after checking the provider state and, on Azure, that the
+public IP is gone. The next Yoke operation that needs the machine starts it.

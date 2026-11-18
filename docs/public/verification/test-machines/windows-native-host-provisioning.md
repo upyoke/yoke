@@ -115,8 +115,10 @@ Never register that IP. Keep the private subnet, key-only SSH from anywhere
 (NSG/firewall TCP22) and no public RDP. Basic IP is retired; Standard is static
 and bills until deleted. The NIC public IP supplies outbound on the private subnet.
 Registered power creates/attaches `VM-yoke-power` in the VM resource group/location
-on its sole NIC IP configuration before start, then deallocates/detaches/deletes
-it on last release. It waits for SSH without reading/changing the MagicDNS host.
+on its sole NIC IP configuration before start and waits for SSH on the registered
+MagicDNS name. The VM and public IP stay allocated when the lease ends. Use the
+[manual stop commands](host-provisioning.md#stop-a-cloud-test-machine) to
+deallocate the VM and detach and delete its public IP.
 Before provider registration, create/attach a temporary IP for each start and
 attach it with `az network nic ip-config update --ids CONFIG_ID
 --public-ip-address IP_ID`; remove it after deallocation:
@@ -129,9 +131,8 @@ az network public-ip delete --ids IP_ID
 Existing rollout: join first, deploy the no-rebind build, then settings-replace
 `host` using the as-read token. Upgrade clients, then detach/delete the old
 `20.124.243.250` by the commands above under the recorded operator exception.
-An unmanaged IP attachment refuses with that recovery. A failed delete reports
-`test_machine_power_stop_failed`: repair its named cause and retry verify/release.
-Prove start/verify/stop keeps the host unchanged, with no QA_HOST or public IP left.
+An unmanaged IP attachment refuses with that recovery. Verify that the VM is
+running, its MagicDNS host is unchanged and the QA_HOST lease has been released.
 
 Before rebuilding, remove the old tailnet device, then join with the same name;
 require no `-1` suffix. Verify the new SSH fingerprint, then clear the old pin
@@ -277,7 +278,7 @@ Register only when the VM exists and its standard user works: `os=windows`
 for native, a separate OS kind for WSL. Goldens use a literal Windows path
 outside the profile, such as `C:\YokeQa\goldens\baseline`; settings contain no
 credentials. Register provider/resource ID using the installed power contract;
-prove start, unchanged MagicDNS host and IP deletion after last-lease deallocation.
+prove start, unchanged MagicDNS host and continued operation after lease release.
 
 ```text
 yoke test-machine settings-replace --project P --test-machine NAME --settings-file SETTINGS.json --new
@@ -293,5 +294,5 @@ failures leave capture unsealed. Keep baseline tools/fixtures in project invento
 
 Record a scripted check with WSL absent, a real desktop PNG, a profile/PATH/
 scheduled-task reset roundtrip, an interrupted policy-case restoration and
-the provider's deallocated power state after release. These are machine
+the provider's running power state after release. These are machine
 receipts, separate from the plan's final integrated Windows acceptance pass.

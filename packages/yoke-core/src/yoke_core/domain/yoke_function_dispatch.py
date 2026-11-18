@@ -9,7 +9,6 @@ from typing import Any, Optional, Tuple
 
 from pydantic import ValidationError
 
-from yoke_core.domain import cloud_machine_release_notice as release_notice
 from yoke_core.domain import yoke_function_dispatch_idempotency as idempotency_module
 from yoke_core.domain.yoke_function_actor_identity import (
     bind_actor_identity,
@@ -329,11 +328,10 @@ def dispatch(
     ambient_session_id: Optional[str] = None,
 ) -> FunctionCallResponse:
     with dispatch_observation(request) as mark_observed:
-        with release_notice.collect_released_hosts() as hosts:
-            response = _dispatch_impl(request, ambient_session_id=ambient_session_id)
+        response = _dispatch_impl(request, ambient_session_id=ambient_session_id)
         from yoke_core.domain.function_response_refs import public_response
 
-        response = release_notice.released_hosts_response(public_response(response), hosts)
+        response = public_response(response)
         mark_observed(response)
         return response
 
