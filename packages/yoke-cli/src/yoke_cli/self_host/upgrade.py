@@ -44,9 +44,17 @@ class UpgradePlan:
     previous_image: str
 
     @property
+    def server_current(self) -> bool:
+        """True when the bundle already pins the target image: only the CLI moves."""
+        return self.previous_image == self.target.image
+
+    @property
     def steps(self) -> tuple[str, ...]:
+        install = f"install Yoke CLI {self.target.version} from {self.target.channel}"
+        if self.server_current:
+            return (install,)
         return (
-            f"install Yoke CLI {self.target.version} from {self.target.channel}",
+            install,
             f"replace YOKE_SERVER_IMAGE with {self.target.image}",
             "run docker compose pull core",
             "restart through the private host secret handoff",
@@ -112,10 +120,27 @@ def already_current_report(plan: UpgradePlan) -> dict[str, Any] | None:
 
 
 def execute_upgrade(plan: UpgradePlan) -> dict[str, Any]:
-    """Execute a consented plan in CLI → pin → pull → restart order."""
+    """Execute a consented plan in CLI → pin → pull → restart order.
+
+    A bundle already pinned at the target image keeps its server running:
+    only the CLI is installed.
+    """
     _require_packaged_install()
     installer = _fetch_installer(plan)
     _install_cli(plan, installer)
+    receipt = {
+        "ok": True,
+        "directory": str(plan.directory),
+        "channel": plan.target.channel,
+        "distribution_origin": plan.target.base_url,
+        "version": plan.target.version,
+        "source_commit": plan.target.source_commit,
+        "previous_image": plan.previous_image,
+        "image": plan.target.image,
+        "steps": list(plan.steps),
+    }
+    if plan.server_current:
+        return {**receipt, "server": "unchanged"}
     _replace_server_image(plan)
     _run_compose_step(plan, ("pull", "core"), code="compose-pull")
     try:
@@ -126,15 +151,8 @@ def execute_upgrade(plan: UpgradePlan) -> dict[str, Any]:
     except (runtime.SelfHostRuntimeError, bundle.SelfHostBundleError) as exc:
         raise _compose_error(plan, "self-host-handoff", str(exc)) from exc
     return {
-        "ok": True,
-        "directory": str(plan.directory),
-        "channel": plan.target.channel,
-        "distribution_origin": plan.target.base_url,
-        "version": plan.target.version,
-        "source_commit": plan.target.source_commit,
-        "previous_image": plan.previous_image,
-        "image": plan.target.image,
-        "steps": list(plan.steps),
+        **receipt,
+        "server": "restarted",
         "healthy": runtime_state["healthy"],
         **({"paused": True} if runtime_state.get("paused") else {}),
     }

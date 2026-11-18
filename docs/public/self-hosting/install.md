@@ -185,7 +185,9 @@ If the image pin and CLI already match the release, it reports already current
 and changes nothing. Otherwise preflight shows images, release, origin and
 actions, then asks you to type `upgrade`. It installs the paired CLI, atomically
 updates `YOKE_SERVER_IMAGE`, pulls `core`, refreshes Compose, and restarts
-through the private host handoff. `--yes` accepts this plan automatically.
+through the private host handoff. When only the CLI is behind, the plan is one
+step: it installs the CLI and leaves the running server untouched. `--yes`
+accepts this plan automatically.
 
 Setup and upgrade use `settings.distribution.origin`, ignoring
 `YOKE_INSTALL_BASE_URL`. Upgrade defaults to `settings.distribution.channel`;

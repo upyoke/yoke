@@ -225,7 +225,8 @@ def self_host_upgrade(args: List[str]) -> int:
         description=(
             "Preview and deliberately advance one self-host installation as a "
             "pair: install the selected Yoke CLI release, replace the bundle's "
-            "immutable server-image pin, pull it, and restart Compose."
+            "immutable server-image pin, pull it, and restart Compose. A server "
+            "already pinned at the target keeps running; only the CLI moves."
         ),
     )
     parser.add_argument(
@@ -305,12 +306,17 @@ def _print_upgrade_preview(plan: upgrade.UpgradePlan) -> None:
     print(f"  target server image: {plan.target.image}")
     for index, step in enumerate(plan.steps, start=1):
         print(f"  {index}. {step}")
+    if plan.server_current:
+        print("  server already pinned at the target image; it stays running")
 
 
 def _print_upgrade_summary(report: Dict[str, object]) -> None:
     print(f"self-host pair upgraded: {report.get('version')}")
     print(f"bundle: {report.get('directory')}")
     print(f"server image: {report.get('image')}")
+    if report.get("server") == "unchanged":
+        print("CLI installed; the server was already current and kept running")
+        return
     print("CLI, image pin, pull, and Compose restart all completed")
     if report.get("paused"):
         print(
