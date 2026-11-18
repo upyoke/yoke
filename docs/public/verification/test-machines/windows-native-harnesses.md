@@ -38,6 +38,9 @@ If Cursor architecture detection fails with CIM/WMI access denied under SSH,
 stop and inspect the partial installer directory and user PATH before retrying.
 Its initializer can mutate both before the architecture check. An interactive
 token must be proved separately; do not elevate the standard test user.
+Yoke runs Cursor installation and its post-install probe through the existing
+standard user's interactive desktop task. Ordinary probes and the other CLI
+installers use SSH. A missing interactive session refuses installation.
 
 Install desktop apps using the vendor's documented package context, then launch
 and sign in as the standard test user. Claude's direct MSIX includes a service

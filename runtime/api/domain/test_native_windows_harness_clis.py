@@ -9,6 +9,7 @@ from threading import Thread
 import pytest
 
 from yoke_contracts.harness_cli_releases import VERSION_TOKEN_PATTERN
+from yoke_harness.native_windows import harness_clis
 from yoke_harness.native_windows.harness_clis import host_program
 from yoke_harness.native_windows.transport import quote
 
@@ -19,9 +20,14 @@ pytestmark = pytest.mark.windows
 @pytest.mark.parametrize("harness", ["claude-code", "cursor"])
 @pytest.mark.parametrize("media_type", ["application/octet-stream", "text/plain; charset=utf-8"])
 @pytest.mark.parametrize("encoding", ["utf-8", "utf-8-sig", "invalid-utf-8"])
-def test_vendor_installers_decode_raw_utf8(tmp_path, harness, media_type, encoding):
+def test_vendor_installers_decode_raw_utf8(tmp_path, monkeypatch, harness, media_type, encoding):
     powershell = shutil.which("powershell.exe")
     assert powershell, "Windows PowerShell 5.1 is required for the regression"
+    # This regression owns real PowerShell decoding. Desktop routing and token
+    # behavior have separate coverage; the synthetic fixture has no user desktop.
+    monkeypatch.setattr(
+        harness_clis, "desktop_script", lambda control, script, *, timeout: control._run(script, timeout=timeout),
+    )
     marker = tmp_path / "installed.txt"
     expected = "installer executed: café 雪"
     source = (

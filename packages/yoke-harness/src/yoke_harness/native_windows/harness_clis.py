@@ -2,6 +2,7 @@
 
 import json
 
+from yoke_harness.native_windows.desktop import desktop_script
 from yoke_harness.native_windows.transport import quote
 
 
@@ -39,7 +40,13 @@ $env:Path=[Environment]::GetEnvironmentVariable('Path','Machine')+';'+[Environme
         }
         script += installers[harness] + "; $code=$LASTEXITCODE; $p=Probe $payload[1]; "
         script += "@{install_exit_code=$code;install_stderr='';probe=$p} | ConvertTo-Json -Depth 8 -Compress"
-    result = control._run(script, timeout=timeout)
+    # Cursor's architecture query needs the same user's interactive logon token;
+    # the standard SSH token can be denied local CIM/WMI access. The desktop
+    # helper refuses absent sessions and never substitutes an elevated token.
+    if action == "install" and payload[0] == "cursor":
+        result = desktop_script(control, script, timeout=timeout)
+    else:
+        result = control._run(script, timeout=timeout)
     if result.returncode:
         raise RuntimeError(
             "windows_harness_cli_failed: repair the native vendor installer and PATH, then retry; "
