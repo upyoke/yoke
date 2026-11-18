@@ -166,8 +166,7 @@ def human_identity_line(report: Mapping[str, Any]) -> str:
         "  identity: "
         f"version={identity.get('version') or '<missing>'} "
         f"kind={identity.get('install_kind') or '<missing>'} "
-        f"build={build} "
-        f"mode={identity.get('portability_mode') or '<missing>'}"
+        f"build={build}"
     )
 
 
