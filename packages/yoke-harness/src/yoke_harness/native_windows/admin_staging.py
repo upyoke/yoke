@@ -73,7 +73,8 @@ def stage_script(ssh, payload, root, diagnostics, *, deadline):
             if remaining <= 0:
                 raise subprocess.TimeoutExpired("Windows administrator staging", 90)
             result = subprocess.run(
-                argv, capture_output=True, text=True, timeout=remaining, **kwargs,
+                argv, capture_output=True, text=True, encoding="utf-8",
+                errors="replace", timeout=remaining, **kwargs,
             )
             event["exit_code"] = result.returncode
             if result.returncode:

@@ -25,6 +25,8 @@ def diagnostic():
 
 @pytest.mark.parametrize("failure", [None, "prepare", "ownership", "sftp", "verification"])
 def test_private_staging_refuses_transfer_or_verification_failure(monkeypatch, tmp_path, failure):
+    tmp_path = tmp_path / "controller 雪"
+    tmp_path.mkdir()
     payload = "Write-Output 'private script 雪'".encode("utf-8-sig")
     calls, sources = [], []
     clock = [0]
@@ -37,6 +39,7 @@ def test_private_staging_refuses_transfer_or_verification_failure(monkeypatch, t
         clock[0] += 10
         assert payload.decode("utf-8-sig") not in " ".join(argv)
         if argv[0] == "sftp":
+            assert kwargs["encoding"] == "utf-8"
             assert argv[1:-3] == SSH[1:-1]
             assert argv[-3:] == ["-b", "-", "admin@host"]
             batch = kwargs["input"]
