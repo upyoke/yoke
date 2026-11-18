@@ -24,7 +24,8 @@ def _project_status(repo_root: Path, config_path: Path) -> dict[str, Any]:
                 hint="Repair the reported machine-config issue, then rerun `yoke status`.",
             ).as_dict()
         )
-    if project_id is None and not issues:
+    # Only a git checkout can be registered; other folders owe no mapping.
+    if project_id is None and not issues and (repo_root / ".git").exists():
         issues.append(
             ValidationIssue(
                 "warning",

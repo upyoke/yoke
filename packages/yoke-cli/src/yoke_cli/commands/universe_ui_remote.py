@@ -27,17 +27,35 @@ from yoke_contracts.browser_sign_in import (
 from yoke_contracts.machine_config.schema import MachineConfigContractError
 
 
-def self_host_report(*, host: str | None, port: int | None) -> dict[str, Any] | None:
-    """Return a private browser door for self-host; other modes keep their path."""
+def self_host_connection() -> dict[str, Any] | None:
+    """Return the active self-host connection, or None for every other mode.
+
+    Reads machine config only: no request leaves the machine and no token is
+    minted, so status reads can name the self-host workbench cheaply.
+    """
     try:
         connection = machine_config.active_connection()
     except (machine_config.MachineConfigError, MachineConfigContractError):
         return None  # The local connection preflight owns config diagnostics.
     if connection.get("transport") != "https":
         return None
-    api_url = str(connection.get("api_url") or "")
-    if is_hosted_url(api_url):
+    if is_hosted_url(str(connection.get("api_url") or "")):
         return None
+    return connection
+
+
+def self_host_url(connection: dict[str, Any]) -> str:
+    """The workbench origin of a self-host connection's API URL."""
+    server = urlsplit(str(connection.get("api_url") or ""))
+    return f"{server.scheme}://{server.netloc}"
+
+
+def self_host_report(*, host: str | None, port: int | None) -> dict[str, Any] | None:
+    """Return a private browser door for self-host; other modes keep their path."""
+    connection = self_host_connection()
+    if connection is None:
+        return None
+    api_url = str(connection.get("api_url") or "")
     if host is not None or port is not None:
         raise UniverseUiError(
             "self_host_ui_local_flags: --host and --port configure a local daemon; "
@@ -74,12 +92,11 @@ def self_host_report(*, host: str | None, port: int | None) -> dict[str, Any] | 
             "browser_sign_in_invalid_response: the server returned an invalid admission door; "
             "ask the server operator to repair it, then run `yoke ui up` again"
         )
-    server = urlsplit(api_url)
     return {
         "mode": "self-host",
         "env": connection.get("env"),
         "auth_method": method,
-        "private_url": f"{server.scheme}://{server.netloc}{path}",
+        "private_url": f"{self_host_url(connection)}{path}",
     }
 
 

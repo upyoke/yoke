@@ -1,7 +1,8 @@
 """Open self-host or machine-local workbenches without exposing sign-in tokens.
 
 ``yoke ui up`` opens the browser and starts the local daemon when needed.
-``yoke ui`` / ``status`` report daemon state; ``down`` stops it. Browser
+``yoke ui`` / ``status`` name the self-host workbench on a self-host
+connection and otherwise report daemon state; ``down`` stops it. Browser
 admission URLs stay in memory and never enter text or JSON output. Agents,
 headless callers and ``--no-browser`` receive the human-terminal recovery.
 """
@@ -18,7 +19,11 @@ from typing import Callable, Dict, List, Tuple
 from yoke_cli.commands._helpers import parse_or_usage_error
 from yoke_cli.commands import universe_ui_connection as connection
 from yoke_cli.commands.universe_ui_connection import UniverseUiError
-from yoke_cli.commands.universe_ui_remote import self_host_report
+from yoke_cli.commands.universe_ui_remote import (
+    self_host_connection,
+    self_host_report,
+    self_host_url,
+)
 from yoke_cli.commands.universe_ui_serve import (
     UI_SERVE_PROCESS_USAGE,
     ui_serve_process,
@@ -60,8 +65,9 @@ def ui_status(
     parser = argparse.ArgumentParser(
         prog=prog,
         description=(
-            "Report whether this machine's web dashboard is serving, and "
-            "report its state without sign-in tokens. Reading status is all bare "
+            "Report where the web dashboard is, without sign-in tokens: on a "
+            "self-host connection, the server's workbench; otherwise whether "
+            "this machine's dashboard is serving. Reading status is all bare "
             "`yoke ui` does — serving is `yoke ui up`."
         ),
         epilog=(
@@ -79,6 +85,19 @@ def ui_status(
     parsed = parse_or_usage_error(parser, args, usage)
     if parsed is None:
         return 2
+    remote = self_host_connection()
+    if remote is not None:
+        url = self_host_url(remote)
+        if parsed.json_mode:
+            payload = {"ok": True, "mode": "self-host", "env": remote.get("env")}
+            print(json.dumps({**payload, "url": url}, sort_keys=True), flush=True)
+        else:
+            print(
+                f"yoke ui: self-host workbench on env {remote.get('env')} at {url}; "
+                "`yoke ui up` opens it",
+                flush=True,
+            )
+        return 0
     try:
         report = daemon.status()
     except (UiDaemonError, InvalidInstant) as exc:

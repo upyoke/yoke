@@ -197,3 +197,32 @@ def test_oidc_needs_no_api_token(setup, monkeypatch, capsys):
     )
     assert commands.ui_up(["--no-browser", "--json"]) == 0
     assert "private_url" not in json.loads(capsys.readouterr().out)
+
+
+def _no_http(*_args, **_kwargs):
+    raise AssertionError("status must not call the server or mint a token")
+
+
+@pytest.mark.parametrize("entry", ["ui", "ui_status"])
+def test_status_names_the_self_host_workbench_without_http(
+    setup, monkeypatch, capsys, entry
+):
+    monkeypatch.setattr(remote, "request_json", _no_http)
+    assert getattr(commands, entry)([]) == 0
+    out = capsys.readouterr().out
+    assert out == (
+        "yoke ui: self-host workbench on env team at https://team.example; "
+        "`yoke ui up` opens it\n"
+    )
+    assert "stopped" not in out
+
+
+def test_status_json_reports_self_host_mode(setup, monkeypatch, capsys):
+    monkeypatch.setattr(remote, "request_json", _no_http)
+    assert commands.ui_status(["--json"]) == 0
+    assert json.loads(capsys.readouterr().out) == {
+        "ok": True,
+        "mode": "self-host",
+        "env": "team",
+        "url": "https://team.example",
+    }
