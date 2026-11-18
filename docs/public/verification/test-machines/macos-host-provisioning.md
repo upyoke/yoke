@@ -293,54 +293,5 @@ Before probing GUI-session commands, read the mandatory
 [macOS automation diagnostics](browser-identities.md#macos-automation-diagnostics)
 for denial, timeout and Terminal-window recovery.
 
-## 8. Harness sign-in and acceptance set
-
-Sign the operator identity (the project's browser-control `default_identity`)
-into `https://app.upyoke.com` (or the declared self-hosted app URL) once with
-`yoke browser authorize --project P --identity NAME --test-machine NAME`.
-Complete password/2FA now and require the signed-in app page; a Google session
-alone is insufficient. Later approval should need only an existing account pick.
-Start each harness's vendor login flow from the test user's **GUI Terminal**;
-the operator types passwords only where asked. Follow the [browser identity procedure](macos-baseline-recovery.md#11-live-browser-identities)
-for password-free native authorization and personal sign-in handoffs. [Codex device auth](https://developers.openai.com/codex/auth)
-requires account/workspace permission. [Cursor auth](https://cursor.com/docs/cli/reference/authentication)
-is separate from app presence. A login-status line or credential file is
-insufficient: every harness must answer a real request without tool calls.
-After harness sign-in, run `yoke test-machine golden-capture` (section 9)
-to prove real requests and recapture. Identity sign-ins stay live outside goldens.
-
-Once per machine, accept Claude's dangerous-mode prompt in the
-dedicated test context. Require `skipDangerousModePermissionPrompt=true` in
-its vendor settings before saving; a restore brings back the captured value.
-This deliberate fixture choice does not authorize unrelated bypasses.
-
-Before capture, prove steps 1–7, keychain readability in the GUI context,
-screen saver 0, and real requests from Claude, Codex and Cursor. Golden capture
-uses the standard macOS probes when no file is supplied. A custom `--probes-file`
-must include every standard check and may add requirements. The standard set
-includes native real requests, bypass acceptance, GUI keychain readability,
-and screen-saver Never. The exact names are `Claude real request`,
-`Codex real request`, `Cursor real request`, `Claude bypass accepted`,
-`macOS login keychain readable`, and `macOS screen saver disabled`.
-Missing names refuse as `baseline_standard_probes_missing`. Capture always
-runs/seals the canonical standard programs plus extras; an older sidecar is
-never carried forward implicitly. Native output and Keychain contents stay on
-the host. Extra probes name absolute argv and optional
-`expect_output_contains`; use macOS's guaranteed `/bin/test` for file checks.
-
-## 9. Save and prove the baseline
-
-Continue with [macOS baseline capture and recovery](macos-baseline-recovery.md)
-for save, restore, and live browser identity proof.
-
-## Add per-machine QA plans
-
-After registration and the saved-state proof, use `yoke qa plan create --help`
-and `yoke qa plan-cases --help` to build deterministic checks and exploratory
-missions for the new machine. Bind each to its machine name and select cases
-its OS and architecture support. Where the host meets the local-mode minimum,
-require successful embedded PostgreSQL startup. Prove the current Cursor CLI
-with a real request. Start install coverage on `fresh-host`. Checks that
-require an installed CLI start their own `shell-preconfigured` chain when
-`starting_state_lacks_yoke` blocks a clean-host plan. Attach each plan with
-`yoke qa item-plan attach --help`.
+Continue with [harness sign-in and baseline recovery](macos-baseline-recovery.md#8-harness-sign-in-and-acceptance-set)
+to sign in, seal and prove the setup, and add QA plans.
