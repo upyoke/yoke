@@ -9,6 +9,7 @@ import pytest
 from yoke_core.domain import strategy_docs as sd
 from yoke_core.domain import strategy_docs_defaults as defaults
 from yoke_core.domain import strategy_docs_paths as paths
+from runtime.api.domain.strategy_docs_test_helpers import card_document
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 
 
@@ -95,6 +96,58 @@ class TestSeedDefaults:
     def test_placeholder_unknown_slug_raises(self) -> None:
         with pytest.raises(ValueError, match="default canon"):
             defaults.placeholder_content("PAD", "ExternalWebapp")
+
+
+def _seed_project_defaults(conn, project_id: int) -> None:
+    """Seed the default corpus under the project's own display name."""
+    row = conn.execute(
+        "SELECT name FROM projects WHERE id = %s", (project_id,)
+    ).fetchone()
+    defaults.seed_default_docs(conn, project_id, str(row["name"]))
+
+
+class TestPlaceholderShrinkGuard:
+    def test_short_first_plan_replaces_seeded_placeholder(
+        self, tmp_db: str,
+    ) -> None:
+        short_plan = card_document("# Plan\n\nShip it.\n")
+        conn = connect_test_db(tmp_db)
+        try:
+            _seed_project_defaults(conn, 2)
+            seeded = sd.get_doc(conn, 2, "MASTER-PLAN")
+            assert len(short_plan.encode()) < (
+                len(seeded["content"].encode()) * sd.SHRINK_GUARD_RATIO
+            )
+            result = sd.replace_doc(
+                conn, 2, "MASTER-PLAN", short_plan, None,
+                base_updated_at=seeded["updated_at"],
+            )
+            stored = sd.get_doc(conn, 2, "MASTER-PLAN")["content"]
+        finally:
+            conn.close()
+        assert result["new_bytes"] == len(short_plan.encode())
+        assert stored == short_plan
+
+    def test_edited_doc_still_refuses_shrink(self, tmp_db: str) -> None:
+        conn = connect_test_db(tmp_db)
+        try:
+            _seed_project_defaults(conn, 2)
+            seeded = sd.get_doc(conn, 2, "MASTER-PLAN")
+            edited = seeded["content"] + "Authored frontier line.\n"
+            sd.replace_doc(
+                conn, 2, "MASTER-PLAN", edited, None,
+                base_updated_at=seeded["updated_at"],
+            )
+            current = sd.get_doc(conn, 2, "MASTER-PLAN")
+            with pytest.raises(sd.StrategyDocShrinkError):
+                sd.replace_doc(
+                    conn, 2, "MASTER-PLAN", card_document("# Plan\n"), None,
+                    base_updated_at=current["updated_at"],
+                )
+            stored = sd.get_doc(conn, 2, "MASTER-PLAN")["content"]
+        finally:
+            conn.close()
+        assert stored == edited
 
 
 class TestPathResolver:

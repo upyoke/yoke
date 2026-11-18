@@ -155,6 +155,30 @@ def placeholder_content(slug: str, display_name: str) -> str:
     return normalize_fields(content)
 
 
+def is_seeded_placeholder(
+    conn: Any, project_id: int, slug: str, content: str
+) -> bool:
+    """True when ``content`` is exactly the placeholder seeded for ``slug``.
+
+    The display name resolves as the seeders resolve it (``projects.name``,
+    falling back to the slug), so an untouched seed row matches byte for
+    byte. A placeholder holds no authored content, which is why replace's
+    shrink guard does not protect it.
+    """
+    if slug not in _PLACEHOLDER_RENDERERS:
+        return False
+    from yoke_core.domain.project_identity import placeholder, row_value
+
+    row = conn.execute(
+        f"SELECT name, slug FROM projects WHERE id = {placeholder(conn)}",
+        (project_id,),
+    ).fetchone()
+    if row is None:
+        return False
+    name = row_value(row, "name", 0) or row_value(row, "slug", 1)
+    return content == placeholder_content(slug, str(name))
+
+
 def seed_default_docs(
     conn: Any,
     project_id: int,
@@ -216,6 +240,7 @@ def seed_default_docs(
 
 __all__ = [
     "DEFAULT_STRATEGY_DOC_SLUGS",
+    "is_seeded_placeholder",
     "placeholder_content",
     "render_current_plan_placeholder",
     "render_landscape_placeholder",

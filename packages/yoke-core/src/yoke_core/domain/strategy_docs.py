@@ -18,6 +18,7 @@ from yoke_contracts.project_contract.strategy_doc_fields import normalize_fields
 from yoke_core.domain import strategy_docs_header as _header
 from yoke_core.domain.strategy_doc_presentation import summary_from_row
 from yoke_core.domain.strategy_docs_defaults import DEFAULT_STRATEGY_DOC_SLUGS
+from yoke_core.domain.strategy_docs_defaults import is_seeded_placeholder
 from yoke_core.domain.strategy_docs_schema import (
     STRATEGY_DOCS_TABLE,
 )
@@ -25,7 +26,7 @@ from yoke_core.domain.strategy_docs_schema import (
 StrategyHeaderError = _header.StrategyHeaderError
 
 # replace_doc refuses a write shrinking content below this fraction of
-# the old byte length unless force=True.
+# the old byte length unless force=True or the old content is a seed placeholder.
 SHRINK_GUARD_RATIO = 0.6
 
 
@@ -176,7 +177,7 @@ def replace_doc(
       (no doc creation through replace);
     - empty/whitespace-only content → :class:`EmptyStrategyDocError`;
     - new content under ``SHRINK_GUARD_RATIO`` of the old byte length
-      without ``force=True`` → :class:`StrategyDocShrinkError`;
+      without ``force=True`` → :class:`StrategyDocShrinkError` (seed placeholders exempt);
     - row moved past ``base_updated_at`` → :class:`StrategyDocConflictError`
       (``force`` does NOT bypass — re-read first, always).
     Commits on success and returns ``{slug, old_bytes, new_bytes,
@@ -209,7 +210,9 @@ def replace_doc(
             "updated_at": old["updated_at"],
             "unchanged": True,
         }
-    if not force and new_bytes < old_bytes * SHRINK_GUARD_RATIO:
+    if not force and new_bytes < old_bytes * SHRINK_GUARD_RATIO and not (
+        is_seeded_placeholder(conn, project_id, slug, old["content"])
+    ):
         raise StrategyDocShrinkError(
             f"refusing to shrink strategy doc {slug!r} from {old_bytes} to "
             f"{new_bytes} bytes (<{int(SHRINK_GUARD_RATIO * 100)}% of old "
