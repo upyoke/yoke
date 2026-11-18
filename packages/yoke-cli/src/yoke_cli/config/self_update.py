@@ -21,6 +21,7 @@ from yoke_cli.config import distribution, github_repo_helper_reconnect, install_
 from yoke_cli.self_host import release_target
 from yoke_cli.config import project_update
 from yoke_cli.project_install.files import ProjectInstallError
+from yoke_contracts.engine_version import compare_engine_versions
 
 VERSION_PROBE_TIMEOUT_SECONDS = 30.0
 _RUN = subprocess.run
@@ -45,7 +46,8 @@ def run_update(
     """Rerun the official installer for this machine, then verify and repair.
 
     ``version`` installs that exact release from the same origin instead of
-    the channel's current one.
+    the channel's current one; the result then carries ``pinned: True``, and
+    ``channel_version`` always names the channel's current release.
     """
 
     try:
@@ -66,19 +68,25 @@ def run_update(
     if not yoke_bin:
         raise SelfUpdateError("could not resolve the `yoke` executable on PATH")
 
-    target = resolve_target(channel=channel, version=version)
+    channel_target = resolve_target(channel=channel)
+    target = _pin(channel_target, version) if version else channel_target
 
     if target.version == old_version:
         # An already-current update skips creating a release environment.
         # Repair credential-helper references directly on this fast path.
         repair = github_repo_helper_reconnect.restore_missing_bundle(None)
         return _with_project_refresh(
-            yoke_bin, _result(old_version, old_version, target, repair)
+            yoke_bin,
+            _result(old_version, old_version, target, channel_target, repair),
         )
 
+    _direction(old_version, target.version)  # refuse an unorderable pair first
     new_version = install_release(target, yoke_bin)
     return _with_project_refresh(
-        yoke_bin, _result(old_version, new_version, target, _INSTALLER_OWNED_REPAIR)
+        yoke_bin,
+        _result(
+            old_version, new_version, target, channel_target, _INSTALLER_OWNED_REPAIR
+        ),
     )
 
 
@@ -98,14 +106,34 @@ def resolve_target(
         raise SelfUpdateError(str(exc)) from exc
     except release_target.ReleaseTargetError as exc:
         raise SelfUpdateError(f"could not resolve the release channel: {exc}") from exc
-    if not version:
-        return target
+    return _pin(target, version) if version else target
+
+
+def _pin(
+    target: release_target.ReleaseTarget, version: str
+) -> release_target.ReleaseTarget:
+    """*target*'s origin and channel, pinned to the exact release *version*."""
     return dataclasses.replace(
         target,
         version=version.strip(),
         source_commit="",
         image="",
     )
+
+
+def _direction(old_version: str, new_version: str) -> str:
+    """``upgrade``, ``downgrade`` or ``none`` from *old_version* to *new_version*."""
+    if new_version == old_version:
+        return "none"
+    order = compare_engine_versions(new_version, old_version)
+    if order is None:
+        raise SelfUpdateError(
+            f"cannot order {old_version!r} against {new_version!r}; pass --version "
+            "as a published release version, or drop --version to install the "
+            "channel's current release"
+        )
+    older = order < 0
+    return "downgrade" if older else "upgrade"
 
 
 def install_release(
@@ -158,13 +186,17 @@ def _result(
     old_version: str,
     new_version: str,
     target: release_target.ReleaseTarget,
+    channel_target: release_target.ReleaseTarget,
     repair: dict[str, Any],
 ) -> dict[str, Any]:
     return {
         "old_version": old_version,
         "new_version": new_version,
         "already_current": new_version == old_version,
+        "direction": _direction(old_version, new_version),
+        "pinned": target is not channel_target,
         "channel": target.channel,
+        "channel_version": channel_target.version,
         "base_url": target.base_url,
         "credential_helper_configured": repair.get("configured"),
         "credential_helper_repaired": repair.get("repaired"),
