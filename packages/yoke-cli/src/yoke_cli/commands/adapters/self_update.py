@@ -67,16 +67,7 @@ def update(args: List[str]) -> int:
     if parsed.json_mode:
         print(json.dumps({"ok": credential_error is None, **result}))
         return 1 if credential_error else 0
-    if result["already_current"]:
-        print(
-            f"Yoke is already current at v{result['new_version']} "
-            f"({result['channel']})."
-        )
-    else:
-        print(
-            f"Updated Yoke {result['old_version']} -> {result['new_version']} "
-            f"({result['channel']})."
-        )
+    print(_summary(result))
     if result.get("project_refresh", {}).get("status") == "refreshed":
         print("Refreshed the current checkout’s installed Yoke operating layer.")
     if result["credential_helper_repaired"]:
@@ -86,6 +77,20 @@ def update(args: List[str]) -> int:
     if credential_error:
         print(f"warning: git credential helper repair failed: {credential_error}")
     return 1 if credential_error else 0
+
+
+def _summary(result: dict) -> str:
+    """One line naming the move and the pin or channel it came from."""
+    if result["pinned"]:
+        source = "pinned"
+        if result["direction"] == "downgrade":
+            source += f"; latest on {result['channel']} is {result['channel_version']}"
+    else:
+        source = result["channel"]
+    if result["already_current"]:
+        return f"Yoke is already current at v{result['new_version']} ({source})."
+    verb = "Downgraded" if result["direction"] == "downgrade" else "Updated"
+    return f"{verb} Yoke {result['old_version']} -> {result['new_version']} ({source})."
 
 
 def _check(channel: str | None, json_mode: bool) -> int:

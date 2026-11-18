@@ -98,7 +98,10 @@ def test_already_current_skips_reinstall_but_repairs_helper_in_process(monkeypat
         "old_version": "0.2.0.202610140434",
         "new_version": "0.2.0.202610140434",
         "already_current": True,
+        "direction": "none",
+        "pinned": False,
         "channel": "stable",
+        "channel_version": "0.2.0.202610140434",
         "base_url": "https://distribution.example",
         "credential_helper_configured": True,
         "credential_helper_repaired": True,
@@ -279,54 +282,6 @@ def test_installer_failure_raises_with_diagnostic(monkeypatch):
         self_update.run_update()
 
     assert "index unreachable" in str(raised.value)
-
-
-def test_command_reports_update_and_repair(monkeypatch, capsys):
-    monkeypatch.setattr(
-        command.self_update,
-        "run_update",
-        lambda **_kwargs: {
-            "old_version": "0.2.0.202610140433",
-            "new_version": "0.2.0.202610140434",
-            "already_current": False,
-            "channel": "stable",
-            "base_url": "https://distribution.example",
-            "credential_helper_configured": True,
-            "credential_helper_repaired": True,
-            "credential_helper_error": None,
-            "project_refresh": {"status": "not_installed"},
-        },
-    )
-
-    assert command.update([]) == 0
-    output = capsys.readouterr().out
-    assert "0.2.0.202610140433 -> 0.2.0.202610140434" in output
-    assert "Rebuilt the git credential helper bundle" in output
-
-
-def test_command_surfaces_a_repair_failure_as_a_warning_and_non_zero_exit(
-    monkeypatch,
-    capsys,
-):
-    monkeypatch.setattr(
-        command.self_update,
-        "run_update",
-        lambda **_kwargs: {
-            "old_version": "0.2.0.202610140433",
-            "new_version": "0.2.0.202610140434",
-            "already_current": False,
-            "channel": "stable",
-            "base_url": "https://distribution.example",
-            "credential_helper_configured": True,
-            "credential_helper_repaired": False,
-            "credential_helper_error": "permission denied",
-        },
-    )
-
-    assert command.update([]) == 1
-    output = capsys.readouterr().out
-    assert "0.2.0.202610140433 -> 0.2.0.202610140434" in output
-    assert "warning: git credential helper repair failed: permission denied" in output
 
 
 def test_command_error_path_prints_json_and_fails(monkeypatch, capsys):

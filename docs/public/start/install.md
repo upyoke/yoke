@@ -230,6 +230,10 @@ is still older than the release the active connection serves, commands sent to
 it print one warning naming `yoke update --version VERSION`; they never update
 or refuse on their own. A local universe needs none of this: its server is the
 installed CLI.
+`yoke update --version VERSION` pins that exact release, older or newer: it
+prints `Downgraded` when the pin is older than the installed CLI, and names
+`pinned` (plus the channel's latest on a downgrade) instead of the channel.
+`--json` carries `direction` (`upgrade`, `downgrade` or `none`) and `pinned`.
 The installer builds each CLI release in its own uv tool directory and swaps
 one launcher pointer atomically. Running commands keep their original modules;
 new commands use the published release. Old environments retire after their
