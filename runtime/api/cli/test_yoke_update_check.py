@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import json
 
 import pytest
@@ -196,3 +197,17 @@ def test_missing_active_env_refuses_with_env_use_recovery(install, monkeypatch, 
     assert out.startswith("yoke update --check: active_connection_unavailable:")
     assert "`yoke env use <env>`" in out
     assert "Traceback" not in out
+
+
+def test_check_text_names_the_latest_channel_once(install, monkeypatch, capsys):
+    install()
+    target = self_update.resolve_target()
+    monkeypatch.setattr(
+        self_update,
+        "resolve_target",
+        lambda **_k: dataclasses.replace(target, channel="latest"),
+    )
+    assert command.update(["--check"]) == 0
+    out = capsys.readouterr().out
+    assert f"Latest on channel latest: v{LATEST}" in out
+    assert "latest latest" not in out.lower()

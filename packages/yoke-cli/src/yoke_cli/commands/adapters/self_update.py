@@ -100,7 +100,7 @@ def _check(channel: str | None, json_mode: bool) -> int:
     if json_mode:
         print(json.dumps({"ok": True, **report}))
         return 0
-    print(f"Channel {report['channel']} latest: v{report['latest_version']}")
+    print(f"Latest on channel {report['channel']}: v{report['latest_version']}")
     print(
         f"Installed CLI: v{report['cli_version']}, built from "
         f"{report['source_commit']} (matches the release manifest)"

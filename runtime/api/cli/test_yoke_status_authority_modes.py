@@ -207,3 +207,25 @@ def test_render_human_shows_authenticated_server_authority() -> None:
     ) in reachable
     assert "  server: unreachable (engine version unknown)" in unreachable
     assert "server:" not in local_only
+
+
+def test_status_https_without_protected_key_renders_false(
+    tmp_path: Path,
+    capsys,
+    monkeypatch,
+) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    config = status_config(tmp_path, repo)
+    payload = json.loads(config.read_text(encoding="utf-8"))
+    del payload["connections"]["prod"]["protected"]
+    config.write_text(json.dumps(payload), encoding="utf-8")
+    stub_server(monkeypatch, {"engine_version": "2.0.0"})
+
+    argv = ["status", "--config", str(config), "--repo-root", str(repo)]
+    assert yoke_operations_cli.main([*argv, "--json"]) == 0
+    assert json.loads(capsys.readouterr().out)["connection"]["protected"] is False
+    yoke_operations_cli.main(argv)
+    out = capsys.readouterr().out
+    assert "protected=false" in out
+    assert "<unset>" not in out

@@ -167,6 +167,20 @@ def test_local_universe_warning_names_local_universe_data(inventory, monkeypatch
     assert "only copy of its local universe data" in output[0]
 
 
+def test_warning_names_both_data_kinds_when_both_are_held(inventory, monkeypatch):
+    value = replace(
+        inventory, local_universe=True, bundles=((inventory.home / "self-host", None),)
+    )
+    monkeypatch.setattr(removal, "inspect", lambda: value)
+    monkeypatch.setattr(removal.steps, "back_up", lambda inv, emit: None)
+    monkeypatch.setattr(removal.steps, "remove", lambda inv, selected, emit: 0)
+    output = []
+    removal.run(backup=True, projects="none", non_interactive=True, emit=output.append)
+    assert (
+        "only copy of its local universe data and self-hosted server data" in output[0]
+    )
+
+
 @pytest.mark.parametrize("answer", ["n", "no", ""])
 def test_other_backup_answer_cancels_cleanly(inventory, monkeypatch, answer):
     value = replace(inventory, bundles=((inventory.home / "self-host", None),))

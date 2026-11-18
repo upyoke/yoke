@@ -67,10 +67,7 @@ def render_human(report: Mapping[str, Any]) -> str:
             lines.append("  server: not probed")
     connection = report.get("connection") or {}
     if isinstance(connection, Mapping):
-        protected = connection.get(contract.PROTECTED_FLAG_KEY)
-        protected_label = (
-            str(protected).lower() if isinstance(protected, bool) else "<unset>"
-        )
+        protected_label = str(connection.get(contract.PROTECTED_FLAG_KEY) is True).lower()
         lines.append(
             "  connection: "
             f"env={connection.get('env') or '<missing>'} "
