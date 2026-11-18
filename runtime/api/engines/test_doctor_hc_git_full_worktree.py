@@ -169,6 +169,7 @@ class TestStaleRemoteBranches:
         conn = _make_conn()
         _seed_project(conn, "yoke")
         _insert_item(conn, 10, "Done item", workflow_id="issue", status="done")
+        mock_run.return_value = _completed()  # origin remote exists
         mock_remote.side_effect = [
             _completed(stdout=""),  # ls-remote for yoke
             _completed(stdout=""),  # ls-remote for default
@@ -186,6 +187,7 @@ class TestStaleRemoteBranches:
         conn = _make_conn()
         _seed_project(conn, "yoke")
         _insert_item(conn, 20, "Done item", workflow_id="issue", status="done")
+        mock_run.return_value = _completed()  # origin remote exists
         mock_remote.side_effect = [
             _completed(stdout="abc123\trefs/heads/YOK-20\n"),
             _completed(stdout="abc123\trefs/heads/YOK-20\n"),
@@ -206,6 +208,7 @@ class TestStaleRemoteBranches:
         _insert_item(
             conn, 50, "Active item", workflow_id="issue", status="implementing"
         )
+        mock_run.return_value = _completed()  # origin remote exists
         mock_remote.side_effect = [
             _completed(stdout="abc123\trefs/heads/YOK-50\n"),
             _completed(stdout="abc123\trefs/heads/YOK-50\n"),
@@ -224,6 +227,7 @@ class TestStaleRemoteBranches:
         conn = _make_conn()
         _seed_project(conn, "yoke")
         _insert_item(conn, 60, "Cancelled", workflow_id="issue", status="cancelled")
+        mock_run.return_value = _completed()  # origin remote exists
         mock_remote.side_effect = [
             _completed(stdout="abc123\trefs/heads/YOK-60\n"),
             _completed(stdout="abc123\trefs/heads/YOK-60\n"),
