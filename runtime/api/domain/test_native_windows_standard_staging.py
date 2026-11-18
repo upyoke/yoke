@@ -24,6 +24,40 @@ def control():
     return c
 
 
+@pytest.mark.parametrize(
+    ("os_name", "verified_admin", "negation", "unexpected_owner"),
+    [
+        ("wsl", True, "!", "-notin @($id.User.Value,'S-1-5-32-544')"),
+        ("wsl", False, "", "-ne $id.User.Value"),
+        ("windows", True, "", "-ne $id.User.Value"),
+        ("windows", False, "", "-ne $id.User.Value"),
+    ],
+)
+def test_sftp_profile_staging_enforces_the_windows_route_identity(
+    monkeypatch, os_name, verified_admin, negation, unexpected_owner
+):
+    c = control()
+    c.os = os_name
+    c.windows_facts = {"admin": verified_admin}
+    policies = []
+
+    def stage(ssh, payload, root, diagnostics, *, deadline, policy):
+        policies.append(policy)
+        diagnostics["remote_directory_owned"] = True
+
+    monkeypatch.setattr(admin_staging, "stage_script", stage)
+    monkeypatch.setattr(SshTestMachineTransport, "_run", lambda *args, **kwargs: completed())
+    with standard_staging.verified_payload(c, b"public test payload"):
+        pass
+    assert len(policies) == 1
+    policy = policies[0]
+    role_check = f"if({negation}([Security.Principal.WindowsPrincipal]::new($id)).IsInRole("
+    assert role_check in policy["prepare"]
+    assert role_check in policy["directory"]
+    assert unexpected_owner in policy["owner"]
+    assert "GetOwner([Security.Principal.SecurityIdentifier]).Value -ne $id.User.Value" in policy["directory"]
+
+
 @pytest.mark.parametrize("pending", [False, True])
 def test_staging_cleans_terminal_work_and_preserves_ambiguous_execution(monkeypatch, pending):
     c, calls = control(), []
@@ -131,10 +165,11 @@ def test_cleanup_failure_retains_actual_execution_result(monkeypatch, exit_code)
     assert error.value.staging_diagnostics["cleanup"] == "unverified"
 
 
-def test_native_commands_fit_final_windows_command_boundary():
+@pytest.mark.parametrize("administrator", [False, True])
+def test_staging_commands_fit_final_windows_command_boundary(administrator):
     c = control()
     root = c.home + r"\.yoke-stage-" + "1" * 32
-    policy = standard_staging.standard_policy(c.home)
+    policy = standard_staging.profile_policy(c.home, administrator=administrator)
     prepare = policy["prepare"].replace("ROOT", transport.quote(root)).replace("CHECK_DIRECTORY", policy["directory"])
     cleanup = admin_staging.cleanup_script(root, owned=True, payload=b"bytes", policy=policy)
     assert "$home=" not in prepare.lower()
@@ -186,7 +221,7 @@ def verify_real_standard_sftp(c):
         assert large.staging_diagnostics["cleanup"] == "verified_absent"
         with standard_staging.verified_payload(c, b"public fixture") as stage:
             root = stage.diagnostics["path"]
-            policy = standard_staging.standard_policy(c.home)
+            policy = standard_staging.profile_policy(c.home)
             prepare = policy["prepare"].replace("ROOT", transport.quote(root)).replace("CHECK_DIRECTORY", policy["directory"])
             collision = SshTestMachineTransport._run(c, prepare)
             assert collision.returncode != 0

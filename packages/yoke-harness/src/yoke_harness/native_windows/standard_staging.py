@@ -1,4 +1,4 @@
-"""Verified SFTP payloads under the resolved standard Windows user's home."""
+"""Verified SFTP payloads under the resolved Windows SSH user's home."""
 
 from contextlib import contextmanager
 import hashlib
@@ -14,9 +14,9 @@ from yoke_harness.ssh_test_machine_transport import SshTestMachineTransport
 
 ANCESTORS = r"""
 $id=[Security.Principal.WindowsIdentity]::GetCurrent()
-if(([Security.Principal.WindowsPrincipal]::new($id)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){throw 'Standard staging requires standard user'}
+if(NEGATE([Security.Principal.WindowsPrincipal]::new($id)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){throw 'Stage role mismatch'}
 $stageHome=HOME
-if($env:USERPROFILE -ne $stageHome -or (Split-Path -Parent $root) -ne $stageHome){throw 'Staging home differs from resolved user profile'}
+if($env:USERPROFILE -ne $stageHome -or (Split-Path -Parent $root) -ne $stageHome){throw 'Stage profile mismatch'}
 $ancestor=$stageHome
 while($ancestor){
  $f=Get-Item -LiteralPath $ancestor -Force -ErrorAction Stop
@@ -26,8 +26,14 @@ while($ancestor){
 """
 
 
-def standard_policy(home):
-    ancestors = ANCESTORS.replace("HOME", quote(home))
+def profile_policy(home, *, administrator=False):
+    negate_admin = "!" if administrator else ""
+    ancestors = ANCESTORS.replace("NEGATE", negate_admin).replace("HOME", quote(home))
+    # Elevated SFTP can assign Administrators as the file owner. The stage
+    # directory still requires the SSH user's exact SID and protected grants.
+    unexpected_owner = (
+        "-notin @($id.User.Value,'S-1-5-32-544')" if administrator else "-ne $id.User.Value"
+    )
     # Three exact protected grants: this user, SYSTEM and Administrators.
     directory = ancestors + r"""
 $d=Get-Item -LiteralPath $root -Force -ErrorAction Stop
@@ -51,7 +57,7 @@ Write-Output 'YOKE_ADMIN_STAGE_OWNED'
 """.replace("ANCESTORS", ancestors)
     return {
         "prepare": prepare, "directory": directory,
-        "owner": "if((Get-Acl -LiteralPath $p).GetOwner([Security.Principal.SecurityIdentifier]).Value -ne $id.User.Value){throw 'Standard staging owner differs; preserve'}\n",
+        "owner": f"if((Get-Acl -LiteralPath $p).GetOwner([Security.Principal.SecurityIdentifier]).Value {unexpected_owner}){{throw 'Stage owner changed'}}\n",
         "file_access": r"""
 $fa=Get-Acl -LiteralPath $p -ErrorAction Stop
 $fr=@($fa.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier]))
@@ -66,7 +72,10 @@ if(!$fr.Count -or @($fr|Where-Object {$_.AccessControlType -ne 'Allow' -or $_.Id
 @contextmanager
 def verified_payload(control, payload):
     root = control.home + "\\.yoke-stage-" + uuid4().hex
-    policy = standard_policy(control.home)
+    # Native Windows remains standard-user-only. Only the WSL Windows-host
+    # route may stage as the administrator recorded by its SSH facts probe.
+    administrator = control.os == "wsl" and control.windows_facts["admin"]
+    policy = profile_policy(control.home, administrator=administrator)
     diagnostics = {
         "path": root, "total_bytes": len(payload),
         "sha256": hashlib.sha256(payload).hexdigest(),
