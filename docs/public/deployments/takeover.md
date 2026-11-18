@@ -88,10 +88,17 @@ restarts, stops or holds the walk; it may pass on the newer build. If the
 owner's session has ended, the session sweep settles the walk and the member
 is woken.
 
+A pass recorded before or after takeover carries to the successor when its
+destination matches. The successor credits it at item QA. While credit is
+pending, the gate tells the owner to wait for the successor and tells them
+there is nothing to re-run. A different destination still needs a pass.
+
 A moved member with no open walk and its own item QA to run gets one notice:
 its QA moved to the newer run and opens when that run reaches its item QA
-stage, so the old run's wake is no longer the command. A member owing only
-shared plans gets none, because its plan groups moved whole.
+stage, so the old run's wake is no longer the command. If all moved cases
+already passed, the notice says the recorded passes carry and there is nothing
+to re-run. A member owing only shared plans gets none, because its plan groups
+moved whole.
 
 ## Creation with a takeover
 

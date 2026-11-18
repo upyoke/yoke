@@ -42,8 +42,10 @@ baseline through its correction lineage within the run, stage and member.
 Replacement and supersession links join rows across plans and target digests;
 unrelated plans sharing a case key remain separate. System-retracted rows do
 not establish a lineage. Existing live requirements rebind in place to the current target. The requirement keeps its ID and
-records its previous target. A predecessor pass carries only when its
-destination matches; otherwise the case is owed again. Shared plan groups retain
+records its previous target. A pass recorded before or after takeover carries
+when its destination matches. While the successor's item QA still has to credit
+the pass, the gate identifies it as carried and says to wait without re-running.
+A changed destination still needs a pass. Shared plan groups retain
 their group ID and frozen target; separate groups remain separate subjects.
 Successor stage dispatch also materializes members whose live private cases
 still name another run, even when those members already have requirements.
