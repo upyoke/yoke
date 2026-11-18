@@ -8,6 +8,7 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_harness import test_machine_temp_script as program
+from yoke_harness.posix_mission_operations import PosixMissionOperations
 from yoke_harness.ssh_mac_baseline_probes import reach_user_equivalent_baseline
 from yoke_contracts.test_machine_types import HostActionResult
 from yoke_core.domain.agent_mission_preparation import prepare_mission
@@ -111,12 +112,13 @@ def test_low_disk_refuses_before_scratch_or_packages(tmp_path, monkeypatch):
     receipt = program.disk_preflight([tmp_path], tmp_path)
     assert receipt["error_code"] == "test_machine_disk_space_low"
     assert receipt["minimum_free_bytes"] == program.MINIMUM_MISSION_FREE_BYTES
-    control = SimpleNamespace(
-        home=str(tmp_path),
-        run_command=lambda *args, **kwargs: subprocess.CompletedProcess(
-            [], 1, json.dumps(receipt), ""
-        ),
-    )
+    class LowDiskHost(PosixMissionOperations):
+        home = str(tmp_path)
+
+        def run_command(self, *args, **kwargs):
+            return subprocess.CompletedProcess([], 1, json.dumps(receipt), "")
+
+    control = LowDiskHost()
     contract = SimpleNamespace(
         baselines=[],
         lease_id=1,

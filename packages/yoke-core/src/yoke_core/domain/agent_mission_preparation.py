@@ -78,9 +78,9 @@ def prepare_mission(
         "evidence": stamp_controller_runtime(
             {"baseline_outcome": outcome, "scratch_created": False}
         ),
-        # The Test Machine's OS owns where its scratch lives; until its host
-        # control names the path, report the scratch's identity (servers
-        # require a non-empty value even when preparation fails first).
+        # The Test Machine's OS owns where its scratch lives; until the host
+        # creates it and names the path, report the scratch's identity
+        # (servers require a non-empty value even when preparation fails).
         "scratch_path": mission_scratch_identity(str(contract.plan_execution_id)),
     }
     secrets: tuple[str, ...] = ()
@@ -88,9 +88,6 @@ def prepare_mission(
     try:
         execution = execution_factory(contract, progress_callback=progress_callback)
         secrets = tuple(execution.material.secrets.values())
-        preparation["scratch_path"] = execution.control.mission_scratch_path(
-            str(contract.plan_execution_id)
-        )
         from yoke_contracts.qa_continuity_fingerprint import check_continuity
         from yoke_core.domain.machine_reset_recovery import recover_owed_reset
 
