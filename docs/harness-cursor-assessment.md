@@ -112,7 +112,10 @@ Owners: `yoke_harness.cursor_executed_model`, then `identity_runtime.cursor_payl
 **The one channel a resumed print-mode turn can be reached on is
 `sessionStart`.** A stopped session is woken with `cursor-agent --resume
 … --print`, and that mode fires only `sessionStart` and `sessionEnd` — no
-`beforeSubmitPrompt`, no `stop`. (That `sessionEnd` is the turn end: the
+`beforeSubmitPrompt`, no `stop`. Yoke recovers the first prompt at `sessionEnd`
+when the transcript contains a top-level user row, using the observed end
+time minus `duration_ms`. Missing evidence leaves the stamp unset and records
+`SessionPromptAttestationSkipped` for the session. (That `sessionEnd` is the turn end: the
 cursor-cli manifest declares `turn_end_event=SessionEnd`, so the promised-work
 gate records its turn-end deferral there.) A pending envelope therefore has exactly
 one chance to reach the model before its first tool call, which is why the
