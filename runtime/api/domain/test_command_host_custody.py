@@ -127,6 +127,7 @@ def test_command_uses_existing_plan_case_admission(monkeypatch, state):
 def _contract(monkeypatch, baselines, reach):
     from yoke_core.domain import machine_qa_execution_contract as contracts
     from yoke_core.domain import machine_qa_local_execution as local
+    from yoke_core.domain import machine_qa_host_control as host_control
 
     contract = SimpleNamespace(
         baselines=baselines, project="yoke", settings={"resource_name": "linux-lab"}
@@ -136,9 +137,19 @@ def _contract(monkeypatch, baselines, reach):
         "model_validate",
         classmethod(lambda cls, raw: contract),
     )
+    registered = []
     monkeypatch.setattr(
-        local, "_execution", lambda _: SimpleNamespace(reach_baseline=reach)
+        host_control,
+        "register_test_machine_host_control",
+        lambda: registered.append(True),
     )
+
+    def execution(_):
+        # The real factory refuses an unregistered host_control runner.
+        assert registered, "host_control runner is not registered"
+        return SimpleNamespace(reach_baseline=reach)
+
+    monkeypatch.setattr(local, "_execution", execution)
 
 
 @pytest.mark.parametrize("baselines", [[], ["shell-preconfigured"]])

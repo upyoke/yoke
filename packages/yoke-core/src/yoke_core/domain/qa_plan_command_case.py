@@ -76,11 +76,17 @@ def reset_command_host(raw_contract: dict[str, Any]) -> dict[str, Any] | None:
     from yoke_core.domain.machine_qa_execution_contract import (
         HostControlExecutionContract,
     )
+    from yoke_core.domain.machine_qa_host_control import (
+        register_test_machine_host_control,
+    )
     from yoke_core.domain.machine_qa_local_execution import _execution
 
     contract = HostControlExecutionContract.model_validate(raw_contract)
     if not contract.baselines:
         return None
+    # Host control resolves through the OS-selecting factory, which a
+    # Command run on the controller has not registered yet.
+    register_test_machine_host_control()
     baseline = contract.baselines[0]
     reset = baseline_receipt(
         baseline,
