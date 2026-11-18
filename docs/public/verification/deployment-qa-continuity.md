@@ -62,8 +62,11 @@ chain end (creation time, then ID) decides whether work remains, including
 forked history. Passed, pending and operator/agent-discharged heads prevent a
 second case. A failed or system-discharged head permits one content correction
 on its own plan; unchanged failed content keeps the existing head owed.
-`qa plan rematerialize` refreshes a pending head in place, preserves passed
-cases' frozen definitions and corrects eligible unpassed cases independently.
+`qa plan rematerialize` refreshes a pending head in place and corrects
+eligible unpassed cases independently. A pass on any baseline preserves the
+case's frozen definition and every baseline row for that subject, even if
+the edited plan removes the case or changes its baselines. The next release
+uses the edited definition.
 
 ## Retry a failed case after the fix ships
 

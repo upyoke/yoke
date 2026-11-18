@@ -13,6 +13,7 @@ from typing import Any
 
 from yoke_core.domain.db_helpers import instant_parameter, query_rows, utc_now
 from yoke_core.domain.deployment_qa_snapshot_correction import (
+    passed_case_keys,
     refresh_selected_cases,
     selected_plan_owners,
 )
@@ -27,6 +28,7 @@ from yoke_core.domain.qa_deployment_case_content_refresh import (
 from yoke_core.domain.qa_deployment_case_correction_window import (
     determinate_verdicts,
 )
+from yoke_core.domain.qa_deployment_requirement_identity_schema import shared_group_id
 from yoke_core.domain.qa_execution_environment_target import target_digest
 from yoke_core.domain.qa_obligation_settlement import (
     obligation_settled,
@@ -140,10 +142,8 @@ def read_subject_refresh(
             raise QaPlanError(
                 f"QA plan {plan_id} has no cases and cannot be rematerialized"
             )
-        plans[plan_id] = (
-            plan_rows[plan_id],
-            [case for case in cases if case_applies_to_target(case, target)],
-        )
+        target_cases = [case for case in cases if case_applies_to_target(case, target)]
+        plans[plan_id] = plan_rows[plan_id], target_cases
     return SubjectRefresh(
         label=label,
         run_id=run_id,
@@ -214,22 +214,21 @@ def write_subject_refresh(conn: Any, refresh: SubjectRefresh) -> dict[str, Any]:
         for row in rows:
             if int(row["id"]) in rebound:
                 row["execution_target_digest"] = target_digest(refresh.target)
-    owner_scope = dict(
-        run_id=refresh.run_id, stage=refresh.stage, member=refresh.member
-    )
-    contracts = {
-        plan_id: selected_plan_owners(conn, plan_id=plan_id, **owner_scope)[1]
-        for plan_id in refresh.rows_by_plan
-    }
+    owner = dict(run_id=refresh.run_id, stage=refresh.stage, member=refresh.member)
     created: list[int] = []
     refreshed: list[int] = []
     retained: set[int] = set()
     for plan_id, plan_rows in refresh.rows_by_plan.items():
         plan_row, cases = refresh.plans[plan_id]
-        from yoke_core.domain.qa_deployment_requirement_identity_schema import (
-            shared_group_id,
+        _, contract = selected_plan_owners(conn, plan_id=plan_id, **owner)
+        pinned, passed = passed_case_keys(
+            conn, plan_id=plan_id, snapshot=contract, **owner
         )
-
+        retained.update(
+            int(row["id"])
+            for row in plan_rows
+            if base_case_key(row["plan_case_key"]) in passed
+        )
         groups = rows_by_case(
             conn,
             run_id=refresh.run_id,
@@ -239,24 +238,26 @@ def write_subject_refresh(conn: Any, refresh: SubjectRefresh) -> dict[str, Any]:
             group_id=shared_group_id(refresh.target),
         )
         corrected_cases = []
+        scopes = contract.get("replacement_scopes")
         for case in cases:
+            key = str(case["case_key"])
+            if key in passed:
+                continue
             corrected = False
             for position, baseline in enumerate(case_baselines(case), start=1):
-                scopes = contracts[plan_id].get("replacement_scopes")
                 if scopes is not None and not any(
-                    scope["host_baseline"] == baseline
-                    for scope in scopes.get(str(case["case_key"]), [])
+                    scope["host_baseline"] == baseline for scope in scopes.get(key, [])
                 ):
                     continue
-                group = groups.get((str(case["case_key"]), baseline), [])
+                group = groups.get((key, baseline), [])
                 retained.update(
                     int(row["id"])
                     for row in plan_rows
-                    if base_case_key(row["plan_case_key"]) == str(case["case_key"])
+                    if base_case_key(row["plan_case_key"]) == key
                     and row["host_baseline"] == baseline
                 )
                 group = [row for row in group if int(row["plan_id"]) == plan_id]
-                if not group and (str(case["case_key"]), baseline) in groups:
+                if not group and (key, baseline) in groups:
                     continue
                 live = [
                     row
@@ -280,9 +281,9 @@ def write_subject_refresh(conn: Any, refresh: SubjectRefresh) -> dict[str, Any]:
                     corrected = True
                 if live or not needs_corrected_row(conn, case, group):
                     continue
-                key = str(case["case_key"])
+                definition = dict(case)
                 if group:
-                    key = refreshed_case_key(
+                    definition["case_key"] = refreshed_case_key(
                         key,
                         plan_case_content_digest(conn, case),
                         max(int(row["id"]) for row in group),
@@ -292,7 +293,7 @@ def write_subject_refresh(conn: Any, refresh: SubjectRefresh) -> dict[str, Any]:
                         conn,
                         refresh,
                         plan=plan_row,
-                        case={**dict(case), "case_key": key},
+                        case=definition,
                         baseline=baseline,
                         position=position,
                     )
@@ -306,7 +307,8 @@ def write_subject_refresh(conn: Any, refresh: SubjectRefresh) -> dict[str, Any]:
                 plan_id=plan_id,
                 cases=corrected_cases,
                 allow_added=True,
-                **owner_scope,
+                passed_keys=pinned,
+                **owner,
             )
     declare_refreshed_replacements(conn, created)
 
