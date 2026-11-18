@@ -1,6 +1,7 @@
 """Expand model/effort rows only into selectors observed on a native surface."""
 
 from dataclasses import dataclass
+from yoke_contracts.harness_cli_manifest import HARNESS_CLI_MANIFESTS
 from yoke_contracts.model_level_resolution import normalized_effort
 from yoke_contracts.model_reference import lookup_model_reference
 from yoke_contracts.session_control.model_selection_manifest import (
@@ -27,6 +28,26 @@ def catalog_supports(surface, model, records):
     record = lookup_model_reference(model, records).record
     providers = launch_model_selection_manifest(surface)["model_providers"]
     return record is None or providers is None or record.provider in providers
+
+
+def model_not_offered_reason(model, surface, reading):
+    """Name the installed build whose listing lacks this level option's model.
+
+    No older model stands in, and Yoke never runs the update itself: the
+    option stays blocked until the operator updates that CLI and its own
+    listing offers the model.
+    """
+    version = reading.get("surface_version") or "(version unreported)"
+    machine = reading.get("machine") or "this machine"
+    update = next(
+        (m.update_command for m in HARNESS_CLI_MANIFESTS if m.surface_id == surface),
+        "",
+    )
+    step = f"run `{update}` there" if update else f"update {surface} there"
+    return (
+        f"native_model_not_offered: {surface} {version} on {machine} does not "
+        f"list {model}; {step}, then `yoke relay probe-models --surface {surface}`"
+    )
 
 
 def native_selections(entry, *, surface, reading, records):
@@ -65,7 +86,7 @@ def native_selections(entry, *, surface, reading, records):
         == required
         for model in reading.get("models", ())
     ):
-        return (), None
+        return (), model_not_offered_reason(entry.model, surface, reading)
     if entry.min_effort not in {
         normalized_effort(value) for value in required.reasoning_efforts
     }:

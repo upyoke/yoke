@@ -164,3 +164,11 @@ def test_versioned_claude_bundles_choose_the_newest_executable(tmp_path, monkeyp
         assert managed_path_directories(tools, (resolution,)) == (tools,)
     resolution = resolve_harness_clis("", manifests=(manifest,))[0]
     assert "2.10.2" in resolution.path
+
+
+def test_every_cli_names_the_update_its_operator_runs() -> None:
+    assert {m.surface_id: m.update_command for m in HARNESS_CLI_MANIFESTS} == {
+        "claude-cli": "claude update",
+        "codex-cli": "codex update",
+        "cursor-cli": "cursor-agent update",
+    }

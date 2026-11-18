@@ -85,3 +85,23 @@ def test_stale_listing_keeps_real_last_observed_choice():
         records=RECORDS,
     )
     assert reason is None and len(selections) == 1
+
+
+def test_model_missing_from_the_cli_listing_names_the_cli_update():
+    selections, reason = native_selections(
+        LevelEntry("gpt-6.2-sol", "medium"),
+        surface="codex-cli",
+        reading={
+            "status": "ok",
+            "machine": "workshop-mac",
+            "surface_version": "0.161.0",
+            "models": [{"model": "gpt-6.1-sol", "reasoning_efforts": ["medium"]}],
+        },
+        records=RECORDS,
+    )
+    assert selections == ()
+    assert reason == (
+        "native_model_not_offered: codex-cli 0.161.0 on workshop-mac does not "
+        "list gpt-6.2-sol; run `codex update` there, then "
+        "`yoke relay probe-models --surface codex-cli`"
+    )

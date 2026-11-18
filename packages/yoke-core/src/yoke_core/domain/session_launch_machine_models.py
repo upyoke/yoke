@@ -76,19 +76,33 @@ def machine_native_models(conn: Any, *, machine_id: str) -> dict[str, dict[str, 
     ``unsupported`` is evidence that a model is unavailable — they say the
     machine has not answered and that Yoke has no listing route for that
     surface. A caller routing work reads the status before the list.
+
+    Each entry also names the ``machine`` and the ``surface_version`` the
+    same heartbeat reported installed, so a model missing from the listing
+    is blamed on the CLI build that published it rather than left unexplained.
     """
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     row = conn.execute(
-        "SELECT surface_native_models FROM session_relays "
+        "SELECT surface_native_models, surface_versions, hostname FROM session_relays "
         f"WHERE machine_id = {marker} "
         "ORDER BY last_seen_at DESC, relay_id ASC",
         (str(machine_id),),
     ).fetchone()
     if row is None:
         return {}
-    return sanitize_native_models(
+    readings = sanitize_native_models(
         _decode_document(_cell(row, "surface_native_models", 0))
     )
+    versions = _decode_document(_cell(row, "surface_versions", 1))
+    versions = versions if isinstance(versions, dict) else {}
+    machine = str(_cell(row, "hostname", 2) or "").strip() or str(machine_id)
+    for surface, reading in readings.items():
+        reading["machine"] = machine
+        version = versions.get(surface)
+        reading["surface_version"] = (
+            (version.strip() or None) if isinstance(version, str) else None
+        )
+    return readings
 
 
 def resolve_machine_selection(
