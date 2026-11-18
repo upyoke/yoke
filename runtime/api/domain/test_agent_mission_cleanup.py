@@ -160,33 +160,22 @@ def test_removed_mission_host_is_held_until_walk_end(removed_mission, test_db):
 
 
 @pytest.mark.parametrize(
-    ("starting_state", "restore", "owed"),
+    ("restore", "owed"),
     [
-        ("as_is", {"restored": False, "reason": "as_is"}, None),
-        ("baseline", {"restored": False, "reason": "reset failed"}, "fresh-host"),
+        ({"restored": True, "baseline": "fresh-host"}, None),
+        ({"restored": False, "baseline": "fresh-host"}, "fresh-host"),
+        ({"restored": True, "baseline": "shell-preconfigured"}, "fresh-host"),
     ],
 )
-def test_cleanup_owes_reset_only_when_required_restore_fails(
-    removed_mission, test_db, monkeypatch, starting_state, restore, owed
+def test_cleanup_owes_reset_until_the_declared_baseline_is_proven(
+    removed_mission, test_db, restore, owed
 ):
-    from yoke_core.domain import agent_mission_cleanup
     from yoke_core.domain.machine_reset_debt import reset_owed
 
     request, _, original = removed_mission
-    mission = agent_mission_cleanup._mission
-
-    def declared(*args):
-        ordinal, case, run_id = mission(*args)
-        return ordinal, {**case, "starting_state": starting_state}, run_id
-
     acquired = handle_agent_mission_access(request)
     assert acquired.primary_success, acquired.error
     contract = acquired.result_payload["execution"]
-    monkeypatch.setattr(agent_mission_cleanup, "_mission", declared)
-    test_db.execute(  # The restore artifact re-reads the declared case.
-        "UPDATE qa_requirements SET starting_state=%s WHERE id=%s",
-        (starting_state, request.payload["requirement_id"]),
-    )
     assert reset_owed(test_db, original["settings"]["resource_name"]) is None
     finished = handle_agent_mission_access(
         request.model_copy(

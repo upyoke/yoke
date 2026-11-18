@@ -10,8 +10,7 @@ QA_REQUIREMENT_ADD_USAGE = (
     "[--required-capability KIND ...] [--suite-id ID] "
     "[--instructions TEXT | --instructions-file PATH | --stdin] "
     "[--expected-outcome TEXT | --expected-outcome-file PATH] [--method-config JSON] "
-    "[--host-baseline NAME | --starting-state as_is "
-    "--starting-state-reason TEXT] "
+    "[--host-baseline NAME] "
     "[--workflow-transition STAGE] [--deployment-stage STAGE] "
     "[--deployment-member-item PREFIX-N] [--project P] [--session-id S] [--json]"
 )
@@ -81,16 +80,13 @@ signed in before browsing (`yoke browser verify --identity NAME`).
 Full configuration: verification/browser-targets.md#method-configuration.
 
 A case that runs on a Test Machine declares the state it starts from:
---host-baseline names a registered baseline the runner resets to and restores
-afterwards, or --starting-state as_is with --starting-state-reason runs on the
-machine as found. An undeclared Test Machine case is refused. Every host_control
+--host-baseline names a registered baseline the runner resets to first.
+Use shell-preconfigured when the case needs Yoke. Every host_control
 case runs on a Test Machine. An agent_mission runs on one only when its
 method_config names test_machine, test_machines or os (os leases a Test
 Machine of that OS), it requires a test-machine: capability, or it names a
 baseline; otherwise it runs on the controller and needs no starting state.
-A Command whose method_config names test_machine may pass --host-baseline so
-plan admission resets that host before the command runs; without one it runs
-on the host as found.
+A Command whose method_config names test_machine requires --host-baseline.
 A case added on its own belongs to no plan, so it cannot inherit a preceding
 case's machine; author that chain in a plan.
 

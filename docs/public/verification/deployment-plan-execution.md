@@ -121,14 +121,14 @@ that driver before the first capture and retains them through completion,
 review or abort. Contention releases partial acquisitions and queues the
 chain; a retry never reacquires lost custody. Definition-time validation
 refuses `inherited_driver_mismatch` for a changed driver: use the predecessor's
-`method_config.test_machine`, or start a new baseline / `as_is` chain.
+`method_config.test_machine`, or start a new chain from a named baseline.
 
 An exploratory mission walks after captures and may inherit only at a chain's
 tail; no case may inherit after it. Item and deployment scopes isolate the
 whole chain so no later capture disturbs its state. Standalone mixed plans
 refuse `inherited_mission_requires_isolated_plan`: put the chain in its own
 plan or use item/deployment attachment. Declare `inherit` to preserve
-preparation; `as_is` opens a separate chain.
+preparation.
 
 ## Shared host turns and starting state
 
@@ -224,15 +224,13 @@ Old snapshots left after a verified refresh capture only warn
 A declared host baseline restores the golden home. Before new case work, an
 unproven mission cleanup also requires a reset: its `reset_owed` machine receipt
 names the failed cleanup's baseline, or `fresh-host` when none was declared.
-The next holder resets first, including an agent mission, `as_is` case or
-case without a baseline. Failed recovery records `machine_needs_repair` and
+The next holder clears reset debt before starting its case. Failed recovery records `machine_needs_repair` and
 the exact `yoke test-machine reset` command; the steering report shows that
 machine and command until a later successful reset receipt clears the debt.
 A failed ordinary case restore or current holder's mission restore artifact
 also records this debt before custody ends. A terminal case missing its
 restore receipt records debt too; an intermediate successful case keeps
-its chain state, and an intentional `as_is` no-restore receipt remains proof
-that its declared cleanup finished. A cleanup finish always releases its
+its chain state. A cleanup finish always releases its
 lease, even without restore proof, and
 records restore evidence before committing the release. A deliberate manual
 QA_HOST release also records reset debt for every released execution host,
@@ -241,9 +239,7 @@ the recorded release reason. Recovery contracts
 require a runner supporting `host-control-reset-recovery-v1`; an older runner
 refuses before host work and must be upgraded before retrying.
 
-A mission declared `as_is` otherwise keeps the home it finds and, absent
-`host_starting_state`, leaves
-packages and their journal untouched. A named baseline or explicit fixture
+A named baseline or explicit fixture
 undoes only the preceding mission's journal-attributed package delta, applies the declaration and
 records proof before walking. Linux and WSL fixtures use apt; a declaration on another OS
 refuses with the supported host named. Package changes made through
@@ -275,9 +271,7 @@ An in-flight host abort first records cancellation. Until the interrupted
 case's cleanup proof is recorded, `qa_abort_restore_pending` retains custody.
 Keep the owner connected: heartbeat replies carry cancellation; the runner stops
 before its next step, cleans up and submits `starting_state_restore` evidence. A case with a declared
-baseline must prove `restored: true` for that baseline. An `as_is` case or a
-chain without a declared baseline records that there is no starting state to
-restore; that cleanup receipt permits release with `restored: false`.
+baseline must prove `restored: true` for that baseline.
 Other roster cases do not impose their baselines on the interrupted case.
 Blocking resets finish before the runner acts on cancellation. Retry abort
 only after cleanup proof is recorded; success confirms the lease is released.

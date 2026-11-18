@@ -52,7 +52,7 @@ def _command_case(
         expected_outcome=outcome,
         entry_surface=f"set -eu; {command}; printf '%s\\n' {shlex.quote(key)}",
         required_completion=key,
-        host_baselines=[FRESH_HOST],
+        host_baselines=[SHELL_PRECONFIGURED],
         method_config=terminal_recipe(
             actions=[action(key, capture=False)],
             expected_text=[key],
@@ -100,7 +100,7 @@ def _hosted_case(position, key, prefix, *, instructions, outcome, after_installe
             + " )"
         ),
         required_completion="complete-onboarding",
-        host_baselines=[FRESH_HOST],
+        host_baselines=[SHELL_PRECONFIGURED],
         method_config=config,
     )
 

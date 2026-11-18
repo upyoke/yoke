@@ -88,9 +88,9 @@ refuses if either lease has been lost; completion or abort releases both.
 
 Every machine-run case declares the state it starts from, and authoring and
 materialization refuse one that does not. A host mission names `host_baselines`
-(`fresh-host` or `shell-preconfigured`), or sets `"starting_state":"as_is"`
-with a `starting_state_reason` to walk the machine as found — that mission must
-also tell its walker to leave the home untouched. A mission may `inherit` from
+(`fresh-host` or `shell-preconfigured`). Browser identity verification on the
+host requires `shell-preconfigured`. Fresh-host walks skip automatic browser
+identity selection. A mission may `inherit` from
 its machine-run predecessor on the same driver as the chain's tail. The runner
 isolates that chain and holds its host union before preparation, so no later
 capture disturbs the inherited state. Nothing may inherit after a mission.
@@ -246,7 +246,10 @@ not delivery — cancel it, then `yoke say --preview --actor` and `--actor` for
 the human owner: `yoke items get PREFIX-N owner` prints `NAME (actor id: N)`.
 An `unassigned`, `unknown actor`, nonhuman, or refused owner is a named recovery. `--item` returns the answer to the holder. Acknowledgement
 is not proof. Dispatch a fresh walker, continuing when the held host must keep its state.
-A mission that needs state that must survive — a sign-in, a session opened through the native GUI/desktop route, or a granted permission — declares `"starting_state":"as_is"` with a reason, so it requests no baseline reset, and requests any password entry only while it holds the host lease: released, the host's next turn may reset it first. Outstanding [cleanup reset debt](deployment-plan-execution.md) still requires recovery before an `as_is` mission starts. A case requiring earlier files also declares `method_config.continuity_fingerprint`; the [starting-state contract](case-attachment-rules.md#machine-case-starting-state) explains recording hashes and the `continuity_lost` refusal before setup or walking. Re-declare an unrun case with `yoke qa requirement update --field starting_state` ([case attachment](case-attachment-rules.md#machine-case-starting-state)).
+Prepare the required session during the walk or in a preceding case in the
+same chain. Ask for password entry while holding the host lease. The
+[starting-state contract](case-attachment-rules.md#machine-case-starting-state)
+describes how an inherited case can verify prepared files.
 
 ## Holding a Walk, and Continuing a Settled One
 

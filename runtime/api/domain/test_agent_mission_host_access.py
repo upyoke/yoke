@@ -179,8 +179,7 @@ def test_driver_access_does_not_mark_an_untouched_companion_dirty(test_db, missi
     assert reset_owed(test_db, COMPANION) is None
 
 
-@pytest.mark.parametrize("mission", ["as_is"], indirect=True)
-def test_as_is_companion_access_owes_the_hosts_last_verified_baseline(test_db, mission):
+def test_companion_access_owes_the_declared_baseline(test_db, mission):
     from runtime.api.domain.machine_reset_debt_test_support import verified_reset
     from yoke_core.domain.machine_reset_debt import reset_owed
     from yoke_core.domain.machine_qa_mission_walk import execute_agent_mission_walk_end
@@ -192,7 +191,7 @@ def test_as_is_companion_access_owes_the_hosts_last_verified_baseline(test_db, m
     outcome = handle_agent_mission_access(companion)
     assert outcome.primary_success, outcome.error
     test_db.rollback()
-    assert reset_owed(test_db, COMPANION) is None  # Never verified clean.
+    assert reset_owed(test_db, COMPANION) == "fresh-host"
     verified_reset(test_db, COMPANION, "fresh-host")
     outcome = handle_agent_mission_access(companion)  # Owned cleanup, same path.
     assert outcome.primary_success, outcome.error
@@ -206,6 +205,7 @@ def test_as_is_companion_access_owes_the_hosts_last_verified_baseline(test_db, m
     finally:
         clear_host_control_factory()
     assert ended["removed"]
-    assert ended["starting_state_restore"]["restored"] is False
-    assert "error_code" not in ended["starting_state_restore"]
+    assert ended["starting_state_restore"]["restored"] is True
+    assert ended["starting_state_restore"]["baseline"] == "fresh-host"
+    assert ended["starting_state_restore"]["error_code"] is None
     assert reset_owed(test_db, COMPANION) == "fresh-host"

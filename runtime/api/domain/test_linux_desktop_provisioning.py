@@ -68,11 +68,88 @@ def test_service_socket_startup_is_waited_for(provisioner, monkeypatch):
     provisioner.wait_for_listener()
 
 
-def test_terminal_selection_converges_without_erasing_other_helpers(provisioner):
-    original = "WebBrowser=chromium\nTerminalEmulator=missing\nTerminalEmulator=other\n"
-    selected = provisioner.terminal_settings(original)
-    assert selected == "WebBrowser=chromium\nTerminalEmulator=xfce4-terminal\n"
-    assert provisioner.terminal_settings(selected) == selected
+def test_default_app_selection_converges_without_erasing_other_helpers(provisioner):
+    original = (
+        "FileManager=thunar\nWebBrowser=chromium\n"
+        "TerminalEmulator=missing\n TerminalEmulator = other\n"
+    )
+    selected = provisioner.helper_settings(original)
+    assert selected == (
+        "FileManager=thunar\nTerminalEmulator=xfce4-terminal\n"
+        "WebBrowser=yoke-identity-browser\n"
+    )
+    assert provisioner.helper_settings(selected) == selected
+
+
+@pytest.mark.parametrize(
+    ("fault", "reason"),
+    [
+        (None, None),
+        ("xfce4-helpers", "packages_not_proved"),
+        ("xdg-utils", "packages_not_proved"),
+        ("libgtk-3-bin", "packages_not_proved"),
+        ("terminal", "terminal_not_selected"),
+        ("browser", "default_browser_not_selected"),
+        ("helper_file", "default_browser_not_selected"),
+    ],
+)
+def test_provision_and_verify_xfce_default_apps(
+    provisioner, monkeypatch, tmp_path, fault, reason
+):
+    calls = []
+
+    def command(argv):
+        calls.append(argv)
+        output = ""
+        if argv[0] == "dpkg-query":
+            output = "\n".join(
+                "not-installed" if package == fault else "installed"
+                for package in argv[3:]
+            )
+        elif argv[0] == "passwd":
+            output = "fixture P"
+        return subprocess.CompletedProcess(argv, 0, stdout=output)
+
+    monkeypatch.setattr(provisioner, "command", command)
+    monkeypatch.setattr(provisioner, "wait_for_listener", lambda port: None)
+    xrdp = tmp_path / "xrdp.ini"
+    xrdp.write_text("[Globals]\nport=tcp://127.0.0.1:3389\n")
+    real_path = provisioner.Path
+    monkeypatch.setattr(
+        provisioner, "Path",
+        lambda name: xrdp if name == "/etc/xrdp/xrdp.ini" else real_path(name),
+    )
+
+    provisioner.provision(tmp_path, 3389, "project", "operator")
+    packages = {"xfce4-helpers", "xdg-utils", "libgtk-3-bin"}
+    assert packages.issubset(next(argv for argv in calls if "install" in argv))
+    config = tmp_path / ".config/xfce4/helpers.rc"
+    terminal = "TerminalEmulator=xfce4-terminal"
+    browser = "WebBrowser=yoke-identity-browser"
+    assert config.read_text().splitlines() == [terminal, browser]
+    helper = tmp_path / ".local/share/xfce4/helpers/yoke-identity-browser.desktop"
+    assert helper.read_text().splitlines() == [
+        "[Desktop Entry]",
+        "Type=X-XFCE-Helper",
+        "Name=Yoke identity browser",
+        "X-XFCE-Category=WebBrowser",
+        "X-XFCE-Commands=gtk-launch -- yoke-identity-browser.desktop about:blank;",
+        'X-XFCE-CommandsWithParameter=gtk-launch -- yoke-identity-browser.desktop "%s";',
+    ]
+
+    if fault == "terminal":
+        config.write_text(browser + "\n")
+    elif fault == "browser":
+        config.write_text(terminal + "\n")
+    elif fault == "helper_file":
+        helper.unlink()
+
+    if reason:
+        with pytest.raises(provisioner.ProvisionFailure, match=reason):
+            provisioner.verify(tmp_path)
+    else:
+        assert provisioner.verify(tmp_path)["ok"]
+    assert packages.issubset(next(argv for argv in calls if argv[0] == "dpkg-query"))
 
 
 @pytest.mark.posix_only(reason="runs on the remote Linux test machine")

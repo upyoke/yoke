@@ -1,43 +1,28 @@
-"""The machine state a machine-run QA case starts from, declared per case.
+"""Declare the baseline for each Test Machine QA chain.
 
-A case that drives a Test Machine runs on whatever that machine holds when it
-begins, so the state is part of the case and never left to the runner. Each
-machine-run case declares exactly one of:
-
-- ``baseline``: its ``host_baselines`` name the registered baselines the
-  runner resets to before it starts (one materialized row per baseline);
-- ``inherit``: it starts on the machine exactly as the immediately preceding
-  case of the same plan run, at the same baseline position, left it;
-- ``as_is``: it runs on the machine as found, with a stated reason.
-
-A ``baseline`` or ``as_is`` case opens a chain; the ``inherit`` cases right
-after it extend that chain. The runner resets before a chain and restores the
-chain's starting state after its last case.
-
-A Command case whose ``method_config.test_machine`` names a host reaches that
-host from the operator's machine. It may name ``host_baselines`` so plan
-admission resets the host before the command runs; with none it runs on the
-host as found, and it never inherits or runs ``as_is`` by declaration.
+A chain starts by resetting to a registered baseline. Each explicit
+``inherit`` case continues the immediately preceding case's machine at
+the same baseline position in the same plan run.
 """
 
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from yoke_contracts.hook_runner.shell_parse import parse_shell
 from yoke_contracts.machine_qa_host_control import HOST_BASELINES
 
 BASELINE = "baseline"
 INHERIT = "inherit"
-AS_IS = "as_is"
-STARTING_STATES = (BASELINE, INHERIT, AS_IS)
+STARTING_STATES = (BASELINE, INHERIT)
 MISSION_RUNNER_ID = "agent_mission"
 STARTING_STATE_RECOVERY = (
     "declare it on the case: `host_baselines` naming a registered baseline "
     f'({", ".join(HOST_BASELINES)}), `starting_state: "inherit"` to start '
-    "on the machine as the preceding case left it, or `starting_state: "
-    '"as_is"` with a `starting_state_reason`; edit the plan with `yoke qa '
+    "on the machine as the preceding case left it; edit the plan with `yoke qa "
     "plan edit PLAN_SLUG --project P` or replace its cases with `yoke qa "
     "plan-cases replace --project P --plan-id N --stdin`"
 )
@@ -54,9 +39,7 @@ def needs_test_machine(case: Mapping[str, Any]) -> bool:
         return True
     if runner != MISSION_RUNNER_ID:
         return False
-    config = case.get("method_config") or {}
-    if isinstance(config, str):
-        config = json.loads(config)
+    config = _method_config(case)
     required = []
     for field in ("capability_requirements", "required_capability_kinds"):
         kinds = case.get(field) or []
@@ -73,9 +56,7 @@ def is_host_command(case: Mapping[str, Any]) -> bool:
     """Whether the case is a Command that names the Test Machine it reaches."""
     if case.get("runner_id") != "worktree_run":
         return False
-    config = case.get("method_config") or {}
-    if isinstance(config, str):
-        config = json.loads(config)
+    config = _method_config(case)
     return bool(config.get("test_machine"))
 
 
@@ -104,14 +85,12 @@ def normalize_starting_state(
         method_config=method_config,
         capability_requirements=capability_requirements,
     )
-    if is_host_command(shape):
-        return _host_command_state(subject, host_baselines, declared, reason)
-    if not needs_test_machine(shape):
+    if not declares_starting_state(shape):
         return None, None
     if declared is not None and declared not in STARTING_STATES:
         raise StartingStateError(
             f"{subject} starting_state {declared!r} is not one of "
-            f"{', '.join(STARTING_STATES)}"
+            f"{', '.join(STARTING_STATES)}; {STARTING_STATE_RECOVERY}"
         )
     unknown = [name for name in host_baselines if name not in HOST_BASELINES]
     if unknown:
@@ -124,7 +103,7 @@ def normalize_starting_state(
             raise StartingStateError(
                 f"{subject} names host_baselines and starting_state "
                 f"{declared!r}; a case starts from named baselines or "
-                "declares inherit / as_is, never both"
+                "declares inherit, never both"
             )
         return BASELINE, None
     if declared is None:
@@ -136,11 +115,6 @@ def normalize_starting_state(
             f"{subject} declares starting_state 'baseline' with no "
             f"host_baselines; name one of {', '.join(HOST_BASELINES)}"
         )
-    if declared == AS_IS and reason is None:
-        raise StartingStateError(
-            f"{subject} runs as-is without a starting_state_reason; state why "
-            "the machine's current contents are the intended starting point"
-        )
     if declared == INHERIT and reason is not None:
         raise StartingStateError(
             f"{subject} inherits its starting state, which takes no "
@@ -149,26 +123,63 @@ def normalize_starting_state(
     return declared, reason
 
 
-def _host_command_state(
-    subject: str, host_baselines: Sequence[str], declared: str | None, reason: Any
-) -> tuple[str | None, str | None]:
-    """A host Command resets to named baselines or runs on the host as found."""
-    unknown = [name for name in host_baselines if name not in HOST_BASELINES]
-    if unknown:
-        raise StartingStateError(
-            f"{subject} names unregistered host baselines {', '.join(unknown)}; "
-            f"available baselines: {', '.join(HOST_BASELINES)}"
-        )
-    if declared not in (None, BASELINE) or reason is not None or (
-        declared == BASELINE and not host_baselines
+def _method_config(case: Mapping[str, Any]) -> Mapping[str, Any]:
+    config = case.get("method_config") or {}
+    return json.loads(config) if isinstance(config, str) else config
+
+
+_YOKE_PROGRAMS = {"yoke", "yoke.exe", "{yoke_bin}", "$YOKE_BIN", "${YOKE_BIN}"}
+_YOKE_LIFECYCLE = re.compile(r"(^|[-_ ])(?:uninstall|upgrade)(?=$|[-_ ])")
+
+
+def _runs_yoke(command: str) -> bool:
+    for segment in parse_shell(command).segments:
+        if segment.program not in _YOKE_PROGRAMS:
+            continue
+        argv = segment.argv[1:]
+        if "test-machine" in argv:
+            # These commands reach the host from the controller.
+            if "--" in argv:
+                remote = argv[argv.index("--") + 1 :]
+                if remote and _runs_yoke(" ".join(remote)):
+                    return True
+            continue
+        return True
+    return False
+
+
+def requires_host_yoke(case: Mapping[str, Any]) -> bool:
+    """Whether a machine case needs an installed Yoke on its starting host."""
+    config = _method_config(case)
+    if config.get("browser_identities") or _YOKE_LIFECYCLE.search(
+        str(case.get("case_key") or "").lower()
     ):
+        return True
+    commands = [config.get("command"), case.get("entry_surface")]
+    for step in (*(config.get("steps") or []), *(config.get("assertions") or [])):
+        if isinstance(step, str):
+            commands.append(step)
+        elif isinstance(step, Mapping):
+            commands.extend((step.get("command"), step.get("send")))
+            argv = step.get("argv") or []
+            if argv and str(argv[0]).rsplit("/", 1)[-1] in _YOKE_PROGRAMS:
+                return True
+    return any(isinstance(command, str) and _runs_yoke(command) for command in commands)
+
+
+def _require_yoke_baseline(case: Mapping[str, Any], baseline: str | None) -> None:
+    if baseline != "fresh-host":
+        return
+    config = _method_config(case)
+    variants = config.get("baseline_configs") or {}
+    effective_case = {**case, "method_config": variants.get(baseline, config)}
+    if requires_host_yoke(effective_case):
         raise StartingStateError(
-            f"{subject} is a Command on a Test Machine, which starts from "
-            "named host_baselines or from the host as found; name one of "
-            f"{', '.join(HOST_BASELINES)} in host_baselines (--host-baseline), "
-            "or remove starting_state and starting_state_reason"
+            f"starting_state_lacks_yoke: case {case['case_key']!r} runs Yoke "
+            "on the Test Machine, but starts from fresh-host; declare "
+            "shell-preconfigured on the chain head or start a separate "
+            "shell-preconfigured chain"
         )
-    return (BASELINE, None) if host_baselines else (None, None)
 
 
 def chain_baselines(
@@ -178,10 +189,8 @@ def chain_baselines(
 
     ``cases`` are in plan position order and carry ``case_key``,
     ``runner_id``, ``host_baselines``, ``starting_state`` and
-    ``starting_state_reason`` and ``method_config``. A ``baseline`` case fans out across its named
-    baselines, an ``as_is`` case materializes once, and an ``inherit`` case
-    follows its predecessor's fan-out so each of its rows continues the row
-    at the same baseline position.
+    ``starting_state_reason`` and ``method_config``. A baseline case fans out
+    across named baselines. An inheriting case follows its predecessor's fan-out.
     """
     fan_out: dict[str, list[str | None]] = {}
     previous: Mapping[str, Any] | None = None
@@ -203,7 +212,7 @@ def chain_baselines(
                 raise StartingStateError(
                     f"case {key!r} inherits its starting state, but it is the "
                     "plan's first case and nothing runs before it; declare "
-                    "host_baselines or starting_state 'as_is' instead"
+                    "host_baselines instead"
                 )
             if previous.get("runner_id") == MISSION_RUNNER_ID:
                 raise StartingStateError(
@@ -211,9 +220,9 @@ def chain_baselines(
                     f"{str(previous['case_key'])!r}, but an exploratory "
                     "mission is walked after the plan's captures, so no "
                     "case may inherit after it on the machine; "
-                    "declare host_baselines or starting_state 'as_is' instead"
+                    "declare host_baselines instead"
                 )
-            if not needs_test_machine(previous):
+            if not declares_starting_state(previous):
                 raise StartingStateError(
                     f"case {key!r} inherits from case "
                     f"{str(previous['case_key'])!r}, which does not run on a "
@@ -221,25 +230,22 @@ def chain_baselines(
                     "machine-run case"
                 )
 
-            def driver(row: Mapping[str, Any]) -> str | None:
-                config = row.get("method_config") or {}
-                if isinstance(config, str):
-                    config = json.loads(config)
-                return config.get("test_machine")
-
-            if driver(case) != driver(previous):
+            if _method_config(case).get("test_machine") != _method_config(previous).get(
+                "test_machine"
+            ):
                 raise StartingStateError(
                     f"inherited_driver_mismatch: case {key!r} inherits from "
                     f"case {str(previous['case_key'])!r}, but their driving "
                     "machines differ; use the predecessor's "
-                    "method_config.test_machine or declare host_baselines / "
-                    "starting_state 'as_is' instead"
+                    "method_config.test_machine or declare host_baselines instead"
                 )
             fan_out[key] = list(fan_out[str(previous["case_key"])])
         elif state == BASELINE:
             fan_out[key] = baselines
         else:
             fan_out[key] = [None]
+        for baseline in fan_out[key]:
+            _require_yoke_baseline(case, baseline)
         previous = case
     return fan_out
 
@@ -292,12 +298,11 @@ def _field(case: Any, name: str) -> Any:
 def reset_baselines(case: Any, *, continues: bool = False) -> list[str]:
     """The baseline a materialized case resets to before it runs, if any.
 
-    Only a case that starts a chain from a named baseline resets; an
-    inheriting case keeps its predecessor's machine, an ``as_is`` case runs
-    on the machine as found, and a continued mission walk keeps its host.
+    A chain head always resets. Inheriting cases and continued mission
+    walks retain the state of their own execution.
     """
     baseline = _field(case, "host_baseline")
-    if continues or _field(case, "starting_state") != BASELINE or not baseline:
+    if continues or _field(case, "starting_state") == INHERIT or not baseline:
         return []
     return [str(baseline)]
 
@@ -306,23 +311,22 @@ def require_materialized_starting_state(case: Any) -> None:
     """Refuse a materialized machine case that cannot say where it starts."""
     requirement_id = _field(case, "requirement_id")
     state = _field(case, "starting_state")
-    if state is None:
+    if state not in STARTING_STATES:
         raise StartingStateError(
-            f"Machine QA requirement {requirement_id} declares no starting "
-            f"state; {STARTING_STATE_RECOVERY}, then refresh the materialized "
-            "case (yoke qa plan rematerialize) or add it again with "
-            "--host-baseline or --starting-state as_is"
+            f"Machine QA requirement {requirement_id} declares no valid starting "
+            f"state ({state!r}); {STARTING_STATE_RECOVERY}, then refresh the "
+            "materialized case with `yoke qa plan rematerialize`"
         )
     baseline = _field(case, "host_baseline")
-    if (state == BASELINE and not baseline) or (state == AS_IS and baseline):
+    if baseline not in HOST_BASELINES:
         raise StartingStateError(
             f"Machine QA requirement {requirement_id} starting state "
-            f"{state!r} disagrees with its host baseline {baseline!r}"
+            f"{state!r} disagrees with its host baseline {baseline!r}; "
+            f"{STARTING_STATE_RECOVERY}"
         )
 
 
 __all__ = [
-    "AS_IS",
     "BASELINE",
     "INHERIT",
     "STARTING_STATES",
@@ -335,6 +339,7 @@ __all__ = [
     "normalize_starting_state",
     "require_materialized_starting_state",
     "require_selected_chains",
+    "requires_host_yoke",
     "reset_baselines",
     "stored_fan_out",
 ]

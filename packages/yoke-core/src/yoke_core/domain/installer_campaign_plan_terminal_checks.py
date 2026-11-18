@@ -171,7 +171,7 @@ HOSTED_CONNECT = terminal_case(
     ),
     entry_surface=HOSTED_ONBOARD,
     required_completion="machine-github",
-    host_baselines=(FRESH_HOST,),
+    host_baselines=(SHELL_PRECONFIGURED,),
 )
 
 

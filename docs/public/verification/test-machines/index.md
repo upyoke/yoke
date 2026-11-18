@@ -29,8 +29,8 @@ project-owned capability records and machine-local capability secret files.
 Every machine-run case declares the state it starts from: `host_baselines`
 naming `fresh-host` or `shell-preconfigured` (reset before, restored after),
 `"starting_state": "inherit"` to continue on the machine the preceding case
-left, or `"starting_state": "as_is"` with a `starting_state_reason`. Authoring
-and materialization refuse an undeclared case. An exploratory mission may
+left. Authoring and materialization refuse an undeclared case. Use
+`shell-preconfigured` for cases that need Yoke installed. An exploratory mission may
 inherit only at the end of a chain with the same driver machine. Nothing may
 inherit after it. Item and deployment runs isolate the entire chain; a
 standalone plan must contain only that chain or refuse with
@@ -45,9 +45,8 @@ and retained through execution and mission review. A lost companion lease
 refuses continuation rather than reacquiring it. The printed `walk-start`
 command applies the declared starting state: a baseline resets the host and
 restores any `host_starting_state` package fixture; `inherit` continues the
-preceding case's state, and `as_is` preserves the current state. `walk-end`
-restores the chain's declared baseline, or records no restore when the chain
-has none, and records cleanup on the run. Machine pins
+preceding case's state. `walk-end` restores the chain's declared baseline
+and records cleanup on the run. Machine pins
 are accepted by both authoring and execution validation for scripted checks.
 
 The test machine is serial. A named host baseline and every dependent action

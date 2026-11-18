@@ -94,7 +94,7 @@ def test_releasing_either_simultaneous_host_settles_the_whole_set(
     current = lock_plan_execution(test_db, execution["id"])
     assert current["state"] == "aborted" and current["test_machine_lease_id"] is None
     assert all(not get_claim(test_db, lease.id).is_active for lease in leases)
-    assert all(reset_owed(test_db, test_machine) is None for test_machine in MACHINES)
+    assert all(reset_owed(test_db, test_machine) == "fresh-host" for test_machine in MACHINES)
 
 
 def test_failed_settlement_rolls_back_manual_release(test_db, removed_mission):

@@ -318,6 +318,7 @@ def test_plan_case_contract_uses_the_same_single_case_lifecycle(
             "operating_notes": "",
         },
         cases=[case.model_dump(mode="json")],
+        baselines=[case.host_baseline],
         plan_execution_id="plan-run-1",
         roster_digest="a" * 64,
         ordinal=0,
@@ -336,4 +337,7 @@ def test_plan_case_contract_uses_the_same_single_case_lifecycle(
 
     assert submission.payload["results"][0]["case_outcome"] == "passed"
     assert "baseline_ok" not in submission.payload
-    assert events == ["setup", "primary", "post-state", "close"]
+    assert events == [
+        "reach:shell-preconfigured", "setup", "primary", "post-state", "close",
+        "reach:shell-preconfigured",
+    ]

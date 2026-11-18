@@ -31,7 +31,7 @@ def _capture(conn, run_id):
 
 def _assert_projection(conn, plan_id, run_id, outcome):
     detail = get_plan(conn, plan_id=plan_id)
-    proof = detail["cases"][0]["last_result"]
+    proof = detail["cases"][0]["proofs"][0]
     listed = next(
         row
         for row in list_plans(conn, project="yoke", full=True)

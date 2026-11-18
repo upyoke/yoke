@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-import pytest
 
 from runtime.api.domain.machine_qa_fixture_lifecycle_test_support import (
     FakeExecution,
@@ -36,6 +35,7 @@ def _issued_case_contract():
             "os": "macos",
             "operating_notes": "",
         },
+        baselines=["fresh-host"],
         cases=[
             {
                 "requirement_id": 1,
@@ -51,9 +51,8 @@ def _issued_case_contract():
                 "instructions": "Check the machine.",
                 "expected_outcome": "The machine is ready.",
                 "method_config": {"assertions": [{"argv": ["/usr/bin/true"]}]},
-                "host_baseline": None,
-                "starting_state": "as_is",
-                "starting_state_reason": "the machine is checked as found",
+                "host_baseline": "fresh-host",
+                "starting_state": "baseline",
                 "entry_surface": None,
                 "required_completion": None,
                 "workflow_transition_id": "implemented",
@@ -73,7 +72,7 @@ def test_fixture_augmented_evidence_is_redacted_before_submission(monkeypatch):
     secret = "credential-that-must-not-leave-the-client"
     execution = SimpleNamespace(
         material=SimpleNamespace(secrets={"ssh_private_key": secret}),
-        reach_baseline=lambda name: pytest.fail(f"unexpected reset to {name}"),
+        reach_baseline=lambda name: SimpleNamespace(ok=True, error_code=None, evidence={}),
     )
     monkeypatch.setattr(
         machine_qa_local_execution,

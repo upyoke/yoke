@@ -12,10 +12,10 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import Any, List, Optional
 
-from yoke_core.domain import db_backend
+from yoke_core.domain import db_backend, db_helpers
 from yoke_contracts.items_projection import ADDITIONAL_VIRTUAL_FIELDS
 
-from yoke_core.domain.db_helpers import connect, query_one, query_rows, query_scalar
+from yoke_core.domain.db_helpers import query_one, query_rows, query_scalar
 from yoke_core.domain.items_constants import (
     CANONICAL_COLUMNS,
     LIST_COLUMNS,
@@ -122,7 +122,7 @@ def query_item(
         and (item_id, field) in batch[1]
     ):
         return batch[1][item_id, field]
-    conn = connect(db_path)
+    conn = db_helpers.connect(db_path)
     try:
         # body is a virtual field rendered on demand
         if field == "body":
@@ -179,7 +179,7 @@ def query_item_row(
     select_cols, needs_project = item_project_join_select(list(_DB_COLUMNS))
     join = " JOIN projects p ON p.id = i.project_id" if needs_project else ""
     sql = f"SELECT {select_cols} FROM items i{join} WHERE i.id = %s"
-    conn = connect(db_path)
+    conn = db_helpers.connect(db_path)
     try:
         row = query_one(conn, sql, (item_id,))
         if row is None:
@@ -233,7 +233,7 @@ def query_items_list(
     join = " JOIN projects p ON p.id = i.project_id" if needs_project else ""
     sql = f"SELECT {select_cols} FROM items i{join} {where} ORDER BY i.id ASC"
 
-    conn = connect(db_path)
+    conn = db_helpers.connect(db_path)
     try:
         rows = query_rows(conn, sql, tuple(params))
         if not rows:

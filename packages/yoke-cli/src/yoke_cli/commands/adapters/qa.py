@@ -64,7 +64,6 @@ def qa_requirement_update(args: List[str]) -> int:
             "workflow_transition_id, method_config, wake_path, wake_evidence, "
             "starting_state. Mark a live case manual with wake_evidence first, "
             "then wake_path manual. starting_state takes a JSON object "
-            '(\'{"starting_state":"as_is","starting_state_reason":"..."}\' or '
             '\'{"starting_state":"baseline","host_baseline":"fresh-host"}\') '
             "and is open only before anything has run the case. A field outside the set "
             "is refused by name with the allowlist the engine holds."

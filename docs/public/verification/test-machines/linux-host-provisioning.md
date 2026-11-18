@@ -238,22 +238,22 @@ python3 provision_linux_desktop.py --verify
 Provisioning requires `--browser-project` and `--browser-identity`, naming the
 operator identity (the project's browser-control `default_identity`);
 `--verify` takes neither. It requires Ubuntu24.04 and passwordless sudo,
-installs XFCE, xfce4-terminal, xorgxrdp/xrdp, dbus-x11, scrot, xdotool and
-venv support, refuses another `.xsession` choice, and proves active services
-and loopback-only RDP. It sets `TerminalEmulator=xfce4-terminal` while
-preserving other helpers.rc choices. It installs no stock desktop browser.
-Instead it writes the identity launcher
-`~/.local/share/applications/yoke-identity-browser.desktop`, whose Exec runs
-`yoke browser open --project P --identity NAME` through a login shell, and
-selects it for http, https and text/html in `~/.config/mimeapps.list`
-(keeping the user's other default applications). So `xdg-open` lands in the
-identity profile, signed in. `--verify` refuses
-`linux_desktop_default_browser_not_selected` until the launcher is registered
-and selected. The registration lives in the home golden, so resets keep it;
-on a clean baseline without Yoke there is no launcher to run until a walk
-installs Yoke. Once Yoke is installed and the identity authorized, confirm by
-running `xdg-open https://upyoke.com` in the desktop terminal; the page opens
-in the identity's Chromium.
+installs XFCE, xfce4-terminal, xfce4-helpers, xdg-utils, GTK's launcher tools,
+xorgxrdp/xrdp, dbus-x11, scrot, xdotool and venv support. It refuses another
+`.xsession` choice and proves active services and loopback-only RDP. It sets
+`TerminalEmulator=xfce4-terminal` and `WebBrowser=yoke-identity-browser` in
+`~/.config/xfce4/helpers.rc`, preserving unrelated helpers. The XFCE browser
+helper uses `gtk-launch` to open the existing identity launcher
+`~/.local/share/applications/yoke-identity-browser.desktop`. The launcher runs
+`yoke browser open --project P --identity NAME` through a login shell and is
+also the HTTP, HTTPS, and HTML default in `~/.config/mimeapps.list`.
+`--verify` checks the helper packages, both XFCE selections, the browser
+helper, and the MIME defaults. It refuses a missing browser configuration as
+`linux_desktop_default_browser_not_selected`. Capture the provisioned home
+in the golden so resets restore its launcher and browser settings.
+Once Yoke is installed and the identity authorized, confirm in the XFCE
+session that `exo-open --launch TerminalEmulator` opens a terminal and
+`xdg-open https://example.com` opens the page in the identity's Chromium.
 An existing customization requires an operator decision before provisioning.
 Tools/services are system baseline; session selection is captured home state.
 Do not install scrot/xdotool as a mission-journaled package delta: another reset

@@ -67,8 +67,7 @@ def captured_plan_review(conn, item_id: int, *, unfinished_case: bool = False):
                 },
                 "entry_surface": "public-installer",
                 "required_completion": "review-frame",
-                "starting_state": "as_is",
-                "starting_state_reason": "review reads a recorded capture",
+                "host_baselines": ["fresh-host"],
             }
         ],
     )
@@ -87,6 +86,7 @@ def captured_plan_review(conn, item_id: int, *, unfinished_case: bool = False):
                 "method_config",
                 "entry_surface",
                 "required_completion",
+                "host_baselines",
                 "starting_state",
                 "starting_state_reason",
             )

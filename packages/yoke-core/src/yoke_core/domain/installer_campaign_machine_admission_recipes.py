@@ -15,7 +15,7 @@ import shlex
 from typing import Any, Sequence
 
 from yoke_core.domain.installer_campaign_plan_common import (
-    FRESH_HOST,
+    SHELL_PRECONFIGURED,
     MACHINE_GITHUB_TEXT,
     SECRET_SAFE_POST_CHECKS,
     action,
@@ -120,7 +120,7 @@ def admission_case(
         method_config=config,
         entry_surface=entry,
         required_completion=required,
-        host_baselines=(FRESH_HOST,),
+        host_baselines=(SHELL_PRECONFIGURED,),
     )
 
 

@@ -193,7 +193,7 @@ def baseline_configs() -> dict[str, Any]:
 def case_contract(
     *,
     method_config: dict[str, Any] | None = None,
-    host_baseline: str | None = None,
+    host_baseline: str = "shell-preconfigured",
 ) -> MachineQaCaseContract:
     execution_target, execution_target_digest = synthetic_execution_target(
         project_id=1,
@@ -215,8 +215,7 @@ def case_contract(
             "expected_outcome": "The recipe completes.",
             "method_config": method_config or recipe_config(),
             "host_baseline": host_baseline,
-            "starting_state": "baseline" if host_baseline else "as_is",
-            "starting_state_reason": None if host_baseline else "fixture host",
+            "starting_state": "baseline",
             "entry_surface": "yoke test",
             "required_completion": "done",
             "workflow_transition_id": None,

@@ -152,8 +152,7 @@ def test_standalone_multi_platform_resume_uses_durable_hosts(
                 "method_config": {**_terminal_recipe(), "os": platform},
                 "entry_surface": "printf done",
                 "required_completion": "complete",
-                "starting_state": "as_is",
-                "starting_state_reason": "Read host identity without changing its state.",
+                "host_baselines": ["fresh-host"],
             }
             for key, platform in [
                 ("linux-first", "linux"),

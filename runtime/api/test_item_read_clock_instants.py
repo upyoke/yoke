@@ -1,6 +1,9 @@
 """Item read owners distinguish native JSON facts from textual clock cells."""
 
 from datetime import datetime
+import subprocess
+import sys
+import textwrap
 
 import pytest
 
@@ -66,7 +69,6 @@ def test_real_item_clock_selectors_scalar_pipe_and_json_owners(
     )
     test_db.commit()
     public_ref = render_item_ref(test_db, 17)
-    monkeypatch.setattr(items_queries, "connect", lambda *_args: conn)
     monkeypatch.setattr(db_helpers, "connect", lambda *_args: conn)
     monkeypatch.setattr(service_client_items_read, "_get_db_readonly", lambda: conn)
     monkeypatch.setattr(service_client_items_listing, "_get_db_readonly", lambda: conn)
@@ -161,3 +163,26 @@ def test_real_item_clock_selectors_scalar_pipe_and_json_owners(
     assert len(fixture_writes) == 3
     for _, params in fixture_writes:
         assert any(isinstance(value, datetime) and value == stamp for value in params)
+
+
+def test_first_import_does_not_retain_a_temporary_connection_factory():
+    program = textwrap.dedent("""\
+        import sys
+        from unittest.mock import patch
+
+        from yoke_core.domain import db_helpers
+
+        assert "yoke_core.domain.items_queries" not in sys.modules
+        with patch.object(db_helpers, "connect") as temporary_connect:
+            from yoke_core.domain import items_queries
+
+        with patch.object(db_helpers, "connect") as current_connect:
+            current_connect.return_value.execute.return_value.fetchone.return_value = ("Title",)
+            assert items_queries.query_item(31, "title") == "Title"
+        temporary_connect.assert_not_called()
+        current_connect.assert_called_once()
+    """)
+    result = subprocess.run(
+        [sys.executable, "-c", program], capture_output=True, text=True, timeout=30
+    )
+    assert result.returncode == 0, result.stdout + result.stderr

@@ -42,11 +42,8 @@ def _case(
         "instructions": f"Exercise {case_key}.",
         "expected_outcome": f"{case_key} succeeds.",
         "method_config": _method_config(method_id),
-        "host_baselines": host_baselines or [],
-        **(
-            {"starting_state": "as_is", "starting_state_reason": "fixture host"}
-            if method_id == "machine-state-check" and not host_baselines
-            else {}
+        "host_baselines": host_baselines or (
+            ["fresh-host"] if method_id == "machine-state-check" else []
         ),
     }
 

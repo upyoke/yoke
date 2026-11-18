@@ -200,7 +200,7 @@ def _ended_owner_recovery(conn, execution):
 HOST_RESTORE_RECOVERY = (
     "Host custody stays until the runner stops and records starting_state_restore "
     "cleanup proof. Run `yoke qa plan abort` for this execution's subject. "
-    "A declared baseline requires restored=true; an as_is case or a case "
+    "A declared baseline requires restored=true; a historical case "
     "without a baseline records that no restoration is required. Keep the "
     "runner connected and retry only after that proof is recorded. If the "
     "runner is gone or cleanup fails, stop that runner, then have the lease "
@@ -247,11 +247,11 @@ def restore_cleanup_proven(restore, baseline):
 
 
 def restore_required(case):
-    return case.get("starting_state") != "as_is" and bool(case.get("host_baseline"))
+    return bool(case.get("host_baseline"))
 
 
 def case_restore_proven(case, restore):
-    """A required restore proves its baseline; an as-is case proves any receipt."""
+    """A required restore proves its baseline; a historical case needs a cleanup receipt."""
     if restore_required(case):
         return restore_cleanup_proven(restore, case.get("host_baseline"))
     return bool(restore)

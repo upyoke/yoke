@@ -132,7 +132,7 @@ def test_stopped_capture_keeps_the_independent_review_cue(test_db):
         test_db,
         plan_id=case["plan_id"],
         case_key=case["case_key"],
-        host_baseline=None,
+        host_baseline=case["host_baseline"],
         deployment_run_id=None,
     )
     assert proof["review"]["state"] == "awaiting_walk_review"

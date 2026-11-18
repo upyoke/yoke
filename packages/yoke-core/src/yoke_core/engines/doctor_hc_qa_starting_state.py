@@ -1,6 +1,6 @@
 """Doctor HC: every stored plan with a machine-run case can materialize.
 
-A machine-run case (``host_control`` or ``agent_mission`` method) declares
+A machine-run case, including a Command with a Test Machine, declares
 the Test Machine state it starts from, and materialization refuses a plan
 whose cases cannot say where they start. Authoring enforces that contract on
 every new write, but a stored plan written before the contract existed, or
@@ -34,7 +34,7 @@ def hc_qa_plan_starting_state(conn, args: DoctorArgs, rec: RecordCollector) -> N
         )
         return
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    runners = ["host_control", "agent_mission"]
+    runners = ["host_control", "agent_mission", "worktree_run"]
     plans = query_rows(
         conn,
         "SELECT p.id, p.slug, pr.slug AS project FROM qa_plans p "
