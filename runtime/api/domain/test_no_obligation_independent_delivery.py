@@ -196,7 +196,7 @@ def test_close_out_refusal_sends_named_recovery_notice(
         row["body"]
         for row in test_db.execute(
             "SELECT body FROM session_messages WHERE idempotency_key LIKE %s",
-            (item_qa_accepted_idempotency_key(MEMBER_A, run_id) + ":refused-%",),
+            (item_qa_accepted_idempotency_key(MEMBER_A, run_id) + ":blocked:%",),
         ).fetchall()
     ]
     assert "Automatic close-out failed" in body

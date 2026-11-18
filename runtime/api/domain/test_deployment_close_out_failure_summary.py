@@ -50,7 +50,7 @@ def test_requirement_failure_keeps_each_record_line_within_the_cap(
 def test_settlement_refusal_names_the_unsettled_capture() -> None:
     public_ref = "TEST-" + str(27)
     refusal = (
-        f"{public_ref} has satisfied post-deploy delivery but cannot auto-close: "
+        f"{public_ref} cannot auto-close: "
         f"Error: Cannot transition {public_ref} to 'done' -- 1 QA record(s) are "
         "unsettled.\n  Only each requirement's latest execution counts; finish "
         "or abort it, record a verdict, or waive the requirement while its item "

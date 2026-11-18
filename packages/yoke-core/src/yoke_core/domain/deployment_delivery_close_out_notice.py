@@ -72,8 +72,11 @@ def delivery_cleared_message(
     )
     if close_out_failure:
         lead += " " + close_out_failure_summary(public_ref, close_out_failure)
-    elif pending_credit:
-        return f"{lead} {pending_credit} Automatic close-out retries when that credit arrives; keep the item parked."
+    if pending_credit:
+        lead += f" {pending_credit} Automatic close-out retries when that credit arrives"
+        if not close_out_failure:
+            return f"{lead}; keep the item parked."
+        lead += "."
     if route == HOLDER:
         return (
             f"{lead} You hold its work claim and parked on this wait, so this "
@@ -226,17 +229,18 @@ def _close_or_wake(
     )
     if closed.applies and closed.ok:
         return "closed"
-    if closed.pending_credit:
-        return _send(conn, member, run_id, stamp, pending_credit=closed.pending_credit)
-    if closed.applies:
+    if closed.applies and closed.detail:
         recovery = _send(
             conn,
             member,
             run_id,
             stamp,
             close_out_failure=closed.detail,
+            pending_credit=closed.pending_credit,
         )
         return f"failed: {closed.detail}; recovery notice {recovery}"
+    if closed.pending_credit:
+        return _send(conn, member, run_id, stamp, pending_credit=closed.pending_credit)
     return _send(conn, member, run_id, stamp)
 
 
