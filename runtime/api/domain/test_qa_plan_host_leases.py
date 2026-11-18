@@ -15,7 +15,7 @@ from runtime.api.domain.qa_member_machine_partitions_test_support import (
 )
 from runtime.api.domain.machine_qa_session_seed import seed_qa_session
 from runtime.api.domain.deployment_qa_stage_execution_test_support import _complete_case
-from yoke_core.domain.coordination_claims import acquire, release
+from yoke_core.domain.coordination_claims import release
 from yoke_core.domain.machine_qa_case_hosts import normalize_config_machines
 from yoke_core.domain.qa_plan_execution_state import (
     advance_plan_execution,
@@ -27,7 +27,6 @@ from yoke_core.domain.qa_plan_host_leases import (
     execution_host_leases,
     require_case_host_leases,
 )
-from yoke_core.domain.work_claim_targets import make_qa_admission_target
 
 
 def test_case_holds_both_hosts_and_releases_them_after_completion(
