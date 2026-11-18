@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import os
 import shlex
+import subprocess
 import sys
 from pathlib import Path
 from typing import Optional, Sequence, TextIO
@@ -43,15 +44,25 @@ STREAMING_WAIT_HELP = (
 )
 
 
-def _anchor_directory(start: Path | None = None) -> Path:
+def _anchor_directory(kind: str, start: Path | None = None) -> Path:
     """Return the checkout the pasted pair must ``cd`` into.
 
     A subdirectory cwd embeds that sticky path in the minted line, and
     the watch adapter then binds a nested or mixed environment. Prefer
     the nearest uv-managed project within the git checkout; never cross
-    a checkout boundary. Otherwise use the invocation directory.
+    a checkout boundary. Otherwise use the invocation directory. A merge
+    removes the lane it lands, so ``merge`` anchors a linked worktree at
+    its main checkout: a shell left in the deleted lane fails both lines.
     """
     here = (start or Path.cwd()).resolve()
+    if kind == "merge":
+        dirs = subprocess.run(
+            ["git", "-C", str(here), "rev-parse", "--path-format=absolute",
+             "--git-dir", "--git-common-dir"],
+            capture_output=True, text=True, check=False,
+        ).stdout.split()
+        if len(dirs) == 2 and Path(dirs[0]).resolve() != Path(dirs[1]).resolve():
+            return Path(dirs[1]).resolve().parent
     for candidate in [here, *here.parents]:
         if is_uv_project(candidate) or (candidate / ".git").exists():
             return candidate
@@ -88,6 +99,7 @@ def _with_connection_env(invocation: str) -> str:
 
 def _bound_wrapper_command(
     *,
+    kind: str,
     wrapper_module: str,
     wrapper_args: Sequence[str],
     raw_capture: Path,
@@ -106,7 +118,7 @@ def _bound_wrapper_command(
     option_args = shlex.join(list(wrapper_options))
     option_prefix = f"{option_args} " if option_args else ""
     return (
-        f"cd {shlex.quote(str(_anchor_directory()))} && "
+        f"cd {shlex.quote(str(_anchor_directory(kind)))} && "
         f"{_with_connection_env(_invocation(wrapper_module))} "
         f"{option_prefix}"
         f"--raw-capture {shlex.quote(str(raw_capture))} "
@@ -135,8 +147,9 @@ def print_streaming_pair(
     stream = out or sys.stdout
     raw_q = shlex.quote(str(raw_capture))
     progress_q = shlex.quote(str(progress_capture))
-    cwd_q = shlex.quote(str(_anchor_directory()))
+    cwd_q = shlex.quote(str(_anchor_directory(kind)))
     bash_invocation = _bound_wrapper_command(
+        kind=kind,
         wrapper_module=wrapper_module,
         wrapper_args=wrapper_args,
         raw_capture=raw_capture,
@@ -229,6 +242,7 @@ def print_in_turn_invocation(
     stream = out or sys.stdout
     raw_q = shlex.quote(str(raw_capture))
     bash_invocation = _bound_wrapper_command(
+        kind=kind,
         wrapper_module=wrapper_module,
         wrapper_args=wrapper_args,
         raw_capture=raw_capture,
