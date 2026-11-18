@@ -118,6 +118,18 @@ forbidding repository edits.
 Unsupported executors refuse as `agent_mission_executor_invalid`: update the
 saved case to `informed_subagent` and rematerialize affected requirements.
 
+## Stage fixtures
+
+A mission that needs a disposable stage project keeps its execution and
+artifacts on production and runs fixture claim, merge and cancel steps from a
+child harness started in the fixture checkout with `YOKE_ENV=<stage
+connection>`. That child's own opening hook registers it on stage; the walker
+never reuses the production session or registers one by hand. Controller
+version matching follows [Candidate controller](candidate-controller.md). Two
+known defects surface as findings, not routine steps: a fixture seed
+publication refusal recoverable only by a hand `git push origin main`, and a PR
+gate still requiring `test_results` after a passing Command capture.
+
 ## Cleanup
 
 A mission cleans up everything it creates, such as repositories, accounts and
