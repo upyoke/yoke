@@ -82,21 +82,33 @@ try {Disable-YokeTailnetTrayStartup -StartupRoot $startup -PrivateRoot $private 
 catch {if($_.Exception.Message -notlike 'windows_tailnet_startup_unexpected:*'){throw}}
 if((Get-FileHash -LiteralPath $renamed -Algorithm SHA256).Hash -cne $renamedHash){throw 'Changed refused renamed link'}
 Remove-Item -LiteralPath $renamed -ErrorAction Stop
+function Set-FixtureShortcutOwner($path,$stage) {
+ $hash=(Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash
+ $acl=Get-Acl -LiteralPath $path
+ $acl.SetOwner([Security.Principal.SecurityIdentifier]::new('S-1-5-32-544'))
+ Set-Acl -LiteralPath $path -AclObject $acl -ErrorAction Stop
+ $owner=(Get-Acl -LiteralPath $path).GetOwner([Security.Principal.SecurityIdentifier]).Value
+ if($owner -cne 'S-1-5-32-544' -or (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash -cne $hash){throw ('Fixture ownership/bytes invalid after '+$stage)}
+ Write-Output ('FIXTURE_OWNER_STAGE:'+$stage+':'+$owner)
+}
 $path=Join-Path $startup 'Tailscale.lnk';$shell=New-Object -ComObject WScript.Shell
 $link=$shell.CreateShortcut($path);$link.TargetPath=$exe;$link.Arguments='-Unexpected';$link.Save()
-$acl=Get-Acl -LiteralPath $path;$acl.SetOwner([Security.Principal.SecurityIdentifier]::new('S-1-5-32-544'));Set-Acl -LiteralPath $path -AclObject $acl
+Set-FixtureShortcutOwner $path 'unexpected-argument-save'
 $before=(Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash
 try {Disable-YokeTailnetTrayStartup -StartupRoot $startup -PrivateRoot $private -Executable $exe;throw 'Accepted unexpected arguments'}
 catch {if($_.Exception.Message -notlike 'windows_tailnet_startup_target_invalid:*'){throw}}
 if((Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash -cne $before){throw 'Changed refused shortcut'}
 $link=$shell.CreateShortcut($path);$link.Arguments='';$link.Save()
+Set-FixtureShortcutOwner $path 'expected-shortcut-save'
 $before=(Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash
 $result=Disable-YokeTailnetTrayStartup -StartupRoot $startup -PrivateRoot $private -Executable $exe
 if($result.trayStartup -cne 'disabled' -or (Test-Path -LiteralPath $path) -or (Get-FileHash -LiteralPath $result.backup -Algorithm SHA256).Hash -cne $before){throw 'Shortcut was not privately backed up and disabled'}
 Assert-YokeTailnetStartupPrivate $result.backup $false
 $again=Disable-YokeTailnetTrayStartup -StartupRoot $startup -PrivateRoot $private -Executable $exe
 if($again.trayStartup -cne 'absent'){throw 'Not idempotent'}
+if(Test-Path -LiteralPath $path){throw 'Fixture restore destination unexpectedly exists'}
 Copy-Item -LiteralPath $result.backup -Destination $path -ErrorAction Stop
+Set-FixtureShortcutOwner $path 'collision-restore-copy'
 [IO.File]::AppendAllText($result.backup,'collision')
 $collision=(Get-FileHash -LiteralPath $result.backup -Algorithm SHA256).Hash
 try {Disable-YokeTailnetTrayStartup -StartupRoot $startup -PrivateRoot $private -Executable $exe;throw 'Accepted changed backup'}
