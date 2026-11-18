@@ -15,7 +15,6 @@ import os
 import subprocess
 import sys
 import threading
-import time
 from contextlib import redirect_stderr, redirect_stdout
 from unittest.mock import Mock
 
@@ -28,6 +27,24 @@ from yoke_cli.hook_resident_client import ResidentUnavailable
 from yoke_contracts.hook_resident_routing import is_read_only_tool_event
 from yoke_contracts.hook_runner.hook_ordering import event_types
 from yoke_harness.hook_resident_observations import MESSAGE_PROBE_INTERVAL_SECONDS
+
+_CONCURRENT_ADMISSION_REQUESTS = 5
+
+
+def _admission_evaluator(server):
+    def check_in_flight():
+        with server.state_lock:
+            assert server.active_requests == _CONCURRENT_ADMISSION_REQUESTS
+
+    admitted = threading.Barrier(
+        _CONCURRENT_ADMISSION_REQUESTS, action=check_in_flight, timeout=8
+    )
+
+    def evaluate(_event, _stdin, **_kwargs) -> int:
+        admitted.wait()
+        return 0
+
+    return evaluate
 
 
 def _context_evaluator(barrier: threading.Barrier):
@@ -67,6 +84,8 @@ def _serve_test_resident(socket_path: str, lock_path: str, ready, mode: str) -> 
     server.load_evaluator()
     if mode == "context":
         server.evaluate_inprocess = _context_evaluator(threading.Barrier(2))
+    elif mode == "admission":
+        server.evaluate_inprocess = _admission_evaluator(server)
     ready.send(server.loaded_revision)
     try:
         while True:
@@ -270,8 +289,8 @@ def test_message_probe_interval_is_bounded() -> None:
 def test_concurrent_hooks_are_admitted_without_a_serial_wait(
     resident_process,
 ) -> None:
-    """Five callers must not queue behind one another's half-second waits."""
-    socket_path, revision = resident_process()
+    """Five real protocol requests must reach the evaluator together."""
+    socket_path, revision = resident_process("admission")
     responses: list[dict] = []
     lock = threading.Lock()
 
@@ -283,16 +302,15 @@ def test_concurrent_hooks_are_admitted_without_a_serial_wait(
         with lock:
             responses.append(response)
 
-    started = time.monotonic()
-    threads = [threading.Thread(target=call) for _ in range(5)]
+    threads = [
+        threading.Thread(target=call) for _ in range(_CONCURRENT_ADMISSION_REQUESTS)
+    ]
     for thread in threads:
         thread.start()
     for thread in threads:
         thread.join(timeout=20)
-    elapsed = time.monotonic() - started
-
-    assert len(responses) == 5
-    assert all(response.get("status") == "ok" for response in responses)
-    # The removed drain cost 0.5s of admission per request; five sequential
-    # admissions could not finish inside this bound.
-    assert elapsed < 2.5, f"admission took {elapsed:.2f}s"
+    assert len(responses) == _CONCURRENT_ADMISSION_REQUESTS
+    assert all(
+        response.get("status") == "ok" and response.get("exit_code") == 0
+        for response in responses
+    ), responses
