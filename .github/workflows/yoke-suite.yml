@@ -170,10 +170,18 @@ jobs:
           & $gitBash --version
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Add-Content -Path $env:GITHUB_ENV -Value "YOKE_CI_GIT_BASH=$gitBash"
-          if (-not (Get-Command rg.exe -ErrorAction SilentlyContinue)) {
+          $ripgrep = (Get-Command rg.exe -CommandType Application -ErrorAction SilentlyContinue).Source
+          if (-not $ripgrep) {
             choco install ripgrep --yes --no-progress
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            $ripgrep = Join-Path $env:ChocolateyInstall 'bin/rg.exe'
           }
+          if (-not (Test-Path -LiteralPath $ripgrep -PathType Leaf)) {
+            throw "Windows runner could not locate ripgrep after provisioning: $ripgrep"
+          }
+          & $ripgrep --version
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Add-Content -Path $env:GITHUB_PATH -Value (Split-Path $ripgrep)
           $unlock = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock'
           New-Item -Path $unlock -Force | Out-Null
           New-ItemProperty -Path $unlock -Name AllowDevelopmentWithoutDevLicense -Value 1 -PropertyType DWord -Force | Out-Null
