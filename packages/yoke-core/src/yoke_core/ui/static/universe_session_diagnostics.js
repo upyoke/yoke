@@ -78,6 +78,7 @@ export function appendSessionHeaderDetails(documentNode, host, row) {
   const intent = state?.intent;
   const next = state?.next_actor;
   const detail = [
+    row.harness_title ? `Title: ${row.harness_title}` : "",
     state?.reason ? `Reason: ${state.reason}` : "",
     `Presence: ${state?.presence || "unavailable"}`,
     `Activity: ${state?.activity || "unavailable"}`,
