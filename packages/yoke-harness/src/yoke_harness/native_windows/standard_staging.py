@@ -14,10 +14,9 @@ from yoke_harness.ssh_test_machine_transport import SshTestMachineTransport
 
 ANCESTORS = r"""
 $id=[Security.Principal.WindowsIdentity]::GetCurrent()
-$admin=([Security.Principal.WindowsPrincipal]::new($id)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-if($admin -ne EXPECTED_ADMIN){throw 'Staging token differs from the resolved Windows route'}
+if(NEGATE([Security.Principal.WindowsPrincipal]::new($id)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){throw 'Stage role mismatch'}
 $stageHome=HOME
-if($env:USERPROFILE -ne $stageHome -or (Split-Path -Parent $root) -ne $stageHome){throw 'Staging home differs from resolved user profile'}
+if($env:USERPROFILE -ne $stageHome -or (Split-Path -Parent $root) -ne $stageHome){throw 'Stage profile mismatch'}
 $ancestor=$stageHome
 while($ancestor){
  $f=Get-Item -LiteralPath $ancestor -Force -ErrorAction Stop
@@ -28,11 +27,13 @@ while($ancestor){
 
 
 def profile_policy(home, *, administrator=False):
-    role = "$true" if administrator else "$false"
-    ancestors = ANCESTORS.replace("HOME", quote(home)).replace("EXPECTED_ADMIN", role)
+    negate_admin = "!" if administrator else ""
+    ancestors = ANCESTORS.replace("NEGATE", negate_admin).replace("HOME", quote(home))
     # Elevated SFTP can assign Administrators as the file owner. The stage
     # directory still requires the SSH user's exact SID and protected grants.
-    file_owner = "$id.User.Value,'S-1-5-32-544'" if administrator else "$id.User.Value"
+    unexpected_owner = (
+        "-notin @($id.User.Value,'S-1-5-32-544')" if administrator else "-ne $id.User.Value"
+    )
     # Three exact protected grants: this user, SYSTEM and Administrators.
     directory = ancestors + r"""
 $d=Get-Item -LiteralPath $root -Force -ErrorAction Stop
@@ -56,7 +57,7 @@ Write-Output 'YOKE_ADMIN_STAGE_OWNED'
 """.replace("ANCESTORS", ancestors)
     return {
         "prepare": prepare, "directory": directory,
-        "owner": f"if((Get-Acl -LiteralPath $p).GetOwner([Security.Principal.SecurityIdentifier]).Value -notin @({file_owner})){{throw 'Staging file owner differs; preserve'}}\n",
+        "owner": f"if((Get-Acl -LiteralPath $p).GetOwner([Security.Principal.SecurityIdentifier]).Value {unexpected_owner}){{throw 'Stage owner changed'}}\n",
         "file_access": r"""
 $fa=Get-Acl -LiteralPath $p -ErrorAction Stop
 $fr=@($fa.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier]))

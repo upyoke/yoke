@@ -25,16 +25,16 @@ def control():
 
 
 @pytest.mark.parametrize(
-    ("os_name", "verified_admin", "expected_role", "file_owners"),
+    ("os_name", "verified_admin", "negation", "unexpected_owner"),
     [
-        ("wsl", True, "$true", "@($id.User.Value,'S-1-5-32-544')"),
-        ("wsl", False, "$false", "@($id.User.Value)"),
-        ("windows", True, "$false", "@($id.User.Value)"),
-        ("windows", False, "$false", "@($id.User.Value)"),
+        ("wsl", True, "!", "-notin @($id.User.Value,'S-1-5-32-544')"),
+        ("wsl", False, "", "-ne $id.User.Value"),
+        ("windows", True, "", "-ne $id.User.Value"),
+        ("windows", False, "", "-ne $id.User.Value"),
     ],
 )
 def test_sftp_profile_staging_enforces_the_windows_route_identity(
-    monkeypatch, os_name, verified_admin, expected_role, file_owners
+    monkeypatch, os_name, verified_admin, negation, unexpected_owner
 ):
     c = control()
     c.os = os_name
@@ -51,9 +51,10 @@ def test_sftp_profile_staging_enforces_the_windows_route_identity(
         pass
     assert len(policies) == 1
     policy = policies[0]
-    assert f"$admin -ne {expected_role}" in policy["prepare"]
-    assert f"$admin -ne {expected_role}" in policy["directory"]
-    assert f"-notin {file_owners}" in policy["owner"]
+    role_check = f"if({negation}([Security.Principal.WindowsPrincipal]::new($id)).IsInRole("
+    assert role_check in policy["prepare"]
+    assert role_check in policy["directory"]
+    assert unexpected_owner in policy["owner"]
     assert "GetOwner([Security.Principal.SecurityIdentifier]).Value -ne $id.User.Value" in policy["directory"]
 
 
@@ -164,10 +165,11 @@ def test_cleanup_failure_retains_actual_execution_result(monkeypatch, exit_code)
     assert error.value.staging_diagnostics["cleanup"] == "unverified"
 
 
-def test_native_commands_fit_final_windows_command_boundary():
+@pytest.mark.parametrize("administrator", [False, True])
+def test_staging_commands_fit_final_windows_command_boundary(administrator):
     c = control()
     root = c.home + r"\.yoke-stage-" + "1" * 32
-    policy = standard_staging.profile_policy(c.home)
+    policy = standard_staging.profile_policy(c.home, administrator=administrator)
     prepare = policy["prepare"].replace("ROOT", transport.quote(root)).replace("CHECK_DIRECTORY", policy["directory"])
     cleanup = admin_staging.cleanup_script(root, owned=True, payload=b"bytes", policy=policy)
     assert "$home=" not in prepare.lower()
