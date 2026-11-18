@@ -29,12 +29,12 @@ def test_cleanup_failure_retains_completed_diagnostics(monkeypatch, exit_code, c
 
     monkeypatch.setattr(provision.subprocess, "run", run)
     monkeypatch.setattr(provision, "upload_received", lambda *args: True)
-    expected = {
+    cause_type = {
         "timeout": subprocess.TimeoutExpired,
         "oserror": OSError,
         "nonzero": RuntimeError,
     }[cleanup_failure]
-    with pytest.raises(expected) as error:
+    with pytest.raises(RuntimeError, match="windows_admin_staging_cleanup_failed") as error:
         provision.admin_script("key", "host", "admin", "Read-Certificate")
 
     assert len(executions) == 1
@@ -43,4 +43,6 @@ def test_cleanup_failure_retains_completed_diagnostics(monkeypatch, exit_code, c
     assert primary.stdout == '{"certificate":"observed"}'
     assert primary.stderr == "primary diagnostic"
     assert "certificate" not in str(error.value)
-    assert "cleanup remains unverified" in error.value.__notes__[-1]
+    assert isinstance(error.value.__cause__, cause_type)
+    assert "cleanup remains unverified" in str(error.value)
+    assert "restore administrator SSH connectivity" in str(error.value)

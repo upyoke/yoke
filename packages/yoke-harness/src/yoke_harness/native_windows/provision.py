@@ -99,9 +99,9 @@ def admin_script(key, host, user, script, *, input_text=None):
                 raise RuntimeError("windows_admin_staging_cleanup_failed: " + removed.stderr[-800:])
         except (RuntimeError, OSError, subprocess.SubprocessError) as exc:
             if failure is None:
-                exc.primary_result = result
-                exc.add_note("Completed command diagnostics retained in primary_result; cleanup remains unverified")
-                raise
+                cleanup_error = RuntimeError("windows_admin_staging_cleanup_failed: cleanup remains unverified for " + path + "; restore administrator SSH connectivity, inspect primary_result privately, then verify owned staging removal before retrying")
+                cleanup_error.primary_result = result
+                raise cleanup_error from exc
             failure.add_note("Owned Windows staging cleanup failed: " + str(exc))
 
 
