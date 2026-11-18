@@ -4,6 +4,6 @@
  "status": "observed",
  "page": "sessions",
  "position": 1,
- "summary": "Working means an in-flight tool or a recent running/unknown turn. Finished turns and other non-ended sessions are Waiting; end stamps make Ended. Active time takes the latest tool, heartbeat, prompt/stop or recorded turn-end stamp. The project idle window defaults to 20 minutes. CLI, Sessions, Frontier and Machines share the server status; card details retain raw state. Reclaim, fleet reports and message liveness keep their separate rules.",
+ "summary": "Working means a tool call within the project idle window (20 minutes by default) or an open call under 45 minutes. Other live sessions are Idle. End stamps make Ended. Active time comes from the latest tool-call stamp or open-call start. Heartbeat, prompt/stop and turn-end stamps appear in the card details. CLI, Sessions, Frontier and Machines share the server status; card details retain raw state. Reclaim, fleet reports and message liveness keep their separate rules.",
  "sources": ["docs/public/sessions/inbox.md", "packages/yoke-core/src/yoke_core/domain/session_automatic_reclaim.py", "packages/yoke-core/src/yoke_core/domain/session_staleness.py", "docs/public/sessions/steering-report.md", "packages/yoke-core/src/yoke_core/domain/session_message_reachability.py"]
 }
