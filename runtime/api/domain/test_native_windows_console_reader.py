@@ -5,6 +5,7 @@ import subprocess
 import pytest
 
 from yoke_harness.native_windows.terminal import SCREEN_READER
+from yoke_harness.native_windows.console_focus import HELPERS as FOCUS_HELPERS
 from yoke_harness.native_windows.transport import quote
 
 
@@ -65,3 +66,45 @@ def test_redirected_reader_uses_real_buffer_or_retains_native_failure(tmp_path, 
     assert result.returncode == 0, result.stderr
     expected = "REAL_BUFFER_AND_REDIRECTED_STDOUT_PROVED" if has_console else "NATIVE_FAILURE_CONTEXT_PROVED"
     assert expected in result.stdout
+
+
+@pytest.mark.windows_only(reason="requires Windows window and process-token APIs")
+@pytest.mark.parametrize("mode", ["owned", "missing", "ambiguous", "wrong_window"])
+def test_console_focus_resolves_only_one_owned_window_and_refuses_mismatches(tmp_path, mode):
+    script = (
+        "$ErrorActionPreference='Stop';Add-Type -AssemblyName System.Windows.Forms\n"
+        "Add-Type -TypeDefinition " + quote(FOCUS_HELPERS) + "\n$mode=" + quote(mode)
+        + r"""
+$token='YokeQa-'+[Guid]::NewGuid().ToString('N');$forms=@()
+try {
+ $count=if($mode -eq 'missing'){0}elseif($mode -eq 'ambiguous'){2}else{1}
+ for($i=0;$i -lt $count;$i++){
+  $form=New-Object Windows.Forms.Form;$form.Text=$token;$form.Show();$forms+=,$form
+ }
+ [Windows.Forms.Application]::DoEvents()
+ if($mode -eq 'owned'){
+  if([QaConsoleFocus]::Find([uint32]$PID,$token) -ne $forms[0].Handle){throw 'wrong owned window'}
+ } else {
+  try {
+   if($mode -eq 'wrong_window'){[QaConsoleFocus]::VerifyForeground([uint32]$PID,$token,[IntPtr]::Zero,$token)}
+   else{[void][QaConsoleFocus]::Find([uint32]$PID,$token)}
+   throw 'mismatched window unexpectedly accepted'
+  } catch {
+   if($_.Exception.Message -notmatch 'windows_terminal_focus_refused'){throw}
+  }
+ }
+ Write-Output 'OWNED_WINDOW_GUARDS_PROVED'
+} finally {
+ foreach($form in $forms){$form.Close();$form.Dispose()}
+ [Windows.Forms.Application]::DoEvents()
+}
+"""
+    )
+    source = tmp_path / "focus-fixture.ps1"
+    source.write_text(script, encoding="utf-8-sig")
+    result = subprocess.run(
+        ["powershell.exe", "-NoProfile", "-NonInteractive", "-File", str(source)],
+        capture_output=True, text=True, timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "OWNED_WINDOW_GUARDS_PROVED" in result.stdout

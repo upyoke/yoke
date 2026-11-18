@@ -6,6 +6,7 @@ from uuid import uuid4
 from yoke_contracts.test_machine_types import HostActionResult
 from yoke_harness.native_windows.desktop import desktop_script
 from yoke_harness.native_windows.transport import quote
+from yoke_harness.native_windows.console_focus import HELPERS as FOCUS_HELPERS
 from yoke_harness.native_windows.tasks import (
     create_interactive_task, remove_owned_task, require_task_result,
 )
@@ -116,11 +117,15 @@ class WindowsTerminal:
                 value += "{ENTER}"
         sent = desktop_script(
             self.control,
-            "$ws=New-Object -ComObject WScript.Shell; "
-            f"if(!$ws.AppActivate({self.pid})){{throw 'windows_terminal_focus_failed: unlock the native desktop and retry'}}; "
+            "$ErrorActionPreference='Stop'; Add-Type -TypeDefinition " + quote(FOCUS_HELPERS) + "; "
+            f"[QaConsoleFocus]::PrepareTitle({self.pid},{quote(self.token)}); "
+            f"$window=[QaConsoleFocus]::Find({self.pid},{quote(self.token)}); "
+            "$title=[QaConsoleFocus]::Title($window); $ws=New-Object -ComObject WScript.Shell; "
+            "if(!$ws.AppActivate($title)){throw 'windows_terminal_focus_failed: unlock the native desktop and retry'}; "
             "Start-Sleep -Milliseconds 200; "
+            f"[QaConsoleFocus]::VerifyForeground({self.pid},{quote(self.token)},$window,$title); "
             f"$ws.SendKeys({quote(value)})",
-            timeout=10,
+            timeout=20,
         )
         return sent.returncode == 0
 
