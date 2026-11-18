@@ -86,7 +86,7 @@ def test_capture_retains_before_submit_releases_lease(
     monkeypatch.setattr(adapter, "emit_response", lambda response, **kw: emitted.append(response) or 0)
 
     adapter._execute(
-        operation="golden_capture", project="example", test_machine=None,
+        operation="golden_capture", test_machine=None,
         baseline=None, destination=None, probes_document=None,
         session_id=None, json_mode=True,
     )

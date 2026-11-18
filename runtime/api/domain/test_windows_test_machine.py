@@ -209,7 +209,7 @@ def test_ad_hoc_exec_windows_command_enters_wsl(monkeypatch, tmp_path):
 
     calls = []
     lease = FunctionCallResponse(
-        success=True, function="lease", version="v1", result={"claim": {"id": 7}}
+        success=True, function="lease", version="v1", result={"claim_id": 7}
     )
     monkeypatch.setattr(custody, "call_dispatcher", lambda **kw: lease)
     monkeypatch.setattr(cloud_machine_power, "power_on", lambda *a: None)
@@ -232,7 +232,7 @@ def test_ad_hoc_exec_windows_command_enters_wsl(monkeypatch, tmp_path):
         "yoke_harness.test_machine_remote_exec.run_remote_command",
         lambda **kw: calls.append(kw) or subprocess.CompletedProcess([], 7, "", ""),
     )
-    assert adapter.test_machine_exec(["--project", "yoke", "--", "exit 7"]) == 7
+    assert adapter.test_machine_exec(["--", "exit 7"]) == 7
     assert _linux_command(calls[0]["command"][0]) == "exit 7"
 
 
