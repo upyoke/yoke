@@ -114,8 +114,10 @@ def attempt(limit=None):
     try:
         return subprocess.run(request.argv, cwd=REQUEST_WORKSPACE, capture_output=True, text=True, timeout=timeout)
     except subprocess.TimeoutExpired as exc:
+        # Every harness keeps the sanitized tail of a stalled stream, so a
+        # timeout receipt shows how far the request got before it hung.
+        print(json.dumps(request.timeout_rejection(exc.stdout)))
         if request.name == 'Cursor':
-            print(json.dumps(request.timeout_rejection(exc.stdout)))
             return None
         sys.exit(EXIT['probe_request_timed_out'])
     except OSError:

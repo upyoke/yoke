@@ -1,4 +1,4 @@
-"""A Cursor probe whose only fault is one tool call retries once."""
+"""Standard harness probe retries, and the sanitized tail a timeout keeps."""
 
 import json
 import os
@@ -162,7 +162,9 @@ def test_cursor_stall_retries_with_remaining_budget_and_retains_safe_evidence(
 
 
 @pytest.mark.parametrize("name", ["Claude", "Codex"])
-def test_other_harness_timeouts_keep_one_full_attempt(monkeypatch, capsys, name):
+def test_other_harness_timeouts_keep_one_full_attempt_and_a_sanitized_tail(
+    monkeypatch, capsys, name
+):
     monkeypatch.setattr(time, "monotonic", lambda: 100)
     executable = "claude" if name == "Claude" else "codex"
     monkeypatch.setattr(shutil, "which", lambda *a, **kw: f"/usr/bin/{executable}")
@@ -180,7 +182,62 @@ def test_other_harness_timeouts_keep_one_full_attempt(monkeypatch, capsys, name)
         exec(compile(probe["argv"][2], "harness-probe", "exec"), {})
     assert exit_info.value.code == PROBE_EXIT_CODES["probe_request_timed_out"]
     assert timeouts == [110]
-    assert capsys.readouterr() == ("", "")
+    output, errors = capsys.readouterr()
+    assert not errors and "private" not in output
+    record = read_rejection_record(output)
+    assert record["harness"] == name
+    assert record["rejection"] == "probe_request_timed_out"
+    assert (record["event_count"], record["event_types"]) == (0, [])
+
+
+@pytest.mark.posix_only(reason="runs on the POSIX test machine")
+def test_a_codex_that_prints_then_hangs_leaves_a_sanitized_tail_on_the_receipt(
+    tmp_path, monkeypatch, capsys
+):
+    secret = "sk-private-token-and-reply"
+    events = [
+        {"type": "thread.started", "thread_id": secret},
+        {"type": "turn.started"},
+        {"type": "error", "message": f"update required; token {secret}"},
+    ]
+    stream = "".join(json.dumps(event) + "\n" for event in events)
+    codex = tmp_path / ".local/bin/codex"
+    codex.parent.mkdir(parents=True)
+    codex.write_text(
+        f"#!{sys.executable}\n"
+        "import sys, time\n"
+        f"sys.stdout.write({stream!r})\n"
+        "sys.stdout.flush()\n"
+        "time.sleep(60)\n"
+    )
+    codex.chmod(0o700)
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("PATH", "")
+    # The probe's deadline starts 108 seconds spent, so the hang times out in 2.
+    clock = iter([0.0])
+    monkeypatch.setattr(time, "monotonic", lambda: next(clock, 108.0))
+    probe = next(
+        p for p in standard_probes("linux") if p["name"] == "Codex real request"
+    )
+    with pytest.raises(SystemExit) as exit_info:
+        exec(compile(probe["argv"][2], "codex-probe", "exec"), {})
+    code = exit_info.value.code
+    assert code == PROBE_EXIT_CODES["probe_request_timed_out"]
+    output, errors = capsys.readouterr()
+    assert not errors and secret not in output
+    proven = run_baseline_probes(
+        parse_baseline_probes(json.dumps({"probes": [probe]})),
+        run_gui_command=lambda *a, **kw: SimpleNamespace(
+            returncode=code, stdout=output, stderr=""
+        ),
+    )
+    failure = proven.evidence["probes"][-1]
+    assert failure["cause"] == "probe_request_timed_out"
+    assert failure["reply_rejection"]["harness"] == "Codex"
+    assert failure["reply_rejection"]["event_count"] == 3
+    assert failure["reply_rejection"]["event_types"] == ["error"]
+    assert "Codex reply rejected at `probe_request_timed_out`" in failure["reason"]
+    assert secret not in json.dumps(proven.evidence)
 
 
 @pytest.mark.parametrize(
