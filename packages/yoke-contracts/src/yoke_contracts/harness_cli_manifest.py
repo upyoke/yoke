@@ -23,6 +23,9 @@ class HarnessCliManifest:
     bundled_candidates: tuple[str, ...] = ()
     bundled_patterns: tuple[str, ...] = ()
     install_command: str = ""
+    #: The operator runs this on their machine; Yoke never runs it unattended,
+    #: because it replaces a binary that live sessions may be running.
+    update_command: str = ""
     auth_args: tuple[str, ...] = ()
     auth_signed_in_key: str = ""
     login_args: tuple[str, ...] = ("login",)
@@ -100,6 +103,7 @@ HARNESS_CLI_MANIFESTS = (
             "~/.vscode/extensions/anthropic.claude-code-{version}*/resources/native-binary/claude",
         ),
         install_command="curl -fsSL https://claude.ai/install.sh | bash",
+        update_command="claude update",
         windows_install_command="winget install --id Anthropic.ClaudeCode -e",
         windows_bundled_candidates=("~/.local/bin/claude.exe",),
         windows_bundled_patterns=(
@@ -133,6 +137,7 @@ HARNESS_CLI_MANIFESTS = (
             "/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex",
         ),
         install_command="npm install -g @openai/codex",
+        update_command="codex update",
         windows_install_command="npm.cmd install -g @openai/codex",
         windows_bundled_candidates=("%APPDATA%/npm/codex.cmd",),
         windows_bundled_patterns=(
@@ -154,6 +159,7 @@ HARNESS_CLI_MANIFESTS = (
         "cursor_dashboard_usage",
         "2026.10.01",
         install_command="curl https://cursor.com/install -fsS | bash",
+        update_command="cursor-agent update",
         windows_install_command="irm 'https://cursor.com/install?win32=true' | iex",
         windows_bundled_candidates=(
             "%LOCALAPPDATA%/cursor-agent/cursor-agent.exe",
