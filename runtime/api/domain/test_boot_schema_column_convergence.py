@@ -127,8 +127,9 @@ _HISTORY_CONVERGED_COLUMNS = frozenset(
 # item_dependencies, so their columns are born with them except the two
 # dependency metadata columns, which keep an additive boot lookup.
 # deployment_preview_environments.env_type converges additively on boot.
+# Test Machines are born with the universe registry and retire project receipt keys.
 _BORN_WITH_COLUMN_DIGEST = (
-    "b9423deacb37462806692dd2a046303a7587351ec33fe59971b5a819471579ee"
+    "327e426a0f89e12af459b6f0190e0d966f667cd9cf6ef4dd8633777875bbcbe6"
 )
 
 

@@ -122,6 +122,16 @@ def _capability_contexts(
     return contexts
 
 
+def _requirement_label(kind: str) -> str:
+    from yoke_core.domain.machine_qa_case_machine import requirement_machine_name
+
+    if kind == TEST_MACHINE_CAPABILITY:
+        return "Test Machine"
+    if name := requirement_machine_name(kind):
+        return f"Test Machine · {name}"
+    return capability_type_definition(kind)["display_label"]
+
+
 def _required_capability_details(
     kinds: tuple[str, ...],
     contexts: dict[str, dict[str, Any]],
@@ -129,7 +139,7 @@ def _required_capability_details(
     return [
         {
             "kind": kind,
-            "label": capability_type_definition(kind)["display_label"],
+            "label": _requirement_label(kind),
             "state": contexts[kind]["state"],
             "context": dict(contexts[kind]),
         }

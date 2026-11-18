@@ -292,9 +292,8 @@ def test_machine_methods_and_plan_cases_project_the_active_serial_lease() -> Non
     scripted_machine_methods = [
         row for row in machine_methods if row["runner_id"] == "host_control"
     ]
-    assert all(
-        row["required_capabilities"]
-        == [
+    for row in scripted_machine_methods:
+        assert row["required_capabilities"] == [
             {
                 "kind": "test-machine",
                 "label": "Test Machine",
@@ -302,8 +301,6 @@ def test_machine_methods_and_plan_cases_project_the_active_serial_lease() -> Non
                 "context": expected_context,
             }
         ]
-        for row in scripted_machine_methods
-    )
     mission = next(
         row for row in methods if row["runner_id"] == "agent_mission"
     )
