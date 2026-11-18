@@ -69,6 +69,10 @@ class OnboardWizardApp(
         init_setup_state(self, defaults=defaults, apply_report=apply_report)
         self._pending_input: _PendingInput | None = None
         self._pending_form: _PendingForm | None = None
+        # Text last typed into each single-input view, by prompt key, so Back
+        # and a later return to the same question show it again.
+        self._typed_inputs: dict[str, str] = {}
+        self._shown_key: str | None = None
         # Set by ``_render_current`` and drained by the async message handlers so
         # the body swap runs in the same handler turn as the transition keypress.
         self._swap_pending = False
@@ -128,8 +132,11 @@ class OnboardWizardApp(
         # focus immediately so no key lands in a widget that is about to vanish.
         self._pending_input = None
         self._pending_form = None
-        self._swap_pending = True
         body = self.query_one(f"#{BODY_ID}")
+        if not self._swap_pending:
+            self._remember_typed_input(body)
+        self._shown_key = self._history[-1].prompt.key if self._history else None
+        self._swap_pending = True
         for widget in body.children:
             if isinstance(widget, Input):
                 widget.disabled = True
@@ -139,6 +146,17 @@ class OnboardWizardApp(
         # outside a draining handler — chiefly tests that call a flow method
         # directly — so the swap still settles on the next message-loop tick.
         self.call_later(self._apply_pending_swap)
+
+    def _remember_typed_input(self, body: Any) -> None:
+        # The outgoing body is still mounted: keep what was typed in its single
+        # text box (never a masked one) for the next time that question shows.
+        if self._shown_key is None:
+            return
+        for widget in body.children:
+            if widget.id == "onboard-input" and isinstance(widget, Input):
+                if not widget.password:
+                    self._typed_inputs[self._shown_key] = widget.value
+                return
 
     def _refocus_body(self) -> None:
         """Move focus to the body's first focusable child (SelectionList/Input).

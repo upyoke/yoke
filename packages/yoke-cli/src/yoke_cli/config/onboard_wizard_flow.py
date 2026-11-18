@@ -38,7 +38,11 @@ from yoke_cli.config.onboard_wizard_existing_project_recovery import (
 )
 from yoke_cli.config.onboard_wizard_finish_flow import FinishBodyFlow
 from yoke_cli.config.onboard_wizard_stored_project import StoredProjectFlow
-from yoke_cli.config.onboard_wizard_widgets import STEP_FINISH, STEP_PROJECT
+from yoke_cli.config.onboard_wizard_widgets import (
+    STEP_CONNECT,
+    STEP_FINISH,
+    STEP_PROJECT,
+)
 from yoke_cli.config.project_publish_support import is_existing_project_dir
 from yoke_cli.config.onboard_wizard_flow_support import WizardShell as _Shell
 from yoke_cli.config.onboard_wizard_state import _View
@@ -84,10 +88,13 @@ class WizardFlow(
             self._stored_project_attempted = True
             self._goto_stored_project_picker()
             return
+        # Asked before sign-in (``on_selected`` remembers the answer and starts
+        # sign-in), the question sits under the Account step: the rail must not
+        # mark Account done before the user has signed in.
         self._goto(
             self._selection_view(
                 "project.mode",
-                STEP_PROJECT,
+                STEP_CONNECT if on_selected else STEP_PROJECT,
                 "Set up a project.",
                 "Where's the code? You can change this later.",
                 steps.MODE_ROWS,
@@ -148,6 +155,7 @@ class WizardFlow(
             subtitle,
             placeholder="~/code/my-project",
             on_done=self._after_checkout,
+            initial_value=self.result.project_checkout or "",
             validate=input_validation.validate_create_target_folder,
         )
 
@@ -232,7 +240,6 @@ class WizardFlow(
     def _show_finish(self: _Shell, model: Any) -> None:
         checks = model.get("checks") if isinstance(model, dict) else None
         self._review_plan = model.get("plan") if isinstance(model, dict) else {}
-        self._review_show_all = False
         self._review_problems = list(getattr(checks, "problems", []) or [])
         self._review_notes = list(getattr(checks, "notes", []) or [])
         self._goto(_View(self._finish_prompt(), self._on_confirm, self._build_finish))
@@ -265,9 +272,14 @@ class WizardFlow(
 
     def _on_confirm(self, choice: str) -> None:
         if choice == "show-all":
-            self._review_show_all = not getattr(self, "_review_show_all", False)
-            self._replace_current(
-                _View(self._finish_prompt(), self._on_confirm, self._build_finish)
+            # A view of its own, not an in-place swap: Esc (or Show summary)
+            # from the full list returns to the Review summary, not out of it.
+            self._goto(
+                _View(
+                    self._finish_prompt(show_all=True),
+                    self._on_confirm_full,
+                    lambda: self._build_finish(show_all=True),
+                )
             )
             return
         if choice == "back":
@@ -283,6 +295,14 @@ class WizardFlow(
         # Apply runs off the event loop with a live Applying screen — see
         # ApplyFlow (onboard_wizard_flow_apply) for the worker + result screens.
         self._start_apply()
+
+    def _on_confirm_full(self, choice: str) -> None:
+        if choice in ("show-all", "back"):
+            # Show summary, or the pre-flight Back, leaves the full list first.
+            self._step_back()
+            if choice == "show-all":
+                return
+        self._on_confirm(choice)
 
 
 __all__ = ["WizardFlow"]

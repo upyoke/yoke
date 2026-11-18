@@ -206,6 +206,7 @@ class CloneFlow(CheckoutInspectionFlow, CloneSourceFlow, CloneOutcomeFlow):
             "the default.",
             placeholder=f"~/code/{slug}",
             on_done=self._after_clone_folder,
+            initial_value=self.result.project_checkout or "",
             validate=self._validate_clone_folder,
         )
 

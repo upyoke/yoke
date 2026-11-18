@@ -99,7 +99,13 @@ class ViewHelpers:
                 allow_placeholder=allow_placeholder,
                 validate=validate,
             )
-            return render(prompt)
+            typed = getattr(self, "_typed_inputs", {}).get(key)
+            if typed is None or password:
+                return render(prompt)
+            # Back, or a later return to this question, shows what was typed.
+            return render(
+                replace(prompt, input=replace(prompt.input, initial_value=typed))
+            )
 
         return _View(prompt, on_done, builder)
 

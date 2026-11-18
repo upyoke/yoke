@@ -125,9 +125,9 @@ def test_review_recipe_inspects_both_ends_of_a_long_plan_without_apply(monkeypat
     monkeypatch.setattr(
         FinishBodyFlow,
         "_review_status_lines",
-        lambda self: (
+        lambda self, show_all=False: (
             [f"Pending setup detail {i}" for i in range(45)]
-            if self._review_show_all
+            if show_all
             else []
         ),
     )
@@ -175,7 +175,10 @@ def test_review_recipe_inspects_both_ends_of_a_long_plan_without_apply(monkeypat
             )
             assert "Show summary" in frames["expanded-review-controls"]
             assert "Show summary" not in frames["pending-write-list"]
-            assert "Review what Yoke will save." not in frames["back-before-apply"]
+            # Esc from the full list returns to the Review summary, never Apply.
+            assert "Review what Yoke will save." in frames["back-before-apply"]
+            assert "Show all changes" in frames["back-before-apply"]
+            assert "Show summary" not in frames["back-before-apply"]
 
     asyncio.run(scenario())
     assert spy.applied is None

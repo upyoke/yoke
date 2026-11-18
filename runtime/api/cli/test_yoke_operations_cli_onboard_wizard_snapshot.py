@@ -64,17 +64,18 @@ def test_project_step_renders() -> None:
 
     async def scenario() -> str:
         from yoke_cli.config.onboard_wizard_widgets import (
-            STEP_PROJECT,
+            STEP_CONNECT,
             SelectionList,
             Stepper,
         )
 
         async with app.run_test(size=(80, 24)) as pilot:
             await pilot.pause()
-            # Install opens project intent before sign-in and GitHub.
+            # Install opens project intent before sign-in and GitHub, so the
+            # rail keeps Account active: nothing is signed in yet.
             await app.workers.wait_for_complete()
             await pilot.pause()
-            assert app.query_one(Stepper).active == STEP_PROJECT
+            assert app.query_one(Stepper).active == STEP_CONNECT
             selection = app.query_one("#onboard-body SelectionList", SelectionList)
             assert selection.selected_value == "create-repo"
             return app.export_screenshot(title="yoke setup · Project")
