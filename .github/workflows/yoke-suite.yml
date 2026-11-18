@@ -179,9 +179,12 @@ jobs:
           New-ItemProperty -Path $unlock -Name AllowDevelopmentWithoutDevLicense -Value 1 -PropertyType DWord -Force | Out-Null
           python -c "from pathlib import Path; from tempfile import TemporaryDirectory; d = TemporaryDirectory(); p = Path(d.name); (p / 'link').symlink_to(p, target_is_directory=True); assert (p / 'link').is_symlink()"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Provision macOS ripgrep
+      - name: Provision macOS shell and search tools
         if: matrix.os == 'macos'
-        run: command -v rg || brew install ripgrep
+        run: |
+          command -v rg || brew install ripgrep
+          command -v fish || brew install fish
+          fish --version
       - name: Verify ripgrep is provisioned
         run: rg --version
       - name: Start the native test Postgres

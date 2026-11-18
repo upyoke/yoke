@@ -16,18 +16,11 @@ import pytest
 
 from yoke_harness.ssh_mac_process_tree import stop_process_tree
 
-pytestmark = pytest.mark.skipif(
-    not all(Path(tool).exists() for tool in ("/bin/ps", "/usr/bin/pgrep")),
-    reason="needs /bin/ps and /usr/bin/pgrep",
+pytestmark = pytest.mark.macos_only(
+    reason="exercises the macOS remote process stop using BSD ps, pgrep, sh and zsh",
 )
 
-LOGIN_SHELLS = [
-    "/bin/sh",
-    pytest.param(
-        "/bin/zsh",
-        marks=pytest.mark.skipif(not Path("/bin/zsh").exists(), reason="needs zsh"),
-    ),
-]
+LOGIN_SHELLS = ["/bin/sh", "/bin/zsh"]
 
 
 def _login_shell(shell: str) -> Callable[..., subprocess.CompletedProcess[str]]:

@@ -24,7 +24,8 @@ An empty `sha` tests the dispatched ref. When a lane changes
 uses that branch's workflow definition.
 
 Windows shards provision Git Bash and enable Developer Mode for symlinks.
-Both native runners provision ripgrep before pytest.
+Both native runners provision ripgrep before pytest. macOS also provisions
+fish for the installer shell-context checks.
 
 ## How a run is laid out
 
