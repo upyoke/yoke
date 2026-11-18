@@ -12,10 +12,13 @@ def validation_error(value: str | Path) -> str | None:
         return "Enter a folder path."
     try:
         info = selected.lstat()
-    except FileNotFoundError:
+    except (FileNotFoundError, NotADirectoryError):
+        # A file part-way down the path raises NotADirectoryError on POSIX
+        # but FileNotFoundError on Windows: name that file on both.
+        blocker = _file_ancestor(selected)
+        if blocker is not None:
+            return f"{blocker} is a file, not a folder — pick a folder path."
         info = None
-    except NotADirectoryError:
-        return f"{_first_existing_parent(selected)} is a file, not a folder — pick a folder path."
     except OSError:
         return "That folder path can't be inspected safely — pick another path."
     if info is not None and stat.S_ISLNK(info.st_mode):
@@ -32,15 +35,18 @@ def validation_error(value: str | Path) -> str | None:
     return None
 
 
-def _first_existing_parent(path: Path) -> Path:
-    """Name the file that sits where a folder of ``path`` should be."""
+def _file_ancestor(path: Path) -> Path | None:
+    """The nearest existing ancestor of ``path`` when it is not a folder.
+
+    Follows links: a linked folder such as macOS ``/tmp`` is a folder.
+    """
     for parent in path.parents:
         try:
-            parent.lstat()
+            info = parent.stat()
         except OSError:
             continue
-        return parent
-    return path
+        return None if stat.S_ISDIR(info.st_mode) else parent
+    return None
 
 
 def for_apply(
