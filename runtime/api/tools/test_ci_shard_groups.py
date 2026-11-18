@@ -163,7 +163,7 @@ def test_plain_quiet_collection_preserves_fixture_and_marker_facts(tmp_path):
 
 
 @pytest.mark.windows
-def test_scoped_off_modules_remain_in_published_native_file_groups(tmp_path):
+def test_os_scoped_modules_remain_in_published_native_file_groups(tmp_path):
     import json
     import os
     marker = "linux_only" if sys.platform == "win32" else "windows_only"

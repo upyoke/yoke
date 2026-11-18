@@ -8,9 +8,7 @@ name: yoke-suite
 # A Linux plan job collects the suite once and publishes yoke-ci's file
 # groups and exact-commit product wheels. Each OS then runs the same
 # ci_shards groups with the product's own native Postgres engine
-# (yoke_core.tools.ci_suite_postgres) instead of a container. Known failures
-# live one per file in runtime/known_failure_baselines/<os>/ and run as strict xfails,
-# so a fixed test fails the run until its entry is deleted.
+# (yoke_core.tools.ci_suite_postgres) instead of a container.
 #
 # Dispatch-only: macOS runners stay out of automatic CI
 # (runtime/api/cli/test_github_workflow_runner_routing.py). See
@@ -108,7 +106,6 @@ jobs:
     env:
       PYTHONUNBUFFERED: "1"
       YOKE_CI_PYTHON_SCOPE: all
-      YOKE_KNOWN_FAILURE_BASELINE: "1"
     strategy:
       fail-fast: false
       matrix:

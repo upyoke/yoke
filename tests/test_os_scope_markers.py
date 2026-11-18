@@ -99,18 +99,6 @@ def test_no_handwritten_os_skips_remain():
     assert scopes.scan_tracked(ROOT) == []
 
 
-@pytest.mark.parametrize("declaration", [
-    'pytestmark = pytest.mark.linux_only("native")\n',
-    '@pytest.mark.linux_only("native")\n',
-    'NATIVE = pytest.mark.linux_only("native")\n@NATIVE\n',
-])
-def test_baseline_scope_reads_module_function_and_alias(tmp_path, declaration):
-    path = tmp_path / "test_native.py"
-    path.write_text('import pytest\n' + declaration + 'def test_x(): pass\n')
-    assert scopes.scoped_off(path, "test_x", "windows")
-    assert not scopes.scoped_off(path, "test_x", "linux")
-
-
 def test_scanner_checks_only_tracked_runtime_and_test_python(tmp_path):
     for directory in ("runtime", "tests/nested", "other"):
         (tmp_path / directory).mkdir(parents=True)
@@ -133,7 +121,7 @@ def test_platform_simulation_preserves_interpreter_platform(tmp_path):
     assert result.returncode == 0, result.stdout + result.stderr
 
 
-def test_parameter_scopes_keep_portable_cases_active_and_validate_baselines(tmp_path):
+def test_parameter_scopes_keep_portable_cases_active(tmp_path):
     source = '''import pytest
 @pytest.mark.parametrize("operation", ["setup", pytest.param("upgrade", marks=pytest.mark.posix_only("host bundle"))])
 @pytest.mark.parametrize("config,code", [({}, "missing"), (None, "unreadable")])
@@ -142,11 +130,6 @@ def test_x(operation, config, code): pass
     result = _run(tmp_path, source, "win32")
     assert result.returncode == 0, result.stdout + result.stderr
     assert "2 passed, 2 skipped" in result.stdout
-    path = tmp_path / "test_sample.py"
-    for case in ("config0-missing", "None-unreadable"):
-        assert not scopes.scoped_off(path, f"test_x[{case}-setup]", "windows")
-        assert scopes.scoped_off(path, f"test_x[{case}-upgrade]", "windows")
-    assert scopes.scoped_off(path, "test_x", "windows")
 
 
 def test_different_parameter_cases_can_own_different_os_scopes(tmp_path):
@@ -157,6 +140,3 @@ def test_x(value): pass
     result = _run(tmp_path, source, "win32")
     assert result.returncode == 0, result.stdout + result.stderr
     assert "1 passed, 1 skipped" in result.stdout
-    path = tmp_path / "test_sample.py"
-    assert scopes.scoped_off(path, "test_x[posix]", "windows")
-    assert not scopes.scoped_off(path, "test_x[windows]", "windows")
