@@ -137,7 +137,7 @@ def test_unorderable_pin_refuses_before_installing(monkeypatch, capsys):
 
     assert code == 1
     assert out.startswith("yoke update: cannot order")
-    assert "BASE.YYYYMMDDHHMM" in out
+    assert "published release version" in out
     assert installs == []
 
 

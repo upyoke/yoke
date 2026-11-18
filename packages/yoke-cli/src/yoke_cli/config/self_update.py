@@ -21,7 +21,7 @@ from yoke_cli.config import distribution, github_repo_helper_reconnect, install_
 from yoke_cli.self_host import release_target
 from yoke_cli.config import project_update
 from yoke_cli.project_install.files import ProjectInstallError
-from yoke_contracts.release_version import version_order
+from yoke_contracts.engine_version import compare_engine_versions
 
 VERSION_PROBE_TIMEOUT_SECONDS = 30.0
 _RUN = subprocess.run
@@ -125,14 +125,14 @@ def _direction(old_version: str, new_version: str) -> str:
     """``upgrade``, ``downgrade`` or ``none`` from *old_version* to *new_version*."""
     if new_version == old_version:
         return "none"
-    try:
-        older = version_order(new_version) < version_order(old_version)
-    except ValueError as exc:
+    order = compare_engine_versions(new_version, old_version)
+    if order is None:
         raise SelfUpdateError(
-            f"cannot order {old_version!r} against {new_version!r}: {exc}; "
-            "pass --version as a published release (BASE.YYYYMMDDHHMM), or drop "
-            "--version to install the channel's current release"
-        ) from exc
+            f"cannot order {old_version!r} against {new_version!r}; pass --version "
+            "as a published release version, or drop --version to install the "
+            "channel's current release"
+        )
+    older = order < 0
     return "downgrade" if older else "upgrade"
 
 
