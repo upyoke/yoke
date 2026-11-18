@@ -16,12 +16,21 @@ class _Control:
         tool_bin_dir=r"C:\Users\yokeqa\.local\bin",
     )
 
-    def __init__(self):
+    def __init__(self, *, equivalent=True):
         self.ssh_scripts = []
         self.ssh_commands = []
+        self.equivalent = equivalent
+        self.calls = []
 
     def reset_installer_test_host(self):
+        self.calls.append("reset")
         return HostActionResult(True, {"operation": "reset"})
+
+    def prove_user_equivalent(self):
+        self.calls.append("prove")
+        if self.equivalent:
+            return HostActionResult(True, {"probes": "passed"})
+        return HostActionResult(False, {"probes": "claude signed out"}, "baseline_probe_failed")
 
     def _run(self, script, timeout=60):
         self.ssh_scripts.append(script)
@@ -82,6 +91,38 @@ def test_console_install_failure_names_surface_and_recovery(monkeypatch, console
     assert control.ssh_commands == []
 
 
-def test_fresh_host_never_installs(console):
-    assert baseline.reach_baseline(_Control(), "fresh-host").ok
+def test_fresh_host_proves_user_equivalence_and_never_installs(console):
+    control = _Control()
+    result = baseline.reach_baseline(control, "fresh-host")
+    assert result.ok
+    assert result.evidence["user_equivalence"] == {"probes": "passed"}
+    assert control.calls == ["reset", "prove"]
     assert console == []
+
+
+@pytest.mark.parametrize("name", ["fresh-host", "shell-preconfigured"])
+def test_unproven_user_equivalence_fails_before_any_install(console, name):
+    control = _Control(equivalent=False)
+    result = baseline.reach_baseline(control, name)
+    assert not result.ok
+    assert result.error_code == "baseline_probe_failed"
+    assert console == [] and control.ssh_commands == []
+
+
+def test_qa_baselines_reach_the_native_windows_operation():
+    from yoke_core.domain.host_baseline_operations import run_host_baseline
+
+    reached = []
+    control = SimpleNamespace(
+        os="windows",
+        reach_baseline=lambda name: reached.append(name) or HostActionResult(True, {}),
+    )
+    assert run_host_baseline(control, "shell-preconfigured").ok
+    assert reached == ["shell-preconfigured"]
+
+
+def test_qa_baselines_refuse_an_unknown_host_os():
+    from yoke_core.domain.host_baseline_operations import run_host_baseline
+
+    with pytest.raises(ValueError, match="host_baseline_os_unsupported"):
+        run_host_baseline(SimpleNamespace(os="plan9"), "fresh-host")

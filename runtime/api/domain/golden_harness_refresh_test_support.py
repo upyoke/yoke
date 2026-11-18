@@ -40,12 +40,12 @@ CHANNELS = {
 ACTOR = SimpleNamespace(actor_id="1", session_id="owner")
 
 
-def contract(*, golden=GOLDEN):
+def contract(*, golden=GOLDEN, os="macos"):
     settings = {
         "resource_name": "test-mac",
         "host": "test-mac.local",
         "user": "testy",
-        "os": "macos",
+        "os": os,
         "operating_notes": "",
         **({"golden_baseline_path": golden} if golden else {}),
     }

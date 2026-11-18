@@ -7,7 +7,8 @@ never retire snapshots; removal refuses when registrations are unknown.
 from __future__ import annotations
 
 import shlex
-from pathlib import PurePosixPath
+import re
+from pathlib import PurePosixPath, PureWindowsPath
 from typing import Any, Sequence
 
 from yoke_contracts.machine_qa_failures import bounded_machine_qa_diagnostic
@@ -264,7 +265,7 @@ def retain_after_verified_capture(
         and destination
     ):
         return None
-    parent = str(PurePosixPath(destination).parent)
+    parent = _parent(destination)
     unknown = payload.get(KEPT_GOLDEN_PATHS_UNKNOWN_KEY)
     if isinstance(unknown, str) and unknown:
         raise SnapshotRetentionError(
@@ -284,6 +285,11 @@ def retain_after_verified_capture(
     return retain_registered_golden(execution, destination, kept_paths)
 
 
+def _parent(destination: str) -> str:  # in the golden host's own path flavour
+    flavour = PureWindowsPath if re.match(r"^[A-Za-z]:[\\/]", destination) else PurePosixPath
+    return str(flavour(destination).parent)
+
+
 def retain_registered_golden(
     execution: dict[str, Any],
     destination: str,
@@ -298,12 +304,12 @@ def retain_registered_golden(
     except Exception as exc:
         raise SnapshotRetentionError(
             "The capture contract could not be read to remove retired snapshots.",
-            _recovery(destination, str(PurePosixPath(destination).parent)),
+            _recovery(destination, _parent(destination)),
         ) from exc
     if contract.golden_destination != destination:
         raise SnapshotRetentionError(
             f"Registered golden {destination} does not match the capture destination.",
-            _recovery(destination, str(PurePosixPath(destination).parent)),
+            _recovery(destination, _parent(destination)),
         )
     try:
         operations = host_operations_for(contract)
@@ -323,7 +329,7 @@ def retain_registered_golden(
         raise SnapshotRetentionError(
             "Retired snapshots could not be removed after "
             f"{destination} was captured ({type(exc).__name__}).",
-            _recovery(destination, str(PurePosixPath(destination).parent)),
+            _recovery(destination, _parent(destination)),
         ) from exc
 
 

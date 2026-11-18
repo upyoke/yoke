@@ -17,16 +17,12 @@ from yoke_contracts.runtime_ports.golden_snapshot_retention import get_golden_sn
 
 import json
 import sys
-from pathlib import PurePosixPath
 from typing import Any, Callable, Mapping
 
 from yoke_contracts.api.function_call import ActorContext, TargetRef
 from yoke_contracts.harness_cli_releases import outdated_harness_clis
 from yoke_contracts.machine_qa_execution import HostControlExecutionContract
 from yoke_contracts.machine_qa_failures import HostControlLocalError
-from yoke_core.domain.machine_qa_golden_destination import (
-    timestamped_golden_directory_name,
-)
 from yoke_contracts.runtime_ports.harness_cli_latest import get_harness_cli_latest
 
 
@@ -135,7 +131,9 @@ def refreshed_case_contract(
         raise _refused(
             "golden_refresh_host_failed",
             f"{step} on {machine} raised {type(error).__name__}: {error}",
-            f"Restore SSH access and /usr/bin/python3 on {machine}.",
+            f"Restore SSH access and "
+            f"{'PowerShell and python.exe' if settings.get('os') == 'windows' else '/usr/bin/python3'}"
+            f" on {machine}.",
             host_contact_possible=step != "record read",
         ) from error
     for detail in held_back:
@@ -186,10 +184,6 @@ def _capture_golden(
         "operation": "golden_capture",
         "plan_execution_id": plan_execution_id,
     }
-    golden = PurePosixPath(str(contract.settings["golden_baseline_path"]))
-    destination = str(
-        golden.parent / timestamped_golden_directory_name(contract.settings["user"])
-    )
 
     def call(function_id: str, payload: dict[str, Any]) -> dict[str, Any]:
         return deliver_plan_function(
@@ -202,7 +196,9 @@ def _capture_golden(
     try:
         execution = call(
             "test_machine.operation.begin",
-            {**shape, "test_machine": machine, "destination": destination},
+            # The server names a UTC-stamped sibling in the host's own path
+            # flavour, as `yoke test-machine golden-capture` does.
+            {**shape, "test_machine": machine},
         )["execution"]
         echo = {**shape, "destination": execution.get("golden_destination")}
         try:
