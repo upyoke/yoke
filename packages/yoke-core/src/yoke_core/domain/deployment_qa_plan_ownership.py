@@ -180,27 +180,38 @@ def plan_only_members(conn: Any, run_id: str, item_ids: Any) -> set[int]:
 def open_walk_members(
     conn: Any, run_id: str, item_ids: Any, *, stage: str | None = None
 ) -> set[int]:
-    """Members still walking on this run under an owner that has not ended.
+    """Members still walking on this run under an owner that has not ended."""
+    return set(open_walk_owners(conn, run_id, item_ids, stage=stage))
+
+
+def open_walk_owners(
+    conn: Any, run_id: str, item_ids: Any, *, stage: str | None = None
+) -> dict[int, list[str]]:
+    """Each member still walking on this run, with the sessions walking it.
 
     A carried walk keeps going on its own execution, so its owner is never
     told to wait or rerun. An owner with recorded session end is excluded:
     its walk is the sweep's to settle, and the member is woken as usual.
+    Upkeep, the driver and the fleet report all read this one rule.
     """
     from yoke_core.domain.qa_plan_execution_schema import LIVE_PLAN_EXECUTION_SQL
 
     stage_filter = "" if stage is None else "AND e.deployment_stage=%s "
     rows = query_rows(
         conn,
-        "SELECT DISTINCT e.deployment_member_item_id AS item_id "
+        "SELECT DISTINCT e.deployment_member_item_id AS item_id, e.session_id "
         "FROM qa_plan_executions e WHERE e.deployment_run_id=%s "
         f"AND e.deployment_member_item_id=ANY(%s) {stage_filter}"
         f"AND e.state IN ({LIVE_PLAN_EXECUTION_SQL}) AND NOT EXISTS ("
         "SELECT 1 FROM harness_sessions s WHERE s.session_id=e.session_id "
-        "AND s.ended_at IS NOT NULL)",
+        "AND s.ended_at IS NOT NULL) ORDER BY e.session_id",
         (str(run_id), sorted({int(item) for item in item_ids}))
         + (() if stage is None else (str(stage),)),
     )
-    return {int(row["item_id"]) for row in rows}
+    owners: dict[int, list[str]] = {}
+    for row in rows:
+        owners.setdefault(int(row["item_id"]), []).append(str(row["session_id"]))
+    return owners
 
 
 def transfer_plan_owners(

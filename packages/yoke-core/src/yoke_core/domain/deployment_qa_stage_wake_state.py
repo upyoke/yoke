@@ -248,11 +248,23 @@ def member_wake_states(
     project_id: int,
     driver_live: bool,
 ) -> dict[int, str]:
-    """One line per waiting member saying whether its owner was woken."""
+    """One line per waiting member saying whether its owner was woken.
+
+    A member with an open walk is never woken, by the driver or by upkeep
+    (``open_walk_owners``), so it reads as walking rather than wake pending.
+    """
+    from yoke_core.domain.deployment_qa_plan_ownership import open_walk_owners
+
     members = [int(item_id) for item_id in item_ids]
     notices = _latest_notices(conn, run_id=run_id, stage_name=stage_name)
     states = {m: _describe(notices[m]) for m in members if m in notices}
     unsent = [m for m in members if m not in notices]
+    walking = (
+        open_walk_owners(conn, run_id, unsent, stage=stage_name) if unsent else {}
+    )
+    for member, sessions in walking.items():
+        states[member] = f"walking under session {', '.join(sessions)}"
+    unsent = [m for m in unsent if m not in walking]
     if driver_live:
         states.update({m: "wake pending (driver live, not yet sent)" for m in unsent})
         return states
