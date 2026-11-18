@@ -34,8 +34,13 @@ verify each required desktop sign-in again after the golden reset.
 After harness sign-in, run `yoke test-machine golden-capture` (section 9)
 to prove real requests and recapture. Identity sign-ins stay live outside goldens.
 
-Once per machine, accept Claude's dangerous-mode prompt in the
-dedicated test context. Require `skipDangerousModePermissionPrompt=true` in
+From the dedicated test user's GUI Terminal, run
+`cd ~ && claude --dangerously-skip-permissions` once. If Claude asks whether
+to trust the folder, choose **Yes, I trust this folder** for the test home.
+If macOS asks whether Terminal may access the test user's Desktop folder,
+allow it on the fixture. Accept Claude's dangerous-mode prompt and confirm
+Claude shows bypass permissions on. Quit the interactive session.
+Require `skipDangerousModePermissionPrompt=true` in
 its vendor settings before saving; a restore brings back the captured value.
 This deliberate fixture choice does not authorize unrelated bypasses.
 
