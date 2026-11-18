@@ -3,15 +3,10 @@
 import json
 import sys
 import time
-from collections import Counter
 
 from yoke_contracts.refusal_recovery import compose_refusal
+from yoke_contracts.universe_prune_tally import PruneTally
 
-# A table that hits its statement/lock limit with a full pass budget is tried
-# again on later cycles; it stops after this many limit hits in a row. A
-# cohort that deletes rows resets the count, so a busy table still drains,
-# and the total stays bounded because every reset needs a deletion.
-TABLE_SKIP_LIMIT = 3
 PROGRESS_SECONDS = 10
 
 
@@ -23,51 +18,15 @@ def _duration(seconds):
     return f"{minutes}m {seconds}s" if minutes else f"{seconds}s"
 
 
-class PruneRun:
-    """What one invocation has acknowledged across its passes."""
+class PruneRun(PruneTally):
+    """What one invocation has acknowledged, with its clock and progress."""
 
     def __init__(self, apply, clock=time.monotonic):
-        self.apply = apply
+        super().__init__(apply)
         self.clock = clock
         self.started = clock()
         self.last_progress = self.started
-        self.deleted = Counter()
-        self.tables = {}
-        self.skips = Counter()
-        self.unfinished = {}
-        self.finished = set()
         self.identity = {}
-        self.cycle_deleted = 0
-        self.cycle_retry = False
-
-    def record(self, result):
-        for row in result.get("tables", []):
-            table = row["table"]
-            self.tables[table] = row
-            self.deleted.update(row["deleted"])
-            self.cycle_deleted += sum(row["deleted"].values())
-            self.unfinished.pop(table, None)
-            if any(row["deleted"].values()):
-                self.skips.pop(table, None)
-            if row["eligible"] == 0:
-                self.finished.add(table)
-        for skip in result.get("skipped", []):
-            table = skip["table"]
-            self.skips[table] += 1
-            self.unfinished[table] = dict(skip, attempts=self.skips[table])
-            if self.skips[table] < TABLE_SKIP_LIMIT:
-                self.cycle_retry = True
-
-    def next_cycle(self):
-        """True when another cycle can still change something."""
-        more = self.apply and (self.cycle_deleted > 0 or self.cycle_retry)
-        self.cycle_deleted, self.cycle_retry = 0, False
-        return more
-
-    @property
-    def skip_tables(self):
-        spent = {t for t, n in self.skips.items() if n >= TABLE_SKIP_LIMIT}
-        return sorted(self.finished | spent)
 
     def progress(self, stream=None):
         now = self.clock()

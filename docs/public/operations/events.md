@@ -16,10 +16,11 @@ context project, then item project, then session project for every event type, t
 the supplied project token; unknown ownership stays project-less. Events are disposable
 telemetry and never establish required operational state.
 
-Preview disposable universe records with `yoke universe prune --dry-run`.
+Control-plane upkeep prunes disposable universe records on a schedule.
+Preview them by hand with `yoke universe prune --dry-run`.
 An organization owner or admin can review defaults with
 `yoke universe retention get`; [universe retention](../universe-retention.md)
-owns the windows, protections, apply command and interrupted-run recovery.
+owns the windows, protections, schedule, receipts, apply command and interrupted-run recovery.
 
 The web dashboard collects usage analytics from first load in every mode — local,
 self-hosted, and hosted — with no consent prompt, banner, or toggle. Events include

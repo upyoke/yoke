@@ -4,6 +4,14 @@
 [Getting started](index.md) > [Command and technical reference](guide/reference/index.md) > [Operations](operations/index.md) > Universe retention
 <!-- /yoke:breadcrumbs -->
 
+Pruning is automatic. Control-plane upkeep runs it in the one long-lived
+process each install has: the API server's health refresh (hosted and
+self-hosted) or the machine relay (a local universe). It runs in that
+process, never through the HTTPS function relay, and writes a receipt for
+every run. See [Scheduled pruning](#scheduled-pruning).
+
+To inspect or prune by hand:
+
 ```text
 yoke universe retention get
 yoke universe prune --dry-run
@@ -42,6 +50,12 @@ tables continue. It is retried on later cycles and listed as not finished
 after three limit hits in a row; any batch it deletes resets that count, so
 a busy table still drains.
 
+A pass's budget starts when the server receives it, so connecting and
+reading the policy count against it. After its first cohort, a pass starts
+another only with at least two seconds left, leaving room for that cohort's
+commit. A pass therefore answers well inside the HTTPS function relay's
+30-second response limit.
+
 Output stays short. About every 10 seconds the command prints one progress
 line: rows deleted so far, the largest table still being pruned, and elapsed
 time. The final summary gives the total deleted, deletions for each table
@@ -51,7 +65,7 @@ the policy digest. `--json` always keeps the complete result inline, including e
 and the policy. `--full` adds human detail.
 Preview runs one cycle and lists eligible counts.
 
-There is no overall invocation timeout, timer, background worker, saved run,
+The foreground command has no overall invocation timeout, saved run,
 resume/status command or retention editor. Command options cannot override
 the effective policy. Ctrl-C keeps committed batches and prints the same
 summary. Rerun the command to find remaining eligible records. A lost pass
@@ -82,8 +96,8 @@ document. A policy change during the command stops with
 | Unreferenced succeeded/cancelled launch graphs | 30 days after completion/settlement |
 | Terminal completed evidence-fetch detail | 7 days |
 | Completed successful reaps and notified/owner-settled waits | 30 days |
-| Remaining expired sign-in links, device codes, web sessions, attribution redemptions and merge locks | Eligible for manual cleanup 1 day after expiry |
-| Remaining finished admission windows | Eligible for manual cleanup 1 day after the window |
+| Remaining expired sign-in links, device codes, web sessions, attribution redemptions and merge locks | 1 day after expiry |
+| Remaining finished admission windows | 1 day after the window |
 | Unfinished snapshot uploads | Maximum 7 days from creation |
 
 Protection wins over age. Event-name overrides precede severity windows;
@@ -144,12 +158,47 @@ rolls back and earlier committed counts remain. Restore the named connection
 or table condition and rerun. The command never performs an unbounded scan to
 force progress.
 
-Results live in command output only. Pruning is a narrow exception to
-maintenance audit persistence: it writes no prune
-audit, receipt, progress, event or file record. Ordinary dispatcher telemetry
-may occur, but cleanup does not depend on it and no prune result is ledgered.
-Existing audit history remains unchanged.
+The foreground command's results live in its output only: it writes no
+receipt, progress, event or file record. Ordinary dispatcher telemetry may
+occur, but cleanup does not depend on it. Existing audit history remains
+unchanged.
 
-No vacuum or analyze runs. PostgreSQL autovacuum owns space reuse; deletion
-does not promise smaller files, reduced allocated storage, lower costs or a
-particular savings total.
+The foreground command runs no vacuum or analyze. Deletion does not promise
+smaller files, reduced allocated storage, lower costs or a particular
+savings total.
+
+## Scheduled pruning
+
+Upkeep starts a run when the universe has no receipt yet, when the last run
+ended with rows still eligible, or six hours after the last run started. A run
+uses the same effective policy and passes as `--apply`, fixes its own
+cutoff, and stops after about 60 seconds so its host keeps its own cadence; a
+backlog keeps draining on each upkeep cycle (about every 30 seconds on a
+server). On PostgreSQL only one process runs it at a time.
+
+Each run writes one `universe_prune_receipts` row: start and completion time,
+elapsed milliseconds, cutoff, policy digest, rows deleted per table, tables
+not finished, and the outcome:
+
+| Outcome | Meaning |
+|---|---|
+| `drained` | Nothing eligible remains under the run's cutoff. |
+| `budget` | The run's time ran out with rows still eligible; the next cycle continues. |
+| `failed` | The run stopped on a refusal; `failure_code`, `failure_reason` and `failure_recovery` name it. |
+
+```text
+yoke db read "SELECT * FROM universe_prune_receipts ORDER BY started_at DESC LIMIT 10"
+```
+
+A failed run prints in every project's steering report, with its code,
+reason and recovery, until a later run succeeds. Upkeep retries it six hours
+later; an organization administrator can run `yoke universe prune --apply`
+sooner. Doctor's `HC-universe-prune-receipt` fails when the last successful
+receipt is more than two days old (a universe younger than two days passes),
+and warns when the last run left tables unfinished.
+
+After a `drained` run on PostgreSQL, upkeep runs plain `VACUUM` on every
+table deleted from since the previous drained run, and lists them in
+`vacuumed`. Plain VACUUM makes the freed space reusable, so the database stops
+growing; it never rewrites or shrinks the files (no `VACUUM FULL`). SQLite
+universes skip it.

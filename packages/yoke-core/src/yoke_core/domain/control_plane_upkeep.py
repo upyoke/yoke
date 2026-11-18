@@ -1,10 +1,13 @@
-"""Control-plane upkeep: GitHub observation, owed QA replays and QA wakes.
+"""Control-plane upkeep: GitHub observation, QA replays and wakes, and pruning.
 
 Merge-queue landings and session CI waits settle only when someone reads
 GitHub, and a QA waiver leaves its close-out replays owed in
 ``qa_settlement_followups``. A deployment run whose driver exited at an
 item-scoped QA wait leaves members it never woke.
-:func:`run_control_plane_upkeep` does all three once.
+:func:`run_control_plane_upkeep` does all three once, then runs the
+universe's scheduled row retention when it is due
+(:mod:`yoke_core.domain.universe_prune_schedule`), which keeps a receipt for
+every run, refusals included.
 It rides scheduled work that already runs in the one long-lived process each
 install mode has: the API server's health refresh (hosted and self-hosted),
 or each cycle of a machine-local universe's standing relay, which dispatches
@@ -34,6 +37,7 @@ from yoke_core.domain.merge_queue_landing_observer import observe_pending_landin
 from yoke_core.domain.project_identity import row_value
 from yoke_core.domain.qa_settlement_followups import replay_settlement_followups
 from yoke_core.domain.session_ci_wait_observer import observe_pending_ci_runs
+from yoke_core.domain.universe_prune_schedule import run_scheduled_prune
 
 
 _LOG = logging.getLogger(__name__)
@@ -92,6 +96,7 @@ def run_control_plane_upkeep() -> None:
             ("pending GitHub observation", observe_pending_github_work),
             ("QA settlement follow-up replay", replay_settlement_followups),
             ("driverless item-QA wake", wake_driverless_qa_waits),
+            ("scheduled universe prune", run_scheduled_prune),
         ):
             try:
                 step(conn)

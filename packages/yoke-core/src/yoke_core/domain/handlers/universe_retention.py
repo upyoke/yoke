@@ -1,5 +1,7 @@
 """Registered admin-only retention read and one bounded prune pass."""
 
+import time
+
 from pydantic import ValidationError
 from yoke_contracts.api.function_call import FunctionError, HandlerOutcome
 from yoke_contracts.refusal_recovery import compose_refusal
@@ -34,9 +36,15 @@ def _handle(request, prune):
                 jsonpath="$.payload",
             ),
         )
+    # The pass budget starts now, so connecting spends it too.
+    started = time.monotonic()
     try:
         with connect() as conn:
-            result = prune_pass(conn, parsed) if prune else read_retention(conn)[1]
+            result = (
+                prune_pass(conn, parsed, started=started)
+                if prune
+                else read_retention(conn)[1]
+            )
     except ValueError as exc:
         code, _, message = str(exc).partition(":")
         return HandlerOutcome(

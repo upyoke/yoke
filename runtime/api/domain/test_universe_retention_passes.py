@@ -182,3 +182,27 @@ def test_one_apply_clears_mixed_event_windows_and_keeps_protected_rows(
     assert f"Deleted {len(expired)} rows" in out
     assert "Not finished" not in out
     assert {row[0] for row in test_db.execute("SELECT event_id FROM events")} == kept
+
+
+def test_pass_budget_runs_from_the_request_arrival(test_db):
+    """Time spent before the pass (connecting) counts against its budget."""
+    import time
+
+    _policy(test_db, batch_rows=2)
+    _old_events(test_db, 3)
+    late = passes.prune_pass(
+        test_db, PruneRequest(apply=True), started=time.monotonic() - 60
+    )
+    assert late["tables"] == [] and not late["cycle_complete"]
+    assert _old_count(test_db) == 3
+
+
+def test_no_new_cohort_without_commit_headroom(test_db, monkeypatch):
+    """After the first cohort, a pass needs room for the next one's commit."""
+    _policy(test_db, batch_rows=2)
+    _old_events(test_db, 5)
+    monkeypatch.setattr(passes, "COHORT_HEADROOM_SECONDS", 1000.0)
+    result = passes.prune_pass(test_db, PruneRequest(apply=True))
+    assert [row["deleted"] for row in result["tables"]] == [{"events": 2}]
+    assert result["next_table_index"] == 0 and not result["cycle_complete"]
+    assert _old_count(test_db) == 3

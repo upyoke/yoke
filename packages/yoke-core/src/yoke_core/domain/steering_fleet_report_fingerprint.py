@@ -34,6 +34,7 @@ from yoke_core.domain.steering_fleet_report_awaiting_seat import (
     awaiting_seat_fingerprint,
 )
 from yoke_core.domain.steering_fleet_report_deadlocks import deadlock_fingerprint
+from yoke_core.domain.steering_fleet_report_prune import failed_prune_fingerprint
 from yoke_core.domain.steering_fleet_report_settlement_followups import (
     settlement_followup_fingerprint,
 )
@@ -96,6 +97,7 @@ def seat_payload(report: "FleetReport") -> dict[str, Any]:
         ),
         "deadlocks": deadlock_fingerprint(report),
         "settlement_followups": settlement_followup_fingerprint(report),
+        "failed_prunes": failed_prune_fingerprint(report),
         "waiting_chains": waiting_chain_fingerprint(report),
     }
 

@@ -70,10 +70,12 @@ EXCLUDED_TABLE_OWNERSHIP = {
     # change of authority, and treating it as one made a live export refuse
     # a universe nothing had actually altered.
     "disposable_telemetry": frozenset({"events"}),
-    # Rate admission and observation cadence are operational state, not
-    # project content. Their rows and owned sequences still travel in dumps.
+    # Rate admission, observation cadence and scheduled-prune receipts are
+    # operational state, not project content: upkeep writes them on its own
+    # clock. Their rows and owned sequences still travel in dumps.
     "operational_state": frozenset({
         "frontend_event_rate_limits", "merge_queue_landing_refreshes",
+        "universe_prune_receipts",
     }),
 }
 NORMALIZED_EXCLUDED_TABLES = frozenset().union(*EXCLUDED_TABLE_OWNERSHIP.values())
