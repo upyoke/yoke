@@ -1,4 +1,4 @@
-"""Deterministic admission selection across a project's QA machines."""
+"""Deterministic admission selection across the universe's QA machines."""
 
 from __future__ import annotations
 
@@ -22,7 +22,6 @@ from yoke_core.domain.host_control_runner import (
     load_test_machine_contract,
 )
 from yoke_core.domain.machine_qa_capability import host_claim_target
-from yoke_core.domain.machine_qa_host_rows import test_machine_rows
 
 
 @dataclass(frozen=True)
@@ -75,21 +74,19 @@ def _verification_by_machine(
 ) -> dict[str, _Verification]:
     if not candidates:
         return {}
-    receipts = dict(
-        (row[0], _Verification(status=row[1], error_code=row[2]))
-        for row in conn.execute(
-            "SELECT test_machine_id, status, error_code FROM test_machine_verifications"
-        ).fetchall()
-    )
+    names = {candidate.settings["resource_name"] for candidate in candidates}
+    rows = conn.execute(
+        "SELECT m.name, m.verified_at, v.status, v.error_code "
+        "FROM test_machines m LEFT JOIN test_machine_verifications v "
+        "ON v.test_machine_id=m.id"
+    ).fetchall()
     return {
-        row.test_machine: receipts.get(
-            row.id,
-            _Verification(
-                status="verified" if row.verified_at else "configured_unverified",
-                error_code=None,
-            ),
+        name: _Verification(
+            status=status or ("verified" if verified_at else "configured_unverified"),
+            error_code=error_code,
         )
-        for row in test_machine_rows(conn)
+        for name, verified_at, status, error_code in rows
+        if name in names
     }
 
 
