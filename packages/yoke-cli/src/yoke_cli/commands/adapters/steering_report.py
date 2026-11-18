@@ -44,7 +44,7 @@ marks it overdue. `session_idle_minutes` (default 20) is how long a
 claim holder stays silent before an idle alarm, provided it has no declared
 wait and its next actor is this_session. Declared or external waits list their
 reason and next actor under awaiting holders. And
-`steering_report_interval_minutes` (default 2) is the shortest gap between
+`steering_report_interval_minutes` (default 5) is the shortest gap between
 reports appended to one session.
 
 A session receives only changed digest scope sections plus an unchanged count. The

@@ -60,6 +60,21 @@ def _index_records(records: Iterable[ModelRecord]) -> dict[str, ModelRecord]:
     return indexed
 
 
+#: Index per immutable catalog tuple, holding the tuple so its id stays unique.
+_INDEXES: dict[int, tuple[tuple, dict[str, ModelRecord]]] = {}
+
+
+def _indexed(records: Iterable[ModelRecord]) -> dict[str, ModelRecord]:
+    if not isinstance(records, tuple):
+        return _index_records(records)
+    cached = _INDEXES.get(id(records))
+    if cached is None or cached[0] is not records:
+        if len(_INDEXES) >= 32:
+            _INDEXES.clear()
+        cached = _INDEXES[id(records)] = (records, _index_records(records))
+    return cached[1]
+
+
 def lookup_model_reference(
     model_id: str, records: Iterable[ModelRecord]
 ) -> ModelLookup:
@@ -67,7 +82,7 @@ def lookup_model_reference(
     asked = str(model_id or "").strip()
     if not asked:
         return ModelLookup(model_id="", researched=False)
-    indexed = _index_records(records)
+    indexed = _indexed(records)
     record = indexed.get(asked) or indexed.get(lookup_stem(asked))
     if record is None:
         return ModelLookup(model_id=asked, researched=False)

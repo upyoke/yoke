@@ -7,12 +7,34 @@ creation and release preserve reads because they change no data.
 """
 
 from copy import deepcopy
+from datetime import date, datetime, time, timedelta
+from decimal import Decimal
 from typing import Any
+from uuid import UUID
+
+from yoke_core.domain.db_row import PostgresRow
+
+_SCALARS = (str, int, float, bytes, Decimal, UUID, date, datetime, time, timedelta, type(None))
+
+
+def _shareable(rows: list) -> bool:
+    """Rows no reader can change: immutable rows holding only scalar values.
+
+    Those are handed out as they are; rows carrying decoded JSON or other
+    mutable values are still copied per read, so one reader's edit never
+    reaches another. Copying every row on every hit cost more than the reads
+    it saved.
+    """
+    return all(
+        isinstance(row, (PostgresRow, tuple))
+        and all(isinstance(value, _SCALARS) for value in row)
+        for row in rows
+    )
 
 
 class ReadRows:
-    def __init__(self, rows: list, description: Any):
-        self.rows = deepcopy(rows)
+    def __init__(self, rows: list, description: Any, shareable: bool = False):
+        self.rows = list(rows) if shareable else deepcopy(rows)
         self.description = description
         self.rowcount = len(rows)
         self.position = 0
@@ -55,7 +77,8 @@ class ReportReadConnection:
             return self._inner.execute(sql, params)
         if key not in self._reads:
             cursor = self._inner.execute(sql, params)
-            self._reads[key] = (cursor.fetchall(), cursor.description)
+            rows = cursor.fetchall()
+            self._reads[key] = (rows, cursor.description, _shareable(rows))
         return ReadRows(*self._reads[key])
 
     def commit(self):

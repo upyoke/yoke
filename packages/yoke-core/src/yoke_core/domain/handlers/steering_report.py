@@ -145,6 +145,7 @@ def handle_get(request: FunctionCallRequest) -> HandlerOutcome:
             if not held or (project_id is not None and project_id not in held):
                 return _claim_required(project_id)
             return HandlerOutcome(
+                telemetry={"steering_report": "questions_only"},
                 result_payload={
                     "question_states": question_states(
                         conn,
@@ -178,7 +179,8 @@ def handle_get(request: FunctionCallRequest) -> HandlerOutcome:
                 is None
             ):
                 return HandlerOutcome(
-                    result_payload={"composition_skipped": True, "delivered": False}
+                    telemetry={"steering_report": "composition_skipped"},
+                    result_payload={"composition_skipped": True, "delivered": False},
                 )
         combined = compose_held_reports(
             conn,
@@ -256,7 +258,9 @@ def handle_get(request: FunctionCallRequest) -> HandlerOutcome:
             if payload.read_delta:
                 summary["delta_body"] = result.get("delta_body", "")
             result = summary
-        return HandlerOutcome(result_payload=result)
+        return HandlerOutcome(
+            telemetry={"steering_report": "composed"}, result_payload=result
+        )
     finally:
         conn.close()
 

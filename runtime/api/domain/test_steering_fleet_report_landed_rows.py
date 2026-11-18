@@ -311,7 +311,11 @@ def test_a_succeeded_run_row_names_its_delivery_and_what_it_still_owes(
     monkeypatch.setattr(landed_open, "run_environment_name", lambda *a: "prod")
     owed = (OwedRequirement(None, "post_deploy", "stage", plan_slug="release-proof") if plan
             else OwedRequirement(43248, "manual_acceptance", "stage"),)
-    monkeypatch.setattr(landed_open, "owed_on_other_targets", lambda *a: owed)
+    # The row keeps only what is owed somewhere other than where it delivered.
+    prod_owed = OwedRequirement(43249, "post_deploy", "prod")
+    monkeypatch.setattr(
+        landed_open, "owed_requirements_many", lambda *a: {1: (prod_owed, *owed)}
+    )
 
     assert (
         custody_phrase(_landed(fleet)[0]) == "delivered to prod; owes "

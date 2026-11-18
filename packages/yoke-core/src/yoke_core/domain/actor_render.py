@@ -135,4 +135,25 @@ def actor_display_labels(
     }
 
 
-__all__ = ["actor_display_labels", "render_actor_name", "render_actor_names"]
+def actor_labels_each(conn: Any, actor_ids: Iterable[int]) -> dict[int, str]:
+    """Each id's :func:`actor_display_labels` answer as if asked alone.
+
+    One name read for the whole set. Callers that label rows one at a time
+    keep their wording: a lone actor is never disambiguated against others.
+    """
+    ids = tuple(sorted({int(value) for value in actor_ids}))
+    if not ids:
+        return {}
+    names = _stored_names(conn, ids)
+    return {
+        actor_id: (names.get(actor_id) or "").strip() or f"actor {actor_id}"
+        for actor_id in ids
+    }
+
+
+__all__ = [
+    "actor_display_labels",
+    "actor_labels_each",
+    "render_actor_name",
+    "render_actor_names",
+]
