@@ -19,14 +19,18 @@ import uvicorn
 from runtime.api import web_sign_in_door_test_support as door
 from runtime.api.fixtures.machine_config_test import select_machine_config_file
 from runtime.api.fixtures.operating_actor import record_fixture_operating_actor
+from yoke_cli.commands import connect
 from yoke_cli.config import hosted_machine_authorization as auth
+from yoke_cli.config import onboard_session_relay, writer
 from yoke_cli.config.machine_registration import register_this_machine
 from yoke_cli.transport.dispatcher import call_dispatcher
+from yoke_cli.transport.https import resolve_https_connection
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.machine_authorization import START_PATH
 from yoke_contracts.machine_config import schema as contract
 from yoke_core.api import app_factory
 from yoke_core.domain import machine_registry
+from yoke_core.domain.api_tokens import hash_token, mint_token
 from yoke_core.domain.handlers.__init_register__ import register_all_handlers
 
 _clean_oidc_env = door._clean_oidc_env
@@ -133,3 +137,42 @@ def test_retired_computer_reconnects_locally_then_to_a_self_hosted_server(
     assert reconnected.retired_at is None and reconnected.owner_actor_id == actor
     for retired_id in (FIRST_ID, second_id):
         assert machine_registry.get_machine(db_conn, retired_id).retired_at is not None
+
+
+def test_bootstrap_connect_binds_destination_without_activating_it(
+    db_conn, tmp_path, monkeypatch
+):
+    register_all_handlers()
+    actor = int(db_conn.execute("SELECT id FROM actors ORDER BY id LIMIT 1").fetchone()[0])
+    bootstrap = mint_token(db_conn, actor_id=actor, name="self-host-first-boot")
+    db_conn.commit()
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path))
+    config = tmp_path / "config.json"
+    writer.set_connection(
+        "local", transport="local-postgres", dsn="host=/sock dbname=yoke", path=config
+    )
+    path = tmp_path / "first-boot-token"
+    path.write_text(bootstrap.raw_token)
+    path.chmod(0o600)
+    installs = []
+
+    def install(*, environment, config_path, **_):
+        https = resolve_https_connection(config_path, explicit_env=environment)
+        installs.append((environment, hash_token(https.token)))
+        return onboard_session_relay.RelayInstallOutcome(installed=True, reused=False)
+
+    monkeypatch.setattr(onboard_session_relay, "install", install)
+    with _serve() as origin:
+        assert connect.connect([
+            origin, "--token-file", str(path), "--name", "self-hosted",
+            "--no-activate", "--config", str(config), "--json",
+        ]) == 0
+    payload = json.loads(config.read_text())
+    assert payload["active_env"] == "local"
+    [(environment, token_hash)] = installs
+    assert environment == "self-hosted"
+    row = db_conn.execute(
+        "SELECT machine_id FROM api_tokens WHERE token_hash=%s", (token_hash,)
+    ).fetchone()
+    assert row[0] == payload["machine_id"]
+    assert path.read_text() == bootstrap.raw_token

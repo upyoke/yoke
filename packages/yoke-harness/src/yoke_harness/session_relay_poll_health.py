@@ -26,10 +26,10 @@ _DIAGNOSED_CODE = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,62}$")
 _CREDENTIAL_CODES = frozenset(
     {"machine_credential_required", "machine_credential_mismatch"}
 )
-_CONNECT_THEN_INSTALL = (
-    "Control-plane connection failed ({code}). Reconnect this machine with "
-    "`yoke connect`, then `yoke relay install` so the loaded service uses the "
-    "new credential. `yoke relay install` alone does not mint credentials."
+_RECONNECT = (
+    "Control-plane connection failed ({code}). Run `yoke connect` again with "
+    "this relay's server and saved connection name to bind the machine credential, "
+    "then check `yoke relay status` on that connection."
 )
 _RESTORE_TRANSPORT = (
     "Control-plane connection failed ({code}). Restore control-plane transport "
@@ -163,7 +163,7 @@ def attach_poll_outcome(
 def connection_recovery(code: str) -> str:
     """Operator recovery for one failed control-plane poll code."""
     reconnect = code in _CREDENTIAL_CODES or error_code_is_terminal_authentication(code)
-    return (_CONNECT_THEN_INSTALL if reconnect else _RESTORE_TRANSPORT).format(
+    return (_RECONNECT if reconnect else _RESTORE_TRANSPORT).format(
         code=code
     )
 

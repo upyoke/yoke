@@ -11,24 +11,44 @@ from yoke_cli.commands import connect
 from yoke_cli.config import hosted_machine_authorization as auth
 from yoke_cli.config import onboard_session_relay as relay
 from yoke_cli.config import server_connect, writer
+from yoke_cli.transport import https
+from yoke_contracts.api.function_call import FunctionCallResponse, FunctionError
+
+BOOTSTRAP = "private-credential"
+BOUND = "yk-destination-machine-test-credential"
 
 
 @pytest.fixture
 def machine(monkeypatch, tmp_path):
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path))
-    monkeypatch.setattr(sys, "stdin", io.StringIO("private-credential"))
+    monkeypatch.setattr(sys, "stdin", io.StringIO(BOOTSTRAP))
     monkeypatch.setattr(
         server_connect,
         "_http_get_json",
         lambda *a, **kw: {"ok": True, "actor": {"id": 1}},
     )
     monkeypatch.setattr(relay.sys, "platform", "linux")
+    monkeypatch.setattr(https, "relay_https", register_reply)
 
     def ambient_wait(_timeout):
         pytest.fail("another active connection must not provide readiness")
 
     monkeypatch.setattr(relay, "_wait_for_connection", ambient_wait)
     return tmp_path
+
+
+def register_reply(request, connection, **_):
+    assert request.function == "machine.register"
+    assert connection.token == BOOTSTRAP
+    return FunctionCallResponse(
+        success=True,
+        function=request.function,
+        version=request.version,
+        result={
+            "machine": {"machine_id": request.payload["machine_id"]},
+            "credential": {"token": BOUND},
+        },
+    )
 
 
 def installer(monkeypatch, *, failure=False):
@@ -84,11 +104,22 @@ def test_custom_config_no_activate_scopes_install_and_partial_failure(
         path=str(path),
     )
     writer.set_active_env("local", path=str(path))
+    token_file = machine / "bootstrap"
+    token_file.write_text(BOOTSTRAP)
+    token_file.chmod(0o600)
+    registrations = []
+
+    def register(request, connection, **kwargs):
+        registrations.append((connection.env, request.payload["machine_id"]))
+        return register_reply(request, connection, **kwargs)
+
+    monkeypatch.setattr(https, "relay_https", register)
     calls = installer(monkeypatch, failure=failure)
     code = connect.connect(
         [
             "http://127.0.0.1:8765",
-            "--token-stdin",
+            "--token-file",
+            str(token_file),
             "--name",
             "second",
             "--config",
@@ -101,9 +132,13 @@ def test_custom_config_no_activate_scopes_install_and_partial_failure(
     config = json.loads(path.read_text())
     assert config["active_env"] == "local"
     assert {"local", "second"} <= set(config["connections"])
+    assert registrations == [("second", config["machine_id"])]
+    assert https.resolve_https_connection(path, explicit_env="second").token == BOUND
+    assert token_file.read_text() == BOOTSTRAP
     assert calls == [("status", "second", str(path)), ("install", "second", str(path))]
     output = capsys.readouterr()
-    assert "private-credential" not in output.out + output.err
+    assert BOOTSTRAP not in output.out + output.err
+    assert BOUND not in output.out + output.err
     if json_mode:
         report = json.loads(output.out)
         assert report["session_relay"]["installed"] is not failure
@@ -115,6 +150,28 @@ def test_custom_config_no_activate_scopes_install_and_partial_failure(
         assert "--environment second" in error
         assert str(path) in error
         assert "<redacted>" in error
+
+
+def test_registration_refusal_keeps_saved_connection_without_installing(
+    monkeypatch, machine, capsys
+):
+    calls = installer(monkeypatch)
+    monkeypatch.setattr(
+        https, "relay_https",
+        lambda request, *_args, **_kwargs: FunctionCallResponse(
+            success=False,
+            function=request.function,
+            version=request.version,
+            error=FunctionError(code="machine_owner_mismatch", message="owner rejected"),
+        ),
+    )
+    assert connect.connect(["http://127.0.0.1:8765", "--token-stdin", "--json"]) == 1
+    report = json.loads(capsys.readouterr().out)
+    assert report["connection_saved"] and not report["ok"]
+    assert "machine_owner_mismatch" in report["session_relay"]["error"]
+    assert "rerun the same `yoke connect`" in report["session_relay"]["error"]
+    assert https.resolve_https_connection(machine / "config.json").token == BOOTSTRAP
+    assert not calls
 
 
 def test_failed_server_verification_never_installs_relay(monkeypatch, machine, capsys):

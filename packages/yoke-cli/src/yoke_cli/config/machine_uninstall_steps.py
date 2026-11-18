@@ -163,7 +163,7 @@ def remove(
         )
     if not inventory.relay_envs:
         skipped("relay", "no eligible machine connections")
-    if sys.platform == "darwin":
+    if sys.platform in {"darwin", "linux"}:
         attempt(
             "saved relay services",
             lambda: machine_uninstall_relays.remove_saved_services(inventory.home),

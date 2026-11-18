@@ -1,13 +1,11 @@
 """Register this machine at connect time and store its rotated credential.
 
-Both connect-time paths call this: ``yoke setup`` registers at the end of
-Apply, once the connection is verified and the relay is installed and the plane
-is demonstrably answering. Status only reads registration; registration is an
-explicit connect or reconnect action.
+Token-based connect registers on its saved destination before relay setup.
+``yoke setup`` registers at the end of Apply. Status only reads registration;
+registration is an explicit connect or reconnect action.
 
-Registration rotates the machine-bound bearer, and a refusal is returned as a reason
-rather than raised: connecting a machine should not fail because the registry
-disagreed, but the operator must be told which recovery to run.
+Registration rotates the machine-bound bearer and returns a refusal reason so
+each caller can report the outcome and its own recovery.
 """
 
 from __future__ import annotations
@@ -31,6 +29,8 @@ REGISTER_RECOVERY_COMMAND = "yoke machine register"
 
 def register_this_machine(
     config_path: str | Path | None = None,
+    *,
+    environment: str | None = None,
 ) -> dict[str, Any]:
     """Register this host, returning what the registry now holds for it."""
     from yoke_contracts.machine_config.machine_name import machine_display_name
@@ -46,7 +46,10 @@ def register_this_machine(
     payload = {"machine_id": machine, "name": machine_display_name()}
     try:
         response, retired = retry_if_retired(
-            _call_register(payload), payload, config_path=config_path
+            _call_register(payload, config_path=config_path, environment=environment),
+            payload,
+            config_path=config_path,
+            environment=environment,
         )
     except Exception as exc:  # noqa: BLE001 - reported, never raised
         return {"machine_id": machine, "registered": False, "reason": str(exc)}
@@ -60,7 +63,7 @@ def register_this_machine(
         }
     result = getattr(response, "result", None) or {}
     record = result.get("machine") or {}
-    persisted = _persist_credential(result, config_path)
+    persisted = _persist_credential(result, config_path, environment=environment)
     if persisted is not None:
         return {"machine_id": machine, "registered": False, "reason": persisted}
     return {
@@ -78,6 +81,7 @@ def retry_if_retired(
     payload: Mapping[str, Any],
     *,
     config_path: str | Path | None = None,
+    environment: str | None = None,
 ) -> tuple[Any, str | None]:
     """Register once more under a new machine id when the old one is retired.
 
@@ -112,20 +116,35 @@ def retry_if_retired(
             ),
         )
         return response.model_copy(update={"error": failure}), retired
-    return _call_register({**payload, "machine_id": replacement}), retired
+    return _call_register(
+        {**payload, "machine_id": replacement},
+        config_path=config_path,
+        environment=environment,
+    ), retired
 
 
-def _call_register(payload: Mapping[str, Any]) -> Any:
+def _call_register(
+    payload: Mapping[str, Any],
+    *,
+    config_path: str | Path | None,
+    environment: str | None,
+) -> Any:
     from yoke_contracts.api.function_call import TargetRef
 
     from yoke_cli.transport.dispatcher import call_dispatcher
 
+    route = (
+        {"relay_env": environment, "relay_config_path": config_path}
+        if environment is not None
+        else {}
+    )
     return call_dispatcher(
         function_id="machine.register",
         target=TargetRef(kind="global"),
         payload=dict(payload),
         timeout_s=REGISTER_TIMEOUT_S,
         max_attempts=REGISTER_ATTEMPTS,
+        **route,
     )
 
 
@@ -172,14 +191,17 @@ def show_this_machine(config_path: str | Path | None = None) -> dict[str, Any]:
 
 
 def _persist_credential(
-    result: Mapping[str, Any], config_path: str | Path | None
+    result: Mapping[str, Any],
+    config_path: str | Path | None,
+    *,
+    environment: str | None = None,
 ) -> str | None:
     """Store an HTTPS machine bearer, returning recovery text on failure."""
     from yoke_contracts.machine_config import schema as contract
 
     from yoke_cli.config import machine_config, writer
 
-    connection = machine_config.active_connection(config_path)
+    connection = machine_config.active_connection(config_path, explicit_env=environment)
     if str(connection.get("transport") or "") != contract.TRANSPORT_HTTPS:
         return None
     credential = result.get("credential")
@@ -188,7 +210,7 @@ def _persist_credential(
         return "machine_credential_unsupported: registration returned no bearer token"
     try:
         writer.set_credential(
-            machine_config.active_env(config_path), token=token, path=config_path
+            str(connection["env"]), token=token, path=config_path
         )
     except Exception as exc:  # noqa: BLE001 - actionable reconnect failure
         return f"machine_credential_store_failed: {exc}"
