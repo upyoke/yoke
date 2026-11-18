@@ -25,42 +25,90 @@ def desktop_script(control, script, *, timeout=60):
     # The wrapper always writes a completion receipt, even for a script that
     # calls exit. Its child owns the exit code; only stdout/stderr are returned.
     child = root + ".command.ps1"
-    control.upload_remote_text(child, script)
-    control.upload_remote_text(
-        source,
-        f"""$ErrorActionPreference='Stop'
+    wrapper = f"""$ErrorActionPreference='Stop'
 try {{
   & powershell.exe -NoLogo -NoProfile -File {quote(child)} 1> {quote(root + ".out")} 2> {quote(root + ".err")}
   $code=$LASTEXITCODE
   @{{exit_code=$code;stdout=[IO.File]::ReadAllText({quote(root + ".out")});stderr=[IO.File]::ReadAllText({quote(root + ".err")})}} |
     ConvertTo-Json -Compress | Set-Content -Encoding UTF8 {quote(receipt)}
 }} catch {{ @{{exit_code=1;stdout='';stderr="$_"}} | ConvertTo-Json -Compress | Set-Content -Encoding UTF8 {quote(receipt)} }}
-""",
-    )
+"""
+    diagnostics = {
+        "desktop_token": token, "task": name,
+        "files": [{"path": path, "sha256": hashlib.sha256(text.encode("utf-8-sig")).hexdigest(),
+                   "bytes": len(text.encode("utf-8-sig"))}
+                  for path, text in ((child, script), (source, wrapper))],
+        "phase": "upload", "cleanup": "pending",
+    }
+    def outcome(code, stdout, stderr):
+        result = subprocess.CompletedProcess([], code, stdout, stderr)
+        result.desktop_diagnostics = diagnostics
+        return result
+
+    failure = None
+    uploads_complete = False
     try:
+        control.upload_remote_text(child, script)
+        control.upload_remote_text(source, wrapper)
+        uploads_complete = True
+        diagnostics["phase"] = "task_start"
         start = control._run(create_interactive_task(
             name, '-NoLogo -NoProfile -WindowStyle Normal -File "' + source + '"', timeout,
         ))
         require_task_result(control, start, phase="desktop_task_start")
         announce_designed_wait("native Windows desktop task", max_wait_seconds=timeout)
+        diagnostics["phase"] = "receipt"
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             text = control.read_remote_text(receipt)
             if text:
                 row = json.loads(text.lstrip("\ufeff"))
-                return subprocess.CompletedProcess(
-                    [], int(row["exit_code"]), row["stdout"], row["stderr"]
-                )
+                return outcome(int(row["exit_code"]), row["stdout"], row["stderr"])
             time.sleep(0.2)
-        return subprocess.CompletedProcess(
-            [],
+        return outcome(
             124,
             "",
             "windows_desktop_task_timeout: unlock the auto-logged-on test session, inspect Task Scheduler and retry",
         )
+    except BaseException as exc:
+        failure = exc
+        exc.desktop_diagnostics = diagnostics
+        raise
     finally:
-        cleanup = control._run(remove_owned_task(name) + f"\nRemove-Item -LiteralPath {','.join(quote(root + s) for s in ('.ps1', '.command.ps1', '.json', '.out', '.err'))} -Force -ErrorAction SilentlyContinue")
-        require_task_result(control, cleanup, phase="desktop_task_cleanup")
+        try:
+            if not uploads_complete and getattr(failure, "staging_diagnostics", {}).get("cleanup") == "preserved_ambiguous_execution":
+                diagnostics["cleanup"] = "preserved_ambiguous_upload"
+            elif not uploads_complete:
+                # No task was started. Remove only payloads whose exact owner
+                # and bytes still match this acquisition; preserve other files.
+                checks = []
+                for row in diagnostics["files"]:
+                    checks.append(
+                        "$p=" + quote(row["path"]) + ";if(Test-Path -LiteralPath $p){"
+                        "$f=Get-Item -LiteralPath $p -Force -ErrorAction Stop;"
+                        "if($f.PSIsContainer -or ($f.Attributes -band [IO.FileAttributes]::ReparsePoint) -or "
+                        f"$f.Length -ne {row['bytes']} -or (Get-FileHash -LiteralPath $p -Algorithm SHA256).Hash.ToLowerInvariant() -ne '{row['sha256']}' -or "
+                        "(Get-Acl -LiteralPath $p).GetOwner([Security.Principal.SecurityIdentifier]).Value -ne [Security.Principal.WindowsIdentity]::GetCurrent().User.Value){throw 'Desktop acquisition bytes or owner changed; preserve'};"
+                        "Remove-Item -LiteralPath $p -Force -ErrorAction Stop}"
+                    )
+                cleanup = control._run("\n".join(checks))
+            else:
+                arguments = '-NoLogo -NoProfile -WindowStyle Normal -File "' + source + '"'
+                removal = remove_owned_task(name).replace(
+                    "Remove-YokeTask " + quote(name),
+                    "$t=Get-YokeTask " + quote(name) + ";if($t -and ($t.Definition.Actions.Count -ne 1 -or $t.Definition.Actions.Item(1).Path -ne 'powershell.exe' -or $t.Definition.Actions.Item(1).Arguments -ne " + quote(arguments) + ")){throw 'Desktop task action changed; preserve'};Remove-YokeTask " + quote(name),
+                )
+                cleanup = control._run(removal + f"\nif(Get-YokeTask {quote(name)}){{throw 'Owned task cleanup incomplete'}}\nRemove-Item -LiteralPath {','.join(quote(root + s) for s in ('.ps1', '.command.ps1', '.json', '.out', '.err'))} -Force -ErrorAction SilentlyContinue; foreach($p in @({','.join(quote(root + s) for s in ('.ps1', '.command.ps1', '.json', '.out', '.err'))})){{if(Test-Path -LiteralPath $p){{throw 'Owned desktop cleanup incomplete'}}}}")
+            if diagnostics["cleanup"] != "preserved_ambiguous_upload":
+                diagnostics["cleanup"] = "verified_absent" if cleanup.returncode == 0 else "unverified"
+                require_task_result(control, cleanup, phase="desktop_task_cleanup")
+        except BaseException as exc:
+            diagnostics["cleanup"] = "unverified"
+            if failure is not None:
+                failure.desktop_cleanup_cause = exc
+            else:
+                exc.desktop_diagnostics = diagnostics
+                raise
 
 
 def capture_desktop(control, *, focused_window=False):

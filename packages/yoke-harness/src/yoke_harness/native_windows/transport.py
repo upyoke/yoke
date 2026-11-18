@@ -3,27 +3,13 @@
 import base64
 import json
 import subprocess
-import time
-from contextlib import contextmanager
-from uuid import uuid4
 from pathlib import PureWindowsPath
 from types import SimpleNamespace
 
 from yoke_contracts.machine_qa_failures import HostControlLocalError
-from yoke_harness.native_windows.stdin_frame import (
-    frame_bytes,
-    upload_script,
-    upload_received,
-)
+from yoke_harness.native_windows.powershell import encoded, quote
+from yoke_harness.native_windows.standard_staging import verified_payload
 from yoke_harness.ssh_test_machine_transport import SshTestMachineTransport
-
-
-def quote(value: str) -> str:
-    return "'" + str(value).replace("'", "''") + "'"
-
-
-def encoded(script: str) -> str:
-    return base64.b64encode(script.encode("utf-16-le")).decode("ascii")
 
 
 def command(argv) -> str:
@@ -80,6 +66,8 @@ class WindowsTransport(SshTestMachineTransport):
             "[Console]::OutputEncoding=[Text.UTF8Encoding]::new($false); "
             "try { " + script + " } catch { [Console]::Error.WriteLine($_); exit 1 }"
         )
+        if len(encoded(wrapped)) + 80 >= 8000:
+            raise RuntimeError("windows_command_too_long: use verified script staging")
         return super()._ssh_argv(
             "powershell.exe -NoLogo -NoProfile -NonInteractive -EncodedCommand "
             + encoded(wrapped)
@@ -92,59 +80,15 @@ class WindowsTransport(SshTestMachineTransport):
             return super()._run(
                 command, input_text=input_text, timeout=timeout, debug_log=debug_log
             )
-        with self._staged_payload(command.encode("utf-8-sig")) as path:
-            return super()._run(
-                f"& {path}", input_text=input_text, timeout=timeout, debug_log=debug_log,
+        with verified_payload(self, command.encode("utf-8-sig")) as stage:
+            stage.execution_pending = True
+            result = super()._run(
+                f"& {stage.path}", input_text=input_text, timeout=timeout, debug_log=debug_log,
             )
-
-    @contextmanager
-    def _staged_payload(self, payload):
-        name = "yoke-qa-" + uuid4().hex + ".ps1"
-        path = f"(Join-Path $env:TEMP {quote(name)})"
-        failure = None
-        try:
-            self._upload_chunks(path, payload)
-            yield path
-        except BaseException as exc:
-            failure = exc
-            raise
-        finally:
-            removed = super()._run(
-                f"Remove-Item -LiteralPath {path} -Force -ErrorAction SilentlyContinue; if(Test-Path -LiteralPath {path}){{throw 'owned staging cleanup failed'}}",
-                timeout=10,
-            )
-            if removed.returncode:
-                if failure is not None:
-                    failure.add_note("Owned Windows staging cleanup failed; remove the owned staging file before retrying.")
-                else:
-                    raise HostControlLocalError(
-                        code="native_windows_staging_cleanup_failed", phase="script_cleanup",
-                        detail="Owned Windows staging cleanup failed.",
-                        recovery_hint="Remove the owned staging file before retrying.",
-                        exit_code=removed.returncode, stderr=removed.stderr,
-                        secrets=getattr(self, "secret_values", ()),
-                    )
-
-    def _upload_chunks(self, path, payload):
-        # Native Windows ssh can stall on a monolithic stdin write. Reuse the
-        # provisioner's bounded frames and cumulative length/hash receipts.
-        deadline = time.monotonic() + 30
-        for offset in range(0, len(payload), 2048):
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                raise RuntimeError("windows_script_upload_failed: bounded upload timed out; retry the complete upload")
-            chunk = payload[offset:offset + 2048]
-            uploaded = super()._run(
-                upload_script(path, offset=offset), input_text=frame_bytes(chunk), timeout=remaining,
-            )
-            if not upload_received(uploaded, payload[:offset + len(chunk)]):
-                raise HostControlLocalError(
-                    code="windows_script_upload_failed", phase="script_upload",
-                    detail="Windows upload length/hash receipt did not match.",
-                    recovery_hint="Repair the named SSH upload error and retry the complete upload before execution.",
-                    exit_code=uploaded.returncode, stdout=uploaded.stdout, stderr=uploaded.stderr,
-                    secrets=getattr(self, "secret_values", ()),
-                )
+            # A lost SSH session or local timeout does not prove guest exit.
+            stage.execution_pending = result.returncode in (124, 255)
+            result.staging_diagnostics = stage.diagnostics
+            return result
 
     def _host_facts(self):
         result = self._run(
@@ -228,29 +172,22 @@ $version=Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion'
         )
 
     def _upload_bytes(self, path, content):
-        if len(content) > 2048:
-            with self._staged_payload(content) as staging:
-                result = super()._run(
-                    f"New-Item -ItemType Directory -Force (Split-Path {quote(path)}) | Out-Null; Move-Item -LiteralPath {staging} -Destination {quote(path)} -Force",
-                )
-                if result.returncode:
-                    raise HostControlLocalError(
-                        code="windows_host_file_write_failed", phase="file_commit",
-                        detail="Verified Windows upload could not be committed.",
-                        recovery_hint="Repair the destination directory or file ACL and retry.",
-                        exit_code=result.returncode, stderr=result.stderr,
-                        secrets=getattr(self, "secret_values", ()),
-                    )
-            return True
-        data = frame_bytes(content)
-        result = self._run(
-            upload_script(quote(path)),
-            input_text=data,
-        )
-        if not upload_received(result, content):
-            raise RuntimeError(
-                "windows_host_file_write_failed: repair the declared file's ACL and retry"
+        # Small and large uploads share SFTP and independent byte/ACL checks.
+        with verified_payload(self, content) as stage:
+            stage.execution_pending = True
+            result = super()._run(
+                f"New-Item -ItemType Directory -Force (Split-Path {quote(path)}) | Out-Null; Move-Item -LiteralPath {stage.path} -Destination {quote(path)} -Force",
             )
+            stage.execution_pending = result.returncode in (124, 255)
+            if result.returncode:
+                error = HostControlLocalError(
+                    code="windows_host_file_write_failed", phase="file_commit",
+                    detail="Verified Windows upload could not be committed.",
+                    recovery_hint="Inspect destination and staging diagnostics before retrying an ambiguous commit.",
+                    exit_code=result.returncode, stdout=result.stdout, stderr=result.stderr,
+                    secrets=getattr(self, "secret_values", ()),
+                )
+                raise error
         return True
 
     def read_remote_text(self, path):

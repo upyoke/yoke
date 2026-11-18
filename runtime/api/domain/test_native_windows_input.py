@@ -15,7 +15,6 @@ from yoke_harness.native_windows.stdin_frame import (
     upload_script,
 )
 from yoke_harness.native_windows.transport import WindowsTransport, encoded, quote
-from yoke_harness.ssh_test_machine_transport import SshTestMachineTransport
 
 
 pytestmark = pytest.mark.windows
@@ -116,33 +115,6 @@ def test_admin_requires_verified_staging_and_password_stays_only_on_stdin(monkey
         assert len(calls) == 1
         assert not any(" -File " in argv[-1] for argv, _ in calls)
     assert all(password not in " ".join(argv) for argv, _ in calls)
-
-
-def test_failed_transport_upload_never_executes_script(monkeypatch):
-    calls = []
-    monkeypatch.setattr(
-        SshTestMachineTransport,
-        "_run",
-        lambda self, script, **kw: calls.append(script) or completed(),
-    )
-    control = object.__new__(WindowsTransport)
-    with pytest.raises(RuntimeError, match="length/hash receipt did not match"):
-        control._run("Write-Output x;" * 1000)
-    assert len(calls) == 2 and "Remove-Item" in calls[-1]
-    assert not any(script.startswith("& ") for script in calls)
-
-
-def test_file_upload_frames_binary_and_checks_receipt(monkeypatch):
-    calls = []
-    payload = bytes(range(256))
-    control = object.__new__(WindowsTransport)
-    monkeypatch.setattr(
-        control,
-        "_run",
-        lambda script, **kw: calls.append((script, kw)) or completed(receipt(payload)),
-    )
-    assert control._upload_bytes(r"C:\YokeQa\file.bin", payload)
-    assert calls[0][1]["input_text"] == frame_bytes(payload)
 
 
 def test_ssh_bootstrap_uses_admin_ssh_without_azure_or_password_trimming(monkeypatch):
@@ -249,27 +221,28 @@ def test_native_reader_rejects_bad_or_truncated_frames(frame):
     assert b"ACCEPTED" not in result.stdout
 
 
-def test_large_script_streams_utf8_bom_and_keeps_input(monkeypatch):
+def test_large_script_stages_utf8_bom_and_keeps_optional_input(monkeypatch):
     from yoke_harness.ssh_test_machine_transport import SshTestMachineTransport
+    from yoke_harness.native_windows import admin_staging
 
-    calls = []
-    data = bytearray()
+    calls, data = [], []
+
+    def stage(ssh, payload, root, diagnostics, **kwargs):
+        data.append(payload)
+        diagnostics["remote_directory_owned"] = True
+        diagnostics["last_verified_offset"] = len(payload)
 
     def run(self, script, **kwargs):
         calls.append((script, kwargs))
-
-        if "Read-YokeFrame" in script:
-            chunk = base64.b64decode(kwargs["input_text"].split(":", 1)[1])
-            assert len(chunk) <= 2048
-            data.extend(chunk)
-            return completed(receipt(data))
         return completed()
 
+    monkeypatch.setattr(admin_staging, "stage_script", stage)
     monkeypatch.setattr(SshTestMachineTransport, "_run", run)
     control = object.__new__(WindowsTransport)
+    control.home, control._key_path, control._host, control._user, control._control_path = r"C:\Users\qa", "key", "host", "qa", None
     source = 'Write-Output "héllo"; ' * 1000
     control._run(source, input_text="private-input", timeout=17)
-    assert data.decode("utf-8-sig") == source
+    assert data[0].decode("utf-8-sig") == source
     assert calls[-2][1]["input_text"] == "private-input"
     assert calls[-2][0].startswith("& ")
     assert "Remove-Item" in calls[-1][0]

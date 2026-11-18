@@ -54,3 +54,17 @@ standard-user registration, launch or authentication.
 Agents finish setup and navigation; Ben types his own harness/GitHub passwords. Before goldens,
 prove real CLI requests and visible signed-in desktop apps; installs/versions
 alone do not prove readiness. Follow [native browser identities](windows-browser-identities.md).
+
+## Verified standard-user transfer
+
+Standard-user file uploads and large desktop/SSH scripts also use verified SFTP,
+including small files. Their unique staging directory lives directly beneath the
+resolved user profile, with protected grants only for that user, SYSTEM and
+Administrators. Profile ancestors, file ownership, length and SHA256 are checked
+before use. Each staging operation has a 90-second budget, followed by the
+caller's execution budget and thirty seconds for exact cleanup. An SSH timeout
+or exit 255 preserves staging because guest completion is uncertain; inspect
+`staging_diagnostics` before recovery. Desktop acquisition failures also retain
+`desktop_diagnostics` with the exact token, file hashes and cleanup outcome, and
+preserve the original failure if cleanup fails. This does not establish that
+optional framed stdin is reliable on the actual lab machine.

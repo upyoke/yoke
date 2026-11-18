@@ -10,7 +10,7 @@ from uuid import uuid4
 from yoke_contracts.owner_private_path import (
     create_owner_private_directory, is_owner_private_file, write_owner_private,
 )
-from yoke_harness.native_windows.transport import encoded, quote
+from yoke_harness.native_windows.powershell import encoded, quote
 
 
 PREPARE = r"""$ErrorActionPreference='Stop'
@@ -36,7 +36,7 @@ CHECK_DIRECTORY = r"""
 $dir=Get-Item -LiteralPath $root -Force -ErrorAction Stop
 $acl=Get-Acl -LiteralPath $root -ErrorAction Stop
 $rules=@($acl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier]))
-if(!$dir.PSIsContainer -or ($dir.Attributes -band [IO.FileAttributes]::ReparsePoint) -or !$acl.AreAccessRulesProtected -or $acl.GetOwner([Security.Principal.SecurityIdentifier]).Value -ne [Security.Principal.WindowsIdentity]::GetCurrent().User.Value -or $rules.Count -ne 2){throw 'Private staging directory changed; preserve'}
+if(!$dir.PSIsContainer -or ($dir.Attributes -band [IO.FileAttributes]::ReparsePoint) -or !$acl.AreAccessRulesProtected -or $acl.GetOwner([Security.Principal.SecurityIdentifier]).Value -ne [Security.Principal.WindowsIdentity]::GetCurrent().User.Value -or $rules.Count -ne 2){throw 'Stage directory changed'}
 foreach($r in $rules){
  if($r.IdentityReference.Value -notin @('S-1-5-18','S-1-5-32-544') -or $r.AccessControlType -ne 'Allow' -or $r.FileSystemRights -ne 'FullControl'){throw 'Private staging ACL changed; preserve'}
 }
@@ -45,19 +45,24 @@ foreach($r in $rules){
 CHECK_FILE_ACCESS = r"""
 $fileAcl=Get-Acl -LiteralPath $p -ErrorAction Stop
 $fileRules=@($fileAcl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier]))
-if(!$fileRules.Count){throw 'Staged file access unverified; preserve'}
+if(!$fileRules.Count){throw 'Stage ACL missing'}
 foreach($r in $fileRules){
- if($r.AccessControlType -ne 'Allow' -or $r.IdentityReference.Value -notin @([Security.Principal.WindowsIdentity]::GetCurrent().User.Value,'S-1-5-18','S-1-5-32-544')){throw 'Staged file access is not private; preserve'}
+ if($r.AccessControlType -ne 'Allow' -or $r.IdentityReference.Value -notin @([Security.Principal.WindowsIdentity]::GetCurrent().User.Value,'S-1-5-18','S-1-5-32-544')){throw 'Stage ACL changed'}
 }
 """
 
 
 def command(script):
-    return "powershell.exe -NoProfile -NonInteractive -EncodedCommand " + encoded(script)
+    value = "powershell.exe -NoProfile -NonInteractive -EncodedCommand " + encoded(script)
+    if len(value) >= 8000:
+        raise RuntimeError("windows_staging_command_too_long: shorten the resolved profile path before staging")
+    return value
 
 
-def stage_script(ssh, payload, root, diagnostics, *, deadline):
+def stage_script(ssh, payload, root, diagnostics, *, deadline, policy=None):
     """One staging deadline; no script or optional secret input is put in argv."""
+    policy = policy or {}
+    directory_check = policy.get("directory", CHECK_DIRECTORY)
     local = create_owner_private_directory(
         Path(tempfile.gettempdir()) / ("yoke-admin-" + uuid4().hex)
     )
@@ -97,8 +102,8 @@ def stage_script(ssh, payload, root, diagnostics, *, deadline):
         # SFTP batch quoting is not shell quoting. Refuse unsafe literal paths.
         if any(c in str(source) + target for c in '\r\n\0*?[]"'):
             raise RuntimeError("windows_admin_sftp_path_invalid")
-        prepare = PREPARE.replace("ROOT", quote(root)).replace(
-            "CHECK_DIRECTORY", CHECK_DIRECTORY,
+        prepare = policy.get("prepare", PREPARE).replace("ROOT", quote(root)).replace(
+            "CHECK_DIRECTORY", directory_check,
         )
         prepared = run("prepare", [*ssh, command(prepare)])
         if "YOKE_ADMIN_STAGE_OWNED" not in prepared.stdout.splitlines():
@@ -109,11 +114,11 @@ def stage_script(ssh, payload, root, diagnostics, *, deadline):
         digest = hashlib.sha256(payload).hexdigest()
         verify = (
             "$ErrorActionPreference='Stop';$root=" + quote(root) + ";"
-            + CHECK_DIRECTORY
+            + directory_check
             + "$p=Join-Path $root 'script.ps1';$f=Get-Item -LiteralPath $p -Force -ErrorAction Stop\n"
             + f"if($f.PSIsContainer -or ($f.Attributes -band [IO.FileAttributes]::ReparsePoint) -or $f.Length -ne {len(payload)} -or (Get-FileHash -LiteralPath $p -Algorithm SHA256 -ErrorAction Stop).Hash.ToLowerInvariant() -ne '{digest}'){{throw 'Staged script differs; preserve'}}\n"
-            + "if((Get-Acl -LiteralPath $p).GetOwner([Security.Principal.SecurityIdentifier]).Value -notin @([Security.Principal.WindowsIdentity]::GetCurrent().User.Value,'S-1-5-32-544')){throw 'Staged script owner differs; preserve'}\n"
-            + CHECK_FILE_ACCESS
+            + policy.get("owner", "if((Get-Acl -LiteralPath $p).GetOwner([Security.Principal.SecurityIdentifier]).Value -notin @([Security.Principal.WindowsIdentity]::GetCurrent().User.Value,'S-1-5-32-544')){throw 'Staged script owner differs; preserve'}\n")
+            + policy.get("file_access", CHECK_FILE_ACCESS)
             + "Write-Output 'YOKE_ADMIN_SCRIPT_VERIFIED'"
         )
         verified = run("verify", [*ssh, command(verify)])
@@ -135,30 +140,31 @@ def stage_script(ssh, payload, root, diagnostics, *, deadline):
             failure.local_cleanup_cause = exc
 
 
-def cleanup_script(root, *, owned, payload):
+def cleanup_script(root, *, owned, payload, policy=None):
     """Remove only the known script and an empty, verified owned directory."""
+    policy = policy or {}
     prefix = "$ErrorActionPreference='Stop';$root=" + quote(root) + ";\n"
     if not owned:
         return prefix + "if(Test-Path -LiteralPath $root){throw 'Staging ownership unverified; preserve'}"
     checks = (
-        f"if($f.Length -ne {len(payload)} -or (Get-FileHash -LiteralPath $p -Algorithm SHA256).Hash.ToLowerInvariant() -ne '{hashlib.sha256(payload).hexdigest()}'){{throw 'Staging bytes differ; preserve'}}\n"
-        + "if((Get-Acl -LiteralPath $p).GetOwner([Security.Principal.SecurityIdentifier]).Value -notin @([Security.Principal.WindowsIdentity]::GetCurrent().User.Value,'S-1-5-32-544')){throw 'Staging owner differs; preserve'}"
-        + CHECK_FILE_ACCESS
+        f"if($f.Length -ne {len(payload)} -or (Get-FileHash -LiteralPath $p -Algorithm SHA256).Hash.ToLowerInvariant() -ne '{hashlib.sha256(payload).hexdigest()}'){{throw 'Stage bytes changed'}}\n"
+        + policy.get("owner", "if((Get-Acl -LiteralPath $p).GetOwner([Security.Principal.SecurityIdentifier]).Value -notin @([Security.Principal.WindowsIdentity]::GetCurrent().User.Value,'S-1-5-32-544')){throw 'Stage owner changed'}")
+        + policy.get("file_access", CHECK_FILE_ACCESS)
     )
     return prefix + r"""
 if(Test-Path -LiteralPath $root){
 CHECK_DIRECTORY
- if(@(Get-CimInstance Win32_Process -ErrorAction Stop|Where-Object {$_.ProcessId -ne $PID -and ([string]$_.CommandLine).Contains($root)}).Count){throw 'Staging referenced by process; preserve'}
- if(@(Get-ChildItem -LiteralPath $root -Force -ErrorAction Stop|Where-Object Name -ne 'script.ps1').Count){throw 'Staging has unexpected files; preserve'}
+PROCESS_CHECK
+ if(@(Get-ChildItem -LiteralPath $root -Force -ErrorAction Stop|Where-Object Name -ne 'script.ps1').Count){throw 'Stage contents changed'}
  $p=Join-Path $root 'script.ps1'
  if(Test-Path -LiteralPath $p){
   $f=Get-Item -LiteralPath $p -Force -ErrorAction Stop
-  if($f.PSIsContainer -or ($f.Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'Staged file identity changed; preserve'}
+  if($f.PSIsContainer -or ($f.Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'Stage file changed'}
 CHECK_FILE
   Remove-Item -LiteralPath $p -Force -ErrorAction Stop
  }
- if(@(Get-ChildItem -LiteralPath $root -Force -ErrorAction Stop).Count){throw 'Staging has unexpected files; preserve'}
+ if(@(Get-ChildItem -LiteralPath $root -Force -ErrorAction Stop).Count){throw 'Stage contents changed'}
  Remove-Item -LiteralPath $root -Force -ErrorAction Stop
 }
-if(Test-Path -LiteralPath $root){throw 'Owned staging cleanup failed'}
-""".replace("CHECK_DIRECTORY", CHECK_DIRECTORY).replace("CHECK_FILE", checks)
+if(Test-Path -LiteralPath $root){throw 'Stage cleanup incomplete'}
+""".replace("CHECK_DIRECTORY", policy.get("directory", CHECK_DIRECTORY)).replace("CHECK_FILE", checks).replace("PROCESS_CHECK", policy.get("process", "if(@(Get-CimInstance Win32_Process -ErrorAction Stop|Where-Object {$_.ProcessId -ne $PID -and ([string]$_.CommandLine).Contains($root)}).Count){throw 'Staging referenced by process; preserve'}"))

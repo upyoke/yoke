@@ -48,8 +48,13 @@ $env:Path=[Environment]::GetEnvironmentVariable('Path','Machine')+';'+[Environme
     else:
         result = control._run(script, timeout=timeout)
     if result.returncode:
-        raise RuntimeError(
+        error = RuntimeError(
             "windows_harness_cli_failed: repair the native vendor installer and PATH, then retry; "
             + result.stderr[-600:]
         )
+        error.primary_result = result
+        for name in ("desktop_diagnostics", "staging_diagnostics"):
+            if hasattr(result, name):
+                setattr(error, name, getattr(result, name))
+        raise error
     return json.loads(result.stdout.strip().splitlines()[-1])

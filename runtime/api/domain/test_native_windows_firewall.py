@@ -178,6 +178,9 @@ def test_complete_guest_provisioning_and_real_ssh_rdp_forward(monkeypatch, tmp_p
         assert transport.windows_facts["user"].split("\\")[-1].lower() == name
         assert transport.windows_facts["build"].isdigit()
         assert transport.home.lower().endswith("\\" + name)
+        from runtime.api.domain.test_native_windows_standard_staging import verify_real_standard_sftp
+
+        verify_real_standard_sftp(transport)
         verify_standard_task_operations(
             {"os": "windows", "host": "127.0.0.1", "user": name}, key, custody["password"],
         )
