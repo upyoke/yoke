@@ -53,14 +53,17 @@ def mapped_checkouts(payload: Mapping[str, Any]) -> list[tuple[str, int]]:
     ]
 
 
-def project_connection(payload: Mapping[str, Any]) -> str:
-    """Use the existing admin/HTTPS pairing as one universe's mapping key."""
+def project_connection(payload: Mapping[str, Any], env: str | None = None) -> str:
+    """Use the existing admin/HTTPS pairing as one universe's mapping key.
+
+    *env* names the connection to key; omitted, the selected connection.
+    """
     from yoke_contracts.machine_config.schema_connections import (
         selected_env,
         same_universe_https_env,
     )
 
-    env = selected_env(payload)
+    env = env or selected_env(payload)
     return same_universe_https_env(payload, env) or env
 
 
@@ -77,12 +80,17 @@ def connection_project_maps(payload: Mapping[str, Any]) -> Mapping[str, Any]:
     return groups
 
 
-def projects_for_connection(payload: Mapping[str, Any]) -> list[dict[str, Any]]:
-    """Filter before interpreting a universe-local numeric project id."""
+def projects_for_connection(
+    payload: Mapping[str, Any], env: str | None = None
+) -> list[dict[str, Any]]:
+    """Filter before interpreting a universe-local numeric project id.
+
+    *env* names the connection; omitted, the selected connection.
+    """
     groups = connection_project_maps(payload)
     if not groups:
         return []
-    return normalize_projects(groups.get(project_connection(payload)))
+    return normalize_projects(groups.get(project_connection(payload, env)))
 
 
 def normalize_projects(projects: Any) -> list[dict[str, Any]]:

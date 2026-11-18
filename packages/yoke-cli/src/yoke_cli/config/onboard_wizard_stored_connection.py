@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from yoke_cli.config import machine_config
-from yoke_cli.config import onboard_wizard_apply_facts as apply_facts
 from yoke_cli.config import onboard_wizard_stored_github
 from yoke_contracts.onboard_destinations import (
     DEFAULT_SIGN_IN_ENV,
@@ -19,7 +18,6 @@ class _Shell(Protocol):  # pragma: no cover - structural typing only
     result: Any
     _stored_yoke_token_available: bool
     _stored_machine_github_api_url: str | None
-    _stored_project_checkouts: list[machine_config.ConfiguredProject]
 
 
 def _stored_connection(config_path: Any, env_name: str | None) -> Any:
@@ -47,13 +45,12 @@ class StoredConnectionHydration:
 
         The wizard still verifies every secret before using it. This only saves
         the operator from re-entering file paths already recorded in the machine
-        config. Project checkouts are also only preloaded here; the Project step
-        verifies the stored project id with the API before reusing one.
+        config. Saved project checkouts are not preloaded: they belong to one
+        connection, so the Project step reads them for the connection chosen.
         """
 
         self._hydrate_stored_yoke_connection(defaults)
         self._hydrate_stored_github_connection()
-        self._hydrate_stored_project_checkouts()
 
     def _hydrate_stored_yoke_connection(self: _Shell, defaults: WizardDefaults) -> None:
         if defaults.token:
@@ -94,18 +91,6 @@ class StoredConnectionHydration:
             return
         self.result.machine_github_saved = True
         self._stored_machine_github_api_url = api_url
-
-    def _hydrate_stored_project_checkouts(self: _Shell) -> None:
-        try:
-            self._stored_project_checkouts = apply_facts.without_own_registration(
-                self,
-                machine_config.configured_projects(
-                    self.result.config_path,
-                    existing_only=True,
-                ),
-            )
-        except (OSError, RuntimeError, ValueError):
-            self._stored_project_checkouts = []
 
 
 __all__ = ["StoredConnectionHydration"]

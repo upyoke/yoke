@@ -80,7 +80,7 @@ class WizardFlow(
             self._preserve_project_fields_once = True
             self._on_project_mode(self.result.project_mode)
             return
-        if self._stored_project_checkouts and not self._stored_project_attempted:
+        if not self._stored_project_attempted and self._load_stored_project_checkouts():
             self._stored_project_attempted = True
             self._goto_stored_project_picker()
             return

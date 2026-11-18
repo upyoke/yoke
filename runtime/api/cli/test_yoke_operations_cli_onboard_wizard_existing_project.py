@@ -112,9 +112,11 @@ def test_stored_checkout_project_id_shows_confirmation_picker(
     config.write_text(
         json.dumps(
             {
-                "active_env": "local",
+                # Saved under the connection this run picks: setup offers
+                # only that connection's checkouts.
+                "active_env": "prod",
                 "connection_projects": {
-                    "local": [{"checkout": str(checkout), "project_id": 37}]
+                    "prod": [{"checkout": str(checkout), "project_id": 37}]
                 },
             }
         ),

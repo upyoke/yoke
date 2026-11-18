@@ -53,7 +53,7 @@ class PathFlow:
         else:
             if (
                 not self._project_mode_preset
-                and not self._stored_project_checkouts
+                and not self._machine_has_stored_checkouts()
                 and not getattr(self, "_restored_projects", None)
             ):
                 self._goto_project_mode(on_selected=self._remember_project_mode)

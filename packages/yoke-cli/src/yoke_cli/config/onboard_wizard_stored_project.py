@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, Protocol
 
 from yoke_cli.config import machine_config
 from yoke_cli.config import onboard_project
+from yoke_cli.config import onboard_wizard_apply_facts as apply_facts
 from yoke_cli.config import onboard_wizard_steps as steps
 from yoke_cli.config.onboard_wizard_widgets import STEP_PROJECT
 from yoke_cli.config.setup_prompt import SelectionRow
@@ -38,6 +39,36 @@ class _Shell(Protocol):  # pragma: no cover - structural typing only
 
 class StoredProjectFlow:
     """Offer, validate, and route a saved project checkout mapping."""
+
+    def _load_stored_project_checkouts(self: _Shell) -> bool:
+        """Read the checkouts saved for the connection this run has chosen.
+
+        Mappings are keyed per connection, and a project id means nothing on
+        another universe, so a connection with no group offers none.
+        """
+        try:
+            projects = machine_config.configured_projects(
+                self.result.config_path,
+                existing_only=True,
+                env=self.result.env_name,
+            )
+        except (OSError, RuntimeError, ValueError):
+            projects = []
+        self._stored_project_checkouts = apply_facts.without_own_registration(
+            self, projects
+        )
+        return bool(self._stored_project_checkouts)
+
+    def _machine_has_stored_checkouts(self: _Shell) -> bool:
+        """Whether any connection on this machine maps a saved checkout."""
+        try:
+            return bool(
+                machine_config.all_registered_checkouts(
+                    self.result.config_path, existing_only=True
+                )
+            )
+        except (OSError, RuntimeError, ValueError):
+            return False
 
     def _goto_stored_project_picker(self: _Shell) -> None:
         rows: list[SelectionRow] = []

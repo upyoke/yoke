@@ -122,15 +122,17 @@ def configured_projects(
     path: str | Path | None = None,
     *,
     existing_only: bool = False,
+    env: str | None = None,
 ) -> list[ConfiguredProject]:
     """Return project checkout mappings recorded in machine config.
 
-    Every project has one checkout per connection.
+    Every project has one checkout per connection. *env* names the
+    connection; omitted, the selected connection.
     """
 
     payload = load_config(path)
     out: list[ConfiguredProject] = []
-    for entry in contract.projects_for_connection(payload):
+    for entry in contract.projects_for_connection(payload, env):
         project_id = entry["project_id"]
         if project_id is None:
             continue
