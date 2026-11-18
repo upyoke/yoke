@@ -11,6 +11,20 @@ from yoke_harness.native_windows.transport import quote
 
 pytestmark = pytest.mark.windows
 
+CONSOLELESS_PRODUCER = r"""
+using System;
+using System.IO;
+using System.Threading;
+using System.Runtime.InteropServices;
+public static class ConsolelessProducer {
+ [DllImport("kernel32.dll")] static extern IntPtr GetConsoleWindow();
+ [STAThread] public static void Main(string[] args) {
+  File.WriteAllText(args[0],GetConsoleWindow().ToInt64().ToString());
+  Thread.Sleep(30000);
+ }
+}
+"""
+
 
 @pytest.mark.windows_only(reason="requires Windows console APIs")
 @pytest.mark.parametrize("has_console", [True, False])
@@ -23,11 +37,14 @@ def test_redirected_reader_uses_real_buffer_or_retains_native_failure(tmp_path, 
         encoding="utf-8-sig",
     )
     arguments = '-NoLogo -NoProfile -NonInteractive -File "' + str(producer) + '"'
+    executable = tmp_path / "consoleless-producer.exe"
     start = (
         "$child=Start-Process powershell.exe -ArgumentList " + quote(arguments) + " -WindowStyle Hidden -PassThru"
         if has_console else
-        "$info=[Diagnostics.ProcessStartInfo]::new();$info.FileName='powershell.exe';"
-        "$info.Arguments=" + quote(arguments) + ";$info.UseShellExecute=$false;"
+        "Add-Type -TypeDefinition " + quote(CONSOLELESS_PRODUCER)
+        + " -OutputType WindowsApplication -OutputAssembly " + quote(str(executable)) + ";"
+        "$info=[Diagnostics.ProcessStartInfo]::new();$info.FileName=" + quote(str(executable)) + ";"
+        "$info.Arguments=" + quote('"' + str(ready) + '"') + ";$info.UseShellExecute=$false;"
         "$info.CreateNoWindow=$true;$info.RedirectStandardOutput=$true;$info.RedirectStandardError=$true;"
         "$child=[Diagnostics.Process]::Start($info)"
     )
@@ -49,12 +66,17 @@ def test_redirected_reader_uses_real_buffer_or_retains_native_failure(tmp_path, 
   Write-Output 'NATIVE_FAILURE_CONTEXT_PROVED'
  }
 """
+    precondition = (
+        "if([IO.File]::ReadAllText(" + quote(str(ready)) + ") -cne '0'){throw 'fixture target has a console'};"
+        "$child.Refresh();if($child.HasExited){throw 'fixture target already exited'}\n"
+        if not has_console else ""
+    )
     script = (
         "$ErrorActionPreference='Stop'\nAdd-Type -TypeDefinition " + quote(SCREEN_READER)
         + "\n" + start + "\ntry {\n"
         + "$deadline=[datetime]::UtcNow.AddSeconds(15);while(!(Test-Path -LiteralPath "
         + quote(str(ready)) + ")){if([datetime]::UtcNow -ge $deadline){throw 'producer not ready'};Start-Sleep -Milliseconds 100}\n"
-        + check
+        + precondition + check
         + "\n} finally {if(!$child.HasExited){Stop-Process -Id $child.Id -Force};$child.Dispose()}"
     )
     reader = tmp_path / "reader.ps1"
