@@ -89,9 +89,12 @@ whichever connection is active, so projects from different universes that share
 a project number uninstall independently; a checkout registered on two
 connections is preserved as `checkout_shared_with_other_connection`. Each
 reason is reported once, however many harnesses it covers.
-The removal commit records only files Git already tracked; ignored local views,
-including the install manifest, never enter history. Strategy documents stay on
-disk, untracked.
+Each run lands one removal commit, recording only files Git already tracked;
+ignored local views, including the install manifest, never enter history. A
+complete cleanup deletes the generated `.yoke/BOARD.md*` views and names every
+`.yoke` path it leaves untracked: strategy documents stay on disk under
+`project_uninstall_strategy_views_kept`, anything else under
+`project_uninstall_local_files_kept`.
 A partial cleanup exits nonzero and keeps its manifest and `.yoke/.gitignore`,
 so the checkout stays clean: resolve the named ownership or sharing issue, then
 rerun the same command. Credentials, other
