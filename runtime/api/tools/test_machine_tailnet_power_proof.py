@@ -44,10 +44,13 @@ def main():
     before = record()
     settings = before["settings"]
     host = settings["host"]
-    if not host.endswith(".ts.net") or before.get("active_lease"):
+    if not host.endswith(".ts.net"):
         raise RuntimeError(
-            "tailnet_power_precondition: register MagicDNS and wait for the active host lease before rerunning"
+            "tailnet_power_precondition: register the MagicDNS name before rerunning"
         )
+    # The case declares its host, so the plan runner holds this session's lease
+    # for the whole run; exec and verify borrow it and must leave it as found.
+    lease_id = (before.get("active_lease") or {}).get("id")
     provider = settings.get("cloud_provider", "aws")
     instance = settings["cloud_instance_id"]
 
@@ -111,11 +114,15 @@ def main():
             "inspect the exec and verify output"
         )
     after = record()
-    if after["settings"]["host"] != host or after.get("active_lease"):
+    if (
+        after["settings"]["host"] != host
+        or (after.get("active_lease") or {}).get("id") != lease_id
+    ):
         raise RuntimeError(
-            "tailnet_power_failed: host changed or QA_HOST remains; inspect the execution receipt before recovery"
+            "tailnet_power_failed: host changed or exec/verify left a different "
+            "host lease; inspect the execution receipt before recovery"
         )
-    print(f"PASS {name}: host unchanged ({host}), running, no QA_HOST")
+    print(f"PASS {name}: host unchanged ({host}), running, host lease unchanged")
 
 
 if __name__ == "__main__":
