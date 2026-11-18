@@ -1,6 +1,10 @@
 """Light probe landing facts and due-only full report composition."""
 
 from datetime import datetime, timedelta, timezone
+
+from yoke_contracts.project_contract.project_keys import (
+    DEFAULT_STEERING_REPORT_INTERVAL_MINUTES as INTERVAL,
+)
 import io
 from types import SimpleNamespace
 
@@ -90,7 +94,7 @@ def test_full_report_is_read_only_when_due_even_with_idle_holder():
 
     state = ReportState()
     stream = io.StringIO()
-    for minute in (0, 1, 2):
+    for minute in (0, 1, INTERVAL):
         append_steering_reports(
             ["project"],
             observed_at=NOW + timedelta(minutes=minute),
@@ -99,7 +103,7 @@ def test_full_report_is_read_only_when_due_even_with_idle_holder():
             state=state,
             snapshot=snapshot,
         )
-        assert calls.count(STEERING_REPORT_FUNCTION) == (1 if minute < 2 else 2)
+        assert calls.count(STEERING_REPORT_FUNCTION) == (1 if minute < INTERVAL else 2)
     assert stream.getvalue() == "report\n"
 
 

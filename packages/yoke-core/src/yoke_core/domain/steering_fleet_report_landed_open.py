@@ -44,7 +44,7 @@ from yoke_core.domain.delivery_landing_custody import (
 )
 from yoke_core.domain.deployment_run_member_targeting import run_environment_name
 from yoke_core.domain.deployment_run_other_target_members import (
-    owed_on_other_targets,
+    owed_requirements_many,
 )
 from yoke_core.domain.item_ref_render import render_item_refs
 from yoke_core.domain.runs import RunStatus
@@ -196,6 +196,20 @@ def landed_without_closeout(
     )
     pinned = read_pinned_items(conn, (int(record["id"]) for record in records))
     delivery_facts = load_delivery_facts_for_items(conn, item_ids)
+    # Where each succeeded custody run delivered, and what its items still owe
+    # elsewhere, read once for every delivered landing rather than per row.
+    delivered = {
+        item_id: held.run_id
+        for item_id, held in custody.items()
+        if held.state == HELD and held.run_status == RunStatus.SUCCEEDED.value
+    }
+    environments = {
+        run_id: run_environment_name(conn, run_id) or ""
+        for run_id in set(delivered.values())
+    }
+    owed_by_item = owed_requirements_many(
+        conn, [item_id for item_id, run_id in delivered.items() if environments[run_id]]
+    )
     landed = []
     for record in records:
         stamp = landed_at(record)
@@ -204,11 +218,11 @@ def landed_without_closeout(
         item_id = int(record["id"])
         held = custody[item_id]
         holder = held_by.get(item_id)
-        delivered_to = ""
-        if held.state == HELD and held.run_status == RunStatus.SUCCEEDED.value:
-            delivered_to = run_environment_name(conn, held.run_id) or ""
-        owed = (
-            owed_on_other_targets(conn, item_id, delivered_to) if delivered_to else ()
+        delivered_to = environments.get(delivered.get(item_id, ""), "")
+        owed = tuple(
+            entry
+            for entry in owed_by_item.get(item_id, ())
+            if entry.target != delivered_to
         )
         landed.append(
             LandedItem(

@@ -106,7 +106,7 @@ def visible_questions(
     that left ``pending`` passes the same rule, so its outcome reaches the
     seat that covers it now.
     """
-    from yoke_core.domain.audiences import includes_actor
+    from yoke_core.domain.audiences import audiences_for_actor
     from yoke_core.domain.project_identity import resolve_project_slug
 
     records = [dict(row) for row in rows]
@@ -134,6 +134,14 @@ def visible_questions(
         and DOCUMENT_KEY not in claim["scope"]
     }
     visible: dict[int, str] = {}
+    # The viewer's audiences, read once: org-level questions used to ask
+    # membership one question at a time, through the same predicate.
+    viewer_audiences = (
+        frozenset(audiences_for_actor(conn, viewer_actor_id))
+        if viewer_actor_id is not None
+        and any(row["project_id"] is None for row in records)
+        else frozenset()
+    )
     for row in records:
         request_id = int(row["id"])
         asker = str(row["requesting_session_id"] or "")
@@ -143,9 +151,7 @@ def visible_questions(
         if asker in hand:
             continue
         if row["project_id"] is None:
-            if viewer_actor_id is not None and includes_actor(
-                conn, row["audience_id"], viewer_actor_id
-            ):
+            if viewer_actor_id is not None and row["audience_id"] in viewer_audiences:
                 visible[request_id] = ""
             continue
         item = work[request_id]

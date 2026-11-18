@@ -5,6 +5,10 @@ from runtime.api.domain.fleet_delta_reports_test_support import NOW as NOW
 
 import io
 from datetime import timedelta
+
+from yoke_contracts.project_contract.project_keys import (
+    DEFAULT_STEERING_REPORT_INTERVAL_MINUTES as INTERVAL,
+)
 from types import SimpleNamespace
 
 from yoke_core.domain.fleet_delta_reports import ReportState, append_steering_reports
@@ -54,7 +58,7 @@ def test_disappearance_is_inside_the_next_report_once_without_extra_reads():
         )
         return SimpleNamespace(success=True, result=result)
 
-    for minutes in (0, 1, 2):
+    for minutes in (0, 1, INTERVAL):
         append_steering_reports(
             ["project"],
             observed_at=NOW + timedelta(minutes=minutes),
@@ -70,7 +74,7 @@ def test_disappearance_is_inside_the_next_report_once_without_extra_reads():
     # An unchanged follow-up does not wake or repeat the removal.
     append_steering_reports(
         ["project"],
-        observed_at=NOW + timedelta(minutes=4),
+        observed_at=NOW + timedelta(minutes=2 * INTERVAL),
         stream=output,
         call=lambda *_: SimpleNamespace(success=True, result={"settings_json": "{}"}),
         state=state,
@@ -108,7 +112,7 @@ def test_unreadable_report_preserves_previously_displayed_rows():
     old_rows = dict(state.rows)
     append_steering_reports(
         ["project"],
-        observed_at=NOW + timedelta(minutes=2),
+        observed_at=NOW + timedelta(minutes=INTERVAL),
         stream=output,
         call=policy,
         state=state,
@@ -122,7 +126,7 @@ def test_unreadable_report_preserves_previously_displayed_rows():
     }
     append_steering_reports(
         ["project"],
-        observed_at=NOW + timedelta(minutes=3),
+        observed_at=NOW + timedelta(minutes=2 * INTERVAL),
         stream=output,
         call=policy,
         state=state,

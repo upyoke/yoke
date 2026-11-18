@@ -58,20 +58,32 @@ class OwedRequirement:
 
 def owed_requirements(conn: Any, item_id: int) -> tuple[OwedRequirement, ...]:
     """The item's open done blockers, each with its declared target."""
-    blockers = unsatisfied_blocking(conn, item_id=int(item_id), target_status="done")
-    return tuple(
-        OwedRequirement(
-            requirement_id=int(row["id"]) if row.get("id") is not None else None,
-            phase=str(row.get("qa_phase") or "undeclared"),
-            target=requirement_target_environment(
-                row.get("target_env"), row.get("execution_target_json")
+    return owed_requirements_many(conn, (int(item_id),))[int(item_id)]
+
+
+def owed_requirements_many(
+    conn: Any, item_ids
+) -> dict[int, tuple[OwedRequirement, ...]]:
+    """:func:`owed_requirements` for a set of items in one requirement scan."""
+    from yoke_core.domain.qa_item_obligation_queries import unsatisfied_blocking_many
+
+    blockers = unsatisfied_blocking_many(conn, item_ids=item_ids, target_status="done")
+    return {
+        item_id: tuple(
+            OwedRequirement(
+                requirement_id=int(row["id"]) if row.get("id") is not None else None,
+                phase=str(row.get("qa_phase") or "undeclared"),
+                target=requirement_target_environment(
+                    row.get("target_env"), row.get("execution_target_json")
+                )
+                or "",
+                plan_slug=str(row.get("plan_slug") or ""),
+                recovery=str(row.get("recovery") or ""),
             )
-            or "",
-            plan_slug=str(row.get("plan_slug") or ""),
-            recovery=str(row.get("recovery") or ""),
+            for row in found.rows
         )
-        for row in blockers.rows
-    )
+        for item_id, found in blockers.items()
+    }
 
 
 def owes_on_target(conn: Any, item_id: int, environment: str) -> bool:

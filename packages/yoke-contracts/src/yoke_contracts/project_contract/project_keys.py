@@ -72,7 +72,7 @@ RECOGNIZED_PROJECT_KEYS: Dict[str, SettingSpec] = {
         minimum=0,
     ),
     "steering_report_interval_minutes": SettingSpec(
-        2,
+        5,
         int,
         "shortest gap between fleet reports appended to one steering "
         "session's messages",

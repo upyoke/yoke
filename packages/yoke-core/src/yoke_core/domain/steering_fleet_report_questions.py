@@ -99,8 +99,8 @@ def question_states(
 def read_questions(conn, viewer_session_id, previous_ids=()):
     from yoke_core.domain.decision_request_rows import request_rows
     from yoke_core.domain.decision_request_operator_answer_delivery import answer_text
-    from yoke_core.domain.actor_render import actor_display_labels
-    from yoke_core.domain.project_identity import render_item_ref
+    from yoke_core.domain.actor_render import actor_labels_each
+    from yoke_core.domain.item_ref_render import render_item_ref_lookup
 
     p = "%s" if db_backend.connection_is_postgres(conn) else "?"
     seen = _visible(
@@ -108,30 +108,47 @@ def read_questions(conn, viewer_session_id, previous_ids=()):
     )
     ids = {request_id: state for request_id, (state, _) in seen.items()}
     rows = request_rows(conn, ids)
-    result = []
+    shown = []
     for request_id in ids:
         row = rows[int(request_id)]
+        reason = row["subject_context"].get("answer_delivery", {}).get("reason", "")
+        if ids[request_id] != "pending" and not reason and request_id not in previous_ids:
+            continue
+        shown.append((request_id, row, reason))
+    # Sessions, people and item refs are read once for every shown question;
+    # per question they were three reads each.
+    session_ids = tuple(dict.fromkeys(row["requesting_session_id"] for _, row, _ in shown))
+    sessions = {
+        str(found[0]): (found[1], found[2])
+        for found in (
+            conn.execute(
+                "SELECT session_id, actor_id, executor FROM harness_sessions "
+                f"WHERE session_id IN ({','.join(p for _ in session_ids)})",
+                session_ids,
+            ).fetchall()
+            if session_ids
+            else ()
+        )
+    }
+    names = actor_labels_each(
+        conn, [actor for actor, _ in sessions.values() if actor is not None]
+    )
+    refs = render_item_ref_lookup(
+        conn,
+        [row["subject_context"]["item_id"] for _, row, _ in shown
+         if row["subject_context"].get("item_id")],
+    )
+    result = []
+    for request_id, row, reason in shown:
         context = row["subject_context"]
         status = ids[request_id]
-        reason = context.get("answer_delivery", {}).get("reason", "")
-        if status != "pending" and not reason and request_id not in previous_ids:
-            continue
         session_id = row["requesting_session_id"]
-        session = conn.execute(
-            f"SELECT actor_id, executor FROM harness_sessions WHERE session_id={p}",
-            (session_id,),
-        ).fetchone()
+        session = sessions.get(str(session_id))
         label = "ended session"
         if session:
-            name = actor_display_labels(conn, [session[0]]).get(
-                session[0], "person unavailable"
-            )
+            name = names.get(session[0], "person unavailable")
             label = f"{name} · {session[1]}"
-        item = (
-            render_item_ref(conn, context["item_id"])
-            if context.get("item_id")
-            else "no item"
-        )
+        item = refs(context["item_id"]) if context.get("item_id") else "no item"
         result.append(
             OperatorQuestion(
                 int(request_id),

@@ -202,6 +202,10 @@ class HandlerOutcome:
     error: Optional[FunctionError] = None
     side_effects_to_run: List[str] = field(default_factory=list)
     handler_event_ids: List[int] = field(default_factory=list)
+    #: Small handler-named facts copied into the call's telemetry event under
+    #: ``handler``, e.g. which reply path a read took. Telemetry only: nothing
+    #: may depend on it, and it never carries result data.
+    telemetry: Dict[str, str] = field(default_factory=dict)
 
 
 __all__ = [

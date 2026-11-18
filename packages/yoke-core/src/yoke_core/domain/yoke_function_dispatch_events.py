@@ -169,6 +169,8 @@ def emit_called(
         "intent": request.intent,
         "duration_ms": duration_ms,
     }
+    if outcome.telemetry:
+        context["handler"] = dict(outcome.telemetry)
     if identity_context:
         context.update(identity_context)
     context.update(error_event_context(response.error))
