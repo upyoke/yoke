@@ -10,7 +10,9 @@ from yoke_cli.main import main as cli_main
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionCallResponse,
+    FunctionError,
 )
+from yoke_core.domain.deployment_run_member_exists import MEMBER_EXISTS_CODE
 
 
 CAPTURED: list[FunctionCallRequest] = []
@@ -33,13 +35,13 @@ def _dispatch(request: FunctionCallRequest) -> FunctionCallResponse:
     )
 
 
-def _run(*argv: str) -> tuple[int, str, str]:
+def _run(*argv: str, dispatch=_dispatch) -> tuple[int, str, str]:
     CAPTURED.clear()
     with (
         patch.dict("os.environ", {"YOKE_SESSION_ID": "test-session"}),
         patch(
             "yoke_core.domain.yoke_function_dispatch.dispatch",
-            side_effect=_dispatch,
+            side_effect=dispatch,
         ),
         patch("yoke_cli.commands._helpers.ensure_handlers_loaded"),
     ):
@@ -68,6 +70,34 @@ def test_add_item_routes_public_ref_for_server_side_resolution() -> None:
     assert request.target.public_ref == "YOK-3048"
     assert request.target.item_id is None
     assert request.payload == {"run_id": "run-20260909-001"}
+
+
+def test_add_item_on_an_enrolled_member_prints_the_named_refusal() -> None:
+    message = (
+        "YOK-3048 is already a member of deployment run run-20260909-001 "
+        "(delivery_intent: final; selection: derived from the item's "
+        "outstanding post-deploy obligations); nothing was written. Read the "
+        "membership with `yoke deployment-runs get run-20260909-001`."
+    )
+
+    def refuse(request: FunctionCallRequest) -> FunctionCallResponse:
+        CAPTURED.append(request)
+        return FunctionCallResponse(
+            success=False,
+            function=request.function,
+            version=request.version,
+            request_id=request.request_id,
+            error=FunctionError(code=MEMBER_EXISTS_CODE, message=message),
+        )
+
+    rc, out, err = _run(
+        "deployment-runs", "add-item", "run-20260909-001", "YOK-3048", dispatch=refuse
+    )
+
+    assert rc != 0
+    assert out == ""
+    assert MEMBER_EXISTS_CODE in err
+    assert message in err
 
 
 def test_add_item_refuses_bare_item_ref_even_with_project() -> None:

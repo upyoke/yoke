@@ -88,10 +88,23 @@ def handle_deployment_run_add_item(
             "requirement_ids must not contain duplicates",
             jsonpath="$.payload.requirement_ids",
         )
+    from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.deployment_run_member_exists import (
+        MemberAlreadyEnrolled,
+        refuse_existing_member,
+    )
+    from yoke_core.domain.deployment_runs_crud_mutate import cmd_add_item
+
+    # Answered before the driver gate: attaching an enrolled member writes
+    # nothing, so whoever drives the run, the caller's answer is the member.
+    # cmd_add_item repeats the read under the item-binding lock for races.
+    try:
+        with connect() as conn:
+            refuse_existing_member(conn, resolved_run_id, int(request.target.item_id))
+    except MemberAlreadyEnrolled as exc:
+        return error(exc.code, str(exc))
     if refusal := require_run_driver(request, resolved_run_id):
         return refusal
-
-    from yoke_core.domain.deployment_runs_crud_mutate import cmd_add_item
 
     try:
         kwargs = (
@@ -100,6 +113,8 @@ def handle_deployment_run_add_item(
         if requirement_ids:
             kwargs["requirement_ids"] = requirement_ids
         message = cmd_add_item(resolved_run_id, int(request.target.item_id), **kwargs)
+    except MemberAlreadyEnrolled as exc:
+        return error(exc.code, str(exc))
     except LookupError as exc:
         return error("not_found", str(exc))
     except ValueError as exc:
