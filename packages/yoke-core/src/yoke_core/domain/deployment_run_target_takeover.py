@@ -114,10 +114,19 @@ def take_over_waiting_run(
     """
     from yoke_core.domain.deployment_run_qa_transfer import qa_ownership_write
 
+    from yoke_core.domain.deployment_run_bound_project_takeover import (
+        supersede_stale_bound_project_runs,
+    )
+
     with qa_ownership_write(conn):
-        return _take_over(
+        taken = _take_over(
             conn, new_run_id, session_id=session_id, actor_id=actor_id, apply=apply
         )
+        # A bound project's never-started run this release ships past.
+        supersede_stale_bound_project_runs(
+            conn, new_run_id, session_id=session_id, actor_id=actor_id, apply=apply
+        )
+        return taken
 
 
 def _take_over(conn, new_run_id, *, session_id, actor_id, apply):
@@ -158,7 +167,16 @@ def _take_over(conn, new_run_id, *, session_id, actor_id, apply):
     return old_id
 
 
-def _supersede(conn, new_run, old, session_id, actor_id, apply) -> bool:
+def _supersede(
+    conn,
+    new_run,
+    old,
+    session_id,
+    actor_id,
+    apply,
+    *,
+    basis: str = "whose candidate contains this run's",
+) -> bool:
     """Move *old*'s unfinished members and QA onto *new_run*, then end it."""
     from yoke_core.domain.deployment_run_qa_transfer import transfer_qa_on
     from yoke_core.domain.deployment_run_membership_removals import (
@@ -194,10 +212,7 @@ def _supersede(conn, new_run, old, session_id, actor_id, apply) -> bool:
         read = current_takeover_read(conn, read, new_run, old)
     require_contained(conn, new_run, old, moving, read.verdict)
 
-    reason = (
-        f"taken over by run {new_run_id}, whose candidate contains this run's; "
-        "the member's QA continues there"
-    )
+    reason = f"taken over by run {new_run_id}, {basis}; the member's QA continues there"
     ids = [int(member["item_id"]) for member in moving]
     from yoke_core.domain.workflow_delivery_binding_validation import (
         validate_deployment_run_members,
@@ -259,7 +274,7 @@ def _supersede(conn, new_run, old, session_id, actor_id, apply) -> bool:
             conn,
             old_id,
             disposition="cancelled",
-            reason=f"superseded by run {new_run_id}; QA ownership transferred",
+            reason=f"superseded by run {new_run_id}, {basis}; QA ownership transferred",
             actor_id=actor_id,
             session_id=str(session_id or ""),
         )

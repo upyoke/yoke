@@ -67,8 +67,28 @@ def _prepare(conn, run_id):
     # The pin is forward-only. Commit it before any further provider work so
     # another request never waits behind a network call on this run's row.
     conn.commit()
+    _supersede_stale_bound_project_runs(conn, run_id)
     carried_work_for_enrollment(conn, run_id)
     candidate_custody(conn, run_id)
+
+
+def _supersede_stale_bound_project_runs(conn, run_id):
+    """Start re-pins bound sources, so it may now ship past a stale run.
+
+    Acts as the session that created this run, which creation authorised.
+    """
+    from yoke_core.domain.deployment_run_bound_project_takeover import (
+        supersede_stale_bound_project_runs,
+    )
+    from yoke_core.domain.deployment_run_qa_transfer import qa_ownership_write
+    from yoke_core.domain.deployment_run_takeover_authority import _creator_session
+
+    with qa_ownership_write(conn):
+        superseded = supersede_stale_bound_project_runs(
+            conn, run_id, session_id=_creator_session(conn, run_id) or None
+        )
+    if superseded:
+        conn.commit()
 
 
 _SOURCE_PREPARATIONS = 8
