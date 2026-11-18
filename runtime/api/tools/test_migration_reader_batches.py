@@ -12,7 +12,7 @@ from runtime.api.domain.session_launch_test_support import (
     launch_connection,
 )
 from yoke_contracts.items_projection import DEFAULT_GET_FIELDS, ADDITIONAL_VIRTUAL_FIELDS
-from yoke_core.domain import db_backend, items_queries, sessions_list_read
+from yoke_core.domain import db_backend, db_helpers, items_queries, sessions_list_read
 from yoke_core.domain.session_launch_store import get_launch, launch_read_batch
 from yoke_core.domain.session_launch_projection import public_launch_record
 from yoke_core.domain.session_message_attempt_reads import (
@@ -77,7 +77,7 @@ def test_item_batch_keeps_every_default_field_and_discards_on_exit(
                 raise AssertionError("a cached field opened a connection")
 
             with monkeypatch.context() as patch:
-                patch.setattr(items_queries, "connect", unreachable)
+                patch.setattr(db_helpers, "connect", unreachable)
                 assert {
                     (key, field): items_queries.query_item(key, field)
                     for key in (801, 802)

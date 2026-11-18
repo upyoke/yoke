@@ -18,10 +18,19 @@ import time
 DEFAULT_RDP_PORT = 3389
 SESSION_CONTENT = "exec startxfce4\n"
 TERMINAL_SELECTION = "TerminalEmulator=xfce4-terminal"
+BROWSER_SELECTION = "WebBrowser=yoke-identity-browser"
+HELPER_PACKAGES = ("xfce4-helpers", "xdg-utils", "libgtk-3-bin")
 # Web links open in the operator identity's signed-in browser through `yoke
 # browser open`, the test machine's only login store. The entry is in the home
 # golden, so resets keep it; a clean baseline without Yoke has no launcher yet.
 LAUNCHER_DESKTOP_ENTRY = "yoke-identity-browser.desktop"
+BROWSER_HELPER_PATH = Path(".local/share/xfce4/helpers") / LAUNCHER_DESKTOP_ENTRY
+BROWSER_HELPER = (
+    "[Desktop Entry]\nType=X-XFCE-Helper\nName=Yoke identity browser\n"
+    "X-XFCE-Category=WebBrowser\n"
+    f"X-XFCE-Commands=gtk-launch -- {LAUNCHER_DESKTOP_ENTRY} about:blank;\n"
+    f'X-XFCE-CommandsWithParameter=gtk-launch -- {LAUNCHER_DESKTOP_ENTRY} "%s";\n'
+)
 DEFAULTS_SECTION = "[Default Applications]"
 BROWSER_TYPES = ("x-scheme-handler/http", "x-scheme-handler/https", "text/html")
 
@@ -99,13 +108,13 @@ def prove_listener(output: str, port: int = DEFAULT_RDP_PORT) -> None:
         )
 
 
-def terminal_settings(content: str) -> str:
+def helper_settings(content: str) -> str:
     lines = [
         line
         for line in content.splitlines()
-        if not re.match(r"\s*TerminalEmulator\s*=", line)
+        if not re.match(r"\s*(TerminalEmulator|WebBrowser)\s*=", line)
     ]
-    return "\n".join([*lines, TERMINAL_SELECTION]) + "\n"
+    return "\n".join([*lines, TERMINAL_SELECTION, BROWSER_SELECTION]) + "\n"
 
 
 def launcher_entry(project: str, identity: str) -> str:
@@ -174,26 +183,12 @@ def prerequisites() -> Path:
 def provision(home: Path, port: int, project: str, identity: str) -> None:
     print("linux-desktop: installing XFCE and xrdp", flush=True)
     command(["sudo", "-n", "apt-get", "update"])
-    command(
-        [
-            "sudo",
-            "-n",
-            "env",
-            "DEBIAN_FRONTEND=noninteractive",
-            "apt-get",
-            "install",
-            "-y",
-            "--no-install-recommends",
-            "xfce4",
-            "xfce4-terminal",
-            "xrdp",
-            "xorgxrdp",
-            "dbus-x11",
-            "python3-venv",
-            "scrot",
-            "xdotool",
-        ]
+    packages = (
+        "xfce4", "xfce4-terminal", "xrdp", "xorgxrdp", "dbus-x11",
+        "python3-venv", "scrot", "xdotool", *HELPER_PACKAGES,
     )
+    command(["sudo", "-n", "env", "DEBIAN_FRONTEND=noninteractive",
+             "apt-get", "install", "-y", "--no-install-recommends", *packages])
     config_path = Path("/etc/xrdp/xrdp.ini")
     original = config_path.read_text(encoding="utf-8")
     configured = localhost_config(original, port)
@@ -201,32 +196,23 @@ def provision(home: Path, port: int, project: str, identity: str) -> None:
         with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8") as candidate:
             candidate.write(configured)
             candidate.flush()
-            command(
-                [
-                    "sudo",
-                    "-n",
-                    "install",
-                    "-o",
-                    "root",
-                    "-g",
-                    "root",
-                    "-m",
-                    "0644",
-                    candidate.name,
-                    str(config_path),
-                ]
-            )
+            command(["sudo", "-n", "install", "-o", "root", "-g", "root",
+                     "-m", "0644", candidate.name, str(config_path)])
     (home / ".xsession").write_text(SESSION_CONTENT, encoding="utf-8", newline="\n")
     (home / ".xsession").chmod(0o600)
     helpers = home / ".config/xfce4/helpers.rc"
     helpers.parent.mkdir(parents=True, exist_ok=True)
     helpers.write_text(
-        terminal_settings(helpers.read_text(encoding="utf-8") if helpers.exists() else ""), encoding="utf-8", newline="\n"
+        helper_settings(helpers.read_text(encoding="utf-8") if helpers.exists() else ""),
+        encoding="utf-8", newline="\n",
     )
     print("linux-desktop: routing web links to the identity browser", flush=True)
     entry = home / ".local/share/applications" / LAUNCHER_DESKTOP_ENTRY
     entry.parent.mkdir(parents=True, exist_ok=True)
     entry.write_text(launcher_entry(project, identity), encoding="utf-8")
+    browser_helper = home / BROWSER_HELPER_PATH
+    browser_helper.parent.mkdir(parents=True, exist_ok=True)
+    browser_helper.write_text(BROWSER_HELPER, encoding="utf-8")
     defaults = home / ".config/mimeapps.list"
     defaults.write_text(
         browser_defaults(defaults.read_text(encoding="utf-8") if defaults.exists() else ""), encoding="utf-8", newline="\n"
@@ -258,29 +244,33 @@ def verify(home: Path, port: int = DEFAULT_RDP_PORT) -> dict:
         raise ProvisionFailure(
             "linux_desktop_session_not_proved: rerun provisioning to select XFCE"
         )
-    packages = command(
-        [
-            "dpkg-query",
-            "-W",
-            "-f=${db:Status-Status}\n",
-            "xfce4-session",
-            "xfce4-terminal",
-            "xorgxrdp",
-            "scrot",
-            "xdotool",
-        ]
+    required_packages = (
+        "xfce4-session", "xfce4-terminal", "xorgxrdp", "scrot", "xdotool",
+        *HELPER_PACKAGES,
+    )
+    installed = command(
+        ["dpkg-query", "-W", "-f=${db:Status-Status}\n", *required_packages]
     ).stdout.splitlines()
-    if packages != ["installed"] * 5:
+    if installed != ["installed"] * len(required_packages):
         raise ProvisionFailure(
-            "linux_desktop_packages_not_proved: reinstall XFCE, xfce4-terminal, xorgxrdp, scrot and xdotool"
+            f"linux_desktop_packages_not_proved: rerun provisioning to install "
+            f"{', '.join(required_packages)}"
         )
     helpers = home / ".config/xfce4/helpers.rc"
-    if (
-        not helpers.is_file()
-        or TERMINAL_SELECTION not in helpers.read_text(encoding="utf-8").splitlines()
-    ):
+    settings = helpers.read_text(encoding="utf-8") if helpers.is_file() else ""
+    if TERMINAL_SELECTION not in settings.splitlines():
         raise ProvisionFailure(
             "linux_desktop_terminal_not_selected: rerun provisioning to select xfce4-terminal"
+        )
+    browser_helper = home / BROWSER_HELPER_PATH
+    if (
+        BROWSER_SELECTION not in settings.splitlines()
+        or not browser_helper.is_file()
+        or browser_helper.read_text(encoding="utf-8") != BROWSER_HELPER
+    ):
+        raise ProvisionFailure(
+            "linux_desktop_default_browser_not_selected: rerun provisioning to select "
+            "the Yoke identity browser in XFCE"
         )
     chosen = selected_launcher(home)
     status = command(["passwd", "-S"]).stdout.split()

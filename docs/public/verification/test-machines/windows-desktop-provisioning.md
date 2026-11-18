@@ -53,12 +53,15 @@ It records actual Windows edition/build and WSL version,
 installs the existing Linux desktop packages and proves loopback/localhost
 access. Like the Linux provisioner, it requires `--browser-project` and
 `--browser-identity` naming the operator identity (the project's
-browser-control `default_identity`), installs no stock desktop browser, and
-registers the identity launcher `yoke-identity-browser.desktop` as the
-default for web links, so `xdg-open` and the
+browser-control `default_identity`). It installs the XFCE helpers and selects
+`xfce4-terminal` and the Yoke identity launcher as XFCE defaults. The launcher
+also handles HTTP, HTTPS, and HTML via the MIME defaults, so `xdg-open` and the
 [browser approval gates](linux-browser-identities.md#browser-approval-gates)
 land in that identity's profile. `--verify` takes neither flag and refuses
-`linux_desktop_default_browser_not_selected` until the launcher is selected.
+`linux_desktop_default_browser_not_selected` if the browser helper or MIME
+selection is missing. In the WSL XFCE session, confirm `exo-open --launch
+TerminalEmulator` opens a terminal and `xdg-open https://example.com` opens
+the page in the identity browser.
 The product streams its capability-owned desktop secret on private stdin, sets
 the dedicated WSL fixture password with `sudo -n chpasswd`. The next retained
 GUI-session operation uses the existing uploaded `xrdp-sesrun` helper; no host
