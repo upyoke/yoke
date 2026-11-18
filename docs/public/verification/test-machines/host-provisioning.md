@@ -84,12 +84,12 @@ advice requires native auth evidence. Unknown nonzero failures need local
 diagnostics. Preserve the failed capture and golden; a failure never seals.
 
 Never delete or move a registered golden or its sidecars by hand, including
-through `yoke test-machine exec`. Every project that registers the same host
-and user keeps its own golden there and resets from it. To replace a golden,
-run `yoke test-machine golden-capture`; its retention removes retired
-snapshots. `yoke test-machine verify` refuses `registered_golden_missing`,
-naming each project and path whose golden is gone; capture a new golden for
-that project.
+through `yoke test-machine exec`. Registrations for the same host and user
+can keep separate goldens. To replace a golden, run
+`yoke test-machine golden-capture --test-machine NAME`. Capture removes
+retired snapshots while preserving those still registered. If a registered
+golden is missing, `verify` reports `registered_golden_missing` with the
+machine name and path so you can capture its replacement.
 
 ## Disk sizing and online resize
 
