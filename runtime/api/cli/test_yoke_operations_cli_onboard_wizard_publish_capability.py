@@ -37,7 +37,7 @@ from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
 )
 
 
-def test_unavailable_app_publish_opens_github_and_keeps_project_local(
+def test_unavailable_app_skips_publish_and_keeps_project_local(
     monkeypatch,
 ) -> None:
     opened: list[str] = []
@@ -75,11 +75,7 @@ def test_unavailable_app_publish_opens_github_and_keeps_project_local(
             await type_text(pilot, "/home/code/demo")
             await pilot.press("enter")
             await accept_project_details(pilot)
-            await pilot.press("up")  # publish: move from No to Yes
-            await pilot.press("enter")  # explicitly request publishing
-            await app.workers.wait_for_complete()
-            await pilot.press("down")  # manual recovery: disabled
-            await pilot.press("enter")  # App publishing unavailable: disabled
+            # GitHub is disabled, so no publish prompt: straight to hosting.
             await skip_hosting(pilot)  # hosting: skip -> Finish
             await pilot.press("enter")  # finish: apply
             await pilot.pause()
@@ -94,7 +90,7 @@ def test_unavailable_app_publish_opens_github_and_keeps_project_local(
     assert applied["project_github_adoption"] is None
     assert applied["project_github_repo"] is None
     assert applied["project_publish"] is None
-    assert opened == [f"{github_origin.DEFAULT_GITHUB_WEB_URL}/new"]
+    assert opened == []
 
 
 def test_default_app_grant_opens_github_and_keeps_project_local(monkeypatch) -> None:

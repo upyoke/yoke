@@ -84,8 +84,7 @@ def test_skip_reaches_review_and_plans_the_skip(monkeypatch, tmp_path: Path) -> 
             await type_text(pilot, checkout_path)
             assert app.query_one("#onboard-body Input", Input).value == checkout_path
             await pilot.press("enter")
-            await accept_project_details(pilot)
-            await pilot.press("enter")  # publish: No (preselected)
+            await accept_project_details(pilot)  # GitHub skipped: no publish prompt
             assert "Connect your hosting provider?" in body_text(app)
             await skip_hosting(pilot)
             await settle_checks(pilot)
