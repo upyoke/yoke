@@ -3,6 +3,24 @@
 import base64
 
 
+VALIDATE_ACCOUNT_PASSWORD = r"""
+Add-Type @'
+using System;
+using System.Runtime.InteropServices;
+public static class YokeConsoleLogon {
+ [DllImport("advapi32.dll",CharSet=CharSet.Unicode,SetLastError=true)]
+ public static extern bool LogonUser(string user,string domain,string password,int type,int provider,out IntPtr token);
+ [DllImport("kernel32.dll")] public static extern bool CloseHandle(IntPtr token);
+}
+'@
+$token=[IntPtr]::Zero
+if (![YokeConsoleLogon]::LogonUser($name,$env:COMPUTERNAME,$password,2,0,[ref]$token)) {
+ throw 'windows_console_credential_rejected: import the existing local Windows lab account password and rerun provisioning'
+}
+$null=[YokeConsoleLogon]::CloseHandle($token)
+"""
+
+
 RETURN_TO_CONSOLE = r"""
 $ErrorActionPreference='Stop'
 Add-Type @'
@@ -52,11 +70,11 @@ def console_settings_script():
     # The only embedded input is the local account SID resolved by the administrator.
     return r"""
 $sid=(Get-LocalUser -Name $name).SID.Value
-$profile=(Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList\$sid").ProfileImagePath
+$profilePath=(Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList\$sid").ProfileImagePath
 $hive="Registry::HKEY_USERS\$sid"
 $loaded=!(Test-Path $hive)
 if ($loaded) {
- & reg.exe load "HKU\$sid" (Join-Path $profile 'NTUSER.DAT') | Out-Null
+ & reg.exe load "HKU\$sid" (Join-Path $profilePath 'NTUSER.DAT') | Out-Null
  if ($LASTEXITCODE) { throw 'windows_console_profile_unavailable: repair the lab account profile and retry' }
 }
 try {

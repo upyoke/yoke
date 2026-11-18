@@ -248,7 +248,7 @@ VirtualMachinePlatform or Linux distro.
 The provisioner configures automatic logon for the dedicated lab user, stores
 the password in LSA, and disables that account's workstation and screen-saver
 locks. Reboot once. With the RDP viewer closed, run
-`yoke test-machine verify --project P --test-machine VM`. The console check
+`yoke test-machine verify --test-machine VM`. The console check
 requires an interactive task, Explorer in its nonzero console session, and
 access to the unlocked display. Recheck the console after a golden reset.
 

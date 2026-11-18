@@ -81,7 +81,7 @@ screen-saver and workstation locking for the Windows lab account and installs
 the fixed `YokeQa-ReturnToConsole` task. The task moves that account's disconnected
 RDP session back to the console. Reboot the Windows host once after provisioning.
 
-Run `yoke test-machine verify --project P --test-machine NAME` after reboot,
+Run `yoke test-machine verify --test-machine NAME` after reboot,
 with the viewer closed. The console probe checks that an interactive scheduled
 task shares Explorer's nonzero console session, can read the unlocked display,
 and can start the default WSL distro. After a reset, repeat verification to

@@ -209,19 +209,15 @@ def expose_on_tailnet(port: int, *, verify_only: bool) -> str:
 
 def configure_windows_console(password: str) -> None:
     """Apply the native console baseline to the account owning this distro."""
-    if __package__:
-        from yoke_harness.native_windows.autologon import SCRIPT
-        from yoke_harness.native_windows.console_setup import console_settings_script
-        from yoke_harness.native_windows.stdin_frame import READ_FRAME_SCRIPT, frame_bytes
-    else:
-        from autologon import SCRIPT
-        from console_setup import console_settings_script
-        from stdin_frame import READ_FRAME_SCRIPT, frame_bytes
+    from autologon import SCRIPT
+    from console_setup import VALIDATE_ACCOUNT_PASSWORD, console_settings_script
+    from stdin_frame import READ_FRAME_SCRIPT, frame_bytes
 
     script = (
         "$ErrorActionPreference='Stop'; $name=$env:USERNAME\n"
         + READ_FRAME_SCRIPT
         + "$password=[Text.Encoding]::UTF8.GetString((Read-YokeFrame))\n"
+        + VALIDATE_ACCOUNT_PASSWORD
         + SCRIPT
         + console_settings_script()
     )
