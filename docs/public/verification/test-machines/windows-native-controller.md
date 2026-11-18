@@ -6,8 +6,8 @@
 
 Prepare the controller before continuing [native Windows host setup](windows-native-host-provisioning.md).
 
-On a macOS controller, install Microsoft's **Windows App** before opening a
-bounded VM setup window. Microsoft provides a [standalone installer](https://learn.microsoft.com/windows-app/get-started-connect-devices-desktops-apps?pivots=remote-pc)
+On a macOS controller, install Microsoft's **Windows App** before starting
+VM setup. Microsoft provides a [standalone installer](https://learn.microsoft.com/windows-app/get-started-connect-devices-desktops-apps?pivots=remote-pc)
 or Mac App Store download; Homebrew's `windows-app` cask uses the vendor PKG.
 The PKG requires controller administrator authentication. Complete installation
 and verify Computer Use can select the packaged app before powering on the VM;
@@ -16,12 +16,13 @@ Use the verified private tailnet address, retain certificate validation, and
 keep test-account credentials in private custody. Do not save credentials or
 accept an unexpected certificate warning as part of unattended setup.
 
-Require a controllable app window before starting a bounded VM window. A
+Require a controllable app window before starting VM setup. A
 successful TCP connection or client process alone does not prove an interactive
 desktop, successful authentication or completion of Windows first-run choices.
-Keep the VM deallocated while waiting for controller installation or operator
-authentication. Complete approved Windows privacy choices only after verifying
-the target identity and private route; retain the window's final power receipt.
+Prepare controller installation first. Once active setup starts, keep the lab
+on until setup, sign-ins and QA finish; do not use countdowns or idle shutdowns.
+Complete approved Windows privacy choices only after verifying the target
+identity and private route. Finally deallocate, verify power state and report it.
 
 Native Windows SSH and SFTP explicitly disable multiplexing on every controller,
 including macOS and Linux. A local master can answer `ssh -O check` while its

@@ -93,8 +93,9 @@ an authenticated SSH forward remains available during bootstrap.
 Use Windows Firewall on all network profiles for SSH; do not enable password
 SSH or a public desktop listener as a recovery shortcut.
 
-Until provider power is registered and verified, start explicitly before use
-and **deallocate**, rather than merely stop, after use:
+Until provider power is registered and verified, start explicitly before use.
+Keep the lab on until setup, sign-ins and QA finish, without countdowns or idle
+shutdowns; then **deallocate**, verify actual power state and report it:
 
 ```text
 az vm start --resource-group GROUP --name VM
@@ -176,7 +177,8 @@ action to settle; a controller timeout does not prove removal completed.
 Let first-boot Windows servicing finish, then rerun the capability provisioner
 with its 90-minute bound. Removing the extension does not prove that Windows
 servicing stopped or OpenSSH installed; require the readiness receipt and SSH
-probe. Preserve the VM disk, deallocate after use, and record recovery results.
+probe. Preserve the VM disk and record recovery results. Keep the lab on while
+the item needs it; deallocate and verify once setup, sign-ins and QA finish.
 See Microsoft's [action Run Command recovery](https://learn.microsoft.com/en-us/azure/virtual-machines/windows/run-command)
 and [OpenSSH installation](https://learn.microsoft.com/en-us/windows-server/administration/openssh/openssh_install_firstuse).
 
@@ -237,7 +239,7 @@ For an existing key file, validate its trusted owner and repair explicit file
 grants **before** writing; an empty protected DACL otherwise denies the write.
 Keep final owner/exact-three-SID ACL checks; never take ownership/reset accounts.
 
-For bounded administrator-SSH repair, stale-process audit, partial key/RDP
+For administrator-SSH repair, stale-process audit, partial key/RDP
 recovery and observed window outcomes, follow
 [native Windows provisioning recovery](windows-native-provisioning-recovery.md).
 Retain all required receipts before continuing setup or QA.

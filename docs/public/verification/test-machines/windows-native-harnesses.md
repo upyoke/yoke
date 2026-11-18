@@ -103,7 +103,8 @@ optional framed stdin is reliable on the actual lab machine.
 ## First Tailscale login and bootstrap desktop
 
 If private RDP is unavailable, use the existing key-only SSH bootstrap route;
-keep public TCP/UDP3389 blocked. In a bounded start/deallocate window, run:
+keep public TCP/UDP3389 blocked. Keep the lab on while the item needs setup,
+sign-ins or QA; do not impose a countdown or idle shutdown. Run:
 
 ```text
 ssh -F none -i KEY -o BatchMode=yes -o ExitOnForwardFailure=yes -o ControlMaster=no -o ControlPersist=no -o ControlPath=none -o UserKnownHostsFile=KNOWN_HOSTS -o HostKeyAlias=VM_RESOURCE_ID -N -L 127.0.0.1:3390:127.0.0.1:3389 yokeqa@BOOTSTRAP_HOST
@@ -129,7 +130,8 @@ a URL or successful GUI login still needs independent SYSTEM/private-route proof
 Complete [tray startup handling and two cold boots](#tray-startup-and-autologon)
 before treating the private desktop as persistent. Close completed auth tabs,
 leave apps authenticated, disconnect without Windows sign-out, terminate the
-local forward, deallocate the VM and verify its actual power state.
+local forward when it is no longer needed. Once all setup, sign-ins and QA
+finish, deallocate the VM, verify its actual power state and report it.
 
 ## Tray startup and autologon
 
@@ -162,7 +164,8 @@ Before acceptance inventory startup entries and tray-process/logon times. Run
 two distinct cold boots with automatic `yokeqa` logon demonstrably completed,
 tray autostart absent, the same selected identity, nonempty startup key,
 SYSTEM Running/key/live adapters, private standard SSH/RDP and public3389 denial.
-Deallocate and verify after each window; no selection or repair between proofs.
+Use explicit stop/start boundaries for these cold-boot proofs, with no selection
+or repair between them. Keep the lab on afterward while the item needs it.
 Probe receipts preserve exact allowlisted errors, including NeedsLogin's running
 self-identity refusal; unknown/native or secret-bearing errors become a fixed
 unclassified failure. Neither classification is a passing readiness receipt.

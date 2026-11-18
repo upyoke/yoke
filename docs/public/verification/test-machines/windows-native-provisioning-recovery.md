@@ -8,11 +8,11 @@ Return to [native Windows setup](windows-native-host-provisioning.md) for
 Azure identity, normal provisioning, registration and the remaining QA steps.
 Keep every failed-window receipt and verified power state with the inventory.
 
-## Bounded recovery when administrator SSH is unavailable
+## Recovery when administrator SSH is unavailable
 
-Within approved authority, cap each start at twenty minutes, reserve cleanup
-at minute seventeen and verify `PowerState/deallocated` by minute twenty.
-Stop on ambiguity; never infer retry/process-kill permission from timeout.
+Keep the lab on through setup, sign-ins and QA, without countdowns or idle
+deallocation. Then deallocate, verify `PowerState/deallocated` and report it.
+Keep commands bounded; stop on ambiguity. Timeouts never authorize process kills.
 If installed/running OpenSSH has blocked TCP22, inspect managed `YokeQaSsh`:
 `New-NetFirewallRule` needs `-DisplayName` even with `-Name`, otherwise it can
 prompt noninteractively. Save this nonsecret script as `ssh-firewall.ps1`:
@@ -83,9 +83,9 @@ tools, sign-ins, goldens and native QA remain unverified.
 Preserve the partial account/profile and custody. Correct and run the **entire**
 guest provisioner on disposable `windows-latest`, including actual SSH and RDP
 forwarding, before requesting another VM window with exact-commit green evidence.
-After successful setup register **SETUP INCOMPLETE**, immediately deallocate,
-then run dispatched native QA separately. Failure means stop, deallocate, record
-the exact guest error and inspect it; never mark registration or QA complete.
+Register **SETUP INCOMPLETE** and continue setup, sign-ins and QA with the lab
+on. On failure, stop that operation and inspect the exact guest error; never
+mark registration or QA complete. Deallocate when the item no longer needs it.
 
 ### Tailscale rule diagnosis and revised desktop policy
 
@@ -175,8 +175,8 @@ SYSTEM running/self-IP evidence and independent private-route proof.
 Fresh hosts must complete this checkpoint after the SYSTEM unattended join and
 operator authentication, before registration. Keep every Tailscale CLI query
 as SYSTEM; the provisioner's private SYSTEM probe prevents administrator
-health checks from selecting another profile. Use the bounded start/cleanup
-window above and an operator-approved local profile display label `LABEL`.
+health checks from selecting another profile. Follow the lab lifetime policy
+above and use an operator-approved local profile display label `LABEL`.
 
 1. Capture `tailscale switch --list --json` and `tailscale status --json` only
    in memory as SYSTEM. Require exactly one selected saved profile, `Running`,
@@ -193,12 +193,13 @@ window above and an operator-approved local profile display label `LABEL`.
    for `server-mode-start-key` in protected `server-state.conf`; its JSON value
    is Base64 bytes. Never print values, dump preferences or edit state files.
    Require the startup target, not just command exit zero.
-4. Record the guest boot time, deallocate and verify actual
-   `PowerState/deallocated`. Start a separate bounded window from that state;
+4. When the explicit cold-boot verification is ready, record the guest boot
+   time, deallocate and verify actual `PowerState/deallocated`. Start again;
    require a fresh boot time different from the first. Without selection,
    preference or provisioning changes, verify the same selected profile/label,
    startup target, SYSTEM Running/key/live-address proof, standard-user tailnet
-   SSH and direct RDP TLS/NLA, plus blocked public3389. Deallocate and verify.
+   SSH and direct RDP TLS/NLA, plus blocked public3389. Keep the lab on for
+   remaining setup, sign-ins and QA; deallocate and verify when all are done.
    Only these independent receipts establish unattended persistence.
 
 Existing-profile recovery needs explicit scope before selecting a saved
