@@ -157,7 +157,7 @@ A connection is how this machine reaches a universe:
 
 ```bash
 yoke ui up       # open self-host web dashboard, or start the local view detached
-yoke ui          # same as `yoke ui status` — running or stopped, without sign-in tokens
+yoke ui          # same as `yoke ui status` — the self-host workbench, or running/stopped, without sign-in tokens
 yoke ui down     # stop it
 ```
 
@@ -200,7 +200,8 @@ and lists only projects you can access; permission, ambiguity and gate
 refusals retain their actual reasons. Board rebuild requires a registered
 checkout, even when only one is registered; pass `--repo-root PATH` from
 elsewhere. Doctor's last report uses your checkout or `--project P`.
-An unmapped folder is a `project_mapping_missing` warning in status.
+An unmapped git checkout is a `project_mapping_missing` warning in status;
+a folder that is not a checkout, such as your home folder, reports none.
 
 ## Related
 

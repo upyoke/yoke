@@ -1,5 +1,7 @@
 """Projectless commands preserve scope and machine-owned output."""
 
+import subprocess
+
 import pytest
 
 from yoke_cli.commands.adapters import doctor
@@ -64,12 +66,25 @@ def test_project_mapping_is_the_same_warning_in_cli_and_core(tmp_path, monkeypat
 
     config = tmp_path / "config.json"
     config.write_text("{}")
+    checkout = tmp_path / "checkout"
+    subprocess.run(["git", "init", str(checkout)], check=True, capture_output=True)
     for module in (status, machine_config_status):
-        report = module._project_status(tmp_path, config)
+        report = module._project_status(checkout, config)
         (issue,) = report["issues"]
         assert issue["code"] == "project_mapping_missing"
         assert issue["severity"] == "warning"
         assert "yoke project register" in issue["hint"]
+
+
+def test_folder_outside_a_checkout_owes_no_project_mapping(tmp_path):
+    from yoke_cli.config import status
+
+    config = tmp_path / "config.json"
+    config.write_text("{}")
+    home = tmp_path / "home"
+    home.mkdir()
+    for module in (status, machine_config_status):
+        assert module._project_status(home, config)["issues"] == []
 
 
 def test_default_export_folder_obstruction_teaches_recovery(tmp_path, monkeypatch):
@@ -92,8 +107,6 @@ def test_default_export_folder_obstruction_teaches_recovery(tmp_path, monkeypatc
 def test_install_refuses_a_plain_folder_inside_another_repository(
     tmp_path, monkeypatch
 ):
-    import subprocess
-
     subprocess.run(["git", "init", str(tmp_path)], check=True, capture_output=True)
     child = tmp_path / "plain-folder"
     child.mkdir()
