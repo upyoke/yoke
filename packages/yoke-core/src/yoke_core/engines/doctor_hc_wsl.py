@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-import re
 import sys
 from pathlib import Path
 
+from yoke_contracts.windows_drive_checkout import windows_drive_checkout_warning
 from yoke_harness.wsl import is_wsl, systemd_running
 from yoke_core.engines.doctor_report import (
     DoctorArgs,
@@ -24,14 +24,9 @@ def hc_windows_mount_checkout(conn, args: DoctorArgs, rec: RecordCollector) -> N
         rec.record(check_id, name, "N/A", "No project checkout is available.")
         return
     path = str(Path(root).resolve())
-    if re.match(r"^/mnt/[a-zA-Z](?:/|$)", path):
-        rec.record(
-            check_id,
-            name,
-            "WARN",
-            f"{path} is on a Windows drive. Move the checkout into the Linux "
-            "filesystem, for example ~/projects, and bind that checkout to Yoke.",
-        )
+    warning = windows_drive_checkout_warning(path)
+    if warning:
+        rec.record(check_id, name, "WARN", warning)
     else:
         rec.record(check_id, name, "PASS", f"Checkout is outside /mnt/<drive>: {path}")
 

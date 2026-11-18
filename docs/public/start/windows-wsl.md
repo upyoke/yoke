@@ -20,8 +20,10 @@ yoke setup
 
 Keep repositories in the Linux filesystem, for example `~/projects/my-app`.
 Avoid `/mnt/c` and other Windows drive mounts: Linux file operations and
-permissions work best when the checkout stays in Linux. Run your agent CLIs
-(Claude Code, Codex, or Cursor CLI) from that Ubuntu checkout.
+permissions work best when the checkout stays in Linux. Setup's Review and
+`yoke doctor` both warn when the project folder is on a Windows drive; setup
+still lets you adopt existing code there. Run your agent CLIs (Claude Code,
+Codex, or Cursor CLI) from that Ubuntu checkout.
 
 ## Hosting a server requires WSL2
 
