@@ -40,6 +40,9 @@ CAPTURE_FILES_KEY = "_yoke_client_capture_files"
 WRITE_TARGETS_KEY = "_yoke_client_write_targets"
 #: The Yoke source checkout this client's installed code runs from.
 SOURCE_ROOT_KEY = "_yoke_client_yoke_source_root"
+#: ``{"session_id", "at"}``: when this exact session's transcript first
+#: recorded a real operator prompt. Never carries prompt text.
+FIRST_USER_PROMPT_KEY = "_yoke_client_first_user_prompt"
 
 
 def client_fact(key: str, value: Any) -> dict[str, Any]:
@@ -96,6 +99,20 @@ def write_target(payload: Mapping[str, Any], raw: str) -> Mapping[str, Any] | No
     return entry if isinstance(entry, Mapping) else None
 
 
+def first_user_prompt_at(payload: Mapping[str, Any], session_id: str) -> str | None:
+    """Return the attested first-prompt instant for *session_id*, or ``None``.
+
+    An attestation naming another session is not evidence for this one.
+    """
+    fact = read_client_fact(payload, FIRST_USER_PROMPT_KEY)
+    if not isinstance(fact, Mapping) or not session_id:
+        return None
+    if fact.get("session_id") != session_id:
+        return None
+    at = fact.get("at")
+    return at if isinstance(at, str) and at.strip() else None
+
+
 def live_worktrees(payload: Mapping[str, Any]) -> frozenset[str] | None:
     """Return worktree directories present on the client, or ``None``."""
     fact = read_client_fact(payload, WRITE_TARGETS_KEY)
@@ -108,6 +125,7 @@ def live_worktrees(payload: Mapping[str, Any]) -> frozenset[str] | None:
 __all__ = [
     "CAPTURE_FILES_KEY",
     "FACT_SCHEMA",
+    "FIRST_USER_PROMPT_KEY",
     "HEADLESS_LAUNCH_KEY",
     "HARNESS_TITLE_KEY",
     "SOURCE_ROOT_KEY",
@@ -115,6 +133,7 @@ __all__ = [
     "capture_file_state",
     "capture_roots",
     "client_fact",
+    "first_user_prompt_at",
     "headless_launch",
     "live_worktrees",
     "read_client_fact",

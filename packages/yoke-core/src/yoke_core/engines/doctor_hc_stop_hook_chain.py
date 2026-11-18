@@ -27,6 +27,7 @@ _MEMBER_NAME = "HC-stop-hook-chain-membership"
 _MEMBER_DESC = "Stop chain registers the work gate before lifecycle dispatch"
 _EXPECTED_STOP = [
     "yoke_core.hooks.session_title",
+    "yoke_core.hooks.session_prompt_attestation",
     "yoke_core.domain.turn_end_promised_work_gate",
     "yoke_core.hooks.session_message_delivery",
     "yoke_core.hooks.session_launch_attestation",
