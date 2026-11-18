@@ -5,6 +5,7 @@ from pathlib import PureWindowsPath
 from yoke_contracts.test_machine_types import HostActionResult
 from yoke_harness.native_windows.transport import quote
 from yoke_harness.native_windows.tasks import HELPERS as TASK_HELPERS
+from yoke_harness.native_windows.profile_path import HELPERS as PATH_HELPERS
 
 
 # These contain live Windows credentials, browser identities or locked registry
@@ -79,7 +80,7 @@ Remove-Item -LiteralPath $copyLog -Force
 
 def profile_script(control, operation, destination):
     path = golden_path(control, destination)
-    preamble = TASK_HELPERS + f"$golden={quote(path)}; $profileRoot={quote(control.home)}; "
+    preamble = TASK_HELPERS + PATH_HELPERS + f"$golden={quote(path)}; $profileRoot={quote(control.home)}; "
     preamble += r"""
 $check=$golden
 while($check){
@@ -110,7 +111,9 @@ $source=$profileRoot; $target=Join-Path $golden 'profile'
   $split=$_.Path.LastIndexOf('\')
   @{name=$_.Name;path=$_.Path.Substring(0,$split+1);xml=$_.Xml}
 })
-@{user_path=[Environment]::GetEnvironmentVariable('Path','User');tasks=$tasks} |
+$pathKey=[Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('Environment')
+try {$pathSnapshot=Read-YokeUserPath $pathKey} finally {if($pathKey){$pathKey.Dispose()}}
+@{user_path=[Environment]::GetEnvironmentVariable('Path','User');user_path_snapshot=$pathSnapshot;tasks=$tasks} |
  ConvertTo-Json -Depth 12 | Set-Content -Encoding UTF8 (Join-Path $golden 'state.json')
 """
         )
@@ -118,11 +121,13 @@ $source=$profileRoot; $target=Join-Path $golden 'profile'
         preamble
         + r"""if(!(Test-Path -LiteralPath (Join-Path $golden 'sealed'))){throw 'windows_golden_unsealed: capture and register a sealed golden before reset'}
 $state=Get-Content -Raw (Join-Path $golden 'state.json') | ConvertFrom-Json
+Assert-YokeUserPath $state.user_path_snapshot
 $source=Join-Path $golden 'profile'; $target=$profileRoot
 """
         + copy
-        + r"""[Environment]::SetEnvironmentVariable('Path',$state.user_path,'User')
-$env:Path=[Environment]::GetEnvironmentVariable('Path','Machine')+';'+$state.user_path
+        + r"""$pathKey=[Microsoft.Win32.Registry]::CurrentUser.CreateSubKey('Environment')
+try {Restore-YokeUserPath $pathKey $state.user_path_snapshot} finally {$pathKey.Dispose()}
+$env:Path=[Environment]::GetEnvironmentVariable('Path','Machine')+';'+[Environment]::GetEnvironmentVariable('Path','User')
 $owned=@(Get-YokeOwnedTasks ($schedule.GetFolder('\')))
 foreach($task in $owned){
  if(!($state.tasks | Where-Object {($_.path+$_.name) -eq $task.Path})){
@@ -134,7 +139,6 @@ Get-ChildItem -LiteralPath $env:TEMP -Force | Where-Object {
  $_.Name -match '^(yoke|playwright|chromium|pip)-' -and $_.FullName -ne $PSCommandPath
 } | Remove-Item -Recurse -Force
 foreach($task in $state.tasks){Restore-YokeTask $task}
-if([Environment]::GetEnvironmentVariable('Path','User') -cne $state.user_path){throw 'windows_path_restore_failed: repair user environment access and reset again'}
 """
     )
 

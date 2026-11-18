@@ -72,7 +72,7 @@ def test_profile_copy_failure_does_not_report_restored():
     assert not result.ok
     assert result.error_code == "windows_profile_reset_failed"
     assert "robocopy.exe" in scripts[0]
-    assert "SetEnvironmentVariable" in scripts[0]
+    assert "Restore-YokeUserPath $pathKey $state.user_path_snapshot" in scripts[0]
     assert "Remove-YokeTask $task.Path" in scripts[0]
     assert "AppData\\Roaming\\Claude" in scripts[0]
     assert not any(line.startswith("+") for line in scripts[0].splitlines())

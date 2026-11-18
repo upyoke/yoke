@@ -130,6 +130,9 @@ Windows packaged-app containers (`AppData/Local/Packages`) and Claude desktop
 data (`AppData/Local/Claude-Data`) remain live, like browser identities and locked
 registry hives; their app settings are not restored from the golden. Copy failures
 remain fatal and retain a private robocopy log under `AppData/Local/YokeQa`.
+Goldens also retain raw User PATH values, registry types and absence. Reset
+validates that metadata before mirroring the profile and verifies it afterward;
+older goldens without it require recapture rather than guessing a registry type.
 
 ## Verified standard-user transfer
 
