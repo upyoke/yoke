@@ -134,10 +134,12 @@ def _still_authorized(home: Path, monkeypatch) -> None:
     assert (kept / "Default" / "Cookies").read_text() == "signed in by the operator"
 
 
-@pytest.mark.skipif(os.getuid() == 0, reason="archive fixture needs a non-root user")
+@pytest.mark.posix_only(reason="runs on the POSIX test machine")
 def test_a_profile_authorized_on_a_fresh_linux_machine_survives_reset(
     tmp_path, monkeypatch
 ):
+    if os.getuid() == 0:
+        pytest.skip("archive fixture needs a non-root user")
     home, golden = tmp_path / "home", tmp_path / "golden"
     _write(home, ".ssh/authorized_keys", "key")
     captured = _archive_run(home, golden, "capture")
