@@ -47,7 +47,9 @@ the console with `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`. Compare it
 with the fingerprint of the key from `ssh-keyscan -t ed25519 HOST`. Add that
 entry under the exact MagicDNS hostname to
 `~/.yoke/test-machine/known_hosts` after the fingerprints match. Prove the
-shared key works using the Yoke file and strict host-key checking.
+shared key works using the Yoke file and strict host-key checking. If SSH
+refuses it, check the Remote Login allowlist and the test account’s authorized
+keys and ownership in [step 3](#3-remote-login-and-full-disk-access).
 For cloud bootstrap, query the provider's **current** public IP and connect with
 the [bootstrap SSH command](tailnet-bootstrap.md#start-the-lab-and-reach-its-current-address);
 never register that IP.
@@ -102,8 +104,9 @@ yoke test-machine get --test-machine NAME
 yoke test-machine exec --test-machine NAME -- /usr/bin/true
 ```
 
-Read each command's `--help`. The shared public key authorizes all project test
-hosts. Secret values never enter settings, prompts, command arguments or logs.
+Stage the desktop password in an owner-only file and remove that copy after
+a successful import. Read each command’s `--help`. The shared public key
+authorizes all project test hosts. Secret values never enter settings, prompts, command arguments or logs.
 `exec` uses the workstation's SSH agent; an unavailable agent is not proof that
 the capability-owned private key is missing. A serial host lease held by
 another session must be released before preparation or ad hoc access.
@@ -118,7 +121,9 @@ password copy after closing access.
 ## 3. Remote Login and Full Disk Access
 
 Enable Remote Login for the dedicated user and install the shared public key
-in `~/.ssh/authorized_keys` (directory 0700, file 0600, test-user-owned).
+as its own line in `~/.ssh/authorized_keys`. Set the directory to mode 0700
+and the file to mode 0600, both owned by the dedicated account. Confirm the
+account is on the Remote Login allowlist before attempting SSH.
 On current macOS use System Settings → General → Sharing; Monterey uses
 System Preferences → Sharing. Menu placement differs by release.
 Allow full disk access for remote users. The capture/restore process needs
@@ -191,7 +196,11 @@ Keep the existing GNU `screen`. The macOS bridge uses Terminal.app.
 Install [Homebrew](https://docs.brew.sh/Installation) as the dedicated account.
 On Apple silicon, use a native arm64 Terminal and the `/opt/homebrew` prefix.
 On Intel, use `/usr/local`. Follow the installer's `brew shellenv` instructions
-and prove `brew --version` in a new login Terminal.
+and prove `brew --version` in a new login Terminal. For unattended Apple
+silicon setup, download the signed `Homebrew.pkg` from the official release,
+check it with `pkgutil --check-signature`, then use the registered administrator
+command to run `installer -pkg PACKAGE -target /` while the test user is the
+active console user. Run later `brew` commands as the test account.
 
 Install the required harness apps and vendor CLIs as the test user. Use the
 current [Claude installer](https://code.claude.com/docs/en/setup),
@@ -200,7 +209,9 @@ current [Claude installer](https://code.claude.com/docs/en/setup),
 Terminal and check that each prints its version. A non-login SSH PATH may omit `.local/bin`;
 that is not an absent CLI. Declare actual executable paths for probes. Open each
 desktop app from the test account once and complete its first-run prompts in the
-GUI. Leave credential prompts open for the operator and resume when they confirm.
+GUI. Homebrew can install the Claude, ChatGPT (Codex) and Cursor desktop apps
+with `brew install --cask claude chatgpt cursor`. Leave credential prompts open
+for the operator and resume when they confirm.
 Check each vendor's current supported OS list before choosing coverage. An
 existing executable does not prove that the host supports a new installation.
 Golden refresh proves each installed CLI with `--version` in the GUI session.
@@ -218,7 +229,9 @@ error; install a supported version as the test user, prove `--version` in
 Terminal, then rerun the plan. Installer success alone proves nothing.
 
 Self-host cases need Docker. Run `brew install colima docker docker-compose`
-as the test user and follow the Docker Compose formula's CLI plugin instructions.
+as the test user. Add the prefix's `lib/docker/cli-plugins` directory to
+`cliPluginsExtraDirs` in `~/.docker/config.json`, keeping other settings.
+Use the `docker compose` plugin interface. [Docker Compose version history](https://docs.docker.com/compose/intro/history/)
 Keep `COLIMA_HOME`, `LIMA_HOME` and `COLIMA_CACHE_HOME`
 under a shared folder in `~/.zshenv`, and put `/usr/local/bin` on PATH (Intel)
 or `/opt/homebrew/bin` (Apple silicon). Colima does not survive a reset or a
