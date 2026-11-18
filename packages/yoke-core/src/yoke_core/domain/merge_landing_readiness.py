@@ -12,10 +12,9 @@ item, the post-deploy QA answer, then the landing route's own gates
 composition, failed-train replay and, for the standalone engine, the project's
 verification command). Those route gates
 call the functions the landing itself calls, so ``--check`` and the merge
-cannot disagree. A lane that already landed skips everything after the clean
-tree: nothing is left to prove before a landing that happened. So does a
-merge that must recover its claim first: the merge proves the recovered lane
-after recovery.
+cannot disagree. A proven landing past review skips review-entry lane
+checks. A proven landing also skips all gates after the clean-tree check. A merge that must recover its claim skips
+the gates after the clean-tree check and proves the recovered lane afterward.
 
 An item one declared edge before review is reported as a ``merge_will``
 note because the merge enters review. Entering review runs that stage's
@@ -211,7 +210,25 @@ def assess(
         return readiness
     add = readiness.blockers.append
 
-    readiness.review = review_readiness(item, public_ref=public_ref)
+    recorded_head = str((merge_source_lane(item) or {}).get("commit_sha") or "")
+    checkout_error = None
+    try:
+        readiness.repo_root, readiness.target = resolve_checkout(item, str(args.target))
+    except RuntimeError as exc:
+        checkout_error = exc
+    else:
+        readiness.landed = landed.landed_lane(
+            item_id=item_id,
+            branch=readiness.branch,
+            target=readiness.target,
+            repo_root=str(readiness.repo_root),
+            project=str((item.get("project") or {}).get("slug") or ""),
+            recorded_head=recorded_head,
+        )
+
+    readiness.review = review_readiness(
+        item, public_ref=public_ref, already_landed=readiness.landed is not None,
+    )
     if readiness.review.refusal:
         add(LandingBlocker("review stage", readiness.review.refusal))
     elif readiness.review.review_gates:
@@ -255,15 +272,10 @@ def assess(
     if active_lanes(item) and lane_error:
         add(LandingBlocker("lane", f"{public_ref}: {lane_error}"))
 
-    try:
-        readiness.repo_root, readiness.target = resolve_checkout(
-            item, str(args.target)
-        )
-    except RuntimeError as exc:
-        add(LandingBlocker("checkout", f"{public_ref}: {exc}"))
+    if checkout_error:
+        add(LandingBlocker("checkout", f"{public_ref}: {checkout_error}"))
         return readiness
     repo_root = str(readiness.repo_root)
-    recorded_head = str((merge_source_lane(item) or {}).get("commit_sha") or "")
     queue = item.get("merge_queue") or {}
     stale = stale_lane.stale_unlanded_work(
         item_id=item_id,
@@ -277,14 +289,6 @@ def assess(
     # false-success recovery: take the candidate path even from release.
     if stale and not (queue.get("pr_number") and queue.get("landed_at")):
         add(LandingBlocker("stale lane", f"{public_ref}: {stale}"))
-    readiness.landed = landed.landed_lane(
-        item_id=item_id,
-        branch=readiness.branch,
-        target=readiness.target,
-        repo_root=repo_root,
-        project=str((item.get("project") or {}).get("slug") or ""),
-        recorded_head=recorded_head,
-    )
 
     missing_claim = recovery.claim_is_missing(readiness.claim_error)
     if readiness.claim_error and not missing_claim:
