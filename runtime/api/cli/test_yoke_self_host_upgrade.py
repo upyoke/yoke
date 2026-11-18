@@ -51,12 +51,16 @@ def selected_release() -> release_target.ReleaseTarget:
     )
 
 
-def _plan(directory: Path, target: release_target.ReleaseTarget) -> upgrade.UpgradePlan:
+def _plan(
+    directory: Path,
+    target: release_target.ReleaseTarget,
+    previous_image: str = "ghcr.io/upyoke/yoke-server:111111111111",
+) -> upgrade.UpgradePlan:
     return upgrade.UpgradePlan(
         directory=directory,
         target=target,
         docker_executable="/usr/bin/docker",
-        previous_image="ghcr.io/upyoke/yoke-server:111111111111",
+        previous_image=previous_image,
     )
 
 
@@ -284,6 +288,52 @@ def test_json_command_is_one_structured_completion_receipt(
 
     assert commands.self_host_upgrade(["--yes", "--json"]) == 0
     assert json.loads(capsys.readouterr().out) == expected
+
+
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
+@pytest.mark.parametrize("json_mode", [False, True])
+def test_current_pair_reports_already_current_without_prompt_or_restart(
+    initialized_bundle, selected_release, monkeypatch, capsys, json_mode
+):
+    plan = _plan(initialized_bundle, selected_release, selected_release.image)
+    monkeypatch.setattr(commands.upgrade, "plan_upgrade", lambda **_kwargs: plan)
+    monkeypatch.setattr(upgrade, "_CLI_VERSION", lambda: selected_release.version)
+    monkeypatch.setattr(commands, "_INPUT", lambda _p: pytest.fail("no prompt"))
+    monkeypatch.setattr(
+        upgrade, "execute_upgrade", lambda _p: pytest.fail("no restart")
+    )
+
+    args = ["--yes", "--json"] if json_mode else []
+    assert commands.self_host_upgrade(args) == 0
+    output = capsys.readouterr().out
+    if json_mode:
+        receipt = json.loads(output)
+        assert receipt["already_current"] is True and receipt["ok"] is True
+        assert receipt["version"] == selected_release.version
+        assert receipt["image"] == selected_release.image
+    else:
+        expected = "already current at 0.2.0.202610140400 (stable); nothing to do"
+        assert output == f"self-host pair {expected}\n"
+
+
+@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
+@pytest.mark.parametrize("matching", ["image", "cli"])
+def test_one_differing_half_still_previews_and_prompts(
+    initialized_bundle, selected_release, monkeypatch, capsys, matching
+):
+    image = selected_release.image if matching == "image" else "ghcr.io/x:old"
+    cli = selected_release.version if matching == "cli" else "0.2.0.202610010000"
+    plan = _plan(initialized_bundle, selected_release, image)
+    prompts = []
+    monkeypatch.setattr(commands.upgrade, "plan_upgrade", lambda **_kwargs: plan)
+    monkeypatch.setattr(upgrade, "_CLI_VERSION", lambda: cli)
+    monkeypatch.setattr(commands, "_INPUT", lambda p: prompts.append(p) or "cancel")
+
+    assert commands.self_host_upgrade([]) == 0
+    output = capsys.readouterr().out
+    assert "preview (no changes made)" in output
+    assert "already current" not in output
+    assert prompts == ["Type 'upgrade' to continue: "]
 
 
 def test_upgrade_tool_shaped_resolution():

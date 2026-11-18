@@ -189,6 +189,8 @@ Preflight shows images, release, distribution origin and actions, then asks you
 to type `upgrade`. It installs the paired CLI,
 atomically updates `YOKE_SERVER_IMAGE`, pulls `core`, refreshes Compose, and
 restarts through the private host handoff. `--yes` accepts this plan automatically.
+When the bundle's image pin and the installed CLI already match the channel's
+release, upgrade reports the pair already current and changes nothing.
 
 Setup and upgrade use `settings.distribution.origin`, ignoring
 `YOKE_INSTALL_BASE_URL`. Upgrade defaults to `settings.distribution.channel`;

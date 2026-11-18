@@ -14,6 +14,7 @@ from yoke_cli.self_host import bundle, runtime
 from yoke_cli.self_host import protection
 from yoke_cli.self_host import release_target
 from yoke_cli.self_host.diagnostics import _diagnostic
+from yoke_contracts.engine_version import local_handshake_version
 from yoke_contracts.self_host_bootstrap_output import redact_api_tokens
 
 INSTALL_TIMEOUT_SECONDS = 600.0
@@ -21,6 +22,7 @@ COMPOSE_TIMEOUT_SECONDS = 300.0
 
 _RUN = subprocess.run
 _CHECK_DOCKER = onboard_self_host_server.check_docker_prerequisites
+_CLI_VERSION = local_handshake_version
 
 
 class SelfHostUpgradeError(RuntimeError):
@@ -90,6 +92,23 @@ def plan_upgrade(
         docker_executable=prerequisites.executable,
         previous_image=previous_image,
     )
+
+
+def already_current_report(plan: UpgradePlan) -> dict[str, Any] | None:
+    """Return a no-op receipt when both the pin and this CLI already match the target."""
+    if (
+        plan.previous_image != plan.target.image
+        or _CLI_VERSION() != plan.target.version
+    ):
+        return None
+    return {
+        "ok": True,
+        "already_current": True,
+        "directory": str(plan.directory),
+        "channel": plan.target.channel,
+        "version": plan.target.version,
+        "image": plan.target.image,
+    }
 
 
 def execute_upgrade(plan: UpgradePlan) -> dict[str, Any]:
