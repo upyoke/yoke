@@ -96,7 +96,9 @@ class ReviewReadiness:
         return bool(self.review_stage)
 
 
-def review_readiness(item: dict[str, Any], *, public_ref: str) -> ReviewReadiness:
+def review_readiness(
+    item: dict[str, Any], *, public_ref: str, already_landed: bool = False
+) -> ReviewReadiness:
     """Read the item's review position against its pinned workflow.
 
     Fails closed on a definition it cannot read: a merge boundary that
@@ -114,6 +116,8 @@ def review_readiness(item: dict[str, Any], *, public_ref: str) -> ReviewReadines
         )
     review_stage_id = unreached_review_stage(workflow, status)
     if not review_stage_id:
+        if already_landed:
+            return ReviewReadiness()
         reached = implementation_review_stage_id(workflow)
         gates = workflow.gate_ids_for_stage(reached) if reached else ()
         if not reached:
