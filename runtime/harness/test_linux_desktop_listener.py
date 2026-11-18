@@ -148,12 +148,24 @@ def test_unnamed_tailnet_failure_names_the_recovery(wsl, monkeypatch):
 
 
 def test_host_provisioning_scripts_import_only_stdlib_and_siblings():
-    """They are copied alone onto the test host, where no Yoke package exists."""
+    """The documented bundles must work without a Yoke package on the target."""
     import ast
 
-    siblings = {path.stem for path in SCRIPTS.glob("*.py")}
-    allowed = set(sys.stdlib_module_names) | siblings | {"__future__"}
-    for path in SCRIPTS.glob("*.py"):
+    scripts = list(SCRIPTS.glob("*.py"))
+    siblings = {path.stem for path in scripts}
+    stdlib = set(sys.stdlib_module_names) | {"__future__"}
+    console_helpers = {"autologon", "console_setup", "stdin_frame"}
+    docs = Path(__file__).resolve().parents[2] / (
+        "docs/public/verification/test-machines/windows-desktop-provisioning.md"
+    )
+    recipe = docs.read_text(encoding="utf-8")
+    for module in console_helpers:
+        assert f"`{module}.py`" in recipe
+        scripts.append(SCRIPTS.parent / "native_windows" / f"{module}.py")
+    for path in scripts:
+        allowed = stdlib | siblings if path.parent == SCRIPTS else stdlib
+        if path.stem == "provision_windows_wsl_desktop":
+            allowed |= console_helpers
         tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
             names = (
