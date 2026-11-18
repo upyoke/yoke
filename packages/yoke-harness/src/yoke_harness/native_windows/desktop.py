@@ -17,7 +17,7 @@ from yoke_harness.native_windows.tasks import (
 )
 
 
-def desktop_script(control, script, *, timeout=60):
+def desktop_script(control, script, *, timeout=60, hidden=False):
     token = uuid4().hex
     root = control.home + "\\AppData\\Local\\YokeQa\\" + token
     name = "YokeQa-" + token
@@ -25,6 +25,7 @@ def desktop_script(control, script, *, timeout=60):
     # The wrapper always writes a completion receipt, even for a script that
     # calls exit. Its child owns the exit code; only stdout/stderr are returned.
     child = root + ".command.ps1"
+    arguments = '-NoLogo -NoProfile -WindowStyle ' + ('Hidden' if hidden else 'Normal') + ' -File "' + source + '"'
     wrapper = f"""$ErrorActionPreference='Stop'
 try {{
   & powershell.exe -NoLogo -NoProfile -File {quote(child)} 1> {quote(root + ".out")} 2> {quote(root + ".err")}
@@ -52,9 +53,7 @@ try {{
         control.upload_remote_text(source, wrapper)
         uploads_complete = True
         diagnostics["phase"] = "task_start"
-        start = control._run(create_interactive_task(
-            name, '-NoLogo -NoProfile -WindowStyle Normal -File "' + source + '"', timeout,
-        ))
+        start = control._run(create_interactive_task(name, arguments, timeout))
         require_task_result(control, start, phase="desktop_task_start")
         announce_designed_wait("native Windows desktop task", max_wait_seconds=timeout)
         diagnostics["phase"] = "receipt"
@@ -93,7 +92,6 @@ try {{
                     )
                 cleanup = control._run("\n".join(checks))
             else:
-                arguments = '-NoLogo -NoProfile -WindowStyle Normal -File "' + source + '"'
                 removal = remove_owned_task(name).replace(
                     "Remove-YokeTask " + quote(name),
                     "$t=Get-YokeTask " + quote(name) + ";if($t -and ($t.Definition.Actions.Count -ne 1 -or $t.Definition.Actions.Item(1).Path -ne 'powershell.exe' -or $t.Definition.Actions.Item(1).Arguments -ne " + quote(arguments) + ")){throw 'Desktop task action changed; preserve'};Remove-YokeTask " + quote(name),
@@ -129,7 +127,7 @@ try {
             "windows_focused_capture_unsupported",
         )
     try:
-        captured = desktop_script(control, script, timeout=30)
+        captured = desktop_script(control, script, timeout=30, hidden=True)
         if captured.returncode:
             return HostActionResult(
                 False, {"recovery": captured.stderr}, "windows_desktop_capture_failed"

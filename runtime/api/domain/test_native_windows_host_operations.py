@@ -78,7 +78,8 @@ def test_profile_copy_failure_does_not_report_restored():
     assert not any(line.startswith("+") for line in scripts[0].splitlines())
 
 
-def test_desktop_task_uses_interactive_user_and_is_cleaned():
+@pytest.mark.parametrize("hidden", [False, True])
+def test_desktop_task_uses_interactive_user_and_is_cleaned(hidden):
     scripts = []
     uploads = []
     control = SimpleNamespace(
@@ -89,12 +90,14 @@ def test_desktop_task_uses_interactive_user_and_is_cleaned():
         ),
     )
     control._run = lambda script, **kwargs: scripts.append(script) or completed()
-    result = desktop_script(control, "exit 7", timeout=1)
+    result = desktop_script(control, "exit 7", timeout=1, hidden=hidden)
     assert result.returncode == 7
     assert result.stdout == "native"
     assert "Principal.LogonType=3" in scripts[0]
     assert "Principal.RunLevel=0" in scripts[0]
     assert "Remove-YokeTask 'YokeQa-" in scripts[-1]
+    expected = "-WindowStyle Hidden" if hidden else "-WindowStyle Normal"
+    assert expected in scripts[0] and expected in scripts[-1]
     assert uploads[0][1] == "exit 7"
 
 
