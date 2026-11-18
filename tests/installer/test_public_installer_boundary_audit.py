@@ -168,4 +168,6 @@ def test_advise_path_points_at_uv_shell_setup(monkeypatch) -> None:
 
     installer._advise_path("/tmp/bin/yoke")
 
-    assert "yoke path fix --yes" in output.getvalue()
+    text = output.getvalue()
+    assert "/tmp/bin/yoke path fix --yes" in text
+    assert "yoke path fix --yes" not in text.splitlines()
