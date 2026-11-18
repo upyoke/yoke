@@ -6,7 +6,7 @@ import subprocess
 
 import pytest
 
-from yoke_harness.native_windows import provision
+from yoke_harness.native_windows import admin, provision
 from yoke_harness.native_windows.stdin_frame import (
     MAX_BYTES,
     READ_FRAME_SCRIPT,
@@ -118,11 +118,12 @@ def test_admin_upload_chunks_verify_whole_prefix_with_one_deadline(monkeypatch, 
     payload = source.encode("utf-8-sig")
     stored = bytearray()
     calls = []
-    ticks = iter(range(100))
-    monkeypatch.setattr(provision.time, "monotonic", lambda: next(ticks))
+    clock = [0]
+    monkeypatch.setattr(admin.time, "monotonic", lambda: clock[0])
 
     def run(argv, **kwargs):
         calls.append((argv, kwargs))
+        clock[0] += 1
         if "input" not in kwargs:
             assert "Remove-Item -LiteralPath" in base64.b64decode(argv[-1].split()[-1]).decode("utf-16-le")
             return completed()
@@ -143,24 +144,28 @@ def test_admin_upload_chunks_verify_whole_prefix_with_one_deadline(monkeypatch, 
         assert len(calls) == fail_chunk + 1
     else:
         assert provision.admin_script("key", "host", "admin", source).stdout == "EXECUTED"
-        assert [kw["timeout"] for _, kw in calls[:-2]] == list(range(29, 29-len(calls)+2, -1))
+        assert [kw["timeout"] for _, kw in calls[:-2]] == list(range(30, 30-len(calls)+2, -1))
         assert "CreateNew" in base64.b64decode(calls[0][0][-1].split()[-1]).decode("utf-16-le")
 
 
 def test_admin_upload_never_resets_total_deadline(monkeypatch):
-    ticks = iter([0, 1, 31])
-    monkeypatch.setattr(provision.time, "monotonic", lambda: next(ticks))
+    clock = [0]
+    monkeypatch.setattr(admin.time, "monotonic", lambda: clock[0])
     calls = []
 
     def run(argv, **kwargs):
         calls.append(argv)
         if "input" not in kwargs:
             return completed()
+        clock[0] = 31
         return completed(receipt(base64.b64decode(kwargs["input"].split(":", 1)[1])))
 
     monkeypatch.setattr(provision.subprocess, "run", run)
-    with pytest.raises(subprocess.TimeoutExpired):
+    with pytest.raises(admin.AdminScriptError) as error:
         provision.admin_script("key", "host", "admin", "x" * 5000)
+    assert isinstance(error.value.__cause__, subprocess.TimeoutExpired)
+    assert error.value.diagnostics["last_verified_offset"] == 2048
+    assert error.value.diagnostics["cleanup"] == "verified_absent"
     assert len(calls) == 2  # first chunk and bounded owned-path cleanup
 
 

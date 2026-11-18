@@ -8,7 +8,6 @@ import subprocess
 import tempfile
 import sys
 import time
-from uuid import uuid4
 
 from yoke_contracts.designed_wait import announce_designed_wait
 from yoke_contracts.machine_config.capability_secret_store import (
@@ -17,13 +16,8 @@ from yoke_contracts.machine_config.capability_secret_store import (
     store_test_machine_secret,
 )
 from yoke_harness.native_windows.transport import encoded, quote
-from yoke_harness.native_windows.stdin_frame import (
-    READ_FRAME_SCRIPT,
-    frame_bytes,
-    upload_script,
-    upload_received,
-)
-from yoke_harness.test_machine_remote_exec import host_key_options
+from yoke_harness.native_windows.stdin_frame import READ_FRAME_SCRIPT
+from yoke_harness.native_windows.admin import admin_script
 from yoke_harness.native_windows.journal import PROGRAM, TASK
 from yoke_harness.native_windows.autologon import SCRIPT as AUTOLOGON_SCRIPT
 from yoke_harness.native_windows.firewall import SCRIPT as RDP_FIREWALL_SCRIPT
@@ -36,74 +30,6 @@ from yoke_harness.native_windows.profile import (
 
 
 BOOTSTRAP_TIMEOUT_SECONDS = 5400
-
-
-def admin_script(key, host, user, script, *, input_text=None):
-    """Keep completed output on cleanup errors as their private primary_result."""
-    path = rf"C:\ProgramData\YokeQaProvision-{uuid4().hex}.ps1"
-    ssh = [
-        "ssh",
-        "-F",
-        "none",
-        *host_key_options({}),
-        "-i",
-        str(key),
-        "-o",
-        "StrictHostKeyChecking=accept-new",
-        "-o",
-        "BatchMode=yes",
-        "-o",
-        "ConnectTimeout=15",
-        f"{user}@{host}",
-    ]
-    payload = script.encode("utf-8-sig")
-    failure = result = None
-    try:
-        deadline = time.monotonic() + 30
-        for offset in range(0, len(payload), 2048):
-            chunk = payload[offset:offset + 2048]
-            write = upload_script(quote(path), offset=offset)
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                raise subprocess.TimeoutExpired("Windows script upload", 30)
-            uploaded = subprocess.run(
-                [*ssh, "powershell.exe -NoProfile -NonInteractive -EncodedCommand " + encoded(write)],
-                input=frame_bytes(chunk), capture_output=True, text=True, timeout=remaining,
-            )
-            if not upload_received(uploaded, payload[:offset + len(chunk)]):
-                raise RuntimeError(
-                    "windows_admin_script_upload_failed: verify administrator SSH key access; "
-                    + uploaded.stderr[-800:]
-                )
-        result = subprocess.run(
-            [*ssh, "powershell.exe -NoProfile -NonInteractive -File " + path],
-            input=frame_bytes(input_text.encode("utf-8"))
-            if input_text is not None
-            else None,
-            capture_output=True,
-            text=True,
-            timeout=300,
-        )
-        return result
-    except BaseException as exc:
-        failure = exc
-        raise
-    finally:
-        try:
-            cleanup = "$ErrorActionPreference='Stop'; Remove-Item -LiteralPath " + quote(path) + " -Force -ErrorAction SilentlyContinue; if(Test-Path -LiteralPath " + quote(path) + "){throw 'owned staging cleanup failed'}"
-            removed = subprocess.run(
-                [*ssh, "powershell.exe -NoProfile -NonInteractive -EncodedCommand " + encoded(cleanup)],
-                capture_output=True, text=True, timeout=10,
-            )
-            if removed.returncode:
-                raise RuntimeError("windows_admin_staging_cleanup_failed: " + removed.stderr[-800:])
-        except (RuntimeError, OSError, subprocess.SubprocessError) as exc:
-            if failure is None:
-                cleanup_error = RuntimeError("windows_admin_staging_cleanup_failed: cleanup remains unverified for " + path + "; restore administrator SSH connectivity, inspect primary_result privately, then verify owned staging removal before retrying")
-                cleanup_error.primary_result = result
-                raise cleanup_error from exc
-            failure.add_note("Owned Windows staging cleanup failed: " + str(exc))
-
 
 
 def provision(

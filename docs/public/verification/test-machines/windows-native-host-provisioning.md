@@ -198,6 +198,9 @@ bootstrap through SSH instead of Azure Run Command. The default remains `azure`.
 Script uploads use 2048-byte frames, expected offsets and cumulative SHA256
 receipts under one 30-second deadline; only the complete verified script runs.
 Owned staging cleanup is bounded to ten seconds and preserves prior errors.
+Administrator upload failures retain the exact owned path, chunk timing and last
+verified offset in `staging_diagnostics`, including cleanup outcome. Inspect that
+metadata before a diagnostic retry; private causes can contain encoded argv.
 Password frames never produce digests; readers do not wait for stdin EOF.
 
 In a Yoke source lane run that through `yoke dev run --allow-real-machine-home
