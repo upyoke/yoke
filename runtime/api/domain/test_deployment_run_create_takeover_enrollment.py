@@ -218,3 +218,64 @@ def test_new_member_in_rework_still_fails_composition(test_db, monkeypatch):
     assert not ok
     assert "Items not delivery-ready for their pinned workflow" in message
     assert "status=implementing" in message
+
+
+def _park_blocker_before_start(test_db, monkeypatch) -> str:
+    """OLD parks BLOCKER before it starts; a takeover create inherits the park."""
+    _seed(test_db, monkeypatch, flow=None, depend_on_blocker=False)
+    test_db.execute(
+        "UPDATE deployment_runs SET composition_frozen_at=%s WHERE id=%s",
+        ("2026-10-18T00:00:00Z", takeover.OLD),
+    )
+    monkeypatch.setattr(removals, "iso8601_now", lambda: "2026-10-17T04:00:00Z")
+    removals.record_membership_removals(
+        test_db,
+        takeover.OLD,
+        [BLOCKER],
+        reason="Operator parked the blocker",
+        session_id=DRIVER_SESSION,
+        actor_id=1,
+    )
+    test_db.commit()
+    return _create()
+
+
+def test_create_names_each_inherited_exclusion_with_source_reason_and_expiry(
+    test_db, monkeypatch
+):
+    from yoke_core.domain.deployment_run_skipped_candidates import (
+        skipped_candidate_notice,
+    )
+
+    created = _park_blocker_before_start(test_db, monkeypatch)
+
+    assert BLOCKER not in takeover._members(test_db, created)
+    notice = skipped_candidate_notice(test_db, created)
+    assert "excluded by a run this one took over" in notice
+    assert f"removed from {takeover.OLD} at 2026-10-17T04:00:00Z" in notice
+    assert "Operator parked the blocker" in notice
+    assert "expires when it lands again" in notice
+    assert f"yoke deployment-runs add-item {created} " in notice
+
+
+def test_add_item_clears_only_the_target_run_and_keeps_predecessor_audit(
+    test_db, monkeypatch
+):
+    created = _park_blocker_before_start(test_db, monkeypatch)
+    removals.record_membership_removals(
+        test_db, created, [BLOCKER], reason="Parked here too",
+        session_id=DRIVER_SESSION, actor_id=1,
+    )
+    before = removals.membership_removals(test_db, takeover.OLD)
+
+    assert removals.clear_membership_removal(test_db, created, BLOCKER)
+    test_db.execute(
+        "INSERT INTO deployment_run_items (run_id,item_id,added_at) VALUES (%s,%s,%s)",
+        (created, BLOCKER, "2026-10-19T00:00:00Z"),
+    )
+
+    assert removals.membership_removals(test_db, takeover.OLD) == before
+    assert BLOCKER in removals.removed_item_ids(test_db, takeover.OLD)
+    assert not removals.membership_removals(test_db, created)
+    # Membership here ends the inherited park without erasing its record.
+    assert BLOCKER not in removals.enrollment_removed_item_ids(test_db, created)

@@ -302,7 +302,12 @@ def test_operator_removal_on_an_absorbed_run_survives_the_takeover(
     # Enrollment subtracts this set, so the absorbed run's removal is not undone.
     assert removed in enrollment_removed_item_ids(test_db, NEW)
     assert removed not in _members(test_db, NEW)
-    # add-item on the successor reverses the decision on the absorbed run too.
-    assert clear_membership_removal(test_db, NEW, removed)
+    # add-item on the successor clears nothing upstream: the absorbed run's
+    # entry stays as audit evidence, and membership ends its inherited effect.
+    assert not clear_membership_removal(test_db, NEW, removed)
+    test_db.execute(
+        "INSERT INTO deployment_run_items (run_id,item_id,added_at) VALUES (%s,%s,%s)",
+        (NEW, removed, "2026-11-05T00:00:00Z"),
+    )
     assert removed not in enrollment_removed_item_ids(test_db, NEW)
-    assert removed not in removed_item_ids(test_db, absorbed)
+    assert removed in removed_item_ids(test_db, absorbed)

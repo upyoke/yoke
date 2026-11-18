@@ -89,8 +89,10 @@ def cmd_add_item(
             delivery_intent=delivery_intent,
             requirement_ids=requirement_ids,
         )
-        # Attaching reverses an earlier removal; left in place it would keep
-        # composition subtracting the member this call just admitted.
+        # Attaching reverses an earlier removal on this run; left in place it
+        # would keep composition subtracting the member this call just
+        # admitted. Predecessors' entries stay as audit records: membership
+        # here is what ends their inherited effect.
         clear_membership_removal(conn, run_id, int(item_id))
         from yoke_core.domain.deployment_member_post_deploy_admission import (
             unadmitted_post_deploy_notice,

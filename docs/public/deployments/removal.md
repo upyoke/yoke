@@ -34,7 +34,8 @@ it back, and the composition notice names it.
 
 The item stays out of the run it left. A takeover also honors a removal
 made before that run started until the item lands again or an operator adds it
-back. After an item-QA removal, the next takeover can enroll the item through
+back. `deployment-runs create` names each such inherited exclusion with the run
+it came from, its reason, when it was made and what ends it. After an item-QA removal, the next takeover can enroll the item through
 the ordinary carried-work checks. The same checks apply after an automatic
 release awaiting a later candidate or a rework set-aside.
 
@@ -43,7 +44,9 @@ that starts fresh can enroll the unheld item if its candidate carries the
 landing.
 
 Re-attaching the item with `yoke deployment-runs add-item` while the run is
-still `created` clears the removal, on the superseded runs too.
+still `created` clears the removal on that run only. Removals recorded on the
+runs it took over stay as audit records; the item's membership is what ends
+their effect.
 
 ## Effects on QA
 

@@ -17,23 +17,26 @@ removed for being in rework belongs once it returns to its release stage.
 Removal also releases outstanding run-bound QA at independent item QA, or
 a failed member whose recorded merge is outside its frozen project candidate,
 or a replaced candidate at settlement, without closing it.
-Re-attaching while created with ``deployment_runs.add_item`` clears the entry: the
-operator reversed the decision, and a stale exclusion would silently drop the
-item from the run it was just attached to.
+Re-attaching while created with ``deployment_runs.add_item`` clears the entry on
+that run only: the operator reversed the decision there, and a stale exclusion
+would silently drop the item from the run it was just attached to.
 
 A takeover successor honors pre-start operator parks on every run it takes
-over until the item lands again or an operator adds it back. Removals at item
-QA, transfers, set-asides and automatic lineage releases leave a successor
-free to enroll the candidate it carries.
+over until the item lands again or becomes the successor's member (an operator
+adds it back); predecessor entries are never erased, so they stay the audit
+record. Removals at item QA, transfers (``transferred_to_run_id``), set-asides
+and automatic lineage releases leave a successor free to enroll the candidate
+it carries.
 """
 
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Iterable
+from typing import Any, Iterable, NamedTuple
 
 from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.deployment_run_proposed_membership import run_items
 from yoke_core.domain.json_helper import dumps_compact, loads_text
 from yoke_core.domain.schema_common import _column_exists
 
@@ -126,35 +129,68 @@ def _predecessor_operator_removals(
     ]
 
 
-def _inherited(conn: Any, run_id: str) -> set[int]:
-    """Items still parked by a predecessor's pre-start operator removal."""
-    parks = []
-    for _, started_at, entry in _predecessor_operator_removals(conn, run_id):
-        removed_at = parse_instant(entry["removed_at"])
-        if started_at is None or removed_at <= parse_instant(started_at):
-            parks.append((int(entry["item_id"]), removed_at))
-    if not parks:
-        return set()
+class InheritedExclusion(NamedTuple):
+    """A predecessor's pre-start operator park this run still honors.
 
+    It expires when the item lands again after ``removed_at``, or when an
+    operator adds the item to this run, which makes it a member here.
+    """
+
+    item_id: int
+    source_run_id: str
+    reason: str
+    removed_at: str
+
+
+def inherited_exclusions(conn: Any, run_id: str) -> tuple[InheritedExclusion, ...]:
+    """Predecessor parks still in effect on *run_id*, newest park per item."""
+    parks: dict[int, InheritedExclusion] = {}
+    for source, started_at, entry in _predecessor_operator_removals(conn, run_id):
+        removed_at = parse_instant(entry["removed_at"])
+        if started_at is not None and removed_at > parse_instant(started_at):
+            continue
+        item_id = int(entry["item_id"])
+        held = parks.get(item_id)
+        if held is None or parse_instant(held.removed_at) < removed_at:
+            parks[item_id] = InheritedExclusion(
+                item_id,
+                source,
+                str(entry.get("reason") or "no reason recorded"),
+                str(entry["removed_at"]),
+            )
+    if not parks:
+        return ()
+    members = {
+        int(row[0])
+        for row in conn.execute(
+            f"SELECT item_id FROM {run_items()} WHERE run_id=%s", (run_id,)
+        ).fetchall()
+    }
     landings = {
         int(row[0]): parse_instant(row[1])
         for row in conn.execute(
             "SELECT id,COALESCE(merge_queue_landed_at,merged_at) FROM items "
             "WHERE id=ANY(%s)",
-            (sorted({item_id for item_id, _ in parks}),),
+            (sorted(parks),),
         ).fetchall()
         if row[1] is not None
     }
-    return {
-        item_id
-        for item_id, removed_at in parks
-        if item_id not in landings or landings[item_id] <= removed_at
-    }
+    return tuple(
+        park
+        for item_id, park in sorted(parks.items())
+        if item_id not in members
+        and (
+            item_id not in landings
+            or landings[item_id] <= parse_instant(park.removed_at)
+        )
+    )
 
 
 def enrollment_removed_item_ids(conn: Any, run_id: str) -> frozenset[int]:
     """This run's removals plus any predecessor parks still in effect."""
-    return removed_item_ids(conn, run_id) | _inherited(conn, run_id)
+    return removed_item_ids(conn, run_id) | frozenset(
+        park.item_id for park in inherited_exclusions(conn, run_id)
+    )
 
 
 def _write(conn: Any, run_id: str, entries: list[dict[str, Any]]) -> None:
@@ -207,25 +243,25 @@ def record_membership_removals(
 
 
 def clear_membership_removal(conn: Any, run_id: str, item_id: int) -> bool:
-    """Drop *item_id*'s removal here and up the chain; report whether one existed."""
-    cleared = False
-    for subject in {str(run_id)} | {
-        run
-        for run, _, entry in _predecessor_operator_removals(conn, run_id)
-        if int(entry["item_id"]) == int(item_id)
-    }:
-        entries = membership_removals(conn, subject)
-        kept = [entry for entry in entries if int(entry["item_id"]) != int(item_id)]
-        if len(kept) != len(entries):
-            _write(conn, subject, list(kept))
-            cleared = True
-    return cleared
+    """Drop *item_id*'s removal on *run_id* only; report whether one existed.
+
+    Predecessor entries stay as the audit record of what was decided there;
+    the item's membership here is what ends their inherited effect.
+    """
+    entries = membership_removals(conn, run_id)
+    kept = [entry for entry in entries if int(entry["item_id"]) != int(item_id)]
+    if len(kept) == len(entries):
+        return False
+    _write(conn, run_id, kept)
+    return True
 
 
 __all__ = [
+    "InheritedExclusion",
     "MEMBERSHIP_REMOVALS_FIELD",
     "clear_membership_removal",
     "enrollment_removed_item_ids",
+    "inherited_exclusions",
     "membership_removals",
     "record_membership_removals",
     "removed_item_ids",
