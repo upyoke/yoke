@@ -14,9 +14,10 @@ yoke uninstall
 ```
 
 On a machine holding a local universe or a self-host server, the first output
-warns that uninstall deletes its only copy of the universe data. Choose **back
-up first** to run `yoke universe export` for each owned universe, or **uninstall
-without backing up**. There is no automatic backup. Uninstall's backups land
+warns that uninstall deletes its only copy of the local universe data or the
+self-hosted server data. Choose **back up first** to run `yoke universe export`
+for each owned universe, or **uninstall without backing up**. Any other answer
+cancels with exit 0 and changes nothing. There is no automatic backup. Uninstall's backups land
 in the current directory; run uninstall outside the machine home. A manual
 `yoke universe export` defaults to the machine Yoke home exports folder;
 pass `--out PATH` outside that home before uninstall. A failed export stops
