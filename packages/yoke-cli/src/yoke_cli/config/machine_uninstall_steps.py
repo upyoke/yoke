@@ -33,7 +33,8 @@ NOT_REMOVED = (
 )
 
 
-def command(args: list[str]) -> None:
+def command(args: list[str]) -> str:
+    """Run one CLI step; return its stdout, or raise its named failure."""
     result = subprocess.run(
         [sys.executable, "-m", "yoke_cli.main", *args],
         stdin=subprocess.DEVNULL,
@@ -53,10 +54,11 @@ def command(args: list[str]) -> None:
         )
     if result.stderr.strip():
         print(redact_api_tokens(result.stderr.strip()), file=sys.stderr)
-    if "export" in args or args[:2] == ["self-host", "teardown"]:
+    if args[:2] == ["self-host", "teardown"]:
         print(redact_api_tokens(result.stdout.strip()))
     for warning in warnings:
         print(f"project uninstall: {redact_api_tokens(warning)}")
+    return result.stdout
 
 
 def _project_warnings(args: list[str], stdout: str) -> list[str]:
@@ -98,38 +100,6 @@ def _report_windows_path(emit: Callable[[str], None]) -> None:
                 if present
                 else "absent; other entries retained"
             )
-        )
-
-
-def back_up(inventory: Inventory, emit: Callable[[str], None]) -> None:
-    targets = (
-        [("local universe", inventory.local_env)] if inventory.local_universe else []
-    )
-    targets += [(f"self-host {directory}", env) for directory, env in inventory.bundles]
-    # No automatic backup and no artifact inside the home about to be deleted.
-    output = Path.cwd().resolve()
-    if output == inventory.home.resolve() or inventory.home.resolve() in output.parents:
-        raise UninstallError(
-            "uninstall_backup_inside_home: run uninstall from a directory outside "
-            "the machine home so its exports survive removal."
-        )
-    failures = []
-    for label, env in targets:
-        try:
-            if not env:
-                raise UninstallError(
-                    "uninstall_backup_connection_missing: restore the machine connection "
-                    "to this universe, then retry with --backup."
-                )
-            command(["--env", env, "universe", "export", "--out", str(output) + "/"])
-            emit(f"backup {label}: done (archive in {output})")
-        except Exception as exc:
-            failures.append(label)
-            emit(f"backup {label}: failed ({type(exc).__name__}: {exc})")
-    if failures:
-        raise UninstallError(
-            "uninstall_backup_failed: nothing was uninstalled. Repair the failed "
-            "export and retry --backup, or explicitly choose --no-backup."
         )
 
 

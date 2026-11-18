@@ -4,7 +4,7 @@
  "status": "draft-copy",
  "audience": "both",
  "when": "Before confirming uninstall",
- "need": "Local universe or self-hosted server data may be the only copy; the warning names which. Backup choice and which project layers to remove are distinct; there is no automatic backup, and any answer other than backup/no-backup cancels with exit 0 and no changes. Explicit unattended choices are required.",
+ "need": "Local universe or self-hosted server data may be the only copy; the warning names which. Backup choice and which project layers to remove are distinct; there is no automatic backup; each backup archive is named for the universe it holds and printed by full path; and any answer other than backup/no-backup cancels with exit 0 and no changes. Explicit unattended choices are required.",
  "disclosure": "current cue",
  "surface": "Install -> Uninstall -> command help and first prompts.",
  "review": "Pending exact recipe proof.",
