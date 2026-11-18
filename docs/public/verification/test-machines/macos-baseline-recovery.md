@@ -80,8 +80,9 @@ uninstall log for `CLI: done` and require the launcher to disappear. An
 with `lsof`, stop the owned command or service, and retry. Clear the Yoke and
 uv paths named by capture while preserving the live browser identity and
 harness state. Never seal a home containing Yoke residue.
-Choose a new absolute destination outside the test home, in a separate new parent for EACH attempt; retention can
-delete unregistered siblings. Preserve old/failed captures and sidecars:
+On the host, create a private parent directory outside the test home for each
+attempt. Retention can delete unregistered siblings. Pass a new child path
+inside that existing directory and preserve old or failed captures and sidecars.
 
 ```text
 yoke test-machine golden-capture --test-machine NAME --destination /opt/yoke-golden-DATE-UNIQUE/home

@@ -82,8 +82,11 @@ class ScriptedMacHost:
     def __call__(
         self,
         command: str,
+        input_text: str | None = None,
         **_kwargs: Any,
     ) -> subprocess.CompletedProcess[str]:
+        if input_text is not None:
+            command = f"{command}\n{input_text}"
         self.commands.append(command)
         if REACHABILITY_PROBES["system_events"] in command:
             return self._reachability(command, self.system_events_reachable, "-1743")

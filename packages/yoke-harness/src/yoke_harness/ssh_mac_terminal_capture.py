@@ -11,6 +11,8 @@ import time
 from typing import Callable, NamedTuple
 from uuid import uuid4
 
+from yoke_harness.ssh_mac_terminal_app import run_osascript
+
 
 RunRemote = Callable[..., subprocess.CompletedProcess[str]]
 TerminalBackend = str
@@ -115,17 +117,14 @@ def open_terminal_window(
     command: str,
 ) -> int | None:
     """Run one command in a new Terminal window and return that window's id."""
-    apple = "\n".join(
+    result = run_osascript(
+        run,
         [
             'tell application "Terminal"',
-            f"do script {json.dumps(command)}",
+            f"do script {json.dumps(command, ensure_ascii=False)}",
             "return id of front window",
             "end tell",
-        ]
-    )
-    result = run(
-        "/usr/bin/osascript -e " + shlex.quote(apple),
-        timeout=20,
+        ],
     )
     try:
         window_id = int(result.stdout.strip())
@@ -142,18 +141,15 @@ def close_terminal_window(
     """Best-effort cleanup for one Terminal window opened by this runner."""
     if window_id is None:
         return
-    apple = "\n".join(
+    run_osascript(
+        run,
         [
             'tell application "Terminal"',
             f"if exists window id {window_id} then",
             f"close window id {window_id}",
             "end if",
             "end tell",
-        ]
-    )
-    run(
-        "/usr/bin/osascript -e " + shlex.quote(apple),
-        timeout=20,
+        ],
     )
 
 

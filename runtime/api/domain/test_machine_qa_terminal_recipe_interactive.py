@@ -80,10 +80,13 @@ def test_interactive_recipe_rejects_a_known_unexpected_exit_code(
         command: str,
         **_kwargs: object,
     ) -> subprocess.CompletedProcess[str]:
-        commands.append(command)
+        payload = str(_kwargs.get("input_text", ""))
+        commands.append(f"{command}\n{payload}" if payload else command)
         if command.startswith("if command -v tmux"):
             return completed(command, stdout="screen")
-        if "return id of front window" in command:
+        if command == "/usr/bin/osascript" and "return id of front window" in str(
+            _kwargs.get("input_text", "")
+        ):
             return completed(command, stdout="445")
         if " hardcopy -h " in command:
             return completed(command, stdout="ready")
@@ -190,7 +193,9 @@ def test_interactive_recipe_uses_action_wait_then_global_fallback(
     ) -> subprocess.CompletedProcess[str]:
         if command.startswith("if command -v tmux"):
             return completed(command, stdout="screen")
-        if "return id of front window" in command:
+        if command == "/usr/bin/osascript" and "return id of front window" in str(
+            _kwargs.get("input_text", "")
+        ):
             return completed(command, stdout="445")
         if " hardcopy -h " in command:
             return completed(command, stdout="ready")
@@ -249,7 +254,9 @@ def test_interactive_recipe_resizes_the_created_native_session(
         commands.append(command)
         if command.startswith("if command -v tmux"):
             return completed(command, stdout=backend)
-        if "return id of front window" in command:
+        if command == "/usr/bin/osascript" and "return id of front window" in str(
+            _kwargs.get("input_text", "")
+        ):
             return completed(command, stdout="445")
         if "capture-pane" in command or " hardcopy -h " in command:
             return completed(command, stdout="ready")
