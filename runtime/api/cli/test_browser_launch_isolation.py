@@ -71,6 +71,9 @@ def test_ordinary_subprocesses_still_run(guard):
     assert guard.verdict() is None
 
 
+@pytest.mark.posix_only(
+    reason="fake launcher is a #!/bin/sh script; Windows CreateProcess refuses it"
+)
 def test_a_fake_launcher_under_tmp_path_is_allowed(guard, tmp_path):
     fake = tmp_path / "powershell.exe"
     fake.write_text("#!/bin/sh\nexit 0\n")

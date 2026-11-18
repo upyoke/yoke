@@ -8,6 +8,9 @@ import pytest
 from yoke_cli.config import hosted_machine_browser as browser
 
 URL = "http://localhost:8060/?token=a&other=b"
+POSIX_FAKE = pytest.mark.posix_only(
+    reason="fake powershell.exe is a #!/bin/sh script; the WSL opener runs only on Linux"
+)
 
 
 def _fake_powershell(bin_dir: Path, status: int) -> Path:
@@ -36,6 +39,7 @@ def wsl_path(tmp_path, monkeypatch):
     return bin_dir
 
 
+@POSIX_FAKE
 def test_powershell_receives_the_url_only_through_the_environment(wsl_path):
     script = _fake_powershell(wsl_path, 0)
     result = browser.open_url(
@@ -55,6 +59,7 @@ def test_powershell_receives_the_url_only_through_the_environment(wsl_path):
     assert Path(f"{script}.env").read_text().splitlines() == [URL, "A/p:YOKE_OPEN_URL"]
 
 
+@POSIX_FAKE
 def test_a_refused_start_process_is_recorded_as_not_opened(wsl_path):
     _fake_powershell(wsl_path, 1)
     result = browser.open_url(
