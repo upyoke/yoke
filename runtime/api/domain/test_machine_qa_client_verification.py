@@ -293,6 +293,7 @@ def test_case_contract_keeps_its_digest_after_public_dispatch(test_db, monkeypat
         project="yoke",
         settings=_verification_contract()["settings"],
         cases=public_case_snapshots(test_db, [case]),
+        baselines=[case["host_baseline"]],
     )
     result = public_response(
         FunctionCallResponse(

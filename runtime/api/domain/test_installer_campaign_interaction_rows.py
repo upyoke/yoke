@@ -134,7 +134,7 @@ def test_obstacle_cases_are_missions_with_boundary_and_workaround_evidence():
 def test_inspection_and_machine_state_cases_are_semantic() -> None:
     cases = {case["case_key"]: case for case in INSTALLER_CAMPAIGN_CASES}
 
-    assert cases["welcome-frame"]["host_baselines"] == []
+    assert cases["welcome-frame"]["host_baselines"] == ["fresh-host"]
     assert "Installing uv" in cases["welcome-frame"]["expected_outcome"]
     assert "Exit code 1" in cases["welcome-frame"]["expected_outcome"]
     welcome_entry = cases["welcome-frame"]["entry_surface"]

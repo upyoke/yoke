@@ -45,7 +45,7 @@ def test_bundle_is_immutable_complete_and_does_not_ask_a_human() -> None:
                 "case_key": "review-frame",
                 "case_position": 1,
                 "baseline_position": 1,
-                "host_baseline": None,
+                "host_baseline": "fresh-host",
                 "required_capability_kinds": execution["roster"][0]["required_capability_kinds"],
                 "method_id": "terminal-inspection",
                 "runner_id": "host_control",
@@ -183,7 +183,7 @@ def test_agent_verdict_is_per_case_and_only_undetermined_escalates(
                 (requirement_id,),
             ).fetchone()[0]
         )
-        proof = get_plan(conn, plan_id=plan_id)["cases"][0]["last_result"]
+        proof = get_plan(conn, plan_id=plan_id)["cases"][0]["proofs"][0]
         assert proof["review"]["state"] == review_state
         assert proof["review"]["capture_run_id"] is not None
         assert (
