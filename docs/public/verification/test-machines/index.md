@@ -132,7 +132,7 @@ After every mission records walk-end, the execution changes from `walking`
 to `awaiting_walk_review`; both retain the pending verdict bundle and custody.
 
 <!-- yoke:contents -->
-- [Host provisioning](host-provisioning.md) — Choose an OS procedure and register a host in the universe.
+- [Host provisioning](host-provisioning.md) — Choose an OS procedure and declare the project-owned host inventory.
 - [Tailnet bootstrap](tailnet-bootstrap.md) — Start cloud labs, join Tailscale and approve stable MagicDNS identities.
 - [Setup responsibilities](setup-responsibilities.md) — Separate agent actions from personal credential entry.
 - [Administrator commands](administrator-commands.md) — Use stored host credentials for bounded administrator commands.
