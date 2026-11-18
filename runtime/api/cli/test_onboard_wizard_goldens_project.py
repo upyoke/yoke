@@ -94,11 +94,11 @@ def test_project_publish_prompt() -> None:
         a.result.project_checkout = "~/code/my-project"
         a.result.project_slug = "my-project"
         a.result.project_name = "My Project"
+        a.result.machine_github_choice = onboard_machine_github.CHOICE_CONNECT
+        a.result.machine_github_verification = {"ok": True, "ready": True}
         a._goto_publish_prompt()
 
-    assert_golden(
-        "project_publish_prompt", render(app, drive, title="yoke setup · Project")
-    )
+    assert_golden("project_publish_prompt", render(app, drive, title="yoke setup · Project"))
 
 
 def test_project_owner_picker(monkeypatch: pytest.MonkeyPatch) -> None:

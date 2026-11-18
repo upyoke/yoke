@@ -89,6 +89,12 @@ class PublishFlow:
             # checkout had a usable origin.
             self._after_repo(self.result.project_github_repo or "")
             return
+        # Publishing needs the Yoke GitHub App; with GitHub skipped the
+        # project stays local and can be published later.
+        if not github_connected(self.result):
+            self.result.project_publish_to_github = False
+            self._after_repo("")
+            return
         self._goto(
             self._selection_view(
                 "project.publish",
@@ -97,7 +103,6 @@ class PublishFlow:
                 "Yoke creates the repo through the Yoke GitHub App and connects it as your remote.",
                 project_screens.PUBLISH_ROWS,
                 self._on_publish_choice,
-                initial=0 if github_connected(self.result) else 1,
             )
         )
 
@@ -174,14 +179,12 @@ class PublishFlow:
         )
 
     def _cannot_publish_reason(self: _Shell) -> str:
-        """Explain whether the block is a create gap or a push-to-new-repo gap."""
-        if github_connected(self.result):
-            return (
-                "No non-suspended Yoke GitHub App installation grants the optional "
-                "Administration permission and all-repositories access needed "
-                "for one-step repo creation."
-            )
-        return "Connect the Yoke GitHub App before publishing."
+        """Explain why one-step repo creation is unavailable."""
+        return (
+            "No non-suspended Yoke GitHub App installation grants the optional "
+            "Administration permission and all-repositories access needed "
+            "for one-step repo creation."
+        )
 
     def _goto_owner_picker(
         self: _Shell,

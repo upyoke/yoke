@@ -118,9 +118,9 @@ def test_local_checkout_setup_answers_the_details_form_by_field(agent, tmp_path:
     code, line = _last(
         drive("project.details.name=Demo App", "project.details=continue")
     )
-    assert line["key"] == "project.publish"
-    for answer in ("project.publish=keep-local", "hosting.provider=skip"):
-        code, line = _last(drive(answer))
+    # GitHub is skipped, so setup keeps the project local without asking.
+    assert line["key"] == "hosting.provider"
+    code, line = _last(drive("hosting.provider=skip"))
     assert line["key"] == "review.confirm"
 
     code, line = _last(drive("review.confirm=apply"))
