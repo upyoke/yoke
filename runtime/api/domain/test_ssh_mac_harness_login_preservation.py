@@ -16,6 +16,7 @@ from runtime.api.domain.ssh_mac_full_reset_test_support import (
 )
 from yoke_contracts.browser_identity import LIVE_IDENTITY_STORE_HOME_ENTRY as STORE
 from yoke_contracts.ssh_mac_preserved_state import (
+    CLAUDE_DESKTOP_HOME_ENTRY,
     HARNESS_LOGIN_HOME_ENTRIES,
     PRESERVED_HOME_ENTRIES,
     PRESERVED_MANIFEST_KEY,
@@ -23,11 +24,18 @@ from yoke_contracts.ssh_mac_preserved_state import (
 )
 
 KEYCHAIN = "Library/Keychains/login.keychain-db"
-LOGIN_FILES = (KEYCHAIN, ".claude/.credentials.json", ".codex/auth.json")
+LOGIN_FILES = (
+    KEYCHAIN,
+    ".claude/.credentials.json",
+    ".codex/auth.json",
+    f"{CLAUDE_DESKTOP_HOME_ENTRY}/Cookies",
+    f"{CLAUDE_DESKTOP_HOME_ENTRY}/Local Storage/leveldb/CURRENT",
+)
 NEIGHBORS = (
     ".claude/settings.json",
     ".codex/config.toml",
     "Library/Preferences/a.plist",
+    "Library/Application Support/Claude Other/state.json",
 )
 
 
@@ -111,7 +119,7 @@ def test_capture_prunes_every_preserved_entry_and_keeps_neighbors(tmp_path):
     )
     assert result.returncode == 0, result.stderr
     entries = {entry.removeprefix("./") for entry in result.stdout.split("\0") if entry}
-    for kept in (".ssh", ".ssh/id", "Library/Keychains", *LOGIN_FILES):
+    for kept in (".ssh", ".ssh/id", "Library/Keychains", CLAUDE_DESKTOP_HOME_ENTRY, *LOGIN_FILES):
         assert kept not in entries, kept
     for neighbor in (".claude", ".codex", *NEIGHBORS):
         assert neighbor in entries, neighbor
@@ -127,6 +135,7 @@ def test_capture_prunes_every_preserved_entry_and_keeps_neighbors(tmp_path):
         "mismatch",
         "copied_login",
         "copied_store",
+        "copied_desktop_profile",
     ],
 )
 def test_reset_manifest_refuses_a_golden_carrying_a_declared_login(tmp_path, manifest):
@@ -137,15 +146,18 @@ def test_reset_manifest_refuses_a_golden_carrying_a_declared_login(tmp_path, man
     if manifest == "legacy":
         line = "source_home legacy"
     if manifest == "earlier_subset":
-        # Sealed before the identity store joined the kept set.
-        earlier = [entry for entry in PRESERVED_HOME_ENTRIES if entry != STORE]
+        # Older goldens can carry the profile, but restore never reads it back.
+        earlier = [entry for entry in PRESERVED_HOME_ENTRIES if entry != CLAUDE_DESKTOP_HOME_ENTRY]
         line = f"{PRESERVED_MANIFEST_KEY} {json.dumps(earlier, separators=(',', ':'))}"
+        _write(golden, f"{CLAUDE_DESKTOP_HOME_ENTRY}/Cookies", "captured cookies")
     if manifest == "mismatch":
         line = f'{PRESERVED_MANIFEST_KEY} [".ssh","Library/Unknown"]'
     if manifest == "copied_login":
         _write(golden, ".codex/auth.json", "captured login")
     if manifest == "copied_store":
         _write(golden, f"{STORE}/acme/admin/Cookies", "captured cookies")
+    if manifest == "copied_desktop_profile":
+        _write(golden, f"{CLAUDE_DESKTOP_HOME_ENTRY}/Cookies", "captured cookies")
     Path(str(golden) + ".manifest").write_text(line + "\n")
     result = run_functions(
         (
@@ -157,5 +169,5 @@ def test_reset_manifest_refuses_a_golden_carrying_a_declared_login(tmp_path, man
         shell_home=tmp_path / "shell",
     )
     assert ("REJECTED" in result.stdout) == (
-        manifest in {"mismatch", "copied_login", "copied_store"}
+        manifest in {"mismatch", "copied_login", "copied_store", "copied_desktop_profile"}
     )

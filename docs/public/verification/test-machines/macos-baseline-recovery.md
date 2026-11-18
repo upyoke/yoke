@@ -26,10 +26,12 @@ for password-free native authorization and personal sign-in handoffs. [Codex dev
 requires account/workspace permission. [Cursor auth](https://cursor.com/docs/cli/reference/authentication)
 is separate from app presence. A login-status line or credential file is
 insufficient: every harness must answer a real request without tool calls.
-For fixtures covering the desktop surfaces, also open Claude, Codex in the
-ChatGPT app, and Cursor as the test user. Finish each app’s first-run prompts
-and verify the signed-in account. Keep desktop and CLI checks separate, and
-verify each required desktop sign-in again after the golden reset.
+Open Claude for Mac as the test user, finish its first-run prompts, sign in,
+and quit it normally. The Mac golden probe opens the native app, checks its
+signed-in chat view and quits it. It leaves screen text and images on the
+fixture only for the duration of the check. For fixtures covering other
+desktop surfaces, verify Codex in the ChatGPT app and Cursor independently
+after the golden reset.
 
 After harness sign-in, run `yoke test-machine golden-capture` (section 9)
 to prove real requests and recapture. Identity sign-ins stay live outside goldens.
@@ -62,11 +64,12 @@ the host. Extra probes name absolute argv and optional
 
 Keep signed-in vendor state but remove Yoke/uv state through the registered
 baseline preparation path. Harness logins themselves are never captured: the
-login Keychain (`Library/Keychains`, holding Claude's and Cursor's logins),
-`.claude/.credentials.json`, `.codex/auth.json` and the browser identity
-store `.yoke-browser-identities` are excluded from the golden and kept live on
-every reset, so a reset never puts back a rotated token or cookie. The
-identity profiles are the machine's only saved browser logins. Chromium writes
+login Keychain (`Library/Keychains`, holding Claude's and Cursor's CLI logins),
+`.claude/.credentials.json`, `.codex/auth.json`, the native Claude profile
+`Library/Application Support/Claude`, and `.yoke-browser-identities` stay live
+outside the golden. Restore skips captured copies of these paths even on an
+older golden. Capture a new baseline to seal the native Claude desktop probe.
+The identity profiles are the machine's only saved browser logins. Chromium writes
 a profile's cookies as it closes, so capture and reset first find each
 identity browser's main process with `/bin/ps`, send it SIGTERM (Chromium's
 clean shutdown) and wait up to 30 seconds; they never force-quit it. If a previous golden exists, reset first, then make

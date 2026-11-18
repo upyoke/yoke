@@ -23,7 +23,7 @@ from yoke_harness.ssh_mac_golden_capture import capture_golden_baseline
 CHECK_UNMET_EXIT = PROBE_EXIT_CODES["probe_check_unmet"]
 
 
-@pytest.mark.parametrize("os_name,count", [("macos", 6), ("linux", 5), ("wsl", 4)])
+@pytest.mark.parametrize("os_name,count", [("macos", 7), ("linux", 5), ("wsl", 4)])
 def test_defaults_and_supplied_names_cannot_weaken_the_standard_set(os_name, count):
     document, refusal = capture_probes_document(os_name, None)
     assert refusal is None
