@@ -7,6 +7,7 @@ from types import SimpleNamespace
 
 from runtime.api.domain.worktree_create_multiworktree_test_support import _config_path
 from runtime.api.fixtures.file_test_db import connect_test_db
+from yoke_contracts.hook_runner.repo_paths import normalize_repo_path
 from yoke_core.api import service_client_structured_api_adapter
 from yoke_core.domain import (
     worktree_create,
@@ -148,9 +149,9 @@ def test_hosted_blitz_materializes_every_authoritative_lane_locally(
         "YOK-99223",
         "blitz-99223-docs",
     ]
+    lanes_dir = normalize_repo_path(str(git_repo / ".worktrees"))
     assert all(
-        entry.path.startswith(str(git_repo / ".worktrees"))
-        for entry in result.worktrees
+        entry.path.startswith(lanes_dir + "/") for entry in result.worktrees
     )
     assert all(os.path.isdir(entry.path) for entry in result.worktrees)
     assert [lane[0] for lane in persisted["lanes"]] == [63, 61, 62]

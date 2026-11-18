@@ -20,6 +20,7 @@ from yoke_contracts.owner_private_path import (
     create_owner_private_directory,
     is_owner_private_directory,
     is_owner_private_file,
+    is_others_unwritable_directory,
 )
 
 _BUILTIN_USERS = "*S-1-5-32-545"
@@ -130,16 +131,18 @@ def test_existing_writable_home_is_refused_with_exact_repair(tmp_path: Path):
 
 @pytest.mark.windows_only(reason="native Windows DACL: icacls loosens and repairs the home")
 def test_existing_shared_windows_home_is_refused_with_exact_repair(tmp_path: Path):
+    # Mirrors the POSIX 0o775 case: other users may write the config parent.
+    # Shared read access alone is allowed (docs/public/cli/machine-config.md).
     home = create_owner_private_directory(tmp_path / "machine home's directory")
-    subprocess.run(["icacls", str(home), "/grant", f"{_BUILTIN_USERS}:(R)"], check=True)
+    subprocess.run(["icacls", str(home), "/grant", f"{_BUILTIN_USERS}:(M)"], check=True)
     create_private_directory(home / "onboard" / "reports")
     with pytest.raises(machine_config_file.MachineConfigFileError) as refusal:
         with machine_config_file.exclusive_lock(home / "config.json"):
             pytest.fail("unsafe home accepted")
     assert str(home) in str(refusal.value)
-    assert "remove other users' access" in str(refusal.value)
+    assert "remove other users' write access" in str(refusal.value)
     assert "chmod" not in str(refusal.value)
-    assert not is_owner_private_directory(home)
+    assert not is_others_unwritable_directory(home)
     assert not (home / "config.json.lock").exists()
     subprocess.run(["icacls", str(home), "/remove:g", _BUILTIN_USERS], check=True)
     with machine_config_file.exclusive_lock(home / "config.json"):

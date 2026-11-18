@@ -75,7 +75,7 @@ def test_served_update_refuses_a_commit_installed_version_the_release_lacks(
 ) -> None:
     installed = make_bundle("feature", version="1.1.0", files={"feature.txt": "new\n"})
     _write_installed(tmp_path, installed, {"kind": "commit", "commit": MERGED})
-    (tmp_path / "feature.txt").write_text("new\n")
+    (tmp_path / "feature.txt").write_text("new\n", encoding="utf-8", newline="\n")
     served_latest = make_bundle(
         "feature", version="1.0.0", files={"feature.txt": "old\n"}
     )
@@ -108,7 +108,7 @@ def test_served_update_adopts_a_release_that_carries_the_commit_version(
 ) -> None:
     installed = make_bundle("feature", version="1.1.0", files={"feature.txt": "new\n"})
     _write_installed(tmp_path, installed, {"kind": "commit", "commit": MERGED})
-    (tmp_path / "feature.txt").write_text("new\n")
+    (tmp_path / "feature.txt").write_text("new\n", encoding="utf-8", newline="\n")
     released = make_bundle("feature", version="1.2.0", files={"feature.txt": "newer\n"})
 
     def served_fetch(pack, *, version=None, **kwargs):
@@ -137,7 +137,7 @@ def test_update_refuses_a_baseline_whose_content_changed_in_the_catalog(
 ) -> None:
     installed = make_bundle("feature", version="1.1.0", files={"feature.txt": "new\n"})
     _write_installed(tmp_path, installed, {"kind": "lane", "commit": MERGED})
-    (tmp_path / "feature.txt").write_text("new\n")
+    (tmp_path / "feature.txt").write_text("new\n", encoding="utf-8", newline="\n")
     edited = dict(installed, content_digest="e" * 64)
     _install_fakes(monkeypatch, lambda pack, **kwargs: edited)
 

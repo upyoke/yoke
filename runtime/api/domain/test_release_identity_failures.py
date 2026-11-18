@@ -20,6 +20,9 @@ from yoke_core.domain.deployment_failure_trace import (
 )
 
 
+@pytest.mark.posix_only(
+    reason="platform-release-bridge step runs only on the ubuntu-24.04 Actions runner"
+)
 def test_bridge_exits_with_the_named_record_refusal(tmp_path):
     root = Path(__file__).resolve().parents[3]
     workflow = yaml.safe_load(

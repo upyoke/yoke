@@ -78,7 +78,8 @@ def test_new_manifest_entry_is_resolved_without_a_hardcoded_cli_list(
 
     assert len(resolved) == 1
     assert resolved[0].harness_id == "example"
-    assert resolved[0].path == str(executable)
+    # Windows resolution spells the PATHEXT suffix its own case; the path is one file.
+    assert Path(resolved[0].path) == executable
     assert tuple(row.harness_id for row in HARNESS_CLI_MANIFESTS) == (
         "claude-code",
         "codex",
@@ -111,10 +112,10 @@ def test_setup_relay_and_doctor_share_path_and_bundled_resolution(
     ):
         monkeypatch.setenv("PATH", str(directory))
         resolved = resolve_harness_clis(str(directory), manifests=(manifest,))[0]
-        assert resolved.path == str(expected)
+        assert Path(resolved.path) == expected
         assert resolved.source == source
-        assert session_relay_surface_probes.resolve_native_cli("codex") == str(expected)
-        assert doctor_install.installed_harness_clis()["codex"] == str(expected)
+        assert Path(session_relay_surface_probes.resolve_native_cli("codex")) == expected
+        assert Path(doctor_install.installed_harness_clis()["codex"]) == expected
 
 
 def test_codex_app_bundle_is_resolved_from_the_declared_path(tmp_path, monkeypatch):

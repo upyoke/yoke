@@ -8,6 +8,7 @@ import urllib.error
 
 import pytest
 
+from runtime.api.owner_private_test_support import share_with_other_users
 from runtime.api.cli.github_app_machine_security_test_support import (
     _configured_machine,
     _profile_opener,
@@ -30,6 +31,8 @@ def test_status_marks_live_failure_as_cached_and_not_ready(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     config, _credential = _configured_machine(tmp_path, monkeypatch)
+    # A config other users can read cannot back a token read on any OS.
+    share_with_other_users(config)
     _fail_helper_refresh(monkeypatch)
 
     def unavailable(request, timeout):

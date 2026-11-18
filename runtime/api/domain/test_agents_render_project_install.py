@@ -24,12 +24,12 @@ def test_project_install_render_and_drift_check(tmp_path: Path) -> None:
 
     assert detect_project_install_drift(target_root=target) == []
     assert detect_substrate_drift(target_root=target) == []
-    assert (target / ".claude" / "settings.json").read_text() == (
+    assert (target / ".claude" / "settings.json").read_text(encoding="utf-8") == (
         render_claude_settings_json()
     )
     assert "YOKE_EXECUTOR=claude" not in (
         target / ".claude" / "settings.json"
-    ).read_text()
+    ).read_text(encoding="utf-8")
 
 
 def test_project_install_dereferences_claude_reference_symlink(
@@ -128,6 +128,6 @@ def test_copy_install_manifest_keeps_skill_directories_as_copies(tmp_path: Path)
     canonical_skill = target / ".agents" / "skills" / "yoke" / "SKILL.md"
     assert claude_skill.is_file() and not claude_skill.is_symlink()
     assert codex_skill.is_file() and not codex_skill.is_symlink()
-    assert claude_skill.read_text() == canonical_skill.read_text()
-    assert codex_skill.read_text() == canonical_skill.read_text()
+    assert claude_skill.read_text(encoding="utf-8") == canonical_skill.read_text(encoding="utf-8")
+    assert codex_skill.read_text(encoding="utf-8") == canonical_skill.read_text(encoding="utf-8")
     assert detect_project_install_drift(target_root=target) == []

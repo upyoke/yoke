@@ -145,7 +145,11 @@ def compose_contribution(
                 "path": wanted["path"],
                 "content": composed,
                 "encoding": "utf-8",
-                "mode": current["mode"] if current is not None else wanted["mode"],
+                "mode": (
+                    wanted["mode"]
+                    if current is None or current["mode"] is None
+                    else current["mode"]
+                ),
                 "sha256": hashlib.sha256(composed.encode("utf-8")).hexdigest(),
             },
         }

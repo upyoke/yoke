@@ -8,9 +8,45 @@ real temp paths; the format validators are pure.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
+import os
 from pathlib import Path
+import subprocess
 
 from yoke_cli.config import onboard_input_validation as v
+
+_WINDOWS_EVERYONE_SID = "*S-1-1-0"
+
+
+@contextmanager
+def _unwritable_directory(path: Path) -> Iterator[Path]:
+    """A real folder nobody can create entries in, restored afterwards.
+
+    POSIX drops the write bits; Windows adds an ACE denying Everyone, which
+    also binds the current (administrator) account, the rights to add files
+    and subfolders. ``(W)`` would also deny SYNCHRONIZE and break reads.
+    """
+    path.mkdir()
+    if os.name == "nt":
+        subprocess.run(
+            ["icacls", str(path), "/deny", f"{_WINDOWS_EVERYONE_SID}:(WD,AD)"],
+            check=True,
+            capture_output=True,
+        )
+    else:
+        path.chmod(0o555)
+    try:
+        yield path
+    finally:
+        if os.name == "nt":
+            subprocess.run(
+                ["icacls", str(path), "/remove:d", _WINDOWS_EVERYONE_SID],
+                check=True,
+                capture_output=True,
+            )
+        else:
+            path.chmod(0o755)
 
 
 # ── clone target folder (must be empty/new with a writable parent) ───────
@@ -43,10 +79,10 @@ def test_clone_folder_rejects_a_regular_file(tmp_path: Path) -> None:
     assert "file, not a folder" in error
 
 
-def test_clone_folder_rejects_an_unwritable_parent() -> None:
-    # /proc never exists on macOS and is not writable where it does — the parent
-    # walk lands on a non-writable ancestor.
-    error = v.validate_clone_target_folder("/this-root-is-not-writable/x/y")
+def test_clone_folder_rejects_an_unwritable_parent(tmp_path: Path) -> None:
+    # The parent walk lands on the nearest existing, non-writable ancestor.
+    with _unwritable_directory(tmp_path / "locked") as locked:
+        error = v.validate_clone_target_folder(str(locked / "x" / "y"))
     assert error is not None
     assert "can't write" in error
 
@@ -86,8 +122,9 @@ def test_project_folder_rejects_symlink_to_home(tmp_path: Path) -> None:
     assert "symbolic link" in (v.validate_clone_target_folder(str(target)) or "")
 
 
-def test_create_folder_rejects_an_unwritable_parent() -> None:
-    error = v.validate_create_target_folder("/this-root-is-not-writable/x/y")
+def test_create_folder_rejects_an_unwritable_parent(tmp_path: Path) -> None:
+    with _unwritable_directory(tmp_path / "locked") as locked:
+        error = v.validate_create_target_folder(str(locked / "x" / "y"))
     assert error is not None
     assert "can't write" in error
 

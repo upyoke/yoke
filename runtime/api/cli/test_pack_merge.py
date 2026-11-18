@@ -3,12 +3,16 @@ from __future__ import annotations
 import base64
 import hashlib
 from pathlib import Path
+from types import SimpleNamespace
 
+import pytest
+
+from yoke_cli.packs import merge
 from yoke_cli.packs.merge import plan_get, plan_update
 
 
 def test_get_refuses_to_overwrite_an_existing_project_file(tmp_path: Path) -> None:
-    (tmp_path / "app.py").write_text("project version\n", encoding="utf-8")
+    (tmp_path / "app.py").write_text("project version\n", encoding="utf-8", newline="\n")
 
     plan = plan_get(tmp_path, [_text_entry("app.py", "pack version\n")])
 
@@ -25,7 +29,7 @@ def test_get_refuses_to_overwrite_an_existing_project_file(tmp_path: Path) -> No
 def test_update_merges_non_overlapping_pack_and_project_changes(tmp_path: Path) -> None:
     base = "title=base\nkeep=one\nkeep=two\nproject=base\n"
     (tmp_path / "config.txt").write_text(
-        "title=base\nkeep=one\nkeep=two\nproject=custom\n", encoding="utf-8"
+        "title=base\nkeep=one\nkeep=two\nproject=custom\n", encoding="utf-8", newline="\n"
     )
 
     plan = plan_update(
@@ -43,7 +47,7 @@ def test_update_merges_non_overlapping_pack_and_project_changes(tmp_path: Path) 
 def test_update_reports_overlapping_customization_without_writing_markers(
     tmp_path: Path,
 ) -> None:
-    (tmp_path / "config.txt").write_text("value=project\n", encoding="utf-8")
+    (tmp_path / "config.txt").write_text("value=project\n", encoding="utf-8", newline="\n")
 
     plan = plan_update(
         tmp_path,
@@ -70,7 +74,7 @@ def test_update_reports_multiple_conflict_hunks_as_one_file_conflict(
     base = f"first=base\n{middle}second=base\n"
     current = f"first=project\n{middle}second=project\n"
     incoming = f"first=pack\n{middle}second=pack\n"
-    (tmp_path / "customized.txt").write_text(current, encoding="utf-8")
+    (tmp_path / "customized.txt").write_text(current, encoding="utf-8", newline="\n")
 
     plan = plan_update(
         tmp_path,
@@ -93,7 +97,7 @@ def test_update_reports_multiple_conflict_hunks_as_one_file_conflict(
 def test_update_accepts_a_new_pack_file_already_identical_in_the_project(
     tmp_path: Path,
 ) -> None:
-    (tmp_path / "added.txt").write_text("same bytes\n", encoding="utf-8")
+    (tmp_path / "added.txt").write_text("same bytes\n", encoding="utf-8", newline="\n")
     (tmp_path / "added.txt").chmod(0o644)
 
     plan = plan_update(tmp_path, [], [_text_entry("added.txt", "same bytes\n")])
@@ -106,7 +110,7 @@ def test_update_accepts_a_new_pack_file_already_identical_in_the_project(
 
 
 def test_update_keeps_a_file_removed_by_the_new_pack(tmp_path: Path) -> None:
-    (tmp_path / "retired.txt").write_text("project keeps this\n", encoding="utf-8")
+    (tmp_path / "retired.txt").write_text("project keeps this\n", encoding="utf-8", newline="\n")
 
     plan = plan_update(
         tmp_path,
@@ -176,6 +180,29 @@ def test_update_replaces_unchanged_binary_and_refuses_customized_binary(
     assert customized["updates"] == []
     assert customized["conflicts"] == [
         {"path": "asset.bin", "reason": "customized_binary_file"}
+    ]
+
+
+def test_windows_checkout_takes_pack_modes_it_cannot_observe(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Windows st_mode carries no POSIX bits; a 0o600 file must not read as a
+    # project mode customization, and a mode-only Pack change has nothing to
+    # write there. Content changes still take the incoming Pack mode.
+    (tmp_path / "tool.sh").write_text("run\n", encoding="utf-8", newline="\n")
+    (tmp_path / "tool.sh").chmod(0o600)
+    monkeypatch.setattr(merge, "os", SimpleNamespace(name="nt"))
+    old = _text_entry("tool.sh", "run\n")
+    executable = _text_entry("tool.sh", "run\n", mode=0o755)
+
+    assert plan_get(tmp_path, [old])["unchanged"] == ["tool.sh"]
+    assert plan_update(tmp_path, [old], [old])["unchanged"] == ["tool.sh"]
+    assert plan_update(tmp_path, [old], [executable])["unchanged"] == ["tool.sh"]
+    changed = _text_entry("tool.sh", "run --fast\n", mode=0o755)
+    plan = plan_update(tmp_path, [old], [changed])
+    assert plan["conflicts"] == []
+    assert [(row["path"], row["mode"]) for row in plan["updates"]] == [
+        ("tool.sh", 0o755)
     ]
 
 

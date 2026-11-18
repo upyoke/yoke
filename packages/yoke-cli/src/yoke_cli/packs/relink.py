@@ -11,7 +11,7 @@ from yoke_cli.packs.catalog_baseline import baseline_bundle
 from yoke_cli.packs.catalog_source import PackCatalog
 from yoke_cli.packs.contributions import contribution_markers
 from yoke_cli.packs.errors import PackClientError
-from yoke_cli.packs.merge import file_state
+from yoke_cli.packs.merge import file_state, same_mode
 from yoke_cli.packs.receipt import (
     assert_pack_targets_safe,
     load_receipt,
@@ -98,7 +98,7 @@ def run_pack_relink(
     pack_path, baseline = matches[0]
     baseline_match = (
         destination["sha256"] == baseline["sha256"]
-        and destination["mode"] == baseline["mode"]
+        and same_mode(destination["mode"], baseline["mode"])
     )
     report: dict[str, Any] = {
         "operation": "relink",

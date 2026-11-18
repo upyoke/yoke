@@ -84,7 +84,7 @@ def test_build_bundle_is_deterministic(conn) -> None:
     for harness in ("claude", "codex", "cursor"):
         assert (
             by_path[f".yoke/harness/{harness}/manifest.json"]
-            == (REPO_ROOT / f"runtime/harness/{harness}/manifest.json").read_text()
+            == (REPO_ROOT / f"runtime/harness/{harness}/manifest.json").read_text(encoding="utf-8")
         )
 
 

@@ -191,7 +191,13 @@ def test_project_install_https_external_repo_stays_product_client_only(
     assert report["connection"]["credential_source"]["present"] is True
     assert report["project"]["project_id"] == PROJECT_ID
     assert report["db"] == {"relevant": False, "ok": None, "action": ""}
-    assert _issue_codes(report) == {"server_unreachable"}
+    # Native Windows also reports its machine preflight rows, all named
+    # ``windows_*`` (yoke_contracts.windows_preflight); none of them is about
+    # this connection.
+    connection_codes = {
+        code for code in _issue_codes(report) if not code.startswith("windows_")
+    }
+    assert connection_codes == {"server_unreachable"}
     assert status.stderr == ""
     _assert_clean_client_boundary(status)
 

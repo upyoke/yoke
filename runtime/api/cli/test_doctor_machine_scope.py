@@ -73,8 +73,19 @@ def test_harness_setup_fix_repairs_machine_setup_outside_a_project(
     [row] = envelope["result"]["results"]
     assert row["severity"] == "PASS"
     assert (bare_machine / ".claude/skills/yoke-global/SKILL.md").is_file()
-    settings = (bare_machine / ".claude/settings.json").read_text()
-    assert "yoke hook evaluate" in settings
+    settings = json.loads(
+        (bare_machine / ".claude/settings.json").read_text(encoding="utf-8")
+    )
+    from yoke_contracts.hook_shell_command import hook_command_source
+
+    # Windows encodes the hook source for PowerShell; read it back as source.
+    sources = [
+        hook_command_source(handler["command"])
+        for groups in settings["hooks"].values()
+        for group in groups
+        for handler in group["hooks"]
+    ]
+    assert any("yoke hook evaluate" in source for source in sources)
 
 
 def test_project_scope_checks_outside_a_project_are_named_skips(

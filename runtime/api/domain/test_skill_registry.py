@@ -26,7 +26,7 @@ ROOT = Path(__file__).resolve().parents[3]
 def test_registry_covers_each_installed_skill_exactly_once():
     paths = {skill.body_path for skill in SKILLS}
     installed = {
-        str(path.relative_to(ROOT))
+        path.relative_to(ROOT).as_posix()
         for path in (ROOT / ".agents/skills/yoke").rglob("SKILL.md")
         if path.parent != ROOT / ".agents/skills/yoke"
     }
@@ -34,7 +34,7 @@ def test_registry_covers_each_installed_skill_exactly_once():
     assert len(paths) == len(SKILLS) == len({skill.id for skill in SKILLS})
     router = ".agents/skills/yoke/SKILL.md"
     assert router not in INVENTORY
-    assert BEGIN_MARKER not in (ROOT / router).read_text()
+    assert BEGIN_MARKER not in (ROOT / router).read_text(encoding="utf-8")
     assert not paths & set(INVENTORY)
 
 
@@ -43,7 +43,7 @@ def test_skills_stamp_no_session_mode():
     stamps = [
         line.strip()
         for path in (ROOT / ".agents/skills/yoke").rglob("*.md")
-        for line in path.read_text().splitlines()
+        for line in path.read_text(encoding="utf-8").splitlines()
         if "sessions touch --mode" in line
     ]
     assert stamps
@@ -59,7 +59,7 @@ def test_rendered_registry_has_no_mode_column():
         "docs/public/agents/commands.md",
         "docs/harness-bootstrap.md",
     ):
-        assert "Session mode" not in (ROOT / path).read_text(), path
+        assert "Session mode" not in (ROOT / path).read_text(encoding="utf-8"), path
 
 
 def test_stage_skills_route_and_launch_on_every_harness():
@@ -100,7 +100,7 @@ def test_manifest_limitations_filter_derived_stage_skills():
 
 def test_argument_hints_have_one_authoring_source():
     for skill in SKILLS:
-        header = (ROOT / skill.body_path).read_text().split("---", 2)[1]
+        header = (ROOT / skill.body_path).read_text(encoding="utf-8").split("---", 2)[1]
         assert parse_document(header)["argument-hint"] == skill.arguments
     by_id = {skill.id: skill for skill in SKILLS}
     assert '"spec"' in by_id["dash"].display
@@ -123,7 +123,7 @@ def test_hint_check_detects_drift_without_writing(tmp_path, monkeypatch, frontma
     target.write_text(frontmatter)
     result = render_skill_registry_inline._render_argument_hints(tmp_path, check=True)
     assert result.changed or not result.ok
-    assert target.read_text() == frontmatter
+    assert target.read_text(encoding="utf-8") == frontmatter
 
 
 def test_internal_inventory_lists_only_internal_skill_bodies():

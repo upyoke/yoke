@@ -94,7 +94,7 @@ def _write(path: Path, content: str) -> None:
     assert_target_under_session_work_authority(path)
     descriptor, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
     try:
-        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+        with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as handle:
             handle.write(content)
         os.replace(temporary, path)
     finally:

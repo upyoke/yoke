@@ -51,7 +51,11 @@ def _seed_minimal_repo(root: Path) -> None:
     canonical_agents_dir.mkdir(parents=True)
     runtime_agents_dir = root / ".claude" / "agents"
     runtime_agents_dir.parent.mkdir(parents=True, exist_ok=True)
-    runtime_agents_dir.symlink_to("../runtime/harness/claude/agents")
+    # Path targets render native separators: Windows cannot resolve a relative
+    # link target written with forward slashes.
+    runtime_agents_dir.symlink_to(
+        Path("..", "runtime", "harness", "claude", "agents"), target_is_directory=True
+    )
     for name in (
         "yoke-product-manager",
         "yoke-product-designer",
@@ -61,7 +65,7 @@ def _seed_minimal_repo(root: Path) -> None:
         "yoke-simulator",
         "yoke-boss",
     ):
-        (canonical_agents_dir / f"{name}.md").write_text("ok\n")
+        (canonical_agents_dir / f"{name}.md").write_text("ok\n", encoding="utf-8")
 
     for rel_path in (
         "packages/yoke-core/src/yoke_core/domain/check_prerequisites.py",
@@ -93,7 +97,7 @@ def _seed_minimal_repo(root: Path) -> None:
         )
     )
     (root / ".claude" / "settings.json").symlink_to(
-        "../runtime/harness/claude/settings.json"
+        Path("..", "runtime", "harness", "claude", "settings.json")
     )
 
     (root / ".gitignore").write_text(".worktrees/\n")

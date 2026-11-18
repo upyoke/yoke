@@ -107,17 +107,24 @@ def _resolve_dispatch_context(
                 "dispatch",
             )
 
-        chain_row = conn.execute(
-            """SELECT c.epic_id, c.current_task
-               FROM epic_dispatch_chains c
-               JOIN item_worktrees iw ON iw.id = c.item_worktree_id
-               WHERE {p} LIKE iw.path || {p}
-                 AND iw.state = 'active'
-                 AND c.current_task IS NOT NULL
-                 AND c.current_task <> ''
-               LIMIT 1""".format(p=_p(conn)),
-            (normalized_project, "/%"),
-        ).fetchone()
+        # Containment compares paths, not a LIKE prefix: Windows lane paths
+        # use backslashes, which are also LIKE's escape character.
+        project_path = Path(normalized_project)
+        chain_row = next(
+            (
+                row
+                for row in conn.execute(
+                    """SELECT c.epic_id, c.current_task, iw.path
+                       FROM epic_dispatch_chains c
+                       JOIN item_worktrees iw ON iw.id = c.item_worktree_id
+                       WHERE iw.state = 'active'
+                         AND c.current_task IS NOT NULL
+                         AND c.current_task <> ''"""
+                ).fetchall()
+                if row[2] and project_path.is_relative_to(Path(row[2]))
+            ),
+            None,
+        )
         if chain_row:
             return (
                 normalize_event_item_id(str(chain_row[0])),

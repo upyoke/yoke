@@ -297,6 +297,6 @@ def test_drift_detection_reports_missing_codex_native_view(tmp_path: Path) -> No
 
         remove_tree(native_dir)
         drift = detect_substrate_drift(target_root=tmp_path)
-    assert any(str(CODEX_NATIVE_AGENTS_DIR) in d for d in drift), (
+    assert any(CODEX_NATIVE_AGENTS_DIR.as_posix() in d for d in drift), (
         f"expected drift entry for missing native symlink, got: {drift}"
     )

@@ -9,6 +9,7 @@ executor=cursor / provider=cursor and the payload-named model.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -70,7 +71,7 @@ def test_cursor_dispatch_consumes_the_shared_orientation_body(
         "",
     )
 
-    assert body == f"shared {MAIN} at /repo\n"
+    assert body == f"shared {MAIN} at {Path('/repo')}\n"
 
 
 def test_cursor_dispatch_does_not_duplicate_client_orientation(

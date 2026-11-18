@@ -59,7 +59,7 @@ class UpdateStatusEnv:
         (self.root / "ouroboros").mkdir(parents=True)
         self.gh_log.touch()
 
-        (self.root / "data" / "config").write_text("base_branch=main\n")
+        (self.root / "data" / "config").write_text("base_branch=main\n", encoding="utf-8")
 
         (self.root / "data" / "BOARD.md").write_text(
             textwrap.dedent("""\
@@ -70,7 +70,8 @@ class UpdateStatusEnv:
             ## Issue Board
 
             <!-- YOKE:BOARD:END -->
-        """)
+        """),
+            encoding="utf-8",
         )
 
         self.mock_dir.mkdir()
@@ -99,11 +100,11 @@ class UpdateStatusEnv:
 
     def _write_mock_gh(self, gh_script: str) -> None:
         gh_path = self.mock_dir / "gh"
-        gh_path.write_text(gh_script)
+        gh_path.write_text(gh_script, encoding="utf-8", newline="\n")
         gh_path.chmod(gh_path.stat().st_mode | stat.S_IEXEC)
 
         retry_path = self.mock_dir / "gh-retry.sh"
-        retry_path.write_text(_MOCK_GH_RETRY)
+        retry_path.write_text(_MOCK_GH_RETRY, encoding="utf-8", newline="\n")
         retry_path.chmod(retry_path.stat().st_mode | stat.S_IEXEC)
 
     def _seed_db(self) -> None:
@@ -321,6 +322,7 @@ class UpdateStatusEnv:
             [sys.executable, "-m", "runtime.api.update_status_test_entrypoint", *args],
             capture_output=True,
             text=True,
+            encoding="utf-8",
             env=env,
             cwd=self.root,
             timeout=60,

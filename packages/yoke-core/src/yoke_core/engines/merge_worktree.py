@@ -5,6 +5,7 @@ from __future__ import annotations
 import sys
 from typing import Optional
 
+from yoke_contracts.standard_streams import use_utf8_standard_streams
 from yoke_core.domain.classify_dirty_files import (  # noqa: F401
     YOKE_MANAGED_PATTERNS,
     is_yoke_managed_pattern,
@@ -123,6 +124,7 @@ def parse_args(argv: list[str]) -> MergeArgs:
 
 
 def main(argv: Optional[list[str]] = None) -> int:
+    use_utf8_standard_streams()
     raw = argv if argv is not None else sys.argv[1:]
     args = parse_args(raw)
     # Only the command line reaches here; the boundary that owns a standalone

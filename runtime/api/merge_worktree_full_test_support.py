@@ -206,7 +206,7 @@ def run_merge(
         cmd,
         cwd=str(cwd or env.repo),
         capture_output=True,
-        text=True,
+        encoding="utf-8",
         env=merge_env,
     )
     return MergeResult(

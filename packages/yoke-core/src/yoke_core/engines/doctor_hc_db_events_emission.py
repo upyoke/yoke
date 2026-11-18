@@ -170,12 +170,14 @@ def hc_stray_db(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     main_root = Path(main_root_str)
 
     empty_issues: List[str] = []
+    empty_strays: List[Path] = []
     nonempty_issues: List[str] = []
 
     root_stray = main_root / "yoke.db"
     if root_stray.is_file():
         size = root_stray.stat().st_size
         if size == 0:
+            empty_strays.append(root_stray)
             empty_issues.append(
                 f"- {root_stray}: stray yoke.db at repo root "
                 "(0 bytes — safe to delete)"
@@ -194,6 +196,7 @@ def hc_stray_db(conn, args: DoctorArgs, rec: RecordCollector) -> None:
             # A worktree removed between discovery and sizing is not a stray.
             continue
         if size == 0:
+            empty_strays.append(stray)
             empty_issues.append(
                 f"- {stray}: stray worktree-local yoke.db "
                 "(0 bytes — safe to delete; a worktree is a code surface, "
@@ -248,11 +251,9 @@ def hc_stray_db(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     # All strays are 0-byte. Safe to delete automatically with --fix.
     if getattr(args, "fix", False):
         removed = 0
-        for line in empty_issues:
-            # line format: "- <path>: ..."
-            path_str = line.split(":", 1)[0].lstrip("- ").strip()
+        for stray in empty_strays:
             try:
-                Path(path_str).unlink()
+                stray.unlink()
                 removed += 1
             except OSError:
                 pass

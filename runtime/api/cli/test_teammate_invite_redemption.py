@@ -3,7 +3,6 @@
 import io
 import json
 import logging
-import stat
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
@@ -24,6 +23,7 @@ from yoke_cli.commands import connect
 from yoke_cli.config import hosted_machine_authorization as auth, server_connect
 from yoke_cli.config import teammate_invite_redemption as redemption
 from yoke_cli.config import team_server_authorization as team
+from yoke_contracts.owner_private_path import is_owner_private_file
 from yoke_contracts.bounded_json_http import (
     BoundedJsonHttpError,
     BoundedJsonHttpResponse,
@@ -103,7 +103,7 @@ def test_connected_actor_and_secret_free_facts(
     conn, observer, inviter, _ = store
     verified = verify_token(conn, token)
     assert verified.actor_id == created.invite["actor_id"] != inviter
-    assert stat.S_IMODE(credential_path.stat().st_mode) == 0o600
+    assert is_owner_private_file(credential_path)
     row = _row(
         observer, "SELECT consumed_at,consumed_machine_id FROM teammate_invite_codes"
     )

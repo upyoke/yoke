@@ -13,6 +13,7 @@ from runtime.api.domain.worktree_create_multiworktree_test_support import (
 )
 from runtime.api.domain.worktree_preflight_test_support import _patch_steps
 from yoke_cli.commands import direct_workflow_worktree as adapter
+from yoke_contracts.hook_runner.repo_paths import normalize_repo_path
 from yoke_core.domain import worktree_create, worktree_preflight as preflight
 
 
@@ -87,4 +88,6 @@ def test_pre_lane_registered_epic_route(
     output = capsys.readouterr().out
     receipt = json.loads(output[output.rfind("\n{") + 1 :])
     assert "worktree:reused" in receipt["actions_taken"]
-    assert receipt["worktree_path"] == str(git_repo / ".worktrees" / item_ref)
+    assert receipt["worktree_path"] == normalize_repo_path(
+        str(git_repo / ".worktrees" / item_ref)
+    )

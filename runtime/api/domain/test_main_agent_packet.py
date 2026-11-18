@@ -70,7 +70,13 @@ def test_startup_block_fits_the_smallest_inline_channel() -> None:
     )
 
 
-def test_render_main_agent_block_full_leads_with_its_heading() -> None:
+def test_render_main_agent_block_full_leads_with_its_heading(monkeypatch) -> None:
+    """On a healthy machine (no machine advisory fires) the heading leads."""
+    healthy = python_interpreter_probe.ProbeResult(True, None, None, False)
+    monkeypatch.setattr(python_interpreter_probe, "probe", lambda: healthy)
+    import yoke_core.domain.main_agent_packet as bp
+
+    monkeypatch.setattr(bp.shutil, "which", lambda _name: "/usr/local/bin/yoke")
     block = render_main_agent_block_full()
     assert block, "full main_agent block must not be empty"
     assert block.startswith("=== "), (

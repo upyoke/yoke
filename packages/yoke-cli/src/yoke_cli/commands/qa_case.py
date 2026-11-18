@@ -13,6 +13,10 @@ from yoke_cli.transport.dispatcher import build_actor
 
 
 QA_MISSION_HOST_COMMAND_MODULE = "yoke_core.domain.agent_mission_host_command_cli"
+# POSIX children run in their own session, so an interrupt is forwarded.
+# Windows ignores start_new_session: the child shares this console and has
+# already received the same Ctrl-C, and Popen cannot send SIGINT there.
+FORWARDS_CHILD_INTERRUPT = os.name != "nt"
 
 
 QA_CASE_RUN_USAGE = (
@@ -239,7 +243,7 @@ def run_execution_module(
     try:
         return process.wait()
     except KeyboardInterrupt:
-        if process.poll() is None:
+        if FORWARDS_CHILD_INTERRUPT and process.poll() is None:
             process.send_signal(signal.SIGINT)
         previous_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
         try:

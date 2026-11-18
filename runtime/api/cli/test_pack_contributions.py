@@ -144,7 +144,7 @@ def test_real_scaffold_install_refresh_and_update_preserve_project_bytes(
     assert result == refreshed.replace(
         b"Application guidance", b"Application references"
     )
-    assert "scaffold-cache/" in (tmp_path / ".gitignore").read_text()
+    assert "scaffold-cache/" in (tmp_path / ".gitignore").read_text(encoding="utf-8")
     if existing:
         assert (tmp_path / ".gitignore").read_bytes().startswith(ignores.encode())
     receipt = load_receipt(tmp_path)["packs"][SLUG]
@@ -160,7 +160,7 @@ def test_real_scaffold_install_refresh_and_update_preserve_project_bytes(
 def test_application_collision_refuses_entire_install_with_recovery(tmp_path, scaffold):
     existing = tmp_path / "app/api/main.py"
     existing.parent.mkdir(parents=True)
-    existing.write_text("print('custom application')\n")
+    existing.write_text("print('custom application')\n", encoding="utf-8", newline="\n")
     guidance(tmp_path)
     before = (tmp_path / "AGENTS.md").read_bytes()
     report = operation(tmp_path, apply=True)
@@ -186,11 +186,11 @@ def test_malformed_boundaries_refuse_without_writes(tmp_path, scaffold, shape):
         "nested_yoke": render_block(content) + "\n",
         "inline": "project prefix " + content,
     }[shape]
-    (tmp_path / "AGENTS.md").write_text(invalid)
+    (tmp_path / "AGENTS.md").write_text(invalid, encoding="utf-8", newline="\n")
     report = operation(tmp_path, apply=True)
     assert report["refused"]
     assert report["plans"][0]["plan"]["conflicts"][0]["recovery"]
-    assert (tmp_path / "AGENTS.md").read_text() == invalid
+    assert (tmp_path / "AGENTS.md").read_text(encoding="utf-8") == invalid
     assert not (tmp_path / "app").exists()
 
 
@@ -206,9 +206,9 @@ def test_old_whole_file_baseline_updates_to_explicit_contributions(
         lambda *a, version=None, **k: old if version == old["version"] else scaffold,
     )
     assert operation(tmp_path, action="update", apply=True)["applied"]
-    assert (tmp_path / "AGENTS.md").read_text().count("BEGIN YOKE PACK") == 1
-    assert "Yoke Operating Layer" not in (tmp_path / "AGENTS.md").read_text()
-    assert "BEGIN YOKE PACK" in (tmp_path / ".gitignore").read_text()
+    assert (tmp_path / "AGENTS.md").read_text(encoding="utf-8").count("BEGIN YOKE PACK") == 1
+    assert "Yoke Operating Layer" not in (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
+    assert "BEGIN YOKE PACK" in (tmp_path / ".gitignore").read_text(encoding="utf-8")
 
 
 def test_customized_contribution_update_conflicts_and_cannot_be_bypassed(
@@ -216,7 +216,7 @@ def test_customized_contribution_update_conflicts_and_cannot_be_bypassed(
 ):
     entry = next(row for row in scaffold["files"] if row["path"] == "AGENTS.md")
     (tmp_path / "AGENTS.md").write_text(
-        entry["content"].replace("Application guidance", "Project custom guidance")
+        entry["content"].replace("Application guidance", "Project custom guidance"), encoding="utf-8", newline="\n"
     )
     incoming = dict(
         entry,
@@ -237,18 +237,18 @@ def test_customized_old_guidance_has_reachable_manual_recovery(tmp_path, scaffol
     incoming = next(row for row in scaffold["files"] if row["path"] == "AGENTS.md")
     target = tmp_path / "AGENTS.md"
     target.write_text(
-        prior["content"].replace("Think carefully", "Follow custom policy")
+        prior["content"].replace("Think carefully", "Follow custom policy"), encoding="utf-8", newline="\n"
     )
     refusal = plan_update(tmp_path, [prior], [incoming])
     assert refusal["conflicts"][0]["reason"] == "whole_file_to_contribution_conflict"
     reconciled = (
         render_block("Yoke rules") + "\n# Custom policy\n" + incoming["content"]
     )
-    target.write_text(reconciled)
+    target.write_text(reconciled, encoding="utf-8", newline="\n")
     recovered = plan_update(tmp_path, [prior], [incoming])
     assert recovered["conflicts"] == []
     assert recovered["unchanged"] == ["AGENTS.md"]
-    assert target.read_text() == reconciled
+    assert target.read_text(encoding="utf-8") == reconciled
 
 
 def test_only_explicit_bounded_files_compose(tmp_path, scaffold):
@@ -256,7 +256,7 @@ def test_only_explicit_bounded_files_compose(tmp_path, scaffold):
     for path in ("app.py", "docs/AGENTS.md", "CLAUDE.md"):
         target = tmp_path / path
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text("project content\n")
+        target.write_text("project content\n", encoding="utf-8", newline="\n")
         plan = plan_get(tmp_path, [dict(source, path=path)])
         assert plan["conflicts"][0]["reason"] == "existing_project_file"
 

@@ -14,8 +14,8 @@ publish-ability) which are not pure and live with the flow that owns that state.
 
 from __future__ import annotations
 
-import os
 import re
+import tempfile
 from pathlib import Path
 
 from yoke_cli.config import project_checkout_path
@@ -41,13 +41,22 @@ def _parent_writable(target: Path) -> bool:
     A create/clone target need not exist yet, but the first existing parent up
     the chain must be a directory we can write into — otherwise the make/clone at
     apply fails. Walks up to the first ancestor that exists and tests it.
+
+    The test creates and removes one anonymous file there: ``os.access`` on
+    Windows reads only the read-only attribute and ignores the folder's ACL.
     """
     parent = target.parent
     while not parent.exists():
         if parent.parent == parent:  # reached the filesystem root
             break
         parent = parent.parent
-    return parent.is_dir() and os.access(parent, os.W_OK)
+    if not parent.is_dir():
+        return False
+    try:
+        with tempfile.TemporaryFile(dir=parent):
+            return True
+    except OSError:
+        return False
 
 
 def validate_clone_target_folder(path: str) -> str | None:

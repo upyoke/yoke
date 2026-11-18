@@ -6,6 +6,7 @@ import io
 import sys
 from pathlib import Path
 
+from yoke_core.domain import watch_child_drain as _watch_child_drain
 from yoke_core.domain import watch_progress_stall as watch_progress_stall
 from yoke_core.domain import watch_runner as _watch_runner
 from yoke_core.domain.watch_throttle import Classification, LineClass, ThrottlePolicy
@@ -40,6 +41,15 @@ def test_watcher_reports_progress_throttle_while_child_keeps_printing(
 ):
     monkeypatch.setenv(watch_progress_stall.PROGRESS_STALL_SECONDS_ENV, "0.05")
     monkeypatch.setenv(_watch_runner.QUIET_HEARTBEAT_SECONDS_ENV, "30")
+    quiet_diagnoses: list[int] = []
+
+    def diagnose(**kwargs):
+        # A stall wake inside the quiet window is not a quiet period; the
+        # process-tree diagnosis is slow on Windows and starves the drain.
+        quiet_diagnoses.append(kwargs["root_pid"])
+        return None
+
+    monkeypatch.setattr(_watch_child_drain, "handle_quiet_period", diagnose)
 
     script = tmp_path / "emit.py"
     script.write_text(
@@ -83,3 +93,4 @@ def test_watcher_reports_progress_throttle_while_child_keeps_printing(
     text = progress.read_text(encoding="utf-8")
     assert "waiting_on=progress_throttle" in text
     assert "last reported 90%" in text
+    assert quiet_diagnoses == []

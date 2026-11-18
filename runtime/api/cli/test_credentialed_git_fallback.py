@@ -2,6 +2,7 @@
 
 import os
 import subprocess
+import sys
 import time
 
 import pytest
@@ -114,7 +115,7 @@ def test_optional_helper_timeout_kills_the_child_group(no_authorization, monkeyp
     original = project_git_process.run_network_git
 
     def slow(_argv, **kwargs):
-        return original(["/bin/sh", "-c", "sleep 30"], **kwargs)
+        return original([sys.executable, "-c", "import time; time.sleep(30)"], **kwargs)
 
     monkeypatch.setattr(project_git_process, "run_network_git", slow)
     started = time.monotonic()

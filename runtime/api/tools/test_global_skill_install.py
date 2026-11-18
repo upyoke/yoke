@@ -39,8 +39,8 @@ def test_install_places_one_copy_and_a_claude_link(home: Path) -> None:
 
     assert not result.reason
     skill = _shared(home) / "SKILL.md"
-    assert skill.read_text() == install.skill_text()
-    assert skill.read_text().startswith("---\nname: yoke-global\n")
+    assert skill.read_text(encoding="utf-8") == install.skill_text()
+    assert skill.read_text(encoding="utf-8").startswith("---\nname: yoke-global\n")
     link = home / ".claude" / "skills" / "yoke-global"
     assert link.is_symlink() and link.resolve() == _shared(home).resolve()
     assert [(e["kind"], e["file"]) for e in ledger.read()] == [
@@ -117,24 +117,24 @@ def test_no_harness_installs_nothing(tmp_path: Path) -> None:
 def test_a_folder_yoke_did_not_create_is_refused(home: Path) -> None:
     mine = _shared(home)
     mine.mkdir(parents=True)
-    (mine / "SKILL.md").write_text("the user's own skill\n")
+    (mine / "SKILL.md").write_text("the user's own skill\n", encoding="utf-8")
 
     result = install.ensure_global_skill({"HOME": str(home)})
 
     assert result.refused and result.reason == install.NOT_OWNED
     assert str(mine) in result.recovery and "harness-setup --fix" in result.recovery
-    assert (mine / "SKILL.md").read_text() == "the user's own skill\n"
+    assert (mine / "SKILL.md").read_text(encoding="utf-8") == "the user's own skill\n"
     assert ledger.read() == []
 
 
 def test_an_owned_older_copy_is_refreshed(home: Path) -> None:
     install.ensure_global_skill({"HOME": str(home)})
-    (_shared(home) / "SKILL.md").write_text("older release text\n")
+    (_shared(home) / "SKILL.md").write_text("older release text\n", encoding="utf-8")
 
     result = install.ensure_global_skill({"HOME": str(home)})
 
     assert not result.reason
-    assert (_shared(home) / "SKILL.md").read_text() == install.skill_text()
+    assert (_shared(home) / "SKILL.md").read_text(encoding="utf-8") == install.skill_text()
 
 
 def test_a_claude_link_yoke_did_not_create_is_refused(home: Path) -> None:

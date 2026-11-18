@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import base64
+import os
 from pathlib import Path
 import stat
 import subprocess
@@ -128,7 +129,7 @@ def plan_update(
             )
             continue
         merged_content = merged["content"]
-        if merged_content == current["content"] and mode == current["mode"]:
+        if merged_content == current["content"] and same_mode(current["mode"], mode):
             unchanged.append(path)
         else:
             updates.append(
@@ -172,6 +173,12 @@ def _record_contribution(
 
 
 def file_state(path: Path) -> dict[str, Any] | None:
+    """Observe one project file; ``mode`` is None where POSIX bits do not exist.
+
+    Windows has no owner/group/other or executable bits (``st_mode`` is only
+    0o666 or 0o444), so a Windows checkout cannot show a project mode change;
+    Pack modes then come from the bundle, as Git does with ``core.fileMode``.
+    """
     if not path.exists():
         return None
     try:
@@ -188,8 +195,13 @@ def file_state(path: Path) -> dict[str, Any] | None:
         "content": content,
         "sha256": _sha256_bytes(raw),
         "encoding": encoding,
-        "mode": stat.S_IMODE(path.stat().st_mode),
+        "mode": None if os.name == "nt" else stat.S_IMODE(path.stat().st_mode),
     }
+
+
+def same_mode(observed: int | None, recorded: int) -> bool:
+    """Whether an observed project mode matches a recorded Pack mode."""
+    return observed is None or observed == recorded
 
 
 def _merge_content(current: str, base: str, incoming: str) -> dict[str, Any]:
@@ -202,9 +214,10 @@ def _merge_content(current: str, base: str, incoming: str) -> dict[str, Any]:
         current_path = root / "current"
         base_path = root / "base"
         incoming_path = root / "incoming"
-        current_path.write_text(current, encoding="utf-8")
-        base_path.write_text(base, encoding="utf-8")
-        incoming_path.write_text(incoming, encoding="utf-8")
+        # Exact bytes: newline translation would invent CR edits on Windows.
+        current_path.write_bytes(current.encode("utf-8"))
+        base_path.write_bytes(base.encode("utf-8"))
+        incoming_path.write_bytes(incoming.encode("utf-8"))
         result = subprocess.run(
             [
                 "git",
@@ -217,17 +230,19 @@ def _merge_content(current: str, base: str, incoming: str) -> dict[str, Any]:
             ],
             check=False,
             capture_output=True,
-            text=True,
         )
     if result.returncode < 0 or result.returncode > _MERGE_FILE_MAX_CONFLICTS:
-        detail = result.stderr.strip()
+        detail = result.stderr.decode("utf-8", errors="replace").strip()
         message = f"git merge-file failed with exit code {result.returncode}"
         raise PackMergeError(f"{message}: {detail}" if detail else message)
-    return {"content": result.stdout, "conflicted": result.returncode > 0}
+    return {
+        "content": result.stdout.decode("utf-8"),
+        "conflicted": result.returncode > 0,
+    }
 
 
-def _merge_mode(current: int, base: int, incoming: int) -> tuple[int, bool]:
-    if current == base:
+def _merge_mode(current: int | None, base: int, incoming: int) -> tuple[int, bool]:
+    if current is None or current == base:
         return incoming, False
     if incoming == base or current == incoming:
         return current, False
@@ -235,7 +250,9 @@ def _merge_mode(current: int, base: int, incoming: int) -> tuple[int, bool]:
 
 
 def _matches(current: Mapping[str, Any], desired: Mapping[str, Any]) -> bool:
-    return current["sha256"] == desired["sha256"] and current["mode"] == desired["mode"]
+    return current["sha256"] == desired["sha256"] and same_mode(
+        current["mode"], desired["mode"]
+    )
 
 
 def _write(path: str, entry: Mapping[str, Any]) -> dict[str, Any]:
@@ -269,4 +286,4 @@ def _sha256_bytes(content: bytes) -> str:
     return hashlib.sha256(content).hexdigest()
 
 
-__all__ = ["PackMergeError", "file_state", "plan_get", "plan_update"]
+__all__ = ["PackMergeError", "file_state", "plan_get", "plan_update", "same_mode"]

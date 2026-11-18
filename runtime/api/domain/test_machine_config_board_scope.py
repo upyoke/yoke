@@ -199,7 +199,9 @@ def test_register_machine_checkout_refuses_config_root_outside_temp(
 
     with pytest.raises(ValueError, match="not under a temp root"):
         register_machine_checkout(
-            Path("/opt/not-a-temp-dir/machine-config"), tmp_path / "repo", 1
+            Path(tmp_path.anchor, "not-a-temp-dir", "machine-config"),
+            tmp_path / "repo",
+            1,
         )
 
 

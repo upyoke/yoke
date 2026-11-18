@@ -86,8 +86,10 @@ class TestFunctionCallExceptionEnvelope(unittest.TestCase):
         self.assertEqual(extra["context"]["function"], envelope["function"])
         self.assertEqual(extra["context"]["error_class"], "RuntimeError")
         frames = extra["context"]["traceback"]
+        # Frames name source files as Python's traceback does: native paths.
+        route_file = str(Path("routes", "functions.py"))
         self.assertTrue(
-            any("routes/functions.py" in frame and " in " in frame for frame in frames)
+            any(route_file in frame and " in " in frame for frame in frames)
         )
         self.assertNotIn("must-not-reach-logs", repr(extra))
         self.assertNotIn("repo root missing", repr(extra))
