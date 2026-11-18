@@ -25,7 +25,7 @@ def _golden(project: str, path: str) -> dict[str, str]:
     return {"project": project, "test_machine": f"{project}-mac", "path": path}
 
 
-@pytest.mark.posix_only(reason="runs on the POSIX test machine")
+@pytest.mark.posix_only(reason="checks remote golden paths through the POSIX host shell")
 def test_every_present_golden_passes(tmp_path):
     for name in ("yoke", "platform"):
         (tmp_path / name).mkdir()
@@ -36,7 +36,7 @@ def test_every_present_golden_passes(tmp_path):
     )
 
 
-@pytest.mark.posix_only(reason="runs on the POSIX test machine")
+@pytest.mark.posix_only(reason="checks remote golden paths through the POSIX host shell")
 def test_a_missing_or_symlinked_golden_is_named_by_path(tmp_path):
     (tmp_path / "yoke").mkdir()
     (tmp_path / "decoy").mkdir()

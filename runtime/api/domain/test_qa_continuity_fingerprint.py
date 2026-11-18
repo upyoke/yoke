@@ -17,7 +17,7 @@ from yoke_core.domain.qa_method_config_validation import validate_method_config
 from yoke_core.domain.machine_qa_method_contracts import validate_machine_method_config
 
 
-pytestmark = pytest.mark.posix_only(reason="runs on the POSIX test machine")
+pytestmark = pytest.mark.posix_only(reason="runs the host continuity script with POSIX shell paths and utilities")
 
 
 class LocalControl:

@@ -268,7 +268,7 @@ def test_a_second_invocation_refuses_while_one_runs(agent):
     )
 
 
-@pytest.mark.posix_only(reason="POSIX mode bits")
+@pytest.mark.posix_only(reason="chmod exposes the answer file to another POSIX user")
 def test_a_store_with_loose_permissions_is_refused(agent):
     drive, _ = agent
     drive()

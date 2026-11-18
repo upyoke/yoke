@@ -139,9 +139,14 @@ def test_unverified_post_kill_exit_retains_handle(tmp_path, monkeypatch):
 def test_custody_survives_wall_clock_drift_but_not_reuse(monkeypatch):
     import os
     import psutil
-    identity = platform_process.start_identity(psutil.Process(os.getpid()))
-    drifted = psutil.Process(os.getpid()).create_time() + 1.0
-    monkeypatch.setattr(psutil.Process, "create_time", lambda self: drifted)
+    process = psutil.Process(os.getpid())
+    identity = platform_process.start_identity(process)
+    if sys.platform == "win32":
+        # Windows creation time comes directly from the invariant FILETIME.
+        assert identity == process.create_time()
+    else:
+        drifted = process.create_time() + 1.0
+        monkeypatch.setattr(psutil.Process, "create_time", lambda self: drifted)
     pid = str(os.getpid())
     live = {"pid": os.getpid(), "process_start_time": str(identity),
             "process_members": {pid: str(identity)}}

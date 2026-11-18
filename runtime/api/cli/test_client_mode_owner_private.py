@@ -22,7 +22,7 @@ from yoke_cli.config.machine_config_mutation import MachineConfigWriteError
 from yoke_contracts import owner_private_path
 
 
-POSIX_ONLY = pytest.mark.posix_only(reason='POSIX mode bits')
+POSIX_ONLY = pytest.mark.posix_only(reason="checks POSIX chmod and umask for private state paths")
 
 
 class _Refused(RuntimeError):

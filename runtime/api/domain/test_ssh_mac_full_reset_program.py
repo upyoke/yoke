@@ -33,6 +33,7 @@ from yoke_contracts.ssh_mac_full_reset_contract import (
 from yoke_harness.ssh_mac_full_reset_script import FULL_RESET_SCRIPT
 
 
+@pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")
 def test_zsh_program_closes_home_validation_failure_to_a_phase_marker(
     tmp_path: Path,
 ) -> None:
@@ -50,6 +51,7 @@ def test_zsh_program_closes_home_validation_failure_to_a_phase_marker(
     )
 
 
+@pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")
 def test_clear_and_restore_keep_the_live_privacy_database_and_ssh_key(
     tmp_path: Path,
 ) -> None:
@@ -82,6 +84,7 @@ def test_clear_and_restore_keep_the_live_privacy_database_and_ssh_key(
     assert error_log.read_text() == ""
 
 
+@pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")
 def test_restore_refuses_when_any_entry_could_not_be_copied(
     tmp_path: Path,
 ) -> None:
@@ -113,6 +116,7 @@ def test_restore_refuses_when_any_entry_could_not_be_copied(
     assert "Vendor" in result.stdout
 
 
+@pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")
 def test_full_disk_access_probe_uses_readability_as_the_grant_signal(
     tmp_path: Path,
 ) -> None:
@@ -139,6 +143,7 @@ def test_full_disk_access_probe_uses_readability_as_the_grant_signal(
     assert "FDA_DENIED" not in granted.stdout
 
 
+@pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")
 def test_validate_golden_refuses_a_baseline_the_clear_would_destroy(
     tmp_path: Path,
 ) -> None:
@@ -163,6 +168,7 @@ def test_validate_golden_refuses_a_baseline_the_clear_would_destroy(
     assert "GOLDEN_REFUSED" in result.stdout, result.stdout + result.stderr
 
 
+@pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")
 def test_verify_reports_surviving_yoke_state_after_a_restore(
     tmp_path: Path,
 ) -> None:
@@ -213,6 +219,7 @@ def test_verify_reports_surviving_yoke_state_after_a_restore(
     assert "VERIFY_FAILED" in contaminated.stdout
 
 
+@pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")
 @pytest.mark.parametrize("always_fails", [False, True])
 def test_restore_retries_a_copy_once_and_reports_persistent_failure(
     tmp_path, always_fails
@@ -239,6 +246,7 @@ def test_restore_retries_a_copy_once_and_reports_persistent_failure(
         assert (home / "Documents/notes.txt").read_text() == "user notes\n"
 
 
+@pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")
 def test_clear_and_restore_preserve_every_declared_live_entry(tmp_path):
     from yoke_contracts.ssh_mac_preserved_state import PRESERVED_HOME_ENTRIES
 

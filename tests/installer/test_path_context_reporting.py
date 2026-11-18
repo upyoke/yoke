@@ -17,8 +17,7 @@ POSIX_SHELL = pytest.mark.posix_only(
 @pytest.fixture
 def shell_home(tmp_path, monkeypatch):
     bash = shutil.which("bash")
-    if not bash:
-        pytest.skip("bash unavailable")
+    assert bash is not None, "Install Bash for POSIX login and non-login shell tests"
     bindir = tmp_path / "tools with spaces"
     bindir.mkdir()
     launcher = bindir / "yoke"

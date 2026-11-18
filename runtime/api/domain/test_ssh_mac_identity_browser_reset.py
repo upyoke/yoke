@@ -65,11 +65,13 @@ def test_safari_is_no_longer_a_kept_login_store():
     assert SAFARI_COOKIES not in json.loads(PRESERVED_MANIFEST_VALUE)
 
 
+@pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")
 def test_a_golden_sealed_while_safari_was_kept_stays_resettable(tmp_path):
     declared = [*PRESERVED_HOME_ENTRIES, SAFARI_COOKIES]
     assert not _manifest_rejects(tmp_path, declared, carried=False)
 
 
+@pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")
 def test_a_golden_naming_an_unknown_entry_is_refused(tmp_path):
     declared = [*PRESERVED_HOME_ENTRIES, "Library/Unknown/Store"]
     assert _manifest_rejects(tmp_path, declared, carried=False)

@@ -46,6 +46,7 @@ def _file(home: Path) -> Path:
     return target
 
 
+@pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")
 @pytest.mark.parametrize("invalid", ["owner", "directory", "symlink", "ancestor"])
 def test_declared_entry_refuses_wrong_owner_type_or_symlink_ancestor(tmp_path, invalid):
     home = tmp_path / "home"
@@ -69,6 +70,7 @@ def test_declared_entry_refuses_wrong_owner_type_or_symlink_ancestor(tmp_path, i
     assert "REJECTED" in result.stdout, result.stderr
 
 
+@pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")
 def test_capture_excludes_only_exact_validated_entry_and_preserves_neighbors(tmp_path):
     home = tmp_path / "home"
     target = _file(home)
@@ -89,6 +91,7 @@ def test_capture_excludes_only_exact_validated_entry_and_preserves_neighbors(tmp
     assert "./" + str(neighbor.relative_to(home)) in entries
 
 
+@pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")
 def test_foreign_owner_scan_does_not_exempt_neighbor_or_parent_directory(tmp_path):
     home = tmp_path / "home"
     target = _file(home)
@@ -109,6 +112,7 @@ def test_foreign_owner_scan_does_not_exempt_neighbor_or_parent_directory(tmp_pat
     assert str(target.parent) in entries
 
 
+@pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")
 def test_reset_keeps_live_entry_and_restores_other_container_state(tmp_path):
     home, golden = tmp_path / "home", tmp_path / "golden"
     target = _file(home)
@@ -142,6 +146,7 @@ def test_reset_keeps_live_entry_and_restores_other_container_state(tmp_path):
     assert error.read_text() == ""
 
 
+@pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")
 @pytest.mark.parametrize("manifest", ["legacy", "declared", "mismatch", "copied_entry"])
 def test_reset_manifest_accepts_legacy_and_valid_declared_state_only(
     tmp_path, manifest
@@ -169,6 +174,7 @@ def test_reset_manifest_accepts_legacy_and_valid_declared_state_only(
     assert ("REJECTED" in result.stdout) == (manifest in {"mismatch", "copied_entry"})
 
 
+@pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")
 def test_absent_optional_os_state_does_not_block_validation(tmp_path):
     home = tmp_path / "home"
     home.mkdir()

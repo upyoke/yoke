@@ -248,3 +248,9 @@ artifacts that can grow, such as generated schemas or timing caches.
 Installation and refresh put installer-managed rules files in that class.
 The landing preflight runs after integration and before local or pull-request
 landing, including projects that do not use the merge queue.
+
+The machine relay orphan check looks for per-environment jobs whose pinned
+machine config is missing. It checks LaunchAgents on macOS, user services on
+Linux, and the current user's scheduled tasks on Windows. Run
+`yoke doctor run --quick --fix` to stop and remove the orphaned jobs.
+Unreadable jobs require inspection and stay in place.

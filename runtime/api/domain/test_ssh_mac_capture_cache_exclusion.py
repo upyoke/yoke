@@ -22,6 +22,7 @@ from yoke_contracts.ssh_mac_preserved_state import (
 )
 
 
+@pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")
 def test_capture_prunes_caches_without_preserving_them(tmp_path):
     require_zsh()
     home = tmp_path / "home"

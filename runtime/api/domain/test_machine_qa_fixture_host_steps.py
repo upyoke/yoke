@@ -55,7 +55,7 @@ def test_failed_operations_keep_their_redacted_reason() -> None:
     ] == [reason, reason]
 
 
-@pytest.mark.posix_only(reason='runs on the POSIX test machine')
+@pytest.mark.posix_only(reason='runs remote fixture lifecycle operations through the POSIX shell and process groups')
 def test_runtime_close_keeps_the_cleanup_failure_reason() -> None:
     runtime = MachineQaFixtureRuntime(
         run_remote=lambda *_a, **_kw: None, upload_text=lambda *_a: None,
@@ -77,7 +77,7 @@ def test_runtime_close_keeps_the_cleanup_failure_reason() -> None:
     ]
 
 
-@pytest.mark.posix_only(reason='runs on the POSIX test machine')
+@pytest.mark.posix_only(reason='runs remote fixture lifecycle operations through the POSIX shell and process groups')
 def test_admission_host_runs_on_the_current_release_interpreter() -> None:
     remote = FakeRemote()
     runner = fixture_runner(remote)
@@ -116,7 +116,7 @@ def test_a_failed_journey_reports_its_own_error_before_the_state_proof() -> None
     assert post_state["outcome"] == "failed"
 
 
-@pytest.mark.posix_only(reason='runs on the POSIX test machine')
+@pytest.mark.posix_only(reason='runs remote fixture lifecycle operations through the POSIX shell and process groups')
 def test_a_crashed_host_step_reports_its_exception_not_the_traceback_header() -> None:
     remote = FakeRemote()
     remote.stdout = "\n".join((
@@ -140,7 +140,7 @@ def test_a_crashed_host_step_reports_its_exception_not_the_traceback_header() ->
     assert case.evidence["fixture_operations"]["setup"]["operations"][0]["reason"] == reason
 
 
-@pytest.mark.posix_only(reason='runs on the POSIX test machine')
+@pytest.mark.posix_only(reason='runs remote fixture lifecycle operations through the POSIX shell and process groups')
 def test_stop_treats_an_exited_process_group_as_gone(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -166,7 +166,7 @@ def test_stop_treats_an_exited_process_group_as_gone(
     assert not root.exists()
 
 
-@pytest.mark.posix_only(reason='runs on the POSIX test machine')
+@pytest.mark.posix_only(reason='runs remote fixture lifecycle operations through the POSIX shell and process groups')
 def test_cleanup_retry_removes_root_and_preserves_first_exception(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -219,7 +219,7 @@ def test_cleanup_retry_removes_root_and_preserves_first_exception(
     assert "PermissionError: [Errno 1]" in attempts[0]["operations"][0]["reason"]
 
 
-@pytest.mark.posix_only(reason='runs on the POSIX test machine')
+@pytest.mark.posix_only(reason='runs remote fixture lifecycle operations through the POSIX shell and process groups')
 def test_cleanup_fails_when_fixture_root_remains(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

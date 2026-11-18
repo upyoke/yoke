@@ -83,6 +83,7 @@ def _adapt(result: subprocess.CompletedProcess):
     )
 
 
+@pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")
 @pytest.mark.parametrize(
     ("failed", "matches"),
     [(1, 0), (0, 2), (1, 2)],
@@ -111,6 +112,7 @@ def test_final_gate_failure_retains_phase_and_process_detail(
     assert adapted.evidence["paths"][2]["outcome"] == "removed"
 
 
+@pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")
 @pytest.mark.parametrize("load", ["4.00", "999.00", ""])
 def test_success_counters_follow_final_validation_regardless_of_host_load(tmp_path, load):
     result = _run_final_validation(tmp_path, failed=0, matches=0, load=load)

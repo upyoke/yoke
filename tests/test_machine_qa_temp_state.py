@@ -13,7 +13,7 @@ from yoke_contracts.test_machine_types import HostActionResult
 from yoke_core.domain.agent_mission_preparation import prepare_mission
 
 
-@pytest.mark.posix_only(reason="runs on the POSIX test machine")
+@pytest.mark.posix_only(reason="executes the remote POSIX scratch cleanup with UID ownership checks")
 def test_cleanup_removes_run_artifacts_preserving_golden_home_and_other_users(tmp_path):
     home = tmp_path / "home"
     root = tmp_path / "temp"
@@ -53,7 +53,7 @@ def test_cleanup_removes_run_artifacts_preserving_golden_home_and_other_users(tm
     }
 
 
-@pytest.mark.posix_only(reason="runs on the POSIX test machine")
+@pytest.mark.posix_only(reason="executes the remote POSIX scratch cleanup with UID ownership checks")
 def test_foreign_owner_refuses_before_deleting_any_candidate(tmp_path, monkeypatch):
     candidate = tmp_path / "yoke-run"
     candidate.mkdir()
@@ -155,7 +155,7 @@ def test_cleanup_failure_prevents_baseline_proof():
     assert "reset" in result.evidence["temp_cleanup"]["recovery"]
 
 
-@pytest.mark.posix_only(reason="runs on the POSIX test machine")
+@pytest.mark.posix_only(reason="executes the remote POSIX scratch cleanup with UID ownership checks")
 def test_cleanup_preserves_live_mission_scratch_and_removes_stale_siblings(tmp_path):
     root = tmp_path / "yoke-qa-mission"
     live = root / "live"

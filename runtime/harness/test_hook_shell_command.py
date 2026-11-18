@@ -248,9 +248,12 @@ def test_native_windows_command_keeps_stdin_paths_and_exit_status(
     argv = command.split()
     if shell == "git-bash":
         git = shutil.which("git")
-        bash = Path(git).resolve().parent.parent / "bin" / "bash.exe" if git else None
-        if bash is None or not bash.is_file():
-            pytest.skip("Git Bash is not installed on this Windows machine")
+        configured = os.environ.get("YOKE_CI_GIT_BASH")
+        candidates = [Path(configured)] if configured else [
+            root / "bin" / "bash.exe" for root in Path(git).resolve().parents
+        ] if git else []
+        bash = next((path for path in candidates if path.is_file()), None)
+        assert bash is not None, "Install Git for Windows with Git Bash"
         argv = [str(bash), "--noprofile", "--norc", "-c", command]
     result = subprocess.run(
         argv,

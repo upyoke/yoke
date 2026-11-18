@@ -1,15 +1,4 @@
-"""Doctor health check for leaked per-environment machine-relay login items.
-
-A per-environment relay pins the machine config it was installed for. When
-that config is gone — a throwaway directory, a machine home that was moved —
-the job is an orphan: it stays registered with launchd, keeps trying to
-serve a universe that no longer exists, and nothing else ever notices it.
-Accumulated orphans were swept by hand before this check existed.
-
-The canonical relay is never a candidate here. Only labels carrying the
-per-environment suffix are read, and a plist this check cannot parse is
-reported rather than removed.
-"""
+"""Doctor check for per-environment relay jobs whose machine config is gone."""
 
 from __future__ import annotations
 
@@ -25,7 +14,10 @@ from yoke_contracts.machine_config.relay_instance import (
     RELAY_BASE_LABEL,
 )
 from yoke_core.engines.doctor_applicability import NOT_APPLICABLE
+from yoke_core.engines import relay_orphan_supervisors as supervisors
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
+from yoke_core.domain.relay_launchd_status import RelayInstallError
+from yoke_core.domain.relay_systemd_status import relay_unit_directory
 from yoke_core.domain.launchctl_boundary import (
     launch_agents_dir,
     launchd_target,
@@ -34,7 +26,7 @@ from yoke_core.domain.launchctl_boundary import (
 
 
 SLUG = "session-relay-orphans"
-TITLE = "No orphaned per-environment machine-relay login items"
+TITLE = "No orphaned per-environment machine relay jobs"
 _LISTED_LABELS = 5
 
 
@@ -91,18 +83,66 @@ def _summarize(labels: list[str]) -> str:
     return f"{listed} (+{remainder} more)" if remainder > 0 else listed
 
 
+def _check_native_supervisor(manager, scan, repair, args, rec) -> None:
+    reclaimed = []
+    problems = []
+    try:
+        orphans, unreadable = scan()
+        if args.fix and orphans:
+            for orphan in orphans:
+                try:
+                    if repair(orphan):
+                        reclaimed.append(str(orphan))
+                except (OSError, ValueError, SyntaxError, RelayInstallError) as exc:
+                    problems.append(f"{orphan}: {exc}")
+            orphans, unreadable = scan()
+        if orphans:
+            problems.append("relay jobs pin a missing machine config: " + _summarize(
+                [str(orphan) for orphan in orphans]
+            ))
+        if unreadable:
+            problems.append("unreadable relay jobs left in place: " + _summarize(unreadable))
+    except (OSError, RelayInstallError) as exc:
+        problems.append(str(exc))
+    if problems:
+        rec.record(
+            SLUG, TITLE, "FAIL",
+            f"{manager}: " + "; ".join(problems)
+            + ". Check supervisor access and job definitions, then retry "
+            "`yoke doctor run --quick --fix`.",
+        )
+    else:
+        summary = (
+            f"--fix: reclaimed {len(reclaimed)} orphan(s): {_summarize(reclaimed)}"
+            if reclaimed else "no orphaned relay jobs"
+        )
+        rec.record(SLUG, TITLE, "PASS", f"{manager}: {summary}")
+
+
 def hc_session_relay_orphans(
     conn: Any,
     args: DoctorArgs,
     rec: RecordCollector,
 ) -> None:
     """HC-session-relay-orphans: no relay login item outlives its machine config."""
+    if sys.platform == "win32":
+        _check_native_supervisor(
+            "Task Scheduler", supervisors.scan_tasks, supervisors.reclaim_task, args, rec
+        )
+        return
+    if sys.platform == "linux":
+        directory = relay_unit_directory()
+        _check_native_supervisor(
+            "systemd", lambda: supervisors.scan_systemd(directory),
+            supervisors.reclaim_systemd, args, rec,
+        )
+        return
     if sys.platform != "darwin":
         rec.record(
             SLUG,
             TITLE,
             NOT_APPLICABLE,
-            "launchd relay support is macOS-only; systemd is not shipped",
+            "no supported native relay supervisor on this platform",
         )
         return
     launch_agents = launch_agents_dir()

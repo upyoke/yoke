@@ -11,7 +11,7 @@ import subprocess
 import pytest
 
 
-pytestmark = pytest.mark.posix_only(reason="runs on the POSIX test machine")
+pytestmark = pytest.mark.posix_only(reason="exercises Linux and WSL provisioning shell scripts and apt service setup")
 
 
 @pytest.fixture

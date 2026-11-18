@@ -68,6 +68,7 @@ def test_cancel_kills_the_running_child_and_names_the_cancellation() -> None:
 
 def test_stopping_the_daemon_kills_the_install_instead_of_waiting(tmp_path) -> None:
     outcomes: list[object] = []
+    install_finished = threading.Event()
 
     def pin(build: str, *, runner):
         try:
@@ -75,7 +76,10 @@ def test_stopping_the_daemon_kills_the_install_instead_of_waiting(tmp_path) -> N
         except BaseException as exc:
             outcomes.append(exc)
             raise
-        outcomes.append("finished")
+        else:
+            outcomes.append("finished")
+        finally:
+            install_finished.set()
 
     def cycle(**_kwargs) -> ServeOnceOutcome:
         control_plane_payload.observe_server_build("0.2.0.202611180002")
@@ -95,6 +99,7 @@ def test_stopping_the_daemon_kills_the_install_instead_of_waiting(tmp_path) -> N
 
     assert outcome.reason == "cycle_cap"
     assert time.monotonic() - started < 15
+    assert install_finished.wait(10), "release install did not settle after daemon stop"
     assert len(outcomes) == 1 and isinstance(outcomes[0], ReleasePinCancelled)
 
 

@@ -32,9 +32,8 @@ from yoke_core.domain.postgres_control_plane_connection import (
 )
 
 
-#: Well past the shortened bound the reaping test declares, so a loaded cluster
-#: cannot make it flake.
-REAP_WAIT_SECONDS = 4.0
+#: Bound observation even when the server has failed to enforce the idle timer.
+REAP_WAIT_SECONDS = 15.0
 
 
 def test_a_guarded_dsn_declares_both_bounds() -> None:
@@ -113,6 +112,10 @@ def test_an_abandoned_transaction_releases_its_run_row_lock(
     abandoned = connect_test_db(db_path)
     waiting = connect_test_db(db_path)
     try:
+        # The observer is not the abandoned client. Keep it alive if Windows
+        # deschedules the test between a pg_stat_activity read and rollback.
+        waiting.execute(f"SET {IDLE_IN_TRANSACTION_SETTING} TO '30s'")
+        waiting.commit()
         backend, bound = abandoned.execute(
             f"SELECT pg_backend_pid(), current_setting('{IDLE_IN_TRANSACTION_SETTING}')"
         ).fetchone()
@@ -123,11 +126,15 @@ def test_an_abandoned_transaction_releases_its_run_row_lock(
         assert _backend_state(waiting, backend) == "idle in transaction"
         # Nothing on the client's side ends this transaction; only the server's
         # own bound can, which is the whole point.
-        time.sleep(REAP_WAIT_SECONDS)
+        deadline = time.monotonic() + REAP_WAIT_SECONDS
+        active = _backend_state(waiting, backend)
+        while active is not None and time.monotonic() < deadline:
+            time.sleep(0.05)
+            active = _backend_state(waiting, backend)
 
         # The server ended that backend on its own; this session lives on, so
         # no crash or restart did it.
-        assert _backend_state(waiting, backend) is None
+        assert active is None, f"backend {backend} survived the idle bound in state {active!r}"
         # POSIX clients still read the FATAL; Windows ones see only the close.
         with pytest.raises(
             (psycopg.errors.IdleInTransactionSessionTimeout, psycopg.OperationalError)

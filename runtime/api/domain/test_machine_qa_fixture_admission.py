@@ -30,7 +30,7 @@ from yoke_core.domain.machine_qa_admission_host import (
 )
 from yoke_core.domain.machine_qa_admission_state import expectation_failures
 
-pytestmark = pytest.mark.posix_only(reason="admission server runs on the POSIX test machine")
+pytestmark = pytest.mark.posix_only(reason="admission server runs the POSIX fixture admission shell using Unix launcher paths")
 
 HOST = "yoke_core.domain.machine_qa_admission_host"
 LOCK = Path("/tmp/yoke-machine-qa-admission-test.lock")

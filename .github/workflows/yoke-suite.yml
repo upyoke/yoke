@@ -156,6 +156,45 @@ jobs:
           git config --global user.email "ci@yoke.local"
           git config --global user.name "Yoke CI"
           git config --global init.defaultBranch main
+      - name: Provision Windows shell and symlinks
+        if: matrix.os == 'windows'
+        shell: pwsh
+        run: |
+          $gitRoot = Join-Path $env:ProgramFiles 'Git'
+          $gitBash = Join-Path $gitRoot 'bin/bash.exe'
+          if (-not (Test-Path $gitBash)) {
+            choco install git --yes --no-progress
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            Add-Content -Path $env:GITHUB_PATH -Value (Join-Path $gitRoot 'cmd')
+          }
+          & $gitBash --version
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Add-Content -Path $env:GITHUB_ENV -Value "YOKE_CI_GIT_BASH=$gitBash"
+          $ripgrep = (Get-Command rg.exe -CommandType Application -ErrorAction SilentlyContinue).Source
+          if (-not $ripgrep) {
+            choco install ripgrep --yes --no-progress
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            $ripgrep = Join-Path $env:ChocolateyInstall 'bin/rg.exe'
+          }
+          if (-not (Test-Path -LiteralPath $ripgrep -PathType Leaf)) {
+            throw "Windows runner could not locate ripgrep after provisioning: $ripgrep"
+          }
+          & $ripgrep --version
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Add-Content -Path $env:GITHUB_PATH -Value (Split-Path $ripgrep)
+          $unlock = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock'
+          New-Item -Path $unlock -Force | Out-Null
+          New-ItemProperty -Path $unlock -Name AllowDevelopmentWithoutDevLicense -Value 1 -PropertyType DWord -Force | Out-Null
+          python -c "from pathlib import Path; from tempfile import TemporaryDirectory; d = TemporaryDirectory(); p = Path(d.name); (p / 'link').symlink_to(p, target_is_directory=True); assert (p / 'link').is_symlink()"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Provision macOS shell and search tools
+        if: matrix.os == 'macos'
+        run: |
+          command -v rg || brew install ripgrep
+          command -v fish || brew install fish
+          fish --version
+      - name: Verify ripgrep is provisioned
+        run: rg --version
       - name: Start the native test Postgres
         run: uv run --frozen python -m yoke_core.tools.ci_suite_postgres start
       - name: Run pytest

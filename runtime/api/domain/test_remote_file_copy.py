@@ -7,8 +7,6 @@ needs zsh; the Linux and Windows (WSL) reader needs GNU ``realpath``.
 
 from __future__ import annotations
 
-import shutil
-import subprocess
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -22,16 +20,6 @@ from yoke_harness.remote_file_copy import HostCopyRefused, stream_remote_file
 MAX_BYTES = 1024 * 1024
 # Bytes that are not valid UTF-8, spanning several stream chunks.
 PAYLOAD = bytes(range(256))[::-1] * 1200 + b"\xff\xfe\x00\x80"
-
-
-pytestmark = pytest.mark.posix_only(reason="runs on the POSIX test machine")
-
-
-def _gnu_realpath() -> bool:
-    found = shutil.which("realpath")
-    if found is None:
-        return False
-    return subprocess.run([found, "-m", "/x/y"], capture_output=True).returncode == 0
 
 
 def _local(command: str) -> list[str]:
@@ -55,12 +43,12 @@ def _linux() -> SshLinuxHostControl:
 ADAPTERS = [
     pytest.param(
         _mac,
-        marks=pytest.mark.skipif(not Path("/bin/zsh").exists(), reason="needs zsh"),
+        marks=pytest.mark.macos_only(reason="executes the native macOS zsh file reader"),
         id="macos",
     ),
     pytest.param(
         _linux,
-        marks=pytest.mark.skipif(not _gnu_realpath(), reason="needs GNU realpath"),
+        marks=pytest.mark.linux_only(reason="executes the POSIX file reader with GNU realpath -m"),
         id="linux",
     ),
 ]
@@ -153,6 +141,7 @@ def _stream(command: str, destination: Path, *, max_bytes: int = MAX_BYTES) -> i
     )
 
 
+@pytest.mark.posix_only(reason="runs /bin/sh to emulate an SSH file stream")
 def test_stream_stops_at_the_bound_even_when_the_file_grows(tmp_path):
     destination = tmp_path / "out.bin"
     with pytest.raises(HostCopyRefused) as caught:
@@ -161,6 +150,7 @@ def test_stream_stops_at_the_bound_even_when_the_file_grows(tmp_path):
     assert list(tmp_path.iterdir()) == []
 
 
+@pytest.mark.posix_only(reason="runs /bin/sh to emulate an SSH file stream")
 def test_damaged_stream_and_unknown_exit_are_named(tmp_path):
     destination = tmp_path / "out.bin"
     with pytest.raises(HostCopyRefused) as damaged:
@@ -173,6 +163,7 @@ def test_damaged_stream_and_unknown_exit_are_named(tmp_path):
     assert list(tmp_path.iterdir()) == []
 
 
+@pytest.mark.posix_only(reason="runs /bin/sh to emulate an SSH file stream")
 def test_timeout_stops_the_copy(tmp_path, monkeypatch):
     monkeypatch.setattr(remote_file_copy, "COPY_TIMEOUT_SECONDS", 0.2)
     with pytest.raises(HostCopyRefused) as caught:
