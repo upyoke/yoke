@@ -45,7 +45,7 @@ def test_the_store_is_kept_live_and_lives_outside_the_absent_yoke_home():
     )
 
 
-@pytest.mark.posix_only(reason="executes a remote browser identity script with POSIX paths and shell utilities")
+@pytest.mark.macos_only(reason="runs the macOS browser identity reset and capture programs in /bin/zsh")
 def test_mac_reset_keeps_the_live_store_and_capture_prunes_it(tmp_path):
     require_zsh()
     home, golden = tmp_path / "home", tmp_path / "golden"

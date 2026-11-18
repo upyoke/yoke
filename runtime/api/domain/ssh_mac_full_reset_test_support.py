@@ -140,10 +140,8 @@ def run_functions(
     **kwargs,
 ) -> subprocess.CompletedProcess:
     """Execute program functions plus a caller-supplied driver in one shell."""
-    binary = zsh_binary()
-    assert binary is not None
     return subprocess.run(
-        [binary, "-f"],
+        [require_zsh(), "-f"],
         input="\n".join(lines),
         text=True,
         capture_output=True,

@@ -85,8 +85,8 @@ _RUNTIME_IMPORT_RE = re.compile(
 
 _DENY_REASON = (
     "BLOCKED: a Python script in a temporary directory that imports Yoke modules fails with "
-    "ModuleNotFoundError: `sys.path[0]` is /tmp, so `yoke_core.*` and "
-    "`runtime.*` do not resolve.\n\n"
+    "ModuleNotFoundError: `sys.path[0]` is the script's directory, so "
+    "`yoke_core.*` and `runtime.*` do not resolve.\n\n"
     "Instead:\n"
     "  - a registered command (`yoke --help` lists them)\n"
     "  - smoke-test lane source: `yoke dev import-check <module>`\n"
