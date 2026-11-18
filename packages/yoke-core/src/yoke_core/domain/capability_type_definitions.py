@@ -18,7 +18,6 @@ from yoke_core.domain.migration_model_fleet import (
 
 KIND_DECLARED_MODEL = "declared_model"
 KIND_PROVIDER_ACCESS = "provider_access"
-KIND_TEST_RESOURCE = "test_resource"
 
 
 _DEFAULT_DEFINITION: dict[str, Any] = {
@@ -100,6 +99,5 @@ __all__ = [
     "CAPABILITY_TYPE_DEFINITIONS",
     "KIND_DECLARED_MODEL",
     "KIND_PROVIDER_ACCESS",
-    "KIND_TEST_RESOURCE",
     "capability_type_definition",
 ]

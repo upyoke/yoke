@@ -121,7 +121,7 @@ def test_verification_begin_local_submit_persists_and_releases(
         == 0
     )
     receipt = conn.execute(
-        "SELECT status,receipt_json FROM test_machine_verifications WHERE project_id=1"
+        "SELECT status,receipt_json FROM test_machine_verifications"
     ).fetchone()
     assert receipt["status"] == "verified"
     assert "top-secret" not in receipt["receipt_json"]

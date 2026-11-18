@@ -186,14 +186,15 @@ def _row(golden_baseline_path: str) -> TestMachineRow:
         {**TEST_MACHINE_SETTINGS, "golden_baseline_path": golden_baseline_path}
     )
     return TestMachineRow(
-        project_id=1,
-        project="yoke",
-        capability_type=f"test-machine:{MACHINE}",
+        id=1,
+        power_project_id=1,
+        power_project="yoke",
         test_machine=MACHINE,
         settings=settings,
         settings_token=json.dumps(settings, separators=(",", ":"), sort_keys=True),
         verified_at=None,
         created_at="2026-01-01T00:00:00Z",
+        yoke_started=False,
     )
 
 
@@ -274,12 +275,11 @@ def _register_in_second_project(conn, settings_token: str) -> None:
     conn.commit()
 
 
-def test_capture_names_every_projects_golden_beside_it(
+def test_capture_protects_other_registered_golden_in_same_home(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    # One machine registered in two projects keeps both goldens in one
-    # parent; retention must learn about the other project's golden here.
+    # Separate registrations can share a login home and golden parent.
     conn = make_conn()
     configure_test_machine(conn, tmp_path, monkeypatch)
     _declare_golden_baseline(conn)

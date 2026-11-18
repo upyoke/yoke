@@ -20,9 +20,6 @@ from yoke_core.domain.machine_qa_capability import (
 )
 from yoke_core.domain.machine_reset_debt import record_reset_owed
 from yoke_core.domain.coordination_claims import acquire
-from yoke_core.domain.projects_capabilities_settings import (
-    cmd_capability_remove_settings,
-)
 
 NAME = TEST_MACHINE_SETTINGS["resource_name"]
 

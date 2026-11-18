@@ -55,7 +55,7 @@ def test_admin_cli_reads_only_named_machine_secret_and_passes_it_to_product(
     )
     monkeypatch.setattr(
         admin,
-        "read_machine_capability_secret",
+        "read_test_machine_secret",
         lambda *args: reads.append(args) or PASSWORD,
     )
     monkeypatch.setattr(
@@ -68,7 +68,7 @@ def test_admin_cli_reads_only_named_machine_secret_and_passes_it_to_product(
         adapter.test_machine_exec(["--admin", "--", "id", "-u"])
         == returncode
     )
-    assert reads == [("demo", "test-machine:fixture", "desktop_password")]
+    assert reads == [("fixture", "desktop_password")]
     assert calls[0]["administrator_password"] == PASSWORD
     output = capsys.readouterr()
     assert PASSWORD not in output.out + output.err
@@ -79,11 +79,11 @@ def test_admin_cli_reads_only_named_machine_secret_and_passes_it_to_product(
 
 @pytest.mark.parametrize("os_name", ["linux", "macos"])
 def test_missing_credential_refuses_before_connecting(monkeypatch, os_name):
-    monkeypatch.setattr(admin, "read_machine_capability_secret", lambda *_: None)
+    monkeypatch.setattr(admin, "read_test_machine_secret", lambda *_: None)
     with pytest.raises(RemoteExecRefusal) as raised:
         admin.administrator_password(project="demo", test_machine="fixture", os_name=os_name)
     assert raised.value.code == "test_machine_admin_credential_missing"
-    assert "test-machine:fixture.desktop_password" in str(raised.value)
+    assert "fixture.desktop_password" in str(raised.value)
     assert "--value-file FILE" in raised.value.recovery
 
 
@@ -91,7 +91,7 @@ def test_missing_credential_refuses_before_connecting(monkeypatch, os_name):
     "password", ["two\nlines", "nul\0value", "x" * (admin.MAX_PASSWORD_BYTES + 1)]
 )
 def test_invalid_credential_is_refused_without_value(monkeypatch, password):
-    monkeypatch.setattr(admin, "read_machine_capability_secret", lambda *_: password)
+    monkeypatch.setattr(admin, "read_test_machine_secret", lambda *_: password)
     with pytest.raises(RemoteExecRefusal) as raised:
         admin.administrator_password(project="demo", test_machine="fixture", os_name="linux")
     assert raised.value.code == "test_machine_admin_credential_invalid"
@@ -100,7 +100,7 @@ def test_invalid_credential_is_refused_without_value(monkeypatch, password):
 
 def test_unsupported_os_refuses_before_loading_secret(monkeypatch):
     monkeypatch.setattr(
-        admin, "read_machine_capability_secret", lambda *_: pytest.fail("must not read")
+        admin, "read_test_machine_secret", lambda *_: pytest.fail("must not read")
     )
     with pytest.raises(RemoteExecRefusal, match="macOS or Linux"):
         admin.administrator_password(
