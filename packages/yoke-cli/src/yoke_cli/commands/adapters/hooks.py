@@ -85,6 +85,9 @@ def _evaluate_inprocess(
             cursor_invocation=cursor_invocation,
             fallback_reason=fallback_reason,
             client_timing_id=(client_timing.event_id if client_timing else ""),
+            client_started_monotonic=(
+                client_timing.started_monotonic if client_timing else None
+            ),
             on_complete=(
                 (
                     lambda: record_client_wall(

@@ -187,3 +187,37 @@ def test_codex_prompt_proves_conversation_before_transcript_is_saved(client):
     prompt = client.post("/v1/hooks/evaluate", json=body).json()
     assert prompt["registration_outcome"] == "registered"
     assert _read("unsaved-conversation")["first_user_prompt_at"] is not None
+
+
+@pytest.mark.parametrize("executor", ["claude-code", "codex", "cursor"])
+@pytest.mark.parametrize("event", ["SessionStart", "UserPromptSubmit"])
+def test_retired_project_refuses_registration_by_name(client, executor, event):
+    """The reachable public-surface refusal: a retired project's checkout."""
+    conn = db_helpers.connect()
+    try:
+        # The shared fixture predates retirement; served schemas carry it.
+        conn.execute("ALTER TABLE projects ADD COLUMN IF NOT EXISTS retired_at TIMESTAMPTZ")
+        conn.execute("UPDATE projects SET retired_at = now() WHERE id = 1")
+        conn.commit()
+    finally:
+        conn.close()
+    sid = f"retired-{executor}-{event}"
+    result = _opening(client, executor, event, sid)
+    assert result["exit_code"] == 0
+    assert result["outcome"] == "completed"
+    assert result["registration_outcome"] == "refused:SESSION_PROJECT_RETIRED"
+    assert "session_registration_refused:SESSION_PROJECT_RETIRED" in result["degraded"]
+    assert _read(sid) is None
+    conn = db_helpers.connect()
+    try:
+        row = conn.execute(
+            "SELECT envelope FROM events WHERE event_name = %s AND session_id = %s",
+            ("SessionRegistrationRefused", sid),
+        ).fetchone()
+    finally:
+        conn.close()
+    assert row is not None
+    envelope = row["envelope"]
+    envelope = json.loads(envelope) if isinstance(envelope, str) else envelope
+    assert envelope["context"]["code"] == "SESSION_PROJECT_RETIRED"
+    assert "unretire" in envelope["context"]["reason"]

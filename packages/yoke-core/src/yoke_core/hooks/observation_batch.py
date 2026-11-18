@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import uuid
 from datetime import datetime
 from typing import Any, Mapping
@@ -40,6 +39,7 @@ from yoke_core.domain.observe_timing import ElapsedMeasurement, measure_elapsed
 from yoke_core.hooks.capability_resolve import resolve_capability
 from yoke_core.hooks.context import build_context
 from yoke_core.hooks.session_model_attestation_write import confirmed_served_model
+from yoke_core.hooks.observation_batch_identity import refresh_session_identity
 
 
 _TOOL_EVENTS = frozenset({"PreToolUse", "PostToolUse", "PostToolUseFailure"})
@@ -255,30 +255,6 @@ def _stamp_heartbeat(conn: Any, session_id: str, observed_at: datetime) -> None:
     )
 
 
-def _refresh_session_identity(
-    conn: Any,
-    *,
-    payload: dict[str, Any],
-    context: Any,
-    actor_id: int,
-) -> None:
-    """Apply wire identity through the ordinary active-session healing path."""
-    from yoke_core.hooks.registration import ensure_registered_from_hook
-
-    transcript = payload.get("transcript_path")
-    ensure_registered_from_hook(
-        conn,
-        json.dumps(payload),
-        context.session_id or "",
-        transcript_path=transcript if isinstance(transcript, str) else "",
-        record_anchor=False,
-        executor_hint=context.executor_family or "",
-        register_in_process=True,
-        actor_id=actor_id,
-        project_id=payload.get("project_id"),
-    )
-
-
 def persist_observation_batch(
     observations: list[Mapping[str, Any]], *, actor_id: int
 ) -> tuple[int, dict[str, str]]:
@@ -309,8 +285,12 @@ def persist_observation_batch(
                 payload=payload,
                 remote=True,
             )
-            _refresh_session_identity(
-                conn, payload=payload, context=context, actor_id=actor_id
+            refresh_session_identity(
+                conn,
+                payload=payload,
+                context=context,
+                actor_id=actor_id,
+                observed_at=observed_at,
             )
             _tool_event(
                 conn,

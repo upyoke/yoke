@@ -10,6 +10,7 @@ import sys
 from typing import Any, Callable
 
 from yoke_contracts.hook_evaluator_protocol import attach_evaluator_metadata
+from yoke_contracts.hook_observation_age import stamp_hook_age
 from yoke_contracts.hook_runner.chain_registry import session_orientation_events
 
 
@@ -36,6 +37,7 @@ def evaluate_inprocess(
     warm_duration_ms: int = 0,
     fallback_reason: str = "",
     client_timing_id: str = "",
+    client_started_monotonic: float | None = None,
     on_complete: Callable[[], None] | None = None,
 ) -> int:
     """Run the existing hook chain after the caller context is established."""
@@ -102,7 +104,9 @@ def evaluate_inprocess(
         extra_context = _session_orientation(event_name, stdin_data, cursor=cursor_invocation)
         def evaluate_local() -> int:
             return evaluate_hook_event(
-                event_name, stdin_data=stdin_data, extra_context=extra_context,
+                event_name,
+                stdin_data=stamp_hook_age(stdin_data, client_started_monotonic),
+                extra_context=extra_context,
             )
         return _evaluate_confirming_orientation(evaluate_local) if extra_context else evaluate_local()
 
@@ -127,11 +131,14 @@ def evaluate_inprocess(
     )
 
     def evaluate() -> int:
+        # Age is measured at hand-off, after orientation, so a late finish
+        # of a timed-out hook reads as the old observation it is.
+        handed_off = stamp_hook_age(stdin_data, client_started_monotonic)
         if connection is not None:
             return relay_hook_event(
                 event_name,
                 connection,
-                stdin_data=stdin_data,
+                stdin_data=handed_off,
                 capture_stdin_data=original_stdin,
                 extra_context=extra_context,
                 opener=http_opener,
@@ -139,12 +146,12 @@ def evaluate_inprocess(
         if _active_local_universe():
             return _evaluate_local_universe_hook(
                 event_name,
-                stdin_data,
+                handed_off,
                 extra_context=extra_context,
             )
         return evaluate_hook_event(
             event_name,
-            stdin_data=stdin_data,
+            stdin_data=handed_off,
             extra_context=extra_context,
         )
 

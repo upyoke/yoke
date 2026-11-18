@@ -7,6 +7,8 @@ recovery on client stderr, and emits `SessionRegistrationRefused` with the
 code, reason and recovery. Registration stays fail-open: it never changes
 the policy decision or hook exit code. A duplicate is `exists` only when
 the row exists; other integrity failures name the violated constraint.
+A hook from a retired project's checkout refuses as
+`refused:SESSION_PROJECT_RETIRED`, naming `yoke projects unretire` as recovery.
 
 The authoritative registration transaction stamps `first_user_prompt_at`
 on `UserPromptSubmit`, including an existing row and a retry after orientation
@@ -38,3 +40,17 @@ records it, stderr shows the `session_prompt_attestation` failure marker, and th
 hook still allows. Codex and Cursor declare `prompt_attestation: deferred` with
 the reason in `prompt_attestation_evidence`.
 
+
+## Late hooks never revive an ended session
+
+A hook client that times out (`YOKE_HOOK_RESIDENT_TIMEOUT`) does not cancel
+its evaluation, so the resident and the authority can finish it after
+`Stop` and `SessionEnd` have already ended the row. The evaluator stamps the
+hook's age (`yoke_hook_evaluator.hook_age_ms`, measured from the hook client's
+start) when it hands the hook to the authority. The authority reconstructs the
+observation instant on its own clock, so client clock skew never enters the
+comparison. An observation batch uses its recorded `observed_at`. A hook observed at or before
+the row's `ended_at` reports `skipped:stale_replay` on every path and leaves
+the row, its probe state and its prompt stamp unchanged. A hook observed after
+the end still revives a transiently ended session. An older client sends no
+age and keeps that revival.
