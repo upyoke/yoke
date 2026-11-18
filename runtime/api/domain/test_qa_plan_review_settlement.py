@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from yoke_core.domain.qa_plan_review_submission import _reviewed_execution_state
+from yoke_core.domain.qa_plan_reviewed_state import reviewed_execution_state
 
 
 @pytest.mark.parametrize(
@@ -36,7 +36,7 @@ def test_review_settlement_preserves_every_deterministic_case(
     ]
 
     assert (
-        _reviewed_execution_state(
+        reviewed_execution_state(
             recorded,
             {42: ("pass", "The inspected frame is correct.")},
         )

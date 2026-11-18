@@ -22,7 +22,12 @@ def uninstall_registration(root: Path, *, path=None) -> dict:
     if is_yoke_source_checkout(root):
         raise source_link_uninstall_refusal(root)
     payload, cfg = load_payload(path)
-    entries = contract.projects_for_connection(payload)
+    connection = owned_cleanup.registration_connection(
+        payload, owned_cleanup.owning_connections(payload, root)
+    )
+    entries = contract.normalize_projects(
+        contract.connection_project_maps(payload).get(connection)
+    )
     exact = [entry for entry in entries if Path(entry["checkout"]).resolve() == root]
     if len(exact) != 1:
         raise ProjectInstallError(
@@ -60,7 +65,6 @@ def uninstall_registration(root: Path, *, path=None) -> dict:
             "sharing or identity. Separate shared checkouts or repair the named "
             "mapping, then retry project uninstall; nothing was removed."
         )
-    connection = contract.project_connection(payload)
     # Keep raw bytes' values for every other entry, namespace and setting.
     group = payload["connection_projects"][connection]
     group[:] = [entry for entry in group if Path(entry["checkout"]).resolve() != root]

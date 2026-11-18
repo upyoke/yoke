@@ -38,7 +38,11 @@ def revert_recorded() -> Tuple[List[str], List[str]]:
         return [], [f"{ledger.ledger_path()} could not be read ({exc})"]
     lines: List[str] = []
     failures: List[str] = []
-    for entry in entries:
+    # Containers go last, deepest first, once the entries they held are gone.
+    containers = [e for e in entries if e.get("kind") == "json_container"]
+    containers.sort(key=lambda e: -len(e.get("keys") or ()))
+    leaves = [e for e in entries if e.get("kind") != "json_container"]
+    for entry in [*leaves, *containers]:
         try:
             line = revert_entry(entry)
         except (OSError, ValueError, KeyError, TypeError) as exc:
@@ -71,7 +75,10 @@ def revert_entry(entry: Dict[str, Any]) -> str:
             entry["value"],
             int(entry["existing_depth"]),
             entry.get("previous", _MISSING),
+            tuple(entry.get("derived", ())),
         )
+    if kind == "json_container":
+        return _revert_json_container(target, list(entry["keys"]))
     if kind == "json_list_item":
         return _revert_json_list_item(
             target, list(entry["keys"]), entry["value"], int(entry["existing_depth"])
@@ -106,7 +113,12 @@ def _revert_parent_dir(target: Path) -> str:
 
 
 def _revert_json(
-    target: Path, keys: List[str], value: Any, existing: int, previous: Any = _MISSING
+    target: Path,
+    keys: List[str],
+    value: Any,
+    existing: int,
+    previous: Any = _MISSING,
+    derived: tuple = (),
 ) -> str:
     payload = json.loads(target.read_text(encoding="utf-8"))
     dotted = ".".join(keys)
@@ -126,7 +138,9 @@ def _revert_json(
         and current == previous
     ):
         return ""
-    if type(current) is not type(value) or current != value:
+    if not any(
+        type(current) is type(own) and current == own for own in (value, *derived)
+    ):
         return _left_alone(target, dotted, current)
     if previous is _MISSING:
         del node[keys[-1]]
@@ -139,6 +153,24 @@ def _revert_json(
         del parents[depth][keys[depth]]
     _replace(target, json.dumps(payload, indent=2) + "\n")
     return f"{'removed' if previous is _MISSING else 'restored'} {dotted} in {target}"
+
+
+def _revert_json_container(target: Path, keys: List[str]) -> str:
+    """Remove an object Yoke created, or the file at ``[]``, once empty."""
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    if not keys:
+        if payload != {}:
+            return ""
+        target.unlink()
+        return f"removed empty {target}"
+    node: Any = payload
+    for key in keys[:-1]:
+        node = node.get(key) if isinstance(node, dict) else None
+    if not isinstance(node, dict) or node.get(keys[-1], _MISSING) != {}:
+        return ""
+    del node[keys[-1]]
+    _replace(target, json.dumps(payload, indent=2) + "\n")
+    return f"removed empty {'.'.join(keys)} in {target}"
 
 
 def _revert_json_list_item(

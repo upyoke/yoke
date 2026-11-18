@@ -207,13 +207,26 @@ def ensure_harness(
             spec.harness_id, str(path), MALFORMED, malformed_detail(path, reason)
         )
     outcome = UNCHANGED if path.is_file() and is_current(spec, document) else INSTALLED
+    unrecorded = ""
     if outcome == INSTALLED:
+        existed = path.is_file()
         _write(path, _text(_render(spec, document)))
+        unrecorded = _record_created(path, existed, "hooks" in document)
     if outcome == INSTALLED or trust_when_unchanged:
         failure = _trust(spec, environ, prune=False)
         if failure:
             return MachineHookResult(spec.harness_id, str(path), TRUST_FAILED, failure)
-    return MachineHookResult(spec.harness_id, str(path), outcome)
+    return MachineHookResult(spec.harness_id, str(path), outcome, unrecorded)
+
+
+def _record_created(path: Path, existed: bool, had_hooks: bool) -> str:
+    """Record the file and ``hooks`` object Yoke created, for uninstall."""
+    from yoke_contracts import harness_settings_ledger as ledger
+
+    entries = [] if existed else [ledger.json_container_entry(path, [])]
+    if not had_hooks:
+        entries.append(ledger.json_container_entry(path, ["hooks"]))
+    return "; ".join(line for line in map(ledger.record, entries) if line)
 
 
 def ensure_machine_hooks(

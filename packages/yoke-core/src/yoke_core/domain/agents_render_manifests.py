@@ -32,6 +32,9 @@ from yoke_contracts.harness_turn_record_capability import (
     turn_record_capability_for_harness,
 )
 from yoke_contracts.harness_machine_hooks import machine_hooks_for_harness
+from yoke_contracts.harness_session_permission_posture import (
+    CLAUDE_SESSION_PERMISSION_POSTURE,
+)
 from yoke_contracts.harness_shell_tools import manifest_shell_tools
 from yoke_contracts.harness_wake_capability import wake_capability_for_harness
 from yoke_contracts.hook_inline_context import inline_context_bytes_for_harness
@@ -162,6 +165,7 @@ CLAUDE_MANIFEST: dict = {
     "turn_record": _turn_record(_CLAUDE_CLI.harness_id),
     "session_transcripts": _session_transcripts(_CLAUDE_CLI.harness_id),
     "machine_hooks": _machine_hooks(_CLAUDE_CLI.harness_id),
+    "session_permission_posture": CLAUDE_SESSION_PERMISSION_POSTURE.to_json(),
     "shell_tools": _shell_tools(_CLAUDE_CLI.harness_id),
     "worktree_hook_enablement": {
         "config_path": ".claude/settings.json",
