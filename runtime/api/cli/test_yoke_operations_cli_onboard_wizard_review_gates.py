@@ -110,3 +110,46 @@ def test_review_preflight_blocks_apply_until_clear(monkeypatch) -> None:
 
     # Nothing was applied — the pre-flight gate held.
     assert spy.applied is None
+
+
+@pytest.mark.parametrize(
+    "checkout,warned", [("/mnt/c/proj", True), ("~/code/proj", False)]
+)
+def test_review_warns_when_checkout_is_on_a_windows_drive(
+    monkeypatch, checkout: str, warned: bool
+) -> None:
+    """On Linux, Review carries the shared Windows-drive warning as a note."""
+    import types
+
+    from yoke_contracts import windows_drive_checkout
+    from yoke_cli.config import onboard_preflight
+    from yoke_cli.config.onboard_wizard_flow import WizardFlow
+
+    monkeypatch.setattr(windows_drive_checkout, "sys", types.SimpleNamespace(platform="linux"))
+    monkeypatch.setattr(onboard_preflight, "_folder_problems", lambda result, mode: [])
+    monkeypatch.setattr(
+        WizardFlow,
+        "_review_preflight",
+        lambda self: onboard_preflight.preflight(self.result),
+    )
+
+    app, spy = make_app()
+    seen: dict[str, str] = {}
+
+    async def scenario() -> None:
+        async with app.run_test() as pilot:
+            await _skip_machine_github(pilot)
+            await _pick_mode(pilot, onboard_project.PROJECT_MODE_LOCAL_CHECKOUT)
+            await type_text(pilot, checkout)
+            await pilot.press("enter")
+            await accept_project_details(pilot)
+            await pilot.press("enter")  # publish: No (preselected)
+            await skip_hosting(pilot)  # hosting: skip -> Review
+            await pilot.pause()
+            seen["body"] = _body_text(app)
+
+    asyncio.run(scenario())
+
+    assert "apply" in seen["body"].lower()
+    assert ("is on a Windows drive" in seen["body"]) is warned
+    assert spy.applied is None

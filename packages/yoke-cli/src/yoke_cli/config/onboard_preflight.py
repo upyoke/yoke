@@ -15,9 +15,12 @@ apply"; a non-empty list is the ordered set of problems to show.
 
 from __future__ import annotations
 
+import os.path
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Protocol
+
+from yoke_contracts.windows_drive_checkout import windows_drive_checkout_warning
 
 from yoke_cli.config import onboard_input_validation as validation
 from yoke_cli.config import onboard_credential_replacement
@@ -108,7 +111,7 @@ def preflight(
     problems.extend(_folder_problems(result, mode))
     net_problems, net_notes = _network_findings(result, probes)
     problems.extend(net_problems)
-    return PreflightResult(problems=problems, notes=net_notes)
+    return PreflightResult(problems=problems, notes=[*_folder_notes(result), *net_notes])
 
 
 def preflight_problems(
@@ -137,6 +140,14 @@ def _folder_problems(result: _ResultLike, mode: str) -> list[str]:
     else:
         error = validation.validate_create_target_folder(str(checkout))
     return [error] if error else []
+
+
+def _folder_notes(result: _ResultLike) -> list[str]:
+    checkout = getattr(result, "project_checkout", None)
+    if not checkout:
+        return []
+    warning = windows_drive_checkout_warning(os.path.expanduser(str(checkout).strip()))
+    return [warning] if warning else []
 
 
 def _network_findings(
