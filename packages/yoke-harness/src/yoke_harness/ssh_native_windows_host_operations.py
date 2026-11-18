@@ -5,6 +5,7 @@ import json
 
 from yoke_contracts.test_machine_types import HostActionResult
 from yoke_harness.native_windows.baseline import profile_operation, reach_baseline
+from yoke_harness.native_windows.console import verify_console
 from yoke_harness.native_windows.desktop import capture_desktop
 from yoke_harness.native_windows.journal import journal_operation
 from yoke_harness.native_windows.features import feature_states, features_absent
@@ -220,4 +221,4 @@ class SshNativeWindowsHostOperations(WindowsTransport):
         )
 
     def check_terminal_bridge(self):
-        return self.diagnose_terminal_bridge()
+        return verify_console(self, self.diagnose_terminal_bridge)

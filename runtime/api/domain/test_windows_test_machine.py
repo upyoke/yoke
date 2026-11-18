@@ -248,3 +248,63 @@ def test_gui_command_uses_native_windows_desktop_task(monkeypatch, tmp_path):
     assert result.stdout == 'native'
     assert 'yoke.cmd' in calls[0]
     assert 'wsl.exe' not in calls[0]
+
+
+
+@pytest.mark.parametrize("target", ["windows", "xfce"])
+def test_wsl_mission_routes_commands_and_screenshots_to_selected_desktop(monkeypatch, target):
+    from yoke_harness import ssh_windows_host_operations as windows
+
+    calls = []
+    console = object()
+    control = object.__new__(SshWindowsHostOperations)
+    control.windows_host = console
+    control.wsl_desktop_session = validate_test_machine_settings(
+        {**SETTINGS, "wsl_desktop_session": target}
+    )["wsl_desktop_session"]
+
+    def run_native(host, script, *, timeout):
+        assert host is console
+        assert "wsl.exe --cd" in script
+        calls.append(("windows", timeout))
+        return subprocess.CompletedProcess([], 0, "", "")
+
+    def run_linux(host, argv, *, required_session_context, timeout):
+        assert host is control
+        assert argv == ["yoke", "ui", "up"]
+        assert required_session_context == "gui"
+        calls.append(("xfce", timeout))
+        return subprocess.CompletedProcess([], 0, "", "")
+
+    monkeypatch.setattr(windows, "desktop_script", run_native)
+    monkeypatch.setattr(windows.SshLinuxHostOperations, "run_command", run_linux)
+    monkeypatch.setattr(windows, "capture_desktop", lambda host, **_: host)
+    monkeypatch.setattr(windows.SshLinuxHostOperations, "capture_screenshot", lambda host, **_: host)
+
+    result = control.run_command(["yoke", "ui", "up"], required_session_context="gui", timeout=90)
+    assert result.returncode == 0 and calls == [(target, 90)]
+    assert control.capture_screenshot() is (console if target == "windows" else control)
+
+
+@pytest.mark.parametrize("wsl", [False, True])
+@pytest.mark.parametrize("ready", [False, True])
+def test_interactive_windows_console_probe_requires_receipt(monkeypatch, wsl, ready):
+    from yoke_harness.native_windows import console
+
+    control = object()
+
+    def task(host, script, *, timeout):
+        assert host is control and timeout == 30
+        assert "Get-Process explorer" in script
+        assert "InputDesktopReady()" in script
+        assert ("wsl.exe" in script) is wsl
+        return subprocess.CompletedProcess([], 0, console.RECEIPT if ready else "", "")
+
+    monkeypatch.setattr(console, "desktop_script", task)
+    result = console.probe_console(control, wsl=wsl)
+    assert result.ok is ready
+    if ready:
+        assert result.evidence == {"desktop_session": "windows_console", "wsl_started": wsl}
+    else:
+        assert result.error_code == "windows_console_not_ready"
+        assert "Reboot" in result.evidence["recovery"]

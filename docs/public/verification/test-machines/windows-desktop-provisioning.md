@@ -10,14 +10,18 @@ desktop steps at its section 6, then return there to capture and prove the home.
 
 ## Desktop and browser coverage
 
-Registered terminal QA uses tmux transcripts. GUI commands and
-`yoke test-machine screenshot --test-machine NAME --json` start or
-reuse the same WSL XFCE display through the existing Linux desktop helper;
-the screenshot captures that display, including its actual headed browser.
-Declare the dedicated WSL user as `desktop_user` and its xrdp port as
-`desktop_port`; the Windows SSH user remains the account owning the distro.
-The capability-owned fixture password is streamed on private stdin. Another
-user's ambiguous desktop refuses; no native Windows RDP login is needed.
+The lab has two desktops. The Windows account that owns the distro signs in
+automatically at the Windows console. Its interactive task can launch WSL
+commands whose windows open on Windows, such as a Windows browser opened by
+`yoke ui up` inside WSL. The WSL user has its own XFCE/xrdp desktop for Linux
+apps, browser identities and tmux terminal QA.
+
+Set `wsl_desktop_session=windows` on the test machine to run
+`yoke qa mission host-command --gui-session` in Windows and capture that
+display with mission screenshots or `yoke test-machine screenshot`.
+Select `xfce` to route those operations to the Linux desktop. Existing
+registrations use XFCE until they declare a selection. Keep `desktop_user`
+and `desktop_port` pointed at XFCE for Linux browser sign-ins.
 
 For a requested, announced personal application sign-in handoff, run:
 
@@ -41,7 +45,8 @@ inside WSL with a separate loopback port. The executing operation runs its
 stdlib-only helper in the dedicated Linux user's home. Copy
 `linux_desktop_listener.py`, `provision_linux_desktop.py` and
 `provision_windows_wsl_desktop.py` from the controller's `yoke_harness/host_provisioning/` package directory into that
-working directory first:
+working directory. Copy `autologon.py`, `console_setup.py` and `stdin_frame.py`
+from the package's `native_windows/` directory into the same working directory:
 
 ```text
 python3 provision_windows_wsl_desktop.py --desktop-password-stdin --browser-project P --browser-identity NAME
@@ -69,16 +74,25 @@ land in that identity's profile. `--verify` takes neither flag and refuses
 selection is missing. In the WSL XFCE session, confirm `exo-open --launch
 TerminalEmulator` opens a terminal and `xdg-open https://example.com` opens
 the page in the identity browser.
-The product streams its capability-owned desktop secret on private stdin, sets
-the dedicated WSL fixture password with `sudo -n chpasswd`. The next retained
-GUI-session operation uses the existing uploaded `xrdp-sesrun` helper; no host
-harness-package import is needed. No secret enters a file, argv or output. The
-operator never types sudo, sets a machine password or logs into either desktop.
-Agents authorize the operator identity with `yoke browser authorize
---test-machine` and prove its Chromium renders there before requesting only
-personal application sign-in. Success leaves `headed_application_proved=false` until that
-independent check. Provisioning starts no session; `--verify` refuses the secret flag.
-No auto-logon or public listener change is made.
+Stream the existing `desktop_password` for the Windows SSH account on private
+stdin. The provisioner stores it in Windows LSA for autologon and sets the
+dedicated WSL fixture password through `sudo -n chpasswd`. It disables
+screen-saver and workstation locking for the Windows lab account and installs
+the fixed `YokeQa-ReturnToConsole` task. The task moves that account's disconnected
+RDP session back to the console. Reboot the Windows host once after provisioning.
+
+Run `yoke test-machine verify --project P --test-machine NAME` after reboot,
+with the viewer closed. The console probe checks that an interactive scheduled
+task shares Explorer's nonzero console session, can read the unlocked display,
+and can start the default WSL distro. After a reset, repeat verification to
+prove the Windows console survived the Linux home restore.
+
+To recover a locked Windows console, connect to the Windows account over the
+lab's private RDP route and unlock it. Disconnect without signing out, then
+verify again. If the task fails, inspect its result in Task Scheduler and
+rerun provisioning. For XFCE, continue to authorize the operator identity with
+`yoke browser authorize --test-machine` and prove Chromium renders there.
+The helper reports `headed_application_proved=false` until independent QA.
 The provisioner also owns persistent distro setup: it sets only
 `[general] instanceIdleTimeout=-1` in the registered Windows user's `.wslconfig`,
 preserving other keys and comments. This applies to that Windows user's WSL2

@@ -125,7 +125,7 @@ $version=Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion'
                             for key in ("edition", "build", "user"))
                     and facts["build"].isascii() and facts["build"].isdigit()
                 ):
-                    if facts["admin"] is False:
+                    if facts["admin"] is False or self.os == "wsl":
                         self.windows_facts = facts
                         return facts
                     code = "native_windows_test_user_required"

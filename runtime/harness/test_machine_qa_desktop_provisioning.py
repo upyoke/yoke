@@ -62,6 +62,9 @@ def test_wsl_route_reuses_linux_provisioner_and_keeps_ui_unproved(
     )
     monkeypatch.setattr(linux, "desktop_password_input", lambda: "fixture-secret")
     monkeypatch.setattr(
+        windows, "configure_windows_console", lambda password: calls.append(("autologon", password))
+    )
+    monkeypatch.setattr(
         linux,
         "set_desktop_password",
         lambda password: calls.append(("password", password)),
@@ -88,7 +91,8 @@ def test_wsl_route_reuses_linux_provisioner_and_keeps_ui_unproved(
     assert windows.main() == 0
     result = json.loads(capsys.readouterr().out)
     assert result["headed_application_proved"] is False
-    assert result["desktop_session"] == "not_started"
+    assert result["desktop_session"] == "xfce_not_started"
+    assert result["windows_console_reboot_required"] is not verify
     assert result["wsl_lifetime"]["persistence_proved"] is False
     assert result["wsl_lifetime"]["restart_required"] is not verify
     assert "fixture-secret" not in json.dumps(result)
@@ -99,7 +103,7 @@ def test_wsl_route_reuses_linux_provisioner_and_keeps_ui_unproved(
         ("verify", home, port, "127.0.0.1"),
         ("localhost", port),
         ("tailnet", port, verify),
-        *([] if verify else [("password", "fixture-secret")]),
+        *([] if verify else [("autologon", "fixture-secret"), ("password", "fixture-secret")]),
     ]
 
 

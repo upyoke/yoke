@@ -167,8 +167,9 @@ proves `sudo -n true` plus the project-declared runtime workload checks.
 Runtime group membership is not the privileged-library prerequisite.
 Require Ubuntu24.04, Git/tmux/Python versions, non-root ownership and supported
 vendor Node/runtime versions. Packages/services are outside the saved home.
-Keep repositories in the Linux filesystem; native Windows Yoke and Windows-side
-harness desktop reach-in are not covered by this fixture.
+Keep repositories and harnesses in the Linux filesystem. A mission that
+needs a Windows application uses the registered Windows console, with its
+commands still running inside the default WSL distro.
 
 ## 5. Harness sign-in and standard acceptance
 
@@ -220,8 +221,9 @@ macOS Keychain checks do not apply to WSL.
 ## 6. Windows desktop and browser coverage
 
 Complete [WSL desktop provisioning](windows-desktop-provisioning.md) before
-capture. It owns XFCE/xrdp, Chromium, unattended distro lifetime and personal
-browser sign-in handoffs; SSH, Tailscale and registration above remain unchanged.
+capture. It owns XFCE/xrdp, Chromium, unattended distro lifetime and the
+Windows autologon console. Configure `wsl_desktop_session` on the test machine
+to select the display for mission GUI commands and screenshots.
 
 ## 7. Save and prove the Linux home
 
@@ -252,8 +254,9 @@ writers, restores files/modes, proves product residue absent on Linux shells,
 and reruns declared probes. The Linux live sign-in rule applies in WSL: the
 Claude, Codex and Cursor login files never enter a golden and stay live through
 every reset. It never changes Windows credentials.
-Require new passing receipts and actual harness requests,
-plus independent Windows desktop proof. No such new roundtrip was run here.
+Require passing receipts after a reset and actual harness requests. Verify
+must prove the unlocked Windows console and a WSL command started in it
+for machines that declare `wsl_desktop_session`.
 
 ## 8. Recovery and cost-bound handoff
 

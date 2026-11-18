@@ -8,6 +8,7 @@ to it, and one firewall rule admits that port only on the Tailscale interface.
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 from pathlib import Path
 import platform
@@ -206,6 +207,43 @@ def expose_on_tailnet(port: int, *, verify_only: bool) -> str:
     return result.stdout.replace("\x00", "").strip().splitlines()[-1]
 
 
+def configure_windows_console(password: str) -> None:
+    """Apply the native console baseline to the account owning this distro."""
+    if __package__:
+        from yoke_harness.native_windows.autologon import SCRIPT
+        from yoke_harness.native_windows.console_setup import console_settings_script
+        from yoke_harness.native_windows.stdin_frame import READ_FRAME_SCRIPT, frame_bytes
+    else:
+        from autologon import SCRIPT
+        from console_setup import console_settings_script
+        from stdin_frame import READ_FRAME_SCRIPT, frame_bytes
+
+    script = (
+        "$ErrorActionPreference='Stop'; $name=$env:USERNAME\n"
+        + READ_FRAME_SCRIPT
+        + "$password=[Text.Encoding]::UTF8.GetString((Read-YokeFrame))\n"
+        + SCRIPT
+        + console_settings_script()
+    )
+    argv = [
+        "powershell.exe", "-NoProfile", "-NonInteractive", "-EncodedCommand",
+        base64.b64encode(script.encode("utf-16-le")).decode("ascii"),
+    ]
+    try:
+        result = subprocess.run(
+            argv, input=frame_bytes(password.encode()), capture_output=True, text=True, timeout=120,
+        )
+    except subprocess.TimeoutExpired:
+        raise desktop.ProvisionFailure(
+            "windows_console_provision_timeout: inspect Task Scheduler and rerun as the Windows SSH administrator"
+        ) from None
+    if result.returncode:
+        raise desktop.ProvisionFailure(
+            "windows_console_provision_failed: verify Windows administrator permissions and the account profile, then rerun; "
+            + result.stderr.replace(password, "[REDACTED]")[-1000:]
+        )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--verify", action="store_true", help="Readiness check only")
@@ -240,9 +278,11 @@ def main() -> int:
         prove_windows_localhost(args.rdp_port)
         tailnet_address = expose_on_tailnet(args.rdp_port, verify_only=args.verify)
         if password is not None:
+            configure_windows_console(password)
             desktop.set_desktop_password(password)
             result["login_password_set"] = True
-        result["desktop_session"] = "not_started"
+        result["desktop_session"] = "xfce_not_started"
+        result["windows_console_reboot_required"] = password is not None
         result.update(
             facts,
             wsl_lifetime=lifetime,
