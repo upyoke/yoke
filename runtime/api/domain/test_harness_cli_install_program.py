@@ -204,3 +204,73 @@ def test_cursor_holdback_preserves_invalid_user_config(tmp_path, monkeypatch, co
     assert config.read_text() == content
     assert "repair cli-config.json" in result.evidence["recovery"]
     assert "unsupported" in result.evidence["detail"]
+
+
+# The installer exhausts the disk (on WSL, a full Windows volume under
+# ext4.vhdx), so Linux remounts the root read-only: every later write,
+# including scratch cleanup, raises EROFS as windows-lab did.
+READ_ONLY_AFTER_INSTALL = """
+import errno as _errno, os as _os, subprocess as _subprocess
+_run = _subprocess.run
+def _run_then_remount_read_only(argv, *args, **kwargs):
+    result = _run(argv, *args, **kwargs)
+    if argv[:2] == ['/bin/sh', '-c']:
+        def _unlink(path, *args, **kwargs):
+            raise OSError(_errno.EROFS, 'Read-only file system', path)
+        _os.unlink = _unlink
+    return result
+_subprocess.run = _run_then_remount_read_only
+"""
+
+
+class ScratchHost(LocalHost):
+    def __init__(self, home, scratch, prelude=""):
+        super().__init__(home)
+        self.scratch, self.prelude = scratch, prelude
+
+    def run_command(self, argv, timeout, **context):
+        program = [argv[0], argv[1], self.prelude + argv[2], *argv[3:]]
+        os.environ["TMPDIR"] = str(self.scratch)
+        try:
+            return super().run_command(program, timeout, **context)
+        finally:
+            del os.environ["TMPDIR"]
+
+
+def claude_installer(monkeypatch, script):
+    monkeypatch.setitem(
+        clis.HARNESS_CLI_RELEASE_BY_ID,
+        "claude-code",
+        replace(clis.HARNESS_CLI_RELEASE_BY_ID["claude-code"], install_script=script),
+    )
+
+
+def test_read_only_host_names_the_disk_instead_of_a_cleanup_traceback(
+    tmp_path, monkeypatch
+):
+    home, scratch = tmp_path / "home", tmp_path / "scratch"
+    scratch.mkdir()
+    executable(home / ".local/bin/claude", "echo 2.1.286")
+    claude_installer(monkeypatch, "echo 'No space left on device' >&2; exit 1")
+    host = ScratchHost(home, scratch, READ_ONLY_AFTER_INSTALL)
+    result = clis.install_harness_clis(host, LATEST, ["claude-code"])
+    assert result.error_code == "harness_cli_host_disk_failed", result.evidence
+    assert "refused a write (EROFS: Read-only file system: " in result.evidence["detail"]
+    assert "ext4.vhdx" in result.evidence["recovery"]
+    assert "wsl --shutdown" in result.evidence["recovery"]
+    receipt = result.evidence["installs"][0]
+    assert receipt["install_stderr"] == "No space left on device"
+    assert receipt["host_disk_error"]["errno"] == "EROFS"
+
+
+def test_installed_cli_leaves_no_scratch_files(tmp_path, monkeypatch):
+    home, scratch = tmp_path / "home", tmp_path / "scratch"
+    scratch.mkdir()
+    executable(home / ".local/bin/claude", "echo 2.1.286")
+    claude_installer(
+        monkeypatch, "printf '#!/bin/sh\\necho %s\\n' \"$1\" > \"$HOME/.local/bin/claude\""
+    )
+    result = clis.install_harness_clis(ScratchHost(home, scratch), LATEST, ["claude-code"])
+    assert result.ok, result.evidence
+    assert result.evidence["harness_cli_versions"]["claude-code"] == "2.1.300"
+    assert list(scratch.iterdir()) == []
