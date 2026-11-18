@@ -39,7 +39,7 @@ def test_command_refuses_deleted_directory(monkeypatch, capsys):
     assert code == 1
     assert captured.out == ""
     assert "working_directory_missing" in captured.err
-    assert "cd to the project checkout and retry" in captured.err
+    assert captured.err.count("cd to the project checkout and retry") == 1
     assert "Traceback" not in captured.err
 
 
@@ -61,6 +61,9 @@ def test_hook_allows_deleted_directory(monkeypatch, capsys, executor):
         assert "hookSpecificOutput" not in reply
         assert "working_directory_missing" in reply["systemMessage"]
     assert "working_directory_missing" in captured.err
+    assert "cd to the project checkout and retry" in captured.out
+    assert "resident restart" not in captured.out + captured.err
+    assert "YOKE_HOOKS_OFF" not in captured.out + captured.err
     assert "Traceback" not in captured.err
 
 
@@ -92,6 +95,9 @@ def test_hook_names_removed_payload_folder(tmp_path, monkeypatch, capsys, execut
         assert "hookSpecificOutput" not in reply
         assert "working_directory_missing" in reply["systemMessage"]
     assert "working_directory_missing" in captured.err
+    assert "cd to the project checkout and retry" in captured.out
+    assert "resident restart" not in captured.out + captured.err
+    assert "YOKE_HOOKS_OFF" not in captured.out + captured.err
     assert "Traceback" not in captured.err
 
 
