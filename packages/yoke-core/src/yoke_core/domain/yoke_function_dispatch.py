@@ -1,7 +1,6 @@
 """Dispatch registered functions with permission, claim and replay gates.
 
-The public response boundary renders every internal item join key as a
-project-qualified public ref. Handlers retain integer join keys internally."""
+The response boundary renders internal item keys as project-qualified refs."""
 
 from __future__ import annotations
 
