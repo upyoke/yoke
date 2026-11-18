@@ -12,14 +12,14 @@ pytestmark = pytest.mark.windows
 
 
 def test_windows_commit_does_not_try_to_open_directory(monkeypatch, tmp_path):
+    from yoke_contracts.owner_private_path import is_owner_private_file
     monkeypatch.setattr(output, "_WINDOWS", True)
-    protected = []
-    monkeypatch.setattr(output.windows_private_directory, "make_private_file", protected.append)
     destination = tmp_path / "universe.tar"
     private = output.prepare_private_archive_output(destination)
     with private as stream:
         stream.write(b"universe")
-    assert protected == [private.temporary]
+    assert is_owner_private_file(private.temporary)
+
     def refuse_directory_open(*args, **kwargs):
         raise AssertionError("Windows must not open a directory for fsync")
 

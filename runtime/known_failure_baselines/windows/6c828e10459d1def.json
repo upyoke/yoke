@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/cli/test_yoke_operations_cli_project_writes.py::TestProjectsCapabilitySecretSet::test_aws_secret_writes_machine_file_without_secret_dispatch",
- "reason": "AssertionError: assert (33206 & 63) == 0"
-}

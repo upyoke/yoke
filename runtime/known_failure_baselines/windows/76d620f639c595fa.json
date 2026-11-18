@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_github_app_private_key_policy.py::test_control_plane_config_accepts_root_owned_read_only_secret_mount",
- "reason": "yoke_core.domain.github_app_control_plane.GitHubAppControlPlaneConfigError: this platform cannot safely open the GitHub App private-key file"
-}

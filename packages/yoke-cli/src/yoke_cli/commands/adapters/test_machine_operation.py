@@ -261,11 +261,11 @@ def retain_screenshot(payload):
     """Keep accepted PNG bytes in the same private free-path space reviewers use."""
     from yoke_contracts.free_paths import private_free_path
     from yoke_contracts.machine_screenshot import screenshot_png
+    from yoke_contracts.owner_private_path import write_owner_private
 
     content, _size = screenshot_png(payload["artifacts"][0]["content_base64"])
     path = private_free_path("desktop.png", prefix="yoke-desktop.")
-    path.write_bytes(content)
-    path.chmod(0o600)
+    write_owner_private(path, content)
     return path
 
 

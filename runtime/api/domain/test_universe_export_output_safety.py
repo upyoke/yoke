@@ -2,9 +2,13 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-import stat
 
 import pytest
+
+from yoke_contracts.owner_private_path import (
+    is_owner_private_file,
+    write_owner_private,
+)
 
 from runtime.api.domain.universe_export_test_support import _schema_loaded_universe
 from yoke_core.domain import universe_export as ux
@@ -12,13 +16,15 @@ from yoke_core.domain import universe_export as ux
 
 def test_export_replaces_existing_archive_with_owner_only_file(tmp_path: Path):
     destination = tmp_path / "graduation.tar"
-    destination.write_bytes(b"prior archive")
+    # Created privately so Windows accepts the owner's prior archive; chmod
+    # then widens it on POSIX, where only the owner uid gates replacement.
+    write_owner_private(destination, b"prior archive")
     destination.chmod(0o644)
 
     with _schema_loaded_universe() as (_connection, dsn):
         ux.export_universe(dsn=dsn, out=destination)
 
-    assert stat.S_IMODE(destination.stat().st_mode) == 0o600
+    assert is_owner_private_file(destination)
     assert destination.read_bytes() != b"prior archive"
 
 

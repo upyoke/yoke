@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/cli/test_onboard_publication_recovery.py::test_verified_same_run_layer_defaults_keep_but_foreign_project_does_not",
- "reason": "AssertionError: assert None == 'keep'"
-}

@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_github_app_public_profile.py::test_control_plane_private_key_read_is_size_bounded",
- "reason": "AssertionError: Regex pattern did not match."
-}

@@ -21,6 +21,10 @@ from yoke_cli.config import aws_admin_capability as hosting  # noqa: E402
 from yoke_cli.config import aws_cli_prerequisite  # noqa: E402
 from yoke_cli.config import onboard_wizard_hosting_steps as hosting_steps  # noqa: E402
 from yoke_contracts import hosting_posture  # noqa: E402
+from yoke_contracts.owner_private_path import (  # noqa: E402
+    is_owner_private_directory,
+    is_owner_private_file,
+)
 from yoke_cli.config import onboard_project  # noqa: E402
 
 from runtime.api.cli.onboard_wizard_hosting_support import (  # noqa: E402,F401
@@ -151,8 +155,8 @@ def test_both_key_paths_store_and_verify_the_same_redacted_identity(
         stored / hosting.SECRET_ACCESS_KEY_KEY
     ).read_text().strip() == SECRET_ACCESS_KEY
     # Owner-only, both files and the directory that holds them.
-    assert (stored / hosting.SECRET_ACCESS_KEY_KEY).stat().st_mode & 0o077 == 0
-    assert stored.stat().st_mode & 0o077 == 0
+    assert is_owner_private_file(stored / hosting.SECRET_ACCESS_KEY_KEY)
+    assert is_owner_private_directory(stored)
 
     assert "aws-admin saved" in body
     assert "123456789012" in body

@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_shared_file_storage.py::test_server_disk_round_trip_without_records",
- "reason": "AssertionError: assert (33206 & 511) == 384"
-}

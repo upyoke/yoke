@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-import stat
-
 import pytest
 
+from yoke_contracts.owner_private_path import is_owner_private_file
 from yoke_core.domain import api_tokens_cli, json_helper
 from yoke_core.domain.actor_permissions import (
     ROLE_ADMIN,
@@ -118,8 +117,9 @@ def test_post_replace_directory_sync_failure_keeps_stored_token_active(
     monkeypatch,
 ):
     token_file = tmp_path / "platform-infrastructure-ci.token"
-    def fail_directory_sync(path):
-        assert path == token_file.parent
+
+    def fail_directory_sync(directory):
+        assert directory == token_file.parent
         raise OSError("simulated directory fsync failure")
 
     monkeypatch.setattr(
@@ -131,7 +131,7 @@ def test_post_replace_directory_sync_failure_keeps_stored_token_active(
     assert captured.out == ""
     assert "raw token file was replaced" in captured.err
     assert "token remains active in that file" in captured.err
-    assert stat.S_IMODE(token_file.stat().st_mode) == 0o600
+    assert is_owner_private_file(token_file)
 
     raw_token = token_file.read_text(encoding="utf-8").strip()
     verified = verify_token(tokendb, raw_token)
@@ -164,7 +164,7 @@ def test_preflight_executor_grants_every_named_project_into_one_file(
     assert api_tokens_cli.main(args) == 0
     body = json_helper.loads_text(capsys.readouterr().out)
     assert "raw_token" not in body
-    assert stat.S_IMODE(token_file.stat().st_mode) == 0o600
+    assert is_owner_private_file(token_file)
     raw_token = token_file.read_text(encoding="utf-8").strip()
     assert verify_token(tokendb, raw_token).actor_id == body["actor_id"]
 

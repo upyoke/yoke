@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/cli/test_github_app_user_tokens.py::test_credential_read_rejects_group_accessible_parent",
- "reason": "Failed: DID NOT RAISE <class 'yoke_cli.config.github_user_tokens.GitHubUserTokenError'>"
-}

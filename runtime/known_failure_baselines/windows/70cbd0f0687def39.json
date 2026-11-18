@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_migration_postgres_dump.py::test_restore_point_uses_selected_binary_and_keeps_dsn_out_of_argv",
- "reason": "AssertionError: assert 438 == 384"
-}

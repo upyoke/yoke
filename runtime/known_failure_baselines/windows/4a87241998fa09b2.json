@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_github_app_private_key_policy.py::test_control_plane_config_rejects_private_key_symlink",
- "reason": "AssertionError: Regex pattern did not match."
-}

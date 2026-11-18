@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from yoke_contracts.machine_config import schema as contract
+from yoke_contracts.owner_private_path import is_owner_private_directory, is_owner_private_file
 from yoke_core.tools import checkout_clean_room_smoke as smoke
 
 
@@ -50,8 +51,10 @@ def test_write_machine_files_owner_only(tmp_path: Path) -> None:
     )
 
     assert json.loads(config_path.read_text(encoding="utf-8"))["schema_version"] == 1
-    assert config_path.stat().st_mode & 0o077 == 0
-    assert copied_dsn.stat().st_mode & 0o077 == 0
+    assert is_owner_private_file(config_path)
+    assert is_owner_private_file(copied_dsn)
+    assert is_owner_private_directory(machine_home)
+    assert is_owner_private_directory(copied_dsn.parent)
     assert copied_dsn.read_text(encoding="utf-8") == "host=127.0.0.1 dbname=yoke\n"
 
 

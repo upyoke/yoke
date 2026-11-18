@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/harness/test_launch_handle_directory.py::test_the_directory_is_the_machine_cache_and_owner_only",
- "reason": "AssertionError: assert (33206 & 511) == 384"
-}

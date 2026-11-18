@@ -13,6 +13,7 @@ from yoke_cli.main import main as cli_main
 from yoke_cli.qa_artifact_download import ArtifactDownloadError, download_artifact
 from yoke_contracts.api.function_call import FunctionCallResponse
 from yoke_contracts.free_paths import is_under_free_path_prefix
+from yoke_contracts.owner_private_path import is_owner_private_file
 
 
 def _response(result: dict) -> FunctionCallResponse:
@@ -51,7 +52,7 @@ def test_authorized_download_is_bounded_and_atomic(tmp_path) -> None:
         assert download_artifact(url, target) == 3
 
     assert target.read_bytes() == b"PNG"
-    assert target.stat().st_mode & 0o777 == 0o600
+    assert is_owner_private_file(target)
     assert opened.call_args.kwargs["allow_private_http"] is False
 
 

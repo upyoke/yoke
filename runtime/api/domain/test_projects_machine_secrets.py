@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from yoke_core.domain import json_helper
 from yoke_contracts.machine_config import capability_secret_store as capability_machine_secrets
+from yoke_contracts.owner_private_path import is_owner_private_file
 from yoke_core.domain import projects_capabilities as pc
 from runtime.api.domain.projects_capabilities_test_helpers import cap_db
 from runtime.api.fixtures.file_test_db import connect_test_db
@@ -25,7 +26,7 @@ class TestMachineLocalCapabilitySecrets:
             "yoke", "aws-admin", "access_key_id"
         )
         assert path.read_text(encoding="utf-8").strip() == "AKIALOCAL"
-        assert path.stat().st_mode & 0o077 == 0
+        assert is_owner_private_file(path)
 
     def test_list_secrets_sorted(self, cap_db: str) -> None:
         pc.cmd_capability_set_secret(
@@ -56,7 +57,7 @@ class TestMachineLocalCapabilitySecrets:
             "externalwebapp", "ssh", "private_key"
         )
         assert path.read_text(encoding="utf-8").strip() == "new-pem"
-        assert path.stat().st_mode & 0o077 == 0
+        assert is_owner_private_file(path)
         conn = connect_test_db(cap_db)
         try:
             settings_text = conn.execute(

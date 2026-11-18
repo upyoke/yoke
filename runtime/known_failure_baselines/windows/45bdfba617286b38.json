@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_github_app_public_profile.py::test_private_only_runtime_identity_is_attested_without_advertisement",
- "reason": "AssertionError: assert False"
-}

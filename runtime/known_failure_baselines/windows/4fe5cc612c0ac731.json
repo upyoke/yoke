@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/harness/test_qa_host_package_fixture.py::test_stock_fixture_removes_previous_direct_and_transitive_installs",
- "reason": "AttributeError: module 'os' has no attribute 'O_NOFOLLOW'"
-}

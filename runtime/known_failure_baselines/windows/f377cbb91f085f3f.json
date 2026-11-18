@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/cli/test_yoke_server_connect.py::test_connect_verifies_then_writes_connection_and_token_file",
- "reason": "AssertionError: assert 438 == 384"
-}

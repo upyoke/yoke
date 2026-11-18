@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Callable, Mapping
 
 from yoke_contracts import platform_process
+from yoke_contracts.owner_private_path import write_owner_private
 
 MAX_RECORD_BYTES = 4096
 TERMINATE_WAIT_SECONDS = 2.0
@@ -68,17 +69,12 @@ def custody_state(
 
 
 def write_record(path: Path, record: Mapping[str, Any]) -> bool:
-    temporary = path.with_suffix(f".{os.getpid()}.tmp")
+    """Atomically write an owner-private custody record; report failure as False."""
+    body = json.dumps(dict(record), sort_keys=True)
+    if len(body.encode()) > MAX_RECORD_BYTES:
+        return False
     try:
-        body = json.dumps(dict(record), sort_keys=True)
-        if len(body.encode()) > MAX_RECORD_BYTES:
-            return False
-        with temporary.open("w", encoding="utf-8") as handle:
-            handle.write(body)
-            handle.flush()
-            os.fsync(handle.fileno())
-        temporary.chmod(0o600)
-        os.replace(temporary, path)
+        write_owner_private(path, body)
     except OSError:
         return False
     return True

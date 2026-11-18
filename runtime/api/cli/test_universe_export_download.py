@@ -10,6 +10,7 @@ from pathlib import Path
 
 from yoke_cli.config import universe_export_download as download
 from yoke_cli.transport.https import HttpsConnection
+from yoke_contracts.owner_private_path import is_owner_private_file
 
 
 class _Response(io.BytesIO):
@@ -82,7 +83,7 @@ def test_download_streams_to_owner_only_atomic_file(tmp_path: Path, monkeypatch)
     artifact = Path(str(report["artifact"]))
     assert artifact.name == "acme-universe.tar"
     assert artifact.read_bytes() == body
-    assert artifact.stat().st_mode & 0o777 == 0o600
+    assert is_owner_private_file(artifact)
     assert report["source"] == "self-host-https"
     assert report["org"] == "acme"
     assert report["artifacts"] == {

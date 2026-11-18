@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_machine_config_contract.py::test_machine_id_is_created_once_and_written_privately",
- "reason": "AssertionError: assert 438 == 384"
-}

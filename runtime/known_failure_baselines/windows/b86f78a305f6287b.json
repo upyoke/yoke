@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/cli/test_team_server_authorization.py::test_invite_choice_uses_teammate_identity_and_private_persistence[False]",
- "reason": "AssertionError: assert (33206 & 511) == 384"
-}

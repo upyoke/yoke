@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import io
 import json
-import stat
 import sys
 from pathlib import Path
 
@@ -23,6 +22,7 @@ from yoke_cli.commands.tool_shaped import resolve_tool_shaped
 from yoke_cli.config import server_connect
 from yoke_cli.config import hosted_machine_authorization
 from yoke_cli.config import hosted_machine_browser
+from yoke_contracts.owner_private_path import is_owner_private_file
 
 _TOKEN = "yk-test-token-0123456789abcdefghijklmnop"
 
@@ -91,7 +91,7 @@ def test_connect_verifies_then_writes_connection_and_token_file(
     token_path = Path(source["path"])
     assert token_path == machine_home / "secrets" / "self-host.token"
     assert token_path.read_text(encoding="utf-8").strip() == _TOKEN
-    assert stat.S_IMODE(token_path.stat().st_mode) == 0o600
+    assert is_owner_private_file(token_path)
 
     report = json.loads(capsys.readouterr().out)
     assert report["ok"] is True

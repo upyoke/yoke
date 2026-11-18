@@ -8,12 +8,12 @@ two properties the destination has to keep.
 
 from __future__ import annotations
 
-import stat
 import tempfile
 
 import pytest
 
 from yoke_contracts.free_paths import is_under_free_path_prefix, private_free_path
+from yoke_contracts.owner_private_path import is_owner_private_directory
 from yoke_contracts.qa_artifact_read import artifact_read_destination
 
 
@@ -39,7 +39,7 @@ def test_the_enclosing_directory_is_private_and_already_created() -> None:
     destination = artifact_read_destination(17980, content_type="image/png")
 
     assert destination.parent.is_dir()
-    assert stat.S_IMODE(destination.parent.stat().st_mode) == 0o700
+    assert is_owner_private_directory(destination.parent)
     # The caller writes the file; nothing pre-creates it under that name.
     assert not destination.exists()
 

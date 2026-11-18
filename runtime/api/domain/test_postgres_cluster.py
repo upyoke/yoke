@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 import shutil
-import stat
 import subprocess
 import tempfile
 from pathlib import Path
@@ -12,6 +11,7 @@ from pathlib import Path
 import pytest
 
 from yoke_contracts.machine_config.directories import shortest_temp_directory
+from yoke_contracts.owner_private_path import is_owner_private_directory
 from yoke_core.domain import postgres_cluster
 from yoke_core.domain.postgres_cluster import ClusterSpec
 
@@ -222,7 +222,7 @@ def test_ensure_started_skips_start_when_ready(monkeypatch, tmp_path):
     assert postgres_cluster.ensure_started(spec) == 0
     assert calls == ["initdb"]
     assert spec.sock_dir.is_dir()
-    assert stat.S_IMODE(spec.sock_dir.stat().st_mode) == 0o700
+    assert is_owner_private_directory(spec.sock_dir)
 
 
 def test_ensure_started_rejects_symlink_socket_directory(tmp_path):

@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/tools/test_pulumi_exec.py::test_preview_json_output_is_durable_owner_only",
- "reason": "AssertionError: assert 438 == 384"
-}

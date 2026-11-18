@@ -1,4 +1,0 @@
-{
- "node_id": "runtime/api/domain/test_machine_config_writer.py::TestSetCredential::test_token_stdin_stores_secret_owner_only",
- "reason": "AssertionError: assert (33206 & 511) == 384"
-}

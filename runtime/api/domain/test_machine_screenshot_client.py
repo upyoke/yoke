@@ -13,6 +13,7 @@ import pytest
 from yoke_cli.commands.adapters import test_machine as cli
 from yoke_cli.commands.adapters import test_machine_operation as operations
 from yoke_contracts.api.function_call import FunctionCallResponse
+from yoke_contracts.owner_private_path import is_owner_private_file
 from yoke_harness.test_machine_operations import LocalHostControlSubmission
 
 
@@ -72,7 +73,7 @@ def test_screenshot_cli_keeps_only_accepted_png_and_fails_error_receipt(
         assert destination.read_bytes() == base64.b64decode(
             payload["artifacts"][0]["content_base64"]
         )
-        assert destination.stat().st_mode & 0o777 == 0o600
+        assert is_owner_private_file(destination)
     else:
         assert "artifact_path" not in response["result"]
 

@@ -134,5 +134,31 @@ def write_owner_private(path: str | Path, data: str | bytes) -> None:
         temporary.unlink(missing_ok=True)
 
 
-__all__ = ["is_current_user_owned_path", "is_others_unwritable_directory", "is_others_unwritable_file", "is_owner_private_file", "is_owner_private_directory",
-           "create_owner_private_directory", "write_owner_private"]
+def create_owner_private_temporary(
+    *, prefix: str, suffix: str, directory: str | Path | None = None,
+) -> tuple[int, Path]:
+    """Create a new private temporary file; return its open descriptor and path.
+
+    The file is private before the caller writes anything, for streams such as
+    retained logs that cannot be written in one atomic replace.
+    """
+    descriptor, raw = tempfile.mkstemp(prefix=prefix, suffix=suffix, dir=directory)
+    created = Path(raw)
+    try:
+        if _WINDOWS_PERMISSIONS:
+            windows_private_directory.make_private_file(created)
+        else:
+            os.fchmod(descriptor, 0o600)
+        if not is_owner_private_file(created):
+            raise OSError(f"owner_private_write_denied: {created}; repair owner permissions and retry")
+    except BaseException:
+        os.close(descriptor)
+        created.unlink(missing_ok=True)
+        raise
+    return descriptor, created
+
+
+__all__ = ["is_current_user_owned_path", "is_others_unwritable_directory", "is_others_unwritable_file",
+           "is_owner_private_file", "is_owner_private_directory",
+           "create_owner_private_directory", "create_owner_private_temporary",
+           "write_owner_private"]

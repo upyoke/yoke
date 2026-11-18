@@ -107,6 +107,8 @@ AUTHORITY_RELEASE_MACHINERY = (
         "yoke_cli.config.project_git_environment:non_interactive_git_env",
         _C + "checkout_ancestry:resolve_commits",
         _C + "gh_rest_transport_test_guard:block_live_test_call",
+        _C + "github_app_control_plane:_assert_windows_key_access",
+        _C + "github_app_control_plane:_open_key_without_following_links",
         _C + "github_app_control_plane:_resolved_open_file_path",
         _C + "github_app_control_plane:load_github_app_control_plane_config",
         _C + "github_app_control_plane:load_github_app_endpoint",

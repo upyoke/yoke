@@ -29,6 +29,5 @@
   "packages/yoke-harness/src/yoke_harness/linux_chromium_processes.py": {"getuid|bde9d6f7d756a86f": 1},
   "packages/yoke-harness/src/yoke_harness/linux_command_supervisor.py": {"getuid|bde9d6f7d756a86f": 1, "process|3961f966f861618c": 1, "process|987abae492e64add": 1},
   "packages/yoke-harness/src/yoke_harness/linux_desktop_state.py": {"fcntl|308e152d15824a06": 1, "getuid|bde9d6f7d756a86f": 6},
-  "packages/yoke-harness/src/yoke_harness/session_launch_handoff.py": {"getuid|bde9d6f7d756a86f": 1},
   "packages/yoke-harness/src/yoke_harness/session_relay_stop_deadline.py": {"getuid|bde9d6f7d756a86f": 1}
 }

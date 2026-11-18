@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import stat
 import subprocess
 
 import pytest
@@ -16,6 +15,7 @@ from yoke_cli.config import browser_identities, browser_profile
 from yoke_cli.config.project_slug_lookup import ProjectSlugLookupError
 from yoke_cli.commands import browser_authorize as authorize_command
 from yoke_harness import browser_client, browser_qa_daemon
+from yoke_contracts.owner_private_path import is_owner_private_directory
 
 
 @pytest.fixture()
@@ -38,8 +38,7 @@ def test_ensure_profile_dir_is_owner_only(machine_home) -> None:
 
     assert directory.is_dir()
     for candidate in (directory, directory.parent, directory.parent.parent):
-        mode = stat.S_IMODE(candidate.stat().st_mode)
-        assert mode == 0o700, f"{candidate} is {oct(mode)}"
+        assert is_owner_private_directory(candidate), candidate
 
 
 def test_unauthorized_project_resolves_to_no_profile(machine_home) -> None:
