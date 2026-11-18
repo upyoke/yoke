@@ -6,8 +6,12 @@ from pathlib import Path
 from typing import Callable, Dict, List, Tuple, TypeVar
 
 from yoke_cli.project_install.files import (
+    MANIFEST_REL,
+    ProjectInstallError,
     assert_resolved_targets_within,
+    load_manifest,
     sha256_text,
+    write_manifest,
 )
 
 _Result = TypeVar("_Result")
@@ -90,6 +94,33 @@ def follow_installer_edit(
     return result
 
 
+def write_recorded_contract_file(repo_root: Path, rel: str, content: str) -> None:
+    """Rewrite an installer-owned contract file and move its record with it.
+
+    Uninstall removes a contract file only while it still hashes to its
+    record, so a later Yoke write to that file is Yoke's own content and the
+    record must follow it in the same step. A path with no record was never
+    installed by Yoke; it is refused before anything is written.
+    """
+    assert_resolved_targets_within(
+        repo_root, [rel], context="recorded contract file write"
+    )
+    manifest = load_manifest(repo_root)
+    records = (manifest or {}).get("contract_files") or {}
+    if rel not in records:
+        raise ProjectInstallError(
+            f"contract_file_unrecorded: {rel} has no record in {MANIFEST_REL}, "
+            "so Yoke did not install it and will not overwrite it. Run "
+            "`yoke project refresh` to record the installed layer (delete "
+            f"{rel} first to let Yoke reseed it), then resume setup."
+        )
+    target = repo_root / rel
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(content, encoding="utf-8", newline="")
+    manifest["contract_files"] = {**records, rel: sha256_text(content)}
+    write_manifest(repo_root, manifest)
+
+
 def _text(path: Path) -> str | None:
     try:
         return path.read_bytes().decode("utf-8")
@@ -158,4 +189,9 @@ def reconcile_gitignore(
     return missing
 
 
-__all__ = ["apply_contract_files", "follow_installer_edit", "reconcile_gitignore"]
+__all__ = [
+    "apply_contract_files",
+    "follow_installer_edit",
+    "reconcile_gitignore",
+    "write_recorded_contract_file",
+]
