@@ -79,13 +79,18 @@ def evaluate_inprocess(
 
     from yoke_harness.hooks.command_workdir_stamp import stamp_command_workdir
     from yoke_harness.hooks.identity import detect_executor
+    from yoke_harness.hooks.relay_identity_guard import parse_hook_payload
+    from yoke_harness.hooks.session_permission_mode import capture_permission_mode
     from yoke_harness.hooks.shell_kind_stamp import stamp_shell_kind
+
+    # Recorded once here, before any route: relayed, local universe or
+    # local subset — doctor --session reads it whichever route evaluates.
+    capture_permission_mode(parse_hook_payload(original_stdin), detect_executor())
 
     from yoke_contracts.harness_session_transcripts import session_transcripts_for_harness
     from yoke_contracts.executor_labels import canonical_harness_id
     transcript_manifest = session_transcripts_for_harness(canonical_harness_id(detect_executor()))
     if event_name == "SessionStart" and transcript_manifest.session_start == "transcript_required":
-        from yoke_harness.hooks.relay_identity_guard import parse_hook_payload
         if not parse_hook_payload(stdin_data).get("transcript_path"):
             from yoke_contracts.hook_runner.degraded import plain_allow_stdout
             sys.stdout.write(plain_allow_stdout(event_name, detect_executor()))

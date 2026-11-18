@@ -89,40 +89,54 @@ def test_write_failure_invalidates_previous_mode(monkeypatch, capsys):
     assert capsys.readouterr().err.split(":", 1)[0] == "HARNESS_POSTURE_UNVERIFIED"
 
 
-@pytest.mark.parametrize("route", ["local", "relay"])
-def test_mode_is_recorded_before_hook_checks(monkeypatch, route):
-    from yoke_harness.hooks import relay
+@pytest.mark.parametrize(
+    "route", ["local_universe", "relay", "local_subset", "unregistered"]
+)
+def test_every_hook_route_records_mode_before_evaluation(monkeypatch, route):
+    from yoke_cli.commands.adapters import hook_inprocess
+    from yoke_cli.config import machine_config
     from yoke_cli.transport.https import HttpsConnection
-    from yoke_contracts.hook_runner.project_scope import HookProjectScope
+    from yoke_core.hooks import local_entry
+    from yoke_harness.hooks import relay
 
-    monkeypatch.setattr(relay, "detect_executor", lambda: "claude-code")
-    monkeypatch.setattr(relay, "lint_config_snapshot", lambda *a: {})
     monkeypatch.setattr(
-        relay, "resolve_hook_project_scope", lambda *a: HookProjectScope(1)
+        "yoke_contracts.hook_runner.folder_scope.folder_scope",
+        lambda *a, **k: "unregistered" if route == "unregistered" else "registered",
     )
-    monkeypatch.setattr(relay, "_record_client_anchor", lambda *a, **k: None)
-    monkeypatch.setattr(relay, "_codex_capture", lambda *a: None)
-    monkeypatch.setattr(relay, "stamp_hook_input", lambda *a: ("{}", None))
     monkeypatch.setattr(
-        "yoke_harness.hooks.machine_hooks.ensure_machine_hooks_for_executor",
-        lambda *a, **k: None,
+        "yoke_harness.hooks.identity.detect_executor", lambda: "claude-code"
+    )
+    monkeypatch.setattr(hook_inprocess, "_session_orientation", lambda *a, **k: "")
+    connection = (
+        HttpsConnection(api_url="https://example.test", token="test")
+        if route == "relay"
+        else None
+    )
+    monkeypatch.setattr(
+        "yoke_cli.transport.https.resolve_https_connection", lambda: connection
+    )
+    monkeypatch.setattr(
+        machine_config,
+        "active_connection",
+        lambda: {"transport": "local-postgres" if route == "local_universe" else ""},
     )
 
-    class Checked(Exception):
-        pass
+    seen = []
 
     def check(*a, **k):
-        assert modes.read_permission_mode(SESSION) == {"permission_mode": "default"}
-        raise Checked()
+        seen.append(modes.read_permission_mode(SESSION))
+        return 0
 
-    monkeypatch.setattr(relay, "evaluate_local_subset", check)
-    payload = json.dumps({"session_id": SESSION, "permission_mode": "default"})
-    with pytest.raises(Checked):
-        if route == "local":
-            relay.evaluate_hook_event("PreToolUse", stdin_data=payload)
-        else:
-            relay.relay_hook_event(
-                "PreToolUse",
-                HttpsConnection(api_url="https://example.test", token="test"),
-                stdin_data=payload,
-            )
+    monkeypatch.setattr(local_entry, "evaluate_local_hook", check)
+    monkeypatch.setattr(relay, "relay_hook_event", check)
+    monkeypatch.setattr(relay, "evaluate_hook_event", check)
+    payload = json.dumps(
+        {"session_id": SESSION, "permission_mode": "bypassPermissions"}
+    )
+    assert (
+        hook_inprocess.evaluate_inprocess(
+            "PreToolUse", payload, dry_run=False, cursor_invocation=False
+        )
+        == 0
+    )
+    assert seen == [{"permission_mode": "bypassPermissions"}]

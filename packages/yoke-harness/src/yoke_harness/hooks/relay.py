@@ -41,7 +41,6 @@ from yoke_harness.hooks.identity import (
     relay_identity_payload,
     write_runtime_cache,
 )
-from yoke_harness.hooks.session_permission_mode import capture_permission_mode
 from yoke_harness.hooks.launch_context import settle_projection, stamp_hook_input
 from yoke_harness.hooks.guard_version_skew import annotate_guard_version_skew
 from yoke_harness.hooks.denial_relay import relay_denial_audit
@@ -107,7 +106,6 @@ def evaluate_hook_event(
     policy_snapshot = lint_config_snapshot(payload)
     agent_type = os.environ.get(AGENT_TYPE_ENV_VAR, "").strip()
     executor = detect_executor()
-    capture_permission_mode(payload, executor)
     stdin_data, launch_projection = stamp_hook_input(
         payload, stdin_data, executor, event_name
     )
@@ -158,7 +156,6 @@ def relay_hook_event(
     policy_snapshot = lint_config_snapshot(payload)
     agent_type = os.environ.get(AGENT_TYPE_ENV_VAR, "").strip()
     executor = detect_executor()
-    capture_permission_mode(payload, executor)
     original_stdin = stdin_data if capture_stdin_data is None else capture_stdin_data
     if anchor_from_payload:
         _record_client_anchor(
