@@ -77,6 +77,7 @@ def _dispatch(
     payload: dict[str, Any],
     *,
     attest_local_secrets: bool = False,
+    human_writer=None,
 ) -> int:
     return dispatch_and_emit(
         function_id=function_id,
@@ -84,6 +85,7 @@ def _dispatch(
         payload=payload,
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
+        human_writer=human_writer,
         response_recovery=(
             (lambda response, _actor: _cloud_provider_floor(response))
             if function_id == "test_machine.settings_replace"
@@ -163,6 +165,20 @@ def test_machine_get(args: List[str]) -> int:
     )
 
 
+def _write_fleet(response, stdout, _stderr) -> None:
+    machines = response.result["test_machines"]
+    if not machines:
+        print("No Test Machines are registered in this universe.", file=stdout)
+        return
+    print("Test Machine\tOS\tPower project\tState", file=stdout)
+    for machine in machines:
+        state = "in use" if machine["active_lease"] else machine["verification"]["status"]
+        print(
+            machine["test_machine"], machine["os"], machine["power_project"] or "—",
+            state, sep="\t", file=stdout,
+        )
+
+
 def test_machine_list(args: List[str]) -> int:
     parser = _parser("yoke test-machine list", with_machine=False)
     parsed = parse_or_usage_error(parser, args, LIST_USAGE)
@@ -173,6 +189,7 @@ def test_machine_list(args: List[str]) -> int:
         "test_machine.list",
         {},
         attest_local_secrets=True,
+        human_writer=_write_fleet,
     )
 
 
