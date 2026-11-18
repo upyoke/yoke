@@ -16,6 +16,8 @@ PRESERVED_DIRECTORIES = (
     ".local/share/claude",
     ".local/share/cursor-agent",
     "AppData/Local/Microsoft",
+    "AppData/Local/Packages",
+    "AppData/Local/Claude-Data",
     "AppData/Roaming/Microsoft",
     "AppData/Roaming/Claude",
     "AppData/Roaming/Cursor",
@@ -47,7 +49,8 @@ def golden_path(control, path):
     return str(selected)
 
 
-def profile_script(control, operation, destination):
+def profile_copy_script(control, destination):
+    """Mirror resettable files while live app identities stay on the host."""
     path = golden_path(control, destination)
     excluded = ",".join(
         quote(str(PureWindowsPath(control.home) / p)) for p in PRESERVED_DIRECTORIES
@@ -63,6 +66,19 @@ def profile_script(control, operation, destination):
         for base in (control.home, str(PureWindowsPath(path) / "profile"))
     ]
     excluded_files = ",".join(quote(value) for value in files)
+    return f"""$exclude=@({excluded},{excluded_golden}); $files=@({excluded_files})
+$logRoot=Join-Path $env:LOCALAPPDATA 'YokeQa'
+New-Item -ItemType Directory -Path $logRoot -Force | Out-Null
+$copyLog=Join-Path $logRoot ('profile-copy-'+[Guid]::NewGuid().ToString('N')+'.log')
+& robocopy.exe $source $target /MIR /XJ /R:1 /W:1 /NP ('/LOG:'+$copyLog) /XD $exclude /XF $files NTUSER.DAT NTUSER.DAT.LOG* ntuser.ini UsrClass.dat* | Out-Null
+$copyExit=$LASTEXITCODE
+if($copyExit -ge 8){{throw ('windows_profile_copy_failed: robocopy exit '+$copyExit+'; inspect private log '+$copyLog+'; preserve the unsealed golden and repair the named copy failure before retrying')}}
+Remove-Item -LiteralPath $copyLog -Force
+"""
+
+
+def profile_script(control, operation, destination):
+    path = golden_path(control, destination)
     preamble = TASK_HELPERS + f"$golden={quote(path)}; $profileRoot={quote(control.home)}; "
     preamble += r"""
 $check=$golden
@@ -78,15 +94,7 @@ if(Test-Path -LiteralPath (Join-Path $golden 'profile')){
  if((Get-Item -LiteralPath (Join-Path $golden 'profile')).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'windows_golden_link_unsafe: preserve the golden and remove its linked profile before restore'}
 }
 """.replace("\n+", "\n")
-    copy = f"""$exclude=@({excluded},{excluded_golden}); $files=@({excluded_files})
-$logRoot=Join-Path $env:LOCALAPPDATA 'YokeQa'
-New-Item -ItemType Directory -Path $logRoot -Force | Out-Null
-$copyLog=Join-Path $logRoot ('profile-copy-'+[Guid]::NewGuid().ToString('N')+'.log')
-& robocopy.exe $source $target /MIR /XJ /R:1 /W:1 /NP ('/LOG:'+$copyLog) /XD $exclude /XF $files NTUSER.DAT NTUSER.DAT.LOG* ntuser.ini UsrClass.dat* | Out-Null
-$copyExit=$LASTEXITCODE
-if($copyExit -ge 8){{throw ('windows_profile_copy_failed: robocopy exit '+$copyExit+'; inspect private log '+$copyLog+'; preserve the unsealed golden and repair the named copy failure before retrying')}}
-Remove-Item -LiteralPath $copyLog -Force
-"""
+    copy = profile_copy_script(control, path)
     if operation == "capture":
         return (
             preamble

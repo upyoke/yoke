@@ -112,9 +112,10 @@ Existing rollout: join first, deploy the no-rebind build, then settings-replace
 `host` using the as-read token. Upgrade clients, then detach/delete the old
 `20.124.243.250` under the recorded operator exception, using the detach/delete
 commands in [the provisioning guide](windows-native-host-provisioning.md#tailscale-and-public-ip-lifetime).
-An unmanaged IP attachment refuses with that recovery. A failed delete reports
-`test_machine_power_stop_failed`: repair its named cause and retry verify/release.
-Prove start/verify/stop keeps the host unchanged, with no QA_HOST or public IP left.
+An unmanaged IP attachment refuses with that recovery. Verify that the VM stays
+running, the MagicDNS host is unchanged and the QA_HOST lease has been released.
+Use [manual stop commands](host-provisioning.md#stop-a-cloud-test-machine) when
+the lab is no longer needed; verify deallocation and public-IP removal then.
 
 Before rebuilding, remove the old tailnet device, then join with the same name;
 require no `-1` suffix. Verify the new SSH fingerprint, then clear the old pin

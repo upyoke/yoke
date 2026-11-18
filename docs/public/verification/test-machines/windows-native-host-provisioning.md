@@ -25,10 +25,9 @@ and selects the inventory subscription. The lane retries the failed read,
 requires a fresh power-state receipt, then resumes; never bypass the policy.
 ### Link the Azure provider identity
 
-Provider leases use the approved existing Azure service principal **yoke-admin**,
-with tenant, application/client ID, subscription and existing role grants from
-inventory. The VM account `yokeadmin` is a separate identity. Interactive `az login`
-does not link this provider capability. Feed secret-set from private custody or
+Use the existing **yoke-admin** service principal with inventory tenant, client ID,
+subscription and grants. VM account `yokeadmin` is separate; interactive `az login`
+does not link the provider. Feed secret-set from private custody or
 masked operator input, never a literal secret in argv, shell history, captures
 or chat. Run:
 
@@ -130,14 +129,14 @@ see [the observed recovery](windows-native-provisioning-recovery.md#tailscale-qu
 Never register the bootstrap public IP. Keep the private subnet, key-only
 SSH from anywhere (NSG/firewall TCP22) and no public RDP. Basic IP is retired; Standard is static
 and bills until deleted. The NIC public IP supplies outbound on the private subnet.
-Registered power creates/attaches `VM-yoke-power` in the VM resource group/location
-on its sole NIC IP configuration before start and waits for SSH on the registered
-MagicDNS name. The VM and public IP stay allocated when the lease ends. Use the
+Registered power attaches `VM-yoke-power` in the VM resource group/location to its
+sole NIC IP configuration, then starts and waits for MagicDNS SSH. The VM and
+public IP stay allocated when the lease ends. Use the
 [manual stop commands](host-provisioning.md#stop-a-cloud-test-machine) to
 deallocate the VM and detach and delete its public IP.
-Before provider registration, create/attach a temporary IP for each start and
-attach it with `az network nic ip-config update --ids CONFIG_ID
---public-ip-address IP_ID`; remove it after deallocation:
+Before registration, attach a temporary IP for each start using
+`az network nic ip-config update --ids CONFIG_ID --public-ip-address IP_ID`.
+After deallocation remove it:
 
 ```text
 az network nic ip-config update --ids CONFIG_ID --remove publicIPAddress
@@ -276,11 +275,10 @@ keep the machine unavailable until recovery verifies.
 
 ## 5. Register, capture and prove
 
-Register only when the VM exists and its standard user works: `os=windows`
-for native, a separate OS kind for WSL. Goldens use a literal Windows path
-outside the profile, such as `C:\YokeQa\goldens\baseline`; settings contain no
-credentials. Register provider/resource ID using the installed power contract;
-prove start, unchanged MagicDNS host and continued operation after lease release.
+Register after the standard user works, with native `os=windows` separate from
+WSL. Use an absolute golden path outside the profile and no credentials in settings.
+Register provider/resource ID through the installed power contract. Prove start,
+unchanged MagicDNS host and continued operation after lease release.
 
 ```text
 yoke test-machine settings-replace --power-project P --test-machine NAME --settings-file SETTINGS.json --new

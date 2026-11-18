@@ -125,6 +125,11 @@ Claude's usual permission prompts; accept only under the project's lab policy.
 Exit without submitting a task afterward. The probe requires the actual recorded
 boolean `skipDangerousModePermissionPrompt=true` in that session's Claude config;
 do not write the preference directly or weaken the check to seal a golden.
+Golden capture includes `.claude/settings.json`, so reset restores the acceptance.
+Windows packaged-app containers (`AppData/Local/Packages`) and Claude desktop
+data (`AppData/Local/Claude-Data`) remain live, like browser identities and locked
+registry hives; their app settings are not restored from the golden. Copy failures
+remain fatal and retain a private robocopy log under `AppData/Local/YokeQa`.
 
 ## Verified standard-user transfer
 
