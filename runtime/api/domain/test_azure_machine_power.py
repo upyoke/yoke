@@ -241,3 +241,33 @@ def test_power_accepts_resource_id_casing_allowed_by_settings(instance_id):
     assert provider.start() == "running"
     create = runner.calls[3]["argv"]
     assert create[create.index("--resource-group") + 1].lower() == "lab"
+
+
+@pytest.mark.parametrize("group", ["lab", "separate-network-group"])
+def test_ip_attachment_uses_required_cli_selectors_from_actual_nic(group):
+    config_id = CONFIG_ID.replace("/resourceGroups/lab/", f"/resourceGroups/{group}/")
+    runner = FakeRunner([
+        details(),
+        data({"ipConfigurations": [{"id": config_id, "publicIPAddress": None}]}),
+        OK, OK,
+    ])
+    provider = AzureMachinePower(runner, ("az",), {}, ID, "project", lambda _: None)
+    provider._attach_public_ip()
+    assert runner.calls[3]["argv"] == [
+        "az", "network", "nic", "ip-config", "update",
+        "--resource-group", group,
+        "--nic-name", "nic", "--name", "primary",
+        "--public-ip-address", IP_ID, "--output", "json",
+    ]
+
+
+@pytest.mark.parametrize("config_id", ["primary", NIC_ID, CONFIG_ID + "/extra"])
+def test_invalid_ip_configuration_id_refuses_before_creating_public_ip(config_id):
+    runner = FakeRunner([
+        details(),
+        data({"ipConfigurations": [{"id": config_id, "publicIPAddress": None}]}),
+    ])
+    provider = AzureMachinePower(runner, ("az",), {}, ID, "project", lambda _: None)
+    with pytest.raises(AzureAdminError, match="configuration id is invalid"):
+        provider._attach_public_ip()
+    assert len(runner.calls) == 2
