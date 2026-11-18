@@ -165,3 +165,26 @@ test("native chat titles add a line without replacing the harness", () => {
     assert.doesNotMatch(rendered.textContent, /An item-derived fallback/);
   }
 });
+
+test("session details reveal the title on hover and tap when the card omits it", () => {
+  const documentNode = new FakeDocument();
+  const title = "[STEERING]";
+  const rendered = sessionCard(documentNode, {
+    executor: "claude", harness_title: title, chat_title: null,
+  }, () => {});
+  const info = byClass(rendered, "session-details")[0];
+  assert.doesNotMatch(rendered.textContent, /\[STEERING\]/);
+
+  info.dispatchEvent(new Event("mouseenter"));
+  const tooltip = byClass(documentNode.body, "tooltip-bubble")[0];
+  assert.equal(tooltip.hidden, false);
+  assert.ok(tooltip.textContent.includes(`Title: ${title}`));
+  info.dispatchEvent(new Event("mouseleave"));
+  assert.equal(tooltip.hidden, true);
+
+  info.dispatchEvent(new Event("click"));
+  assert.equal(tooltip.hidden, false);
+  assert.ok(tooltip.textContent.includes(`Title: ${title}`));
+  info.dispatchEvent(new Event("click"));
+  assert.equal(tooltip.hidden, true);
+});

@@ -1,0 +1,7 @@
+{
+ "id": "native-title-tooltip",
+ "title": "Session titles in card details",
+ "status": "observed",
+ "sources": ["docs/public/sessions/session-titles.md", "runtime/api/universe_ui_session_diagnostics.test.mjs"],
+ "summary": "Hover over or tap the Session details button to reveal the registered title, including when the title line is hidden on the card. An unnamed launched session uses its item title in the details."
+}
