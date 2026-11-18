@@ -1080,7 +1080,9 @@ class InstallerVerification:
             self._say("Open a new terminal to use Yoke. If it is still missing, run:"),
             file=self.stdout,
         )
-        print(self._say("yoke path fix --yes"), file=self.stdout)
+        # Still missing means bare `yoke` cannot resolve, so name the
+        # launcher by its absolute path.
+        print(self._say(f"{shlex.quote(yoke_bin)} path fix --yes"), file=self.stdout)
 
 
 class InstallerResolution:
