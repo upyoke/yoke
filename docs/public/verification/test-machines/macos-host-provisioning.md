@@ -40,7 +40,8 @@ or retain this same tailnet; their system Tailscale state stays outside goldens.
 Use the client CLI at `/Applications/Tailscale.app/Contents/MacOS/Tailscale`
 for the status command below, or the installed `tailscale` command if available.
 
-Read `Self.DNSName` from `tailscale status --json`, trim the trailing dot and
+Complete the [Remote Login setup](#3-remote-login-and-full-disk-access) before
+proving SSH. Read `Self.DNSName` from `tailscale status --json`, trim the trailing dot and
 resolve that exact MagicDNS name from the controller. Prove OpenSSH key login,
 then register it as `host`. For a physical Mac, read the ED25519 fingerprint at
 the console with `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`. Compare it
@@ -139,10 +140,11 @@ whole-home operation. A revoked system grant survives a home restore as revoked.
 ## 4. Unattended login and power
 
 For an operator-approved unattended test rig, turn FileVault off, enable
-automatic login for the dedicated user, and turn screen lock off. These are
-security choices for a dedicated fixture, not defaults for personal Macs.
-Observe `fdesetup status` and `defaults read
-/Library/Preferences/com.apple.loginwindow autoLoginUser`.
+automatic login for the dedicated user in Users & Groups, and set the password
+delay in Lock Screen to Never. Use these settings only on a dedicated fixture.
+Require `fdesetup status` to report FileVault off. Verify `defaults read
+/Library/Preferences/com.apple.loginwindow autoLoginUser` and
+`stat -f %Su /dev/console` both name the dedicated user.
 In General → Software Update → Automatic Updates, disable automatic macOS
 downloads and installation for a fixture whose OS is managed manually.
 Disable system, display and disk sleep permanently.
@@ -258,7 +260,10 @@ The Remote Login controller is `/usr/libexec/sshd-keygen-wrapper`.
 | Screen Recording | Terminal.app | — |
 
 SSH `osascript` Terminal control uses the Remote Login controller.
-GUI-session commands (`--gui-session`) need Terminal → System Events. Safari
+The helper shows separate macOS consent prompts for System Events and
+Terminal as the bridge reaches each step. Allow each on the fixture console,
+then retry the bridge to verify it. GUI-session commands (`--gui-session`)
+need Terminal → System Events. Safari
 needs no grant: browser approval runs in the operator identity's Chromium
 through the installed Yoke, not AppleScript. A checked Automation box alone does not prove consent: macOS can
 still hold an unanswered prompt. At the host console, open Terminal and run:

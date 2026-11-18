@@ -2,7 +2,7 @@
  "id": "macos",
  "title": "macOS",
  "status": "draft-copy",
- "sources": ["docs/public/verification/test-machines/macos-host-provisioning.md", "docs/testing-verification/test-machine-golden-baseline.md", "docs/public/verification/test-machines/browser-identities.md"],
+ "sources": ["docs/public/verification/test-machines/macos-host-provisioning.md", "docs/public/verification/test-machines/macos-baseline-recovery.md", "docs/testing-verification/test-machine-golden-baseline.md", "docs/public/verification/test-machines/browser-identities.md"],
  "commands": ["yoke test-machine bridge-diagnose", "yoke test-machine verify", "yoke test-machine golden-capture"],
  "functions": ["test_machine.bridge_diagnose"],
  "page": "test-machine-setup",
