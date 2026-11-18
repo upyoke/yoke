@@ -88,11 +88,9 @@ or quietly credited to the changed case.
 
 ## Stored plan convergence
 
-Authoring validates every write, but older stored plans may fail a tightened
-contract during materialization. `HC-qa-plan-machine-starting-state` checks each
-live machine-run plan through that same derivation and reports every refusal.
-A tightened contract must converge stored plans in every universe, through
-registered authoring, in the same release.
+Authoring and materialization validate stored plans. A tightened contract must
+converge stored plans in every universe through registered authoring or an ordered
+migration in the same release.
 
 ```text
 yoke qa plan edit PLAN_SLUG --project P
