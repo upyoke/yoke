@@ -218,3 +218,36 @@ def test_non_machine_cases_ignore_stale_starting_state(runner, state):
     case["method_config"] = {}
     assert _normalize(case) == (None, None)
     assert chain_baselines([case]) == {"controller": [None]}
+
+
+def _command(runner="worktree_run", config=None, **declared):
+    return normalize_starting_state(
+        case_key="authorize",
+        runner_id=runner,
+        method_config=config or {"test_machine": "windows-lab", "command": "true"},
+        host_baselines=declared.get("baselines", []),
+        starting_state=declared.get("state"),
+        starting_state_reason=declared.get("reason"),
+    )
+
+
+def test_host_command_resets_only_a_declared_baseline() -> None:
+    state = _command(baselines=["shell-preconfigured"])
+    assert state == ("baseline", None)
+    assert reset_baselines(
+        {"starting_state": state[0], "host_baseline": "shell-preconfigured"}
+    ) == ["shell-preconfigured"]
+    assert _command() == (None, None)
+    for declared in (
+        {"state": "inherit"},
+        {"state": "as_is", "reason": "why"},
+        {"state": "baseline"},
+        {"baselines": ["no-such-baseline"]},
+    ):
+        with pytest.raises(StartingStateError):
+            _command(**declared)
+    # A Command that names no Test Machine never starts from a baseline.
+    assert _command(config={"command": "true"}, baselines=["fresh-host"]) == (
+        None,
+        None,
+    )

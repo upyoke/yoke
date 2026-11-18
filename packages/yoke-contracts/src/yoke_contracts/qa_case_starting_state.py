@@ -13,6 +13,11 @@ machine-run case declares exactly one of:
 A ``baseline`` or ``as_is`` case opens a chain; the ``inherit`` cases right
 after it extend that chain. The runner resets before a chain and restores the
 chain's starting state after its last case.
+
+A Command case whose ``method_config.test_machine`` names a host reaches that
+host from the operator's machine. It may name ``host_baselines`` so plan
+admission resets the host before the command runs; with none it runs on the
+host as found, and it never inherits or runs ``as_is`` by declaration.
 """
 
 from __future__ import annotations
@@ -64,6 +69,21 @@ def needs_test_machine(case: Mapping[str, Any]) -> bool:
     )
 
 
+def is_host_command(case: Mapping[str, Any]) -> bool:
+    """Whether the case is a Command that names the Test Machine it reaches."""
+    if case.get("runner_id") != "worktree_run":
+        return False
+    config = case.get("method_config") or {}
+    if isinstance(config, str):
+        config = json.loads(config)
+    return bool(config.get("test_machine"))
+
+
+def declares_starting_state(case: Mapping[str, Any]) -> bool:
+    """Whether the case may carry a starting state on a Test Machine."""
+    return needs_test_machine(case) or is_host_command(case)
+
+
 def normalize_starting_state(
     *,
     case_key: str,
@@ -78,14 +98,15 @@ def normalize_starting_state(
     declared = None if starting_state in (None, "") else str(starting_state)
     reason = str(starting_state_reason or "").strip() or None
     subject = f"case {case_key!r}"
-    if not needs_test_machine(
-        dict(
-            runner_id=runner_id,
-            host_baselines=host_baselines,
-            method_config=method_config,
-            capability_requirements=capability_requirements,
-        )
-    ):
+    shape = dict(
+        runner_id=runner_id,
+        host_baselines=host_baselines,
+        method_config=method_config,
+        capability_requirements=capability_requirements,
+    )
+    if is_host_command(shape):
+        return _host_command_state(subject, host_baselines, declared, reason)
+    if not needs_test_machine(shape):
         return None, None
     if declared is not None and declared not in STARTING_STATES:
         raise StartingStateError(
@@ -126,6 +147,28 @@ def normalize_starting_state(
             "starting_state_reason"
         )
     return declared, reason
+
+
+def _host_command_state(
+    subject: str, host_baselines: Sequence[str], declared: str | None, reason: Any
+) -> tuple[str | None, str | None]:
+    """A host Command resets to named baselines or runs on the host as found."""
+    unknown = [name for name in host_baselines if name not in HOST_BASELINES]
+    if unknown:
+        raise StartingStateError(
+            f"{subject} names unregistered host baselines {', '.join(unknown)}; "
+            f"available baselines: {', '.join(HOST_BASELINES)}"
+        )
+    if declared not in (None, BASELINE) or reason is not None or (
+        declared == BASELINE and not host_baselines
+    ):
+        raise StartingStateError(
+            f"{subject} is a Command on a Test Machine, which starts from "
+            "named host_baselines or from the host as found; name one of "
+            f"{', '.join(HOST_BASELINES)} in host_baselines (--host-baseline), "
+            "or remove starting_state and starting_state_reason"
+        )
+    return (BASELINE, None) if host_baselines else (None, None)
 
 
 def chain_baselines(
@@ -286,6 +329,8 @@ __all__ = [
     "STARTING_STATE_RECOVERY",
     "StartingStateError",
     "chain_baselines",
+    "declares_starting_state",
+    "is_host_command",
     "needs_test_machine",
     "normalize_starting_state",
     "require_materialized_starting_state",

@@ -88,6 +88,9 @@ case runs on a Test Machine. An agent_mission runs on one only when its
 method_config names test_machine, test_machines or os (os leases a Test
 Machine of that OS), it requires a test-machine: capability, or it names a
 baseline; otherwise it runs on the controller and needs no starting state.
+A Command whose method_config names test_machine may pass --host-baseline so
+plan admission resets that host before the command runs; without one it runs
+on the host as found.
 A case added on its own belongs to no plan, so it cannot inherit a preceding
 case's machine; author that chain in a plan.
 
