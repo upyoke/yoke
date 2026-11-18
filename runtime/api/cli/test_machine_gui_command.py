@@ -109,3 +109,55 @@ def test_transport_failures_name_reason_and_recovery(
     with pytest.raises(RemoteExecRefusal) as raised:
         gui._GuiSshControl(SETTINGS, tmp_path, None)._run("true", timeout=10)
     assert raised.value.code == error and raised.value.recovery
+
+
+WSL_COMMAND_LINE_LIMIT = 8 * 1024
+
+
+def _decoded_wsl_stdin(framed: str) -> tuple[str, str]:
+    import base64
+
+    payload, rest = framed.split("\n", 1)
+    return base64.b64decode(payload).decode("utf-8"), rest
+
+
+def test_wsl_desktop_helper_goes_over_stdin_not_the_command_line(
+    monkeypatch, tmp_path
+):
+    from yoke_harness import linux_desktop_session
+
+    seen = []
+    receipt = {"desktop_session": "reused", "environment": {"DISPLAY": ":10"}}
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda argv, **kw: (
+            seen.append((argv, kw))
+            or subprocess.CompletedProcess(argv, 0, json.dumps(receipt), "")
+        ),
+    )
+    control = gui._GuiSshControl({**SETTINGS, "os": "wsl"}, tmp_path, "pw")
+    linux_desktop_session.ensure_desktop(control)
+    argv, kwargs = seen[0]
+    assert len(argv[-1]) < WSL_COMMAND_LINE_LIMIT
+    command, stdin = _decoded_wsl_stdin(kwargs["input"])
+    assert "def ensure_desktop" in command and stdin == "pw\n"
+
+
+def test_wsl_streamed_gui_command_goes_over_stdin(monkeypatch, tmp_path, capsys):
+    real_popen = subprocess.Popen
+    seen = []
+
+    def popen(argv, **kwargs):
+        seen.append(argv)
+        return real_popen(["cat"], **kwargs)
+
+    monkeypatch.setattr(subprocess, "Popen", popen)
+    control = gui._GuiSshControl(
+        {**SETTINGS, "os": "wsl"}, tmp_path, None, stream_output=True
+    )
+    command = shlex.join(["/bin/bash", "-lc", "echo " + "x" * 40_000])
+    result = control._run(command, timeout=1920)
+    assert control.streamed and result.returncode == 0
+    assert len(seen[0][-1]) < WSL_COMMAND_LINE_LIMIT
+    assert _decoded_wsl_stdin(result.stdout) == (command, "")

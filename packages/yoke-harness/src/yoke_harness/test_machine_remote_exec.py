@@ -169,6 +169,7 @@ def _stream_command(
     *,
     process: subprocess.Popen,
     password: str | None = None,
+    input_text: str | None = None,
     redaction_secret: str | None = None,
     stdout=None,
     stderr=None,
@@ -186,9 +187,11 @@ def _stream_command(
         with ByteStreamReader(tuple(tails), chunk_size=_READ_CHUNK_BYTES) as reader:
             try:
                 if password is not None:
+                    input_text = password + "\n"
+                if input_text is not None:
                     assert process.stdin is not None
                     try:
-                        process.stdin.write(secret + b"\n")
+                        process.stdin.write(input_text.encode(encoding))
                         process.stdin.close()
                     except BrokenPipeError:
                         pass  # Drain SSH's diagnosed connection failure.
