@@ -48,7 +48,7 @@ the console with `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`. Compare it
 with the fingerprint of the key from `ssh-keyscan -t ed25519 HOST`. Add that
 entry under the exact MagicDNS hostname to
 `~/.yoke/test-machine/known_hosts` after the fingerprints match. Prove the
-shared key works using the Yoke file and strict host-key checking. If SSH
+machine key works using the Yoke file and strict host-key checking. If SSH
 refuses it, check the Remote Login allowlist and the test account’s authorized
 keys and ownership in [step 3](#3-remote-login-and-full-disk-access).
 For cloud bootstrap, query the provider's **current** public IP and connect with
@@ -93,8 +93,10 @@ an update, which uses the as-read settings token. Declare `resource_name`,
 outside that user's home. Desktop settings are `desktop_route=direct`,
 `desktop_protocol=vnc`, `desktop_port=5900`, and `desktop_user`, with no
 `desktop_host` so Screen Sharing reaches the MagicDNS host over the tailnet. A
-host outside the tailnet uses `desktop_route=ssh-forward`. A relay capacity registration is a
-separate identity; ordinary work must use a different home from test resets.
+host outside the tailnet uses `desktop_route=ssh-forward`. Set
+`operating_notes` to record the model, architecture, OS version, console and
+routing constraints. Keep credentials out of these notes. Register relay
+capacity under a separate identity with its own home.
 
 On every QA execution workstation, import the Test Machine's SSH private key:
 
@@ -106,8 +108,8 @@ yoke test-machine exec --test-machine NAME -- /usr/bin/true
 ```
 
 Stage the desktop password in an owner-only file and remove that copy after
-a successful import. Read each command’s `--help`. The shared public key
-authorizes all project test hosts. Secret values never enter settings, prompts, command arguments or logs.
+a successful import. Read each command’s `--help`. Keep secret values out
+of settings, prompts, command arguments and logs.
 `exec` uses the workstation's SSH agent; an unavailable agent is not proof that
 the capability-owned private key is missing. A serial host lease held by
 another session must be released before preparation or ad hoc access.
@@ -121,7 +123,7 @@ password copy after closing access.
 
 ## 3. Remote Login and Full Disk Access
 
-Enable Remote Login for the dedicated user and install the shared public key
+Enable Remote Login for the dedicated user and install the machine's public key
 as its own line in `~/.ssh/authorized_keys`. Set the directory to mode 0700
 and the file to mode 0600, both owned by the dedicated account. Confirm the
 account is on the Remote Login allowlist before attempting SSH.
