@@ -189,8 +189,15 @@ def reach_baseline(control, name):
     if name not in {"fresh-host", "shell-preconfigured"}:
         raise ValueError("unknown native Windows baseline " + name)
     restored = control.reset_installer_test_host()
-    if not restored.ok or name == "fresh-host":
+    if not restored.ok:
         return restored
+    # Profile restore owns Windows temp cleanup: it empties AppData\Local\YokeQa
+    # and Yoke-owned %TEMP% entries. A restored host must still prove it is the
+    # signed-in user's machine, as macOS and Linux baselines do.
+    proven = control.prove_user_equivalent()
+    reset = {**restored.evidence, "user_equivalence": proven.evidence}
+    if not proven.ok or name == "fresh-host":
+        return HostActionResult(proven.ok, reset, proven.error_code)
     from yoke_cli.config import distribution, machine_config
 
     origin = distribution.origin_for_connection(machine_config.active_connection())
@@ -211,6 +218,7 @@ def reach_baseline(control, name):
             False,
             {
                 "install_surface": "windows-console",
+                "reset": reset,
                 "recovery": installed.stderr or installed.stdout,
             },
             "windows_baseline_install_failed",
@@ -227,6 +235,7 @@ def reach_baseline(control, name):
         {
             "operation": name,
             "install_surface": "windows-console",
+            "reset": reset,
             "path_state": paths,
             "launcher": control.path_state.yoke_bin,
         },

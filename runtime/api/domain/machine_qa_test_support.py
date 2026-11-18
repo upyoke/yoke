@@ -36,6 +36,7 @@ BASELINE_PATHS = frozenset(
 
 
 class FakeHostControl(FakeOperatorOperations):
+    os = "macos"
     home = "/Users/tester"
     shell = "/bin/zsh"
     xdg_bin_home = None

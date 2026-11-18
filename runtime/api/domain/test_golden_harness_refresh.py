@@ -9,7 +9,6 @@ from runtime.api.domain.golden_harness_refresh_test_support import (
 )
 
 
-from datetime import datetime, timezone
 from types import SimpleNamespace
 
 import pytest
@@ -35,13 +34,6 @@ def test_a_current_golden_runs_its_case_without_reset_install_or_capture(monkeyp
 
 def test_a_behind_golden_is_refreshed_once_then_the_case_begins_again(monkeypatch):
     world = World(monkeypatch, {**LATEST, "codex": "0.149.1"})
-    monkeypatch.setattr(
-        destinations,
-        "datetime",
-        SimpleNamespace(
-            now=lambda zone: datetime(2026, 10, 21, 16, 44, 0, tzinfo=timezone.utc),
-        ),
-    )
     assert world.run(contract()) == {"refreshed": True}
     assert world.calls == [
         ("read", GOLDEN),
@@ -52,9 +44,8 @@ def test_a_behind_golden_is_refreshed_once_then_the_case_begins_again(monkeypatc
         ("retain", GOLDEN + "-2"),
         ("plan_case.begin",),
     ]
-    assert world.destinations[0] == (
-        "/Users/Shared/yoke-golden/testy-home-20261021T164400Z"
-    )
+    # The server names the destination; submit echoes the one it chose.
+    assert world.destinations[:2] == [None, GOLDEN + "-2"]
     world.calls.clear()
     raw = contract(golden=GOLDEN + "-2")
     assert world.run(raw) == raw
@@ -149,14 +140,27 @@ def test_a_verified_refresh_prints_the_removed_snapshots(monkeypatch, capsys):
     )
 
 
-def test_each_refresh_captures_to_a_new_stamped_sibling(monkeypatch):
-    # Today's dated default name may already be the registered golden.
+@pytest.mark.parametrize("os", ["macos", "windows"])
+def test_each_refresh_lets_the_server_name_the_capture_destination(monkeypatch, os):
+    # The server's default names a UTC-stamped sibling in the host's own path
+    # flavour; a client-side POSIX join broke Windows goldens.
     world = World(monkeypatch, None)
-    world.run(contract())
-    begin = world.destinations[0]
-    assert begin.startswith("/Users/Shared/yoke-golden/testy-home-")
-    assert begin.endswith("Z") and "T" in begin.rsplit("-", 1)[-1]
-    assert begin != GOLDEN
+    world.run(contract(golden=r"C:\YokeQa\goldens\baseline" if os == "windows" else GOLDEN, os=os))
+    assert world.destinations[0] is None
+
+
+def test_the_server_default_destination_is_a_windows_sibling():
+    row = SimpleNamespace(
+        test_machine="windows-native-lab",
+        settings={
+            "os": "windows",
+            "user": "yokeqa",
+            "golden_baseline_path": r"C:\YokeQa\goldens\baseline-raw-path",
+        },
+    )
+    chosen = destinations.resolve_golden_capture_destination(row)
+    assert chosen.startswith("C:\\YokeQa\\goldens\\yokeqa-home-")
+    assert "/" not in chosen
 
 
 def test_held_back_cursor_is_captured_and_the_plan_continues(monkeypatch, capsys):
@@ -188,3 +192,25 @@ def test_refresh_error_keeps_the_harness_diagnostic_before_large_evidence(monkey
         world.run(contract())
     assert detail in str(caught.value)[:200]
     assert "x" * 1000 in str(caught.value)
+
+
+def test_a_windows_refresh_host_failure_names_windows_dependencies(monkeypatch):
+    world = World(monkeypatch, {**LATEST, "codex": "0.149.1"})
+    monkeypatch.setattr(
+        golden_harness_clis,
+        "read_golden_harness_clis",
+        lambda control, golden: (_ for _ in ()).throw(OSError("ssh closed")),
+    )
+    with pytest.raises(Exception) as refused:
+        world.run(contract(golden=r"C:\YokeQa\goldens\baseline", os="windows"))
+    assert "PowerShell and python.exe" in str(refused.value)
+    assert "/usr/bin/python3" not in str(refused.value)
+
+
+def test_a_windows_retention_refusal_names_the_windows_goldens_folder():
+    golden = r"C:\YokeQa\goldens\yokeqa-home-1"
+    with pytest.raises(golden_snapshot_retention.SnapshotRetentionError) as refused:
+        golden_snapshot_retention.retain_after_verified_capture(
+            "golden_capture", True, {"status": "verified", "golden_baseline_path": golden}, {}
+        )
+    assert r"C:\YokeQa\goldens" in str(refused.value)
