@@ -21,11 +21,21 @@ $env:Path=[Environment]::GetEnvironmentVariable('Path','Machine')+';'+[Environme
         script += "$out=@{}; foreach($row in $payload){$p=Probe $row[1]; $out[$row[0]]=if($p.version){$p.version}else{$p}}; $out | ConvertTo-Json -Depth 8 -Compress"
     else:
         harness, names, _, wanted = payload
+        # Windows PowerShell returns byte[] Content for application/octet-stream.
+        # Decode the raw response identically for binary and text media types.
+        script += r"""function VendorScript($uri) {
+ $response=Invoke-WebRequest -UseBasicParsing -Uri $uri -TimeoutSec 30 -ErrorAction Stop
+ $bytes=$response.RawContentStream.ToArray()
+ try { $text=([Text.UTF8Encoding]::new($false,$true)).GetString($bytes).TrimStart([char]0xFEFF) }
+ catch { throw 'windows_vendor_installer_utf8_invalid: inspect the vendor raw response encoding before retrying; installer not executed' }
+ [ScriptBlock]::Create($text)
+}
+"""
         installers = {
-            "claude-code": "& ([ScriptBlock]::Create((Invoke-WebRequest -UseBasicParsing 'https://claude.ai/install.ps1').Content)) "
+            "claude-code": "& (VendorScript 'https://claude.ai/install.ps1') "
             + quote(wanted),
             "codex": "& npm.cmd install --global " + quote("@openai/codex@" + wanted),
-            "cursor": "& ([ScriptBlock]::Create((Invoke-WebRequest -UseBasicParsing 'https://cursor.com/install?win32=true').Content))",
+            "cursor": "& (VendorScript 'https://cursor.com/install?win32=true')",
         }
         script += installers[harness] + "; $code=$LASTEXITCODE; $p=Probe $payload[1]; "
         script += "@{install_exit_code=$code;install_stderr='';probe=$p} | ConvertTo-Json -Depth 8 -Compress"

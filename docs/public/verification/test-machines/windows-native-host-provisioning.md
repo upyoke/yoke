@@ -254,24 +254,8 @@ Disconnect without sign-out;
 if locked/logged off, reconnect, unlock and return to console before QA.
 Scheduled `CopyFromScreen` screenshots run **inside the VM**, read over SSH.
 
-As the standard user install all harness CLIs from their vendors:
-
-```powershell
-irm https://claude.ai/install.ps1 | iex
-npm.cmd install --global @openai/codex
-irm 'https://cursor.com/install?win32=true' | iex
-claude --version
-codex --version
-agent --version
-```
-
-Sources: [Claude](https://code.claude.com/docs/en/setup),
-[Codex on Windows](https://developers.openai.com/codex/windows/),
-[Cursor native CLI](https://cursor.com/docs/cli/installation).
-Install/launch each vendor's desktop app as the same user. Agents finish setup
-and navigation; Ben types his own harness/GitHub passwords. Before goldens,
-prove real CLI requests and visible signed-in desktop apps; installs/versions
-alone do not prove readiness. Follow [native browser identities](windows-browser-identities.md).
+Continue with [native harness installation and sign-ins](windows-native-harnesses.md)
+before capturing goldens.
 
 ## 4. Settings journal and interrupted-case recovery
 
