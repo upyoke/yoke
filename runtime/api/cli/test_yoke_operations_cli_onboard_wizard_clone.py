@@ -208,7 +208,8 @@ def test_back_from_duplicate_to_clone_clears_future_publish_state() -> None:
                 ):
                     break
                 await pilot.press("escape")
-            await pilot.press("enter")  # outcome: Clone it
+            # Back keeps "Duplicate it" chosen; move up to "Clone it".
+            await pilot.press("up", "enter")  # outcome: Clone it
             await accept_project_details(pilot, branch_from_source=True)
             await select_connected_repository(app, pilot)
             await skip_hosting(pilot)  # hosting: skip -> Finish

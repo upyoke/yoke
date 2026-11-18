@@ -210,12 +210,16 @@ def test_list_without_focus_draws_no_selected_row() -> None:
             chooser = app.query_one("#onboard-body SelectionList", SelectionList)
             row = app.query(_OptionRow).first()
             assert app.focused is app.query_one("#onboard-body Input", Input)
+            assert chooser.selected_value == "continue"
             assert row.has_class("-selected")
             assert row.styles.background.a == 0
-            assert not str(row.render()).startswith("›")
+            assert not row.styles.text_style.bold
             chooser.focus()
             await pilot.pause()
             assert row.styles.background.a > 0
-            assert str(row.render()).startswith("›")
+            assert row.styles.text_style.bold is True
+            app.query_one("#onboard-body Input", Input).focus()
+            await pilot.pause()
+            assert row.styles.background.a == 0
 
     asyncio.run(scenario())

@@ -103,11 +103,7 @@ class _OptionRow(Static):
         self.refresh()
 
     def render(self) -> Text:
-        # A list without focus shows no cursor: Enter would not reach it.
-        parent = self.parent
-        selected = self.has_class("-selected") and bool(
-            parent is not None and parent.has_focus
-        )
+        selected = self.has_class("-selected")
         width = self.content_size.width
         return _option_row_text(self._row, selected=selected, width=width)
 
@@ -194,17 +190,6 @@ class SelectionList(Vertical, can_focus=True):
             if row.value == value:
                 self.cursor = index
                 return
-
-    def on_focus(self) -> None:
-        self._refresh_rows()
-
-    def on_blur(self) -> None:
-        self._refresh_rows()
-
-    def _refresh_rows(self) -> None:
-        # The marker is drawn only while the list holds focus (see render).
-        for option in self.query(_OptionRow):
-            option.refresh()
 
     def action_choose(self) -> None:
         if self._rows:
