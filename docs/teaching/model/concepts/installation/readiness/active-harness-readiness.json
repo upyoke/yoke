@@ -4,6 +4,6 @@
  "status": "observed",
  "page": "installation",
  "position": 1,
- "summary": "Session readiness verifies registration and confirmed orientation in the registered scope: project scratch for project sessions, authority-scoped machine scratch outside every project. Explicit project selection must match registration; missing delivery and observation failures keep distinct reasons. The registered surface selects Claude CLI user settings or Desktop app posture; unverified surfaces never borrow Desktop proof.",
+ "summary": "Session readiness verifies registration and confirmed orientation in the registered scope: project scratch for project sessions, authority-scoped machine scratch outside every project. Explicit project selection must match registration; missing delivery and observation failures keep distinct reasons. The registered surface selects Claude CLI user settings or Desktop app posture; unverified surfaces never borrow Desktop proof. Harness sign-in tells a CLI that answers signed out (HARNESS_SIGNED_OUT with its sign-in command) from a status probe that timed out, exited non-zero or printed no readable status (HARNESS_AUTH_PROBE_FAILED naming the command and failure, with no re-login advice).",
  "commands": ["yoke doctor run", "yoke sessions identity"]
 }

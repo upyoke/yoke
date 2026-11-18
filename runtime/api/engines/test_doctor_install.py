@@ -52,16 +52,16 @@ def test_install_roster_stays_machine_local_without_relaying_new_check_names(
 
 
 @pytest.mark.parametrize(
-    "payload,code,expected",
+    "payload,code,expected,code_prefix",
     [
-        ('{"loggedIn":true,"email":"private@example.invalid"}', 0, "PASS"),
-        ('{"loggedIn":false,"token":"private-token"}', 0, "WARN"),
-        ("not-json private-token", 0, "WARN"),
-        ('{"loggedIn":true}', 124, "WARN"),
+        ('{"loggedIn":true,"email":"private@example.invalid"}', 0, "PASS", ""),
+        ('{"loggedIn":false,"token":"x-private"}', 0, "WARN", "HARNESS_SIGNED_OUT"),
+        ("not-json private-token", 0, "WARN", "HARNESS_AUTH_PROBE_FAILED"),
+        ('{"loggedIn":true}', 124, "WARN", "HARNESS_AUTH_PROBE_FAILED"),
     ],
 )
 def test_native_auth_is_verified_without_printing_private_document(
-    monkeypatch, payload, code, expected
+    monkeypatch, payload, code, expected, code_prefix
 ):
     monkeypatch.setattr(
         checks,
@@ -76,8 +76,8 @@ def test_native_auth_is_verified_without_printing_private_document(
     result = run(checks.hc_harness_cli_auth)[0]
     assert result.result == expected
     assert "private" not in result.detail
-    if expected == "WARN":
-        assert "claude auth login" in result.detail
+    assert result.detail.startswith(code_prefix)
+    assert ("auth login" in result.detail) == (code_prefix == "HARNESS_SIGNED_OUT")
 
 
 def test_absent_harness_is_warning_evidence(monkeypatch):

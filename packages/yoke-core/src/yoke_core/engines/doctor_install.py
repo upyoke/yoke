@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import shlex
 import urllib.request
 from contextlib import nullcontext
 
@@ -63,22 +64,44 @@ SESSION_REQUIRED_DETAIL = (
 )
 
 
+HARNESS_AUTH_PROBE_TIMEOUT_S = 5
+
+
 def harness_auth(manifest, executable: str) -> tuple[bool, str]:
-    """Whether one harness CLI is signed in, and the line that says so."""
-    probe = _run([executable, *manifest.auth_args], timeout=5)
-    signed_in = probe.returncode == 0
+    """Whether one harness CLI is signed in, and the line that says so.
+
+    Signed out is the CLI's own answer; a probe that timed out, failed or
+    printed nothing readable is a probe failure and earns no re-login advice.
+    Native auth documents hold private account data, so stdout is never echoed.
+    """
+    probe = _run([executable, *manifest.auth_args], timeout=HARNESS_AUTH_PROBE_TIMEOUT_S)
+    command = f"`{shlex.join((manifest.executable, *manifest.auth_args))}`"
+    signed_out = (
+        f"HARNESS_SIGNED_OUT: {manifest.executable} is not signed in. "
+        f"{manifest.sign_in_recovery(executable)}"
+    )
+    if probe.returncode == 124:
+        return False, _probe_failed(command, f"timed out after {HARNESS_AUTH_PROBE_TIMEOUT_S}s")
+    if probe.returncode != 0:
+        if not manifest.auth_signed_in_key:
+            # Without a status document the exit code is the CLI's answer.
+            return False, f"{signed_out} ({command} exited {probe.returncode})"
+        return False, _probe_failed(command, f"exited {probe.returncode}", probe.stderr)
     if manifest.auth_signed_in_key:
         try:
             document = json.loads(probe.stdout)
-            signed_in = signed_in and document.get(manifest.auth_signed_in_key) is True
+            signed_in = document.get(manifest.auth_signed_in_key) is True
         except (ValueError, AttributeError):
-            signed_in = False
-    # Native auth documents contain private account data. Keep only the verdict.
-    if signed_in:
-        return True, f"{manifest.executable} is signed in."
-    return False, (
-        f"HARNESS_AUTH_UNVERIFIED: {manifest.executable} sign-in could not be "
-        f"verified. {manifest.sign_in_recovery(executable)}"
+            return False, _probe_failed(command, "exited 0 without a JSON status document")
+        if not signed_in:
+            return False, signed_out
+    return True, f"{manifest.executable} is signed in."
+
+
+def _probe_failed(command: str, outcome: str, stderr: str = "") -> str:
+    reason = next((line.strip() for line in (stderr or "").splitlines() if line.strip()), "")
+    return f"HARNESS_AUTH_PROBE_FAILED: {command} {outcome}" + (
+        f": {reason[:160]}" if reason else "."
     )
 
 

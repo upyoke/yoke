@@ -118,7 +118,7 @@ def test_a_signed_out_session_harness_names_its_login(monkeypatch):
     )
     result = run(checks.hc_session_harness_cli_auth)
     assert result.result == "WARN"
-    assert "HARNESS_AUTH_UNVERIFIED" in result.detail
+    assert "HARNESS_SIGNED_OUT" in result.detail
     assert "`/bin/codex login`" in result.detail
 
 
