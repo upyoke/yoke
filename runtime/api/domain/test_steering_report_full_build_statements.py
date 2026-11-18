@@ -25,8 +25,9 @@ from yoke_core.domain.work_claim_targets import make_item_target
 
 SECOND_PROJECT = 2
 #: Statements one full build issues for this fleet. Lower is welcome: update
-#: the pin. Higher means a reader went back to per-row work.
-FULL_BUILD_STATEMENTS = 148
+#: the pin. Higher means a reader went back to per-row work. The failed
+#: scheduled-prune read adds two universe-wide statements, cached per build.
+FULL_BUILD_STATEMENTS = 150
 
 
 def _seed(conn):

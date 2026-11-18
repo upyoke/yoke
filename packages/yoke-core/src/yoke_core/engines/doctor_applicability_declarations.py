@@ -174,6 +174,7 @@ _SHAPES = (
             "synthetic-event-contamination",
             "title-length",
             "undeployed-done",
+            "universe-prune-receipt",
             "validation-no-qa-reqs",
             "work-claim-status-mismatch",
             "workflow-stage-level-pins",
