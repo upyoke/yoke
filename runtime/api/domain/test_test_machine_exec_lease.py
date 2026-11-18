@@ -3,16 +3,26 @@
 from __future__ import annotations
 
 import subprocess
+from contextlib import nullcontext
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
 import pytest
 
-from yoke_contracts.api.function_call import FunctionCallResponse
+from runtime.api.domain.machine_qa_session_seed import seed_qa_session
+from yoke_cli.transport.settled_response import settle_response
+from yoke_contracts.api.function_call import (
+    ActorContext,
+    FunctionCallRequest,
+    FunctionCallResponse,
+    TargetRef,
+)
 from yoke_cli.commands import test_machine_desktop_lease as custody
 from yoke_cli.commands.adapters import test_machine_exec as adapter
-from yoke_core.domain import cloud_machine_power
+from yoke_core.domain import cloud_machine_power, yoke_function_dispatch
+from yoke_core.domain.coordination_claims import acquire, active_claim, release
+from yoke_core.domain.work_claim_targets import make_qa_admission_target
 
 SETTINGS = {
     "host": "linux-lab.example.ts.net",
@@ -24,7 +34,7 @@ SETTINGS = {
 
 
 class FakeCloudMachine:
-    """A cloud machine that is stopped unless a lease holds it."""
+    """A cloud machine that starts stopped and stays running after release."""
 
     def __init__(self, lease: dict[str, Any] | None = None) -> None:
         self.lease = lease
@@ -48,9 +58,7 @@ class FakeCloudMachine:
             result = {"claim": {"id": 41}}
         elif name == "claims.coordination_claim.release":
             assert kw["payload"]["claim_id"] == 41
-            # Stop-on-last-release: the transport stops a host left free.
-            self.lease, self.running = None, False
-            self.events.append("stopped")
+            self.lease = None
         return FunctionCallResponse(
             success=True, function=name, version="v1", result=result
         )
@@ -108,9 +116,8 @@ def test_exec_on_a_stopped_unleased_machine_leases_powers_on_runs_and_releases(
         "power_on",
         "ran",
         "claims.coordination_claim.release",
-        "stopped",
     ]
-    assert fake.lease is None and not fake.running
+    assert fake.lease is None and fake.running
 
 
 def test_exec_while_another_session_holds_the_lease_refuses_untouched(
@@ -149,4 +156,48 @@ def test_a_failed_power_on_refuses_by_name_and_still_releases(
     assert "host_control_local_execution_failed" in err
     assert "phase=lease_power_on" in err
     assert "ran" not in fake.events
-    assert fake.events[-2:] == ["claims.coordination_claim.release", "stopped"]
+    assert fake.events[-1] == "claims.coordination_claim.release"
+
+
+def test_release_frees_cloud_host_without_power_data_or_provider_calls(
+    test_db, monkeypatch,
+) -> None:
+    owner = "owner"
+    seed_qa_session(test_db, owner)
+    target = make_qa_admission_target(SETTINGS["resource_name"])
+    held = acquire(test_db, target, owner)
+    request = FunctionCallRequest(
+        function="claims.coordination_claim.release",
+        actor=ActorContext(actor_id="1", session_id=owner),
+        target=TargetRef(kind="global"),
+        payload={"claim_id": held.id, "reason": "complete"},
+    )
+    expected = FunctionCallResponse(
+        success=True, function=request.function, version="v1",
+        result={"claim": {"id": held.id}},
+    )
+
+    def release_lease(call, **kwargs):
+        release(test_db, call.payload["claim_id"], call.payload["reason"])
+        return expected
+
+    def reject_provider_call(*args, **kwargs):
+        pytest.fail("lease release called the cloud provider")
+
+    monkeypatch.setattr(yoke_function_dispatch, "_dispatch_impl", release_lease)
+    monkeypatch.setattr(
+        "yoke_core.domain.db_helpers.connect", lambda: nullcontext(test_db)
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.machine_qa_capability_rows.test_machine_capability_rows",
+        lambda conn: [SimpleNamespace(
+            project="example", test_machine=SETTINGS["resource_name"], settings=SETTINGS,
+        )],
+    )
+    monkeypatch.setattr(cloud_machine_power, "machine_power", reject_provider_call)
+
+    response = yoke_function_dispatch.dispatch(request)
+
+    assert active_claim(test_db, target) is None
+    assert response.model_dump() == expected.model_dump()
+    assert settle_response(response).model_dump() == expected.model_dump()

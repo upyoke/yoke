@@ -1,4 +1,4 @@
-"""Faked Azure CLI proof for start, disposable public IPs and last-lease deallocation."""
+"""Faked Azure CLI proof for start, disposable public IPs."""
 
 from __future__ import annotations
 
@@ -9,7 +9,6 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_core.domain import cloud_machine_power as power
-from yoke_core.domain.cloud_machine_power_stop import stop_released
 from yoke_core.domain.azure_instance_power import AzureMachinePower
 from yoke_core.domain.deploy_remote import CommandResult
 from yoke_contracts.azure_admin import AzureAdminError
@@ -84,8 +83,6 @@ def controller(monkeypatch):
         result = {"settings": SETTINGS, "settings_token": "cas"}
         if fn == "projects.capability_settings.get":
             result = {"settings_json": json.dumps({"subscription_id": "sub"})}
-        if fn == "claims.coordination_claim.acquire_if_free":
-            result = {"claim": {"id": 1}}
         return FunctionCallResponse(
             success=True, function=fn, version="v1", result=result
         )
@@ -137,67 +134,6 @@ def test_running_azure_machine_keeps_existing_power_ip_without_start_or_login(
     )
     assert not any(fn == "ssh" for fn, _ in controller)
     assert not any("start" in call["argv"] for call in runner.calls)
-
-
-def test_last_release_deallocates_detaches_and_deletes_ip(controller):
-    runner = FakeRunner(
-        [
-            details("VM stopped"),
-            OK,
-            details("VM deallocated"),
-            nic(True),
-            OK,
-            data([{"id": IP_ID}]),
-            OK,
-        ]
-    )
-    stop_released(
-        [{"project": "project", "test_machine": "azure-lab"}],
-        runner=runner,
-        emit=lambda _: None,
-    )
-    assert runner.calls[1]["argv"][1:3] == ["vm", "deallocate"]
-    assert "--remove" in runner.calls[4]["argv"]
-    assert runner.calls[-1]["argv"][1:4] == ["network", "public-ip", "delete"]
-    assert controller[-1][0] == "claims.coordination_claim.release"
-
-
-def test_failed_delete_is_reported_and_releases_shutdown_hold(controller):
-    runner = FakeRunner(
-        [
-            details("VM deallocated"),
-            details("VM deallocated"),
-            nic(),
-            data([{"id": IP_ID}]),
-            CommandResult(1, "", "delete denied"),
-        ]
-    )
-    messages = []
-    stop_released(
-        [{"project": "project", "test_machine": "azure-lab"}],
-        runner=runner,
-        emit=messages.append,
-    )
-    assert any(
-        "test_machine_power_stop_failed" in line and "delete denied" in line
-        for line in messages
-    )
-    assert controller[-1][0] == "claims.coordination_claim.release"
-
-
-def test_already_deallocated_vm_finishes_interrupted_ip_cleanup():
-    runner = FakeRunner(
-        [
-            details("VM deallocated"),
-            details("VM deallocated"),
-            nic(),
-            data([{"id": IP_ID}]),
-            OK,
-        ]
-    )
-    AzureMachinePower(runner, ("az",), {}, ID, "project", lambda _: None).stop()
-    assert runner.calls[-1]["argv"][1:4] == ["network", "public-ip", "delete"]
-    assert not any("deallocate" in call["argv"] for call in runner.calls)
 
 
 def test_failed_start_names_azure_recovery(controller):
@@ -274,31 +210,6 @@ def test_azure_settings_require_full_resource_id():
     ):
         with pytest.raises(CapabilityError):
             validate_test_machine_settings({**SETTINGS, **changed})
-
-
-def test_release_notice_includes_azure_and_aws_without_touching_cloud(monkeypatch):
-    from contextlib import nullcontext
-    from yoke_core.domain import cloud_machine_release_notice as notice
-
-    rows = [
-        SimpleNamespace(project="project", test_machine="azure-lab", settings=SETTINGS),
-        SimpleNamespace(
-            project="project",
-            test_machine="aws-lab",
-            settings={"cloud_instance_id": "i-1"},
-        ),
-    ]
-    monkeypatch.setattr(
-        "yoke_core.domain.db_helpers.connect", lambda: nullcontext(None)
-    )
-    monkeypatch.setattr(
-        "yoke_core.domain.machine_qa_capability_rows.test_machine_capability_rows",
-        lambda _: rows,
-    )
-    assert notice.released_cloud_machines({"azure-lab", "aws-lab"}) == [
-        {"project": "project", "test_machine": name}
-        for name in ("azure-lab", "aws-lab")
-    ]
 
 
 def test_fleet_report_names_cloud_provider(monkeypatch):

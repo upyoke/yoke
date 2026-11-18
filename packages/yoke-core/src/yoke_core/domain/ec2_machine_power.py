@@ -6,11 +6,7 @@ from dataclasses import dataclass
 from typing import Callable
 
 from yoke_core.domain.deploy_remote import CommandRunner
-from yoke_core.domain.ec2_instance_power import (
-    ensure_instance_running,
-    instance_state,
-    stop_instance,
-)
+from yoke_core.domain.ec2_instance_power import ensure_instance_running
 
 
 @dataclass
@@ -25,18 +21,7 @@ class Ec2MachinePower:
     def read_command(self):
         return f"yoke aws exec --project {self.project} -- ec2 describe-instances --instance-ids {self.instance_id}"
 
-    @property
-    def stop_command(self):
-        return f"yoke aws exec --project {self.project} -- ec2 stop-instances --instance-ids {self.instance_id}"
-
     def start(self):
         return ensure_instance_running(
             self.runner, self.instance_id, self.env, self.emit
         )
-
-    def stop(self):
-        if instance_state(self.runner, self.instance_id, self.env) in (
-            "pending",
-            "running",
-        ):
-            stop_instance(self.runner, self.instance_id, self.env, self.emit)

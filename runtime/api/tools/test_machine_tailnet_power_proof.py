@@ -1,4 +1,4 @@
-"""Controller proof: one stopped cloud lab verifies without changing its host."""
+"""Controller proof that cloud shell and verify preserve the host and power state."""
 
 import argparse
 import json
@@ -27,6 +27,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--project", required=True)
     parser.add_argument("--test-machine", required=True)
+    parser.add_argument("--initial-state", choices=("running", "stopped"))
     args = parser.parse_args()
     project, name = args.project, args.test_machine
 
@@ -55,98 +56,68 @@ def main():
     def cloud(*argv):
         return run(provider, "exec", "--project", project, "--", *argv)
 
-    key = "QA_HOST:" + name
-    run(
-        "claims",
-        "coordination-claim",
-        "acquire",
-        "--project",
-        project,
-        "--key",
-        key,
-        "--reason",
-        "stop cloud lab before live power proof",
-        "--json",
-        document=True,
-    )
-    try:
+    def power_state():
         if provider == "aws":
-            cloud("ec2", "stop-instances", "--instance-ids", instance)
-            cloud("ec2", "wait", "instance-stopped", "--instance-ids", instance)
-        else:
-            cloud("vm", "deallocate", "--ids", instance)
-    finally:
-        run(
-            "claims",
-            "coordination-claim",
-            "release",
-            "--project",
-            project,
-            "--key",
-            key,
-            "--reason",
-            "stopped state prepared for power proof",
-            "--json",
-            document=True,
+            return json.loads(
+                cloud(
+                    "ec2",
+                    "describe-instances",
+                    "--instance-ids",
+                    instance,
+                    "--query",
+                    "Reservations[0].Instances[0].State.Name",
+                    "--output",
+                    "json",
+                )
+            )
+        return json.loads(
+            cloud(
+                "vm", "show", "--ids", instance, "--show-details",
+                "--query", "powerState", "--output", "json",
+            )
         )
-    print(f"stopped {name}; registered host {host}", flush=True)
-    output = run(
-        "test-machine",
-        "verify",
-        "--project",
-        project,
-        "--test-machine",
-        name,
-        include_stderr=True,
-    )
+
+    def check_running(operation):
+        state = power_state()
+        if state not in ("running", "VM running"):
+            raise RuntimeError(
+                f"tailnet_power_failed: {name} is {state} after {operation}; "
+                "inspect the provider state and the command output"
+            )
+        print(f"{name} after {operation}: {state}", flush=True)
+
+    state = power_state()
+    initial_states = {
+        "running": ("running", "VM running"),
+        "stopped": ("stopped", "VM stopped", "VM deallocated"),
+    }
+    if args.initial_state and state not in initial_states[args.initial_state]:
+        raise RuntimeError(
+            f"tailnet_power_precondition: {name} is {state}; select an unleased "
+            f"machine that is {args.initial_state} and rerun"
+        )
+    print(f"{name} before exec: {state}", flush=True)
+    commands = ("--project", project, "--test-machine", name)
+    output = run("test-machine", "exec", *commands, "--", "whoami", include_stderr=True)
+    check_running("exec")
+    output += run("test-machine", "verify", *commands, include_stderr=True)
+    check_running("verify")
+    if any(
+        phrase in output.lower()
+        for phrase in ("stopping instance", "deallocated azure vm")
+    ) or (
+        state in initial_states["running"] and "deallocated" in output.lower()
+    ):
+        raise RuntimeError(
+            "tailnet_power_failed: lease release reported a provider stop; "
+            "inspect the exec and verify output"
+        )
     after = record()
     if after["settings"]["host"] != host or after.get("active_lease"):
         raise RuntimeError(
             "tailnet_power_failed: host changed or QA_HOST remains; inspect the execution receipt before recovery"
         )
-    if provider == "aws":
-        cloud("ec2", "wait", "instance-stopped", "--instance-ids", instance)
-    else:
-        state = json.loads(
-            cloud(
-                "vm",
-                "show",
-                "--ids",
-                instance,
-                "--show-details",
-                "--query",
-                "powerState",
-                "--output",
-                "json",
-            )
-        )
-        group = instance.split("/")[4]
-        ips = json.loads(
-            cloud(
-                "network",
-                "public-ip",
-                "list",
-                "--resource-group",
-                group,
-                "--output",
-                "json",
-            )
-        )
-        if state != "VM deallocated" or ips:
-            raise RuntimeError(
-                "tailnet_power_failed: Azure allocation/IP remains; inspect its stop failure and retry cleanup"
-            )
-        if (
-            "attached Azure public IP" not in output
-            or "deleted Azure public IP" not in output
-        ):
-            raise RuntimeError(
-                "tailnet_power_failed: missing Azure create/delete evidence; inspect the verify output"
-            )
-    print(
-        f"PASS {name}: host unchanged ({host}), stopped, no QA_HOST"
-        + (", no Azure public IP" if provider == "azure" else "")
-    )
+    print(f"PASS {name}: host unchanged ({host}), running, no QA_HOST")
 
 
 if __name__ == "__main__":

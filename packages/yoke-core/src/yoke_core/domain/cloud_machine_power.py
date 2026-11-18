@@ -1,15 +1,10 @@
-"""Run a cloud Test Machine only while a lease holds it.
+"""Start a cloud Test Machine under its host lease.
 
-A Test Machine whose settings record ``cloud_instance_id`` names a VM
-the project's provider admin capability powers from the executing
-machine. The lease holder starts it, and waits until its key logs in, before
-the first host command. The last lease release stops it: any call whose
-release leaves the host free (no waiter's turn reserved) names it on its
-response (``cloud_machine_release_notice``), and the calling client, whatever
-command or process it is, stops it while holding the host's own lease.
-A release no client hears (a server-side reap) leaves the host running
-until its next lease cycles; by operator choice there is no sweep.
-Power never changes the registered MagicDNS host. Machines without the setting are never touched.
+A Test Machine whose settings record ``cloud_instance_id`` names a VM that the
+executing machine starts using the project's provider admin capability. The
+lease holder waits for SSH before the first host command. The VM stays running
+after release until an operator stops it. Power never changes the registered
+MagicDNS host.
 """
 
 from __future__ import annotations
@@ -231,13 +226,11 @@ def power_on(
 
 
 class CloudMachinePower(Protocol):
-    """One leased VM: start and release its allocation."""
+    """Start a leased VM and describe how to inspect its state."""
 
     read_command: str
-    stop_command: str
 
     def start(self) -> str: ...
-    def stop(self) -> None: ...
 
 
 @contextmanager

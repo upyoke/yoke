@@ -117,8 +117,10 @@ the [bootstrap SSH command](tailnet-bootstrap.md#start-the-lab-and-reach-its-cur
 never register that IP.
 Keep key-only internet SSH open from anywhere and desktops behind SSH forwards.
 EC2 uses auto-assigned public IPv4 while running, with no Elastic IP.
-Power starts by instance id, waits for SSH on MagicDNS, and stops on last release
-without reading or changing the registered host. Golden reset never touches Tailscale.
+Power starts by instance id and waits for SSH on the registered MagicDNS name.
+Cloud hosts stay running after lease release. See the
+[manual stop commands](host-provisioning.md#stop-a-cloud-test-machine) for
+operator shutdown. Golden reset never touches Tailscale.
 
 Before rebuilding, remove the old tailnet device first, then join the replacement
 with the same hostname; verify no `-1` suffix. Verify the new SSH fingerprint,
@@ -148,7 +150,7 @@ Register `test-machine:<name>` through `yoke test-machine settings-replace
 use the as-read settings token. Settings include `resource_name`, `os=linux`,
 `host`, `user` and the absolute home golden path outside the home. A cloud
 host's `cloud_instance_id` and operating notes belong to this record, not Yoke
-source; with the id, a lease starts the host and its last release stops it.
+source. With the id, a lease starts the host as needed.
 A lease keeps the registered MagicDNS host unchanged.
 A capacity machine is independent; ordinary agent work must use another home.
 

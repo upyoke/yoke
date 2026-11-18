@@ -10,7 +10,6 @@ from yoke_core.domain.deploy_remote import CommandResult
 from yoke_core.domain.ec2_instance_power import (
     Ec2InstancePowerError,
     ensure_instance_running,
-    stop_instance,
 )
 from runtime.api.domain.deploy_remote_test_support import FakeRunner
 
@@ -97,9 +96,3 @@ def test_missing_aws_cli_names_install_and_preflight():
     with pytest.raises(Ec2InstancePowerError) as exc:
         ensure_instance_running(MissingCli(), "i-1", {}, lambda _l: None)
     assert "yoke aws preflight" in str(exc.value)
-
-
-def test_stop_requests_stop_without_waiting():
-    runner = FakeRunner([OK])
-    stop_instance(runner, "i-1", {}, lambda _l: None)
-    assert _argvs(runner) == [["stop-instances", "--instance-ids", "i-1"]]

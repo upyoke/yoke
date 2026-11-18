@@ -25,8 +25,8 @@ its own. When that volume fills, Linux remounts its root read-only and a golden
 refresh stops with `harness_cli_host_disk_failed`: grow the volume, extend the
 Windows partition, run `wsl --shutdown`, then rerun the QA plan.
 Record the instance's `cloud_instance_id` (section 3): a lease then starts the
-host through the project's aws-admin key and waits for SSH, and the end of
-its last lease stops it, so it runs only while QA holds it. Never start it
+host through the project's aws-admin key and waits for SSH. The host stays
+running after release. Never start it
 by hand to satisfy a documentation audit without authorization.
 
 Create/use the dedicated Windows SSH account. WSL distributions are per Windows
@@ -35,7 +35,7 @@ prepare the test account. Separate operator users/homes remain outside capture,
 restore, inspection and logout. Open SSH to any address with key-only
 authentication and keep RDP behind the SSH forward, as
 [network access](host-provisioning.md#network-access) requires.
-A lease keeps the registered MagicDNS host unchanged; its last release stops the cloud host.
+A lease keeps the registered MagicDNS host unchanged.
 
 ### Join Tailscale before registration
 
@@ -60,8 +60,10 @@ the [bootstrap SSH command](tailnet-bootstrap.md#start-the-lab-and-reach-its-cur
 never register that IP.
 Keep key-only internet SSH open from anywhere and desktops behind SSH forwards.
 EC2 uses auto-assigned public IPv4 while running, with no Elastic IP.
-Power starts by instance id, waits for SSH on MagicDNS, and stops on last release
-without reading or changing the registered host. Golden reset never touches Tailscale.
+Power starts by instance id and waits for SSH on the registered MagicDNS name.
+Cloud hosts stay running after lease release. See the
+[manual stop commands](host-provisioning.md#stop-a-cloud-test-machine) for
+operator shutdown. Golden reset never touches Tailscale.
 
 Before rebuilding, remove the old tailnet device first, then join the replacement
 with the same hostname; verify no `-1` suffix. Verify the new SSH fingerprint,
@@ -271,9 +273,9 @@ with `yoke test-machine golden-capture`, which proves the real requests and
 seals a new clean golden.
 
 After restart, the local universe's documented startup path restarts its authority.
-Record the exact saved-state proof. A host with `cloud_instance_id` stops when
-its last lease ends; stop any other cloud compute outside the authorized test
-window. A stopped host's old receipt cannot establish today's readiness.
+Record the exact saved-state proof. To shut down cloud compute after the test
+window, use the [manual stop commands](host-provisioning.md#stop-a-cloud-test-machine).
+A stopped host's old receipt cannot establish today's readiness.
 
 Cloud SSH routes use `HostKeyAlias=<cloud_instance_id>` instead of an IP pin.
 The first connection accepts the instance key once with `accept-new`; later

@@ -177,8 +177,8 @@ Yoke reads the browser-control declarations here and runs authorization in the
 registered Test Machine's GUI session over its SSH route. It acquires the host
 lease (or borrows your existing lease), starts a stopped cloud machine and waits
 for SSH before opening the desktop. It holds custody until sign-in and viewer
-cleanup finish, then releases only the lease it acquired; last release stops
-cloud machines. Another session's lease refuses authorization. Before opening
+cleanup finish, then releases only the lease it acquired. Cloud machines stay
+running after release. Another session's lease refuses authorization. Before opening
 a viewer it checks the login-shell PATH for Yoke; `test_machine_yoke_missing`
 names the `shell-preconfigured` baseline reset needed to install it. A Linux or Windows
 WSL machine with a registered RDP desktop opens in the same FreeRDP viewer as

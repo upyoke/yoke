@@ -1,4 +1,4 @@
-"""Azure VM power operations; deallocation releases the compute allocation."""
+"""Azure VM startup and public IP attachment."""
 
 from __future__ import annotations
 
@@ -26,10 +26,6 @@ class AzureMachinePower:
     @property
     def read_command(self):
         return f"yoke azure exec --project {self.project} -- vm show --ids {self.instance_id} --show-details"
-
-    @property
-    def stop_command(self):
-        return f"yoke azure exec --project {self.project} -- vm deallocate --ids {self.instance_id}"
 
     def _run(self, action, *args, timeout=60):
         return run_checked(
@@ -108,14 +104,6 @@ class AzureMachinePower:
             f"inspect it with `{self.read_command}` and retry"
         )
 
-    def stop(self):
-        if self._details()["powerState"] != "VM deallocated":
-            # A stopped but allocated VM still bills.
-            self._announce("deallocate")
-            self._run("deallocate", timeout=600)
-            self.emit(f"  deallocated Azure VM {self.instance_id}")
-        self._delete_public_ip()
-
     @property
     def public_ip_id(self):
         group = "/".join(self.instance_id.split("/")[:5])
@@ -185,29 +173,3 @@ class AzureMachinePower:
             self.public_ip_id,
         )
         self.emit(f"  attached Azure public IP {self.public_ip_id}")
-
-    def _delete_public_ip(self):
-        config_id, attached, _ = self._ip_config()
-        if attached:
-            self._network(
-                "nic",
-                "ip-config",
-                "update",
-                "--ids",
-                config_id,
-                "--remove",
-                "publicIPAddress",
-            )
-        # Listing handles both an absent IP and a create whose attachment failed.
-        group = self.instance_id.split("/")[4]
-        result = self._network("public-ip", "list", "--resource-group", group)
-        try:
-            ips = json.loads(result.stdout)
-            exists = any(ip["id"].lower() == self.public_ip_id.lower() for ip in ips)
-        except (ValueError, KeyError, TypeError):
-            raise AzureAdminError(
-                "Azure public-ip list returned invalid resources; inspect and delete the power IP, then retry"
-            ) from None
-        if exists:
-            self._network("public-ip", "delete", "--ids", self.public_ip_id)
-            self.emit(f"  deleted Azure public IP {self.public_ip_id}")

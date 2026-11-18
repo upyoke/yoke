@@ -1,4 +1,4 @@
-"""Start and stop one EC2 instance, named by its instance id.
+"""Start one EC2 instance, named by its instance id.
 
 Deploy environments and cloud Test Machines both power hosts through these
 calls; each caller resolves its own instance id and AWS child env first.
@@ -123,23 +123,8 @@ def ensure_instance_running(
     return state
 
 
-def stop_instance(
-    runner: CommandRunner,
-    instance_id: str,
-    aws_env: dict,
-    emit: Callable[[str], None],
-) -> None:
-    """Ask EC2 to stop the instance; a later start waits out ``stopping``."""
-    stopped = _run(
-        runner, ["stop-instances", "--instance-ids", instance_id], aws_env, 60
-    )
-    _require_ok(stopped, instance_id, "stop-instances")
-    emit(f"  stopping instance {instance_id}")
-
-
 __all__ = [
     "Ec2InstancePowerError",
     "ensure_instance_running",
     "instance_state",
-    "stop_instance",
 ]

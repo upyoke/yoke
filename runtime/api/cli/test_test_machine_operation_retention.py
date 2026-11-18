@@ -1,4 +1,4 @@
-"""Interactive retention finishes while submit has not released the host."""
+"""Interactive retention finishes before submit releases the host lease."""
 
 from types import SimpleNamespace
 import subprocess
@@ -17,11 +17,11 @@ CURRENT = "/goldens/tester-home-current"
 @pytest.mark.parametrize("submit_success", [True, False])
 @pytest.mark.parametrize("status", ["verified", "error"])
 @pytest.mark.parametrize("keep_state", ["known", "missing", "unknown"])
-def test_capture_retains_before_submit_stops_host(
+def test_capture_retains_before_submit_releases_lease(
     monkeypatch, status, keep_state, submit_success,
 ):
     events = []
-    stopped = False
+    lease_released = False
     execution = {
         "project": "example", "settings": {"user": "tester"},
         "lease_id": 1, "contract_digest": "digest",
@@ -34,21 +34,21 @@ def test_capture_retains_before_submit_stops_host(
     }[keep_state]
 
     def dispatch(*, function_id, **kwargs):
-        nonlocal stopped
+        nonlocal lease_released
         phase = function_id.rsplit(".", 1)[1]
         events.append(phase)
         if phase == "begin":
             result = {"execution": execution, **keep_fields}
         elif phase == "submit":
             assert status == "error" or "retention" in events
-            stopped = True
+            lease_released = True
             result = (
                 {"status": status, "golden_baseline_path": DESTINATION}
                 if submit_success else {}
             )
         else:
             assert phase == "abort"
-            stopped = True
+            lease_released = True
             result = {"released": True}
         return FunctionCallResponse(
             success=phase != "submit" or submit_success,
@@ -56,14 +56,14 @@ def test_capture_retains_before_submit_stops_host(
         )
 
     def run(command, **kwargs):
-        assert not stopped, "SSH contacted a host stopped after submit"
+        assert not lease_released, "SSH contacted the host after lease release"
         events.append("ssh")
         return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
 
     def retain(execution, destination, kept_paths):
         assert status == "verified"
         assert kept_paths == [CURRENT, DESTINATION]
-        assert not stopped
+        assert not lease_released
         events.append("retention")
         return retention.apply_retention(
             run, destination=destination, user="tester", kept_paths=kept_paths,
