@@ -32,6 +32,8 @@
  * is what makes the operator's sign-in readable afterwards.
  */
 
+const fs = require('fs');
+const path = require('path');
 const { spawn, execFile } = require('child_process');
 const { windowOwnerPids } = require('./linux-window-owners');
 const { profileLockOwner, quitProfileOwner, signalProcess } = require('./profile-lock');
@@ -118,6 +120,19 @@ function buildLaunchArgs({ profileDir, urls = [] }) {
   return args;
 }
 
+/**
+ * Drop the tabs a previous window left behind, keeping the sign-in.
+ *
+ * Every Yoke shutdown of this window is a SIGTERM, which Chromium records as
+ * a session end (`exit_type` SessionEnded) and answers on the next launch by
+ * restoring that session's tabs next to the new starting URLs -- one more
+ * copy of the same site on every run. The saved session lives only in
+ * `Default/Sessions`; cookies and the rest of the profile stay untouched.
+ */
+function discardSavedSession(profileDir) {
+  fs.rmSync(path.join(profileDir, 'Default', 'Sessions'), { recursive: true, force: true });
+}
+
 /** The Chromium the daemon drives, so the profile's cookies stay readable. */
 function resolveExecutablePath() {
   const executablePath = require('./browser-executable').executablePath()
@@ -159,7 +174,8 @@ function parseArgs(argv) {
  *
  * A browser still holding the profile is quit first: otherwise Chromium's
  * single-instance lock forwards the URLs to it as extra tabs and the new
- * launch exits 0 at once (see profile-lock.js).
+ * launch exits 0 at once (see profile-lock.js). Its saved session is then
+ * discarded, so the window opens only the starting URLs.
  *
  * `deps` exists so the contract test can observe the spawn without opening a
  * real browser; production callers pass nothing.
@@ -177,6 +193,7 @@ async function openSignInWindow(
   const binary = executablePath();
   const holder = profileLockOwner(profileDir);
   if (holder !== null) await quitProfileOwner(holder, profileDir, { shutdownMs });
+  discardSavedSession(profileDir);
   const child = spawnProcess(binary, buildLaunchArgs({ profileDir, urls }), {
     stdio: ['ignore', 'ignore', 'pipe'],
   });

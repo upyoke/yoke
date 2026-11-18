@@ -123,3 +123,28 @@ test('stop() signals the profile lock owner as well as the spawned PID', LIMIT, 
   assert.deepEqual(child.signals, ['SIGTERM'], 'the spawned PID receives SIGTERM');
   assert.equal(await holder.exitSignal, 'SIGTERM', 'the lock owner receives SIGTERM');
 });
+
+test('the saved session is discarded before spawn and the sign-in kept', LIMIT, async () => {
+  // A SIGTERM'd Chromium restores its session's tabs beside the new URL on
+  // the next launch, one more duplicate tab per run.
+  const profileDir = tempProfile();
+  const sessions = path.join(profileDir, 'Default', 'Sessions');
+  fs.mkdirSync(sessions, { recursive: true });
+  fs.writeFileSync(path.join(sessions, 'Session_1'), 'tabs');
+  fs.writeFileSync(path.join(profileDir, 'Default', 'Cookies'), 'cookies');
+  let atSpawn;
+  const child = fakeChild();
+  await openSignInWindow({ profileDir, urls: ['https://app.upyoke.com'] }, {
+    spawnProcess: () => {
+      atSpawn = {
+        sessions: fs.existsSync(sessions),
+        cookies: fs.existsSync(path.join(profileDir, 'Default', 'Cookies')),
+      };
+      setImmediate(() => child.emit('exit', 0));
+      return child;
+    },
+    executablePath: () => '/cache/chromium',
+    platform: 'darwin',
+  });
+  assert.deepEqual(atSpawn, { sessions: false, cookies: true });
+});

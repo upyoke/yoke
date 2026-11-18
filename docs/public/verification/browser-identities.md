@@ -78,7 +78,8 @@ Sign-in windows close after 30 minutes; managed Chromium gets 10 seconds to
 quit before it is force-stopped. A gate marker older than 30 minutes plus
 that shutdown margin is removed even if its recorded PID is still alive.
 A Chromium an earlier run left holding the profile is asked to quit before
-the window opens, so the window shows only this run's tabs. One still
+the window opens, and the tabs an earlier window left are dropped (the
+sign-in is kept), so the window shows only this run's starting URLs. One still
 running after 10 seconds refuses with `authorization_profile_in_use`, naming
 its PID: quit it, then rerun.
 
