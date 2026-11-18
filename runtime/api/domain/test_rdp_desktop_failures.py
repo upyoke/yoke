@@ -80,12 +80,19 @@ def test_launch_error_distinguishes_missing_from_permissions(
     )
 
 
-def test_direct_route_keeps_certificate_verification(client_route, monkeypatch):
+def test_direct_route_pins_the_certificate_first_seen(client_route, monkeypatch):
+    from yoke_harness import rdp_certificate_pin
+
     process = Client()
     process.stdin.close = lambda: None
+    pinned = "ab" * 32
+    monkeypatch.setattr(
+        rdp_certificate_pin, "pinned_certificate", lambda *a, **kw: pinned
+    )
 
     def launch(argv, **kw):
-        assert "/cert:deny" in argv and "/cert:ignore" not in argv
+        assert f"/cert:fingerprint:sha256:{pinned}" in argv
+        assert "/cert:ignore" not in argv and "/cert:deny" not in argv
         return process
 
     monkeypatch.setattr(viewer.subprocess, "Popen", launch)

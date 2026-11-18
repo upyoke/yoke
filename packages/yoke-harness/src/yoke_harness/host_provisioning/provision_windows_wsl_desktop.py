@@ -1,4 +1,9 @@
-"""Prepare a loopback-only XFCE desktop in the Windows test user's WSL home."""
+"""Prepare a WSL XFCE desktop the Windows host exposes only on its tailnet.
+
+xrdp listens on WSL loopback, which Windows localhost forwarding carries to
+127.0.0.1 on the host. A port proxy on the host's Tailscale address forwards
+to it, and one firewall rule admits that port only on the Tailscale interface.
+"""
 
 from __future__ import annotations
 
@@ -10,6 +15,7 @@ import re
 import subprocess
 
 import provision_linux_desktop as desktop
+from linux_desktop_listener import LOOPBACK
 
 DEFAULT_WSL_RDP_PORT = 3390
 SUPPORTED_WSL_VERSION = (3, 0, 1)
@@ -146,8 +152,58 @@ def prove_windows_localhost(port: int) -> None:
     except desktop.ProvisionFailure:
         raise desktop.ProvisionFailure(
             "windows_wsl_localhost_unavailable: inspect the existing WSL localhost "
-            "forwarding; do not open a public listener or change Windows firewall settings"
+            "forwarding; do not open a public listener"
         ) from None
+
+
+TAILNET_RULE = "YokeWslDesktopTailnet"
+TAILNET_SCRIPT = r"""
+$ErrorActionPreference='Stop'
+$port={port}
+$address=@(Get-NetIPAddress -InterfaceAlias Tailscale -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object {{$_.IPAddress -like '100.*'}})
+if($address.Count -ne 1){{throw 'windows_wsl_tailnet_address_missing: start Tailscale on the Windows host and join the tailnet, then rerun'}}
+$ip=$address[0].IPAddress
+if('{mode}' -eq 'apply'){{
+ foreach($line in @(netsh interface portproxy show v4tov4 | Select-String "\s$port\s")){{
+  $listen=($line.ToString().Trim() -split '\s+')[0]
+  netsh interface portproxy delete v4tov4 listenaddress=$listen listenport=$port | Out-Null
+ }}
+ netsh interface portproxy add v4tov4 listenaddress=$ip listenport=$port connectaddress=127.0.0.1 connectport=$port | Out-Null
+ Get-NetFirewallRule -Name {rule} -ErrorAction SilentlyContinue | Remove-NetFirewallRule
+ New-NetFirewallRule -Name {rule} -DisplayName 'Yoke WSL desktop (Tailscale only)' -Direction Inbound -Action Allow -Protocol TCP -LocalPort $port -InterfaceAlias Tailscale -Profile Any | Out-Null
+}}
+$proxies=@(netsh interface portproxy show v4tov4 | Select-String "\s$port\s" | ForEach-Object {{,($_.ToString().Trim() -split '\s+')}})
+if($proxies.Count -ne 1 -or $proxies[0][0] -ne $ip -or $proxies[0][2] -ne '127.0.0.1' -or $proxies[0][3] -ne "$port"){{throw "windows_wsl_tailnet_proxy_not_proved: one port proxy must forward $ip`:$port to 127.0.0.1`:$port; rerun Pack provisioning"}}
+$rule=Get-NetFirewallRule -Name {rule} -ErrorAction SilentlyContinue
+$interfaces=@($rule | Get-NetFirewallInterfaceFilter | ForEach-Object InterfaceAlias)
+if(!$rule -or $rule.Enabled -ne 'True' -or $interfaces.Count -ne 1 -or $interfaces[0] -ne 'Tailscale'){{throw 'windows_wsl_tailnet_firewall_not_proved: rule {rule} must admit the port only on the Tailscale interface; rerun Pack provisioning'}}
+$client=[Net.Sockets.TcpClient]::new()
+try{{ if(-not $client.ConnectAsync($ip,$port).Wait(5000) -or -not $client.Connected){{throw "windows_wsl_tailnet_unreachable: $ip`:$port did not accept; inspect the IP Helper service and the port proxy"}} }} finally {{ $client.Dispose() }}
+Write-Output $ip
+"""
+
+
+def expose_on_tailnet(port: int, *, verify_only: bool) -> str:
+    """Return the tailnet address that now reaches the WSL desktop."""
+    script = TAILNET_SCRIPT.format(
+        port=port, rule=TAILNET_RULE, mode="verify" if verify_only else "apply"
+    )
+    result = subprocess.run(
+        ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script],
+        text=True,
+        capture_output=True,
+        timeout=120,
+    )
+    output = (result.stdout + result.stderr).replace("\x00", "")
+    if result.returncode:
+        named = re.search(r"windows_wsl_tailnet_[a-z_]+:[^\r\n]*", output)
+        raise desktop.ProvisionFailure(
+            named[0]
+            if named
+            else "windows_wsl_tailnet_failed: run provisioning from an administrator "
+            "Windows session and rerun"
+        )
+    return result.stdout.replace("\x00", "").strip().splitlines()[-1]
 
 
 def main() -> int:
@@ -178,10 +234,11 @@ def main() -> int:
         lifetime = configure_instance_lifetime(verify_only=args.verify)
         if not args.verify:
             desktop.provision(
-                home, args.rdp_port, args.browser_project, args.browser_identity
+                home, args.rdp_port, args.browser_project, args.browser_identity, LOOPBACK
             )
-        result = desktop.verify(home, args.rdp_port)
+        result = desktop.verify(home, args.rdp_port, LOOPBACK)
         prove_windows_localhost(args.rdp_port)
+        tailnet_address = expose_on_tailnet(args.rdp_port, verify_only=args.verify)
         if password is not None:
             desktop.set_desktop_password(password)
             result["login_password_set"] = True
@@ -190,6 +247,7 @@ def main() -> int:
             facts,
             wsl_lifetime=lifetime,
             display_route="WSL XFCE through Windows localhost RDP",
+            tailnet_listener=f"{tailnet_address}:{args.rdp_port}",
             operator_next_step=(
                 "The product opens WSL XFCE with its capability-owned secret. "
                 "Authorize the operator identity with `yoke browser authorize "

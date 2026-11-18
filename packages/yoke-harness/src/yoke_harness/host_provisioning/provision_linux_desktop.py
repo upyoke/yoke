@@ -1,4 +1,4 @@
-"""Provision a dedicated Ubuntu test user's XFCE desktop over tunnel-only RDP."""
+"""Provision a dedicated Ubuntu test user's XFCE desktop over tailnet or SSH-forward RDP."""
 
 from __future__ import annotations
 
@@ -14,6 +14,15 @@ import subprocess
 import sys
 import tempfile
 import time
+
+from linux_desktop_listener import (
+    ANY_ADDRESS,
+    ProvisionFailure,
+    install_firewall,
+    listener_config,
+    prove_firewall,
+    prove_listener,
+)
 
 DEFAULT_RDP_PORT = 3389
 SESSION_CONTENT = "exec startxfce4\n"
@@ -33,10 +42,6 @@ BROWSER_HELPER = (
 )
 DEFAULTS_SECTION = "[Default Applications]"
 BROWSER_TYPES = ("x-scheme-handler/http", "x-scheme-handler/https", "text/html")
-
-
-class ProvisionFailure(RuntimeError):
-    """A named provisioning refusal with an operator recovery."""
 
 
 def command(
@@ -74,38 +79,6 @@ def set_desktop_password(password: str) -> None:
 
     user = pwd.getpwuid(posix_uid()).pw_name
     command(["sudo", "-n", "chpasswd"], input_text=f"{user}:{password}\n")
-
-
-def localhost_config(content: str, port: int = DEFAULT_RDP_PORT) -> str:
-    """Change only the listener in Globals, retaining module ports and comments."""
-    section = ""
-    replaced = 0
-    lines = []
-    for line in content.splitlines(keepends=True):
-        match = re.match(r"\s*\[([^]]+)\]", line)
-        if match:
-            section = match[1].lower()
-        if section == "globals" and re.match(r"\s*port\s*=", line):
-            line = f"port=tcp://127.0.0.1:{port}\n"
-            replaced += 1
-        lines.append(line)
-    if replaced != 1:
-        raise ProvisionFailure(
-            "linux_desktop_listener_config_unavailable: expected one Globals port; "
-            "inspect /etc/xrdp/xrdp.ini before rerunning"
-        )
-    return "".join(lines)
-
-
-def prove_listener(output: str, port: int = DEFAULT_RDP_PORT) -> None:
-    rows = [line.split() for line in output.splitlines() if line.strip()]
-    listeners = [row[3] if len(row) >= 5 else "invalid" for row in rows]
-    address = f"127.0.0.1:{port}"
-    if not listeners or any(value != address for value in listeners):
-        raise ProvisionFailure(
-            f"linux_desktop_loopback_not_proved: RDP must listen only on {address}; "
-            "repair xrdp's Globals port and restart xrdp before connecting"
-        )
 
 
 def helper_settings(content: str) -> str:
@@ -180,24 +153,32 @@ def prerequisites() -> Path:
     return home
 
 
-def provision(home: Path, port: int, project: str, identity: str) -> None:
+def install_root_file(content: str, path: str, mode: str) -> None:
+    with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8") as candidate:
+        candidate.write(content)
+        candidate.flush()
+        command(["sudo", "-n", "install", "-o", "root", "-g", "root"]
+                + ["-m", mode, candidate.name, path])
+
+
+def provision(
+    home: Path, port: int, project: str, identity: str, address: str = ANY_ADDRESS
+) -> None:
     print("linux-desktop: installing XFCE and xrdp", flush=True)
     command(["sudo", "-n", "apt-get", "update"])
     packages = (
         "xfce4", "xfce4-terminal", "xrdp", "xorgxrdp", "dbus-x11",
-        "python3-venv", "scrot", "xdotool", *HELPER_PACKAGES,
+        "python3-venv", "scrot", "xdotool", "nftables", *HELPER_PACKAGES,
     )
     command(["sudo", "-n", "env", "DEBIAN_FRONTEND=noninteractive",
              "apt-get", "install", "-y", "--no-install-recommends", *packages])
+    if address == ANY_ADDRESS:
+        install_firewall(port, command, install_root_file)
     config_path = Path("/etc/xrdp/xrdp.ini")
     original = config_path.read_text(encoding="utf-8")
-    configured = localhost_config(original, port)
+    configured = listener_config(original, port, address)
     if configured != original:
-        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8") as candidate:
-            candidate.write(configured)
-            candidate.flush()
-            command(["sudo", "-n", "install", "-o", "root", "-g", "root",
-                     "-m", "0644", candidate.name, str(config_path)])
+        install_root_file(configured, str(config_path), "0644")
     (home / ".xsession").write_text(SESSION_CONTENT, encoding="utf-8", newline="\n")
     (home / ".xsession").chmod(0o600)
     helpers = home / ".config/xfce4/helpers.rc"
@@ -237,9 +218,11 @@ def selected_launcher(home: Path) -> str:
     return next((x[len("Exec="):] for x in lines if x.startswith("Exec=")), "")
 
 
-def verify(home: Path, port: int = DEFAULT_RDP_PORT) -> dict:
+def verify(home: Path, port: int = DEFAULT_RDP_PORT, address: str = ANY_ADDRESS) -> dict:
     command(["systemctl", "is-active", "xrdp", "xrdp-sesman"])
-    wait_for_listener(port)
+    wait_for_listener(port, address)
+    if address == ANY_ADDRESS:
+        prove_firewall(port, command(["sudo", "-n", "nft", "list", "ruleset"]).stdout)
     if (home / ".xsession").read_text(encoding="utf-8") != SESSION_CONTENT:
         raise ProvisionFailure(
             "linux_desktop_session_not_proved: rerun provisioning to select XFCE"
@@ -278,7 +261,7 @@ def verify(home: Path, port: int = DEFAULT_RDP_PORT) -> dict:
         "ok": True,
         "desktop": "XFCE",
         "default_browser": chosen,
-        "rdp_listener": f"127.0.0.1:{port}",
+        "rdp_listener": f"{address}:{port}",
         "login_password_set": len(status) > 1 and status[1] == "P",
         "operator_next_step": (
             "The product opens the dedicated desktop with its capability-owned secret. "
@@ -288,13 +271,13 @@ def verify(home: Path, port: int = DEFAULT_RDP_PORT) -> dict:
     }
 
 
-def wait_for_listener(port: int = DEFAULT_RDP_PORT) -> None:
+def wait_for_listener(port: int, address: str) -> None:
     # systemctl restart returns before xrdp has opened its listening socket.
     deadline = time.monotonic() + 10
     while True:
         output = command(["ss", "-H", "-ltn", f"sport = :{port}"]).stdout
         if output.strip() or time.monotonic() >= deadline:
-            prove_listener(output, port)
+            prove_listener(output, port, address)
             return
         time.sleep(0.2)
 

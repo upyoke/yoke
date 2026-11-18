@@ -7,7 +7,7 @@ from pathlib import Path
 import socket
 import subprocess
 import tempfile
-from typing import Mapping
+from typing import Callable, Mapping
 
 from yoke_contracts.machine_config.capability_secret_store import (
     machine_capability_secret_path,
@@ -85,10 +85,8 @@ def _prepare_desktop(settings, key_path, password):
     from types import SimpleNamespace
 
     if settings["os"] == "windows":
-        return {"desktop_session": "native"}, None
-    if settings["os"] == "windows":
         # Windows owns its RDP listener and autologon session. Captures use
-        # Task Scheduler; a human viewer uses the returned SSH-forward address.
+        # Task Scheduler; a human viewer opens the announced address.
         return {"desktop_session": "native"}, None
     from yoke_harness.linux_desktop_session import ensure_desktop
     from yoke_contracts.windows_wsl_command import (
@@ -170,7 +168,7 @@ def _screen_sharing_route(settings, route) -> bool:
     """macOS test machines are viewed in Screen Sharing; Linux and WSL in FreeRDP."""
     if settings.get("os") == "windows":
         raise DesktopAccessError(
-            "windows_desktop_view_requires_rdp: run desktop-access without --view and open its SSH-forward address in your Windows RDP client"
+            "windows_desktop_view_requires_rdp: run desktop-access without --view and open its announced address in your RDP client"
         )
     if settings.get("os") == "macos" and route["desktop_protocol"] == "vnc":
         return True
@@ -208,112 +206,97 @@ def begin_desktop_view(*, project: str, test_machine: str, settings: Mapping[str
     return DesktopView.open(project, test_machine, settings, password, receipt, run)
 
 
+def _hold_forward() -> None:
+    """Keep the SSH forward until Enter, Ctrl-C or SIGTERM; without a terminal, until a signal."""
+    import signal
+    import sys
+    import time
+
+    def interrupt(*_):
+        raise KeyboardInterrupt
+
+    previous = signal.signal(signal.SIGTERM, interrupt)
+    print(
+        "The SSH forward stays open while this command runs; press Enter or Ctrl-C to close it.",
+        file=sys.stderr,
+        flush=True,
+    )
+    try:
+        if not sys.stdin.readline():
+            while True:
+                time.sleep(1)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        signal.signal(signal.SIGTERM, previous)
+
+
 def open_desktop_access(
-    *, project: str, test_machine: str, settings: Mapping[str, str], view: bool = False
-) -> dict[str, str]:
-    """Return only the connectable address, desktop user and private file path."""
+    *,
+    project: str,
+    test_machine: str,
+    settings: Mapping[str, str],
+    announce: Callable[[dict], None],
+    view: bool = False,
+) -> None:
+    """Announce only the connectable address, desktop user and private file path.
+
+    A direct route announces and returns. The SSH-forward fallback announces,
+    then holds its forward until the operator closes it.
+    """
     route = _desktop_route(settings)
     if view and _screen_sharing_route(settings, route):
         from yoke_harness.screen_sharing_view import view_screen_sharing
 
         password = _desktop_password(project, test_machine)
-        return view_screen_sharing(project, test_machine, settings, password)
+        announce(view_screen_sharing(project, test_machine, settings, password))
+        return
     if view:
         password, receipt, run = _ready_desktop_view(project, test_machine, settings)
         from yoke_harness.rdp_desktop_client import view_desktop
 
-        return view_desktop(project, test_machine, settings, password, receipt, run)
+        announce(view_desktop(project, test_machine, settings, password, receipt, run))
+        return
     password = _desktop_password(project, test_machine)
-    key_path = machine_capability_secret_path(
-        project, TEST_MACHINE_CAPABILITY, "ssh_private_key"
-    )
-    if route["desktop_route"] == "ssh-forward" and not key_path.is_file():
-        raise DesktopAccessError(
-            "desktop_ssh_key_missing: store test-machine.ssh_private_key on this executing machine"
-        )
     session_evidence = {}
     if settings.get("os") in {"linux", "wsl"}:
+        key_path = machine_capability_secret_path(
+            project, TEST_MACHINE_CAPABILITY, "ssh_private_key"
+        )
         if not key_path.is_file():
             raise DesktopAccessError(
                 "desktop_ssh_key_missing: store test-machine.ssh_private_key on this executing machine"
             )
-        receipt, run = _prepare_desktop(settings, key_path, password)
+        receipt, _ = _prepare_desktop(settings, key_path, password)
         session_evidence = {"desktop_session": receipt["desktop_session"]}
-    descriptor, name = tempfile.mkstemp(
-        prefix="yoke-desktop-", suffix=".password"
-    )
-    os.close(descriptor)
-    password_path = Path(name)
-    control_path = name + ".ssh"
-    ssh_args: list[str] = []
-    target = f"{settings['user']}@{settings['host']}"
-    tunnel = False
-    opened = False
-    try:
-        write_owner_private(password_path, password + "\n")
-        host = route.get("desktop_host") or settings["host"]
-        port = int(route["desktop_port"])
-        if route["desktop_route"] == "ssh-forward":
-            ssh_args = _ssh_args(settings, key_path, control_path)
-            with socket.socket() as reservation:
-                reservation.bind(("127.0.0.1", 0))
-                local_port = reservation.getsockname()[1]
-            destination = route.get("desktop_host") or "127.0.0.1"
-            forward = f"127.0.0.1:{local_port}:[{destination}]:{port}"
-            result = subprocess.run(
-                [
-                    *ssh_args,
-                    "-M",
-                    "-f",
-                    "-N",
-                    "-o",
-                    "ExitOnForwardFailure=yes",
-                    "-L",
-                    forward,
-                    target,
-                ],
-                capture_output=True,
-                timeout=20,
-                check=False,
+    from yoke_harness.desktop_forward import desktop_forward
+
+    with desktop_forward(project, settings) as (host, port, user):
+        if route["desktop_route"] == "direct" and route["desktop_protocol"] == "rdp":
+            from yoke_harness.rdp_certificate_pin import pinned_certificate
+
+            session_evidence["certificate_sha256"] = pinned_certificate(
+                host, port, DesktopAccessError, yoke_home=machine_config.yoke_home()
             )
-            if result.returncode:
-                raise DesktopAccessError(
-                    "desktop_forward_failed: check the registered SSH host, key and remote desktop port, then retry"
-                )
-            tunnel = True
-            host, port = "127.0.0.1", local_port
-        _check_desktop(host, port, route["desktop_protocol"])
+        descriptor, name = tempfile.mkstemp(prefix="yoke-desktop-", suffix=".password")
+        os.close(descriptor)
+        try:
+            write_owner_private(Path(name), password + "\n")
+        except OSError:
+            Path(name).unlink(missing_ok=True)
+            raise DesktopAccessError(
+                "desktop_password_file_unavailable: repair the workstation temporary "
+                "directory permissions and free space, then retry"
+            ) from None
         authority = f"[{host}]" if ":" in host else host
-        opened = True
-        return {
-            "address": f"{route['desktop_protocol']}://{authority}:{port}",
-            "user": route["desktop_user"],
-            "password_file": name,
-            **session_evidence,
-        }
-    except (OSError, subprocess.TimeoutExpired):
-        raise DesktopAccessError(
-            "desktop_unreachable: check the declared route and desktop service, then retry"
-        ) from None
-    finally:
-        # A failed open must not leave either a password copy or an SSH listener.
-        if not opened:
-            password_path.unlink(missing_ok=True)
-            if tunnel or Path(control_path).exists():
-                try:
-                    closed = subprocess.run(
-                        [*ssh_args, "-O", "exit", target],
-                        capture_output=True,
-                        timeout=10,
-                        check=False,
-                    )
-                    if closed.returncode:
-                        raise DesktopAccessError(
-                            "desktop_forward_cleanup_failed: close the forward with "
-                            f"ssh -F /dev/null -S {control_path} -O exit {target}"
-                        )
-                except (OSError, subprocess.TimeoutExpired):
-                    raise DesktopAccessError(
-                        "desktop_forward_cleanup_failed: close the forward with "
-                        f"ssh -F /dev/null -S {control_path} -O exit {target}"
-                    ) from None
+        announce(
+            {
+                "address": f"{route['desktop_protocol']}://{authority}:{port}",
+                "route": route["desktop_route"],
+                "user": user,
+                "password_file": name,
+                **session_evidence,
+            }
+        )
+        if route["desktop_route"] == "ssh-forward":
+            _hold_forward()

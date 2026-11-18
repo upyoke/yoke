@@ -68,5 +68,9 @@ def test_machine_qa_assets_ship_without_a_pack(product_wheelhouse):
         ]
         assert not any("packs/machine-qa/" in name for name in wheel.namelist())
     with ZipFile(harness) as wheel:
-        for name in ("provision_linux_desktop", "provision_windows_wsl_desktop"):
+        for name in (
+            "linux_desktop_listener",
+            "provision_linux_desktop",
+            "provision_windows_wsl_desktop",
+        ):
             assert wheel.read(f"yoke_harness/host_provisioning/{name}.py")

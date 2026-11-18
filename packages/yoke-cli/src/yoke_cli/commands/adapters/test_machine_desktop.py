@@ -26,17 +26,25 @@ def test_machine_desktop_access(args: list[str]) -> int:
         prog="yoke test-machine desktop-access",
         description=(
             "Open the registered RDP or VNC route and write the desktop password "
-            "to a new mode-600 file under /tmp. Prints address, user and password_file. "
+            "to a new owner-only file in the temporary directory. Prints address, route, user and "
+            "password_file. desktop_route=direct reaches the host's own desktop listener over a "
+            "private network such as the tailnet (desktop_host defaults to the registered host) and "
+            "returns at once. desktop_route=ssh-forward is the fallback for hosts outside such a "
+            "network: it holds an ssh -N -L forward on 127.0.0.1 while the command runs; press "
+            "Enter or Ctrl-C (or send SIGTERM) to close it. "
             "Linux and Windows WSL reuse or start XFCE and report desktop_session=started/reused/restarted. "
             "RDP access ends an orphaned fixture desktop older than xrdp-sesman and starts a replacement; "
             "a connected RDP client must close before that repair. "
             "Any second Linux viewer refuses linux_desktop_viewer_connected: close the open "
             "'Yoke desktop: MACHINE' viewer (or let browser authorize finish), then retry. "
-            "Windows desktop_user and desktop_port name the WSL user and loopback xrdp service. "
+            "Windows desktop_user and desktop_port name the WSL user and its xrdp port. "
             "--view opens that same XFCE display in FreeRDP's visible SDL client, feeds the fixture "
-            "password on stdin, and closes the SSH forward when the viewer closes; no password file. "
-            "On the loopback SSH route, SSH host-key verification is the trust boundary: /cert:ignore "
-            "avoids FreeRDP's per-port certificate cache. Direct RDP retains certificate verification. "
+            "password on stdin, and closes any SSH forward when the viewer closes; no password file. "
+            "On the SSH forward, SSH host-key verification is the trust boundary (/cert:ignore). "
+            "A direct RDP route pins the host's self-signed certificate on first use under the Yoke "
+            "home (test-machine/rdp_certificates), prints certificate_sha256 and passes FreeRDP that "
+            "fingerprint; a changed certificate refuses desktop_certificate_changed naming the line to "
+            "delete if the change was deliberate. "
             "On macOS it uses SDL OpenGL rendering to keep input responsive during continuous updates. "
             "It announces and retains a mode-600, password-redacted INFO client log, returned as log_path. "
             "A connected client's logged local cancellation closes successfully; client_exit_code preserves "
@@ -50,8 +58,6 @@ def test_machine_desktop_access(args: list[str]) -> int:
             "terminal it closes once the clipboard clears. Prints address, user and viewer=closed. "
             "Another workstation refuses desktop_view_requires_mac_workstation: run without --view "
             "and use any VNC client. "
-            "For SSH forwarding the control socket is PASSWORD_FILE.ssh; close it with "
-            "ssh -S PASSWORD_FILE.ssh -O exit SSH_USER@SSH_HOST after connecting. "
             "Remove the private password copy after use. "
             "Takes an unleased host or borrows your own lease, starts a stopped cloud machine "
             "before desktop work, and releases only its acquired lease in cleanup. "
@@ -118,6 +124,11 @@ def test_machine_desktop_access(args: list[str]) -> int:
                 print(operator_access["audit_recovery"], file=sys.stderr)
         from yoke_cli.commands.test_machine_desktop_lease import desktop_lease
 
+        def announce(result):
+            if operator_access:
+                result["operator_access"] = operator_access
+            print(json.dumps(result), flush=True)
+
         with desktop_lease(
             project=route["project"],
             test_machine=read_test_machine_field(
@@ -128,17 +139,15 @@ def test_machine_desktop_access(args: list[str]) -> int:
             reason="desktop access",
             operator_access=operator_access,
         ):
-            result = open_desktop_access(
+            open_desktop_access(
                 project=route["project"],
                 test_machine=read_test_machine_field(
                     route, function_id="test_machine.desktop_access"
                 ),
                 settings=route["settings"],
+                announce=announce,
                 view=parsed.view,
             )
-        if operator_access:
-            result["operator_access"] = operator_access
-        print(json.dumps(result))
     except (DesktopAccessError, MachineCapabilitySecretError, RuntimeError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
