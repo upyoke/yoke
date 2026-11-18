@@ -234,13 +234,15 @@ as the test user. Add the prefix's `lib/docker/cli-plugins` directory to
 Use the `docker compose` plugin interface. [Docker Compose version history](https://docs.docker.com/compose/intro/history/)
 Keep `COLIMA_HOME`, `LIMA_HOME` and `COLIMA_CACHE_HOME`
 under a shared folder in `~/.zshenv`, and put `/usr/local/bin` on PATH (Intel)
-or `/opt/homebrew/bin` (Apple silicon). Colima does not survive a reset or a
-reboot, so each case that needs Docker runs `colima start` itself. Prove it once:
+or `/opt/homebrew/bin` (Apple silicon). Keep the shared folder owner-only
+and outside golden retention directories. Colima stops across a reset or reboot.
+Each Docker case starts it again. Prove Docker once, then stop the fixture VM:
 
 ```text
-colima start
+colima start --vm-type vz  # Apple silicon
 docker run --rm hello-world
 docker compose version
+colima stop
 ```
 
 ## 7. Effective privacy and terminal control
@@ -279,7 +281,10 @@ yoke test-machine bridge-diagnose --test-machine NAME
 yoke test-machine screenshot --test-machine NAME --json
 ```
 
-Read `--help`; these take the host lease. Diagnosis creates/drives a temporary
+Read `--help`. These operations take the host lease. If the bridge reports
+`terminal_display_locked`, unlock the dedicated account at the physical
+console, confirm that Terminal is open, and rerun without Screen Sharing.
+Diagnosis creates and drives a temporary
 Terminal window and checks transport, console/lock, AppleEvents, secure entry,
 display geometry, launch/focus, input, transcript and real capture in order.
 Unreached checks are not run. Screen Recording proof requires window content,
@@ -335,5 +340,7 @@ and `yoke qa plan-cases --help` to build deterministic checks and exploratory
 missions for the new machine. Bind each to its machine name and select cases
 its OS and architecture support. Where the host meets the local-mode minimum,
 require successful embedded PostgreSQL startup. Prove the current Cursor CLI
-with a real request. Attach each plan to the work that owns the checks with
+with a real request. Start install coverage on `fresh-host`. Checks that
+require an installed CLI start their own `shell-preconfigured` chain when
+`starting_state_lacks_yoke` blocks a clean-host plan. Attach each plan with
 `yoke qa item-plan attach --help`.
