@@ -17,9 +17,9 @@ name and project slug; these values and credentials are project-owned.
 
 Use a Mac with at least 40 GiB on its system volume
 ([disk sizing](host-provisioning.md#disk-sizing-and-online-resize)). Create one
-dedicated test user and choose its short name before registering the
-capability. Set a deliberate computer name. Never rename the test user or
-enumerate, capture, restore, or log out another operator account.
+dedicated Administrator account in Users & Groups and choose its short name
+before registration. Stored-password setup needs administrator access. Set a
+deliberate computer name. Keep every other account outside the fixture.
 Check `id -un`, `scutil --get ComputerName`, `scutil --get LocalHostName`, and
 `stat -f %Su /dev/console`; the graphical console must belong to the test user.
 
@@ -42,11 +42,16 @@ for the status command below, or the installed `tailscale` command if available.
 
 Read `Self.DNSName` from `tailscale status --json`, trim the trailing dot and
 resolve that exact MagicDNS name from the controller. Prove OpenSSH key login,
-then register it as `host`; the direct desktop route uses that name too.
+then register it as `host`. For a physical Mac, read the ED25519 fingerprint at
+the console with `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`. Compare it
+with the fingerprint of the key from `ssh-keyscan -t ed25519 HOST`. Add that
+entry under the exact MagicDNS hostname to
+`~/.yoke/test-machine/known_hosts` after the fingerprints match. Prove the
+shared key works using the Yoke file and strict host-key checking.
 For cloud bootstrap, query the provider's **current** public IP and connect with
 the [bootstrap SSH command](tailnet-bootstrap.md#start-the-lab-and-reach-its-current-address);
 never register that IP.
-Keep key-only internet SSH open from anywhere; desktops stay on the tailnet.
+Use key-only public SSH for cloud bootstrap and keep desktops on private routes.
 EC2 uses auto-assigned public IPv4 while running, with no Elastic IP.
 Power starts by instance id and waits for SSH on the registered MagicDNS name.
 Cloud hosts stay running after lease release. See the
@@ -70,10 +75,14 @@ cycle and require the same host with no remaining QA_HOST afterward.
 ## 2. Network, capability and desktop route
 
 Provision infrastructure through the project's IaC or an explicit operator
-exception. Register the verified MagicDNS name. Open SSH to any
-address with key-only authentication and keep VNC off public networks, as
-[network access](host-provisioning.md#network-access) requires; never forward
-VNC through a router or open it in a cloud security group. Enable Screen Sharing for the dedicated account when needed.
+exception. Register the verified MagicDNS name and follow the
+[network access requirements](host-provisioning.md#network-access).
+Declare `desktop_route=direct` as the default route for a physical Mac reachable over the
+tailnet. Keep VNC off the public internet. In Screen Sharing settings, allow
+the dedicated `desktop_user` to connect and control the desktop. Use its account
+password for authenticated Screen Sharing. If the viewer requires a VNC-only
+password, enable **VNC viewers may control screen with password** and set a
+separate VNC-only password. [Apple Screen Sharing settings](https://support.apple.com/guide/mac-help/mh11848/mac)
 
 Register the Test Machine by name using `yoke test-machine settings-replace --test-machine NAME --settings-file FILE --new`; read `--help` before
 an update, which uses the as-read settings token. Declare `resource_name`,
@@ -129,7 +138,9 @@ automatic login for the dedicated user, and turn screen lock off. These are
 security choices for a dedicated fixture, not defaults for personal Macs.
 Observe `fdesetup status` and `defaults read
 /Library/Preferences/com.apple.loginwindow autoLoginUser`.
-Disable system, display and disk sleep permanently:
+In General → Software Update → Automatic Updates, disable automatic macOS
+downloads and installation for a fixture whose OS is managed manually.
+Disable system, display and disk sleep permanently.
 
 ```text
 sudo pmset -a sleep 0 displaysleep 0 disksleep 0
@@ -175,14 +186,21 @@ its curtain can lock the physical display while the remote viewer looks unlocked
 Install Command Line Tools once with `xcode-select --install`, finish the
 dialog locally, then prove `git --version` returns immediately. Full Xcode is
 not required. A bare Mac's Git shim can raise a dialog nobody sees over SSH.
-Keep the existing GNU `screen`; the macOS bridge uses Terminal.app.
+Keep the existing GNU `screen`. The macOS bridge uses Terminal.app.
+
+Install [Homebrew](https://docs.brew.sh/Installation) as the dedicated account.
+On Apple silicon, use a native arm64 Terminal and the `/opt/homebrew` prefix.
+On Intel, use `/usr/local`. Follow the installer's `brew shellenv` instructions
+and prove `brew --version` in a new login Terminal.
 
 Install the required harness apps and vendor CLIs as the test user. Use the
 current [Claude installer](https://code.claude.com/docs/en/setup),
 [Codex CLI installer](https://developers.openai.com/codex/cli), and
 [Cursor installer](https://cursor.com/docs/cli/installation). Reopen a login
 Terminal and check that each prints its version. A non-login SSH PATH may omit `.local/bin`;
-that is not an absent CLI. Declare actual executable paths for probes.
+that is not an absent CLI. Declare actual executable paths for probes. Open each
+desktop app from the test account once and complete its first-run prompts in the
+GUI. Leave credential prompts open for the operator and resume when they confirm.
 Check each vendor's current supported OS list before choosing coverage. An
 existing executable does not prove that the host supports a new installation.
 Golden refresh proves each installed CLI with `--version` in the GUI session.
@@ -199,8 +217,9 @@ new golden. With no runnable version, refresh stops naming the harness and
 error; install a supported version as the test user, prove `--version` in
 Terminal, then rerun the plan. Installer success alone proves nothing.
 
-Self-host cases need Docker. Install Colima and the Docker CLI with Compose v2
-as the test user, keep `COLIMA_HOME`, `LIMA_HOME` and `COLIMA_CACHE_HOME`
+Self-host cases need Docker. Run `brew install colima docker docker-compose`
+as the test user and follow the Docker Compose formula's CLI plugin instructions.
+Keep `COLIMA_HOME`, `LIMA_HOME` and `COLIMA_CACHE_HOME`
 under a shared folder in `~/.zshenv`, and put `/usr/local/bin` on PATH (Intel)
 or `/opt/homebrew/bin` (Apple silicon). Colima does not survive a reset or a
 reboot, so each case that needs Docker runs `colima start` itself. Prove it once:
@@ -295,3 +314,13 @@ the host. Extra probes name absolute argv and optional
 
 Continue with [macOS baseline capture and recovery](macos-baseline-recovery.md)
 for save, restore, and live browser identity proof.
+
+## Add per-machine QA plans
+
+After registration and the saved-state proof, use `yoke qa plan create --help`
+and `yoke qa plan-cases --help` to build deterministic checks and exploratory
+missions for the new machine. Bind each to its machine name and select cases
+its OS and architecture support. Where the host meets the local-mode minimum,
+require successful embedded PostgreSQL startup. Prove the current Cursor CLI
+with a real request. Attach each plan to the work that owns the checks with
+`yoke qa item-plan attach --help`.

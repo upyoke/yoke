@@ -44,7 +44,8 @@ Desktops have two routes; neither opens RDP or VNC to the public internet:
 
 - `desktop_route=direct` is the default for a host on the tailnet (or another
   private network). The controller connects to the registered MagicDNS `host`
-  itself; leave `desktop_host` unset. Each OS guide's one-time setup lets the
+  itself; leave `desktop_host` unset. On a physical Mac, verify the SSH
+  fingerprint at the console and pin it under that hostname before setup. Each OS guide's one-time setup lets the
   desktop listen on the tailnet and confines it there with the host firewall.
   A direct RDP route pins the host's self-signed certificate on first use under
   the Yoke home (`test-machine/rdp_certificates`); a changed certificate refuses
