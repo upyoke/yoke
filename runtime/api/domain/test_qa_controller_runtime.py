@@ -89,7 +89,8 @@ def test_wheel_built_from_another_commit_is_refused(machine_home):
             base_url=BASE, version=VERSION, source_commit=COMMIT,
             runner=_fake_install(commit="1" * 40),
         )
-    assert not list((machine_home / "qa-controller-runtimes").iterdir())
+    parent = machine_home / "qa-controller-runtimes"
+    assert [p.name for p in parent.iterdir() if not p.name.startswith(".")] == []
 
 
 def test_release_without_the_handoff_module_is_refused():
@@ -122,3 +123,20 @@ def test_least_recently_used_runtimes_are_pruned(machine_home):
     kept = [p for p in parent.iterdir() if not p.name.startswith(".")]
     assert len(kept) == runtime_mod.RETAINED_RUNTIMES
     assert parent / f"{VERSION}-{COMMIT[:12]}" in kept
+
+
+def test_runtime_installs_in_place_so_its_yoke_script_runs():
+    """A venv moved after install keeps a shebang naming its old path."""
+    calls = []
+    runtime = ensure_controller_runtime(
+        base_url=BASE, version=VERSION, source_commit=COMMIT,
+        runner=_fake_install(calls=calls),
+    )
+    assert calls[0][-1] == str(runtime.root)
+    runtime.executable.write_text("#!/elsewhere/.install-x/bin/python\n", encoding="utf-8")
+    reinstalled = []
+    ensure_controller_runtime(
+        base_url=BASE, version=VERSION, source_commit=COMMIT,
+        runner=_fake_install(calls=reinstalled),
+    )
+    assert reinstalled, "a runtime whose yoke launches a foreign interpreter is reinstalled"
