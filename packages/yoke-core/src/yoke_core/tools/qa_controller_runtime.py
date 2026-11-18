@@ -16,18 +16,19 @@ import os
 import subprocess
 import sys
 import sysconfig
-import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
 from yoke_contracts.machine_config.paths import yoke_home
+from yoke_contracts import platform_file_lock as locks
 from yoke_contracts.platform_fs import remove_tree
 from yoke_core.domain.relay_release_path import relay_venv_executable, relay_venv_python
 from yoke_core.tools.distribution_channel import join_public_url
 
 RUNTIMES_DIR_NAME = "qa-controller-runtimes"
 RECEIPT_NAME = "controller-runtime.json"
+LOCK_NAME = ".install.lock"
 RETAINED_RUNTIMES = 3
 #: The candidate module a handed-off controller runs; absent in releases that
 #: predate the handoff, which therefore cannot serve as a candidate runtime.
@@ -80,6 +81,11 @@ def verify_runtime(root: Path, version: str, commit: str) -> str:
     """Why *root* is not the candidate runtime, or ``""`` when it is."""
     if not relay_venv_python(root).is_file() or not relay_venv_executable(root).is_file():
         return f"{root} has no python and yoke executables"
+    if not (root / RECEIPT_NAME).is_file():
+        return f"{root} has no install receipt; it was not installed in place"
+    head = relay_venv_executable(root).read_bytes()[:512]
+    if head.startswith(b"#!") and str(root).encode() not in head.split(b"\n", 1)[0]:
+        return f"{relay_venv_executable(root)} launches an interpreter outside {root}"
     found = list(
         importlib.metadata.distributions(
             name="yoke-core", path=[str(p) for p in _site_packages(root)]
@@ -107,9 +113,9 @@ def verify_runtime(root: Path, version: str, commit: str) -> str:
     return ""
 
 
-def _install(tmp: Path, *, base_url: str, version: str, runner: Runner) -> None:
+def _install(root: Path, *, base_url: str, version: str, runner: Runner) -> None:
     created = runner(
-        [sys.executable, "-I", "-m", "venv", str(tmp)],
+        [sys.executable, "-I", "-m", "venv", str(root)],
         check=False, capture_output=True, text=True, timeout=_INSTALL_TIMEOUT_SECONDS,
     )
     if created.returncode != 0:
@@ -123,7 +129,7 @@ def _install(tmp: Path, *, base_url: str, version: str, runner: Runner) -> None:
     ]
     installed = runner(
         [
-            str(relay_venv_python(tmp)), "-I", "-m", "pip", "--isolated", "install",
+            str(relay_venv_python(root)), "-I", "-m", "pip", "--isolated", "install",
             "--disable-pip-version-check", "--no-input", "--only-binary", ":all:",
             *wheels,
         ],
@@ -138,43 +144,56 @@ def _install(tmp: Path, *, base_url: str, version: str, runner: Runner) -> None:
 def ensure_controller_runtime(
     *, base_url: str, version: str, source_commit: str, runner: Runner = subprocess.run
 ) -> ControllerRuntime:
-    """The verified candidate runtime, installing it when absent or broken."""
+    """The verified candidate runtime, installing it when absent or broken.
+
+    It installs in place: a venv's console scripts name its interpreter by
+    absolute path, so a venv built elsewhere and renamed would break ``yoke``.
+    A lock serializes concurrent controllers installing the same runtime.
+    """
     parent = runtimes_root()
     root = parent / f"{version}-{source_commit[:12]}"
-    if not verify_runtime(root, version, source_commit):
-        os.utime(root)
-        _prune(parent, keep=root)
-        return _runtime(root, version, source_commit)
     parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    tmp = parent / f".install-{uuid.uuid4().hex}"
     try:
-        _install(tmp, base_url=base_url, version=version, runner=runner)
-        reason = verify_runtime(tmp, version, source_commit)
-        if reason:
-            raise ControllerRuntimeError(reason)
-        (tmp / RECEIPT_NAME).write_text(
+        with (parent / LOCK_NAME).open(mode="a+b") as handle:
+            locks.acquire_exclusive(handle.fileno())
+            try:
+                if verify_runtime(root, version, source_commit):
+                    _install_in_place(
+                        root, base_url=base_url, version=version,
+                        source_commit=source_commit, runner=runner,
+                    )
+                else:
+                    os.utime(root)
+            finally:
+                locks.release_exclusive(handle.fileno())
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise ControllerRuntimeError(f"{type(exc).__name__}: {exc}") from exc
+    _prune(parent, keep=root)
+    return _runtime(root, version, source_commit)
+
+
+def _install_in_place(
+    root: Path, *, base_url: str, version: str, source_commit: str, runner: Runner
+) -> None:
+    if root.exists():
+        remove_tree(root)
+    installed = False
+    try:
+        _install(root, base_url=base_url, version=version, runner=runner)
+        (root / RECEIPT_NAME).write_text(
             json.dumps(
                 {"version": version, "source_commit": source_commit, "base_url": base_url},
                 sort_keys=True,
             ),
             encoding="utf-8",
         )
-        if root.exists():
-            remove_tree(root)
-        try:
-            tmp.rename(root)
-        except OSError:
-            # A concurrent controller installed it first; use that one if valid.
-            reason = verify_runtime(root, version, source_commit)
-            if reason:
-                raise ControllerRuntimeError(reason) from None
-    except (OSError, subprocess.SubprocessError) as exc:
-        raise ControllerRuntimeError(f"{type(exc).__name__}: {exc}") from exc
+        reason = verify_runtime(root, version, source_commit)
+        if reason:
+            raise ControllerRuntimeError(reason)
+        installed = True
     finally:
-        if tmp.exists():
-            remove_tree(tmp)
-    _prune(parent, keep=root)
-    return _runtime(root, version, source_commit)
+        if not installed and root.exists():
+            remove_tree(root)
 
 
 def _prune(parent: Path, *, keep: Path) -> None:
