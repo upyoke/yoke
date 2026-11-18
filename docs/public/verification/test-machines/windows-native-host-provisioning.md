@@ -244,9 +244,8 @@ recovery and observed window outcomes, follow
 Retain all required receipts before continuing setup or QA.
 
 Prove the test user is not an Administrator and cannot modify the fixed
-administrator task or its program. Select **Windows Console Host** as the
-default terminal for this dedicated account; the terminal bridge reads its
-real console screen, rather than a transcript substituted for the desktop.
+administrator task or its program. The terminal reader uses interactive-session
+`CONOUT$`, including with redirected output, rather than a substituted transcript.
 Install Python 3, Git, Node.js/npm and baseline tools natively; no WSL,
 VirtualMachinePlatform or Linux distro.
 

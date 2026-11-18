@@ -13,6 +13,7 @@ from yoke_harness.native_windows.tasks import (
 SCREEN_READER = r"""
 using System;
 using System.Text;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 public static class QaConsole {
  [StructLayout(LayoutKind.Sequential)] public struct Coord { public short X,Y; }
@@ -22,22 +23,32 @@ public static class QaConsole {
  [DllImport("kernel32.dll")] static extern bool FreeConsole();
  [DllImport("kernel32.dll")] static extern IntPtr GetStdHandle(int type);
  [DllImport("kernel32.dll")] static extern bool SetStdHandle(int type,IntPtr value);
+ [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)] static extern IntPtr CreateFileW(string name,uint access,uint share,IntPtr security,uint creation,uint flags,IntPtr template);
+ [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr handle);
  [DllImport("kernel32.dll",SetLastError=true)] static extern bool GetConsoleScreenBufferInfo(IntPtr h,out Info info);
  [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)] static extern bool ReadConsoleOutputCharacterW(IntPtr h,StringBuilder text,uint size,Coord start,out uint read);
+ static Exception Failure(string phase,uint pid) {
+  int code=Marshal.GetLastWin32Error(); string target="unknown";
+  try { target=Process.GetProcessById((int)pid).SessionId.ToString(); } catch(ArgumentException) {}
+  return new Exception(phase+": win32="+code+"; reader_session="+Process.GetCurrentProcess().SessionId+"; target_session="+target+"; keep the owned console available in the test user's interactive session");
+ }
  public static string Read(uint pid) {
   var output=GetStdHandle(-11); var input=GetStdHandle(-10); var error=GetStdHandle(-12);
+  var handle=new IntPtr(-1);
   FreeConsole();
   try {
-   if(!AttachConsole(pid)) throw new Exception("windows_console_attach_failed: select Windows Console Host as the default terminal and rerun");
-   var handle=GetStdHandle(-11); Info info;
-   if(!GetConsoleScreenBufferInfo(handle,out info)) throw new Exception("windows_console_read_failed: keep the native terminal open and retry");
+   if(!AttachConsole(pid)) throw Failure("windows_console_attach_failed",pid);
+   handle=CreateFileW("CONOUT$",0x80000000,3,IntPtr.Zero,3,0,IntPtr.Zero);
+   if(handle==new IntPtr(-1)) throw Failure("windows_console_open_failed",pid);
+   Info info;
+   if(!GetConsoleScreenBufferInfo(handle,out info)) throw Failure("windows_console_read_failed",pid);
    uint length=(uint)Math.Min(1000000,info.Size.X*(info.Cursor.Y+1));
    var text=new StringBuilder((int)length); uint read;
-   if(!ReadConsoleOutputCharacterW(handle,text,length,new Coord(),out read)) throw new Exception("windows_console_read_failed: repair console access and retry");
+   if(!ReadConsoleOutputCharacterW(handle,text,length,new Coord(),out read)) throw Failure("windows_console_read_failed",pid);
    var result=new StringBuilder();
    for(int n=0;n<text.Length;n+=info.Size.X) result.AppendLine(text.ToString(n,Math.Min(info.Size.X,text.Length-n)).TrimEnd());
    return result.ToString();
-  } finally { FreeConsole(); SetStdHandle(-11,output); SetStdHandle(-10,input); SetStdHandle(-12,error); }
+  } finally { if(handle!=new IntPtr(-1)) CloseHandle(handle); FreeConsole(); SetStdHandle(-11,output); SetStdHandle(-10,input); SetStdHandle(-12,error); }
  }
 }
 """
@@ -78,7 +89,9 @@ class WindowsTerminal:
 
     def transcript(self):
         script = "Add-Type -TypeDefinition " + quote(SCREEN_READER)
-        result = self.control._run(script + f"; [QaConsole]::Read({self.pid})")
+        result = desktop_script(
+            self.control, script + f"; [QaConsole]::Read({self.pid})", timeout=30,
+        )
         if result.returncode:
             raise RuntimeError(
                 result.stderr
