@@ -126,9 +126,8 @@ def test_resizing_mid_flow_shows_each_screen_once(
             await _assert_screen_once(pilot, terminal, seen)  # project folder
             await type_text(pilot, "/home/code/widget")
             await _resize(pilot, terminal, SHORT)
+            # GitHub is skipped, so details lead straight to hosting.
             await pilot.press("enter", "enter", "enter", "enter", "enter")
-            await _assert_screen_once(pilot, terminal, seen)  # publish
-            await pilot.press("enter")  # publish: No — keep local (preselected)
             await _resize(pilot, terminal, NARROW)
             await _assert_screen_once(pilot, terminal, seen)  # hosting list
             await _resize(pilot, terminal, WIDE)
