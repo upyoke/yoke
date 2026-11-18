@@ -10,7 +10,7 @@ from yoke_contracts.ssh_mac_full_reset_path_state import (
 )
 
 
-@pytest.mark.posix_only(reason="runs on the POSIX test machine")
+@pytest.mark.posix_only(reason="reads Bash startup state from a POSIX login profile")
 def test_local_contract_observes_existing_bash_profile(tmp_path: Path) -> None:
     profile = tmp_path / ".bash_profile"
     profile.touch()

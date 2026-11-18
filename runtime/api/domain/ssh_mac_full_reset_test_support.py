@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-import pytest
 import shlex
 import shutil
 import subprocess
@@ -141,10 +140,8 @@ def run_functions(
     **kwargs,
 ) -> subprocess.CompletedProcess:
     """Execute program functions plus a caller-supplied driver in one shell."""
-    binary = zsh_binary()
-    assert binary is not None
     return subprocess.run(
-        [binary, "-f"],
+        [require_zsh(), "-f"],
         input="\n".join(lines),
         text=True,
         capture_output=True,
@@ -155,11 +152,8 @@ def run_functions(
 
 
 def require_zsh() -> str:
-    """Return an interpreter, or skip: the program is macOS zsh by contract."""
-    binary = zsh_binary()
-    if binary is None:
-        pytest.skip("zsh is required to execute the macOS reset program")
-    return binary
+    """Run macOS programs with the shell shipped by macOS."""
+    return "/bin/zsh"
 
 
 def zsh_binary() -> str | None:

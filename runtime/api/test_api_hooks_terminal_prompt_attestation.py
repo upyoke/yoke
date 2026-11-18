@@ -10,14 +10,19 @@ the client facts the real collector produces from a transcript.
 from __future__ import annotations
 
 import json
+from datetime import timedelta
 from pathlib import Path
+from uuid import uuid4
 
 import pytest
 
 from runtime.api.api_items_test_helpers import _client_for_db, make_test_db_fixture
 from runtime.api.api_hooks_evaluate_route_test_support import _request_body
 from yoke_contracts.hook_runner.client_facts import FIRST_USER_PROMPT_KEY, client_fact
-from yoke_contracts.timestamps import parse_instant
+from yoke_contracts.timestamps import parse_instant, utc_now
+from yoke_core.domain.schema_init_columns import apply_harness_session_columns
+from yoke_core.domain.schema_init_tables_sessions import create_session_tables
+from yoke_core.domain.session_probe import probe_session_sql
 from yoke_core.domain import db_helpers
 from yoke_harness.hooks import client_facts
 
@@ -26,7 +31,15 @@ PROMPT_AT = "2026-11-17T23:20:41.512Z"
 
 @pytest.fixture()
 def hooks_db():
-    yield from make_test_db_fixture()
+    for db in make_test_db_fixture():
+        conn = db_helpers.connect()
+        try:
+            apply_harness_session_columns(conn)
+            create_session_tables(conn)
+            conn.commit()
+        finally:
+            conn.close()
+        yield db
 
 
 @pytest.fixture()
@@ -39,7 +52,8 @@ def _row(session_id):
     conn = db_helpers.connect()
     try:
         return conn.execute(
-            "SELECT * FROM harness_sessions WHERE session_id = %s", (session_id,)
+            f"SELECT s.*, {probe_session_sql()} AS probe FROM harness_sessions s "
+            "WHERE session_id = %s", (session_id,)
         ).fetchone()
     finally:
         conn.close()
@@ -65,12 +79,13 @@ def _transcript(tmp_path: Path, sid: str, *, prompt: bool = True) -> Path:
     return path
 
 
-def _hook(client, event, sid, transcript, *, extra=None, executor="claude-code"):
+def _hook(client, event, sid, transcript, *, extra=None, executor="claude-code", native=None):
     payload = {
         "session_id": sid,
         "cwd": "/client/repo",
         "project_id": 1,
         "transcript_path": str(transcript),
+        **(native or {}),
     }
     if extra is None:
         extra = client_facts.collect_client_facts(
@@ -198,3 +213,67 @@ def test_malformed_instant_refuses_without_stamping(client, tmp_path):
     assert any("SessionPromptStampRefused" in m for m in result["degraded"])
     assert _row(sid)["first_user_prompt_at"] is None
     assert _refusals(sid) == ["SESSION_PROMPT_STAMP_REFUSED"]
+
+
+def _cursor_hook(client, event, sid, transcript, **native):
+    return _hook(
+        client, event, sid, transcript, executor="cursor",
+        native={"container_session_id": sid, **native},
+    )
+
+
+@pytest.mark.parametrize(
+    ("role", "duration", "skip_reason"),
+    [
+        ("user", {"duration_ms": 4261}, None),
+        ("assistant", {"duration_ms": 4261}, "no_user_row"),
+        ("user", {}, "missing_duration_ms"),
+    ],
+)
+def test_cursor_print_session_end(client, tmp_path, monkeypatch, role, duration, skip_reason):
+    sid = str(uuid4())
+    transcript = tmp_path / f"{sid}.jsonl"
+    transcript.write_text(json.dumps({"role": role, "message": {"content": []}}) + "\n")
+    _cursor_hook(client, "SessionStart", sid, transcript)
+    assert _row(sid)["first_user_prompt_at"] is None
+
+    end = utc_now()
+    monkeypatch.setattr("yoke_core.hooks.context.utc_now", lambda: end)
+    _cursor_hook(client, "SessionEnd", sid, transcript, **duration)
+
+    row = _row(sid)
+    assert row["ended_at"] is not None
+    assert row["tool_call_count"] == 0
+    conn = db_helpers.connect()
+    try:
+        diagnostics = conn.execute(
+            "SELECT envelope FROM events WHERE event_name = %s AND session_id = %s",
+            ("SessionPromptAttestationSkipped", sid),
+        ).fetchall()
+    finally:
+        conn.close()
+    if skip_reason is None:
+        assert parse_instant(row["first_user_prompt_at"]) == end - timedelta(milliseconds=4261)
+        assert row["probe"] is False
+        assert diagnostics == []
+    else:
+        assert row["first_user_prompt_at"] is None
+        assert row["probe"] is True
+        event = diagnostics[0]["envelope"]
+        event = json.loads(event) if isinstance(event, str) else event
+        assert event["context"]["reason"] == skip_reason
+
+
+def test_cursor_print_tool_completion_is_counted(client, tmp_path):
+    sid = str(uuid4())
+    transcript = tmp_path / f"{sid}.jsonl"
+    _cursor_hook(client, "SessionStart", sid, transcript)
+    completion = {
+        "hook_event_name": "postToolUse",
+        "tool_name": "Shell",
+        "tool_use_id": str(uuid4()),
+        "tool_input": {"command": "echo probe"},
+    }
+    _cursor_hook(client, "PostToolUse", sid, transcript, **completion)
+    _cursor_hook(client, "PostToolUse", sid, transcript, **completion)
+    assert _row(sid)["tool_call_count"] == 1

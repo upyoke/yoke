@@ -37,9 +37,26 @@ Windows host only, never WSL. Disable device key expiry for unattended access.
 Keep OpenSSH reachable from every internet source with public-key authentication
 only; disable password and keyboard-interactive authentication. Use the current
 dynamic public IP only for bootstrap SSH, with the cloud instance id as
-`HostKeyAlias`; never register it. Forward desktops over SSH
-(`desktop_route=ssh-forward`); open no public RDP/VNC port. Audit effective sshd,
-firewall policy. Golden reset never changes Tailscale state.
+`HostKeyAlias`; never register it. Audit effective sshd and firewall policy.
+Golden reset never changes Tailscale state.
+
+Desktops have two routes; neither opens RDP or VNC to the public internet:
+
+- `desktop_route=direct` is the default for a host on the tailnet (or another
+  private network). The controller connects to the registered MagicDNS `host`
+  itself; leave `desktop_host` unset. Each OS guide's one-time setup lets the
+  desktop listen on the tailnet and confines it there with the host firewall.
+  A direct RDP route pins the host's self-signed certificate on first use under
+  the Yoke home (`test-machine/rdp_certificates`); a changed certificate refuses
+  `desktop_certificate_changed` and names the pin line to delete when the change
+  was deliberate.
+- `desktop_route=ssh-forward` is the fallback for a host reached only by its
+  public SSH address, for people who cannot use Tailscale. `desktop-access`
+  holds an `ssh -N -L` forward to the host's loopback desktop while it runs and
+  closes it on Enter, Ctrl-C or SIGTERM; a viewer closes it with its window.
+
+Keep cloud security groups and network security groups closed to RDP (3389,
+3390) and VNC (5900) from every public source.
 Before rebuild, remove the old tailnet device, join again and verify the name
 has no `-1` suffix; clear the old host-key pin after verifying the new fingerprint.
 

@@ -42,8 +42,7 @@ def _p(conn) -> str:
 
 @pytest.fixture
 def alt_project_repo(tmp_path: Path):
-    if shutil.which("git") is None:
-        pytest.skip("git binary not available")
+    assert shutil.which("git") is not None, "Install Git to run repository fixtures"
     repo = tmp_path / "alt-repo"
     repo.mkdir()
     (repo / "README.md").write_text("hello\n")

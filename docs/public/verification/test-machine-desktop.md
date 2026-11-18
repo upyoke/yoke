@@ -83,8 +83,9 @@ seat and lease, and records desktop access authorization as
 reason and asks the control-plane operator to repair it; access still proceeds.
 
 The viewer uses the registered Linux or Windows WSL user's XFCE display over
-RDP. It measures that display's geometry, supplies the fixture password through
-stdin, and owns the SSH forward until the viewer closes. It does not write a
+RDP over the registered route: direct to the MagicDNS host on the tailnet, or
+the SSH-forward fallback, which it owns until the viewer closes. It measures
+that display's geometry and supplies the fixture password through stdin. It does not write a
 password file or put the password in the client arguments. Personal sign-in is
 performed by the operator in the visible desktop.
 
@@ -100,8 +101,17 @@ VNC client to the printed address.
 
 For a loopback SSH forward, SSH host-key verification is the trust boundary.
 The viewer uses `/cert:ignore`, so random local ports never consult or change
-FreeRDP's per-port certificate cache. SSH keeps its existing known-hosts check;
-direct RDP routes retain certificate verification.
+FreeRDP's per-port certificate cache. SSH keeps its existing known-hosts check.
+
+A direct RDP route trusts the host's self-signed certificate on first use. Yoke
+completes an RDP TLS handshake, records the certificate's SHA-256 fingerprint
+for `HOST:PORT` in `test-machine/rdp_certificates` under the Yoke home, prints
+`desktop_certificate_pinned`, and passes FreeRDP
+`/cert:fingerprint:sha256:HASH`. Later connections must present the same
+certificate. A different one refuses `desktop_certificate_changed` with both
+fingerprints; if the host's certificate was deliberately regenerated, delete
+that line and retry, otherwise do not connect. Without `--view`, the direct
+route prints the pinned `certificate_sha256` for comparison in your own client.
 
 Linux and Windows WSL start XFCE and run desktop commands with
 `GDK_BACKEND=x11`, keeping GTK on the captured Xorg display even when WSLg

@@ -107,19 +107,7 @@ def retire_shared_systemd(instance, *, home, runner, pid1_path):
     if not path.exists():
         return
     try:
-        text = _read(path).decode()
-        variables = {}
-        argv = []
-        for line in text.splitlines():
-            if line.startswith("Environment="):
-                (value,) = shlex.split(line.removeprefix("Environment="))
-                key, value = value.replace("%%", "%").split("=", 1)
-                variables[key] = value
-            elif line.startswith("ExecStart="):
-                argv = [
-                    value.replace("%%", "%").replace("$$", "$")
-                    for value in shlex.split(line.removeprefix("ExecStart="))
-                ]
+        variables, argv = parse_relay_unit(_read(path))
         owned = _owned(instance, variables, argv)
     except (OSError, ValueError, TypeError, UnicodeError) as exc:
         raise _refuse("the shared systemd document cannot be read") from exc
@@ -127,3 +115,24 @@ def retire_shared_systemd(instance, *, home, runner, pid1_path):
         uninstall_relay_systemd(
             instance=shared, home=home, runner=runner, pid1_path=pid1_path
         )
+
+
+def parse_relay_unit(document: bytes) -> tuple[dict[str, str], list[str]]:
+    """Read the ownership and command from an installer-written systemd unit."""
+    variables: dict[str, str] = {}
+    argv: list[str] = []
+    for line in document.decode().splitlines():
+        if line.startswith("Environment="):
+            (value,) = shlex.split(line.removeprefix("Environment="))
+            key, value = value.replace("%%", "%").split("=", 1)
+            if key in variables:
+                raise ValueError("duplicate service environment")
+            variables[key] = value
+        elif line.startswith("ExecStart="):
+            if argv:
+                raise ValueError("duplicate service command")
+            argv = [
+                value.replace("%%", "%").replace("$$", "$")
+                for value in shlex.split(line.removeprefix("ExecStart="))
+            ]
+    return variables, argv

@@ -14,7 +14,7 @@ from yoke_harness import golden_harness_clis as clis
 LATEST = {"claude-code": "2.1.300", "codex": "0.163.0", "cursor": "2026.10.19-6bbf2c4"}
 
 
-pytestmark = pytest.mark.posix_only(reason="runs on the POSIX test machine")
+pytestmark = pytest.mark.posix_only(reason="executes Unix harness install and removal scripts through a POSIX shell")
 
 
 class LocalHost:

@@ -81,6 +81,10 @@ def test_function_declarations_refuse(tmp_path, decorators, error):
     'if runtime.WINDOWS:\n pytest.xfail("x")',
     'IS_NATIVE = sys.platform == "linux"\nif IS_NATIVE:\n pytest.skip("x")',
     '@pytest.mark.skipif(not hasattr(socket, "AF_UNIX"), reason="x")\ndef test_x(): pass',
+    'if shutil.which("zsh") is None:\n pytest.skip("missing tool")',
+    'from shutil import which as locate\nbash = locate("bash")\nif not bash:\n pytest.skip("missing")',
+    '@pytest.mark.skipif(not shutil.which("git"), reason="x")\ndef test_x(): pass',
+    'import pytest\npytest.importorskip("win32api")',
 ])
 def test_scanner_finds_os_conditions(source):
     assert scopes.handwritten_os_skips(source)
@@ -88,8 +92,11 @@ def test_scanner_finds_os_conditions(source):
 
 @pytest.mark.parametrize("source", [
     '@pytest.mark.skipif(os.getuid() == 0, reason="root")\ndef test_x(): pass',
-    'if shutil.which("zsh") is None:\n pytest.skip("missing tool")',
     '@pytest.mark.posix_only(reason="native API")\ndef test_x(): pass',
+    'pytest.importorskip("opentelemetry.sdk")',
+    'pytestmark = pytest.mark.skipif(not shutil.which("initdb"), reason="native suite provisions server")',
+    'pytestmark = pytest.mark.macos_only("runs macOS zsh")\nif not shutil.which("zsh"):\n pytest.skip("missing")',
+    '@pytest.mark.windows_only("native Windows API")\ndef test_x(): pytest.importorskip("win32api")',
 ])
 def test_scanner_preserves_non_os_skips(source):
     assert scopes.handwritten_os_skips(source) == []

@@ -156,6 +156,79 @@ def _os_condition(node, aliases):
     return False
 
 
+_OS_TOOL_MODULES = frozenset({
+    "fcntl", "grp", "msvcrt", "posix", "pwd", "pywintypes", "resource", "spwd",
+    "termios", "tty", "win32api", "win32com", "win32con", "win32file", "win32job",
+    "win32process", "win32security", "winreg", "winsound",
+})
+
+
+# yoke-suite.yml provisions these before running native shards. Other jobs
+# may use external Postgres or exercise the Python-only search backend.
+_NATIVE_SUITE_TOOLS = frozenset({"initdb", "rg"})
+
+
+def _provisioned(arg):
+    return isinstance(arg, ast.Constant) and isinstance(arg.value, str) and arg.value in _NATIVE_SUITE_TOOLS
+
+
+def _tool_gate(node, names):
+    return any(
+        (isinstance(child, ast.Name) and child.id in names)
+        or (isinstance(child, ast.Call) and isinstance(child.func, ast.Attribute)
+            and child.func.attr == "which" and ast.unparse(child.func.value).split(".")[-1] == "shutil"
+            and not (child.args and _provisioned(child.args[0])))
+        for child in ast.walk(node)
+    )
+
+
+def _tool_skips(tree):
+    """Check executable lookup and native-module gates in their declared OS scope."""
+    names = {alias.asname or alias.name for node in ast.walk(tree)
+             if isinstance(node, ast.ImportFrom) and node.module == "shutil"
+             for alias in node.names if alias.name == "which"}
+    nodes = list(ast.walk(tree))
+    while True:
+        discovered = {target.id for node in nodes if isinstance(node, (ast.Assign, ast.AnnAssign))
+                      and node.value is not None and _tool_gate(node.value, names)
+                      for target in (node.targets if isinstance(node, ast.Assign) else [node.target])
+                      if isinstance(target, ast.Name)}
+        discovered |= {node.name for node in nodes if isinstance(node, ast.FunctionDef)
+                       and any(isinstance(child, ast.Return) and child.value is not None
+                               and _tool_gate(child.value, names) for child in ast.walk(node))}
+        if discovered <= names:
+            break
+        names |= discovered
+
+    parents = {child: node for node in nodes for child in ast.iter_child_nodes(node)}
+    aliases = _aliases(tree)
+    has_module_scope = bool(module_marks(tree)[0])
+    hits = set()
+    for node in nodes:
+        if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
+            continue
+        gated = (
+            node.func.attr == "importorskip"
+            and node.args and isinstance(node.args[0], ast.Constant)
+            and isinstance(node.args[0].value, str)
+            and node.args[0].value.split(".")[0] in _OS_TOOL_MODULES
+        )
+        if _marker_name(node.func) in {"skipif", "xfail"}:
+            conditions = node.args[:1] or [k.value for k in node.keywords if k.arg == "condition"]
+            gated = any(_tool_gate(condition, names) for condition in conditions)
+        scoped = has_module_scope
+        parent = parents.get(node)
+        while parent is not None and not scoped:
+            if isinstance(parent, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                scoped = bool(_source_marks(parent.decorator_list, aliases)[0])
+            if isinstance(parent, ast.If) and node.func.attr in {"skip", "skipTest", "xfail"}:
+                gated |= _tool_gate(parent.test, names)
+            parent = parents.get(parent)
+        if gated and not scoped:
+            hits.add(node.lineno)
+    return hits
+
+
 def handwritten_os_skips(source: str) -> list[int]:
     tree = ast.parse(source)
     aliases = set()
@@ -166,7 +239,7 @@ def handwritten_os_skips(source: str) -> list[int]:
         if found <= aliases:
             break
         aliases |= found
-    hits = set()
+    hits = _tool_skips(tree)
     for node in ast.walk(tree):
         if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
             condition = node.args[0] if node.args else next(

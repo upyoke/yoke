@@ -16,8 +16,10 @@ from yoke_core.domain.lint_project_name_literal import is_exempt_relpath
 ROOTS = tuple(f"packages/yoke-{name}/src" for name in ("contracts", "cli", "harness", "core")) + (
     "packaging/public-installer",
 )
+# host_provisioning holds stdlib-only scripts copied onto POSIX test hosts.
 EXCLUDED = ("/build/", "/install_bundle_tree/", "/frontend_events/", "/migrations/",
-            "/yoke_core/api/", "/yoke_core/ui/", "/yoke_core/db/")
+            "/yoke_core/api/", "/yoke_core/ui/", "/yoke_core/db/",
+            "/yoke_harness/host_provisioning/")
 OWNERS = {
     "fcntl": {"platform_file_lock.py"},
     "process": {"platform_process.py", "platform_process_windows.py"},

@@ -1,4 +1,12 @@
-"""Non-secret desktop route settings for a registered test machine."""
+"""Non-secret desktop route settings for a registered test machine.
+
+``direct`` is the default route for a host on a private network such as the
+operator tailnet: the controller connects to ``desktop_host`` (by default the
+registered MagicDNS ``host``) itself. ``ssh-forward`` is the fallback for a
+host reached only by its public SSH address: an SSH local forward carries the
+desktop, whose ``desktop_host`` defaults to the host's own loopback. Desktop
+ports are never opened to the public internet on either route.
+"""
 
 from __future__ import annotations
 

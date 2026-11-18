@@ -175,10 +175,9 @@ def test_diagnose_reports_yoke_shadowing(tmp_path, monkeypatch):
     assert diag.needs_fix is True
 
 
+@pytest.mark.macos_only(reason="runs macOS zsh login startup files with the system shell")
 def test_fresh_login_probe_observes_operator_rc(tmp_path):
-    zsh = shutil.which("zsh")
-    if not zsh:
-        pytest.skip("zsh is required to exercise login-shell isolation")
+    zsh = "/bin/zsh"
     operator = tmp_path / "operator"
     operator.mkdir()
     sentinel = tmp_path / "operator-rc-sourced"

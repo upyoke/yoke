@@ -10,6 +10,7 @@ import pytest
 from yoke_contracts.hook_runner.client_facts import (
     FIRST_USER_PROMPT_KEY,
     first_user_prompt_at,
+    read_client_fact,
 )
 from yoke_harness.artifact_scan import MAX_RECORD_BYTES
 from yoke_harness.hooks import client_facts
@@ -30,8 +31,8 @@ def _user(content, **extra):
             "message": {"role": "user", "content": content}, **extra}
 
 
-def _facts(event, transcript, executor="claude-code"):
-    payload = {"session_id": SID, "transcript_path": str(transcript)}
+def _facts(event, transcript, executor="claude-code", **native):
+    payload = {"session_id": SID, "transcript_path": str(transcript), **native}
     return client_facts.collect_client_facts(
         event, payload, executor, client_facts.event_chain(event, payload)
     )
@@ -88,10 +89,20 @@ def test_non_terminal_events_do_not_attest(tmp_path, event):
 
 
 @pytest.mark.parametrize("executor", ["codex", "cursor"])
-def test_deferred_harnesses_ship_nothing(tmp_path, executor):
+def test_stop_without_native_prompt_timestamps_ships_nothing(tmp_path, executor):
     facts = _facts("Stop", _write(tmp_path, [_user("hi")]), executor)
     assert FIRST_USER_PROMPT_KEY not in facts
 
 
 def test_missing_transcript_ships_nothing(tmp_path):
     assert FIRST_USER_PROMPT_KEY not in _facts("Stop", tmp_path / "absent.jsonl")
+
+
+def test_cursor_session_end_ships_duration_without_prompt_content(tmp_path):
+    prompt = "x" * (MAX_RECORD_BYTES + 10)
+    transcript = _write(tmp_path, [{"role": "user", "message": {"content": prompt}}])
+    facts = _facts("SessionEnd", transcript, "cursor", duration_ms=0)
+    assert read_client_fact(facts, FIRST_USER_PROMPT_KEY) == {
+        "session_id": SID,
+        "duration_ms": 0,
+    }

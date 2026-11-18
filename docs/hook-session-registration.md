@@ -37,8 +37,16 @@ revives or ends a session, so an ended row stays ended and a true probe stays
 unstamped. A fact naming another session is ignored. A missing row or bad
 instant refuses as `SESSION_PROMPT_STAMP_REFUSED`: `SessionRegistrationRefused`
 records it, stderr shows the `session_prompt_attestation` failure marker, and the
-hook still allows. Codex and Cursor declare `prompt_attestation: deferred` with
-the reason in `prompt_attestation_evidence`.
+hook still allows.
+
+Cursor declares `prompt_attestation: session_end_user_rows`. Its client looks
+for a top-level `role=user` row in the bounded transcript scan and attaches
+`duration_ms` from SessionEnd. The authority subtracts that duration from the
+SessionEnd observation time, accounting for the reported hook age when
+available. If the transcript or user row is unavailable, or the duration is
+missing or invalid, the stamp is left empty and `SessionPromptAttestationSkipped`
+records the reason in the session's diagnostics. Codex declares
+`prompt_attestation: deferred` with the reason in `prompt_attestation_evidence`.
 
 
 ## Late hooks never revive an ended session

@@ -33,7 +33,7 @@ Create/use the dedicated Windows SSH account. WSL distributions are per Windows
 user: installing under a service or another administrator account does not
 prepare the test account. Separate operator users/homes remain outside capture,
 restore, inspection and logout. Open SSH to any address with key-only
-authentication and keep RDP behind the SSH forward, as
+authentication and keep RDP off public networks, as
 [network access](host-provisioning.md#network-access) requires.
 A lease keeps the registered MagicDNS host unchanged.
 
@@ -54,11 +54,11 @@ sign-in URL. Require its service to stay connected after logout/reboot.
 
 Read `Self.DNSName` from `tailscale status --json`, trim the trailing dot and
 resolve that exact MagicDNS name from the controller. Prove OpenSSH key login,
-then register it as `host`; keep a forwarded `desktop_host` on loopback.
+then register it as `host`; the direct desktop route uses that name too.
 For cloud bootstrap, query the provider's **current** public IP and connect with
 the [bootstrap SSH command](tailnet-bootstrap.md#start-the-lab-and-reach-its-current-address);
 never register that IP.
-Keep key-only internet SSH open from anywhere and desktops behind SSH forwards.
+Keep key-only internet SSH open from anywhere; desktops stay on the tailnet.
 EC2 uses auto-assigned public IPv4 while running, with no Elastic IP.
 Power starts by instance id and waits for SSH on the registered MagicDNS name.
 Cloud hosts stay running after lease release. See the
@@ -90,16 +90,18 @@ effective config. Keep private keys out of user data, settings and evidence.
 
 Check Windows network profile and firewall together: the default OpenSSH rule
 can be Private-only while the cloud interface is Public. Scope the rule to
-the applicable profile and allow any source address; open no other inbound
-port, including RDP.
+the applicable profile and allow any source address. Open no other public
+inbound port; the WSL desktop's only inbound rule is the Tailscale-only rule in
+[desktop provisioning](windows-desktop-provisioning.md).
 
 Register `test-machine:<name>` through `yoke test-machine settings-replace
 --project P --test-machine NAME --settings-file FILE --new`; read `--help` for
 updates with the as-read settings token. Declare `resource_name`, `os=wsl`,
 Windows MagicDNS `host` and `user`, and an absolute **Linux** `golden_baseline_path`
 outside the WSL home. Desktop fields declare `desktop_protocol=rdp`,
-`desktop_route=ssh-forward`, the provisioned
-WSL xrdp port (default3390), and the dedicated WSL `desktop_user`. Optional `cloud_instance_id` (the
+`desktop_route=direct` with no `desktop_host` (a host outside the tailnet uses
+`ssh-forward`), the provisioned WSL xrdp port (default3390), and the dedicated
+WSL `desktop_user`. Optional `cloud_instance_id` (the
 EC2 instance id; leases power the host by it) and operating notes record local
 infrastructure facts. Capacity registration is independent.
 

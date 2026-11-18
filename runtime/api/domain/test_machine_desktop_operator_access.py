@@ -194,7 +194,7 @@ def test_cli_passes_only_route_to_viewer_and_reports_assistance(monkeypatch, cap
     monkeypatch.setattr(
         desktop_access,
         "open_desktop_access",
-        lambda **kw: calls.append(kw) or {"address": "rdp://localhost"},
+        lambda **kw: calls.append(kw) or kw["announce"]({"address": "rdp://localhost"}),
     )
     assert (
         cli.test_machine_desktop_access(
@@ -202,7 +202,7 @@ def test_cli_passes_only_route_to_viewer_and_reports_assistance(monkeypatch, cap
         )
         == 0
     )
-    assert calls == [
+    assert [{k: v for k, v in call.items() if k != "announce"} for call in calls] == [
         {"project": "example", "test_machine": "lab", "settings": {}, "view": True}
     ]
     output = capsys.readouterr()

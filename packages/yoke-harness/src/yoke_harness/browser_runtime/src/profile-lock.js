@@ -74,9 +74,10 @@ function signalProcess(pid, signal) {
 }
 
 /**
- * Ask the profile's holder to quit and wait for it to exit. SIGTERM is a
- * clean Chromium shutdown, so the next launch neither forwards to it nor
- * offers a crash restore.
+ * Ask the profile's holder to quit and wait for it to exit, so the next
+ * launch opens its own window instead of forwarding to it. Chromium records
+ * a SIGTERM as a session end and restores that session's tabs on the next
+ * launch; authorize.js discards the saved session before it spawns.
  */
 async function quitProfileOwner(pid, profileDir, { shutdownMs, pollMs = 100 }) {
   const refusal = (detail) => new Error(

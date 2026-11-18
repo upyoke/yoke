@@ -45,7 +45,7 @@ def test_the_store_is_kept_live_and_lives_outside_the_absent_yoke_home():
     )
 
 
-@pytest.mark.posix_only(reason="runs on the POSIX test machine")
+@pytest.mark.macos_only(reason="runs the macOS browser identity reset and capture programs in /bin/zsh")
 def test_mac_reset_keeps_the_live_store_and_capture_prunes_it(tmp_path):
     require_zsh()
     home, golden = tmp_path / "home", tmp_path / "golden"
@@ -89,7 +89,7 @@ def _archive_run(home: Path, golden: Path, operation: str):
     )
 
 
-@pytest.mark.posix_only(reason="runs on the POSIX test machine")
+@pytest.mark.posix_only(reason="executes a remote browser identity script with POSIX paths and shell utilities")
 def test_linux_capture_omits_the_store_and_reset_keeps_it_live(tmp_path):
     if os.getuid() == 0:
         pytest.skip("archive fixture needs a non-root user")
@@ -134,7 +134,7 @@ def _still_authorized(home: Path, monkeypatch) -> None:
     assert (kept / "Default" / "Cookies").read_text() == "signed in by the operator"
 
 
-@pytest.mark.posix_only(reason="runs on the POSIX test machine")
+@pytest.mark.posix_only(reason="executes a remote browser identity script with POSIX paths and shell utilities")
 def test_a_profile_authorized_on_a_fresh_linux_machine_survives_reset(
     tmp_path, monkeypatch
 ):
@@ -150,6 +150,7 @@ def test_a_profile_authorized_on_a_fresh_linux_machine_survives_reset(
     _still_authorized(home, monkeypatch)
 
 
+@pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")
 def test_a_profile_authorized_on_a_fresh_mac_survives_reset(tmp_path, monkeypatch):
     require_zsh()
     home, golden = tmp_path / "home", tmp_path / "golden"

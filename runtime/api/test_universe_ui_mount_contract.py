@@ -27,8 +27,7 @@ def test_javascript_test_modules_are_discovered() -> None:
 
 def _run_javascript_tests(test_modules: list[Path]) -> None:
     node = shutil.which("node")
-    if node is None:
-        pytest.skip("node is unavailable for the vanilla-JS contract test")
+    assert node is not None, "Install Node.js for the vanilla-JS contract tests"
     completed = subprocess.run(
         [
             node, "--experimental-vm-modules",

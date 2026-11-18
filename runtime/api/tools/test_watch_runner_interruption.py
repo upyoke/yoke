@@ -15,6 +15,7 @@ import sys
 import time
 from pathlib import Path
 
+import psutil
 import pytest
 
 from yoke_core.domain import watch_runner as _watch_runner
@@ -74,9 +75,13 @@ class TestRunWatcherInterruption:
 
         rc = _watch_runner.run_watcher(
             argv=[
-                "/bin/sh",
+                sys.executable,
                 "-c",
-                f"sleep 300 & echo $! > {pid_file}; echo started; sleep 300",
+                "import pathlib, subprocess, sys, time; "
+                "child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)']); "
+                "pathlib.Path(sys.argv[1]).write_text(str(child.pid), encoding='utf-8'); "
+                "print('started', flush=True); time.sleep(60)",
+                str(pid_file),
             ],
             classifier=interrupt_once,
             raw_capture=raw,
@@ -115,7 +120,6 @@ class TestRunWatcherTimeout:
     run releases them instead of hanging its caller forever.
     """
 
-    @pytest.mark.posix_only(reason="POSIX signals and shell process tree fixture")
     def test_timeout_reaps_the_tree_and_reports_on_every_surface(self, tmp_path):
         pid_file = tmp_path / "grandchild.pid"
         raw = tmp_path / "raw.log"
@@ -124,9 +128,13 @@ class TestRunWatcherTimeout:
 
         rc = _watch_runner.run_watcher(
             argv=[
-                "/bin/sh",
+                sys.executable,
                 "-c",
-                f"sleep 300 & echo $! > {pid_file}; echo started; sleep 300",
+                "import pathlib, subprocess, sys, time; "
+                "child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)']); "
+                "pathlib.Path(sys.argv[1]).write_text(str(child.pid), encoding='utf-8'); "
+                "print('started', flush=True); time.sleep(60)",
+                str(pid_file),
             ],
             classifier=_summary_classifier,
             raw_capture=raw,
@@ -134,24 +142,25 @@ class TestRunWatcherTimeout:
             kind="deadline",
             stdout_stream=stdout,
             policy=PASSTHROUGH_POLICY,
-            timeout_seconds=1,
+            timeout_seconds=3,
         )
 
         assert rc == _watch_runner.TIMEOUT_EXIT
         grandchild_pid = int(pid_file.read_text().strip())
-        deadline = time.monotonic() + 5.0
-        while time.monotonic() < deadline:
+        try:
+            child = psutil.Process(grandchild_pid)
+        except psutil.NoSuchProcess:
+            pass
+        else:
             try:
-                os.kill(grandchild_pid, 0)
-            except ProcessLookupError:
-                break
-            time.sleep(0.05)
-        with pytest.raises(ProcessLookupError):
-            os.kill(grandchild_pid, 0)
+                child.wait(timeout=5)
+            finally:
+                if child.is_running() and child.status() != psutil.STATUS_ZOMBIE:
+                    child.kill()
 
-        assert "timed out after 1 seconds" in raw.read_text(encoding="utf-8")
+        assert "timed out after 3 seconds" in raw.read_text(encoding="utf-8")
         progress_text = progress.read_text(encoding="utf-8")
-        assert "timed out after 1 seconds" in progress_text
+        assert "timed out after 3 seconds" in progress_text
         assert f"# watch_deadline exit={rc}" in progress_text
         # A timing-out run must not also claim it is healthily still running.
         assert "still running" not in stdout.getvalue()

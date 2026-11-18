@@ -15,10 +15,12 @@ from runtime.api.domain.ssh_mac_golden_capture_test_support import (
 
 import shlex
 
+import subprocess
+
 import pytest
 
 from runtime.api.domain.ssh_mac_full_reset_test_support import (
-    run_zsh_syntax_if_available,
+    require_zsh,
 )
 from yoke_harness.ssh_mac_golden_capture import (
     probes_document_digest,
@@ -205,7 +207,7 @@ def test_an_unparseable_receipt_is_not_a_successful_capture() -> None:
     assert result.error_code == "golden_capture_output_invalid"
 
 
-@pytest.mark.posix_only(reason="runs zsh on the POSIX test machine")
+@pytest.mark.macos_only(reason="syntax-checks the macOS capture program with /bin/zsh")
 def test_the_capture_program_is_valid_zsh() -> None:
     script = render_golden_capture_script(
         resolve_full_reset_path_contract(
@@ -213,8 +215,7 @@ def test_the_capture_program_is_valid_zsh() -> None:
         )
     )
 
-    checked = run_zsh_syntax_if_available(script)
-
-    if checked is None:
-        pytest.skip("zsh is required to syntax-check the macOS capture program")
+    checked = subprocess.run(
+        [require_zsh(), "-n"], input=script, text=True, capture_output=True, check=False,
+    )
     assert checked.returncode == 0, checked.stderr

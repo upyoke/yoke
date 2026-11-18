@@ -20,9 +20,8 @@ from typing import Literal
 
 TranscriptStoreClass = Literal["local_jsonl", "unverified"]
 #: How a terminal hook recovers a first prompt the prompt hook never stored:
-#: ``claude_user_rows`` reads this session's own transcript rows; ``deferred``
-#: means no reader exists yet and ``prompt_attestation_evidence`` says why.
-PromptAttestation = Literal["claude_user_rows", "deferred"]
+#: The declared mode determines which transcript evidence a hook can use.
+PromptAttestation = Literal["claude_user_rows", "session_end_user_rows", "deferred"]
 
 
 @dataclass(frozen=True)
@@ -98,9 +97,11 @@ HARNESS_SESSION_TRANSCRIPTS: dict[str, HarnessSessionTranscripts] = {
             "harness_folder_trust reproduces the slug, verified against "
             "entries Cursor wrote."
         ),
+        prompt_attestation="session_end_user_rows",
         prompt_attestation_evidence=(
-            "Deferred: Cursor agent transcripts carry no per-row timestamp, "
-            "so a terminal hook cannot attest when the first prompt arrived."
+            "Cursor SessionEnd reports duration_ms. A top-level role=user row "
+            "in the session transcript proves a prompt, timed at the SessionEnd "
+            "observation minus that duration."
         ),
     ),
 }

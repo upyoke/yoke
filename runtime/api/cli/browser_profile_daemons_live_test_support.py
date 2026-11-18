@@ -57,15 +57,13 @@ def daemon_runtime(tmp_path, monkeypatch):
         os.environ.get("YOKE_BROWSER_TEST_RUNTIME")
         or Path.home() / ".yoke" / browser_runtime_home.RUNTIME_DIR_NAME
     )
-    if (
-        not shutil.which("node")
-        or not (installed / "node_modules" / "playwright").is_dir()
-    ):
+    if not (installed / "node_modules" / "playwright").is_dir():
         if os.environ.get("DEPLOYMENT_RUN_ID"):
             pytest.fail(
                 "install the host Playwright runtime before deployed capture QA"
             )
         pytest.skip("machine has no materialized Playwright browser runtime")
+    assert shutil.which("node") is not None, "Install Node.js for the browser runtime"
     runtime = tmp_path / "runtime"
     shutil.copytree(Path(browser_runtime.__file__).parent / "src", runtime / "src")
     (runtime / "src" / "step-schema.json").write_text(json.dumps(load_schema()))

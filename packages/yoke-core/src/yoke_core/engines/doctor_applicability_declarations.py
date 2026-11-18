@@ -150,7 +150,6 @@ _SHAPES = (
             "projects-ci-workflow-resolves",
             "projects-config-alignment",
             "projects-without-flows",
-            "qa-plan-machine-starting-state",
             "qa-runs-mutated",
             "reviewed-implementation-epics-no-sim",
             "routed-ownership-live-frame-no-defense",

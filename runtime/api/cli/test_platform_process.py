@@ -28,9 +28,14 @@ def test_snapshot_and_ancestry_observe_current_process():
 
 def test_wall_clock_drift_keeps_identity_and_reuse_still_reads_dead(monkeypatch):
     """A clock step shifts create_time(), never the recorded start_identity."""
-    identity = processes.start_identity(psutil.Process(os.getpid()))
-    drifted = psutil.Process(os.getpid()).create_time() + 1.0
-    monkeypatch.setattr(psutil.Process, "create_time", lambda self: drifted)
+    process = psutil.Process(os.getpid())
+    identity = processes.start_identity(process)
+    if sys.platform == "win32":
+        # Windows creation time comes directly from the invariant FILETIME.
+        assert identity == process.create_time()
+    else:
+        drifted = process.create_time() + 1.0
+        monkeypatch.setattr(psutil.Process, "create_time", lambda self: drifted)
     assert processes.pid_alive(os.getpid(), identity)
     assert not processes.pid_alive(os.getpid(), identity + 1.0)
 

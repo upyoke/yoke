@@ -60,7 +60,7 @@ def _run_probe(tmp_path, name):
     )
 
 
-@pytest.mark.posix_only(reason="runs on the POSIX test machine")
+@pytest.mark.posix_only(reason="launches a POSIX harness fixture through its executable shebang script")
 def test_an_exact_ok_with_one_tool_event_retries_and_then_passes(tmp_path):
     runs = _harness(tmp_path, "agent", [[SHELL_CALL, OK_RESULT], [OK_RESULT]])
     result = _run_probe(tmp_path, "Cursor")
@@ -69,7 +69,7 @@ def test_an_exact_ok_with_one_tool_event_retries_and_then_passes(tmp_path):
     assert runs.read_text() == "2"
 
 
-@pytest.mark.posix_only(reason="runs on the POSIX test machine")
+@pytest.mark.posix_only(reason="launches a POSIX harness fixture through its executable shebang script")
 def test_a_steady_tool_call_fails_after_one_retry_and_names_the_tool(tmp_path):
     runs = _harness(tmp_path, "agent", [[SHELL_CALL, OK_RESULT]])
     result = _run_probe(tmp_path, "Cursor")
@@ -81,7 +81,7 @@ def test_a_steady_tool_call_fails_after_one_retry_and_names_the_tool(tmp_path):
     assert record["event_types"] == ["tool_call:shellToolCall", "result"]
 
 
-@pytest.mark.posix_only(reason="runs on the POSIX test machine")
+@pytest.mark.posix_only(reason="launches a POSIX harness fixture through its executable shebang script")
 @pytest.mark.parametrize(
     "reply",
     [
@@ -98,7 +98,7 @@ def test_a_tool_call_with_another_fault_does_not_retry(tmp_path, reply):
     assert runs.read_text() == "1"
 
 
-@pytest.mark.posix_only(reason="runs on the POSIX test machine")
+@pytest.mark.posix_only(reason="launches a POSIX harness fixture through its executable shebang script")
 def test_claude_tool_use_never_retries(tmp_path):
     tool_use = {"type": "assistant", "message": {"content": [{"type": "tool_use"}]}}
     runs = _harness(tmp_path, "claude", [[tool_use, OK_RESULT], [OK_RESULT]])
@@ -191,7 +191,7 @@ def test_other_harness_timeouts_keep_one_full_attempt_and_a_sanitized_tail(
     assert (record["event_count"], record["event_types"]) == (0, [])
 
 
-@pytest.mark.posix_only(reason="runs on the POSIX test machine")
+@pytest.mark.posix_only(reason="launches a POSIX harness fixture through its executable shebang script")
 def test_a_codex_that_prints_then_hangs_leaves_a_sanitized_tail_on_the_receipt(
     tmp_path, monkeypatch, capsys
 ):
@@ -254,7 +254,7 @@ def test_timeout_diagnostics_sanitize_empty_and_unrecognized_events(output):
     )
 
 
-@pytest.mark.posix_only(reason="runs on the POSIX test machine")
+@pytest.mark.posix_only(reason="launches a POSIX harness fixture through its executable shebang script")
 def test_a_codex_that_waits_for_stdin_eof_answers_when_stdin_stays_open(tmp_path):
     """Over SSH the probe's stdin stays open; codex exec waits for its EOF."""
     codex = tmp_path / ".local/bin/codex"

@@ -207,6 +207,15 @@ def _difference(observed: str, expected: str, *, account_name: str = "") -> str:
     return "; ".join(compare(desired, actual, local(desired.tag)))
 
 
+def relay_task_state(label: str, runner: Runner) -> str:
+    name = label.replace("'", "''")
+    return _checked([
+        "powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
+        "$s=New-Object -ComObject Schedule.Service; $s.Connect(); "
+        f"[int]$s.GetFolder('\\').GetTask('{name}').State",
+    ], runner)
+
+
 def relay_task_status(*, instance=None, home=None, environ=None, runner= subprocess.run) -> RelayTaskStatus:
     selected = instance or resolve_relay_instance()
     present = current = loaded = enabled = False
@@ -224,12 +233,7 @@ def relay_task_status(*, instance=None, home=None, environ=None, runner= subproc
                 result.stdout, relay_task_document(selected, user_sid=sid), account_name=name
             )
             current = not difference
-            name = selected.label.replace("'", "''")
-            state = _checked([
-                "powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
-                "$s=New-Object -ComObject Schedule.Service; $s.Connect(); "
-                f"[int]$s.GetFolder('\\').GetTask('{name}').State",
-            ], runner)
+            state = relay_task_state(selected.label, runner)
             loaded = state == "4"
             enabled = state in {"2", "3", "4"}
             if state == "1":

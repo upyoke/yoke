@@ -56,6 +56,41 @@ def test_path_under_a_file_names_the_file(tmp_path: Path) -> None:
     )
 
 
+def test_windows_style_missing_error_still_names_the_file(
+    tmp_path: Path, monkeypatch
+) -> None:
+    # Windows raises FileNotFoundError, not NotADirectoryError, below a file.
+    from yoke_cli.config.project_checkout_path import validation_error
+
+    blocker = tmp_path / "passwd"
+    blocker.write_text("not a folder", encoding="utf-8")
+    target = blocker / "qa-proj"
+    real_lstat = Path.lstat
+
+    def lstat(self, *args, **kwargs):
+        if self == target:
+            raise FileNotFoundError(2, "The system cannot find the path specified")
+        return real_lstat(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "lstat", lstat)
+    assert validation_error(target) == (
+        f"{blocker} is a file, not a folder — pick a folder path."
+    )
+
+
+def test_new_folder_under_a_linked_folder_is_accepted(tmp_path: Path) -> None:
+    from yoke_cli.config.project_checkout_path import validation_error
+
+    real = tmp_path / "real"
+    real.mkdir()
+    linked = tmp_path / "linked"
+    try:
+        linked.symlink_to(real, target_is_directory=True)
+    except OSError:
+        pytest.skip("this account cannot create symbolic links")
+    assert validation_error(linked / "new-project" / "deeper") is None
+
+
 @pytest.mark.posix_only(reason="/etc/passwd is a POSIX file")
 def test_etc_passwd_child_names_etc_passwd() -> None:
     from yoke_cli.config.project_checkout_path import validation_error

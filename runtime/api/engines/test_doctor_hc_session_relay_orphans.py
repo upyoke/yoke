@@ -116,8 +116,8 @@ def test_a_detect_only_run_fails_and_teaches_the_repair(
     assert "sfltool resetbtm" in detail
 
 
-def test_the_check_is_not_applicable_off_macos(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(orphans_hc.sys, "platform", "linux")
+def test_the_check_is_not_applicable_without_a_supported_supervisor(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(orphans_hc.sys, "platform", "freebsd")
     rec = RecordCollector()
 
     orphans_hc.hc_session_relay_orphans(None, DoctorArgs(), rec)

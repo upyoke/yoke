@@ -129,17 +129,9 @@ class TestTmpYokeCheckoutExemption(unittest.TestCase):
     _RUNTIME = "from yoke_core.domain.sessions import register_session\n"
 
     def setUp(self) -> None:
-        # tempfile lands under the OS temp root; on macOS that is
-        # /var/folders/... and on Linux /tmp — both recognized prefixes,
-        # so the exemption path is exercised against a real tmp tree.
-        self._tmp = tempfile.mkdtemp(prefix="lint-tmp-checkout-")
-        if not self._tmp.startswith(lint._TMP_PREFIXES):
-            self.skipTest(f"temp root {self._tmp} not under a tmp prefix")
-
-    def tearDown(self) -> None:
-        import shutil
-
-        shutil.rmtree(self._tmp, ignore_errors=True)
+        temporary = tempfile.TemporaryDirectory(prefix="lint-tmp-checkout-")
+        self.addCleanup(temporary.cleanup)
+        self._tmp = temporary.name
 
     def _make_checkout(
         self, name: str, *, git_as_file: bool, with_pyproject: bool

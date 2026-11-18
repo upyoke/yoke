@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from pathlib import Path
 import shlex
 
@@ -51,6 +53,7 @@ def _verify_bindings(home: Path, binary: str) -> tuple[str, ...]:
     )
 
 
+@pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")
 def test_clear_removes_stale_temp_and_golden_restore_still_verifies(
     tmp_path: Path,
 ) -> None:
@@ -77,6 +80,7 @@ def test_clear_removes_stale_temp_and_golden_restore_still_verifies(
     assert not residue.exists()
 
 
+@pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")
 def test_verify_names_the_exact_unmet_temp_path(
     tmp_path: Path,
 ) -> None:
@@ -103,6 +107,7 @@ def test_verify_names_the_exact_unmet_temp_path(
     assert residue.exists()
 
 
+@pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")
 def test_clear_refuses_while_a_live_process_holds_the_temp_file(
     tmp_path: Path,
 ) -> None:

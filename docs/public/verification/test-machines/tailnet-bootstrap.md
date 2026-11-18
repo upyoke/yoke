@@ -97,6 +97,7 @@ Read `Self.DNSName` from `tailscale status --json`, trim the trailing dot, resol
 that exact name from the controller, and prove OpenSSH key login with Yoke's
 known_hosts file. Use the reported name rather than assuming LAB_NAME equals
 the final name: the existing native lab reported `winnative.taile868e2.ts.net`.
-Register the verified MagicDNS name as `host` with the as-read settings token;
-keep forwarded `desktop_host` on loopback. Never change a target with an active
+Register the verified MagicDNS name as `host` with the as-read settings token,
+with `desktop_route=direct` and no `desktop_host`; the OS guide's desktop setup
+confines the desktop port to the tailnet. Never change a target with an active
 QA lease. Follow the OS guide's verify/power-cycle and public-IP cleanup steps.

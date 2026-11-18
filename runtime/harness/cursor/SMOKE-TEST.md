@@ -58,9 +58,12 @@ Cursor IDE 3.14.7 / cursor-agent 2026.07.23-e383d2b; newer builds may move.
      envelope must arrive in the `sessionStart` reply's
      `additional_context`, and the turn must run the acknowledgement
      command before it ends.
-6. Confirm the print-mode gaps are still gaps (assessment doc must be
-   updated if the vendor closes them): no `beforeSubmitPrompt`, no `stop`,
-   no `subagentStart`/`subagentStop` despite a `Task` dispatch.
+6. Confirm a print-mode prompt sets `first_user_prompt_at` and `probe: false`
+   in `yoke sessions get SESSION` even though Cursor fires no
+   `beforeSubmitPrompt` or `stop`. SessionEnd recovers the stamp from its
+   observation time minus `duration_ms` if the transcript has a user row.
+   Also check that an executed tool appears in `tool_call_count`. Cursor
+   still fires no `subagentStart`/`subagentStop` for a print-mode `Task`.
 6b. Confirm which config a tool call actually fires. In a workspace that
    carries BOTH `.cursor/hooks.json` and `.claude/settings.json`, Cursor
    routes every tool call through the imported Claude `PreToolUse` /

@@ -43,8 +43,7 @@ def _git(repo: Path, *args: str) -> None:
 
 @pytest.fixture
 def fake_project(tmp_path: Path):
-    if shutil.which("git") is None:
-        pytest.skip("git binary not available")
+    assert shutil.which("git") is not None, "Install Git to run repository fixtures"
     repo = tmp_path / "fake-non-yoke-repo"
     repo.mkdir()
     (repo / "README.md").write_text("hello\n")

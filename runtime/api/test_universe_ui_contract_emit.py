@@ -6,7 +6,6 @@ import shutil
 import subprocess
 from pathlib import Path
 
-import pytest
 from yoke_core.domain.yaml_helper import load_document
 
 
@@ -59,11 +58,7 @@ def test_selection_ci_preinstalls_typescript_for_contract_check() -> None:
 
 def test_universe_app_contract_tsc_outputs_are_current(tmp_path: Path) -> None:
     node = shutil.which("node")
-    if node is None:
-        pytest.skip(
-            "Node.js is unavailable for the TypeScript contract check. CI provisions "
-            f"it; locally, install Node.js and run `{_TSC_INSTALL_COMMAND}`."
-        )
+    assert node is not None, f"Install Node.js and run `{_TSC_INSTALL_COMMAND}`"
     assert _TYPESCRIPT_COMPILER.is_file(), (
         "The pinned TypeScript compiler is not installed. Run "
         f"`{_TSC_INSTALL_COMMAND}` from the repository root."

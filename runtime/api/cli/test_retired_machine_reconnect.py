@@ -154,7 +154,7 @@ def _register_reply(*, retired: bool, machine_id: str = "") -> FunctionCallRespo
 def test_local_registration_replaces_a_retired_identity_once(monkeypatch, config_path):
     calls: list[str] = []
 
-    def fake_register(payload):
+    def fake_register(payload, **_route):
         calls.append(payload["machine_id"])
         return _register_reply(
             retired=payload["machine_id"] == RETIRED_ID,
@@ -162,7 +162,7 @@ def test_local_registration_replaces_a_retired_identity_once(monkeypatch, config
         )
 
     monkeypatch.setattr(machine_registration, "_call_register", fake_register)
-    monkeypatch.setattr(machine_registration, "_persist_credential", lambda *_: None)
+    monkeypatch.setattr(machine_registration, "_persist_credential", lambda *_, **_opts: None)
     outcome = machine_registration.register_this_machine(config_path)
     replacement = _configured_id(config_path)
     assert calls == [RETIRED_ID, replacement]
@@ -182,7 +182,7 @@ def test_local_registration_reports_a_foreign_owner_without_swapping(
         version="v1",
         error=FunctionError(code="machine_owner_mismatch", message="other owner"),
     )
-    monkeypatch.setattr(machine_registration, "_call_register", lambda _p: refusal)
+    monkeypatch.setattr(machine_registration, "_call_register", lambda _p, **_route: refusal)
     outcome = machine_registration.register_this_machine(config_path)
     assert outcome["registered"] is False
     assert outcome["reason"] == "machine_owner_mismatch: other owner"

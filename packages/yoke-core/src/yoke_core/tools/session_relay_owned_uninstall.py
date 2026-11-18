@@ -1,7 +1,7 @@
-"""Remove saved macOS relay services before deleting their machine home.
+"""Remove saved relay services before deleting their machine home.
 
 Connection retirement may already have removed every alias. The installed
-plist still records its owner and exact instance identity; it is the cleanup
+service document still records its owner and instance identity as the cleanup
 authority, not a connection that may no longer exist.
 """
 
@@ -23,31 +23,40 @@ from yoke_core.domain.launchctl_boundary import launch_agents_dir
 from yoke_core.domain.relay_launchd_status import RelayInstallError
 from yoke_core.domain.local_relay_launcher_path import local_launcher_candidates
 from yoke_core.domain.relay_release_path import relay_launch_executable
+from yoke_core.domain.relay_systemd_status import relay_unit_directory
 from yoke_core.tools.session_relay_plist import uninstall_relay_launchd
+from yoke_core.tools.session_relay_shared_retirement import parse_relay_unit
+from yoke_core.tools.session_relay_systemd import uninstall_relay_systemd
 
 
 def _refusal(path: Path) -> RelayInstallError:
     return RelayInstallError(
         f"uninstall_relay_ownership_unproven: cannot prove the saved relay at {path}. "
-        "Restore its installer-written plist and retry `yoke uninstall`; "
+        "Restore its installer-written service document and retry `yoke uninstall`; "
         "the machine home and CLI are retained for recovery.",
         code="uninstall_relay_ownership_unproven",
     )
 
 
-def _instance(path: Path, machine_home: Path) -> RelayInstance | None:
+def _instance(path: Path, machine_home: Path, platform: str) -> RelayInstance | None:
     if path.is_symlink():
         raise _refusal(path)
     try:
         if path.stat().st_size > 65536:
             raise ValueError("oversized service document")
-        document = plistlib.loads(path.read_bytes())
-        environment = document["EnvironmentVariables"]
+        content = path.read_bytes()
+        if platform == "linux":
+            environment, args = parse_relay_unit(content)
+            label = path.stem
+        else:
+            document = plistlib.loads(content)
+            environment = document["EnvironmentVariables"]
+            args = document["ProgramArguments"]
+            label = document["Label"]
         owner = Path(environment[HOME_ENV]).expanduser().resolve()
         if owner != machine_home:
             return None
         config = Path(environment[CONFIG_FILE_ENV]).expanduser().resolve()
-        args = document["ProgramArguments"]
         # This is exactly the installer-written command, not a label-prefix
         # guess about another user's executable or service.
         if len(args) != 5 or args[1] != "--env" or args[3:] != ["relay", "serve"]:
@@ -55,9 +64,8 @@ def _instance(path: Path, machine_home: Path) -> RelayInstance | None:
         name = args[2]
         if not isinstance(name, str) or not name:
             raise ValueError("missing environment")
-        label = document["Label"]
         expected = relay_instance_label(config_path=config, environment=name)
-        if label not in (expected, RELAY_BASE_LABEL) or path.name != f"{label}.plist":
+        if label not in (expected, RELAY_BASE_LABEL) or path.stem != label:
             raise ValueError("instance identity mismatch")
         state = (
             machine_home / SHARED_RELAY_STATE_DIR_NAME
@@ -82,29 +90,37 @@ def _instance(path: Path, machine_home: Path) -> RelayInstance | None:
     )
 
 
-def uninstall_owned_relays(machine_home: Path) -> list[str]:
+def uninstall_owned_relays(machine_home: Path, *, platform: str) -> list[str]:
     """Unload proven services even when their config or alias has gone.
 
-    Lifecycle removal verifies launchd has unloaded before unlinking each
-    plist. Any unreadable identity or failed unload fails the uninstall,
+    Lifecycle removal verifies each native service is gone. Any unreadable
+    identity or failed unload fails the uninstall,
     preserving the machine home and executable for a retry.
     """
     owner = machine_home.expanduser().resolve()
-    directory = launch_agents_dir(yoke_home=owner)
+    if platform == "linux":
+        directory, extension = relay_unit_directory(), "service"
+    else:
+        directory, extension = launch_agents_dir(yoke_home=owner), "plist"
     removed = []
-    paths = list(directory.glob(f"{RELAY_LABEL_PREFIX}*.plist"))
-    shared = directory / f"{RELAY_BASE_LABEL}.plist"
+    paths = list(directory.glob(f"{RELAY_LABEL_PREFIX}*.{extension}"))
+    shared = directory / f"{RELAY_BASE_LABEL}.{extension}"
     if shared.exists() or shared.is_symlink():
         paths.append(shared)
     for path in sorted(paths):
         if not path.exists() and not path.is_symlink():
             # A prior instance may have retired its shared job.
             continue
-        instance = _instance(path, owner)
+        instance = _instance(path, owner, platform)
         if instance is None:
             continue
-        status = uninstall_relay_launchd(instance=instance)
-        if status.loaded or status.plist_present:
+        if platform == "linux":
+            status = uninstall_relay_systemd(instance=instance)
+            remains = status.loaded or status.enabled or status.unit_present
+        else:
+            status = uninstall_relay_launchd(instance=instance)
+            remains = status.loaded or status.plist_present
+        if remains:
             raise RelayInstallError(
                 f"uninstall_relay_not_stopped: {instance.label} remains installed. "
                 "Retry `yoke uninstall` after the service stops; recovery files remain.",
