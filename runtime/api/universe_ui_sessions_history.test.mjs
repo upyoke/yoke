@@ -16,7 +16,7 @@ const delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, mil
 
 function row(sessionId, liveness = "ended") {
   return {
-    session_state: { status: liveness === "ended" ? "ended" : "waiting", active_at: null, reason: "Waiting for the next turn.", presence: liveness === "ended" ? "ended" : "present",
+    session_state: { status: liveness === "ended" ? "ended" : "idle", active_at: null, reason: "Waiting for the next turn.", presence: liveness === "ended" ? "ended" : "present",
       activity: "silent", intent: { state: "none" } },
     session_id: sessionId, liveness, reclaimable: liveness === "stale",
     project_id: 1, project: "yoke",
@@ -139,7 +139,7 @@ test("ended history is lazy, cursor-paged, and excluded from bulk audiences", as
 
   assert.equal(button(root, "Load more").hidden, true);
 
-  setStatuses(root, ["working", "waiting", "ended"]);
+  setStatuses(root, ["working", "idle", "ended"]);
   assert.deepEqual(cardIds(root), ["open-active", "open-stale", "ended-1", "ended-2", "ended-3"]);
   button(root, "Message all").dispatchEvent(new Event("click"));
   await settle();

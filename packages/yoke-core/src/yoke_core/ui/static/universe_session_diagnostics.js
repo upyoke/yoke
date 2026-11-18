@@ -45,7 +45,7 @@ export const SESSION_STATUS_UPGRADE =
 
 export function sessionStatusAvailable(row) {
   const state = row.session_state;
-  return ["working", "waiting", "ended"].includes(state?.status)
+  return ["working", "idle", "ended"].includes(state?.status)
     && Object.hasOwn(state, "active_at") && typeof state.reason === "string";
 }
 
@@ -59,6 +59,20 @@ export function appendSessionPrimaryStatus(documentNode, host, row) {
   if (value === "unavailable") attachTooltip(documentNode, pill, SESSION_STATUS_UPGRADE);
 }
 
+const AWAITING_LABELS = new Map([
+  ["operator", "operator"],
+  ["parent_or_steering", "steering"],
+  ["another_item", "another item"],
+  ["ci_or_deploy", "CI or deployment"],
+]);
+
+export function appendSessionIntent(documentNode, body, row) {
+  const state = row.session_state;
+  if (state?.status === "ended" || state?.intent?.state !== "awaiting") return;
+  const actor = AWAITING_LABELS.get(state.intent.awaiting_who) || "next action";
+  body.appendChild(el(documentNode, "div", "session-intent", `Awaiting ${actor}`));
+}
+
 export function appendSessionHeaderDetails(documentNode, host, row) {
   const state = row.session_state;
   const intent = state?.intent;
@@ -69,7 +83,8 @@ export function appendSessionHeaderDetails(documentNode, host, row) {
     `Activity: ${state?.activity || "unavailable"}`,
     `Intent: ${intent?.state || "unavailable"}${intent?.reason ? ` · ${intent.reason}` : ""}`,
     `Next actor: ${next?.actor || "unavailable"}${next?.reason ? ` · ${next.reason}` : ""}`,
-    ...[["Tool", row.last_tool_call_at], ["Prompt / stop", row.turn_posture_at],
+    ...[["Tool", row.last_tool_call_at], ["Open tool start", row.open_tool_call_at],
+      ["Prompt / stop", row.turn_posture_at],
       ["Finished turn", row.native_turn_end_recorded_at], ["Heartbeat", row.last_heartbeat]]
       .map(([name, time]) => `${name}: ${time || "unavailable"}`),
     killExplanation(row),

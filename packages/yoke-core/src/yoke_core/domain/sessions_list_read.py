@@ -201,7 +201,7 @@ def list_sessions(
             clauses.append(not_probe_session_sql("s"))
         if status == "ended":
             clauses.append(ended_session_sql("s"))
-        elif status in {"working", "waiting"}:
+        elif status in {"working", "idle"}:
             clauses.append(live_session_sql("s"))
         if liveness == LIVENESS_ENDED or ended_cause is not None:
             clauses.append(ended_session_sql("s"))

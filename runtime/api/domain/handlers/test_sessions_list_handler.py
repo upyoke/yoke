@@ -230,7 +230,7 @@ class TestHandler:
         outcome = handle_sessions_list(_request({"status": "running"}))
         assert not outcome.primary_success
         assert outcome.error.code == "payload_invalid"
-        for state in ("working", "waiting", "ended"):
+        for state in ("working", "idle", "ended"):
             assert state in outcome.error.message
 
     def test_handler_requires_global_target(self):

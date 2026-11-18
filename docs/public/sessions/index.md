@@ -9,7 +9,7 @@ Inspect session liveness, work ownership and steering communication.
 ## Sessions
 
 Web dashboard **Sessions** lists harness sessions against this universe: who is
-running, what item they hold, and whether each is Working, Waiting or Ended.
+running, what item they hold, and whether each is Working, Idle or Ended.
 
 Held item IDs show Frozen and Blocked pills from the item's own state. If
 both apply, Frozen appears first and colors the active workflow segment ice
@@ -18,27 +18,29 @@ red. Completed and upcoming segments retain their normal colors. A parked or
 idle session does not, by itself, mark its item Frozen or Blocked.
 
 The server computes one status for the Sessions page, Frontier, Machines and
-`yoke sessions list`: **Working**, **Waiting** or **Ended**. Working means a
-live tool call, or an unfinished turn with a recent sign of life. A finished
-turn is Waiting. End stamps make a session Ended. A native process exit does
-not change status: a session can resume after that process exits.
+`yoke sessions list`: **Working**, **Idle** or **Ended**. A live session is
+Working if it has a tool call within the project's `session_idle_minutes`
+(20 minutes by default) or an open call under 45 minutes. Other live sessions
+are Idle. End stamps make a session Ended. A session can resume after a native
+process exit.
 
-The recent window is the project's `session_idle_minutes` (20 minutes by
-default). **active** uses the latest tool call, heartbeat, prompt/stop marker
-or recorded turn end. The status comes from the server, never a browser clock.
+The server supplies **active** age from the latest tool-call timestamp or
+the start of an open call. A session that has never used a tool shows its
+active time as unavailable.
 
-The roster has independent status toggle chips: Working and Waiting start on;
+The roster has independent status toggle chips. Working and Idle start on.
 Ended starts off. Selecting Ended loads cursor-paged history. Any combination,
 including none, is allowed. Filter the CLI before pagination with
-`yoke sessions list --status working|waiting|ended`. `yoke sessions get SESSION-ID
+`yoke sessions list --status working|idle|ended`. `yoke sessions get SESSION-ID
 --full` keeps the diagnostic fields.
 
-Cards show one status and active age. The header's **(i)** reveals the
-session's reason, presence, activity, intent and its reason, next actor and the tool,
-prompt/stop, turn-end and heartbeat times. Holdings and steering keep their
+Cards show one status, active age and any awaiting intent. The header's
+**(i)** reveals the session's reason, presence, activity, intent and its
+reason, next actor and the tool, prompt/stop, turn-end and heartbeat times.
+Holdings and steering keep their
 own sections. A stored native chat title adds a line when it differs from the
 launch item's ref and title and the session has no steering claim; the harness
-name stays in the header. Machines count working, waiting and held sessions.
+name stays in the header. Machines count working, idle and held sessions.
 An older server without status, active time or reason asks you to refresh after
 the server upgrade instead of guessing a status.
 

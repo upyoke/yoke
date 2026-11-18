@@ -21,12 +21,11 @@ presence. Explicit release, completion, cancellation or authorized termination
 settles ownership; automatic reclaim refuses with `reason=active_work_claim`.
 
 The roster consumes `session_state.status`, `active_at` and `reason`.
-Status is Working for an open live tool call, or a running/unknown unfinished
-turn whose newest sign of life is within `session_idle_minutes` (default 20).
-Waiting covers every other non-ended session, including finished turns.
-`ended_at` or `terminated_at` makes it Ended. Native process death never changes
-this display status. `active_at` is the latest of `last_tool_call_at`,
-`last_heartbeat`, `turn_posture_at` and `native_turn_end_recorded_at`.
+Status is Working for a tool call within `session_idle_minutes` (default 20)
+or an open tool call under 45 minutes. Idle covers every other live session.
+`ended_at` or `terminated_at` makes it Ended. `active_at` is the latest of
+`last_tool_call_at` and the open tool call's start. Heartbeat, prompt/stop and
+recorded turn-end timestamps are diagnostic details.
 
 The same projection drives CLI, Sessions, Frontier and Machines; callers supply
 the project idle setting and open tool-call facts. `sessions list --status`

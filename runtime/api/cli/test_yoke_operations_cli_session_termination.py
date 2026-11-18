@@ -101,7 +101,14 @@ def test_sessions_list_rejects_terminated_as_a_presence_peer(capsys) -> None:
     assert "--ended-cause killed|wound_down" in stderr
 
 
+def test_sessions_list_points_waiting_status_to_idle(capsys) -> None:
+    assert roster.sessions_list(["--status", "waiting"]) == 2
+    stderr = capsys.readouterr().err
+    assert "invalid choice: 'waiting'" in stderr
+    assert "--status working|idle|ended" in stderr
+
+
 def test_sessions_list_removes_the_liveness_flag(capsys) -> None:
     assert roster.sessions_list(["--liveness", "active"]) == 2
     stderr = capsys.readouterr().err
-    assert "--status working|waiting|ended" in stderr
+    assert "--status working|idle|ended" in stderr

@@ -64,7 +64,7 @@ test("Sessions matches the prototype's runtime, assignment, level, and operator 
         },
       },
       {
-        session_state: { status: reclaimed ? "ended" : "waiting", active_at: null, reason: "Waiting for the next turn.", presence: reclaimed ? "ended" : "present", activity: "silent", intent: { state: "none" } },
+        session_state: { status: reclaimed ? "ended" : "idle", active_at: null, reason: "Waiting for the next turn.", presence: reclaimed ? "ended" : "present", activity: "silent", intent: { state: "none" } },
         session_id: "v8c2qa", liveness: reclaimed ? "ended" : "stale", reclaimable: !reclaimed,
         execution_level: "DARIUS", mode: "wait",
         executor: "codex", model: "gpt-5.6-sol",
@@ -170,7 +170,7 @@ test("Sessions matches the prototype's runtime, assignment, level, and operator 
     [
       ["Working", "pill good session-status-pill"],
       ["test-mac", "pill good session-relay-pill"],
-      ["Waiting", "pill warn session-status-pill"],
+      ["Idle", "pill idle session-status-pill"],
       ["machine-2", "pill crit session-relay-pill"],
     ],
   );
@@ -219,7 +219,7 @@ test("Sessions matches the prototype's runtime, assignment, level, and operator 
   }
   for (const expected of [
     "codex", "DARIUS", "gpt-5.6-sol", "worktree attached",
-    "Waiting", "preview-ci", "no relay connected",
+    "Idle", "preview-ci", "no relay connected",
   ]) {
     assert.ok(cardText[1].includes(expected), expected);
   }
@@ -265,7 +265,7 @@ test("Sessions matches the prototype's runtime, assignment, level, and operator 
     byClass(root, "sessions-action-status")[0].textContent,
     "1 reclaimable session reclaimed",
   );
-  setStatuses(root, ["working", "waiting", "ended"]);
+  setStatuses(root, ["working", "idle", "ended"]);
   await settle();
   const reclaimedCard = byClass(root, "session-card").find(
     (card) => card.getAttribute("data-session-id") === "v8c2qa",
@@ -280,10 +280,10 @@ test("Sessions cards separate activity, intent and its full reason", () => {
   const reason = "Waiting for the merge queue without clipping recovery context.";
   const rendered = sessionCard(new FakeDocument(), {
     session_id: "waiting", executor: "codex", liveness: "active", session_state: { status: "working", active_at: null, reason: "Waiting for the next turn.", presence: "present", activity: "working", intent: { state: "none" } },
-    session_state: { status: "waiting", active_at: null, reason: "Waiting for the next turn.", presence: "present", activity: "between_turns",
-      intent: { state: "awaiting", reason } },
+    session_state: { status: "idle", active_at: null, reason: "Waiting for the next turn.", presence: "present", activity: "between_turns",
+      intent: { state: "awaiting", reason, awaiting_who: "operator" } },
   }, () => {});
-  assert.equal(byClass(rendered, "session-status-pill")[0].textContent, "Waiting");
+  assert.equal(byClass(rendered, "session-status-pill")[0].textContent, "Idle");
   assert.match(byClass(rendered, "session-details")[0].getAttribute("data-tooltip"), new RegExp(reason));
-  assert.equal(byClass(rendered, "session-intent").length, 0);
+  assert.equal(byClass(rendered, "session-intent")[0].textContent, "Awaiting operator");
 });

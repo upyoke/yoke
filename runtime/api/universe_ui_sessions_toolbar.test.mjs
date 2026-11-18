@@ -14,7 +14,7 @@ test("session search matches native titles and fallback labels without widening 
   const controls = byClass(filters.host, "session-filter-control");
   const titled = {
     session_id: "native-chat", harness_title: "[Release Notes]",
-    project_id: 1, session_state: {status: "waiting", active_at: null, reason: "Waiting."}, liveness: "active", executor: "codex",
+    project_id: 1, session_state: {status: "idle", active_at: null, reason: "Waiting."}, liveness: "active", executor: "codex",
   };
   const fallback = {
     ...titled, session_id: "launched-chat", harness_title: null,
@@ -82,8 +82,8 @@ test("Status chips toggle independently and Clear restores defaults", () => {
   assert.deepEqual(chips.map((c) => c.getAttribute("aria-pressed")), ["true", "true", "false"]);
   chips[2].dispatchEvent(new Event("click"));
   chips[0].dispatchEvent(new Event("click"));
-  assert.deepEqual(filters.statuses(), ["waiting", "ended"]);
+  assert.deepEqual(filters.statuses(), ["idle", "ended"]);
   filters.actions.children[0].dispatchEvent(new Event("click"));
-  assert.deepEqual(filters.statuses(), ["working", "waiting"]);
+  assert.deepEqual(filters.statuses(), ["working", "idle"]);
   assert.deepEqual(changes, ["status", "status", "clear"]);
 });

@@ -94,7 +94,7 @@ test("Sessions renders resolved local identity and the exact empty state", async
   );
   assert.deepEqual(
     byClass(filterHost, "session-status-chip").map((node) => node.textContent),
-    ["Working", "Waiting", "Ended"],
+    ["Working", "Idle", "Ended"],
   );
   const filterButtons = [
     byClass(filterHost, "session-filter-clear")[0],

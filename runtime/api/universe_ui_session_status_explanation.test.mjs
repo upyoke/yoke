@@ -20,9 +20,9 @@ function card(extra) {
 }
 
 test("intent carries the recorded wait reason separately from activity", () => {
-  const rendered = card({ session_state: { status: "waiting", active_at: null, reason: "Waiting for the next turn.", presence: "present", activity: "silent",
+  const rendered = card({ session_state: { status: "idle", active_at: null, reason: "Waiting for the next turn.", presence: "present", activity: "silent",
     intent: { state: "parked", reason: "waiting on a blocking claim" } } });
-  assert.equal(byClass(rendered, "session-status-pill")[0].textContent, "Waiting");
+  assert.equal(byClass(rendered, "session-status-pill")[0].textContent, "Idle");
   assert.match(byClass(rendered, "session-details")[0].getAttribute("data-tooltip"), /Intent: parked · waiting on a blocking claim/);
 });
 

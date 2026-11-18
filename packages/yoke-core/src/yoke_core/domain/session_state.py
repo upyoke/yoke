@@ -38,25 +38,30 @@ def session_presence(row: Mapping[str, Any]) -> str:
     return "gone" if gone is not None and (tool is None or tool <= gone) else "present"
 
 
-def _tool_in_flight(row: Mapping[str, Any], *, now: datetime) -> bool:
-    """An open running call does not depend on native process presence."""
+def _open_call_start(row: Mapping[str, Any]) -> datetime | None:
     started = row.get("open_tool_call_at")
-    if started is None:
+    if not open_tool_call_is_live(started, row.get("last_tool_call_at")):
+        return None
+    return parse_instant(started)
+
+
+def _within_in_flight_ceiling(stamp: datetime | None, now: datetime) -> bool:
+    if stamp is None:
         return False
-    stamp = parse_instant(started)
     return timedelta(0) <= now - stamp < timedelta(
         seconds=IN_FLIGHT_CEILING_SECONDS
-    ) and (
-        row.get("turn_posture") == "running"
-        and open_tool_call_is_live(stamp, row.get("last_tool_call_at"))
-        and not open_call_predates_park(row, started_at=stamp)
     )
 
 
 def session_in_flight(row: Mapping[str, Any], *, now: datetime | None = None) -> bool:
     """The diagnostic progress check retains its process-presence gate."""
     current = utc_now() if now is None else as_utc(now)
-    return session_presence(row) == "present" and _tool_in_flight(row, now=current)
+    return (
+        session_presence(row) == "present"
+        and row.get("turn_posture") == "running"
+        and _within_in_flight_ceiling(_open_call_start(row), current)
+        and not open_call_predates_park(row, started_at=row.get("open_tool_call_at"))
+    )
 
 
 def session_state(
@@ -73,30 +78,24 @@ def session_state(
     from yoke_core.domain.session_automatic_reclaim import automatic_reclaim
 
     current = utc_now() if now is None else as_utc(now)
-    stamps = [
-        parse_instant(row[key])
-        for key in (
-            "last_tool_call_at",
-            "last_heartbeat",
-            "turn_posture_at",
-            "native_turn_end_recorded_at",
-        )
-        if row.get(key)
-    ]
-    active_at = max(stamps) if stamps else None
-    idle = row.get("session_idle_minutes", DEFAULT_SESSION_IDLE_MINUTES)
+    tool = (
+        parse_instant(row["last_tool_call_at"])
+        if row.get("last_tool_call_at")
+        else None
+    )
+    open_call = _open_call_start(row)
+    active_at = max(
+        (stamp for stamp in (tool, open_call) if stamp is not None), default=None
+    )
+    idle_minutes = row.get("session_idle_minutes", DEFAULT_SESSION_IDLE_MINUTES)
+    fresh = tool is not None and tool >= current - timedelta(minutes=idle_minutes)
     status = (
         "ended"
         if row.get("ended_at") or row.get("terminated_at")
         else (
             "working"
-            if _tool_in_flight(row, now=current)
-            or (
-                row.get("turn_posture", "unknown") in {"running", "unknown", None}
-                and active_at is not None
-                and active_at >= current - timedelta(minutes=idle)
-            )
-            else "waiting"
+            if fresh or _within_in_flight_ceiling(open_call, current)
+            else "idle"
         )
     )
     presence = session_presence(row)
@@ -108,13 +107,6 @@ def session_state(
     if next_action["actor"] in {"operator", "another_item", "ci_or_deploy"}:
         intent = "awaiting"
     reason = next_action["reason"] if intent == "awaiting" else row.get("quiet_reason")
-    tool = (
-        parse_instant(row["last_tool_call_at"])
-        if row.get("last_tool_call_at")
-        else None
-    )
-    idle_minutes = row.get("session_idle_minutes", DEFAULT_SESSION_IDLE_MINUTES)
-    fresh = tool is not None and tool >= current - timedelta(minutes=idle_minutes)
     in_flight = session_in_flight(row, now=current)
     activity = "silent"
     if presence == "present" and (fresh or in_flight):

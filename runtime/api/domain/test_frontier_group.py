@@ -1,5 +1,7 @@
 """Home grouping is total and independent of graph references."""
 
+from datetime import timedelta
+
 import pytest
 
 from yoke_core.domain.frontier_group import frontier_group
@@ -7,13 +9,13 @@ from yoke_core.domain.session_state import session_state
 from yoke_contracts.timestamps import utc_now
 
 
-def test_parked_and_working_holders_have_distinct_activity():
+def test_idle_and_working_holders_have_distinct_activity():
     now = utc_now()
     row = {"last_tool_call_at": now, "turn_posture": "running"}
     working = session_state(row, now=now)
     parked = session_state(
         {
-            **row,
+            "last_tool_call_at": now - timedelta(hours=1),
             "mode": "parked",
             "turn_posture": "waiting",
             "quiet_reason": "awaiting direction",
@@ -23,7 +25,7 @@ def test_parked_and_working_holders_have_distinct_activity():
     assert frontier_group({}, [working])["activity"] == "working"
     assert frontier_group({}, [parked]) == {
         "section": "in_progress",
-        "activity": "waiting",
+        "activity": "idle",
         "reason": "ready_without_holder",
     }
 
@@ -49,7 +51,7 @@ def test_every_item_has_one_home(state, section):
 
 def test_precedence_and_ended_holder():
     holder = {
-        "status": "waiting",
+        "status": "idle",
         "presence": "gone",
         "activity": "silent",
         "intent": {"state": "none"},
@@ -83,7 +85,7 @@ def test_overview_projects_parked_claim_and_keeps_halted_work(test_db):
         test_db,
         "parked-holder",
         last_heartbeat=now,
-        last_tool_call_at=now,
+        last_tool_call_at=now - timedelta(hours=1),
         mode="parked",
     )
     _insert_item_claim(test_db, "parked-holder", 19401)
@@ -100,7 +102,7 @@ def test_overview_projects_parked_claim_and_keeps_halted_work(test_db):
     claimed = rows["Claimed work"]
     assert claimed["frontier_group"] == {
         "section": "in_progress",
-        "activity": "waiting",
+        "activity": "idle",
         "reason": "awaiting direction",
     }
     assert claimed["next_actor"]["actor"] == "parent_or_steering"
@@ -133,7 +135,6 @@ def test_activation_blocker_wins_over_an_earlier_merge_edge(test_db):
 
 
 def test_older_finished_blocker_retains_a_home_and_finishing_time(test_db):
-    from datetime import timedelta
     from runtime.api.conftest import insert_item
     from runtime.api.domain.handlers.items_read_test_support import request_for
     from yoke_core.domain.handlers.item_page_reads import handle_items_overview_list

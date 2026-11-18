@@ -27,7 +27,7 @@ def frontier_group(
     holders = [s for s in holder_states if s.get("status") != "ended"]
     if holders:
         working = any(s.get("status") == "working" for s in holders)
-        return home("in_progress", activity="working" if working else "waiting")
+        return home("in_progress", activity="working" if working else "idle")
     if row.get("terminal") or row.get("exceptional") or row.get("needs_spec"):
         return home(
             "on_hold", why="needs_spec" if row.get("needs_spec") else "work_halted"

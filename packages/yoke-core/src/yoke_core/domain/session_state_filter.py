@@ -5,6 +5,8 @@ from yoke_contracts.session_state_fields import SESSION_STATE_CHOICES
 
 def validate_state_filters(filters):
     for key, value in filters.items():
+        if key == "status" and value == "waiting":
+            raise ValueError("Session status 'waiting' was renamed. Use --status idle.")
         if value is not None and value not in SESSION_STATE_CHOICES[key]:
             raise ValueError(
                 f"{key} must be one of {', '.join(SESSION_STATE_CHOICES[key])}; "

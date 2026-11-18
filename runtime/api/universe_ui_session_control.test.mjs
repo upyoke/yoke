@@ -243,7 +243,7 @@ test("roster keeps exact message actions on every session", async (t) => {
   );
   const filters = byClass(root, "session-roster-filter");
 
-  setStatuses(root, ["working", "waiting", "ended"]);
+  setStatuses(root, ["working", "idle", "ended"]);
   await settle();
   const cardIds = () => byClass(root, "session-card").map(
     (card) => card.getAttribute("data-session-id"),
@@ -269,7 +269,7 @@ test("roster keeps exact message actions on every session", async (t) => {
     ).payload.selector,
     { session_ids: ["messageable"] },
   );
-  setStatuses(root, ["working", "waiting"]);
+  setStatuses(root, ["working", "idle"]);
   assert.deepEqual(cardIds(), ["messageable", "wakeable"]);
   mounted.unmount();
 });

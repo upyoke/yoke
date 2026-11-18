@@ -69,7 +69,7 @@ class _FleetBroker:
             "executor_surface": "codex-desktop",
             "machine_id": MACHINE_ID,
             "liveness": "active",
-            "session_state": {"status": "waiting", "active_at": None, "reason": "Waiting for a message."},
+            "session_state": {"status": "idle", "active_at": None, "reason": "Waiting for a message."},
             "messageability": {
                 "messageable": messageable,
                 "reason": None if messageable else "hook_route_missing",
@@ -202,7 +202,7 @@ def test_operator_journey_discovers_sends_reads_and_acknowledges() -> None:
 
     result, output, error = _run_cli(
         broker,
-        ["sessions", "list", "--status", "waiting", "--full"],
+        ["sessions", "list", "--status", "idle", "--full"],
         session_id=SENDER_ID,
     )
     assert result == 0 and error == ""

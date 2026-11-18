@@ -89,12 +89,12 @@ A browser sign-in session is different: it establishes dashboard access and is n
 Harness hooks register sessions and report activity. The relay supplies machine and process information. Presence, tool activity, pause intent, holdings and the next actor are separate facts; an old activity timestamp does not by itself mean work is abandoned.
 
 The Sessions page and Frontier share three server statuses: **Working**,
-**Waiting** and **Ended**. Working means a live tool call or an unfinished turn
-with recent activity; a finished turn is Waiting. A native process exit does
-not end the session. Working and Waiting are selected by default; Ended loads
-history when selected. Each card shows one reason and **active** age; the
-header's **(i)** holds the detailed state and timestamps. The CLI uses
-`yoke sessions list --status working|waiting|ended`.
+**Idle** and **Ended**. Working means a tool call within the project's
+`session_idle_minutes` (20 minutes by default) or an open call under 45 minutes.
+Other live sessions are Idle. Working and Idle are selected by default. Select
+Ended to load history. Each card shows **active** age from tool calls and any
+awaiting intent. The header's **(i)** holds the detailed state, reason and
+timestamps. The CLI uses `yoke sessions list --status working|idle|ended`.
 
 ### Parking and resuming
 

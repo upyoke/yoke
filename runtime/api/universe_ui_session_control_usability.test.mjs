@@ -253,7 +253,7 @@ test("roster State uses accepted liveness values while kill cause stays on the c
       facets: { projects: [], harnesses: [], machines: [] },
     }),
   });
-  assert.deepEqual(statusChecks(root).map((check) => check.value), ["working", "waiting", "ended"]);
+  assert.deepEqual(statusChecks(root).map((check) => check.value), ["working", "idle", "ended"]);
   assert.equal(byClass(root, "session-card").length, 0);
   setStatuses(root, ["ended"]);
   await settle();

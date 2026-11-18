@@ -1,7 +1,7 @@
 {
  "id": "session-liveness",
  "term": "Session liveness",
- "definition": "Cards and session CLI share server statuses Working, Waiting and Ended plus active time and a plain reason. A finished turn waits; a native process exit does not end the session. Presence, activity, intent, custody and next actor remain diagnostic facts; message liveness and reclaim keep separate rules.",
+ "definition": "Cards and session CLI share server statuses Working, Idle and Ended plus tool activity time and a plain reason. Working means a recent tool call or an open call under 45 minutes. Presence, activity, intent, custody and next actor remain diagnostic facts; message liveness and reclaim keep separate rules.",
  "status": "draft",
  "sources": ["docs/public/guide/glossary.md", "docs/public/sessions/model/sessions.md"]
 }

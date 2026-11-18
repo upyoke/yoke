@@ -14,9 +14,9 @@ def test_status_filter_precedes_limit_and_offset(test_db):
     _insert_session(test_db, "silent", last_heartbeat=_iso(30))
     for name in ("first", "second", "third"):
         _insert_session(test_db, name, last_heartbeat=_iso(), last_tool_call_at=_iso())
-    rows = list_sessions(status="waiting", limit=1)
+    rows = list_sessions(status="idle", limit=1)
     assert [row["session_id"] for row in rows] == ["silent"]
-    assert list_sessions(status="waiting", limit=1, offset=1) == []
+    assert list_sessions(status="idle", limit=1, offset=1) == []
 
 
 def test_summary_and_full_reads_have_identical_state(test_db):
@@ -32,9 +32,16 @@ def test_summary_and_full_reads_have_identical_state(test_db):
         _request({"session_id": "between", "detail": "summary"})
     ).result_payload["rows"][0]
     assert session_state_columns(full) == session_state_columns(summary)
-    assert summary["status"] == "waiting"
+    assert summary["status"] == "working"
     assert full["session_state"]["activity"] == "between_turns"
     assert full["session_state"]["intent"]["state"] == "none"
+
+
+def test_waiting_status_refuses_and_names_idle():
+    outcome = handle_sessions_list(_request({"status": "waiting"}))
+    assert not outcome.primary_success
+    assert outcome.error.code == "payload_invalid"
+    assert "--status idle" in outcome.error.message
 
 
 def test_removed_selector_names_upgrade_floor():
@@ -60,7 +67,7 @@ def test_frontier_and_roster_share_project_idle_and_open_call_facts(test_db):
                     last_tool_call_at=now - timedelta(minutes=10))
     _insert_item_claim(test_db, "status-holder", 19441)
     test_db.execute("UPDATE harness_sessions SET turn_posture='running', native_process_gone_at=%s WHERE session_id='status-holder'", (now,))
-    for minutes, expected in [(5, "waiting"), (15, "working")]:
+    for minutes, expected in [(5, "idle"), (15, "working")]:
         set_project_policy_value(test_db, 1, "session_idle_minutes", minutes)
         test_db.commit()
         roster = list_sessions(session_id="status-holder")[0]

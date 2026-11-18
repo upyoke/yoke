@@ -1,6 +1,6 @@
 """Public session state selectors shared by command help and read validation."""
 
-SESSION_STATE_CHOICES = {"status": ("working", "waiting", "ended")}
+SESSION_STATE_CHOICES = {"status": ("working", "idle", "ended")}
 
 
 def session_state_columns(row):

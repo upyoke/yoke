@@ -34,7 +34,7 @@ from yoke_contracts.session_state_fields import (
 
 
 SESSIONS_LIST_USAGE = (
-    "yoke sessions list [--project P] [--status working|waiting|ended] "
+    "yoke sessions list [--project P] [--status working|idle|ended] "
     "[--ended-cause killed|wound_down] "
     "[--limit N] [--offset N] [--full] [--session S] [--session-id S] [--json]"
 )
@@ -56,7 +56,7 @@ def sessions_list(args: List[str]) -> int:
         prog="yoke sessions list",
         usage=SESSIONS_LIST_USAGE,
         description=(
-            "Read Working, Waiting or Ended status, reason and active age. "
+            "Read Working, Idle or Ended status, reason and active age. "
             "Filters run before pagination. Example: yoke sessions list --status working. "
             "Next: yoke say --help."
         ),

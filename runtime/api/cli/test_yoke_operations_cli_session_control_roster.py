@@ -88,7 +88,7 @@ def test_full_roster_dispatches_detail_and_prints_every_field(
                 "--project",
                 "yoke",
                 "--status",
-                "waiting",
+                "idle",
                 "--limit",
                 "5",
                 "--full",
@@ -100,7 +100,7 @@ def test_full_roster_dispatches_detail_and_prints_every_field(
     assert captured["function_id"] == "sessions.list"
     assert captured["payload"] == {
         "project": "yoke",
-        "status": "waiting",
+        "status": "idle",
         "limit": 5,
         "detail": "full",
         "offset": 0,

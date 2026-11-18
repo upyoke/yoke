@@ -211,7 +211,7 @@ export async function loadFrontier(context, bands, getScope, sessionRoster, opti
 
     bands.active.setCount(active.length);
     const progressCards = [];
-    for (const [activity, label] of [["working", "Working"], ["waiting", "Waiting"]]) {
+    for (const [activity, label] of [["working", "Working"], ["idle", "Idle"]]) {
       const members = rows.active.filter(({ row }) => kept(row) && row.frontier_group.activity === activity);
       if (!members.length) continue;
       progressCards.push(el(documentNode, "h3", "frontier-progress-heading", `${label} (${members.length})`));
