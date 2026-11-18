@@ -52,7 +52,7 @@ def test_data_warning_is_first_and_backup_precedes_project_question(
     monkeypatch.setattr(removal, "inspect", lambda: value)
     events, output = [], []
     monkeypatch.setattr(
-        removal.steps, "back_up", lambda inv, emit: events.append("export")
+        removal.backups, "back_up", lambda inv, emit: events.append("export")
     )
     monkeypatch.setattr(
         removal.steps,
@@ -100,7 +100,7 @@ def test_invalid_selection_refuses_before_export(inventory, monkeypatch, value):
         removal, "inspect", lambda: replace(inventory, local_universe=True)
     )
     monkeypatch.setattr(
-        removal.steps,
+        removal.backups,
         "back_up",
         lambda *args: pytest.fail("no export before validation"),
     )
@@ -149,7 +149,7 @@ def test_eof_cancels_without_a_traceback_or_removal(inventory, monkeypatch):
 def test_self_host_warning_names_self_hosted_server_data(inventory, monkeypatch):
     value = replace(inventory, bundles=((inventory.home / "self-host", None),))
     monkeypatch.setattr(removal, "inspect", lambda: value)
-    monkeypatch.setattr(removal.steps, "back_up", lambda inv, emit: None)
+    monkeypatch.setattr(removal.backups, "back_up", lambda inv, emit: None)
     monkeypatch.setattr(removal.steps, "remove", lambda inv, selected, emit: 0)
     output = []
     removal.run(backup=True, projects="none", non_interactive=True, emit=output.append)
@@ -160,7 +160,7 @@ def test_self_host_warning_names_self_hosted_server_data(inventory, monkeypatch)
 def test_local_universe_warning_names_local_universe_data(inventory, monkeypatch):
     value = replace(inventory, local_universe=True)
     monkeypatch.setattr(removal, "inspect", lambda: value)
-    monkeypatch.setattr(removal.steps, "back_up", lambda inv, emit: None)
+    monkeypatch.setattr(removal.backups, "back_up", lambda inv, emit: None)
     monkeypatch.setattr(removal.steps, "remove", lambda inv, selected, emit: 0)
     output = []
     removal.run(backup=True, projects="none", non_interactive=True, emit=output.append)
@@ -172,7 +172,7 @@ def test_warning_names_both_data_kinds_when_both_are_held(inventory, monkeypatch
         inventory, local_universe=True, bundles=((inventory.home / "self-host", None),)
     )
     monkeypatch.setattr(removal, "inspect", lambda: value)
-    monkeypatch.setattr(removal.steps, "back_up", lambda inv, emit: None)
+    monkeypatch.setattr(removal.backups, "back_up", lambda inv, emit: None)
     monkeypatch.setattr(removal.steps, "remove", lambda inv, selected, emit: 0)
     output = []
     removal.run(backup=True, projects="none", non_interactive=True, emit=output.append)
@@ -186,7 +186,7 @@ def test_other_backup_answer_cancels_cleanly(inventory, monkeypatch, answer):
     value = replace(inventory, bundles=((inventory.home / "self-host", None),))
     monkeypatch.setattr(removal, "inspect", lambda: value)
     monkeypatch.setattr(
-        removal.steps, "back_up", lambda *args: pytest.fail("must not back up")
+        removal.backups, "back_up", lambda *args: pytest.fail("must not back up")
     )
     monkeypatch.setattr(
         removal.steps, "remove", lambda *args: pytest.fail("must not uninstall")

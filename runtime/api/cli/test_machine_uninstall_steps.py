@@ -129,35 +129,6 @@ def test_cli_spawn_failure_keeps_machine_home(machine, monkeypatch):
     assert value.config.is_file()
 
 
-def test_backup_exports_each_actual_env_and_never_active_default(
-    machine, tmp_path, monkeypatch
-):
-    value, calls, _ = machine
-    monkeypatch.chdir(tmp_path)
-    steps.back_up(value, lambda line: None)
-    assert [args[1] for args in calls] == ["local", "self-host"]
-    assert all(args[2:4] == ["universe", "export"] for args in calls)
-    assert all(args[-1] == str(tmp_path) + "/" for args in calls)
-
-
-def test_backup_failure_stops_destructive_removal(machine, tmp_path, monkeypatch):
-    value, _, _ = machine
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(steps, "command", lambda args: steps._fail("export refused"))
-    output = []
-    with pytest.raises(UninstallError, match="uninstall_backup_failed"):
-        steps.back_up(value, output.append)
-    assert len([line for line in output if "failed" in line]) == 2
-    assert value.config.is_file()
-
-
-def test_backup_never_lands_inside_deleted_home(machine, monkeypatch):
-    value, _, _ = machine
-    monkeypatch.chdir(value.home)
-    with pytest.raises(UninstallError, match="uninstall_backup_inside_home"):
-        steps.back_up(value, lambda line: None)
-
-
 def test_docker_discovery_failure_keeps_recovery_state(machine):
     value, calls, handoff = machine
     value = replace(

@@ -10,6 +10,7 @@ from yoke_cli.config.machine_uninstall_inventory import (
     UninstallError,
     inspect,
 )
+from yoke_cli.config import machine_uninstall_backup as backups
 from yoke_cli.config import machine_uninstall_steps as steps
 
 
@@ -71,7 +72,7 @@ def run(
     if projects is not None:
         selected = select_projects(projects, inventory)
     if backup:
-        steps.back_up(inventory, emit)
+        backups.back_up(inventory, emit)
     else:
         emit(
             "backup: skipped (operator chose no backup)"
