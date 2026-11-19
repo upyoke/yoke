@@ -29,7 +29,10 @@ cross-build observations and exact-execution recovery.
 ## Plan groups
 
 At `item-qa` entry, one attacher makes member QA; two or more make a driver-owned
-group. Later attachments keep that ownership. Each shared plan owed here gets
+group. Later attachments keep that ownership. A sole attacher a closed group in
+the run's lineage already covered stays with that group and owes no new rows.
+Once a plan is a group, members' never-run own rows of it are retracted as
+`replaced by plan group <group_id>`. Each shared plan owed here gets
 memberless rows per case and baseline, shared by attachers. Its immutable target
 records `deployment.shared_plan = {plan_id, source_revision, group_id}`; the
 candidate must contain that source. Cases filter to the target. The first group
