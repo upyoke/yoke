@@ -58,8 +58,56 @@ def test_lease_survives_power_and_desktop_and_only_owned_hold_releases(
             "test_machine.lease_acquire",
             *expected,
             "claims.coordination_claim.release",
+            "test_machine.get",
         ]
     assert events == expected
+
+
+def test_own_holdover_is_taken_and_the_renewed_holdover_is_named(monkeypatch, capsys):
+    events = []
+    holdover = {"id": 12, "session_id": "own", "holdover_expires_at": "2026-11-19T01:02:00Z"}
+
+    def dispatch(**kw):
+        events.append(kw["function_id"])
+        result = {"active_lease": holdover} if kw["function_id"] == "test_machine.get" else {
+            "claim_id": 12
+        }
+        return SimpleNamespace(success=True, result=result, error=None)
+
+    monkeypatch.setattr(custody, "call_dispatcher", dispatch)
+    monkeypatch.setattr(cloud_machine_power, "power_on", lambda *a: None)
+    with custody.desktop_lease(
+        project="acme",
+        test_machine="lab",
+        settings={},
+        actor=SimpleNamespace(session_id="own"),
+        reason="test-machine exec",
+        detail={"active_lease": holdover},
+    ):
+        events.append("exec")
+
+    assert events == [
+        "test_machine.lease_acquire",
+        "exec",
+        "claims.coordination_claim.release",
+        "test_machine.get",
+    ]
+    assert (
+        "hold-over: lab stays held for this session until 2026-11-19T01:02:00Z (lease 12)"
+        in capsys.readouterr().err
+    )
+
+
+def test_a_release_without_holdover_names_none(monkeypatch, capsys):
+    """An older server sends no hold-over field; the command prints nothing extra."""
+
+    def dispatch(**kw):
+        result = {"active_lease": {"id": 3, "session_id": "own"}}
+        return SimpleNamespace(success=True, result=result, error=None)
+
+    monkeypatch.setattr(custody, "call_dispatcher", dispatch)
+    custody._report_holdover("lab", SimpleNamespace(session_id="own"))
+    assert capsys.readouterr().err == ""
 
 
 def test_foreign_holder_refuses_without_power(monkeypatch):
@@ -120,7 +168,10 @@ def test_authorize_powers_before_precheck_and_viewer_and_releases_after_sign_in(
     monkeypatch.setattr(gui, "run_gui_command", run)
     assert authorize("--json") == 0
     assert events == ["power", "installed", "viewer", "sign-in", "closed"]
-    assert route["calls"][-1]["function_id"] == "claims.coordination_claim.release"
+    assert [call["function_id"] for call in route["calls"][-2:]] == [
+        "claims.coordination_claim.release",
+        "test_machine.get",
+    ]
 
 
 def test_fresh_host_refuses_before_viewer_and_releases_lease(
@@ -140,7 +191,10 @@ def test_fresh_host_refuses_before_viewer_and_releases_lease(
     assert authorize("--json") == 2
     assert "test_machine_yoke_missing" in capsys.readouterr().out
     assert not route["argv"]
-    assert route["calls"][-1]["function_id"] == "claims.coordination_claim.release"
+    assert [call["function_id"] for call in route["calls"][-2:]] == [
+        "claims.coordination_claim.release",
+        "test_machine.get",
+    ]
 
 
 @pytest.mark.parametrize("kind", ["linux", "wsl", "macos"])
@@ -222,4 +276,43 @@ def test_desktop_access_holds_lease_until_view_returns(monkeypatch, capsys, fail
         "power",
         "desktop",
         "claims.coordination_claim.release",
+        "test_machine.get",
     ]
+
+
+def test_another_sessions_lapsed_holdover_is_acquired_not_refused(monkeypatch):
+    events = []
+
+    def dispatch(**kw):
+        events.append(kw["function_id"])
+        return SimpleNamespace(success=True, result={"claim_id": 13}, error=None)
+
+    monkeypatch.setattr(custody, "call_dispatcher", dispatch)
+    monkeypatch.setattr(cloud_machine_power, "power_on", lambda *a: None)
+    lapsed = {"id": 12, "session_id": "other", "holdover_expires_at": "2026-01-01T00:00:00Z"}
+    with custody.desktop_lease(
+        project="acme",
+        test_machine="lab",
+        settings={},
+        actor=SimpleNamespace(session_id="own"),
+        reason="test-machine exec",
+        detail={"active_lease": lapsed},
+    ):
+        events.append("exec")
+
+    assert events[:2] == ["test_machine.lease_acquire", "exec"]
+
+
+def test_another_sessions_live_holdover_refuses(monkeypatch):
+    monkeypatch.setattr(cloud_machine_power, "power_on", lambda *a: pytest.fail("powered"))
+    live = {"id": 12, "session_id": "other", "holdover_expires_at": "2999-01-01T00:00:00Z"}
+    with pytest.raises(RuntimeError, match="test_machine_leased"):
+        with custody.desktop_lease(
+            project="acme",
+            test_machine="lab",
+            settings={},
+            actor=SimpleNamespace(session_id="own"),
+            reason="test-machine exec",
+            detail={"active_lease": live},
+        ):
+            pytest.fail("ran")

@@ -8,7 +8,8 @@ acquires share one line, ordered by when each session first queued; a
 walk recovering an aborted shared walk takes that walk's place
 (``qa_host_turn_inheritance``). A plan execution waits on every host of its
 case at one place, and an unconsumed reservation passes to an older waiter
-that joins later (``qa_host_set_turns``).
+that joins later (``qa_host_set_turns``). A session that just used a host
+keeps it for a short same-session hold-over (``qa_host_holdover``).
 """
 
 from __future__ import annotations
@@ -173,12 +174,15 @@ def reserve_host_turn(conn: Any, target: Any) -> None:
         return
     from yoke_core.domain.coordination_claims import active_claim, acquire
     from yoke_core.domain.qa_host_health import host_unhealthy
+    from yoke_core.domain.qa_host_holdover import expire_holdover
     from yoke_core.domain.qa_host_set_turns import pass_to_older_waiter
 
     held = active_claim(conn, target)
     if held is not None:
-        # Releasing a passed reservation serves the line through this function.
-        pass_to_older_waiter(conn, held)
+        # Releasing a lapsed hold-over or a passed reservation serves the
+        # line through this function.
+        if not expire_holdover(conn, held):
+            pass_to_older_waiter(conn, held)
         return
     if host_unhealthy(conn, target.test_machine) is not None:
         return
@@ -252,14 +256,20 @@ def reservation_for(conn: Any, claim: Any, session_id: str) -> bool:
 
 
 def host_claim_released(conn: Any, claim: Any) -> None:
-    """Drop the unconsumed reservation, ending a wait it orphans; serve the line."""
+    """Drop the unconsumed reservation, ending a wait it orphans; serve the line.
+
+    A direct operation's release may first keep the host for its session as a
+    hold-over (``qa_host_holdover``).
+    """
+    from yoke_core.domain.qa_host_holdover import hold_over_direct_operation
     from yoke_core.domain.qa_host_turn_release import cancel_released_reservation
 
     if not claim.target.test_machine:
         return
     if _has_line(conn):
         cancel_released_reservation(conn, claim)
-        reserve_host_turn(conn, claim.target)
+        if not hold_over_direct_operation(conn, claim):
+            reserve_host_turn(conn, claim.target)
     note_released_host(conn, claim.target)
 
 

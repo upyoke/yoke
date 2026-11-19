@@ -201,6 +201,10 @@ def stop_plan_execution(
             {**mission, "reason": reason, "requested_by_session_id": session_id},
         )
         conn.commit()
+    from yoke_core.domain.qa_host_holdover import OWNER_ABORT
+
+    # The owner's own stop keeps its hosts for its next execution.
+    execution[OWNER_ABORT] = not steering and not abandoned
     finish_plan_execution(
         conn,
         execution,
@@ -209,6 +213,9 @@ def stop_plan_execution(
     )
     result = plan_execution_view(conn, execution)
     result["release_reason"] = execution.get("release_reason")
+    from yoke_core.domain.qa_host_holdover import session_holdovers
+
+    result["test_machine_holdovers"] = session_holdovers(conn, str(execution["session_id"]))
     return result
 
 

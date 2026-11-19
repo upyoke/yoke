@@ -172,6 +172,9 @@ def finish_plan_execution(
         from yoke_core.domain.qa_host_turns import cancel_host_waits
         from yoke_core.domain.qa_plan_review import begin_plan_review
 
+        from yoke_core.domain.qa_host_holdover import carry_aborted_execution_hosts
+
+        carry_aborted_execution_hosts(conn, execution, state=state)
         cancel_host_waits(conn, execution_ids=[str(execution["id"])])
         if state in {"aborted", "error"}:
             from yoke_core.domain.qa_mission_stop_settlement import (

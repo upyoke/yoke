@@ -5,8 +5,10 @@ the registered ``test_machine.get``; SSH runs from this machine with its
 ssh-agent identity. A host another session holds under its QA lease is
 refused rather than disturbed mid-run. Otherwise the command holds the host's
 lease for its duration (borrowing the caller's own lease when it has one),
-powers a stopped cloud machine on, and releases its own lease afterwards.
-Cloud machines stay running after release.
+powers a stopped cloud machine on, and releases its own lease afterwards; on
+a free host that release leaves the session a short hold-over
+(``yoke_core.domain.qa_host_holdover``). Cloud machines stay running after
+release.
 """
 
 from __future__ import annotations
@@ -37,8 +39,14 @@ def _refuse(code: str, message: str, recovery: str) -> int:
 
 
 def _lease_refusal(detail: dict[str, Any], session_id: str) -> int | None:
+    from yoke_cli.commands.test_machine_desktop_lease import holdover_lapsed
+
     lease = detail.get("active_lease")
-    if not isinstance(lease, dict) or lease.get("session_id") == session_id:
+    if (
+        not isinstance(lease, dict)
+        or lease.get("session_id") == session_id
+        or holdover_lapsed(lease)
+    ):
         return None
     item = lease.get("item") if isinstance(lease.get("item"), dict) else {}
     holder = f"session {lease.get('session_id')}" + (
@@ -71,8 +79,10 @@ def test_machine_exec(args: List[str]) -> int:
             "Yoke-managed known_hosts file; ~/.ssh is never read."
             " Holds the machine's lease for the command (borrowing your own "
             "lease when you hold it), powers a stopped cloud machine on, and "
-            "releases its own lease afterwards. Cloud machines stay running. Another session's "
-            "lease refuses."
+            "releases its own lease afterwards. On a free host the release leaves this "
+            "session a short hold-over, named on stderr with its expiry, that its next "
+            "`yoke qa case run` takes before another session's run. Cloud machines stay "
+            "running. Another session's lease refuses."
             " Streams stdout and stderr live, retaining only the last 64 KiB "
             "of each for failure diagnosis."
             " On macOS, keychain-backed harness CLIs (claude, cursor-agent) "
