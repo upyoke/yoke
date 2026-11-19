@@ -18,6 +18,8 @@ from yoke_cli.project_install.files import ProjectInstallError
 
 def settle(root: Path, config_path, *, remove: bool) -> list[str]:
     """Remove clean lanes when *remove*; otherwise refuse while any lane exists."""
+    if not checkout_gate.is_git_checkout(root):
+        return []  # Lanes are Git worktrees; a plain folder has none.
     lanes_dir = owned_cleanup.lanes_dir(root, machine_config.load_config(config_path))
     lanes = [lane for lane in _linked_worktrees(root) if lane.is_relative_to(lanes_dir)]
     if not lanes:
