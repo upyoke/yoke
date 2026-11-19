@@ -1,7 +1,7 @@
 """Boundary selection between the merge queue and the standalone engine.
 
 One capability probe decides where a standalone item branch lands. The
-probe rides the registered raw-read surface so it relays over an https
+probe rides the project-scoped capability read so it relays over an https
 control plane exactly as it dispatches in-process locally — the merge
 boundary runs on the machine that holds the git repository, never with
 its own database connection. Callers get one result shape either way:
@@ -12,7 +12,6 @@ function name and keep their handling unchanged.
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 from typing import Any, Callable, Optional
 
@@ -22,7 +21,6 @@ from yoke_contracts.runtime_ports.structured_dispatch import get_structured_disp
 from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain import item_merge_receipts as receipts
 from yoke_core.domain.capability_undeclare_remedy import undeclare_remedy
-from yoke_core.domain.db_read_constants import DB_READ_FUNCTION_ID
 from yoke_core.domain.integration_dependency_refusal import (
     integration_dependency_refusal,
 )
@@ -45,8 +43,7 @@ from yoke_core.domain.merge_context import (
 
 call_dispatcher = get_structured_dispatch().call_dispatcher
 
-
-_PROBE_SAFE_SLUG = re.compile(r"[a-z0-9][a-z0-9_-]*\Z")
+CAPABILITY_HAS_FUNCTION_ID = "projects.capability.has"
 
 
 def project_declares_merge_queue(
@@ -56,39 +53,29 @@ def project_declares_merge_queue(
 ) -> tuple[bool, Optional[str]]:
     """Read whether ``project`` declares the merge-queue capability.
 
-    Returns ``(declared, error)``; a probe error is returned rather than
-    swallowed so a declared-queue project cannot silently fall back to a
-    local merge on an outage.
+    The read is ``projects.capability.has``, gated by project read access,
+    so any actor who may land the project's items may ask it; it needs no
+    org-global raw-read grant.
+
+    Returns ``(declared, error)``; a probe error, permission refusals
+    included, is returned rather than swallowed so a declared-queue project
+    cannot silently fall back to a local merge on an outage.
     """
     slug = str(project or "").strip()
-    if not _PROBE_SAFE_SLUG.fullmatch(slug):
+    if not slug:
         return False, None
     response = dispatch(
-        function_id=DB_READ_FUNCTION_ID,
+        function_id=CAPABILITY_HAS_FUNCTION_ID,
         target=TargetRef(kind="global"),
-        payload={
-            "sql": (
-                "SELECT COUNT(*) FROM project_capabilities pc "
-                "JOIN projects p ON p.id = pc.project_id "
-                f"WHERE p.slug = '{slug}' "
-                f"AND pc.type = '{MERGE_QUEUE_CAPABILITY_TYPE}'"
-            )
-        },
+        payload={"project": slug, "cap_type": MERGE_QUEUE_CAPABILITY_TYPE},
     )
     if not getattr(response, "success", False):
         error = getattr(response, "error", None)
         return False, (getattr(error, "message", None) or "capability probe failed")
-    rows = ((getattr(response, "result", None) or {}).get("rows")) or []
-    first = rows[0] if rows else None
-    value: Any = None
-    if isinstance(first, dict):
-        value = next(iter(first.values()), None)
-    elif isinstance(first, (list, tuple)) and first:
-        value = first[0]
-    try:
-        return int(value or 0) > 0, None
-    except (TypeError, ValueError):
-        return False, "capability probe returned unparseable rows"
+    result = getattr(response, "result", None)
+    if not isinstance(result, dict) or not isinstance(result.get("has"), bool):
+        return False, "capability probe returned no 'has' answer"
+    return result["has"], None
 
 
 def queue_lane_head(
