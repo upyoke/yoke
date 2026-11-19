@@ -252,16 +252,10 @@ The probe checks Explorer and an unlocked display in the interactive console.
 Follow the [Tailscale and bootstrap RDP guide](windows-native-harnesses.md#first-tailscale-login-and-bootstrap-desktop).
 Register RDP on port 3389 for `yokeqa` using `direct` and MagicDNS after tailnet
 proof, or `ssh-forward` and `127.0.0.1` during bootstrap. Use
-`yoke test-machine desktop-access --view` to reconnect and unlock: it opens
-FreeRDP on that listener as `yokeqa` (a `DOMAIN\user` name is split into
-domain and user) with the password on stdin, pins the direct route's
-certificate on first use and reports `desktop_session: native`. It needs the
-workstation FreeRDP client from the
-[controller prerequisites](windows-native-controller.md).
+`yoke test-machine desktop-access --view` to reconnect and unlock.
 
-Close the viewer or disconnect without signing out. Signing in as `yokeqa`
-disconnects the console session; the administrator-owned `YokeQa-ReturnToConsole`
-task returns this account to the console when the remote session disconnects. If it fails, check Task Scheduler's
+Disconnect without signing out. The administrator-owned `YokeQa-ReturnToConsole`
+task returns this account to the console. If it fails, check Task Scheduler's
 Last Run Result and confirm the console is free. With the viewer closed,
 `yoke test-machine screenshot` captures the desktop, including after reset.
 
