@@ -136,6 +136,7 @@ def test_remote_reads_settings_and_forwards_options_without_local_browser(
         "projects.capability_settings.get",
         "test_machine.lease_acquire",
         "claims.coordination_claim.release",
+        "test_machine.get",
     ]
     argv = route["argv"][0]["argv"]
     assert argv[:7] == [

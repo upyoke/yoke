@@ -115,8 +115,24 @@ def test_exec_on_a_stopped_unleased_machine_leases_powers_on_runs_and_releases(
         "power_on",
         "ran",
         "claims.coordination_claim.release",
+        "test_machine.get",
     ]
     assert fake.lease is None and fake.running
+
+
+def test_exec_takes_its_own_holdover_so_its_release_renews_it(machine) -> None:
+    fake = machine({"session_id": "mine", "holdover_expires_at": "2026-11-19T01:02:00Z"})
+
+    assert _exec("true") == 0
+
+    assert fake.events == [
+        "test_machine.get",
+        "test_machine.lease_acquire",
+        "power_on",
+        "ran",
+        "claims.coordination_claim.release",
+        "test_machine.get",
+    ]
 
 
 def test_exec_while_another_session_holds_the_lease_refuses_untouched(
@@ -155,7 +171,7 @@ def test_a_failed_power_on_refuses_by_name_and_still_releases(
     assert "host_control_local_execution_failed" in err
     assert "phase=lease_power_on" in err
     assert "ran" not in fake.events
-    assert fake.events[-1] == "claims.coordination_claim.release"
+    assert fake.events[-2:] == ["claims.coordination_claim.release", "test_machine.get"]
 
 
 def test_release_frees_cloud_host_without_power_data_or_provider_calls(

@@ -154,6 +154,7 @@ def test_upkeep_runs_the_wake_and_survives_its_failure(monkeypatch, caplog) -> N
     monkeypatch.setattr(control_plane_upkeep, "replay_settlement_followups", lambda c: None)
     monkeypatch.setattr(control_plane_upkeep, "wake_driverless_qa_waits", boom)
     monkeypatch.setattr(control_plane_upkeep, "run_scheduled_prune", lambda c: None)
+    monkeypatch.setattr(control_plane_upkeep, "expire_holdovers", lambda c: None)
 
     control_plane_upkeep.run_control_plane_upkeep()
 
