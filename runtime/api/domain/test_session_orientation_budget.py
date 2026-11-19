@@ -35,6 +35,8 @@ def test_long_git_metadata_preserves_the_startup_block(monkeypatch, branch):
 
 
 def test_bound_project_orientation_is_under_twelve_hundred_bytes(monkeypatch):
+    for name in ("YOKE_SESSION_LAUNCH_CONTEXT", "YOKE_HEADLESS_RESUME_ATTEMPT_ID"):
+        monkeypatch.delenv(name, raising=False)
     monkeypatch.setattr(orientation, "_advisory_lines", lambda _: [])
     monkeypatch.setattr(orientation, "_git_line", lambda *_: "main")
     body = orientation.render_orientation({"session_id": "a" * 36}, Path("/checkout"))

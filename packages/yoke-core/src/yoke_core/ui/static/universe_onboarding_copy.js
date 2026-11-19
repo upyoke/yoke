@@ -102,7 +102,7 @@ export const MACHINE_PENDING_COPY =
 // run exists there is nothing to report but the route; once one exists,
 // every line below names something that run actually did.
 export const ONBOARD_NO_RUN =
-  "In your harness: existing work → strategy docs → approve first wave → " +
+  "In your harness: existing work → strategy docs → " +
   "/yoke steer files and staffs it → first item done.";
 export const onboardBlockedLine = (step, title, detail) =>
   `Blocked at ${step} ${title}${detail ? ` — ${detail}` : ""}.`;

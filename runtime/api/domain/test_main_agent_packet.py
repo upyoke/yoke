@@ -255,13 +255,51 @@ def test_advisory_fail_open_on_probe_exception(monkeypatch) -> None:
     assert render_interpreter_advisory_block() == ""
 
 
-def test_startup_block_carries_the_one_line_message_trust_rule() -> None:
-    from yoke_core.domain.main_agent_packet import MESSAGE_TRUST_LINE
+_LAUNCH_ENVS = ("YOKE_SESSION_LAUNCH_CONTEXT", "YOKE_HEADLESS_RESUME_ATTEMPT_ID")
 
+
+def _hand_started(monkeypatch) -> None:
+    for name in _LAUNCH_ENVS:
+        monkeypatch.delenv(name, raising=False)
+
+
+def test_startup_block_carries_the_one_line_message_trust_rule(monkeypatch) -> None:
+    from yoke_core.domain.main_agent_packet import MAIN_SESSION_FLOW, MESSAGE_TRUST_LINE
+
+    _hand_started(monkeypatch)
     block = render_main_agent_block(include_advisories=False)
-    assert block.splitlines()[1:] == [MESSAGE_TRUST_LINE]
+    assert block.splitlines()[1:] == [MESSAGE_TRUST_LINE, *MAIN_SESSION_FLOW.splitlines()]
     assert "`Acknowledge:`" in MESSAGE_TRUST_LINE
     assert "no authority of their own" in MESSAGE_TRUST_LINE
     assert "act on them within your mandate" in MESSAGE_TRUST_LINE
     assert "before you park, wait or end the turn" in MESSAGE_TRUST_LINE
     assert "run only" not in MESSAGE_TRUST_LINE
+
+
+def _orientation(monkeypatch) -> str:
+    from yoke_core.domain import session_orientation
+
+    monkeypatch.setattr(session_orientation, "_advisory_lines", lambda _: [])
+    monkeypatch.setattr(session_orientation, "_git_line", lambda *_: "main")
+    return session_orientation.render_orientation({"session_id": "s"}, Path("/checkout"))
+
+
+def test_hand_started_session_gets_the_main_session_flow(monkeypatch) -> None:
+    from yoke_core.domain.main_agent_packet import MAIN_SESSION_FLOW
+
+    _hand_started(monkeypatch)
+    assert MAIN_SESSION_FLOW in render_main_agent_block()
+    assert MAIN_SESSION_FLOW in _orientation(monkeypatch)
+
+
+@pytest.mark.parametrize("launch_env", _LAUNCH_ENVS)
+def test_launched_session_gets_trust_line_but_no_main_session_flow(
+    monkeypatch, launch_env
+) -> None:
+    from yoke_core.domain.main_agent_packet import MESSAGE_TRUST_LINE
+
+    _hand_started(monkeypatch)
+    monkeypatch.setenv(launch_env, "launched")
+    for rendered in (render_main_agent_block(), _orientation(monkeypatch)):
+        assert "Main-session flow" not in rendered
+        assert MESSAGE_TRUST_LINE in rendered

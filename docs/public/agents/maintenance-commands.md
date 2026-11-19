@@ -34,9 +34,9 @@ checkpoint history. See [strategy](../strategy/index.md).
 ### onboard
 
 Survey a wired project's issues, PRs and local transcripts; write goals and
-CURRENT-PLAN, then configure only the first dashes' needs. Hand off to
-`/yoke steer` to vet each dash for approval before filing, one decision at a
-time. Activation ends when an item is done. Preserve infrastructure approvals,
+CURRENT-PLAN, then configure only the first dashes' needs. Then take
+steering seats with `/yoke steer`, which vets, files and staffs dashes and
+asks only key decisions. Activation ends when an item is done. Preserve infrastructure approvals,
 credential custody and host exclusions. Machine `yoke setup` is separate.
 
 ### doctor

@@ -16,11 +16,13 @@ def test_onboard_hands_off_without_filing_or_predefining_one_outcome():
     assert "done test and flow when filing" in handoff
     assert "a dash filed without a plan is verified" in handoff
     assert "by the quick command bound here" in handoff
+    assert "approve starting the first wave" not in handoff
+    assert "/yoke steer" in handoff
     assert "goals and a high-level plan" in strategy
     assert "parallel dashes" in strategy
 
 
-def test_steer_requires_vetting_and_approval_before_filing():
+def test_steer_vets_then_files_dashes_itself():
     rules = (SKILLS / "steer/SKILL.md").read_text()
     assert "File software work only as dashes" in rules
     assert "explicit operator workflow choices intact" in rules
@@ -32,12 +34,14 @@ def test_steer_requires_vetting_and_approval_before_filing():
     assert "Vet every item before staffing it, whether you filed it or not" in rules
     assert "simplify or delete" in rules
     assert "prefer no new DB fields or migrations" in rules
-    assert "File only after explicit operator approval" in rules
+    assert "File vetted dashes yourself" in rules
+    assert "File only after explicit operator approval" not in rules
+    assert "main-session flow" in rules
     assert "simplest alternative" in rules
     assert "strategy doc current with what was filed" in rules
     loop = (SKILLS / "steer/loop.md").read_text()
     assert "As work lands, seek decisions" in loop
-    assert "propose and vet that set" in loop
+    assert "vet and file that set" in loop
     assert "Vet any item you have not vetted yourself\nbefore launching it." in loop
 
 

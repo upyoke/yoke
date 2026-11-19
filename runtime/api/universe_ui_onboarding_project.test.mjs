@@ -166,7 +166,7 @@ test("a universe with no run reads the route into the harness", async (t) => {
 
   assert.equal(
     byClass(card, "activation-copy")[0].textContent,
-    "In your harness: existing work → strategy docs → approve first wave → " +
+    "In your harness: existing work → strategy docs → " +
     "/yoke steer files and staffs it → first item done.",
   );
   assert.equal(byClass(card, "activation-progress").length, 0);

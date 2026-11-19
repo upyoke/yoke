@@ -8,8 +8,8 @@ Rows: `repo-survey`, `strategy-setup`.
 3. Offer to move work-specific `AGENTS.md` rules into execution instructions.
    Per approved rule: create, `set-scope` (unscoped reaches no work), resolve,
    then delete the moved text from its source.
-4. Have the operator write goals and a high-level plan in CURRENT-PLAN,
-   defined enough for parallel dashes; preserve open work. Ask one decision
+4. Help the operator write goals and a high-level plan in CURRENT-PLAN from
+   their input, defined enough for parallel dashes; preserve open work. Ask one decision
    at a time.
 5. Write under the STRATEGIZE claim; release it on every exit, then render.
 
