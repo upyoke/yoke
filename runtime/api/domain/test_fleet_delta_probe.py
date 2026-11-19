@@ -126,6 +126,8 @@ def test_heartbeat_only_passes_keep_the_report_cooldown() -> None:
         "fleet ALARM unowned-item YOK-1 status=implementing",
         "fleet ALARM starved-envelope message=message-1",
         "fleet ALARM unstaffed-ready item=YOK-1 project=yoke waiting=6m",
+        "fleet ALARM stale-walk execution=exec-1 item=YOK-1 host=mac-1 "
+        "silent=21m session=worker-1",
         "fleet session worker-1 terminated surface=codex-cli",
         "fleet item YOK-1 status implementing -> blocked",
     ),
@@ -145,6 +147,7 @@ def test_actionable_delta_kinds_wake_now(line: str) -> None:
         "fleet session worker-1 ended surface=codex-cli",
         "fleet CLEAR idle-holder session=worker-1",
         "fleet CLEAR unstaffed-ready item=YOK-1",
+        "fleet CLEAR stale-walk execution=exec-1",
     ),
 )
 def test_routine_delta_kinds_defer_to_the_report(line: str) -> None:
@@ -162,6 +165,13 @@ def _decision_request_statuses() -> tuple[str, ...]:
 @pytest.mark.parametrize("status", _decision_request_statuses())
 def test_every_stored_question_status_wakes_now(status: str) -> None:
     assert delta_wake_tier(f"fleet question 1 {status}") == WAKE_NOW
+
+
+def test_the_probe_help_lists_the_stale_walk_line() -> None:
+    assert (
+        "fleet ALARM stale-walk execution=<id> item=<ref> host=<machine> "
+        "silent=<N>m session=<id>"
+    ) in fleet_delta_probe.HELP_EPILOG
 
 
 def test_a_new_delta_kind_must_choose_a_tier() -> None:

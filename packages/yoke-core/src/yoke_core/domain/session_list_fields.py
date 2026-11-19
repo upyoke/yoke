@@ -84,6 +84,7 @@ SESSION_LIST_FIELDS = (
     "claim_started_at",
     "claims",
     "holdings",
+    "silent_walks",
     "claimed_blitz_worktree_ids",
 )
 

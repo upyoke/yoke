@@ -36,7 +36,7 @@ DELTA_WAKE_RULES = (
         WAKE_NOW,
         re.compile(
             r"^fleet (?:(?:ERROR|FATAL)\b|inbox\b|question \d+ (?:pending|resolved|withdrawn|superseded)\b|ALARM "
-            r"(?:idle-holder|unowned-item|starved-envelope|unstaffed-ready)\b|"
+            r"(?:idle-holder|unowned-item|starved-envelope|unstaffed-ready|stale-walk)\b|"
             r"session \S+ terminated\b|item \S+ available\b|"
             r"item \S+ status .* -> (?:blocked|stopped)\b)"
         ),
@@ -46,7 +46,7 @@ DELTA_WAKE_RULES = (
         re.compile(
             r"^fleet (?:item \S+ (?:entered|status|claim|left-frontier)\b|"
             r"session \S+ (?:registered|ended)\b|"
-            r"CLEAR (?:idle-holder|unowned-item|starved-envelope|unstaffed-ready)\b)"
+            r"CLEAR (?:idle-holder|unowned-item|starved-envelope|unstaffed-ready|stale-walk)\b)"
         ),
     ),
 )
@@ -66,6 +66,7 @@ Raw line shapes:
   fleet question <request-id> pending|resolved|withdrawn|superseded
   fleet inbox <message-id> state=pending|injected from=<session-id>
   fleet ALARM idle-holder|unowned-item|starved-envelope|unstaffed-ready ...
+  fleet ALARM stale-walk execution=<id> item=<ref> host=<machine> silent=<N>m session=<id>
   fleet CLEAR <alarm-kind> <subject>
 """
 

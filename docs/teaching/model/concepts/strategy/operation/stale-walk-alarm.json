@@ -1,0 +1,12 @@
+{
+ "id": "stale-walk-alarm",
+ "title": "Stale QA walk alarm",
+ "status": "observed",
+ "current": "The stale sweep aborts an active or walking QA execution once its heartbeat is 30 minutes old unless its live owner is parked. At 20 silent minutes the same sweep sends the live, unparked owner one Fleet message per silence (idempotency key qa-walk-silent:<execution>:<heartbeat_at>) naming the execution, item, Test Machine, abort time, yoke qa mission host-command and the host release command. sessions.list rows carry silent_walks (execution, item, Test Machine, heartbeat_at); the fleet watcher emits one urgent fleet ALARM stale-walk execution=<id> item=<ref> host=<machine> silent=<N>m session=<id> line and one fleet CLEAR stale-walk line when the walk heartbeats or ends. An owner that already has an idle-holder line carries stale_walk=<id>:<N>m on that line instead, and that line reprints when the walk joins it. An older server without silent_walks raises no stale-walk line.",
+ "commands": ["yoke watch fleet", "yoke qa mission host-command"],
+ "functions": ["sessions.list", "inbox.list"],
+ "sources": [".agents/skills/yoke/steer/fleet-findings.md", "docs/public/sessions/steering-report.md", "docs/public/verification/exploration.md", "runtime/api/domain/test_fleet_delta_stale_walks.py", "runtime/api/domain/test_qa_plan_execution_silence_notice.py"],
+ "skills": ["steer"],
+ "page": "strategy",
+ "position": 8
+}

@@ -24,6 +24,7 @@ from yoke_core.domain.fleet_delta_alarms import (
 from yoke_core.domain.fleet_delta_questions import question_deltas
 from yoke_core.domain.fleet_delta_deadlocks import deadlock_alarms
 from yoke_core.domain.fleet_delta_snapshot import FleetSnapshot
+from yoke_core.domain.fleet_delta_stale_walks import stale_walk_alarms
 from yoke_core.domain.fleet_delta_unstaffed import unstaffed_ready_alarms
 
 
@@ -95,6 +96,8 @@ def compare(
     lines.extend(question_deltas(previous, current))
     if previous is not None:
         lines.extend(session_deltas(previous, current))
+    # Before idle-holder: a walk it folds in resets that line's repeat.
+    lines.extend(stale_walk_alarms(current, state))
     lines.extend(idle_holder_alarms(current, state))
     lines.extend(unowned_item_alarms(current, state))
     lines.extend(starved_envelope_alarms(current, state))

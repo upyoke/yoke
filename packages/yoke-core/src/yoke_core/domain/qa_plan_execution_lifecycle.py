@@ -22,7 +22,7 @@ from yoke_core.domain.qa_plan_execution_authority import (
     plan_execution_is_abandoned,
 )
 from yoke_core.domain.qa_plan_execution_schema import (
-    LIVE_PLAN_EXECUTION_SQL,
+    LIVE_PLAN_EXECUTION_STATES,
     TERMINAL_PLAN_EXECUTION_STATES,
 )
 from yoke_core.domain.qa_plan_execution_store import (
@@ -30,6 +30,7 @@ from yoke_core.domain.qa_plan_execution_store import (
     lock_plan_execution,
     marker,
 )
+from yoke_core.domain.qa_plan_execution_silence_notice import walk_rows, warn_silent_walk
 from yoke_core.domain.schema_common import _table_exists
 
 
@@ -282,25 +283,16 @@ def reap_stale_plan_executions(
 
     Waiting and awaiting-review walks require durable owner-session end
     evidence. Other walks use heartbeat age, except while a live owner is
-    deliberately parked.
+    deliberately parked; one silent past the warning line mails its owner
+    first (``qa_plan_execution_silence_notice``).
     """
     if not _table_exists(conn, "qa_plan_executions"):
         return []
-    candidates = [
-        {
-            "id": str(row[0]),
-            "heartbeat_at": row[1],
-            "session_id": row[2],
-            "state": row[3],
-        }
-        for row in conn.execute(
-            "SELECT id, heartbeat_at, session_id, state FROM qa_plan_executions "
-            f"WHERE state IN ({LIVE_PLAN_EXECUTION_SQL}) ORDER BY created_at, id"
-        ).fetchall()
-    ]
+    candidates = walk_rows(conn, states=LIVE_PLAN_EXECUTION_STATES)
     reaped: list[dict[str, Any]] = []
     for candidate in candidates:
         if not plan_execution_is_abandoned(conn, candidate, now=now):
+            warn_silent_walk(conn, candidate, now=now)
             continue
         try:
             execution = lock_plan_execution(conn, candidate["id"])

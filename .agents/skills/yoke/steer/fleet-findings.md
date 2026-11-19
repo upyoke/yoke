@@ -20,6 +20,9 @@ yoke items dependency update DEPENDENT BLOCKING --match-gate-point GATE --gate-p
 - **Unattended linked work / mail awaiting a seat**: take the named seat.
 - **Idle holder**: inspect the evidence; after root-cause-and-file,
   `native_process_gone` means wake, not terminate. Message a live quiet holder.
+- **Stale walk / `stale_walk=`**: the owner's QA walk is aborted at 30 silent
+  minutes. Tell it to run its next step through `yoke qa mission host-command`
+  or release the host; it has its own mail.
 - **Undelivered message**: wake only if no attempt is moving. An ended
   recipient: handle or re-address its work, then `yoke messages cancel MESSAGE-ID`.
 - **Unregistered or abandoned launch**: read its failure, then reconcile or
