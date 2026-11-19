@@ -213,6 +213,12 @@ def test_git_bash_cd_to_a_whole_disk_root_is_refused_before_mount_mapping(
     assert scan is not None and scan.tool == "find"
 
 
+def test_git_bash_implicit_cwd_written_as_the_filesystem_root_is_refused() -> None:
+    with client_path_scope(WINDOWS_FACTS[0]):
+        assert find_broad_scan("find -name x", cwd="/", home=WINDOWS_HOME)
+        assert find_broad_scan("find . -name x", cwd="/", home=WINDOWS_HOME)
+
+
 def test_git_bash_cd_into_a_repo_still_allows_a_relative_scan() -> None:
     with client_path_scope(WINDOWS_FACTS[0]):
         assert (

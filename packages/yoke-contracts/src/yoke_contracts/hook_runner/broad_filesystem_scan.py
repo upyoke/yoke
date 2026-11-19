@@ -212,12 +212,12 @@ def find_broad_scan(
 
     Each segment's relative roots resolve against the directory it runs in,
     after every earlier ``cd``; a segment whose directory is unknown keeps
-    only its absolute and home roots. The directory as the ``cd`` operands
-    wrote it is tracked beside the resolved one, because Git Bash resolves
-    ``cd /`` to its install directory.
+    only its absolute and home roots. The directory as written (a POSIX
+    ``cwd``, then each ``cd`` operand) is tracked beside the resolved one,
+    because Git Bash resolves ``/`` to its install directory.
     """
     parsed = command if isinstance(command, ShellParse) else parse_shell(command)
-    written_cwd = ""
+    written_cwd = _collapsed(cwd) if cwd and cwd.startswith("/") else ""
     for segment, segment_cwd in zip(
         parsed.segments, parsed.segment_cwds(cwd or "", home=home)
     ):
