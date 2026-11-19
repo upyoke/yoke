@@ -13,7 +13,9 @@ def test_onboard_hands_off_without_filing_or_predefining_one_outcome():
     assert "Onboarding files no items" in handoff
     assert "first outcome" not in handoff
     assert "Steer gives each dash" in handoff
-    assert "done test, flow and QA plan when filing" in handoff
+    assert "done test and flow when filing" in handoff
+    assert "a dash filed without a plan is verified" in handoff
+    assert "by the quick command bound here" in handoff
     assert "goals and a high-level plan" in strategy
     assert "parallel dashes" in strategy
 
@@ -22,6 +24,8 @@ def test_steer_requires_vetting_and_approval_before_filing():
     rules = (SKILLS / "steer/SKILL.md").read_text()
     assert "File software work only as dashes" in rules
     assert "explicit operator workflow choices intact" in rules
+    assert "`registered-command-quick` plan when one is registered" in rules
+    assert "`--verification-method none` for none" in rules
     assert "Don't hand-roll waves" in rules
     assert "ordering need as a dependency edge" in rules
     assert "Vet each proposal with a subagent for overengineering" in rules
