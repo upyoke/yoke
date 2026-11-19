@@ -1,14 +1,16 @@
-"""Stop Terminal and System Events for reset, then relaunch Terminal.
+"""Quit every app the test user left open for reset, then relaunch Terminal.
 
 Every GUI-session command opens a Terminal window. A window whose command was
 still running at cleanup used to survive behind a terminate-processes sheet,
 and across runs one host collected 241 of them; with that many, every command
-inside Terminal timed out and the reset's own baseline probes failed. The home
-restore never touched Terminal, so one bad run poisoned every later one.
+inside Terminal timed out and the reset's own baseline probes failed. Any other
+app a run left open survived the same way: a Claude for Mac held open by a
+sheet failed the next reset's desktop probe, and every reset after it.
 
-So the reset asks Terminal to quit, kills the windows' processes and Terminal
-itself when that quit hangs on a sheet, and relaunches Terminal without its
-saved windows once the home is back.
+So the reset asks each foreground app the sweep does not keep (Terminal among
+them) and System Events to quit, kills a stalled app's process tree when that
+quit hangs on a sheet, and relaunches Terminal without its saved windows once
+the home is back.
 """
 
 from __future__ import annotations
@@ -18,19 +20,25 @@ from typing import Callable
 
 from yoke_contracts.machine_qa_failures import bounded_machine_qa_diagnostic
 
+from yoke_harness.ssh_mac_gui_app_sweep import (
+    TERMINAL_BUNDLE_ID,
+    list_foreground_apps,
+    running_pid,
+)
 from yoke_harness.ssh_mac_process_tree import PROCESS_TREE_FUNCTION
 from yoke_harness.ssh_mac_host_session_state import (
     TERMINAL_VISIBLE_WINDOW_COUNT,
+    read_console_user,
     read_terminal_window_count,
 )
 from yoke_harness.ssh_mac_terminal_app import run_osascript
 from yoke_contracts.test_machine_types import HostActionResult
 
-TERMINAL_APP = "Terminal"
 QUIT_WAIT_SECONDS = 20
 RELAUNCH_WAIT_SECONDS = 30
-TERMINAL_PROBE_FAILED = "test_machine_terminal_probe_failed"
-TERMINAL_QUIT_NOT_PROVED = "test_machine_terminal_quit_not_proved"
+GUI_APP_PROBE_FAILED = "test_machine_gui_app_probe_failed"
+GUI_APP_QUIT_NOT_PROVED = "test_machine_gui_app_quit_not_proved"
+RESET_CONSOLE_USER_MISMATCH = "test_machine_reset_console_user_mismatch"
 TERMINAL_RELAUNCH_FAILED = "test_machine_terminal_relaunch_failed"
 # Launch without the saved windows: a relaunch that restored them would bring
 # back the accumulation the quit just cleared.
@@ -92,21 +100,30 @@ def _probe_failed(probe: str, result, app: str, key: str) -> HostActionResult:
 
 
 def _quit_app(
-    run: Callable[..., object], user: str, app: str, key: str
+    run: Callable[..., object],
+    running: str,
+    app: str,
+    target: str,
+    key: str,
+    *,
+    count_windows: bool = False,
 ) -> HostActionResult:
-    """Ask the app to quit, force a stalled tree, and prove it exited."""
-    running = _running(user, app)
+    """Ask the app to quit, force a stalled tree, and prove it exited.
+
+    *running* prints the app's PIDs, exiting 1 once none run and above 1 when
+    it cannot tell; *target* is the AppleScript application to quit.
+    """
     probe = run(running + " >/dev/null")
     if probe.returncode == _PGREP_NO_MATCH:
         return HostActionResult(True, {key: {"quit": "not_running"}})
     if probe.returncode != 0:
         return _probe_failed("running", probe, app, key)
     evidence: dict[str, object] = {}
-    if app == TERMINAL_APP:
+    if count_windows:
         evidence["windows_before_quit"] = read_terminal_window_count(run)
     # A window still running a command answers quit with a sheet, so the
     # request is bounded rather than trusted to return.
-    run_osascript(run, [f'tell application "{app}" to quit'], timeout=10)
+    run_osascript(run, [f"tell {target} to quit"], timeout=10)
     exited = run(_wait_exited(running), timeout=QUIT_WAIT_SECONDS + 15)
     if exited.returncode not in {0, 1}:
         return _probe_failed("exited", exited, app, key)
@@ -133,20 +150,54 @@ def _quit_app(
     return HostActionResult(True, {key: evidence})
 
 
-def quit_terminal_app(run: Callable[..., object], user: str) -> HostActionResult:
-    """Quit Terminal and prove its windows' process trees stopped."""
-    return _quit_app(run, user, TERMINAL_APP, "terminal_quit")
+def _console_user_mismatch(console_user: str | None, user: str) -> HostActionResult:
+    return HostActionResult(
+        False,
+        {
+            "console_user": console_user,
+            "expected_console_user": user,
+            "recovery": (
+                f"The test machine's console is logged in as {console_user or 'nobody'}, "
+                f"not {user}, so the reset quit no app. Log {user} in at the "
+                "host console (log any other account out), then retry the reset."
+            ),
+        },
+        RESET_CONSOLE_USER_MISMATCH,
+    )
 
 
 def quit_reset_apps(run: Callable[..., object], user: str) -> HostActionResult:
-    """Stop Terminal and System Events before restoring the test-machine home."""
-    terminal = quit_terminal_app(run, user)
-    if not terminal.ok:
-        return terminal
-    events = _quit_app(run, user, "System Events", "system_events_quit")
-    return HostActionResult(
-        events.ok, {**terminal.evidence, **events.evidence}, events.error_code
+    """Quit every foreground app not kept, then System Events, before restore."""
+    console_user = read_console_user(run)
+    if console_user != user:
+        return _console_user_mismatch(console_user, user)
+    listed = list_foreground_apps(run, user)
+    if isinstance(listed, HostActionResult):
+        return listed
+    apps, kept = listed
+    evidence: dict[str, object] = {"gui_apps_kept": kept, "gui_apps_quit": []}
+    for app in apps:
+        quit = _quit_app(
+            run,
+            running_pid(user, app.pid),
+            app.name,
+            app.target,
+            "gui_app_quit",
+            count_windows=app.bundle_id == TERMINAL_BUNDLE_ID,
+        )
+        entry = {"app": app.name, "bundle_id": app.bundle_id, "pid": app.pid}
+        evidence["gui_apps_quit"].append({**entry, **quit.evidence["gui_app_quit"]})
+        if not quit.ok:
+            evidence["recovery"] = quit.evidence["recovery"]
+            return HostActionResult(False, evidence, quit.error_code)
+    events = _quit_app(
+        run,
+        _running(user, "System Events"),
+        "System Events",
+        'application "System Events"',
+        "system_events_quit",
     )
+    return HostActionResult(events.ok, {**evidence, **events.evidence}, events.error_code)
 
 
 def relaunch_terminal_app(run: Callable[..., object]) -> HostActionResult:
@@ -185,13 +236,13 @@ def relaunch_terminal_app(run: Callable[..., object]) -> HostActionResult:
 
 
 __all__ = [
+    "GUI_APP_PROBE_FAILED",
+    "GUI_APP_QUIT_NOT_PROVED",
     "QUIT_WAIT_SECONDS",
     "RELAUNCH_COMMAND",
     "RELAUNCH_WAIT_SECONDS",
-    "TERMINAL_PROBE_FAILED",
-    "TERMINAL_QUIT_NOT_PROVED",
+    "RESET_CONSOLE_USER_MISMATCH",
     "TERMINAL_RELAUNCH_FAILED",
-    "quit_terminal_app",
     "quit_reset_apps",
     "relaunch_terminal_app",
 ]

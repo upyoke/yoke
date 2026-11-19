@@ -73,6 +73,20 @@ LAYOUT_UNRECOGNIZED = ProbeFailureCause(
     "defect with the app version; if a dialog covers the window, dismiss it, "
     "quit Claude and retry.",
 )
+APP_OPEN_FAILED = ProbeFailureCause(
+    "probe_app_open_failed",
+    "the installed app was found but macOS `open` could not launch it",
+    "Open the app in the test user's GUI session to see the error macOS shows "
+    "and repair it; reinstall it only if macOS reports it damaged. Then retry.",
+)
+APP_QUIT_BLOCKED = ProbeFailureCause(
+    "probe_app_quit_blocked",
+    "the app was still running after the probe asked it to quit",
+    "A previous session left the app open, usually behind a prompt that holds "
+    "its quit; the app is installed and needs no reinstall. Run `yoke "
+    "test-machine reset`, which quits every app left open before it restores "
+    "the home, then retry.",
+)
 
 # The one code-to-cause table. Codes avoid 1 and 2, which Python itself uses
 # for an uncaught exception and a usage error.
@@ -84,6 +98,8 @@ PROBE_FAILURE_CAUSES: dict[int, ProbeFailureCause] = {
     14: REPLY_UNANSWERED,
     15: CHECK_UNMET,
     22: LAYOUT_UNRECOGNIZED,
+    23: APP_OPEN_FAILED,
+    24: APP_QUIT_BLOCKED,
 }
 # Sealed exit codes carry native diagnoses; receipts retain the execution category.
 PROBE_EXIT_CODES: dict[str, int] = {
@@ -222,6 +238,8 @@ def with_reply_rejection(
 
 
 __all__ = [
+    "APP_OPEN_FAILED",
+    "APP_QUIT_BLOCKED",
     "CHECK_UNMET",
     "DECLARED_PROBE_EXIT_NONZERO",
     "DECLARED_PROBE_EXPECTATION_UNMET",

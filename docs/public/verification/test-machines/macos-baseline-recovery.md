@@ -143,9 +143,11 @@ dedicated test home is captured.
 | `test_machine_sign_in_app_probe_failed` | Yoke could not list the identity browser processes over SSH. Check SSH to the machine, then retry |
 | `baseline_probe_failed` | Read cause/reason/recovery and sanitized native exit diagnostics. Nonzero execution retains its category; reason/recovery names quota, authentication, model or transport evidence. Quota waits for provider capacity; only diagnosed auth calls for sign-in. Preserve the golden and failed capture; never reset credentials to clear quota |
 | `baseline_probe_bridge_unavailable` | Repair the named bridge condition, then retry |
-| `test_machine_terminal_quit_not_proved` | Terminal survived its quit and a forced kill. Quit it at the console (Terminal > Quit Terminal, then Terminate), then retry |
+| `test_machine_reset_console_user_mismatch` | Another account owns the console, so reset quit nothing. Log the test user in at the console, log other accounts out, then retry |
+| `test_machine_gui_app_list_failed` | `lsappinfo list` failed or showed no GUI session, so reset cannot find leftover apps. Check SSH and that the test user is logged in at the console, then retry |
+| `test_machine_gui_app_quit_not_proved` | The named app survived its quit and a forced kill. Quit it at the console with Activity Monitor, then retry |
 | `test_machine_terminal_relaunch_failed` | The home was restored but Terminal opened no window. Open Terminal at the console, then run `yoke test-machine bridge-diagnose` |
-| `test_machine_terminal_probe_failed` | Yoke could not read whether Terminal runs. Repair SSH to the machine, then retry |
+| `test_machine_gui_app_probe_failed` | Yoke could not read whether the named app runs. Repair SSH to the machine, then retry |
 | `golden_capture_copy_home_failed` | Read quoted `copy_stderr`; repair its reported cause, then save to a new destination. Copy tools use `LC_ALL=en_US.UTF-8` so SSH caller locales do not cause warnings |
 
 Never discard copy errors, change a sealed manifest, or make the golden
@@ -168,9 +170,16 @@ with the current Yoke launcher installed. Reset reaches one baseline;
 retains live SSH, privacy and harness-login state, stops owned services/writers,
 clears product residue, restores content/modes and runs sealed probes, with
 the controller's current standard probes in place of older sealed ones (sealed
-extra probes still run; evidence `standard_probes` names both digests). It quits
-Terminal, killing it and its window processes if a sheet blocks the quit.
-After restore it relaunches Terminal without saved windows to avoid probe stalls.
+extra probes still run; evidence `standard_probes` names both digests). Before
+the restore it lists the test user's foreground apps with `lsappinfo list` and
+quits every one except Finder, the identity browsers (already closed with
+SIGTERM) and Docker Desktop (stopped by the self-host teardown), matched by
+bundle ID. An app held open by a sheet has its process tree killed; evidence
+`gui_apps_quit` records each app as `graceful` or `forced`. Terminal is quit
+the same way, and after restore it relaunches without saved windows to avoid
+probe stalls. A Claude desktop probe that cannot quit the app it opened fails
+`probe_app_quit_blocked`: a previous session left the app open, so run
+`yoke test-machine reset` rather than reinstalling it.
 The restore merges each captured directory into place with `ditto`, so a macOS
 daemon recreating its directory mid-restore does not fail it. Restoring a home
 cannot restore an external grant. A login that expires on the live host is
