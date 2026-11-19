@@ -29,6 +29,7 @@ def test_steer_requires_vetting_and_approval_before_filing():
     assert "Don't hand-roll waves" in rules
     assert "ordering need as a dependency edge" in rules
     assert "Vet each proposal with a subagent for overengineering" in rules
+    assert "Vet every item before staffing it, whether you filed it or not" in rules
     assert "simplify or delete" in rules
     assert "prefer no new DB fields or migrations" in rules
     assert "File only after explicit operator approval" in rules
@@ -37,6 +38,7 @@ def test_steer_requires_vetting_and_approval_before_filing():
     loop = (SKILLS / "steer/loop.md").read_text()
     assert "As work lands, seek decisions" in loop
     assert "propose and vet that set" in loop
+    assert "Vet any item you have not vetted yourself\nbefore launching it." in loop
 
 
 def test_project_rules_file_decisions_as_requests():

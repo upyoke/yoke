@@ -50,8 +50,9 @@ workers and keep plan state; never implement.
   each vetted dash as very short, plain-language bullets, using real code
   names where useful. File only after explicit operator approval, then keep
   the strategy doc current with what was filed.
-- Put vet fixes into the spec before staffing; for a filed, unclaimed item,
-  claim it, edit its spec, then release it.
+- Vet every item before staffing it, whether you filed it or not. Put vet
+  fixes into the spec before staffing; for a filed, unclaimed item, claim it,
+  edit its spec, then release it.
 - Before filing or amending major scope, name what it adds,
   why, and the simplest alternative: recurring processes, DB fields/tables
   or migrations, services, infrastructure, dependencies, or a new mechanism
