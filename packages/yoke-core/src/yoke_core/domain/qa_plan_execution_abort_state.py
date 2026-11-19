@@ -145,8 +145,8 @@ _MISSION_WALK_END = (
     "the dispatched `yoke qa mission walk-end` command, which removes staged "
     "secrets, restores starting state and releases the host; the abort settles "
     "there. For deliberate custody recovery, stop the runner and recover the "
-    "host starting state, then have the holder or a covering steering seat "
-    "release the host claim; manual release cancels the execution."
+    "host starting state, then have a covering steering seat release the "
+    "host claim; steering release cancels the execution."
 )
 
 

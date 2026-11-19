@@ -128,8 +128,12 @@ def _owner_ended(conn: Any, session_id: str) -> bool:
 
 
 def _notice_body(conn: Any, walk: Mapping[str, Any], silent: float) -> str:
-    from yoke_contracts.coordination_claim_recovery import holder_release_command
     from yoke_core.domain.project_identity import render_item_ref
+    from yoke_core.domain.qa_plan_execution_reconcile import (
+        execution_project,
+        subject_flag,
+    )
+    from yoke_core.domain.qa_plan_execution_store import select_plan_execution
 
     item = (
         render_item_ref(conn, int(walk["item_id"]))
@@ -144,18 +148,19 @@ def _notice_body(conn: Any, walk: Mapping[str, Any], silent: float) -> str:
     abort_at = as_utc(parse_instant(walk["heartbeat_at"])) + timedelta(
         seconds=PLAN_EXECUTION_STALE_SECONDS
     )
-    release = (
-        f" If the walk no longer needs the host, release it: "
-        f"`{holder_release_command(int(walk['test_machine_lease_id']))}`."
-        if walk.get("test_machine_lease_id") is not None
-        else ""
+    execution = select_plan_execution(conn, str(walk["id"]), lock=False)
+    flag = subject_flag(conn, execution, execution_project(conn, execution)[1])
+    cancel = (
+        " If the walk is no longer needed, cancel it, which also frees its "
+        f"host: `yoke qa plan abort {flag} --execution-id {walk['id']} "
+        "--reason TEXT`."
     )
     return (
         f"QA walk silent: execution {walk['id']} for {item} ({host}) has sent "
         f"no heartbeat for {int(silent // 60)}m. The stale sweep aborts it at "
         f"{abort_at:%Y-%m-%dT%H:%M}Z and the next waiter takes and resets the "
         "host. If the walk is still working, run its next step through "
-        "`yoke qa mission host-command`, which heartbeats it." + release
+        "`yoke qa mission host-command`, which heartbeats it." + cancel
     )
 
 

@@ -233,8 +233,9 @@ def _wake_waiter(conn: Any, wait: dict[str, Any], claim: Any) -> None:
         body=(
             f"QA host turn ready: {wait['test_machine']}; reserved lease {claim.id} "
             f"for this session. Take it with: {_resume_command(conn, wait)}."
-            f"{open_requirement} If you no longer need the host, release it "
-            f"so the next waiter gets it: `{holder_release_command(claim.id)}`."
+            f"{open_requirement} If you no longer need this turn, release it "
+            "before taking it so the next waiter gets it: "
+            f"`{holder_release_command(claim.id)}`."
         ),
         idempotency_key=f"qa-host-turn:{wait['id']}:{claim.id}",
         idempotency_intent_only=True,

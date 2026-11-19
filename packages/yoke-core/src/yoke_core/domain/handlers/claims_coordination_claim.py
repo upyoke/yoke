@@ -249,11 +249,19 @@ def handle_release(request: FunctionCallRequest) -> HandlerOutcome:
         CoordinationClaimNotFoundError,
         get_claim,
     )
-    from yoke_core.domain.qa_host_manual_release import release_host_claim
+    from yoke_core.domain.handlers.claims_coordination_claim_target import (
+        release_target_id,
+    )
+    from yoke_core.domain.qa_host_manual_release import (
+        QaExecutionHoldsLease,
+        release_host_claim,
+    )
 
     with _connect_rw() as conn:
         try:
-            claim_id = _release_target_id(conn, body)
+            claim_id = release_target_id(
+                conn, claim_id=body.claim_id, project_id=body.project_id, key=body.key
+            )
         except LookupError as exc:
             return _err("claim_not_found", str(exc))
         except CoordinationKeyError as exc:
@@ -281,32 +289,15 @@ def handle_release(request: FunctionCallRequest) -> HandlerOutcome:
                 conn,
                 claim_id,
                 body.reason,
+                holder=True,
                 released_by_session_id=request.actor.session_id,
             )
         except CoordinationClaimNotFoundError as exc:
             return _err("claim_not_found", str(exc))
+        except QaExecutionHoldsLease as exc:
+            return _err(exc.code, str(exc))
 
     return HandlerOutcome(result_payload={"claim": claim_as_dict(claim)})
-
-
-def _release_target_id(conn: Any, body: "ReleaseRequest") -> int:
-    """Resolve the claim row this release names, by id or by key."""
-    if body.claim_id is not None:
-        return int(body.claim_id)
-    if not body.key or not body.project_id:
-        raise ValueError("release requires claim_id, or project_id together with key")
-    from yoke_core.domain.coordination_claims import active_claim
-    from yoke_core.domain.project_identity import resolve_project
-
-    identity = resolve_project(conn, body.project_id)
-    assert identity is not None
-    target = target_for_key(body.key, project_id=identity.id)
-    claim = active_claim(conn, target)
-    if claim is None:
-        raise LookupError(
-            f"no active coordination claim for {identity.slug}:{body.key}"
-        )
-    return int(claim.id)
 
 
 def handle_list(request: FunctionCallRequest) -> HandlerOutcome:
