@@ -188,6 +188,12 @@ stop_self_host_stack() {
   stop_container_runtime_application
 }
 
+# Lists into the caller's containers and volumes.
+self_host_stack_listed() {
+  containers=$(self_host_container_ids "$1") &&
+    volumes=$(self_host_volume_ids "$1")
+}
+
 # Absence is asserted against the daemon rather than against the filesystem: a
 # runtime whose data root was moved outside the home is exactly the case the
 # golden restore cannot reach, and this is where it becomes visible. The one
@@ -196,13 +202,14 @@ stop_self_host_stack() {
 self_host_stack_is_absent() {
   local runtime containers volumes
   runtime=$(container_runtime_path) || return 0
-  if containers=$(self_host_container_ids "$runtime") &&
-    volumes=$(self_host_volume_ids "$runtime"); then
-    [[ -z "$containers" && -z "$volumes" ]]
-    return
+  if ! self_host_stack_listed "$runtime"; then
+    (( self_host_runtime_stopped )) && return 0
+    # The restore can drop the docker context the stop phase listed through,
+    # so verify reaches Colima by the socket it names before refusing.
+    connect_container_runtime && self_host_stack_listed "$runtime" ||
+      docker_unreachable "$runtime" || return 1
   fi
-  (( self_host_runtime_stopped )) && return 0
-  docker_unreachable "$runtime"
+  [[ -z "$containers" && -z "$volumes" ]]
 }
 """
 

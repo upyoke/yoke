@@ -147,3 +147,29 @@ def test_verify_lists_a_runtime_this_reset_started(tmp_path: Path) -> None:
 
     assert "TEARDOWN_FAILED" not in result.stdout, result.stdout + result.stderr
     assert "VERIFY_FAILED" in result.stdout
+
+
+@pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")
+def test_verify_reaches_colima_after_the_restore_drops_its_docker_context(
+    tmp_path: Path,
+) -> None:
+    client, state = fake_runtime(tmp_path, containers=())
+    starter = fake_starter(tmp_path)
+    (state / "needs-socket").touch()
+    (state / "context").touch()
+    lines = (
+        *self_host_lines(client, anchor="no-such-application", starter=starter),
+        "stop_self_host_stack || print -r -- TEARDOWN_FAILED",
+        # The clear and restore replace the home holding Colima's context.
+        f"/bin/rm -f -- {state}/context",
+        "self_host_stack_is_absent || print -r -- VERIFY_FAILED",
+        'print -r -- "DETAIL $failure_detail"',
+    )
+
+    result = run(lines, state=state)
+
+    # test-mac-studio: the stop phase listed through the context, then verify
+    # fell back to /var/run/docker.sock and refused a healthy Colima.
+    assert "TEARDOWN_FAILED" not in result.stdout, result.stdout + result.stderr
+    assert "VERIFY_FAILED" not in result.stdout, result.stdout + result.stderr
+    assert _starter_calls(state) == ["status", "status"]

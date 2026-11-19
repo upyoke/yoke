@@ -27,7 +27,9 @@ print -r -- "$@" >> "$state/argv.log"
 subject="${@[-1]}"
 # needs-socket stands in for a host whose client defaults to
 # /var/run/docker.sock: only the socket Colima names reaches the daemon.
-if [[ -e "$state/down" || ( -e "$state/needs-socket" &&
+# A context file stands in for the docker context Colima's own start writes
+# into the home, which reaches the daemon until a restore removes it.
+if [[ -e "$state/down" || ( -e "$state/needs-socket" && ! -e "$state/context" &&
   "${DOCKER_HOST:-}" != "unix://$state/docker.sock" ) ]]; then
   print -u2 -r -- "Cannot connect to the Docker daemon. Is the docker daemon running?"
   exit 1
