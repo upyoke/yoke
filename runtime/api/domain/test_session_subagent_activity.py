@@ -65,17 +65,22 @@ def parent_then_background_child(conn, *, child_open: bool = True) -> None:
         )
 
 
-@pytest.fixture
-def parent(test_db):
+def seed_parent(conn):
+    """A claude-cli parent, quiet since long before the scenario starts."""
     seed_session(
-        test_db,
+        conn,
         ANSWERER,
         last_tool_call_at=BEFORE_THAT,
         executor="claude-code",
         executor_surface="claude-cli",
     )
-    test_db.commit()
-    return test_db
+    conn.commit()
+    return conn
+
+
+@pytest.fixture
+def parent(test_db):
+    return seed_parent(test_db)
 
 
 def _session(conn) -> dict:

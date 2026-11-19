@@ -12,12 +12,14 @@ from datetime import datetime, timedelta
 
 from yoke_contracts.timestamps import format_instant, parse_instant
 
+import pytest
+
 from runtime.api.domain.test_session_subagent_activity import (
     CHILD_DONE,
     CHILD_START,
     PARENT_STOP,
-    parent,  # noqa: F401 - pytest fixture
     parent_then_background_child,
+    seed_parent,
 )
 from runtime.api.steering_fleet_test_helpers import (
     ANSWERER,
@@ -39,6 +41,11 @@ from yoke_core.domain.steering_fleet_report_render_undelivered import (
     undelivered_line,
 )
 from yoke_core.domain.steering_fleet_report_undelivered import undelivered_messages
+
+@pytest.fixture
+def parent(test_db):
+    return seed_parent(test_db)
+
 
 SENT = PARENT_STOP + timedelta(seconds=10)
 NOW = CHILD_DONE + timedelta(minutes=40)
