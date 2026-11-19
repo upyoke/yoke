@@ -10,6 +10,36 @@ function validateColorScheme(value) {
   }
 }
 
+const OBSERVATION_DEADLINE_MS = 5000;
+const DO_NOT_REPLAY = 'inspect the existing page and retained evidence before repair; '
+  + 'do not replay a submit blindly';
+
+function unresponsivePage(page) {
+  let url;
+  try {
+    url = page.url();
+  } catch {
+    url = '<unknown>';
+  }
+  const error = new Error(`page_unresponsive: the page did not answer a script within `
+    + `${OBSERVATION_DEADLINE_MS / 1000}s (url=${url}); its main thread is busy or blocked; `
+    + `${DO_NOT_REPLAY}.`);
+  error.code = 'page_unresponsive';
+  return error;
+}
+
+// A script never returns while the page's main thread is blocked, and
+// Playwright puts no bound on page.evaluate. Stop waiting at the deadline;
+// the abandoned read settles (or not) on its own.
+function withinDeadline(pending, remaining, page) {
+  pending.catch(() => {});
+  let timer;
+  const expiry = new Promise((_resolve, reject) => {
+    timer = setTimeout(() => reject(unresponsivePage(page)), Math.max(remaining, 0));
+  });
+  return Promise.race([pending, expiry]).finally(() => clearTimeout(timer));
+}
+
 async function observeColorScheme(page) {
   let observed;
   try {
@@ -18,10 +48,10 @@ async function observeColorScheme(page) {
       if (matchMedia('(prefers-color-scheme: light)').matches) return 'light';
       return null;
     });
-    const deadline = performance.now() + 5000;
+    const deadline = performance.now() + OBSERVATION_DEADLINE_MS;
     for (;;) {
       try {
-        observed = await read();
+        observed = await withinDeadline(read(), deadline - performance.now(), page);
         break;
       } catch (err) {
         const remaining = deadline - performance.now();
@@ -32,8 +62,9 @@ async function observeColorScheme(page) {
       }
     }
   } catch (err) {
+    if (err.code === 'page_unresponsive') throw err;
     throw new Error('color_scheme_observation_failed: cannot read page media preference; '
-      + `inspect the existing page and retained evidence before repair; do not replay a submit blindly (${err.message}).`);
+      + `${DO_NOT_REPLAY} (${err.message}).`);
   }
   const requested = preferences.get(page) ?? null;
   const evidence = { requested, observed };
@@ -58,7 +89,7 @@ async function applyColorScheme(page, requested) {
       await page.emulateMedia({ colorScheme: requested });
     } catch (err) {
       throw new Error('color_scheme_emulation_failed: cannot apply page preference; '
-        + `inspect the existing page and retained evidence before repair; do not replay a submit blindly (${err.message}).`);
+        + `${DO_NOT_REPLAY} (${err.message}).`);
     }
   }
   preferences.set(page, requested);
