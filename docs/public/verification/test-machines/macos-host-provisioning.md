@@ -277,14 +277,9 @@ command to the Remote Login controller. Keep Terminal enabled for local
 capture. On the dedicated test Mac, add `/usr/libexec/sshd-keygen-wrapper`
 under **Screen & System Audio Recording** if TCC names it for the failed
 capture. Then rerun `bridge-diagnose` and verify that it captures window content.
-Before sealing a fresh golden, enable **Terminal.app** under **Device
-Control and Data Access** on the dedicated user's unlocked desktop. If
-macOS prompts for Terminal to control the computer while running a GUI
-Terminal command, approve it there. Add Terminal with **+** if it is absent.
-The Remote Login helper and Terminal are separate entries. A GUI command
-that reports `-25211` from Terminal needs Terminal's own grant. Repeat the
-GUI operation and confirm it can enter input and read back the result.
-This is a live host grant that must remain enabled after a home restore.
+Before sealing a fresh golden, separately enable **Terminal.app** under
+**Device Control and Data Access** on the unlocked test desktop. Add it with
+**+** if absent, approve its prompt, and verify GUI input and readback.
 
 GUI-session commands (`--gui-session`) also need Terminal → System Events. Safari
 needs no grant: browser approval runs in the operator identity's Chromium
