@@ -51,9 +51,13 @@ Successor stage dispatch also materializes members whose live private cases
 still name another run, even when those members already have requirements.
 Retracted, superseded and shared-group cases do not trigger this refresh;
 a second dispatch with current targets leaves the requirements unchanged.
-Existing executions and evidence keep their stored targets and digests as
+Begun executions and evidence keep their stored targets and digests as
 provenance and never gate a write. Their timestamps and observation windows
-do not restart when a requirement follows the successor target.
+do not restart when a requirement follows the successor target. An execution
+that has run, leased and recorded nothing yet, such as one waiting for its
+Test Machine turn, takes the successor's current roster and target when its
+owner's `yoke qa plan run` begins it again; it keeps its execution ID,
+`execution_order` and host-line place.
 
 A failed successor retains inherited QA for retry or another takeover. Explicit
 cancellation and genuine member removal retain their cleanup rules. An early QA
@@ -86,7 +90,7 @@ yoke qa plan run --item PREFIX-N --stage item-qa --project PROJECT
 An item-scoped stage refuses `--deployment-run-id`. Use
 `yoke qa plan rematerialize --item PREFIX-N --stage item-qa --project PROJECT`
 when the plan's case content also changed. Failed cases keep their correction
-pointers across a target rebind. Existing executions, captures and attempts keep
+pointers across a target rebind. Begun executions, captures and attempts keep
 their frozen targets; a fresh attempt uses the rebound requirement.
 
 ## Credit saved completions
