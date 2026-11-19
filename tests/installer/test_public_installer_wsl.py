@@ -120,4 +120,9 @@ def test_lifetime_warning_allows_installer_to_finish(monkeypatch, unavailable):
     installer.terminal_runner = setup
     installer.run()
     assert "is ready" in output.getvalue()
-    assert "Warning:" in warnings[0] and "wsl --update" in warnings[0]
+    recovery = {
+        "old_version": "wsl --update",
+        "interop": "Enable Windows interop/PATH",
+    }[unavailable]
+    assert "Warning:" in warnings[0] and warnings[0].count(recovery) == 1
+    assert warnings[0].count("rerun yoke wsl setup") == 1
