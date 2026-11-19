@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import sys
 
 from yoke_cli.commands._helpers import (
     add_json_arg,
@@ -18,8 +19,11 @@ from yoke_cli.commands.adapters.items_create_text import (
     resolve_create_text,
 )
 from yoke_cli.commands.adapters.dash_verification_plan import (
-    resolve_dash_verification_plan,
+    NO_VERIFICATION_METHOD,
+    PROJECT_DEFAULT_DASH_PLAN_SLUG,
     DashVerificationPlanError,
+    project_default_dash_verification_plan,
+    resolve_dash_verification_plan,
 )
 from yoke_contracts.api.function_call import TargetRef
 
@@ -129,12 +133,15 @@ def items_create(args: list[str], *, shortcut: str | None = None) -> int:
     verification.add_argument(
         "--verification-plan",
         metavar="ID_OR_SLUG",
-        help="Verify the item with this saved verification plan.",
+        help="Verify the item with this saved verification plan. A Dash "
+        f"without one uses the project's {PROJECT_DEFAULT_DASH_PLAN_SLUG} plan "
+        "when it has one.",
     )
     verification.add_argument(
         "--verification-method",
         metavar="METHOD",
-        help="Verify the item with this ad hoc method id.",
+        help="Verify the item with this ad hoc method id; "
+        f"'{NO_VERIFICATION_METHOD}' files a Dash with no verification.",
     )
     posture_help = {
         "path-claims": "Reserve repository paths before work (Dash only).",
@@ -170,11 +177,33 @@ def items_create(args: list[str], *, shortcut: str | None = None) -> int:
             }
         except DashVerificationPlanError as exc:
             return usage_error(str(exc))
-    if parsed.verification_method:
+    if parsed.verification_method and (
+        parsed.verification_method != NO_VERIFICATION_METHOD
+    ):
         posture["verification"] = {
             "kind": "ad_hoc",
             "method_id": parsed.verification_method,
         }
+    if workflow == "dash" and not (
+        parsed.verification_plan or parsed.verification_method
+    ):
+        try:
+            default_plan = project_default_dash_verification_plan(
+                project=project, session_id=parsed.session_id
+            )
+        except DashVerificationPlanError as exc:
+            return usage_error(
+                f"{exc}; name the verification with --verification-plan "
+                f"ID_OR_SLUG, or pass --verification-method "
+                f"{NO_VERIFICATION_METHOD} to file without one"
+            )
+        if default_plan is not None:
+            posture["verification"] = {"kind": "plan", "plan_id": default_plan}
+            print(
+                f"verification plan: {PROJECT_DEFAULT_DASH_PLAN_SLUG} "
+                "(project default)",
+                file=sys.stderr,
+            )
     for key in ("path_claims", "approval_on_done", "deployment"):
         if getattr(parsed, key):
             posture[key] = True

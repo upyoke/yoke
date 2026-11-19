@@ -44,6 +44,12 @@ DECLARED_VERIFICATION_POSTURES = (POSTURE_ATTESTED_NO_TESTS,)
 #: Project Structure family holding the declaration. Singleton per project.
 VERIFICATION_POSTURE_FAMILY = "verification_posture"
 
+#: Slug prefix of the QA plans that carry a project's registered verification
+#: command, one per scope (``registered-command-quick`` and so on). Shared so
+#: the engine that registers and retires them and the Dash filing surface that
+#: selects the quick plan as its default verification name the same plans.
+REGISTERED_COMMAND_PLAN_PREFIX = "registered-command-"
+
 
 def is_declared(posture: str | None) -> bool:
     """Whether ``posture`` is an answer worth storing."""
@@ -54,6 +60,7 @@ __all__ = [
     "DECLARED_VERIFICATION_POSTURES",
     "POSTURE_ATTESTED_NO_TESTS",
     "POSTURE_UNDECIDED",
+    "REGISTERED_COMMAND_PLAN_PREFIX",
     "VERIFICATION_POSTURE_FAMILY",
     "is_declared",
 ]
