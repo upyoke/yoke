@@ -30,6 +30,7 @@ def machine(tmp_path, monkeypatch):
     calls, handoff_events = [], []
     handoff = SimpleNamespace(
         log=tmp_path / "result.log",
+        releases=tmp_path / "uv-tools" / "yoke-cli-releases",
         arm=lambda: handoff_events.append("armed"),
         cancel=lambda: handoff_events.append("cancelled"),
     )
@@ -49,7 +50,7 @@ def machine(tmp_path, monkeypatch):
     return value, calls, handoff_events
 
 
-def test_complete_cleanup_removes_home_and_hands_off_cli(machine):
+def test_complete_cleanup_removes_home_and_hands_off_cli(machine, tmp_path):
     value, calls, handoff = machine
     output = []
     assert steps.remove(value, value.projects, output.append) == 0
@@ -63,6 +64,7 @@ def test_complete_cleanup_removes_home_and_hands_off_cli(machine):
     assert "--destroy-universe" in teardown and "--yes" in teardown
     assert handoff == ["armed"]
     assert "handed off" in output[-4]
+    assert str(tmp_path / "uv-tools" / "yoke-cli-releases") in output[-4]
     assert output[-2:] == [steps.NOT_REMOVED, steps.UV_REMOVAL]
     assert "uv cache clean" in steps.UV_REMOVAL and "uv tool dir" in steps.UV_REMOVAL
 
@@ -81,7 +83,7 @@ def test_evaluator_stop_failure_retains_home_and_cli(machine, monkeypatch):
     assert any("hook evaluator: failed" in line for line in output)
 
 
-@pytest.mark.parametrize("platform", ["darwin", "linux"])
+@pytest.mark.parametrize("platform", ["darwin", "linux", "win32"])
 def test_retired_alias_relay_failure_retains_recovery(machine, monkeypatch, platform):
     value, _, handoff = machine
     value = replace(value, relay_envs=())
@@ -96,6 +98,21 @@ def test_retired_alias_relay_failure_retains_recovery(machine, monkeypatch, plat
     assert steps.remove(value, (), output.append) == 1
     assert value.config.is_file() and not handoff
     assert any("saved relay services: failed" in line for line in output)
+
+
+def test_windows_without_connections_removes_saved_relay_tasks(machine, monkeypatch):
+    value, _, handoff = machine
+    value = replace(value, relay_envs=())
+    monkeypatch.setattr(steps.sys, "platform", "win32")
+    monkeypatch.setattr(steps, "_report_windows_path", lambda emit: None)
+    homes = []
+    monkeypatch.setattr(
+        steps.machine_uninstall_relays, "remove_saved_services", homes.append
+    )
+    output = []
+    assert steps.remove(value, (), output.append) == 0
+    assert homes == [value.home] and handoff == ["armed"]
+    assert "saved relay services: done" in output
 
 
 def test_one_failure_does_not_hide_other_cleanup_and_keeps_recovery(

@@ -2,8 +2,8 @@
  "id": "machine-installation",
  "title": "Machine installation",
  "status": "observed",
- "text": "Machine uninstall on macOS and systemd Linux removes saved relay services after their connection aliases are retired. Unproven ownership or a failed stop retains the machine home and CLI for recovery.",
- "sources": ["docs/public/start/uninstall.md", "packages/yoke-core/src/yoke_core/tools/session_relay_owned_uninstall.py"],
+ "text": "Machine uninstall on macOS, systemd Linux and Windows removes saved relay services (launchd jobs, systemd units, scheduled tasks) after their connection aliases are retired. If the detached CLI removal fails, its log names a shell command that removes the releases folder without yoke. Unproven ownership or a failed stop retains the machine home and CLI for recovery.",
+ "sources": ["docs/public/start/uninstall.md", "packages/yoke-core/src/yoke_core/tools/session_relay_owned_uninstall.py", "packages/yoke-cli/src/yoke_cli/config/machine_uninstall_detached.py"],
  "page": "maintenance",
  "position": 0
 }

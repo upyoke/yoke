@@ -226,3 +226,85 @@ def test_linux_installer_removes_retired_unit_or_reports_stop_failure(
     assert path.exists() is stop_fails
     assert foreign_path.exists()
     assert all(foreign_path.name not in call for call in calls)
+
+
+def _task(machine_home, name, runner_argv=None):
+    from yoke_contracts.machine_config.paths import CONFIG_FILE_ENV, HOME_ENV
+
+    config = machine_home / "config.json"
+    label = relay_instance_label(config_path=config, environment=name)
+    state = machine_home / RELAY_STATE_ROOT_NAME / label.rsplit(".", 1)[-1]
+    instance = RelayInstance(name, config, machine_home, False, label, state)
+    state.mkdir(parents=True)
+    pins = {CONFIG_FILE_ENV: str(config), HOME_ENV: str(machine_home)}
+    argv = runner_argv or ["yoke", "--env", name, "relay", "serve"]
+    (state / "task-runner.py").write_text(
+        f"os.environ.update({pins!r})\ncode = subprocess.call({argv!r})\n",
+        encoding="utf-8",
+    )
+    return instance
+
+
+@pytest.fixture
+def scheduled(tmp_path):
+    """A fake Task Scheduler holding tasks pinned to two machine homes."""
+    sid = "S-1-5-21-123"
+    mine = _task(tmp_path / "machine", "retired")
+    other = _task(tmp_path / "other", "retired")
+    documents, changes = {}, []
+
+    def add(instance, owner=sid):
+        from yoke_core.tools.session_relay_task_scheduler import relay_task_document
+
+        documents[instance.label] = relay_task_document(instance, user_sid=owner)
+
+    def run(argv, **kwargs):
+        if argv[0] == "whoami":
+            content = f'"MACHINE\\user","{sid}"\n'
+        elif argv[0] == "powershell.exe":
+            content = "4\n"
+        elif argv[1:4] == ["/Query", "/FO", "CSV"]:
+            content = "".join(f'"\\{label}","N/A","Running"\n' for label in documents)
+        elif argv[1] == "/Query":
+            if argv[3] not in documents:
+                return subprocess.CompletedProcess(argv, 1, "", "not found")
+            content = documents[argv[3]]
+        else:
+            changes.append(argv)
+            if argv[1] == "/Delete":
+                del documents[argv[3]]
+            content = ""
+        return subprocess.CompletedProcess(argv, 0, content, "")
+
+    add(mine)
+    add(other)
+    return mine, other, add, documents, changes, run
+
+
+def test_windows_removes_only_tasks_pinned_to_this_machine_home(scheduled):
+    mine, other, _add, documents, changes, run = scheduled
+    removed = cleanup.uninstall_owned_relays(mine.yoke_home, platform="win32", runner=run)
+    assert removed == [mine.label]
+    assert changes == [
+        ["schtasks", "/End", "/TN", mine.label],
+        ["schtasks", "/Delete", "/TN", mine.label, "/F"],
+    ]
+    assert set(documents) == {other.label}
+    assert not (mine.state_dir / "task-runner.py").exists()
+
+
+def test_windows_leaves_another_users_task(scheduled):
+    mine, other, add, documents, changes, run = scheduled
+    add(mine, owner="S-1-5-21-456")
+    assert cleanup.uninstall_owned_relays(mine.yoke_home, platform="win32", runner=run) == []
+    assert changes == [] and set(documents) == {mine.label, other.label}
+
+
+def test_windows_refuses_a_task_whose_runner_does_not_match(scheduled):
+    mine, _other, _add, documents, changes, run = scheduled
+    (mine.state_dir / "task-runner.py").write_text(
+        "os.environ.update({})\ncode = subprocess.call(['evil.exe'])\n", encoding="utf-8"
+    )
+    with pytest.raises(RelayInstallError, match="uninstall_relay_ownership_unproven"):
+        cleanup.uninstall_owned_relays(mine.yoke_home, platform="win32", runner=run)
+    assert changes == [] and mine.label in documents

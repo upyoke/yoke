@@ -161,7 +161,13 @@ def _remove_tree(path: Path) -> None:
         function(failed)
 
     hook = "onexc" if sys.version_info >= (3, 12) else "onerror"
-    shutil.rmtree(path, **{hook: clear_read_only})
+    target = str(path)
+    if WINDOWS and not target.startswith("\\\\?\\"):
+        # Retired release names push bundled files past MAX_PATH (260).
+        target = os.path.abspath(target)
+        unc = target.startswith("\\\\")
+        target = ("\\\\?\\UNC\\" + target[2:]) if unc else "\\\\?\\" + target
+    shutil.rmtree(target, **{hook: clear_read_only})
 
 def _retire(release: Path, retired: Path) -> bool:
     """Rename an unused release out of ``releases``; False while it is in use."""
