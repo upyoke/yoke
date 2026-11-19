@@ -30,24 +30,32 @@ def no_unmerged_predecessor(monkeypatch):
     monkeypatch.setattr(selection_mod, "integration_dependency_refusal", _cleared)
 
 
-def _probe_dispatch(count):
+def _probe_dispatch(has):
     def dispatch(*, function_id, target, payload, **_kw):
-        assert function_id == "db.read.run"
-        assert "merge_queue" in payload["sql"]
-        return _ok_response({"rows": [[count]]})
+        assert function_id == "projects.capability.has"
+        assert payload == {"project": "yoke", "cap_type": "merge_queue"}
+        return _ok_response({"project": "yoke", "has": has})
 
     return dispatch
 
 
-def test_probe_reads_declaration_via_registered_read():
+def test_probe_reads_declaration_via_project_capability_read():
     declared, err = selection_mod.project_declares_merge_queue(
-        "yoke", dispatch=_probe_dispatch(1)
+        "yoke", dispatch=_probe_dispatch(True)
     )
     assert declared and err is None
     declared, err = selection_mod.project_declares_merge_queue(
-        "yoke", dispatch=_probe_dispatch(0)
+        "yoke", dispatch=_probe_dispatch(False)
     )
     assert not declared and err is None
+
+
+def test_probe_without_has_answer_is_an_error():
+    declared, err = selection_mod.project_declares_merge_queue(
+        "yoke", dispatch=lambda **_kw: _ok_response({"rows": [[1]]})
+    )
+    assert not declared
+    assert "no 'has' answer" in err
 
 
 def test_probe_error_is_surfaced_not_swallowed():
