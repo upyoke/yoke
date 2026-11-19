@@ -27,6 +27,14 @@ from yoke_core.domain.ssh_mac_host_control import SshMacHostControl
 from yoke_harness.ssh_mac_transport import SshMacTransport
 
 GOLDEN_BASELINE_PATH = "/Users/Shared/yoke-golden/tester-home"
+# The reset reads the console user and lists the GUI session before it quits apps.
+GUI_SESSION_REPLIES = {
+    "/usr/bin/stat -f%Su /dev/console": "yoke-test\n",
+    "/usr/bin/lsappinfo list": (
+        ' 1) "Dock" ASN:0x0-0x1: \n    bundleID="com.apple.dock"\n'
+        '    pid = 401 type="UIElement" flavor=3 \n'
+    ),
+}
 
 
 def test_ssh_adapter_uses_secret_file_reference_not_secret_argv(
@@ -80,6 +88,8 @@ def test_full_reset_ssh_path_never_invokes_remote_python_or_clt(
         remote = str(argv[-1])
         if len(calls) == 1:
             stdout = "/Users/tester\n/bin/zsh\n\n"
+        elif remote in GUI_SESSION_REPLIES:
+            stdout = GUI_SESSION_REPLIES[remote]
         elif remote.startswith(FULL_RESET_REMOTE_PATH):
             stdout = closed_reset_stdout(restored_entries=22)
         elif remote == "/bin/sh -s" and "whose visible is true" in kwargs.get("input", ""):
@@ -132,6 +142,8 @@ def test_ssh_host_facts_drive_xdg_launcher_reset_and_entry_placeholder(
         remote = str(argv[-1])
         if len(calls) == 1:
             stdout = f"/Users/tester\n/bin/bash\n{xdg_bin_home}\n"
+        elif remote in GUI_SESSION_REPLIES:
+            stdout = GUI_SESSION_REPLIES[remote]
         elif remote.startswith(FULL_RESET_REMOTE_PATH):
             stdout = closed_reset_stdout(restored_entries=22)
         elif remote == "/bin/sh -s" and "whose visible is true" in kwargs.get("input", ""):
