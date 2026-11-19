@@ -263,11 +263,9 @@ settles it with the existing `stale-heartbeat` reason.
 Active and `walking` walks keep the 30-minute heartbeat rule. At 20 silent minutes the
 sweep mails the live, unparked owner once per silence, naming the execution, item, Test
 Machine, abort time and fix: run the next step through `yoke qa mission host-command`,
-which heartbeats the walk, or cancel it with `yoke qa plan abort`. `yoke watch fleet`
-prints the same silence as `stale-walk`. While an execution is live, its holder's
-`yoke claims coordination-claim release` of the Test Machine lease refuses
-`qa_execution_holds_lease`; the lease is released when the execution ends. A walker told to hold can park
-(`yoke sessions touch --mode parked --reason "..."`); a live parked owner
+which heartbeats the walk, or cancel it with `yoke qa plan abort` (holder release
+refuses `qa_execution_holds_lease`). `yoke watch fleet` prints it as `stale-walk`.
+A walker told to hold can park (`yoke sessions touch --mode parked --reason "..."`); a live parked owner
 protects its active walk from the stale sweep. An ended owner provides no
 such protection. Terminal settlement stamps an unreviewed capture with an
 `error` verdict.
