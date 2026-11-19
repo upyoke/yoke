@@ -177,10 +177,11 @@ def record_then_stamp(
                 forced_session_id=decision.arriving_conversation_id,
                 forced_container_session_id=decision.arriving_conversation_id,
             )
+    if not is_cursor(executor):
+        return stamp_hook_stdin(stdin_data, payload, executor)
     try:
         conv = payload.get("conversation_id") or payload.get("session_id")
         if isinstance(conv, str) and conv:
-            from yoke_cli.config import machine_config
             from yoke_contracts.cursor_session_map import (
                 CURSOR_SESSION_MAP_DIR_NAME,
                 linked_worktree_lane_name,
