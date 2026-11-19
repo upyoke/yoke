@@ -86,3 +86,16 @@ def test_refresh_keeps_the_interpreter_capture_resolved_on_the_host() -> None:
     probes = json.loads(refreshed)["probes"]
     assert {p["argv"][0] for p in probes} == {python}
     assert "old program" not in refreshed
+
+
+def test_document_without_standard_probes_runs_as_declared() -> None:
+    document = json.dumps({"probes": [_EXTRA]})
+
+    refreshed, digests = current_standard_document("macos", document)
+
+    assert refreshed == document
+    assert digests == {
+        "sealed_sha256": None,
+        "current_sha256": None,
+        "refreshed": False,
+    }

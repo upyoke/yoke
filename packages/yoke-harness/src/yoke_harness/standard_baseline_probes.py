@@ -243,7 +243,8 @@ def current_standard_document(os_name: str, document: str) -> tuple[str, dict]:
 
     A golden keeps the standard programs of the controller that captured it, so
     a detector fixed later would never reach that golden. Reset runs today's
-    standard set, keeps the sealed extra probes, and names both digests.
+    standard set, keeps the sealed extra probes, and names both digests. A
+    document carrying no standard probe was declared by hand and runs as is.
     Raises ValueError when either document is not a valid probe document.
     """
     from yoke_harness.ssh_mac_baseline_probes import parse_baseline_probes
@@ -252,8 +253,10 @@ def current_standard_document(os_name: str, document: str) -> tuple[str, dict]:
     current = standard_probes(os_name)
     names = {probe["name"] for probe in current}
     sealed_standard = [p for p in sealed if p.name in names]
+    if not sealed_standard:
+        return document, {"sealed_sha256": None, "current_sha256": None, "refreshed": False}
     # Capture resolved the host interpreter (Windows seals its python.exe path).
-    for probe in current if sealed_standard else ():
+    for probe in current:
         probe["argv"][0] = sealed_standard[0].argv[0]
     sealed_sha = _digest([{"name": p.name, "argv": list(p.argv)} for p in sealed_standard])
     current_sha = _digest([{"name": p["name"], "argv": p["argv"]} for p in current])
