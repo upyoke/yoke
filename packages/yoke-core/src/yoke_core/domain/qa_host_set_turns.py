@@ -81,12 +81,12 @@ def pass_to_older_waiter(conn: Any, claim: Any) -> None:
     execution; the release then reserves the host for the line's head.
     """
     from yoke_core.domain.coordination_claims import release
-    from yoke_core.domain.qa_host_turns import host_line
+    from yoke_core.domain.qa_host_idle_waiters import serving_line
 
     holder = reserved_wait(conn, claim)
     if holder is None or not awaits_other_hosts(conn, holder):
         return
-    line = host_line(conn, str(claim.target.test_machine))
+    line = serving_line(conn, str(claim.target.test_machine))
     if not line or line_key(line[0]) >= line_key(holder):
         return
     conn.execute(

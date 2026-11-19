@@ -3,7 +3,8 @@
 It also releases lapsed Test Machine hold-overs (``qa_host_holdover``), so a
 session queued behind one is served even when nobody else acquires the host,
 and returns hosts held by parked or exited sessions past the machine's idle
-hold to the line (``qa_host_idle_hold``).
+hold to the line (``qa_host_idle_hold``), passing an away set-waiter's partial
+reservations to the next waiter (``qa_host_idle_waiters``).
 
 Merge-queue landings and session CI waits settle only when someone reads
 GitHub, and a QA waiver leaves its close-out replays owed in
@@ -43,6 +44,7 @@ from yoke_core.domain.merge_queue_landing_observer import observe_pending_landin
 from yoke_core.domain.project_identity import row_value
 from yoke_core.domain.qa_host_holdover import expire_holdovers
 from yoke_core.domain.qa_host_idle_hold import release_idle_host_holds
+from yoke_core.domain.qa_host_idle_waiters import hand_off_idle_waiter_reservations
 from yoke_core.domain.qa_settlement_followups import replay_settlement_followups
 from yoke_core.domain.session_ci_wait_observer import observe_pending_ci_runs
 from yoke_core.domain.universe_prune_schedule import run_scheduled_prune
@@ -144,6 +146,7 @@ def run_control_plane_upkeep() -> None:
             ("driverless item-QA wake", wake_driverless_qa_waits),
             ("lapsed Test Machine hold-over release", expire_holdovers),
             ("idle parked QA host release", release_idle_host_holds),
+            ("idle parked set-waiter turn handoff", hand_off_idle_waiter_reservations),
             ("scheduled universe prune", run_scheduled_prune),
         ):
             try:

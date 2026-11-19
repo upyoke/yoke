@@ -165,6 +165,9 @@ def join_host_line(
 def reserve_host_turn(conn: Any, target: Any) -> None:
     """Reserve a free, healthy host for the oldest live waiter.
 
+    A set-waiter away past the idle hold keeps its place but is passed over
+    (``qa_host_idle_waiters``).
+
     A host reserved for a younger waiter passes to the older one first.
     An unhealthy host keeps its line waiting and stays free for the operator
     verify or golden capture that heals it; that operation's release serves
@@ -186,7 +189,9 @@ def reserve_host_turn(conn: Any, target: Any) -> None:
         return
     if host_unhealthy(conn, target.test_machine) is not None:
         return
-    line = host_line(conn, target.test_machine)
+    from yoke_core.domain.qa_host_idle_waiters import serving_line
+
+    line = serving_line(conn, target.test_machine)
     if not line:
         return
     first = line[0]
