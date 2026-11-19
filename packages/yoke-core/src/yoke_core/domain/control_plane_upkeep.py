@@ -109,8 +109,8 @@ def _sole_runner(conn: Any) -> bool:
 
 
 def _release(conn: Any) -> None:
+    # A failed step already rolled back, so the session can run the unlock.
     try:
-        conn.rollback()
         conn.execute("SELECT pg_advisory_unlock(%s)", (UPKEEP_LOCK_KEY,))
         conn.commit()
     except Exception:  # noqa: BLE001 - a closed session releases it too
