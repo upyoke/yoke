@@ -11,7 +11,9 @@ the live method config and target, whether ``yoke qa plan run`` or
 ``yoke qa case run`` recorded it. The open rows are split by execution
 target in roster order. One execution runs the first target that still owes
 a case; the rest count as remaining, and the next ``yoke qa plan run``
-begins the next target. A live execution keeps its own immutable roster.
+begins the next target. A live execution keeps its own immutable roster;
+a request that shares no requirement with it refuses with
+``qa_single_case_scope_busy`` and names the command that ends it.
 """
 
 from __future__ import annotations
@@ -35,6 +37,8 @@ Settle = Callable[
     [list[dict[str, Any]]], tuple[dict[str, Any] | None, list[dict[str, Any]]]
 ]
 ROSTER_PASSED_CODE = "qa_plan_roster_passed_at_candidate"
+SCOPE_BUSY_CODE = "qa_single_case_scope_busy"
+RESUMABLE_STATES = frozenset({"active", "waiting", "walking"})
 
 
 def candidate_passed_requirements(
@@ -61,6 +65,42 @@ def _numbered(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return [{**row, "ordinal": ordinal} for ordinal, row in enumerate(rows)]
 
 
+def _ending_command(conn: Any, live: dict[str, Any], requirement_ids: list[int]) -> str:
+    """The command that moves ``live`` toward its end, by state."""
+    from yoke_core.domain.project_identity import render_item_ref
+
+    execution_id = str(live["id"])
+    item_ref = render_item_ref(conn, int(live["item_id"]))
+    if live["state"] == "awaiting_walk_review":
+        return (
+            f"review it with `yoke qa plan review-begin --item {item_ref} "
+            f"--execution-id {execution_id}`, then the `yoke qa plan "
+            "review-submit` command it prints"
+        )
+    if live["state"] in RESUMABLE_STATES:
+        resume = (
+            f"yoke qa case run --requirement-id {requirement_ids[0]}"
+            if len(requirement_ids) == 1
+            else f"yoke qa plan run --item {item_ref} "
+            f"--transition {live['transition_id']}"
+        )
+        return f"resume it with `{resume}`"
+    return "finish it"
+
+
+def _scope_busy(conn: Any, live: dict[str, Any]) -> QaPlanExecutionStateError:
+    requirement_ids = [int(row["requirement_id"]) for row in live["roster"]]
+    from yoke_core.domain.qa_plan_execution_roster_change import abort_command
+
+    return QaPlanExecutionStateError(
+        f"{SCOPE_BUSY_CODE}: execution {live['id']} ({live['state']}) is live on "
+        f"this item transition for requirement "
+        f"{', '.join(str(i) for i in requirement_ids)}, and a transition holds "
+        f"one live execution at a time. {_ending_command(conn, live, requirement_ids)}"
+        f", or end it with `{abort_command(conn, live)}`; then retry."
+    )
+
+
 def item_target_partition(
     conn: Any,
     roster: list[dict[str, Any]],
@@ -79,6 +119,8 @@ def item_target_partition(
         live = select_plan_execution(conn, live_id, lock=False)
         ids = {int(row["requirement_id"]) for row in live["roster"]}
         group = [row for row in roster if int(row["requirement_id"]) in ids]
+        if not group:
+            raise _scope_busy(conn, live)
         others = [
             row for row in roster if int(row["requirement_id"]) not in ids | passed
         ]
@@ -117,6 +159,7 @@ def item_target_partition(
 
 __all__ = [
     "ROSTER_PASSED_CODE",
+    "SCOPE_BUSY_CODE",
     "candidate_passed_requirements",
     "item_target_partition",
 ]
