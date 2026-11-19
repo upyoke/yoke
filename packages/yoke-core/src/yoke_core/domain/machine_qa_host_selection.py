@@ -56,6 +56,22 @@ class TestMachineFleetBusy(TestMachineCapabilityError):
         super().__init__(f"all registered test machines are in use: {names}")
         self.busy = tuple(busy)
 
+    def shortest_line(self, conn: Any, session_id: str) -> BusyTestMachine:
+        """The busy host with the fewest other waiters; ties go by name.
+
+        The refused session's own wait does not lengthen a line, so a
+        queued waiter is not pushed off its host by its own place in it.
+        """
+        from yoke_core.domain.qa_host_turns import host_line
+
+        def others(candidate: BusyTestMachine) -> int:
+            line = host_line(conn, candidate.test_machine)
+            return sum(1 for wait in line if wait["session_id"] != session_id)
+
+        return min(
+            self.busy, key=lambda candidate: (others(candidate), candidate.test_machine)
+        )
+
 
 class TestMachineHostUnhealthy(TestMachineCapabilityError):
     """Every eligible free machine last failed verification; plans queue."""
