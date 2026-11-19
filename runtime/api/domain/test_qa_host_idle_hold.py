@@ -34,6 +34,10 @@ from yoke_core.domain.machine_reset_debt import reset_owed
 from yoke_core.domain.qa_host_idle_hold import (
     IDLE_HOLD_RELEASED_REASON,
     IDLE_HOLD_RESERVATION_REASON,
+    held_rows,
+    holder_away,
+    idle_hold_limit,
+    idle_since,
     release_idle_host_holds,
 )
 from yoke_core.domain.qa_host_set_turns import record_host_wait
@@ -163,6 +167,49 @@ def test_exited_process_holding_claims_returns_the_host(
         (ACTOR.session_id,),
     )
     assert held["n"] >= 1
+    _assert_released_and_waiter_woken(test_db, review_walk, bodies)
+
+
+@pytest.mark.parametrize(
+    "away",
+    [
+        {"mode": "parked", "quiet_reason": "HUMAN_GATE: approve"},
+        {"native_process_gone_at": utc_now() - timedelta(hours=2)},
+    ],
+    ids=["parked", "exited"],
+)
+def test_holder_whose_subagent_works_keeps_its_host(test_db, review_walk, away):
+    """A parent parked or exited while its subagent walks the host is working."""
+    _, machine, lease_id = review_walk
+    later = utc_now() + LATER
+    _set_session(
+        test_db,
+        ACTOR.session_id,
+        last_tool_call_at=later - timedelta(hours=3),
+        last_child_tool_call_at=later - timedelta(minutes=5),
+        **away,
+    )
+    assert release_idle_host_holds(test_db, now=later) == []
+    assert get_claim(test_db, lease_id).is_active
+    [row] = held_rows(test_db)
+    assert holder_away(row, now=later, limit=idle_hold_limit()) is None
+    assert idle_since(row) == later - timedelta(minutes=5)
+
+
+def test_stale_subagent_activity_past_the_hold_returns_the_host(
+    test_db, review_walk, monkeypatch
+):
+    bodies = _notices(monkeypatch)
+    _, machine, _ = review_walk
+    seed_qa_session(test_db, "next")
+    _execution_wait(test_db, "next", test_machine=machine)
+    _set_session(
+        test_db,
+        ACTOR.session_id,
+        mode="parked",
+        quiet_reason="HUMAN_GATE: approve",
+        last_child_tool_call_at=utc_now() - timedelta(minutes=5),
+    )
     _assert_released_and_waiter_woken(test_db, review_walk, bodies)
 
 

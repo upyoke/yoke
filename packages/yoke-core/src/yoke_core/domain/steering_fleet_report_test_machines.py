@@ -80,15 +80,18 @@ def test_machine_lines(rows: tuple[tuple[str, str], ...]) -> list[str]:
 
 
 def _idle_holds(conn: Any, names: set[str]) -> list[IdleHostHold]:
-    """Consumed host leases whose holder is parked, exited or ended."""
-    from yoke_contracts.timestamps import format_instant
+    """Consumed host leases whose holder is parked, exited or ended.
+
+    A holder whose subagent is still calling tools is working, not away.
+    """
+    from yoke_contracts.timestamps import format_instant, utc_now
     from yoke_core.domain import qa_host_idle_hold as idle
 
     if not _table_exists(conn, "qa_test_machine_waits"):
         return []
-    limit, holds = idle.idle_hold_limit(), []
+    now, limit, holds = utc_now(), idle.idle_hold_limit(), []
     for row in idle.held_rows(conn):
-        away = idle.holder_away(row)
+        away = idle.holder_away(row, now=now, limit=limit)
         machine = str(row["test_machine"])
         if not away or machine not in names:
             continue

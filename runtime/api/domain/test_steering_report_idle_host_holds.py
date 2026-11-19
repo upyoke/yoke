@@ -14,7 +14,7 @@ from runtime.api.domain.machine_qa_host_test_support import (
     configure_test_machine,
 )
 from runtime.api.domain.machine_qa_session_seed import seed_qa_session
-from yoke_contracts.timestamps import utc_now
+from yoke_contracts.timestamps import format_instant, utc_now
 from yoke_core.domain.coordination_claims import acquire
 from yoke_core.domain.fleet_delta_alarms import DeltaState, idle_holder_alarms
 from yoke_core.domain.fleet_delta_snapshot import FleetSnapshot, session_rows
@@ -56,6 +56,48 @@ def test_a_live_holder_keeps_its_host_out_of_the_alarm(test_db, tmp_path, monkey
     seed_qa_session(test_db, "walking")
     acquire(test_db, make_qa_admission_target(MACHINE), "walking")
     assert read_reset_debts(test_db, 1) == ()
+
+
+def test_report_does_not_alarm_on_a_holder_whose_subagent_works(
+    test_db, tmp_path, monkeypatch
+):
+    """The parent exited or parked; its subagent still drives the host."""
+    configure_test_machine(test_db, tmp_path, monkeypatch)
+    seed_qa_session(test_db, "subagent-walk")
+    acquire(test_db, make_qa_admission_target(MACHINE), "subagent-walk")
+    parent = utc_now() - timedelta(hours=2)
+    test_db.execute(
+        "UPDATE harness_sessions SET mode='parked',quiet_reason='HUMAN_GATE',"
+        "last_tool_call_at=%s,native_process_gone_at=%s,last_child_tool_call_at=%s "
+        "WHERE session_id='subagent-walk'",
+        (parent, parent, utc_now() - timedelta(minutes=3)),
+    )
+    test_db.commit()
+    assert read_reset_debts(test_db, 1) == ()
+
+
+def test_report_projects_return_from_the_subagent_last_call(
+    test_db, tmp_path, monkeypatch
+):
+    """Stale child activity still alarms, timed from the subagent's last call."""
+    configure_test_machine(test_db, tmp_path, monkeypatch)
+    seed_qa_session(test_db, "stale-walk")
+    lease = acquire(test_db, make_qa_admission_target(MACHINE), "stale-walk")
+    parent = utc_now() - timedelta(hours=5)
+    child = utc_now() - timedelta(hours=2)
+    test_db.execute(
+        "UPDATE work_claims SET claimed_at=%s WHERE id=%s", (parent, lease.id)
+    )
+    test_db.execute(
+        "UPDATE harness_sessions SET mode='parked',quiet_reason='HUMAN_GATE',"
+        "last_tool_call_at=%s,last_child_tool_call_at=%s "
+        "WHERE session_id='stale-walk'",
+        (parent, child),
+    )
+    test_db.commit()
+    [row] = read_reset_debts(test_db, 1)
+    assert row.idle_state == "parked"
+    assert row.idle_since == format_instant(child)
 
 
 def test_fleet_alarms_on_an_itemless_parked_host_holder():
