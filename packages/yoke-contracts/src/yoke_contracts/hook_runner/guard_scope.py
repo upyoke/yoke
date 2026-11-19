@@ -15,6 +15,7 @@ _MACHINE = (
     "lint_shell_backtick_search",
     "lint_local_privacy",
     "lint_unmatched_path_glob",
+    "lint_broad_filesystem_scan",
 )
 _PROJECT = (
     "lint_if_status_capture",

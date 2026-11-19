@@ -90,6 +90,7 @@ CHECK_OUTPUT_TITLES = {
     "lint_shell_backtick_search": "Quote search text so backticks cannot execute",
     "lint_local_privacy": "This command crosses a private-data boundary",
     "lint_unmatched_path_glob": "Fix the file pattern or search option",
+    "lint_broad_filesystem_scan": "Search the checkout, not the whole disk",
     "lint_db_cmd": "Use the supported database or session command",
     "lint_main_commit": "Commit implementation work in your worktree",
     "lint_tc_label": "Use descriptive test names and labels",

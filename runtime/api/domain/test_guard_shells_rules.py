@@ -74,6 +74,7 @@ _COVERS_BASH = [
      'yoke dash --title "run `whoami`"  # lint:no-yoke-quoted-substitution-check',
      'yoke dash --title "run $(whoami)"'),
     ("lint_unmatched_path_glob", "rg -rn PAT docs", "rg -rn PAT docs"),
+    ("lint_broad_filesystem_scan", "find / -name x", "find / -name x"),
     ("lint_local_privacy", "cat '/Library/Application Support/com.apple.TCC/TCC.db'",
      "Get-Content 'C:\\Users\\me\\AppData\\Local\\secret.db'"),
 ]

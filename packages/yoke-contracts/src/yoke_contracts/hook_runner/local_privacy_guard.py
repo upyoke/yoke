@@ -23,12 +23,8 @@ import shlex
 from pathlib import Path, PurePosixPath
 from typing import Iterable, Sequence
 
-from yoke_contracts.hook_runner.local_privacy_command_parse import (
-    GREP_VALUE_OPTIONS,
-    RG_VALUE_OPTIONS,
-    option_positionals,
-    unwrap,
-)
+from yoke_contracts.hook_runner.local_privacy_command_parse import unwrap
+from yoke_contracts.hook_runner.search_roots import tree_walk
 from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
 from yoke_contracts.hook_runner.local_privacy_messages import (
     HOME_DISCOVERY,
@@ -245,42 +241,12 @@ def _scan_segment(
                 )
         return None
 
-    if executable == "find":
-        roots: list[str] = []
-        for token in args:
-            if token in {"-H", "-L", "-P"} and not roots:
-                continue
-            if token.startswith("-") or token in {"!", "(", ")"}:
-                break
-            roots.append(token)
-        return paths_finding(roots, discovery=True) or (
-            _implicit_scan(cwd, home, checkout_roots) if not roots else None
-        )
-    if executable in {"ls", "du", "tree"}:
-        return paths_finding(
-            (token for token in args if not token.startswith("-")),
-            discovery=True,
-        )
-    if executable in {"fd", "fdfind"}:
-        positionals = [token for token in args if not token.startswith("-")]
-        paths = positionals[1:]
-        return paths_finding(paths, discovery=True) or (
-            _implicit_scan(cwd, home, checkout_roots) if not paths else None
-        )
-    if executable in {"rg", "ripgrep"}:
-        positionals, expression_supplied = option_positionals(args, RG_VALUE_OPTIONS)
-        files_mode = "--files" in args
-        paths = positionals if files_mode or expression_supplied else positionals[1:]
-        return paths_finding(paths, discovery=True) or (
-            _implicit_scan(cwd, home, checkout_roots) if not paths else None
-        )
-    if executable in {"grep", "egrep", "fgrep"} and any(
-        flag in args for flag in ("-r", "-R", "--recursive")
-    ):
-        positionals, expression_supplied = option_positionals(args, GREP_VALUE_OPTIONS)
-        paths = positionals if expression_supplied else positionals[1:]
-        return paths_finding(paths, discovery=True) or (
-            _implicit_scan(cwd, home, checkout_roots) if not paths else None
+    walk = tree_walk(executable, args)
+    if walk is not None:
+        return paths_finding(walk.roots, discovery=True) or (
+            _implicit_scan(cwd, home, checkout_roots)
+            if walk.implicit_cwd and not walk.roots
+            else None
         )
     if executable in _DIRECT_READERS:
         return paths_finding(args)

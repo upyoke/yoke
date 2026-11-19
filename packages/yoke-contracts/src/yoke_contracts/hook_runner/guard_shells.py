@@ -55,6 +55,7 @@ _COVERS_BASH = (
     "lint_yoke_quoted_shell_substitution",
     "lint_local_privacy",
     "lint_unmatched_path_glob",
+    "lint_broad_filesystem_scan",
 )
 
 GUARD_SHELLS: dict[str, frozenset[str]] = {

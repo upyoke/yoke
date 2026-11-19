@@ -24,6 +24,7 @@ def add_hooks(add):
         'lint_shell_backtick_search': 'Check shell searches',
         'lint_local_privacy': 'Protect private local data',
         'lint_unmatched_path_glob': 'Check file patterns',
+        'lint_broad_filesystem_scan': 'Check search roots',
         'session_message_delivery': 'Incoming messages',
         'session_launch_attestation': 'Launch instructions',
         'session_broker_wake': 'Wake request', 'heartbeat': 'Update session activity',
