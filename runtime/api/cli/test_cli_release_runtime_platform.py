@@ -169,3 +169,21 @@ def test_current_must_name_a_release_folder(tmp_path):
         (tmp_path / "current").write_text(name + "\n")
         with pytest.raises(RuntimeError, match="cli_release_target_invalid"):
             runtime._generation(tmp_path)
+
+
+@pytest.mark.windows
+@pytest.mark.parametrize(
+    ("path", "expected"),
+    [
+        ("C:\\Users\\me\\uv\\tools\\yoke-cli-releases", "\\\\?\\C:\\Users\\me\\uv\\tools\\yoke-cli-releases"),
+        ("\\\\?\\C:\\already\\long", "\\\\?\\C:\\already\\long"),
+        ("\\\\server\\share\\releases", "\\\\?\\UNC\\server\\share\\releases"),
+    ],
+)
+def test_windows_tree_removal_uses_the_extended_length_path(monkeypatch, path, expected):
+    monkeypatch.setattr(runtime, "WINDOWS", True)
+    monkeypatch.setattr(runtime.os.path, "abspath", lambda value: value)
+    removed = []
+    monkeypatch.setattr(runtime.shutil, "rmtree", lambda target, **_hook: removed.append(target))
+    runtime._remove_tree(path)
+    assert removed == [expected]

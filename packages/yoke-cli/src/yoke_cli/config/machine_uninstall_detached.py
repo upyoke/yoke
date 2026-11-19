@@ -12,6 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import os
 from pathlib import Path
+import shlex
 import shutil
 import subprocess
 import sys
@@ -27,6 +28,7 @@ class Handoff:
     log: Path
     process: subprocess.Popen
     lock_descriptor: int
+    releases: Path
 
     def arm(self) -> None:
         self.arm_file.write_text("armed", encoding="utf-8")
@@ -60,6 +62,7 @@ def prepare(home: Path) -> Handoff:
             "uninstall_uv_missing: restore uv on PATH and retry uninstall."
         )
     tools, bin_dir = (_uv_directory(uv, args) for args in (["dir"], ["dir", "--bin"]))
+    releases = tools / "yoke-cli-releases"
     directory = Path(tempfile.mkdtemp(prefix="yoke-uninstall-", dir=root))
     script = directory / "finish.py"
     script.write_text(Path(__file__).read_text(encoding="utf-8"), encoding="utf-8")
@@ -79,7 +82,7 @@ def prepare(home: Path) -> Handoff:
                 str(lock),
                 str(arm_file),
                 str(ready_file),
-                str(tools / "yoke-cli-releases"),
+                str(releases),
                 str(bin_dir),
                 *_package_roots(),
             ],
@@ -101,7 +104,7 @@ def prepare(home: Path) -> Handoff:
                 f"inspect {log}, repair its reported problem and retry uninstall."
             )
         time.sleep(0.05)
-    return Handoff(arm_file, log, process, descriptor)
+    return Handoff(arm_file, log, process, descriptor, releases)
 
 
 def _uv_directory(uv: str, arguments: list[str]) -> Path:
@@ -151,6 +154,14 @@ def _detached() -> dict:
     return {"start_new_session": True}
 
 
+def manual_removal(root: Path | str) -> str:
+    """A shell command that removes the CLI releases without ``yoke``."""
+    if os.name == "nt":
+        target = str(root) if str(root).startswith("\\\\?\\") else f"\\\\?\\{root}"
+        return "Remove-Item -LiteralPath '{}' -Recurse -Force".format(target.replace("'", "''"))
+    return f"rm -rf {shlex.quote(str(root))}"
+
+
 def finish(
     lock: Path, arm_file: Path, ready_file: Path, root: Path, bin_dir: Path
 ) -> int:
@@ -184,7 +195,8 @@ def finish(
                 time.sleep(0.1)
     except (OSError, RuntimeError, subprocess.SubprocessError) as exc:
         print(
-            f"CLI: failed (uninstall_cli_failed: {exc}; repair the reported problem and retry yoke uninstall)",
+            f"CLI: failed (uninstall_cli_failed: {exc}; `yoke` may be gone, so once no "
+            f"CLI command runs, remove the releases by hand: {manual_removal(root)})",
             flush=True,
         )
         return 1

@@ -83,7 +83,18 @@ def test_cli_removal_failure_keeps_path_and_names_recovery(
     )
     assert _finish(handoff_files, tmp_path) == 1
     output = capsys.readouterr().out
-    assert "uninstall_cli_failed" in output and "retry yoke uninstall" in output
+    assert "uninstall_cli_failed" in output and "retry yoke uninstall" not in output
+    assert detached.manual_removal(tmp_path / "tools") in output
+
+
+@pytest.mark.windows
+def test_manual_removal_needs_no_yoke(monkeypatch):
+    monkeypatch.setattr(detached.os, "name", "posix")
+    assert detached.manual_removal("/u/it's") == "rm -rf '/u/it'\"'\"'s'"
+    monkeypatch.setattr(detached.os, "name", "nt")
+    assert detached.manual_removal("C:\\uv\\it's") == (
+        "Remove-Item -LiteralPath '\\\\?\\C:\\uv\\it''s' -Recurse -Force"
+    )
 
 
 @pytest.mark.windows

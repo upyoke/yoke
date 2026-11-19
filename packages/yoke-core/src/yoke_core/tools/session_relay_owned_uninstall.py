@@ -7,8 +7,11 @@ authority, not a connection that may no longer exist.
 
 from __future__ import annotations
 
+import csv
 from pathlib import Path
 import plistlib
+import subprocess
+import xml.etree.ElementTree as ET
 
 from yoke_contracts.machine_config.paths import CONFIG_FILE_ENV, HOME_ENV
 from yoke_contracts.machine_config.relay_instance import (
@@ -27,9 +30,12 @@ from yoke_core.domain.relay_systemd_status import relay_unit_directory
 from yoke_core.tools.session_relay_plist import uninstall_relay_launchd
 from yoke_core.tools.session_relay_shared_retirement import parse_relay_unit
 from yoke_core.tools.session_relay_systemd import uninstall_relay_systemd
+from yoke_core.tools import session_relay_task_pins as task_pins
+from yoke_core.tools import session_relay_task_scheduler as scheduler
+from yoke_core.tools.session_relay_release import relay_runtime_python
 
 
-def _refusal(path: Path) -> RelayInstallError:
+def _refusal(path: Path | str) -> RelayInstallError:
     return RelayInstallError(
         f"uninstall_relay_ownership_unproven: cannot prove the saved relay at {path}. "
         "Restore its installer-written service document and retry `yoke uninstall`; "
@@ -90,7 +96,47 @@ def _instance(path: Path, machine_home: Path, platform: str) -> RelayInstance | 
     )
 
 
-def uninstall_owned_relays(machine_home: Path, *, platform: str) -> list[str]:
+def _task_instance(label: str, owner: Path, account, runner) -> RelayInstance | None:
+    """This user's task pinned to this machine home, proven from its runner."""
+    try:
+        raw = scheduler._checked(["schtasks", "/Query", "/TN", label, "/XML"], runner)
+        document = ET.fromstring(raw)
+        if not task_pins.runs_as(document, account):
+            return None
+        pins = task_pins.task_pins(document, label)
+        if pins.state_dir.resolve().parent.parent != owner:
+            return None
+        environment = task_pins.pinned_environment(label, pins.config, pins.argv)
+    except (OSError, ValueError, SyntaxError, ET.ParseError):
+        raise _refusal(f"scheduled task \\{label}") from None
+    return RelayInstance(
+        environment=environment,
+        config_path=Path(pins.config),
+        yoke_home=owner,
+        protected=False,
+        label=label,
+        state_dir=pins.state_dir,
+        follows_served_release=Path(pins.argv[0]) == relay_runtime_python(pins.state_dir),
+    )
+
+
+def _uninstall_owned_tasks(owner: Path, runner) -> list[str]:
+    account = scheduler._account(runner)
+    listing = scheduler._checked(["schtasks", "/Query", "/FO", "CSV", "/NH"], runner)
+    labels = {row[0].removeprefix("\\") for row in csv.reader(listing.splitlines()) if row}
+    removed = []
+    for label in sorted(filter(task_pins.instance_name, labels)):
+        instance = _task_instance(label, owner, account, runner)
+        if instance is not None:
+            # Lifecycle removal ends, deletes and verifies the task is gone.
+            scheduler.uninstall_relay_task(instance=instance, runner=runner)
+            removed.append(label)
+    return removed
+
+
+def uninstall_owned_relays(
+    machine_home: Path, *, platform: str, runner=subprocess.run
+) -> list[str]:
     """Unload proven services even when their config or alias has gone.
 
     Lifecycle removal verifies each native service is gone. Any unreadable
@@ -98,6 +144,8 @@ def uninstall_owned_relays(machine_home: Path, *, platform: str) -> list[str]:
     preserving the machine home and executable for a retry.
     """
     owner = machine_home.expanduser().resolve()
+    if platform == "win32":
+        return _uninstall_owned_tasks(owner, runner)
     if platform == "linux":
         directory, extension = relay_unit_directory(), "service"
     else:

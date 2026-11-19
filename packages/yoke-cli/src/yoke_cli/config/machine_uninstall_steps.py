@@ -149,7 +149,7 @@ def remove(
         )
     if not inventory.relay_envs:
         skipped("relay", "no eligible machine connections")
-    if sys.platform in {"darwin", "linux"}:
+    if sys.platform in {"darwin", "linux", "win32"}:
         attempt(
             "saved relay services",
             lambda: machine_uninstall_relays.remove_saved_services(inventory.home),
@@ -266,7 +266,7 @@ def remove(
                         finish.cancel()
                     else:
                         emit(
-                            f"CLI: handed off (removes yoke-cli and its PATH blocks after this process exits; log: {finish.log})"
+                            f"CLI: handed off (removes yoke-cli at {finish.releases} and its PATH blocks after this process exits; log: {finish.log})"
                         )
     emit(
         f"Uninstall summary: {counts['done']} done, {counts['skipped']} skipped, {counts['failed']} failed."

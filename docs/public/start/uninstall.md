@@ -47,14 +47,17 @@ is not. A harness setting you changed after Yoke
 wrote it is left in place and reported. Docker is only checked when this
 machine runs a self-host install. No further confirmation is required. Finally a detached
 worker removes the immutable CLI releases and launcher after commands release
-their environments, then Yoke's PATH blocks, so a failed run keeps `yoke`
-reachable for the retry. Its result log, in the system temporary directory, is
-printed by the command.
+their environments, then Yoke's PATH blocks. The command prints the releases
+folder it removes and its result log, in the system temporary directory. If
+that removal fails, `yoke` may already be gone, so the log names a command that
+removes the folder without it: `Remove-Item -LiteralPath '\\?\<folder>' -Recurse
+-Force` on Windows, `rm -rf '<folder>'` elsewhere.
 
 Each step reports done, skipped with a reason, or failed with a named recovery.
-On macOS and systemd Linux, uninstall checks saved relay services even after
-their connection was removed. It proves their machine-home ownership and
-verifies that the services have stopped. An unreadable service or failed stop
+On macOS, systemd Linux and Windows, uninstall checks saved relay services
+(launchd jobs, systemd units, scheduled tasks) even after their connection was
+removed. It proves their machine-home ownership and verifies that the services
+have stopped. An unreadable service or failed stop
 retains recovery files.
 Independent cleanup continues after a failure; the machine home and CLI stay
 available when cleanup needs recovery. Fix the reported problem and retry.
