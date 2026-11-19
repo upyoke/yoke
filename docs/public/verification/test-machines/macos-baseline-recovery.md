@@ -148,6 +148,7 @@ dedicated test home is captured.
 | `test_machine_gui_app_quit_not_proved` | The named app survived its quit and a forced kill. Quit it at the console with Activity Monitor, then retry |
 | `test_machine_terminal_relaunch_failed` | The home was restored but Terminal opened no window. Open Terminal at the console, then run `yoke test-machine bridge-diagnose` |
 | `test_machine_gui_app_probe_failed` | Yoke could not read whether the named app runs. Repair SSH to the machine, then retry |
+| SSH times out right after a GUI-app quit | The host dropped off the tailnet. Relaunch Tailscale at the console, confirm `tailscale status` shows the host online, then retry the reset |
 | `golden_capture_copy_home_failed` | Read quoted `copy_stderr`; repair its reported cause, then save to a new destination. Copy tools use `LC_ALL=en_US.UTF-8` so SSH caller locales do not cause warnings |
 
 Never discard copy errors, change a sealed manifest, or make the golden
@@ -173,8 +174,9 @@ the controller's current standard probes in place of older sealed ones (sealed
 extra probes still run; evidence `standard_probes` names both digests). Before
 the restore it lists the test user's foreground apps with `lsappinfo list` and
 quits every one except Finder, the identity browsers (already closed with
-SIGTERM) and Docker Desktop (stopped by the self-host teardown), matched by
-bundle ID. An app held open by a sheet has its process tree killed; evidence
+SIGTERM), Docker Desktop (stopped by the self-host teardown) and Tailscale
+(the reset's own SSH runs over its tunnel, so quitting it would cut the reset
+off from the host), matched by bundle ID; evidence `gui_apps_kept` names them. An app held open by a sheet has its process tree killed; evidence
 `gui_apps_quit` records each app as `graceful` or `forced`. Terminal is quit
 the same way, and after restore it relaunches without saved windows to avoid
 probe stalls. A Claude desktop probe that cannot quit the app it opened fails
