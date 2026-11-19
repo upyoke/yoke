@@ -64,7 +64,7 @@ Named waits take priority over a recorded process exit. An armed landing reads
 `ci_or_deploy / landing_in_progress` until it lands; presence still shows the exit.
 A live Test Machine wait reads `another_item / qa_host_turn_waiting`, naming the
 machine, the item holding it and the waiter's place in line, e.g. "Waiting for the
-test-mac-studio turn held by YOK-N (position 1)"; once the turn is reserved it reads
+test-mac-studio turn held by PREFIX-N (position 1)"; once the turn is reserved it reads
 `this_session / qa_host_turn_reserved`. The host's release wakes the waiter.
 Without a named wait, the next actor is parent or steering.
 Live failed or unarmed PRs still require holder action.
