@@ -152,6 +152,7 @@ def _coordination_observations(
                     "owner_kind": "item",
                     "owner_item_id": item_id,
                     "owner_public_ref": owner_facts.get("public_ref"),
+                    "item_project_id": owner_facts.get("item_project_id"),
                     "currently_held": held,
                     "released_at": (
                         None
@@ -185,7 +186,8 @@ def _path_observations(
     buckets: dict[tuple[str, str, bool], dict[str, Any]] = {}
 
     def add(
-        session_id: str, key: str, target: str, count: int, held: bool, released: Any
+        session_id: str, key: str, target: str, count: int, held: bool, released: Any,
+        project_id: Any = None,
     ) -> None:
         bucket_key = (session_id, key, held)
         entry = buckets.setdefault(
@@ -196,6 +198,7 @@ def _path_observations(
                 "target_key": key,
                 "target": target,
                 "path_count": 0,
+                "item_project_id": project_id,
                 "released_at": None if held else released,
                 "currently_held": held,
             },
@@ -208,7 +211,8 @@ def _path_observations(
         count = int(row.get("declared_count") or 0)
         if owner_kind == "item" and row.get("owner_item_id") is not None:
             item_id = int(row["owner_item_id"])
-            target = str((item_facts.get(item_id) or {}).get("public_ref") or item_id)
+            owner = item_facts.get(item_id) or {}
+            target = str(owner.get("public_ref") or item_id)
             for session_id in sorted(historical_item_sessions.get(item_id, set())):
                 held = terminal is None and session_id in current_item_sessions.get(
                     item_id, set()
@@ -220,6 +224,7 @@ def _path_observations(
                     count,
                     held,
                     terminal or item_releases.get((session_id, item_id)),
+                    owner.get("item_project_id"),
                 )
         elif owner_kind == "session" and row.get("owner_session_id"):
             session_id = str(row["owner_session_id"])

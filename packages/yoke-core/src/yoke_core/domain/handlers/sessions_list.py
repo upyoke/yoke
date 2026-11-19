@@ -12,6 +12,7 @@ from yoke_contracts.api.function_call import (
     HandlerOutcome,
 )
 from yoke_core.domain.sessions_visible_roster import (
+    listed_roster_rows,
     open_roster_rows,
     resolve_project_ids,
 )
@@ -279,10 +280,7 @@ def handle_sessions_list(request: FunctionCallRequest) -> HandlerOutcome:
             "per_project must be a boolean when present",
             jsonpath="$.payload.per_project",
         )
-    from yoke_core.domain.sessions_list_read import (
-        list_sessions,
-        session_summary_result,
-    )
+    from yoke_core.domain.sessions_list_read import session_summary_result
 
     try:
         default_limit = None if detail == DETAIL_FULL else 25
@@ -296,19 +294,9 @@ def handle_sessions_list(request: FunctionCallRequest) -> HandlerOutcome:
                 **filters,
             )
         else:
-            from yoke_core.domain import db_helpers
-            from yoke_core.domain.actor_project_visibility import (
-                actor_visible_project_ids,
-                numeric_actor_id,
-            )
-
-            actor = numeric_actor_id(request.actor.actor_id if request.actor else None)
-            with db_helpers.connect() as conn:
-                visible = actor_visible_project_ids(conn, actor)
-            rows = list_sessions(
-                project_ids=sorted(visible) if visible is not None else None,
-                org_session_actor_id=actor if not project else None,
-                project=project,
+            rows = listed_roster_rows(
+                request,
+                project,
                 **filters,
                 ended_cause=ended_cause,
                 limit=effective_limit,

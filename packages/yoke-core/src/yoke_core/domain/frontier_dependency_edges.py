@@ -26,7 +26,7 @@ than hiding one.
 
 from __future__ import annotations
 
-from typing import Any, Dict, Iterable, List, Optional
+from typing import AbstractSet, Any, Dict, Iterable, List, Optional
 
 from yoke_core.domain.dependency_cycles_read import (
     GateBlocks,
@@ -73,6 +73,7 @@ def frontier_dependency_graph(
     project_ids: Optional[Iterable[int]] = None,
     *,
     gate_blocks: Optional[GateBlocks] = None,
+    visible_project_ids: Optional[AbstractSet[int]] = None,
 ) -> Dict[str, List[Dict[str, Any]]]:
     """The Waiting graph: every live blocking edge, and every deadlock.
 
@@ -81,8 +82,21 @@ def frontier_dependency_graph(
     chain to the reader; ``None`` keeps all. ``gate_blocks`` maps each gate
     point to an evaluation the caller already holds, so a read evaluates each
     gate once; a missing gate is evaluated here.
+
+    ``visible_project_ids`` is the reader's readable set (``None`` for local
+    and unscoped reads). Edges with a hidden end are dropped before loops
+    are found, so every served edge, loop member and stranded item is
+    visible.
     """
     live = live_blocking_edges(conn, gate_blocks=gate_blocks)
+    if visible_project_ids is not None:
+        visible = visible_project_ids
+        live = [
+            edge
+            for edge in live
+            if edge.dependent["project_id"] in visible
+            and (edge.blocker is None or edge.blocker["project_id"] in visible)
+        ]
     scope = None if project_ids is None else {int(value) for value in project_ids}
     cycles = cycles_in(live, scope)
     # A kept loop draws whole, even through items outside the scope.

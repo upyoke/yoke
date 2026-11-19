@@ -1,5 +1,6 @@
 """Explicit session project reads stay within authenticated visibility."""
 
+import json
 from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
@@ -191,3 +192,83 @@ def test_reader_local_authority_and_empty_batch_scope_remain_distinct(world):
     ):
         assert list_sessions(session_id="hidden-session")
         assert list_sessions(session_id="hidden-session", project_ids=[]) == []
+
+
+def _hold_hidden_work(world):
+    """The visible session steers project 81, holds its plan, and focuses its item."""
+    from runtime.api.fixtures.backlog import insert_item
+
+    world.conn.execute(
+        "INSERT INTO work_claims (session_id,target_kind,scope,claimed_at,"
+        "last_heartbeat,reason) VALUES "
+        "('visible-session','steering',%s,now(),now(),'fixture')",
+        (make_steering_target(81).scope_json(),),
+    )
+    world.conn.execute(
+        "INSERT INTO strategy_docs (project_id,slug,content,updated_at) "
+        "VALUES (81,'HIDDEN-PLAN','Hidden plan.',now())"
+    )
+    world.conn.execute(
+        "INSERT INTO strategy_doc_claims (id,project_id,strategy_doc_slug,"
+        "owner_kind,owner_session_id,registered_at) VALUES "
+        "(8101,81,'HIDDEN-PLAN','session','visible-session',now())"
+    )
+    insert_item(
+        world.conn, id=8101, title="Hidden focus item", project="hidden-project"
+    )
+    world.conn.execute(
+        "UPDATE harness_sessions SET current_item_id=8101 "
+        "WHERE session_id='visible-session'"
+    )
+    world.conn.commit()
+
+
+def _project_ids(row):
+    holdings = row.get("holdings") or {}
+    entries = [
+        *(row.get("claims") or []),
+        *(holdings.get("current") or []),
+        *(holdings.get("previous") or []),
+        *(row.get("holds") or []),
+        *((row.get("custody") or {}).get("holds") or []),
+    ]
+    return {
+        entry.get("project_id") or entry.get("item_project_id") for entry in entries
+    }
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"open": True},
+        {"open": True, "detail": "full"},
+        {"detail": "full"},
+        {"session_id": "visible-session", "detail": "full"},
+    ],
+)
+def test_a_visible_session_names_no_hidden_claim_holding_or_item(world, payload):
+    _hold_hidden_work(world)
+
+    response, body = call(world, **payload)
+
+    assert body["success"], response.text
+    rows = {row["session_id"]: row for row in body["result"]["rows"]}
+    assert "visible-session" in rows
+    row = rows["visible-session"]
+    assert 81 not in _project_ids(row)
+    assert row.get("current_item") is None
+    assert row.get("current_item_title") is None
+    served = json.dumps(row)
+    for secret in ("HIDDEN-PLAN", "hidden-project", "Hidden focus item"):
+        assert secret not in served
+
+
+def test_a_local_read_keeps_hidden_project_holdings(world):
+    _hold_hidden_work(world)
+    with (
+        db_backend.bound_pg_dsn(db_backend.resolve_pg_dsn()),
+        session_read_batch(["visible-session"]),
+    ):
+        [row] = list_sessions(session_id="visible-session")
+    assert 81 in _project_ids(row)
+    assert row["current_item_title"] == "Hidden focus item"

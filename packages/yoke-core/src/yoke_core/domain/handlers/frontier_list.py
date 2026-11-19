@@ -74,13 +74,23 @@ def handle_frontier_list(request: FunctionCallRequest) -> HandlerOutcome:
             jsonpath="$.payload.wip_cap",
         )
 
+    from yoke_core.domain import db_helpers
+    from yoke_core.domain.actor_project_visibility import (
+        actor_visible_project_ids,
+        numeric_actor_id,
+    )
     from yoke_core.domain.frontier_list_read import list_frontier
 
+    actor = numeric_actor_id(request.actor.actor_id if request.actor else None)
+    with db_helpers.connect() as conn:
+        visible = actor_visible_project_ids(conn, actor)
     try:
-        result = list_frontier(project=project, wip_cap=wip_cap)
+        result = list_frontier(
+            project=project, wip_cap=wip_cap, visible_project_ids=visible
+        )
     except ValueError as exc:
-        # resolve_session_project_scope names the unknown project and the
-        # registered set.
+        # The scope resolver names the unknown project; a project this actor
+        # cannot see is refused the same way.
         return _error("not_found", str(exc), jsonpath="$.payload.project")
     return HandlerOutcome(result_payload=result, primary_success=True)
 
