@@ -35,11 +35,11 @@ try {
   throw 'fixture_copy_unexpectedly_succeeded'
  } catch {
   $message=$_.Exception.Message
-  if($message -notmatch 'windows_profile_copy_failed: robocopy exit (\d+); inspect private log (.+); preserve the unsealed golden'){
+  if($message -notmatch 'windows_profile_copy_failed: robocopy exit (\d+); (.*ERROR 32 .*locked-fixture\.txt.*); inspect private log (.+); preserve the golden'){
    throw
   }
   if([int]$Matches[1] -lt 8){throw 'failure exit code lost'}
-  $ownedLog=$Matches[2]
+  $ownedLog=$Matches[3]
   if(!(Test-Path -LiteralPath $ownedLog -PathType Leaf)){throw 'private log missing'}
   if(!(Get-Content -LiteralPath $ownedLog -Raw).Contains('locked-fixture.txt')){throw 'failing file diagnostic lost'}
   if(Test-Path -LiteralPath (Join-Path $goldenRoot 'sealed')){throw 'failed golden sealed'}

@@ -251,3 +251,11 @@ def test_reset_ends_desktop_session_processes_before_mirroring(monkeypatch):
     assert refused.error_code == "windows_reset_profile_process_running"
     assert "kept their files open" in refused.evidence["recovery"]
     assert profile_processes is not None
+
+
+def test_mirror_excludes_the_live_windows_data_store_and_names_copy_errors():
+    mirror = profile_copy_script(SimpleNamespace(home=HOME), GOLDEN)
+    assert quote(HOME + r"\AppData\Local\Comms") in mirror
+    assert quote(GOLDEN + r"\profile\AppData\Local\Comms") in mirror
+    assert "Select-String -LiteralPath $copyLog -Pattern 'ERROR" in mirror
+    assert "($copyErrors -join ' | ')" in mirror
