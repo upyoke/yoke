@@ -25,7 +25,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image: ['ghcr.io/upyoke/postgres:16', 'ghcr.io/upyoke/registry:2', 'ghcr.io/upyoke/python:3.13-slim']
+        include:
+          - image: 'ghcr.io/upyoke/postgres:16'
+            source: 'docker.io/library/postgres:16'
+          - image: 'ghcr.io/upyoke/registry:2'
+            source: 'docker.io/library/registry:2'
+          - image: 'ghcr.io/upyoke/python:3.13-slim'
+            source: 'docker.io/library/python:3.13-slim'
+          - image: 'ghcr.io/upyoke/buildkit:v0.34.2'
+            source: 'docker.io/moby/buildkit:v0.34.2'
     steps:
       - name: Install the registry copy tool
         run: |
@@ -36,6 +44,7 @@ jobs:
       - name: Copy every platform and verify public access
         env:
           IMAGE: ${{ matrix.image }}
+          SOURCE: ${{ matrix.source }}
           REGISTRY_USER: ${{ github.actor }}
           REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -44,7 +53,7 @@ jobs:
           authfile="$RUNNER_TEMP/registry-auth.json"
           printf '%s' "$REGISTRY_TOKEN" | skopeo login --authfile "$authfile" \
             --username "$REGISTRY_USER" --password-stdin ghcr.io
-          source="docker://docker.io/library/${IMAGE#ghcr.io/upyoke/}"
+          source="docker://$SOURCE"
           destination="docker://$IMAGE"
           skopeo copy --all --preserve-digests --retry-times 3 \
             --src-no-creds --dest-authfile "$authfile" \

@@ -25,10 +25,14 @@ def test_mirror_copies_all_consumer_images_without_cloud_credentials() -> None:
     assert job["if"] == "github.repository == 'upyoke/yoke'"
     assert job["permissions"] == {"packages": "write"}
     assert job["strategy"]["fail-fast"] is False
-    assert set(job["strategy"]["matrix"]["image"]) == {
-        "ghcr.io/upyoke/postgres:16",
-        "ghcr.io/upyoke/registry:2",
-        "ghcr.io/upyoke/python:3.13-slim",
+    assert {
+        (entry["image"], entry["source"])
+        for entry in job["strategy"]["matrix"]["include"]
+    } == {
+        ("ghcr.io/upyoke/postgres:16", "docker.io/library/postgres:16"),
+        ("ghcr.io/upyoke/registry:2", "docker.io/library/registry:2"),
+        ("ghcr.io/upyoke/python:3.13-slim", "docker.io/library/python:3.13-slim"),
+        ("ghcr.io/upyoke/buildkit:v0.34.2", "docker.io/moby/buildkit:v0.34.2"),
     }
     assert 0 < job["timeout-minutes"] <= 30
     assert all("uses" not in step for step in job["steps"])
@@ -37,7 +41,8 @@ def test_mirror_copies_all_consumer_images_without_cloud_credentials() -> None:
     script = step["run"]
     assert "skopeo copy --all --preserve-digests --retry-times 3" in script
     assert '--src-no-creds --dest-authfile "$authfile"' in script
-    assert "docker://docker.io/library/${IMAGE#ghcr.io/upyoke/}" in script
+    assert step["env"]["SOURCE"] == "${{ matrix.source }}"
+    assert 'source="docker://$SOURCE"' in script
     assert "docker://$IMAGE" in script
     assert "public.ecr.aws" not in WORKFLOW.read_text()
 
