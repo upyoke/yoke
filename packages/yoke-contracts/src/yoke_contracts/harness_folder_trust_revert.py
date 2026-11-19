@@ -75,6 +75,7 @@ def revert_folder_trust(
                         )
                     else:
                         entries.remove(entry)
+                        _drop_created_folder(entries, entry)
                         results.append(
                             _result(
                                 family,
@@ -94,6 +95,15 @@ def revert_folder_trust(
     if not exclusive_reason:
         results.extend(_revert_codex_hook_trust(checkout, lanes_dir, root))
     return results
+
+
+def _drop_created_folder(entries: list, entry: dict) -> None:
+    """Remove the per-workspace folder Yoke made for a Cursor trust file, once empty."""
+    if entry["kind"] != "created_file":
+        return
+    folder = ledger.created_parent_dir_entry(Path(entry["file"]).parent)
+    if folder in entries and not revert_entry(folder).startswith("kept "):
+        entries.remove(folder)
 
 
 def _revert_codex_hook_trust(

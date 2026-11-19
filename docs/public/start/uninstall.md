@@ -39,7 +39,9 @@ Claude Code, Codex and Cursor. It restores approval modes replaced during setup
 and removes approval keys setup added, including values Claude Code wrote in
 answer to them: an `auto` default it switched to, and the bypass-warning
 acceptance when it was not there before setup. It also removes the `hooks`
-object, or the whole settings file, when Yoke created it and it is now empty. It stops the hook evaluator, local UI and embedded Postgres,
+object, or the whole settings file, when Yoke created it and it is now empty; a
+hooks file that existed before keeps its own content. Folder-trust folders Yoke
+made, such as `~/.cursor/projects/<folder>`, go once empty. It stops the hook evaluator, local UI and embedded Postgres,
 tears down local self-host stacks and their universe volumes, and deletes the
 machine home (`~/.yoke` or `YOKE_MACHINE_HOME`). The system temporary directory
 must be outside that home; uninstall refuses before removing anything when it
@@ -48,8 +50,8 @@ wrote it is left in place and reported. Docker is only checked when this
 machine runs a self-host install. No further confirmation is required. Finally a detached
 worker removes the immutable CLI releases and launcher after commands release
 their environments, then Yoke's PATH blocks. The command prints the releases
-folder it removes and its result log, in the system temporary directory. If
-that removal fails, `yoke` may already be gone, so the log names a command that
+folder it removes and its result log, in a system temporary folder the worker
+removes once it succeeds. If that removal fails, `yoke` may already be gone, so the log names a command that
 removes the folder without it: `Remove-Item -LiteralPath '\\?\<folder>' -Recurse
 -Force` on Windows, `rm -rf '<folder>'` elsewhere.
 
@@ -76,13 +78,15 @@ yoke uninstall --no-backup --projects ~/work/app --yes
 The detached worker removes Yoke's marked PATH blocks from all supported startup
 files, including `.zshenv` and `.bashrc`, and preserves unrelated shell text. A
 startup file Yoke created, and each folder it made for one (such as
-`~/.config/fish`), is deleted once only its block is left; a file that existed
+`~/.config/fish`), is recorded on lines after the block, which an older CLI
+keeps, and is deleted once only Yoke's lines are left; a file that existed
 before keeps its bytes, even when empty. Folders the relay made for its systemd
 unit go with the harness settings once empty. Uninstall removes each selected
 project's clean Yoke lane worktrees (their branches stay) and refuses before
 changing anything while a lane holds uncommitted work. It leaves uv, user-owned
-PATH entries, and the GitHub App installed, and prints uv's own removal
-commands for when nothing else uses uv; remove the App in GitHub settings if desired. Push the removal commits made in the
+PATH entries, each project's `.yoke/strategy` documents and the GitHub App,
+names each one, and prints uv's own removal commands for when nothing else uses
+uv; remove the App in GitHub settings if desired. Push the removal commits made in the
 chosen checkouts. Project-owned edits and strategy documents are preserved by
 the existing project uninstall.
 

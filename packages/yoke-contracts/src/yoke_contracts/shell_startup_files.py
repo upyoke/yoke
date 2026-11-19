@@ -1,9 +1,11 @@
 """Write and remove Yoke's PATH block in each supported shell startup file.
 
-The block records what Yoke itself created: the startup file, when it did
-not exist, and each directory made to hold it. Uninstall strips the block,
-then deletes only those recorded paths, and only while they hold nothing
-else; a file that existed before keeps its own bytes, even when empty.
+Record lines right after the block name what Yoke itself created: the
+startup file, when it did not exist, and each directory made to hold it.
+They sit outside the block so a CLI that rewrites only the block (an older
+release after a downgrade) keeps them. Uninstall strips the block and the
+records, then deletes only those recorded paths, and only while they hold
+nothing else; a file that existed before keeps its own bytes, even when empty.
 """
 
 from __future__ import annotations
@@ -62,14 +64,20 @@ def _without_owned_path(text: str) -> str:
     return result
 
 
+def _is_record(line: str) -> bool:
+    return line == CREATED_FILE or line.startswith(CREATED_DIR)
+
+
 def _ownership(text: str) -> list[str]:
-    """The created-path records carried by every Yoke block in *text*."""
-    return [
-        line
-        for block in _BLOCK.findall(text)
-        for line in block.splitlines()
-        if line == CREATED_FILE or line.startswith(CREATED_DIR)
-    ]
+    """The created-path records anywhere in *text*, inside a block or after it."""
+    return list(dict.fromkeys(line for line in text.splitlines() if _is_record(line)))
+
+
+def _without_owned(text: str) -> str:
+    """*text* without Yoke's PATH block and its created-path records."""
+    rest = _without_owned_path(text)
+    lines = rest.splitlines(keepends=True)
+    return "".join(line for line in lines if not _is_record(line.rstrip("\n")))
 
 
 def _missing_dirs(path: Path) -> list[Path]:
@@ -107,8 +115,8 @@ def write_shell_path(*, env: Mapping[str, str]) -> list[str]:
                     f'    *) export PATH={directory}:"$PATH" ;;\nesac\n'
                 )
             records = "".join(f"{line}\n" for line in owned)
-            text = f"{MANAGED_BEGIN}\n{records}{body}{MANAGED_END}\n" + (
-                _without_owned_path(original)
+            text = f"{MANAGED_BEGIN}\n{body}{MANAGED_END}\n{records}" + (
+                _without_owned(original)
             )
             if text != original:
                 path.parent.mkdir(parents=True, exist_ok=True)
@@ -141,7 +149,7 @@ def remove_shell_path(*, env: Mapping[str, str] | None = None) -> list[str]:
             if not path.exists():
                 continue
             original = path.read_bytes().decode("utf-8")
-            text = _without_owned_path(original)
+            text = _without_owned(original)
             if text == original:
                 continue
             owned = _ownership(original)

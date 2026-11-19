@@ -145,6 +145,8 @@ def _grant_cursor(path: str, trust_file: Optional[Path]) -> List[str]:
         "trustedAt": format_instant(utc_now()),
         "workspacePath": path,
     }
+    # Folders made here go with the trust file once empty, deepest first.
+    made = [d for d in (target.parent, target.parent.parent) if not d.exists()]
     try:
         target.parent.mkdir(parents=True, exist_ok=True)
         _write_json(target, payload)
@@ -153,10 +155,9 @@ def _grant_cursor(path: str, trust_file: Optional[Path]) -> List[str]:
         return [f"cursor: {target} could not be written ({exc})"]
     record = ledger.created_file_entry(target)
     record["sha256"] = digest
-    unrecorded = ledger.record(record)
-    return [f"cursor: trusted {path}"] + (
-        [f"cursor: {unrecorded}"] if unrecorded else []
-    )
+    entries = [record, *map(ledger.created_parent_dir_entry, made)]
+    unrecorded = [line for line in map(ledger.record, entries) if line]
+    return [f"cursor: trusted {path}"] + [f"cursor: {line}" for line in unrecorded]
 
 
 def _write_json(target: Path, payload: Any) -> None:

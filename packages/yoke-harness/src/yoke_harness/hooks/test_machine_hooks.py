@@ -141,6 +141,22 @@ def test_remove_keeps_operator_entries_and_deletes_a_file_left_empty(tmp_path, h
     assert results[harness_id].outcome == "absent"
 
 
+@pytest.mark.parametrize("harness_id", HARNESSES)
+def test_remove_restores_a_preexisting_empty_file_instead_of_deleting(
+    tmp_path, harness_id, monkeypatch
+):
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
+    spec = HARNESS_MACHINE_HOOKS[harness_id]
+    env = _env(tmp_path, spec.home.removeprefix("~/"))
+    path = _config(tmp_path, harness_id)
+    baseline = {"hooks": {}, "version": 1} if harness_id == "cursor" else {"hooks": {}}
+    path.write_text(json.dumps(baseline))
+    ensure_machine_hooks([harness_id], env)
+    results = {r.harness_id: r for r in remove_machine_hooks(env)}
+    assert results[harness_id].outcome == "removed"
+    assert json.loads(path.read_text()) == baseline
+
+
 def test_inspect_reports_missing_stale_and_installed(tmp_path):
     env = _env(tmp_path, ".claude")
     assert [r.outcome for r in inspect_machine_hooks(env)] == ["missing"]

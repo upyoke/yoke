@@ -142,3 +142,33 @@ def test_the_invocation_mark_is_restored_when_the_call_raises(
             project_onboard_support.dispatch("projects.get", {}, config, env="local")
         assert remote_control_plane_active()
     assert os.environ.get("YOKE_ENV") is None
+
+
+def test_orchestrated_uninstall_with_a_dirty_lane_refuses_by_name(
+    hosted_active_local_owner, monkeypatch, capsys
+):
+    """`yoke uninstall` runs this exact command; it must refuse, not crash."""
+    from yoke_cli.commands.adapters.install import project_uninstall
+
+    root, config = hosted_active_local_owner
+    lane = root / ".worktrees/WALKNE-1"
+    git(root, "worktree", "add", "-b", "WALKNE-1", str(lane))
+    (lane / "wordcount.py").write_text("print('work')\n")
+    head = git(root, "rev-parse", "HEAD")
+
+    def engine_dispatch(request):
+        refuse_direct_connection("db_backend.connect()")
+        return FunctionCallResponse(
+            request_id=request.request_id, function=request.function,
+            version="1", success=True, result={"value": "main"},
+        )
+
+    monkeypatch.setattr(yoke_function_dispatch, "dispatch", engine_dispatch)
+    args = [str(root), "--config", str(config), "--remove-lanes", "--json"]
+    with remote_control_plane():
+        assert project_uninstall(args) == 1
+    err = capsys.readouterr().err
+    assert err.startswith("error: project_uninstall_lane_dirty: ")
+    assert "Traceback" not in err
+    assert git(root, "rev-parse", "HEAD") == head
+    assert (lane / "wordcount.py").is_file()

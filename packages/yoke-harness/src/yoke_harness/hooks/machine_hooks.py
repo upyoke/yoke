@@ -229,6 +229,16 @@ def _record_created(path: Path, existed: bool, had_hooks: bool) -> str:
     return "; ".join(line for line in map(ledger.record, entries) if line)
 
 
+def _created_by_yoke(path: Path) -> bool:
+    """Whether the ledger records that Yoke created *path*; unknown keeps the file."""
+    from yoke_contracts import harness_settings_ledger as ledger
+
+    try:
+        return ledger.json_container_entry(path, []) in ledger.read()
+    except (OSError, ValueError):
+        return False
+
+
 def ensure_machine_hooks(
     harnesses: Optional[Iterable[str]] = None,
     environ: Optional[Mapping[str, str]] = None,
@@ -258,7 +268,11 @@ def ensure_machine_hooks_for_executor(executor: str, *, hook: str) -> None:
 def remove_machine_hooks(
     environ: Optional[Mapping[str, str]] = None,
 ) -> list[MachineHookResult]:
-    """Strip Yoke's entries from every user config; delete a file left empty."""
+    """Strip Yoke's entries from every user config.
+
+    A file Yoke created is deleted once nothing else is left in it; a file
+    that existed before keeps its own content, such as an empty ``hooks``.
+    """
     results: list[MachineHookResult] = []
     for spec in specs_for(None):
         path = spec.user_config_path(environ)
@@ -286,7 +300,7 @@ def remove_machine_hooks(
             for key, value in document.items()
             if key not in ("hooks", "version")
         }
-        if not any(kept.values()) and not remaining:
+        if not any(kept.values()) and not remaining and _created_by_yoke(path):
             path.unlink()
             outcome = DELETED
         else:
