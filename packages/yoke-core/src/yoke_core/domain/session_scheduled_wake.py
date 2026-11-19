@@ -89,6 +89,20 @@ def next_session_wakes(
     return {str(row[0]): parse_instant(row[1]) for row in rows}
 
 
+def next_session_wake_sql(conn: Any, session_expr: str) -> str:
+    """A correlated subquery: *session_expr*'s earliest pending future wake.
+
+    For reads pinned to one statement, such as the steering report's holders;
+    it binds one instant parameter, the read's "now".
+    """
+    p = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    return (
+        "(SELECT MIN(sw.due_at) FROM session_scheduled_wakes sw "
+        f"WHERE sw.session_id={session_expr} AND sw.message_id IS NULL "
+        f"AND sw.due_at>{p})"
+    )
+
+
 def pending_session_wake_holders(
     conn: Any, session_ids: Any, *, now: datetime
 ) -> set[str]:
