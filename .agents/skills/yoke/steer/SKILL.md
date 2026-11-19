@@ -53,9 +53,10 @@ user's full scope is done.
   throughput.
 - Vet each proposal with a subagent for overengineering: simplify or delete
   before adding machinery; prefer no new DB fields or migrations.
-  File vetted dashes yourself, then keep the strategy doc current with what
-  was filed, summarized in very short, plain-language bullets using real code
-  names where useful. Ask the user only key decisions, as decision requests.
+  File vetted dashes yourself, then keep the
+  strategy doc current with what was filed, summarized in very short,
+  plain-language bullets using real code names where useful. Ask the user
+  only key decisions, as decision requests.
 - Judge done against the user's finish line, not linked items. Keep filing
   and staffing until it is met.
 - Vet every item before staffing it, whether you filed it or not. Put vet
