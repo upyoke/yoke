@@ -67,6 +67,35 @@ def normalized_result(
     }
 
 
+def _starting_run(target: Any) -> str:
+    identity = (target or {}).get("deployment") or {}
+    return str(identity.get("starting_run_id", identity.get("run_id")) or "")
+
+
+def _forgive_takeover(
+    conn: Any, current: dict[str, Any], stored: dict[str, Any]
+) -> None:
+    """Read a requirement takeover moved as the frozen case it was taken from.
+
+    Takeover hands the walk to a successor run, and the successor's
+    materialization rebinds the requirement to its own lineage while keeping
+    the frozen ``starting_run_id``. Both moves follow the owning release, not
+    the case definition, so when the live run descends from the frozen start
+    the run, target and digest are compared as frozen. Every other field must
+    still match.
+    """
+    from yoke_core.domain.deployment_qa_takeover_identity import inherited_target
+
+    frozen = stored.get("execution_target") or {}
+    live_run = str(current.get("deployment_run_id") or "")
+    if not inherited_target(conn, live_run, frozen):
+        return
+    if _starting_run(current.get("execution_target")) != _starting_run(frozen):
+        return
+    for key in ("deployment_run_id", "execution_target", "execution_target_digest"):
+        current[key] = stored.get(key)
+
+
 def assert_current_snapshot(conn: Any, case: dict[str, Any]) -> None:
     from yoke_core.domain.db_helpers import query_one
     from yoke_core.domain.qa_case_execution_context import (
@@ -95,15 +124,7 @@ def assert_current_snapshot(conn: Any, case: dict[str, Any]) -> None:
     current["case_position"], current["baseline_position"] = case_positions(case, row)
     stored = {key: value for key, value in case.items() if key != "ordinal"}
     if current.get("deployment_run_id") != stored.get("deployment_run_id"):
-        from yoke_core.domain.deployment_qa_takeover_identity import inherited_target
-
-        target = stored.get("execution_target") or {}
-        if current.get("execution_target_digest") == stored.get(
-            "execution_target_digest"
-        ) and inherited_target(
-            conn, str(current.get("deployment_run_id") or ""), target
-        ):
-            current["deployment_run_id"] = stored.get("deployment_run_id")
+        _forgive_takeover(conn, current, stored)
     # The checkout source follows the current owning run, not the admission.
     current.pop("deployment_source_revision", None)
     stored.pop("deployment_source_revision", None)
