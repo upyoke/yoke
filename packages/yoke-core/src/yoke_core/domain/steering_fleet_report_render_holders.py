@@ -1,6 +1,8 @@
 """Render a holder's shared intent, next actor and message recovery."""
 
+from yoke_contracts.timestamps import utc_now
 from yoke_core.domain.next_actor import reason_sentence
+from yoke_core.domain.session_scheduled_wake import recheck_label
 from yoke_core.domain.steering_fleet_report_holders import ClaimHolder
 from yoke_core.domain.steering_fleet_report_render_text import (
     SECTION_LIMIT,
@@ -23,6 +25,10 @@ def holder_lines(holders: tuple[ClaimHolder, ...], *, idle: bool = False) -> lis
             )
         elif holder.quiet_reason:
             line += f", {holder.quiet_reason}"
+        if holder.next_recheck_at:
+            line += (
+                f", next recheck {recheck_label(holder.next_recheck_at, now=utc_now())}"
+            )
         if holder.next_actor:
             next_action = holder.next_actor
             people = ", ".join(

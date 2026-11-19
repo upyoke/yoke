@@ -69,24 +69,53 @@ def schedule_session_wake(
     }
 
 
-def pending_session_wake_holders(
+def next_session_wakes(
     conn: Any, session_ids: Any, *, now: datetime
-) -> set[str]:
-    """Sessions among *session_ids* that hold a future, unconsumed timed wake.
+) -> dict[str, datetime]:
+    """Each session's earliest future, unconsumed timed wake among *session_ids*.
 
-    A missing table (lean fixtures, pre-convergence reads) means nobody does.
+    A missing table (lean fixtures, pre-convergence reads) means nobody has one.
     """
     wanted = sorted({str(session_id) for session_id in session_ids if session_id})
     if not wanted or not _table_exists(conn, "session_scheduled_wakes"):
-        return set()
+        return {}
     p = "%s" if db_backend.connection_is_postgres(conn) else "?"
     rows = conn.execute(
-        "SELECT DISTINCT session_id FROM session_scheduled_wakes "
+        "SELECT session_id, MIN(due_at) FROM session_scheduled_wakes "
         f"WHERE session_id IN ({','.join([p] * len(wanted))}) "
-        f"AND message_id IS NULL AND due_at>{p}",
+        f"AND message_id IS NULL AND due_at>{p} GROUP BY session_id",
         (*wanted, instant_parameter(conn, parse_instant(now))),
     ).fetchall()
-    return {str(row[0]) for row in rows}
+    return {str(row[0]): parse_instant(row[1]) for row in rows}
+
+
+def next_session_wake_sql(conn: Any, session_expr: str) -> str:
+    """A correlated subquery: *session_expr*'s earliest pending future wake.
+
+    For reads pinned to one statement, such as the steering report's holders;
+    it binds one instant parameter, the read's "now".
+    """
+    p = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    return (
+        "(SELECT MIN(sw.due_at) FROM session_scheduled_wakes sw "
+        f"WHERE sw.session_id={session_expr} AND sw.message_id IS NULL "
+        f"AND sw.due_at>{p})"
+    )
+
+
+def pending_session_wake_holders(
+    conn: Any, session_ids: Any, *, now: datetime
+) -> set[str]:
+    """Sessions among *session_ids* that hold a future, unconsumed timed wake."""
+    return set(next_session_wakes(conn, session_ids, now=now))
+
+
+def recheck_label(due: datetime, *, now: datetime) -> str:
+    """``HH:MMZ`` in UTC, prefixed ``MM-DD`` when the due day is not today."""
+    due_utc = parse_instant(due)
+    today = parse_instant(now).date()
+    clock = due_utc.strftime("%H:%MZ")
+    return clock if due_utc.date() == today else f"{due_utc:%m-%d} {clock}"
 
 
 def enqueue_due_session_wakes(conn: Any, *, now: datetime) -> int:

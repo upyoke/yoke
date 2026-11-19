@@ -56,7 +56,10 @@ def _landed_then_reopened(conn, *, attempt_enqueued_at, attempt_closed_at=None):
 
 def _readings(conn) -> dict[str, bool]:
     claim = gate._live_claim(conn, WORKER_SESSION)
-    held = {row["item_id"]: row for row in _held_item_rows(conn, project_id=PROJECT_ID)}
+    held = {
+        row["item_id"]: row
+        for row in _held_item_rows(conn, project_id=PROJECT_ID, now=NOW)
+    }
     return {
         "stop_gate": stop_is_legitimate(claim),
         "holdings": claimed_item_facts(conn, [ITEM_ID])[ITEM_ID][

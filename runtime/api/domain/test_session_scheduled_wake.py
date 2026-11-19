@@ -12,8 +12,11 @@ from yoke_core.domain.session_message_delivery import _lease_candidates
 from yoke_core.domain.session_message_types import SessionMessageError
 from yoke_core.domain.session_message_wake import wake_eligible_recipients
 from yoke_core.domain.session_scheduled_wake import (
-    schedule_session_wake,
     enqueue_due_session_wakes,
+    next_session_wakes,
+    pending_session_wake_holders,
+    recheck_label,
+    schedule_session_wake,
 )
 
 
@@ -95,3 +98,46 @@ def test_due_timer_is_consumed_once_on_postgres(test_db):
         "SELECT message_id FROM session_scheduled_wakes WHERE wake_id=%s",
         (sent["wake_id"],),
     ).fetchone()[0]
+
+
+def test_next_wakes_are_each_sessions_earliest_pending_future_due():
+    conn = message_connection()
+    for session_id, minutes in (("s2", 30), ("s2", 40), ("s2", 180), ("s2", 60)):
+        schedule_session_wake(
+            conn,
+            session_id=session_id,
+            actor_id=10,
+            at=NOW + timedelta(minutes=minutes),
+            reason=f"recheck {minutes}",
+            now=NOW,
+        )
+    schedule_session_wake(
+        conn,
+        session_id="s1",
+        actor_id=10,
+        at=NOW + timedelta(hours=2),
+        reason="recheck s1",
+        now=NOW,
+    )
+    # The 30-minute row is consumed; at +50m the 40-minute row is past.
+    assert enqueue_due_session_wakes(conn, now=NOW + timedelta(minutes=30)) == 1
+    conn.commit()
+    query = NOW + timedelta(minutes=50)
+
+    wakes = next_session_wakes(conn, ("s1", "s2", "s3", ""), now=query)
+
+    assert wakes == {
+        "s2": NOW + timedelta(minutes=60),
+        "s1": NOW + timedelta(hours=2),
+    }
+    assert pending_session_wake_holders(conn, ("s1", "s2", "s3"), now=query) == {
+        "s1",
+        "s2",
+    }
+    assert next_session_wakes(conn, (), now=query) == {}
+
+
+def test_recheck_label_prefixes_the_day_only_when_it_is_not_today():
+    due = NOW + timedelta(hours=2)
+    assert recheck_label(due, now=NOW) == "18:00Z"
+    assert recheck_label(due + timedelta(days=1), now=NOW) == "08-23 18:00Z"

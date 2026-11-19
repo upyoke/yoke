@@ -64,6 +64,7 @@ def _holder_dict(holder: ClaimHolder) -> dict[str, Any]:
         "native_process_gone": holder.native_process_gone,
         "native_process_gone_at": holder.native_process_gone_at or None,
         "hand_started": holder.hand_started,
+        "next_recheck_at": holder.next_recheck_at,
     }
 
 

@@ -14,6 +14,7 @@ from typing import Any
 
 from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain import db_backend
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.merge_queue_landing_attempt import (
     OPEN_ATTEMPT_ENQUEUED_AT,
     OPEN_ATTEMPT_JOIN,
@@ -80,6 +81,7 @@ class ClaimHolder:
     #: The item's queued PR landed and the holder has not acted since the
     #: landing notice, so its silence is not yet idleness.
     landing_notice_pending: bool = False
+    next_recheck_at: datetime | None = None  # earliest pending timed wake
     next_actor: dict = field(default_factory=dict)
     state_facts: dict = field(default_factory=dict, repr=False)
     session_state: dict = field(default_factory=dict)
@@ -112,7 +114,7 @@ def _contained_reason(process: dict[str, Any]) -> str:
     return reason.strip() if isinstance(reason, str) else ""
 
 
-def _held_item_rows(conn: Any, *, project_id: int) -> list[dict[str, Any]]:
+def _held_item_rows(conn: Any, *, project_id: int, now: str) -> list[dict[str, Any]]:
     """Every unreleased item work claim in one project, with its live session.
 
     One read, and only the facts a holder row shows. The complete holdings
@@ -126,7 +128,10 @@ def _held_item_rows(conn: Any, *, project_id: int) -> list[dict[str, Any]]:
     open_call = open_tool_call_expression(session_alias="hs")
     from yoke_core.domain.qa_host_idle_hold import held_qa_hosts_sql
 
+    from yoke_core.domain.session_scheduled_wake import next_session_wake_sql
+
     qa_hosts = held_qa_hosts_sql(conn, "hs.session_id")
+    recheck = next_session_wake_sql(conn, "hs.session_id")
     try:
         rows = conn.execute(
             f"SELECT {item_id} AS item_id, wc.session_id AS session_id, "
@@ -148,7 +153,7 @@ def _held_item_rows(conn: Any, *, project_id: int) -> list[dict[str, Any]]:
             "hs.native_process_gone_evidence AS native_process_gone_evidence, "
             "hs.executor_surface AS executor_surface, "
             "hs.executor_version AS executor_version, "
-            f"hs.launch_origin, {qa_hosts} AS qa_hosts "
+            f"hs.launch_origin, {qa_hosts} AS qa_hosts, {recheck} AS next_recheck_at "
             f"{open_call} "
             "FROM work_claims wc "
             f"JOIN items i ON i.id = {item_id} "
@@ -159,7 +164,7 @@ def _held_item_rows(conn: Any, *, project_id: int) -> list[dict[str, Any]]:
             f"AND i.project_id = {marker} "
             "AND hs.ended_at IS NULL AND hs.terminated_at IS NULL "
             f"ORDER BY wc.claimed_at, {item_id}",
-            (int(project_id),),
+            (instant_parameter(conn, parse_stamp(now)), int(project_id)),
         ).fetchall()
     except db_backend.database_error_types(conn):
         clear_failed_read(conn)
@@ -180,7 +185,7 @@ def claim_holders(
     gone as an idle worker re-fires the same false alarm on every pass.
     """
     holders = []
-    rows = _held_item_rows(conn, project_id=project_id)
+    rows = _held_item_rows(conn, project_id=project_id, now=now)
     processes = {
         str(row["session_id"]): current_native_process_observation(
             row, landing_wait=waiting_on_landing(row)
@@ -243,6 +248,7 @@ def claim_holders(
                     row.get("executor_surface"), row.get("executor_version")
                 ),
                 landing_notice_pending=landing_notice_pending(row),
+                next_recheck_at=parse_stamp(row.get("next_recheck_at")),
             )
         )
     return tuple(holders)

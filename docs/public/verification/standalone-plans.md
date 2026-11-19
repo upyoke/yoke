@@ -185,7 +185,8 @@ exists. Evidence not available on this release yet: stay parked; the case
 waits for a real change or a timed recheck. A parked holder is woken; a member with no live holder
 reaches the project's steering seat. The steering fleet report lists each open
 one under "waiting on manual wake" with its run, item, requirement, case,
-evidence, owner and run command. To mark an already materialized requirement,
+evidence, owner (with its next scheduled recheck, or `no recheck scheduled`)
+and run command. To mark an already materialized requirement,
 set the evidence first, then the path:
 
 ```text
