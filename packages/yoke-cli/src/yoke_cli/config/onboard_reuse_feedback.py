@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Mapping
 
 from yoke_cli.config import existing_project_lookup
+from yoke_cli.config import onboard_machine_reuse
 from yoke_cli.config import onboard_project
 from yoke_cli.config import project_installed_layer as installed_layer
 from yoke_contracts.machine_config.schema import POSTGRES_TRANSPORTS
@@ -91,6 +92,7 @@ def grouped_lines_for_plan(plan: Mapping[str, Any]) -> dict[str, list[str]]:
             machine.append("Runtime scratch folder already exists.")
         if reuse.get("cache_dir"):
             machine.append("Runtime cache folder already exists.")
+    machine.extend(onboard_machine_reuse.reuse_lines(reuse))
     if reuse.get("yoke_home") and not names_saved_credential:
         machine.insert(0, "Yoke home folder already exists.")
 

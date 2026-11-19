@@ -6,12 +6,13 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from yoke_contracts import harness_machine_hooks, harness_unattended_posture
+from yoke_contracts import harness_unattended_posture
 from yoke_contracts import hosting_posture
 from yoke_cli.config import onboard_project
 from yoke_cli.config import onboard_global_skill
 from yoke_cli.config import onboard_hook_resident
 from yoke_cli.config import onboard_machine_registry
+from yoke_cli.config import onboard_machine_reuse
 from yoke_cli.config import onboard_path_plan
 from yoke_cli.config import onboard_post_checkout_plan
 from yoke_cli.config import onboard_publication
@@ -101,18 +102,20 @@ def build_plan(
     # Every destination, because the harness a person opens prompts the same
     # way whether their control plane is local, a team server, or hosted.
     steps.append(harness_unattended_posture.posture_plan_step())
-    # Machine-wide hooks for each harness home whose hooks are not yet current,
-    # with or without a project.
-    steps.extend(_machine_hooks_plan_steps())
-    steps.extend(
-        onboard_session_relay.plan_steps(
-            local_destination=local_destination,
-            config_path=cfg_path,
-            environment=env_name,
+    # Machine-wide hooks, relay and skill, with or without a project. What is
+    # already current is a reuse line, not a change (onboard_machine_reuse).
+    steps.extend(onboard_machine_reuse.machine_hook_steps(reuse))
+    if not reuse.get(onboard_machine_reuse.SESSION_RELAY):
+        steps.extend(
+            onboard_session_relay.plan_steps(
+                local_destination=local_destination,
+                config_path=cfg_path,
+                environment=env_name,
+            )
         )
-    )
     steps.extend(onboard_machine_registry.plan_steps())
-    steps.extend(onboard_global_skill.plan_steps())
+    if not reuse.get(onboard_machine_reuse.GLOBAL_SKILL):
+        steps.extend(onboard_global_skill.plan_steps())
     steps.extend(onboard_hook_resident.plan_steps())
     if project_mode == PROJECT_MODE_MACHINE_ONLY:
         steps.append({"action": "stop-before-project-or-github", "target": mode})
@@ -229,28 +232,6 @@ def _public_clone(value: Any) -> dict[str, Any] | None:
         "fork_api_url": str(getattr(value, "fork_api_url", "") or ""),
         "publish": _public_publish(getattr(value, "publish", None)),
     }
-
-
-def _machine_hooks_plan_steps() -> list[dict[str, str]]:
-    """Review entries naming each harness config whose machine hooks need writing."""
-    from yoke_harness.hooks.machine_hooks_inspect import (
-        STATE_INSTALLED,
-        inspect_machine_hooks,
-    )
-
-    current = {
-        result.harness_id
-        for result in inspect_machine_hooks()
-        if result.outcome == STATE_INSTALLED
-    }
-    return [
-        {
-            "action": harness_machine_hooks.MACHINE_HOOKS_PLAN_ACTION,
-            "target": spec.display_path(),
-        }
-        for spec in harness_machine_hooks.installed_machine_hooks()
-        if spec.harness_id not in current
-    ]
 
 
 def _source_choice_target(project_mode: str, project_inputs: dict[str, Any]) -> str:

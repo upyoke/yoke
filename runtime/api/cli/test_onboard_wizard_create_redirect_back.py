@@ -113,8 +113,10 @@ def test_back_to_a_new_path_restores_create_new(tmp_path) -> None:
     plan = _plan(app)
     assert "project-create-checkout" in _actions(plan)
     lines = " ".join(_review_lines(plan))
-    assert "a new project" in lines
+    assert "as a new project" in lines
+    assert f"Create the project at {fresh}" in lines
     assert "an existing folder" not in lines
+    assert "Set up the project at" not in lines
 
 
 def test_existing_folder_without_back_is_still_adopted(tmp_path) -> None:
@@ -132,4 +134,6 @@ def test_existing_folder_without_back_is_still_adopted(tmp_path) -> None:
     plan = _plan(app)
     assert "project-onboard-local-checkout" in _actions(plan)
     assert "project-create-checkout" not in _actions(plan)
-    assert "an existing folder" in " ".join(_review_lines(plan))
+    lines = " ".join(_review_lines(plan))
+    assert "as an existing folder" in lines
+    assert f"Set up the project at {existing}" in lines

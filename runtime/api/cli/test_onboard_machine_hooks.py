@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 from yoke_cli.config import harness_posture_install, onboard_project, onboard_report
+from yoke_cli.config import onboard_machine_reuse
 from yoke_cli.config.onboard_wizard_plan_review import classify_plan
 from yoke_contracts.harness_machine_hooks import MACHINE_HOOKS_PLAN_ACTION
 
@@ -15,6 +16,11 @@ def _home(tmp_path):
 
 
 def _plan() -> dict:
+    reuse = {
+        onboard_machine_reuse.MACHINE_HOOKS: (
+            onboard_machine_reuse.current_machine_hook_targets()
+        )
+    }
     return onboard_report.build_plan(
         Path("/home/.yoke/config.json"),
         "prod",
@@ -25,6 +31,7 @@ def _plan() -> dict:
         project_mode=onboard_project.PROJECT_MODE_MACHINE_ONLY,
         project_inputs={},
         machine_github={"choice": "skip"},
+        reuse=reuse,
     )
 
 
