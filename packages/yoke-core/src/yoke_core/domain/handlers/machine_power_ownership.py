@@ -15,6 +15,7 @@ from yoke_core.domain.coordination_claims import (
 )
 from yoke_core.domain.handlers.machine_qa import _failure, _invalid
 from yoke_core.domain.machine_qa_capability import host_claim_target
+from yoke_core.domain.qa_host_holdover import DIRECT_OPERATION_REASON
 from yoke_core.domain.qa_host_turns import lock_host_turn
 
 
@@ -90,7 +91,7 @@ def handle_lease(request: FunctionCallRequest) -> HandlerOutcome:
                 f"{target.test_machine} is unregistered; run yoke test-machine list",
             )
         claim = acquire(
-            conn, target, request.actor.session_id, reason="test-machine direct operation"
+            conn, target, request.actor.session_id, reason=DIRECT_OPERATION_REASON
         )
     except CoordinationClaimHeldError as exc:
         code = "claim_stale_holder" if isinstance(exc, CoordinationClaimStaleHolderError) else "claim_held"

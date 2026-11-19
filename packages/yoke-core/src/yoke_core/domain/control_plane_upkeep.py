@@ -1,5 +1,8 @@
 """Control-plane upkeep: GitHub observation, QA replays and wakes, and pruning.
 
+It also releases lapsed Test Machine hold-overs (``qa_host_holdover``), so a
+session queued behind one is served even when nobody else acquires the host.
+
 Merge-queue landings and session CI waits settle only when someone reads
 GitHub, and a QA waiver leaves its close-out replays owed in
 ``qa_settlement_followups``. A deployment run whose driver exited at an
@@ -35,6 +38,7 @@ from yoke_contracts.timestamps import utc_now
 from yoke_core.domain.deployment_qa_driverless_wake import wake_driverless_qa_waits
 from yoke_core.domain.merge_queue_landing_observer import observe_pending_landings
 from yoke_core.domain.project_identity import row_value
+from yoke_core.domain.qa_host_holdover import expire_holdovers
 from yoke_core.domain.qa_settlement_followups import replay_settlement_followups
 from yoke_core.domain.session_ci_wait_observer import observe_pending_ci_runs
 from yoke_core.domain.universe_prune_schedule import run_scheduled_prune
@@ -96,6 +100,7 @@ def run_control_plane_upkeep() -> None:
             ("pending GitHub observation", observe_pending_github_work),
             ("QA settlement follow-up replay", replay_settlement_followups),
             ("driverless item-QA wake", wake_driverless_qa_waits),
+            ("lapsed Test Machine hold-over release", expire_holdovers),
             ("scheduled universe prune", run_scheduled_prune),
         ):
             try:

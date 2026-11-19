@@ -5,8 +5,10 @@ the registered ``test_machine.get``; SSH runs from this machine with its
 ssh-agent identity. A host another session holds under its QA lease is
 refused rather than disturbed mid-run. Otherwise the command holds the host's
 lease for its duration (borrowing the caller's own lease when it has one),
-powers a stopped cloud machine on, and releases its own lease afterwards.
-Cloud machines stay running after release.
+powers a stopped cloud machine on, and releases its own lease afterwards; on
+a free host that release leaves the session a short hold-over
+(``yoke_core.domain.qa_host_holdover``). Cloud machines stay running after
+release.
 """
 
 from __future__ import annotations
@@ -71,8 +73,10 @@ def test_machine_exec(args: List[str]) -> int:
             "Yoke-managed known_hosts file; ~/.ssh is never read."
             " Holds the machine's lease for the command (borrowing your own "
             "lease when you hold it), powers a stopped cloud machine on, and "
-            "releases its own lease afterwards. Cloud machines stay running. Another session's "
-            "lease refuses."
+            "releases its own lease afterwards. On a free host the release leaves this "
+            "session a short hold-over, named on stderr with its expiry, that its next "
+            "`yoke qa case run` takes before another session's run. Cloud machines stay "
+            "running. Another session's lease refuses."
             " Streams stdout and stderr live, retaining only the last 64 KiB "
             "of each for failure diagnosis."
             " On macOS, keychain-backed harness CLIs (claude, cursor-agent) "

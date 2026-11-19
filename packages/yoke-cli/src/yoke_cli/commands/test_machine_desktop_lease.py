@@ -1,9 +1,12 @@
 """Hold a host command's lease before starting its cloud machine.
 
 Desktop access, browser sign-in and ``yoke test-machine exec`` share this one
-lease-then-power-on path; cloud machines stay running after release.
+lease-then-power-on path; cloud machines stay running after release. A release
+onto an empty line leaves this session a short hold-over of the host, which the
+command names on stderr; the session's next acquire of the host takes it.
 """
 
+import sys
 from contextlib import contextmanager
 
 from yoke_contracts.api.function_call import TargetRef
@@ -57,7 +60,9 @@ def desktop_lease(
                 f"test_machine_leased: test machine {test_machine} is leased by session "
                 f"{lease['session_id']}. Wait for its lease to release or ask its holder to finish."
             )
-        if not lease:
+        # Taking our own hold-over consumes it, so this command's release
+        # renews it instead of letting it lapse mid-command.
+        if not lease or lease.get("holdover_expires_at"):
             claim_id = _call(
                 "test_machine.lease_acquire",
                 {"test_machine": test_machine},
@@ -80,3 +85,21 @@ def desktop_lease(
                 {"claim_id": claim_id, "reason": f"finished: {reason}"},
                 actor,
             )
+            _report_holdover(test_machine, actor)
+
+
+def _report_holdover(test_machine, actor):
+    """Name the hold-over the release left this session, and when it lapses."""
+    lease = (_call("test_machine.get", {"test_machine": test_machine}, actor) or {}).get(
+        "active_lease"
+    )
+    if not lease or lease.get("session_id") != actor.session_id:
+        return
+    expires = lease.get("holdover_expires_at")
+    if expires:
+        print(
+            f"hold-over: {test_machine} stays held for this session until {expires} "
+            f"(lease {lease['id']}). Your next `yoke qa case run`, `yoke qa plan run` "
+            "or `yoke test-machine exec` on it takes it; another session queues behind it.",
+            file=sys.stderr,
+        )

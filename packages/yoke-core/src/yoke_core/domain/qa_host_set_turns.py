@@ -116,7 +116,8 @@ def awaits_other_hosts(conn: Any, wait: Mapping[str, Any]) -> bool:
 def require_host_set_turn(
     conn: Any, execution: Mapping[str, Any], names: tuple[str, ...]
 ) -> None:
-    """Refuse unless every host is free or reserved for *execution*.
+    """Refuse unless every host is free, reserved for *execution*, or held
+    over for its session.
 
     The caller holds every host's turn lock. The first host that is not
     raises the wait the caller queues: lease held, or unhealthy.
@@ -128,6 +129,7 @@ def require_host_set_turn(
     )
     from yoke_core.domain.machine_qa_host_selection import TestMachineHostUnhealthy
     from yoke_core.domain.qa_host_health import host_unhealthy
+    from yoke_core.domain.qa_host_holdover import holdover_wait
     from yoke_core.domain.qa_host_turns import reserve_host_turn
 
     for name in names:
@@ -143,6 +145,10 @@ def require_host_set_turn(
             raise unhealthy
         wait = reserved_wait(conn, claim)
         if wait is not None and wait["qa_plan_execution_id"] == str(execution["id"]):
+            continue
+        if holdover_wait(conn, claim) is not None and claim.session_id == str(
+            execution["session_id"]
+        ):
             continue
         raise MachineQaProtocolLeaseHeld(
             lease=claim,

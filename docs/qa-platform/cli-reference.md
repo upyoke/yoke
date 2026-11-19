@@ -120,7 +120,10 @@ deployment run completes (permission follows the holding session's project;
 the scope names only the machine). Either release advances the host's waiting
 line: a refused `yoke claims coordination-claim acquire --key QA_HOST:<machine>`
 joins it beside queued plan executions, and each release reserves the host for
-the oldest live waiter and wakes that session with the command that takes it. Requirement reads and
+the oldest live waiter and wakes that session with the command that takes it.
+A `yoke test-machine exec` preflight on a free host, and an execution its own
+session aborts, instead leave that session a 120-second hold-over its next
+`yoke qa case run` or `yoke qa plan run` takes before any other session. Requirement reads and
 artifact uploads resolve the persisted member's project even after run
 membership ends; starting or reviewing stage QA still requires the active
 admitted subject. Its
