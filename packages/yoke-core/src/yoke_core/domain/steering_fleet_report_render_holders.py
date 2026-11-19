@@ -37,6 +37,12 @@ def holder_lines(holders: tuple[ClaimHolder, ...], *, idle: bool = False) -> lis
             if sentence and sentence != reason_sentence(next_action["reason"]):
                 # A fact that composed its own sentence names what the code cannot.
                 line += f": {sentence}"
+        hosts = holder.session_state.get("custody", {}).get("qa_hosts")
+        if hosts:
+            line += (
+                f"  holds QA host {', '.join(hosts)} (upkeep returns it to the "
+                "line once parked or exited past qa_host_idle_hold_minutes)"
+            )
         if holder.hand_started:
             line += "  hand-started (operator origin)"
         line += f"  {holder.message_delivery}"

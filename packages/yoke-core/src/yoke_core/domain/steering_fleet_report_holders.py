@@ -124,6 +124,9 @@ def _held_item_rows(conn: Any, *, project_id: int) -> list[dict[str, Any]]:
     item_id = scope_int_sql(conn, "wc.scope", "item_id")
     marker = _p(conn)
     open_call = open_tool_call_expression(session_alias="hs")
+    from yoke_core.domain.qa_host_idle_hold import held_qa_hosts_sql
+
+    qa_hosts = held_qa_hosts_sql(conn, "hs.session_id")
     try:
         rows = conn.execute(
             f"SELECT {item_id} AS item_id, wc.session_id AS session_id, "
@@ -145,7 +148,7 @@ def _held_item_rows(conn: Any, *, project_id: int) -> list[dict[str, Any]]:
             "hs.native_process_gone_evidence AS native_process_gone_evidence, "
             "hs.executor_surface AS executor_surface, "
             "hs.executor_version AS executor_version, "
-            "hs.launch_origin "
+            f"hs.launch_origin, {qa_hosts} AS qa_hosts "
             f"{open_call} "
             "FROM work_claims wc "
             f"JOIN items i ON i.id = {item_id} "
@@ -194,6 +197,7 @@ def claim_holders(
     )
     from yoke_core.domain.next_actor import session_next_actor
     from yoke_core.domain.session_state import session_presence
+    from yoke_core.domain.qa_host_idle_hold import held_qa_hosts_csv
 
     for row in rows:
         last_activity = parse_stamp(
@@ -222,7 +226,8 @@ def claim_holders(
                     None, row["prefix"], row["project_sequence"]
                 ),
                 mode=mode,
-                state_facts=dict(row),
+                # A parked holder of a QA host alarms before upkeep frees it.
+                state_facts={**row, "qa_hosts": held_qa_hosts_csv(row["qa_hosts"])},
                 next_actor=session_next_actor(row, presence=session_presence(row)),
                 parked=session_is_parked(mode),
                 last_activity_at=last_activity,

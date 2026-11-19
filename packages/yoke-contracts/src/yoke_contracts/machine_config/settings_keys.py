@@ -96,6 +96,13 @@ MACHINE_SETTING_KEYS: Dict[str, SettingSpec] = {
         "DB busy-wait budget for session-end cleanup during the hook",
         minimum=0,
     ),
+    "qa_host_idle_hold_minutes": SettingSpec(
+        60,
+        int,
+        "minutes a parked or exited session may hold a QA host with no host "
+        "operation or tool call before control-plane upkeep releases it to the line",
+        minimum=1,
+    ),
     "watcher_progress_percent_step": SettingSpec(
         5,
         int,

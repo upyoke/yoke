@@ -133,7 +133,7 @@ def test_history_projects_ended_state_without_inventing_custody(test_db, termina
     assert state["intent"]["state"] == "parked"
     assert state["intent"]["reason"] == "Waiting for review"
     assert state["custody"] == {
-        "holds": [], "holds_work_claim": None, "reclaimable": None,
+        "holds": [], "qa_hosts": [], "holds_work_claim": None, "reclaimable": None,
         "reason": "custody_facts_unavailable",
     }
     assert row["next_actor"] == state["next_actor"]

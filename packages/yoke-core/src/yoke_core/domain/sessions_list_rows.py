@@ -122,6 +122,9 @@ def render_session_roster_rows(
     actor_facts, _ = next_actor_facts(
         conn, session_ids=[row["session_id"] for row in page]
     )
+    from yoke_core.domain.qa_host_idle_hold import held_qa_hosts
+
+    qa_hosts = held_qa_hosts(conn, (row["session_id"] for row in page))
     for row in page:
         activity_at, _parsed = _latest_activity(
             row.get("last_heartbeat"),
@@ -162,6 +165,7 @@ def render_session_roster_rows(
                 **actor_facts.get(session_id, {}),
                 "holds": holdings["current"],
                 "claims": claims,
+                "qa_hosts": qa_hosts.get(session_id, []),
             },
             now=now,
         )
