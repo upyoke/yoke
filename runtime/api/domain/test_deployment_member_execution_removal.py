@@ -76,9 +76,9 @@ def test_removal_aborts_live_cursor_and_releases_reserved_or_attached_host(
             (lease.id, execution),
         )
         test_db.commit()
-    other = _execution(
-        test_db, member=REMAINING, session="remaining-qa", stage="next-qa"
-    )
+    # The remaining member waits at the open stage: a wait for a stage the
+    # run has not opened keeps its place but is passed over (YOK-5517).
+    other = _execution(test_db, member=REMAINING, session="remaining-qa")
     remove_member_on(test_db, RUN, REMOVED, reason="QA waits for another release")
     test_db.commit()
     assert _state(test_db, execution) == {
