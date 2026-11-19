@@ -5,12 +5,11 @@ from __future__ import annotations
 import pytest
 
 from pathlib import Path
-import shlex
-import subprocess
-
-from runtime.api.domain.ssh_mac_full_reset_test_support import (
-    function_program as _function_program,
-    require_zsh as _require_zsh,
+from runtime.api.domain.ssh_mac_full_reset_self_host_test_support import (
+    fake_runtime as _fake_runtime,
+    run as _run,
+    self_host_lines as _self_host_lines,
+    teardown_lines as _teardown_lines,
 )
 from yoke_contracts.ssh_mac_full_reset_contract import (
     RESET_PHASES,
@@ -24,102 +23,6 @@ from yoke_contracts.ssh_mac_full_reset_self_host_contract import (
 )
 from yoke_harness.ssh_mac_full_reset_receipt import unrestored_detail
 from yoke_harness.ssh_mac_full_reset_script import FULL_RESET_SCRIPT
-
-
-#: A container client that answers from files, so the teardown's own selection
-#: and removal argv are the subject rather than a live daemon's behavior.
-FAKE_RUNTIME = """#!/bin/zsh
-state="$FAKE_RUNTIME_STATE"
-print -r -- "$@" >> "$state/argv.log"
-subject="${@[-1]}"
-if [[ -n "${FAKE_RUNTIME_DOWN:-}" ]]; then
-  print -u2 -r -- "Cannot connect to the Docker daemon. Is the docker daemon running?"
-  exit 1
-fi
-case "$1 $2" in
-  "ps -aq") /bin/cat "$state/containers" 2>/dev/null || true ;;
-  "volume ls") /bin/cat "$state/volumes" 2>/dev/null || true ;;
-  "inspect --format") print -r -- "image-for-$subject" ;;
-  "rm --force")
-    print -r -- "$subject" >> "$state/removed-containers"
-    FORGET_CONTAINER=1
-    ;;
-  "volume rm")
-    print -r -- "$subject" >> "$state/removed-volumes"
-    /usr/bin/sed -i '' "/^$subject$/d" "$state/volumes"
-    ;;
-  "image rm") print -r -- "$subject" >> "$state/removed-images" ;;
-  *) exit 1 ;;
-esac
-if [[ -n "${FORGET_CONTAINER:-}" && -z "${FAKE_RUNTIME_KEEPS_CONTAINERS:-}" ]]; then
-  /usr/bin/sed -i '' "/^$subject$/d" "$state/containers"
-fi
-"""
-
-
-def _fake_runtime(tmp_path: Path, *, containers: tuple[str, ...]) -> tuple[Path, Path]:
-    """Install the answering client and its state directory."""
-    state = tmp_path / "runtime-state"
-    state.mkdir()
-    (state / "containers").write_text("".join(f"{name}\n" for name in containers))
-    (state / "volumes").write_text("".join(f"{name}-data\n" for name in containers))
-    client = tmp_path / "fake-docker"
-    client.write_text(FAKE_RUNTIME)
-    client.chmod(0o755)
-    return client, state
-
-
-def _run(
-    lines: tuple[str, ...],
-    *,
-    state: Path | None = None,
-    keeps_containers: bool = False,
-    daemon_down: bool = False,
-) -> subprocess.CompletedProcess:
-    binary = _require_zsh()
-    env = {"PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "HOME": str(state or Path("/tmp"))}
-    if state is not None:
-        env["FAKE_RUNTIME_STATE"] = str(state)
-    if keeps_containers:
-        env["FAKE_RUNTIME_KEEPS_CONTAINERS"] = "1"
-    if daemon_down:
-        env["FAKE_RUNTIME_DOWN"] = "1"
-    return subprocess.run(
-        [binary, "-f"],
-        input="\n".join(lines),
-        text=True,
-        capture_output=True,
-        check=False,
-        env=env,
-    )
-
-
-def _self_host_lines(client: Path, *, anchor: str) -> tuple[str, ...]:
-    return (
-        _function_program(),
-        f"self_host_state_prefix={shlex.quote(RESET_SELF_HOST_STATE_PREFIX)}",
-        "self_host_kind_docker_unreachable="
-        + shlex.quote(RESET_SELF_HOST_KIND_DOCKER_UNREACHABLE),
-        f"container_runtime_paths=({shlex.quote(str(client))})",
-        f"compose_project_label={shlex.quote(COMPOSE_PROJECT_LABEL)}",
-        f"self_host_compose_project={shlex.quote(SELF_HOST_COMPOSE_PROJECT)}",
-        f"container_runtime_anchor={shlex.quote(anchor)}",
-        "container_runtime_stop_timeout=1",
-        'failure_detail=""',
-    )
-
-
-def _teardown_lines(
-    client: Path, *, anchor: str = "no-such-application"
-) -> tuple[str, ...]:
-    return (
-        *_self_host_lines(client, anchor=anchor),
-        "stop_self_host_stack || print -r -- TEARDOWN_FAILED",
-        'print -r -- "REMOVED $self_host_containers_removed '
-        '$self_host_volumes_removed $self_host_images_removed"',
-        'print -r -- "REACHABLE $self_host_stack_reachable"',
-        'print -r -- "DETAIL $failure_detail"',
-    )
 
 
 @pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")

@@ -11,7 +11,8 @@ containers, volumes, and images while the daemon can still name them, and it
 stops the runtime application so the clear can replace the data directory
 instead of racing a live writer. A host with no container runtime reaches the
 same end state by having nothing to do, which is a clean pass, not a skip.
-A host whose runtime client is installed but whose daemon cannot list the
+A stopped Colima is started so its stack can be listed, then stopped again
+once verify has seen it. A runtime client whose daemon still cannot list the
 stack is refused, because an unlistable daemon and an empty one look alike.
 """
 
@@ -55,6 +56,59 @@ docker_unreachable() {
   return 1
 }
 
+container_runtime_starter_path() {
+  local candidate
+  for candidate in "${container_runtime_starter_paths[@]}"; do
+    if [[ -x "$candidate" ]]; then
+      print -r -- "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+# One bounded runtime control call (colima start or stop). Its progress goes
+# to stderr so stdout stays the closed receipt, and its own directory leads
+# PATH because Colima drives the Lima binaries installed beside it.
+run_container_runtime_control() {
+  local timeout="$1" pid waited=0
+  shift
+  PATH="${1:h}:$PATH" "$@" >&2 &
+  pid=$!
+  while /bin/kill -0 "$pid" 2>/dev/null; do
+    if (( waited >= timeout )); then
+      /bin/kill -TERM "$pid" 2>/dev/null || true
+      wait "$pid" 2>/dev/null || true
+      return 1
+    fi
+    /bin/sleep 1
+    waited=$((waited + 1))
+  done
+  wait "$pid"
+}
+
+start_stopped_container_runtime() {
+  local starter
+  starter=$(container_runtime_starter_path) || return 1
+  run_container_runtime_control "$container_runtime_start_timeout" \
+    "$starter" start || return 1
+  self_host_runtime_started="$starter"
+}
+
+# Leaves the runtime as the reset found it: one this reset started is stopped
+# again, one that was already running keeps running.
+restore_container_runtime_state() {
+  [[ -n "$self_host_runtime_started" ]] || return 0
+  if run_container_runtime_control "$container_runtime_stop_timeout" \
+    "$self_host_runtime_started" stop; then
+    self_host_runtime_started=""
+    return 0
+  fi
+  failure_detail="$self_host_state_prefix$self_host_kind_runtime_stop_failed"
+  failure_detail+=" $self_host_runtime_started"
+  return 1
+}
+
 remove_ids() {
   local removed=0 id
   while IFS= read -r id; do
@@ -92,9 +146,13 @@ stop_self_host_stack() {
   self_host_images_removed=0
   self_host_stack_reachable=0
   self_host_runtime_stopped=0
+  self_host_runtime_started=""
   runtime=$(container_runtime_path) || return 0
-  containers=$(self_host_container_ids "$runtime") ||
-    docker_unreachable "$runtime" || return 1
+  if ! containers=$(self_host_container_ids "$runtime"); then
+    start_stopped_container_runtime || docker_unreachable "$runtime" || return 1
+    containers=$(self_host_container_ids "$runtime") ||
+      docker_unreachable "$runtime" || return 1
+  fi
   images=$(
     print -r -- "$containers" | self_host_container_image_ids "$runtime"
   ) || docker_unreachable "$runtime" || return 1

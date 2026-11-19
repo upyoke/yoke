@@ -35,11 +35,10 @@ from yoke_contracts.ssh_mac_full_reset_contract import (
     YOKE_ABSENT_TEMP_FILES,
 )
 from yoke_contracts.ssh_mac_full_reset_self_host_contract import (
-    CONTAINER_RUNTIME_PATHS,
     SELF_HOST_COMPOSE_PROJECT,
     RESET_SELF_HOST_CONTAINERS_PREFIX,
     RESET_SELF_HOST_IMAGES_PREFIX,
-    RESET_SELF_HOST_KINDS,
+    RESET_SELF_HOST_KIND_PATHS,
     RESET_SELF_HOST_REACHABLE_PREFIX,
     RESET_SELF_HOST_RECOVERY,
     RESET_SELF_HOST_STATE_PREFIX,
@@ -156,13 +155,13 @@ def absent_path_detail(detail: str) -> dict[str, str] | None:
 
 
 def self_host_detail(detail: str) -> dict[str, str] | None:
-    """Parse the runtime client whose daemon could not list the stack."""
+    """Parse the runtime the self-host phases could not list or stop."""
     body = detail.removeprefix(RESET_SELF_HOST_STATE_PREFIX)
     kind, separator, runtime = body.partition(" ")
     if (
         not separator
-        or kind not in RESET_SELF_HOST_KINDS
-        or runtime not in CONTAINER_RUNTIME_PATHS
+        or kind not in RESET_SELF_HOST_KIND_PATHS
+        or runtime not in RESET_SELF_HOST_KIND_PATHS[kind]
     ):
         return None
     return {

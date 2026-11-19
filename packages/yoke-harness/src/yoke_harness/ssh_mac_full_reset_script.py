@@ -52,10 +52,13 @@ from yoke_contracts.ssh_mac_full_reset_self_host_contract import (
     COMPOSE_PROJECT_LABEL,
     CONTAINER_RUNTIME_PATHS,
     CONTAINER_RUNTIME_PROCESS_ANCHOR,
+    CONTAINER_RUNTIME_STARTER_PATHS,
+    CONTAINER_RUNTIME_START_TIMEOUT_SECONDS,
     CONTAINER_RUNTIME_STOP_TIMEOUT_SECONDS,
     RESET_SELF_HOST_CONTAINERS_PREFIX,
     RESET_SELF_HOST_IMAGES_PREFIX,
     RESET_SELF_HOST_KIND_DOCKER_UNREACHABLE,
+    RESET_SELF_HOST_KIND_RUNTIME_STOP_FAILED,
     RESET_SELF_HOST_REACHABLE_PREFIX,
     RESET_SELF_HOST_STATE_PREFIX,
     RESET_SELF_HOST_VOLUMES_PREFIX,
@@ -270,12 +273,18 @@ def render_full_reset_script(contract: FullResetPathContract) -> str:
             "self_host_state_prefix=" + shlex.quote(RESET_SELF_HOST_STATE_PREFIX),
             "self_host_kind_docker_unreachable="
             + shlex.quote(RESET_SELF_HOST_KIND_DOCKER_UNREACHABLE),
+            "self_host_kind_runtime_stop_failed="
+            + shlex.quote(RESET_SELF_HOST_KIND_RUNTIME_STOP_FAILED),
             f"compose_project_label={shlex.quote(COMPOSE_PROJECT_LABEL)}",
             "self_host_compose_project=" + shlex.quote(SELF_HOST_COMPOSE_PROJECT),
             "container_runtime_anchor=" + shlex.quote(CONTAINER_RUNTIME_PROCESS_ANCHOR),
             "container_runtime_stop_timeout="
             + str(CONTAINER_RUNTIME_STOP_TIMEOUT_SECONDS),
             f"container_runtime_paths={_array(CONTAINER_RUNTIME_PATHS)}",
+            "container_runtime_starter_paths="
+            + _array(CONTAINER_RUNTIME_STARTER_PATHS),
+            "container_runtime_start_timeout="
+            + str(CONTAINER_RUNTIME_START_TIMEOUT_SECONDS),
             f"launchctl_path={shlex.quote(LAUNCHCTL_PATH)}",
             f"relay_label={shlex.quote(RELAY_SERVICE_LABEL)}",
             f"relay_label_prefix={shlex.quote(RELAY_SERVICE_LABEL_PREFIX)}",

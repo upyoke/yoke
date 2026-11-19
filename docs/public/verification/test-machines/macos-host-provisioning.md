@@ -240,7 +240,9 @@ Keep `COLIMA_HOME`, `LIMA_HOME` and `COLIMA_CACHE_HOME`
 under a shared folder in `~/.zshenv`, and put `/usr/local/bin` on PATH (Intel)
 or `/opt/homebrew/bin` (Apple silicon). Keep the shared folder owner-only
 and outside golden retention directories. Colima stops across a reset or reboot.
-Each Docker case starts it again. Prove Docker once, then stop the fixture VM:
+Each Docker case starts it again. A reset starts a stopped Colima itself to
+remove leftover self-host containers and volumes, then stops it; it refuses
+`docker_unreachable` when the daemon still cannot list them. Prove Docker once, then stop the fixture VM:
 
 ```text
 colima start --vm-type vz  # Apple silicon

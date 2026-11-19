@@ -20,7 +20,9 @@ from yoke_contracts.ssh_mac_full_reset_contract import (
 )
 from yoke_contracts.ssh_mac_full_reset_self_host_contract import (
     CONTAINER_RUNTIME_PATHS,
+    CONTAINER_RUNTIME_STARTER_PATHS,
     RESET_SELF_HOST_KIND_DOCKER_UNREACHABLE,
+    RESET_SELF_HOST_KIND_RUNTIME_STOP_FAILED,
     RESET_SELF_HOST_RECOVERY,
     RESET_SELF_HOST_STATE_PREFIX,
 )
@@ -104,3 +106,28 @@ def test_reset_rejects_an_inconsistent_reachability_line(stdout: str) -> None:
 
     assert not result.ok
     assert result.error_code == "test_mac_reset_output_invalid"
+
+
+def test_reset_refuses_naming_the_runtime_it_started_and_could_not_stop() -> None:
+    starter = CONTAINER_RUNTIME_STARTER_PATHS[1]
+    transport = FakeResetTransport(
+        "\n".join(
+            (
+                RESET_FAILURE_PREFIX + RESET_PHASES["verify_restored_home"],
+                f"{RESET_SELF_HOST_STATE_PREFIX}"
+                f"{RESET_SELF_HOST_KIND_RUNTIME_STOP_FAILED} {starter}",
+            )
+        ),
+        reset_returncode=1,
+    )
+
+    result = _run(transport)
+
+    assert not result.ok
+    assert result.error_code == "test_mac_reset_verify_restored_home_failed"
+    recovery = RESET_SELF_HOST_RECOVERY[RESET_SELF_HOST_KIND_RUNTIME_STOP_FAILED]
+    assert result.evidence["self_host_state"] == {
+        "runtime": starter,
+        "reason": RESET_SELF_HOST_KIND_RUNTIME_STOP_FAILED,
+        "recovery": recovery.format(runtime=starter),
+    }
