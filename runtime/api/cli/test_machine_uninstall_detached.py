@@ -10,7 +10,7 @@ import time
 import pytest
 
 from yoke_cli.config import machine_uninstall_detached as detached, cli_release_runtime
-from yoke_contracts import platform_file_lock, shell_path_state
+from yoke_contracts import platform_file_lock, shell_startup_files
 
 
 @pytest.fixture
@@ -42,7 +42,7 @@ def test_finish_waits_for_the_parent_lock_before_removing(
         lambda root, bin_dir: events.append((root, bin_dir)),
     )
     monkeypatch.setattr(
-        shell_path_state, "remove_shell_path", lambda: events.append("PATH") or []
+        shell_startup_files, "remove_shell_path", lambda: events.append("PATH") or []
     )
     assert _finish(handoff_files, tmp_path) == 0
     assert events == [
@@ -77,7 +77,7 @@ def test_cli_removal_failure_keeps_path_and_names_recovery(
 
     monkeypatch.setattr(cli_release_runtime, "uninstall", refuse)
     monkeypatch.setattr(
-        shell_path_state,
+        shell_startup_files,
         "remove_shell_path",
         lambda: pytest.fail("PATH must stay while the CLI does"),
     )

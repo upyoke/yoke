@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from yoke_contracts import shell_path_state, windows_user_path
+from yoke_contracts import shell_path_state, shell_startup_files, windows_user_path
 
 pytestmark = pytest.mark.windows
 
@@ -62,7 +62,7 @@ def test_uv_owned_user_path_is_case_insensitive_and_not_removed(monkeypatch):
     )
     assert windows_user_path.write_user_path(directory, env) == []
     monkeypatch.setattr(sys, "platform", "win32")
-    assert shell_path_state.remove_shell_path(env=env) == []
+    assert shell_startup_files.remove_shell_path(env=env) == []
     assert not state["writes"]
 
 
@@ -87,7 +87,7 @@ def test_uninstall_path_report_preserves_registry_and_leaves_removal_to_finisher
     def premature_removal():
         pytest.fail("the detached finisher owns PATH removal after parent exit")
 
-    monkeypatch.setattr(shell_path_state, "remove_shell_path", premature_removal)
+    monkeypatch.setattr(shell_startup_files, "remove_shell_path", premature_removal)
     lines = []
     machine_uninstall_steps._report_windows_path(lines.append)
     assert "retained because uv owns it" in lines[0]

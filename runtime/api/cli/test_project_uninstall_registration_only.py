@@ -37,7 +37,7 @@ def registered(tmp_path, monkeypatch):
     git(root, "add", "app.txt")
     git(root, "commit", "-m", "Initial fixture")
     writer.register_project(root, 7, path=config)
-    monkeypatch.setattr(uninstall_commit, "dispatch", lambda *a: {"value": "main"})
+    monkeypatch.setattr(uninstall_commit, "dispatch", lambda *a, **_k: {"value": "main"})
     return root, config
 
 

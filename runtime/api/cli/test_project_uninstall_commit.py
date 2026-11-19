@@ -20,7 +20,7 @@ def git(root, *args):
 
 @pytest.fixture
 def checkout(tmp_path, monkeypatch):
-    monkeypatch.setattr(uninstall_commit, "dispatch", lambda *a: {"value": "main"})
+    monkeypatch.setattr(uninstall_commit, "dispatch", lambda *a, **_k: {"value": "main"})
     root = tmp_path / "repo"
     root.mkdir()
     git(root, "init", "-b", "main")
@@ -77,14 +77,17 @@ def test_project_branch_and_custom_connection_are_read(checkout, monkeypatch, tm
     calls = []
     config = tmp_path / "config.json"
 
-    def dispatch(*args):
-        calls.append(args)
+    def dispatch(*args, **kwargs):
+        calls.append((args, kwargs))
         return {"value": "trunk"}
 
     monkeypatch.setattr(uninstall_commit, "dispatch", dispatch)
     assert uninstall(checkout, config_path=config)["commit"]["status"] == "created"
     assert calls == [
-        ("projects.get", {"project": "7", "field": "default_branch"}, config)
+        (
+            ("projects.get", {"project": "7", "field": "default_branch"}, config),
+            {"env": ""},
+        )
     ]
 
 
@@ -94,7 +97,7 @@ def test_project_branch_and_custom_connection_are_read(checkout, monkeypatch, tm
 def test_unreachable_owner_still_removes_on_current_branch(
     checkout, monkeypatch, failure
 ):
-    def fail(*args):
+    def fail(*args, **_kwargs):
         raise failure
 
     git(checkout, "switch", "-c", "feature")
@@ -111,7 +114,7 @@ def test_unreachable_owner_still_removes_on_current_branch(
 
 
 def test_unreachable_owner_still_refuses_dirty_tree(checkout, monkeypatch):
-    def fail(*args):
+    def fail(*args, **_kwargs):
         raise RuntimeError("project '7' not found")
 
     monkeypatch.setattr(uninstall_commit, "dispatch", fail)
@@ -129,7 +132,7 @@ def test_unset_project_branch_refuses_before_removal(
     if branch != "main":
         git(checkout, "switch", "-c", branch)
     monkeypatch.setattr(
-        uninstall_commit, "dispatch", lambda *a: {"value": default_branch}
+        uninstall_commit, "dispatch", lambda *a, **_k: {"value": default_branch}
     )
     before = git(checkout, "rev-parse", "HEAD")
     manifest = checkout / ".yoke/install-manifest.json"

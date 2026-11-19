@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import os
 from pathlib import Path
 from typing import Any, Iterator, Mapping
 
@@ -209,8 +210,10 @@ def dispatch(
     config_path: str | Path | None,
     *,
     sensitive_values: tuple[str, ...] = (),
+    env: str = "",
 ) -> Mapping[str, Any]:
-    with machine_config_path(config_path):
+    """Dispatch on the selected connection, or on *env* when one is named."""
+    with machine_config_path(config_path), _connection(env):
         response = call_dispatcher(
             function_id=function_id,
             target=TargetRef(kind="global"),
@@ -222,6 +225,20 @@ def dispatch(
         code = response.error.code if response.error else "unknown_error"
         raise ProjectDispatchError(function_id, code, message)
     return response.result or {}
+
+
+@contextlib.contextmanager
+def _connection(env: str) -> Iterator[None]:
+    previous = os.environ.get("YOKE_ENV")
+    if env:
+        os.environ["YOKE_ENV"] = env
+    try:
+        yield
+    finally:
+        if env and previous is None:
+            os.environ.pop("YOKE_ENV", None)
+        elif env:
+            os.environ["YOKE_ENV"] = previous
 
 
 @contextlib.contextmanager

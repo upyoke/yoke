@@ -21,7 +21,7 @@ POSIX_SHELL = pytest.mark.posix_only(
 
 @POSIX_SHELL
 def test_update_shell_failure_names_recovery(tmp_path, monkeypatch):
-    from yoke_contracts import shell_path_state as path_state_contract
+    from yoke_contracts import shell_startup_files as path_state_contract
 
     def fail(*args):
         raise OSError("permission denied")

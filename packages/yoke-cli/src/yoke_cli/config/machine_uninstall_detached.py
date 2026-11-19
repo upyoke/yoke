@@ -157,7 +157,7 @@ def finish(
     # Import everything before the parent exits and this removes the release.
     from yoke_cli.config.cli_release_runtime import uninstall
     from yoke_contracts import platform_file_lock
-    from yoke_contracts.shell_path_state import remove_shell_path
+    from yoke_contracts.shell_startup_files import remove_shell_path
 
     descriptor = os.open(lock, os.O_RDWR)
     ready_file.write_text("ready", encoding="utf-8")

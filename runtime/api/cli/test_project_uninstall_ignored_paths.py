@@ -50,7 +50,7 @@ def _bundle():
 
 @pytest.fixture
 def checkout(tmp_path, monkeypatch):
-    monkeypatch.setattr(uninstall_commit, "dispatch", lambda *a: {"value": "main"})
+    monkeypatch.setattr(uninstall_commit, "dispatch", lambda *a, **_k: {"value": "main"})
     root = tmp_path / "repo"
     root.mkdir()
     git(root, "init", "-b", "main")

@@ -288,3 +288,43 @@ def test_uninstall_cannot_report_success_while_owned_unit_remains_active(
         service.uninstall_relay_systemd(
             instance=instance, home=tmp_path, runner=runner([]), pid1_path=pid1
         )
+
+
+def test_unit_folders_install_created_are_recorded_for_uninstall(
+    tmp_path, instance, pid1, monkeypatch
+):
+    from yoke_contracts import harness_settings_ledger as ledger
+    from yoke_contracts.harness_settings_revert import revert_recorded
+
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
+    (tmp_path / ".config").mkdir()
+    calls = []
+    monkeypatch.setattr(
+        service.relay_install, "converge_relay_launcher", lambda selected, **kw: None
+    )
+
+    def enable_creates_wants(argv, **kwargs):
+        if "enable" in argv:
+            wants = tmp_path / ".config/systemd/user/default.target.wants"
+            wants.mkdir()
+            (wants / argv[-1]).symlink_to(tmp_path / ".config/systemd/user" / argv[-1])
+        return runner(calls)(argv, **kwargs)
+
+    status = service.install_relay_systemd(
+        instance=instance, home=tmp_path, runner=enable_creates_wants, pid1_path=pid1
+    )
+    recorded = {entry["file"] for entry in ledger.read()}
+    user = tmp_path / ".config/systemd/user"
+    assert recorded == {
+        str(tmp_path / ".config/systemd"),
+        str(user),
+        str(user / "default.target.wants"),
+    }
+    # Uninstall removes the unit and its wants link, then the recorded folders.
+    (user / "default.target.wants" / status.unit_path.name).unlink()
+    status.unit_path.unlink()
+    lines, failures = revert_recorded()
+    assert failures == []
+    assert not (tmp_path / ".config/systemd").exists()
+    assert (tmp_path / ".config").is_dir()
+    assert lines[0] == f"removed empty {user / 'default.target.wants'}"
