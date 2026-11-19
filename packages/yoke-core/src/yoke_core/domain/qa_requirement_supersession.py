@@ -1,11 +1,9 @@
 """Discharge a broken QA obligation with a named passing correction.
 
-Deployment cases retain run, stage, member and destination; receipt and
-release provenance can differ. Item cases retain item, transition, phase
-and target. The broken row and its evidence remain historical records.
-Declared replacements record supersession automatically once they pass.
-A standing source can name its passing frozen deployment copy with the same
-case or admission identity; superseding a copy leaves its source outstanding.
+Deployment cases retain run, stage, member, destination and baseline;
+item cases retain item, transition, phase, target and baseline. The broken
+row and its evidence stay as history. Declared replacements supersede once
+they pass; superseding an admitted copy leaves its source outstanding.
 """
 
 from __future__ import annotations
@@ -22,6 +20,7 @@ from yoke_core.domain.db_helpers import (
 )
 from yoke_core.domain.qa_events import emit_qa_requirement_event
 from yoke_core.domain.qa_obligation_settlement import requirement_retracted_at_select
+from yoke_core.domain import qa_supersession_baseline_correction as rebaseline
 from yoke_core.domain.qa_requirement_source_retirement import (
     admitted_source_correction,
     is_source_retirement,
@@ -108,7 +107,7 @@ def same_scope(broken: dict[str, Any], corrected: dict[str, Any]) -> list[str]:
     for column, label in scope:
         if column == "execution_target_digest" and same_owned_destination(
             broken, corrected
-        ):
+        ) or (column == "host_baseline" and rebaseline.ignores_baseline(broken)):
             continue
         if str(broken.get(column) or "") != str(corrected.get(column) or ""):
             mismatches.append(
@@ -132,17 +131,16 @@ def record_supersession(
     rationale: str,
     source: str = "agent",
     reconcile: bool = False,
+    corrects_baseline: bool = False,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """Validate and write one supersession on the caller's open transaction.
 
-    Refuses rather than guessing: the two rows must be the same
-    obligation, the replacement must be a real blocking case that has
-    passed, and neither may already be discharged another way. A
-    post-deploy item source never runs, so retiring one needs a passing run
-    replacement of any admitted copy a live membership still holds instead.
-    Every refusal names what to do
-    instead. Returns the receipt and the discharged row; the caller commits
-    and then emits the event.
+    The rows must be one obligation (an operator's ``corrects_baseline``
+    leaves the host baseline out), the replacement a blocking case that
+    passed, and neither discharged another way; a post-deploy item source
+    needs a passing run replacement of any copy a live membership holds.
+    Refusals name the recovery. Returns the receipt and the discharged row;
+    the caller commits and then emits the event.
     """
     rationale = str(rationale or "").strip()
     if not rationale:
@@ -167,7 +165,11 @@ def record_supersession(
         lock_requirement_scope(conn, locked_id)
     broken = _requirement(conn, requirement_id, label="superseded")
     corrected = _requirement(conn, superseded_by_requirement_id, label="superseding")
-
+    if corrects_baseline:
+        refusal = rebaseline.baseline_correction_refusal(broken, corrected, source=str(source))
+        if refusal:
+            raise QaSupersessionError(f"baseline_correction_refused: {refusal}")
+    broken[rebaseline.CORRECTS_BASELINE] = corrects_baseline or None
     mismatches = same_scope(broken, corrected)
     if mismatches:
         raise QaSupersessionError(
@@ -177,7 +179,8 @@ def record_supersession(
             "deployment target (or, for an item case, the same item, "
             "transition, phase and target; post_deploy source retirement uses the "
             "resolved target environment, with --target-env naming the source "
-            "snapshot destination), then record the supersession."
+            "snapshot destination), then record the supersession. When the "
+            "baseline itself was wrong, an operator adds --corrects-baseline."
         )
     if str(corrected.get("blocking_mode") or "") != "blocking":
         raise QaSupersessionError(
@@ -238,7 +241,7 @@ def record_supersession(
     now = parse_instant(previous) if previous is not None else utc_now()
     conn.execute(
         "UPDATE qa_requirements SET superseded_by_requirement_id=%s,replacement_requirement_id=%s,"
-        "superseded_at=%s,supersession_rationale=%s,supersession_source=%s "
+        f"superseded_at=%s,supersession_rationale=%s,supersession_source=%s,{rebaseline.CORRECTS_BASELINE}=%s "
         "WHERE id=%s",
         (
             int(superseded_by_requirement_id),
@@ -248,6 +251,7 @@ def record_supersession(
             instant_parameter(conn, now),
             rationale,
             str(source),
+            broken[rebaseline.CORRECTS_BASELINE],
             int(requirement_id),
         ),
     )
@@ -257,6 +261,7 @@ def record_supersession(
         "superseded_at": now,
         "supersession_rationale": rationale,
         "supersession_source": str(source),
+        rebaseline.CORRECTS_BASELINE: bool(corrects_baseline),
         **admitted_source_correction(conn, broken),
         **run_answer,
     }, broken
@@ -294,6 +299,7 @@ def supersede_requirement(
     rationale: str,
     source: str = "agent",
     reconcile: bool = False,
+    corrects_baseline: bool = False,
     db_path: str | None = None,
 ) -> dict[str, Any]:
     """Record, commit and announce that a passing sibling discharges this one."""
@@ -304,6 +310,7 @@ def supersede_requirement(
         rationale=rationale,
         source=source,
         reconcile=reconcile,
+        corrects_baseline=corrects_baseline,
     )
     conn.commit()
     emit_supersession_event(conn, receipt, broken, db_path=db_path)

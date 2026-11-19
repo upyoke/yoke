@@ -26,7 +26,8 @@ QA_REQUIREMENT_SUPERSEDE_USAGE = (
     "yoke qa requirement supersede --requirement-id N "
     "--superseded-by-requirement-id N "
     "(--rationale TEXT | --content-file PATH | --stdin) "
-    "[--declare-replacement | --reconcile] [--source operator|agent] [--session-id S] [--json]"
+    "[--declare-replacement | --reconcile] [--corrects-baseline] "
+    "[--source operator|agent] [--session-id S] [--json]"
 )
 
 _EPILOG_PARAGRAPHS = (
@@ -75,6 +76,14 @@ _EPILOG_PARAGRAPHS = (
     "the supersession is recorded and the receipt's proof_owed_notice says "
     "the corrected requirement owes its own proof on the next release. "
     "Either way later releases admit only the corrected requirement.",
+    "When the defect was the host baseline itself -- a case that needs Yoke "
+    "on its host declared fresh-host -- record the corrected case at the right "
+    "baseline ('yoke qa requirement add ... --host-baseline NAME'), give it the "
+    "proof above, then supersede with --corrects-baseline --source operator. "
+    "That one link leaves the baseline out of the scope match; every other "
+    "scope field must still agree, and the broken row stays as history. "
+    "A post_deploy item source retires the same way, so later releases admit "
+    "the corrected baseline.",
     "Successor links must converge on the named terminal case; supersession "
     "updates an existing replacement link to that same case. To repair "
     "inconsistent links, an operator or project steering holder runs this "
@@ -103,7 +112,9 @@ def _write_supersede_result(
         print(
             f"Requirement {result['requirement_id']} superseded by "
             f"{result['superseded_by_requirement_id']} "
-            f"(source={result['supersession_source']})",
+            f"(source={result['supersession_source']}"
+            + (", corrects host baseline" if result.get("supersession_corrects_baseline") else "")
+            + ")",
             file=stdout,
         )
         # Printed here rather than left in the envelope: this is the only
@@ -184,6 +195,12 @@ def qa_requirement_supersede(args: List[str]) -> int:
         action="store_true",
         help="Operator-authorized repair of links converging on the named terminal; preserves correction history.",
     )
+    parser.add_argument(
+        "--corrects-baseline",
+        action="store_true",
+        help="Operator only: the superseded case declared the wrong host baseline; "
+        "match every scope field except the baseline.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, QA_REQUIREMENT_SUPERSEDE_USAGE)
@@ -211,6 +228,7 @@ def qa_requirement_supersede(args: List[str]) -> int:
             "source": parsed.source,
             "declare_replacement": parsed.declare_replacement,
             "reconcile": parsed.reconcile,
+            "corrects_baseline": parsed.corrects_baseline,
         },
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
