@@ -12,6 +12,7 @@ from yoke_cli.config import project_worktrees_ignore
 from yoke_cli.config.project_github_adoption import (
     with_github_adoption_report,
 )
+from yoke_cli.invocation_locality import connection_locality
 from yoke_cli.transport.dispatcher import call_dispatcher
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.machine_config.paths import select_read_config
@@ -229,11 +230,13 @@ def dispatch(
 
 @contextlib.contextmanager
 def _connection(env: str) -> Iterator[None]:
+    """Route the call to *env* and run it under that connection's locality."""
     previous = os.environ.get("YOKE_ENV")
     if env:
         os.environ["YOKE_ENV"] = env
     try:
-        yield
+        with connection_locality(env) if env else contextlib.nullcontext():
+            yield
     finally:
         if env and previous is None:
             os.environ.pop("YOKE_ENV", None)

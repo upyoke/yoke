@@ -12,6 +12,7 @@ from typing import Optional
 
 from yoke_cli.config import machine_config
 from yoke_contracts.control_plane_locality import (
+    local_authority_exempt,
     local_authority_is_pinned,
     remote_control_plane,
 )
@@ -47,4 +48,20 @@ def control_plane_locality(explicit_env: Optional[str]):
     return contextlib.nullcontext()
 
 
-__all__ = ["control_plane_is_remote", "control_plane_locality"]
+def connection_locality(env: str):
+    """Return the locality context for one call routed to connection *env*.
+
+    The router marks the whole invocation from the *active* connection, but a
+    call aimed at a named connection (an uninstall asking the connection that
+    owns a checkout) runs against that connection's control plane instead. An
+    https connection keeps the remote mark, so the call relays; any other
+    transport, or a pinned DSN, is a database this machine opens directly, so
+    the mark is cleared for the call. The ContextVar token restores the
+    invocation's own mark when the call ends.
+    """
+    if control_plane_is_remote(env):
+        return remote_control_plane()
+    return local_authority_exempt()
+
+
+__all__ = ["connection_locality", "control_plane_is_remote", "control_plane_locality"]
