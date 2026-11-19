@@ -1,6 +1,6 @@
 ---
 name: onboard
-description: "Adopt a wired project's existing work, set strategy and CURRENT-PLAN, configure only what the first dashes need, and hand off to steer to file them."
+description: "Adopt a wired project's existing work, set strategy and CURRENT-PLAN, configure only what the first dashes need, write the plan as strategy docs, and hand off to steer to file and staff them once the operator approves the first wave."
 argument-hint: "[--project P] [--run-id RUN]"
 ---
 
@@ -27,4 +27,4 @@ first dashes need; otherwise write their rows `deferred`.
 2. Profile, scaffold: [profile-and-scaffold.md](profile-and-scaffold.md)
 3. Hosting, delivery: [hosting-and-environments.md](hosting-and-environments.md)
 4. Domain, infra: [domain-and-deploy.md](domain-and-deploy.md)
-5. Handoff: [first-work.md](first-work.md)
+5. Plan docs, handoff: [first-work.md](first-work.md)

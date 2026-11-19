@@ -181,8 +181,9 @@ def first_item_done_fact(
                 "evidence": {"source": "items", "present": False},
                 "reason": "first_item_not_done",
                 "recovery": (
-                    "Run /yoke steer CURRENT-PLAN to file and route the first "
-                    "work; this row verifies itself when that item reaches done."
+                    "Run /yoke steer CURRENT-PLAN (or each plan doc) to file and "
+                    "staff the first work; this row verifies itself when the "
+                    "first item reaches done."
                 ),
             }
         }
