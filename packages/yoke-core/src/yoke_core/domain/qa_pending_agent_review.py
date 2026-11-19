@@ -222,7 +222,10 @@ def stage_review_pending_blocker(pending: PendingAgentReview) -> str:
             "pending; no QA verdict exists yet"
         ),
         evaluated=(
-            f"plan execution {pending.execution_id} is {pending.state} "
+            f"plan execution {pending.execution_id} is walking; the walker is "
+            f"still capturing against mission work order {pending.bundle_id}"
+            if pending.state == "walking"
+            else f"plan execution {pending.execution_id} is {pending.state} "
             f"with pending review bundle {pending.bundle_id}"
         ),
         recovery=pending.next_action(),

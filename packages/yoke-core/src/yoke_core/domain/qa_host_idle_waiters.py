@@ -33,9 +33,12 @@ def _sessions(conn: Any, session_ids: Iterable[str]) -> dict[str, dict[str, Any]
     ids = sorted({str(value) for value in session_ids})
     if not ids:
         return {}
+    from yoke_core.domain.qa_host_idle_hold import child_activity_sql
+
     rows = query_rows(
         conn,
         "SELECT session_id, session_id AS live_row, mode, last_tool_call_at, "
+        f"{child_activity_sql(conn, 'harness_sessions')} AS last_child_tool_call_at, "
         "native_process_gone_at, ended_at, terminated_at FROM harness_sessions "
         f"WHERE session_id IN ({','.join([_p(conn)] * len(ids))})",
         tuple(ids),
@@ -47,13 +50,14 @@ def waiter_away(
     wait: Mapping[str, Any], session: Mapping[str, Any] | None, *,
     now: datetime, limit: timedelta,
 ) -> bool:
-    """The wait's session is parked or exited with no tool call past *limit*."""
+    """The wait's session is parked or exited, and neither it nor its subagent
+    made a tool call within *limit*."""
     from yoke_core.domain.qa_host_idle_hold import holder_away
 
     if not wait.get("qa_plan_execution_id"):
         return False
     row = dict(session or {})
-    if not holder_away(row):
+    if not holder_away(row, now=now, limit=limit):
         return False
     last = row.get("last_tool_call_at") or wait["queued_at"]
     return now - parse_instant(last) >= limit

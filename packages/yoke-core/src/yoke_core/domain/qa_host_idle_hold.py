@@ -18,6 +18,12 @@ on that host returns to ``waiting`` at the execution's own place and its claim i
 released, so each of those hosts serves its line. Each release reserves the host
 for its line's oldest waiter and wakes that session.
 
+A subagent's tool calls count as the holder's activity: a parent that parks or
+exits while its subagent walks the host is working, so the newest of the
+parent's own call, its subagent's call (``last_child_tool_call_at``,
+``session_child_activity``) and the lease's host operations sets the idle clock,
+and child activity inside the limit keeps the holder from reading as away.
+
 Claim heartbeats never measure idleness here: watcher pulses refresh them while
 a parked session does nothing on the host. An away set-waiter's own unconsumed
 reservations go to the next waiter instead (``qa_host_idle_waiters``);
@@ -126,20 +132,37 @@ def held_rows(conn: Any) -> list[dict[str, Any]]:
         f"SELECT wc.id, wc.session_id, wc.claimed_at, {machine} AS test_machine, "
         "hs.session_id AS live_row, "
         "hs.mode, hs.last_tool_call_at, hs.native_process_gone_at, hs.ended_at, "
-        f"hs.terminated_at, {operation} AS host_operation_at "
+        f"hs.terminated_at, {child_activity_sql(conn, 'hs')} AS last_child_tool_call_at, "
+        f"{operation} AS host_operation_at "
         "FROM work_claims wc "
         "LEFT JOIN harness_sessions hs ON hs.session_id=wc.session_id "
         f"WHERE {_HELD} ORDER BY wc.id",
     )
 
 
-def holder_away(row: dict[str, Any]) -> str | None:
-    """Why the holder cannot use its host now: parked, exited, or ended."""
+def child_activity_sql(conn: Any, alias: str) -> str:
+    """*alias*'s subagent-call stamp, or NULL where the column has not converged."""
+    from yoke_core.domain.schema_common import _get_columns
+
+    if "last_child_tool_call_at" in _get_columns(conn, "harness_sessions"):
+        return f"{alias}.last_child_tool_call_at"
+    return "NULL"
+
+
+def holder_away(row: dict[str, Any], *, now: datetime, limit: timedelta) -> str | None:
+    """Why the holder cannot use its host now: parked, exited, or ended.
+
+    A holder whose subagent made a tool call within *limit* of *now* is
+    working, whatever its own posture, so it is not away.
+    """
     from yoke_core.domain.session_mode import session_is_parked
     from yoke_core.domain.session_state import session_presence
 
     if row.get("live_row") is None:
         return "ended"
+    child = row.get("last_child_tool_call_at")
+    if child is not None and now - parse_instant(child) < limit:
+        return None
     presence = session_presence(row)
     if presence != "present":
         return "exited" if presence == "gone" else "ended"
@@ -147,8 +170,14 @@ def holder_away(row: dict[str, Any]) -> str | None:
 
 
 def idle_since(row: dict[str, Any]) -> datetime:
-    """The holder's last tool call or host operation on this lease."""
-    stamps = (row.get(k) for k in ("claimed_at", "last_tool_call_at", "host_operation_at"))
+    """The holder's or its subagent's last tool call, or a host operation on this lease."""
+    stamps = (
+        row.get(k)
+        for k in (
+            "claimed_at", "last_tool_call_at", "last_child_tool_call_at",
+            "host_operation_at",
+        )
+    )
     return max(parse_instant(stamp) for stamp in stamps if stamp is not None)
 
 
@@ -205,7 +234,8 @@ def _release_reason(conn: Any, claim: Any, row: dict, away: str, limit: timedelt
     reason = (
         f"{IDLE_HOLD_RELEASED_REASON}: QA host {claim.target.test_machine} lease "
         f"{claim.id} was held by {away} session {claim.session_id} with no tool "
-        f"call or host operation since {format_instant(idle_since(row))}, past "
+        f"call, subagent call or host operation since "
+        f"{format_instant(idle_since(row))}, past "
         f"the {int(limit.total_seconds() // 60)}-minute {IDLE_HOLD_SETTING} "
         "limit; the reset the next holder owes is recorded"
     )
@@ -235,7 +265,8 @@ def release_idle_host_holds(conn: Any, *, now: datetime | None = None) -> list[i
     due = [
         row
         for row in held_rows(conn)
-        if holder_away(row) and current - idle_since(row) >= limit
+        if holder_away(row, now=current, limit=limit)
+        and current - idle_since(row) >= limit
     ]
     conn.commit()
     released = []
@@ -251,7 +282,7 @@ def release_idle_host_holds(conn: Any, *, now: datetime | None = None) -> list[i
         if not fresh or held is None or held.id != claim.id:
             conn.rollback()
             continue
-        away = holder_away(fresh[0])
+        away = holder_away(fresh[0], now=current, limit=limit)
         if not away or current - idle_since(fresh[0]) < limit:
             conn.rollback()
             continue
@@ -281,6 +312,7 @@ def _target(test_machine: str) -> Any:
 
 
 __all__ = [
+    "child_activity_sql",
     "IDLE_HOLD_RELEASED_REASON",
     "IDLE_HOLD_RESERVATION_REASON",
     "IDLE_HOLD_SETTING",
