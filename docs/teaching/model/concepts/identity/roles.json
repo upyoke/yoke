@@ -2,8 +2,8 @@
  "id": "roles",
  "title": "Roles and permissions",
  "status": "draft-copy",
- "commands": ["yoke actors role set"],
- "functions": ["actors.role.set"],
+ "commands": ["yoke actors role set", "yoke actors role remove", "yoke actors project-role set", "yoke actors project-role remove"],
+ "functions": ["actors.role.set", "actors.role.remove", "actors.project_role.set", "actors.project_role.remove"],
  "page": "identity",
  "position": 3
 }

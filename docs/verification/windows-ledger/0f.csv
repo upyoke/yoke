@@ -7,6 +7,7 @@ windows-03477578df9cfb8ba44f,hook PostToolUse,codex-desktop,self-hosted-client,m
 windows-5fe34bf72fd5868ebd0f,hook SessionStart,claude-vscode,self-hosted-client,must-pass,,
 windows-94467b827b8a58c4fdcf,hook Stop,claude-cli,self-hosted-client,must-pass,,
 windows-4bf57f454489203965cf,hook Stop,codex-vscode,hosted-client,must-pass,,
+windows-ae9b1375e0525ee24ccf,yoke actors role remove,cli,self-hosted-client,must-pass,,
 windows-8257e5d1f11e8ab0184f,yoke claims path register,cli,hosted-client,must-pass,,
 windows-09169bead7b65af37d4f,yoke config status,cli,local,must-pass,,
 windows-ff3891a10f474a6d498f,yoke deployment flows update stages,cli,hosted-client,must-pass,,

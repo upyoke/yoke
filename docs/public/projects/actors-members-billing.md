@@ -84,8 +84,10 @@ leaves the roster usable; **Try again** repeats the read. Registry/version
 refusals request a server upgrade, and a company sign-in configuration refusal
 names the server operator recovery. See [teammate invitations](../projects/teammate-invitations.md).
 
-Each person holds exactly one org role, and the engine owns it in every mode —
-local, self-hosted, and Hosted beta (upyoke.com) alike:
+Each person holds at most one org role and at most one role on each project,
+and the engine owns both in every mode — local, self-hosted, and Hosted beta
+(upyoke.com) alike. A person with no org role reaches only the projects granted
+to them directly, so you can give someone one project and not another:
 
 | Human role at org or project scope | What it allows |
 |---|---|
@@ -97,7 +99,16 @@ local, self-hosted, and Hosted beta (upyoke.com) alike:
 An org owner or admin changes a person's role from the role control in the Team
 roster, or with `yoke actors role set ACTOR-ID --role ROLE` (or
 `--member EMAIL` to name the person by the email they sign in with). The new
-role replaces the old one. The change is refused, with the reason named,
+role replaces the old one. **No org role** in that control, or
+`yoke actors role remove ACTOR-ID`, takes the org role away. The Project access
+cell gives an admin a role control and **Remove** on each direct project grant,
+and **Add project access** with a project and role; the commands are
+`yoke actors project-role set ACTOR-ID --project P --role ROLE` and
+`yoke actors project-role remove ACTOR-ID --project P`. A new project role
+replaces the person's role on that project, and removing nothing succeeds.
+Someone who is not an org owner or admin sees, in the Team roster, grants only on
+projects they can see and no person whose only access is to projects hidden
+from them. The change is refused, with the reason named,
 when a non-owner tries to grant owner or change an owner (`owner_protected`),
 or it would remove the last active human owner (`last_owner`; make another person owner first),
 when the role is machine-only (`deployment_ci`, `hosted_service`,

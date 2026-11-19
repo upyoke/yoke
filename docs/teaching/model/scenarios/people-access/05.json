@@ -1,0 +1,16 @@
+{
+ "id": "05",
+ "title": "Give a person one project only",
+ "status": "observed",
+ "audience": "both",
+ "when": "A person should work in one project and not see the others in the organization",
+ "need": "An org owner or admin grants the project role, then removes the org role: on Team, Add project access with a project and role, then No org role in the Org role control; or yoke actors project-role set ACTOR-ID --project P --role ROLE, then yoke actors role remove ACTOR-ID. A person holds one role per project; a new one replaces it. The person then lists, reads and sees on Team only that project; other projects refuse with a permission error. Owner protection and the last-owner rule refuse by name.",
+ "disclosure": "current cue",
+ "surface": "Team Org role and Project access controls; actor CLI help.",
+ "gap": "Production proof with a project-only person is pending YOK-5491's post-deploy QA.",
+ "review": "Source tests cover set, replace, remove, named refusals, project visibility, roster filtering and the Team controls.",
+ "recipes": ["yoke actors project-role set --help", "yoke actors role remove --help"],
+ "work_items": ["YOK-5491"],
+ "sources": ["docs/public/projects/actors-members-billing.md", "packages/yoke-cli/src/yoke_cli/commands/adapters/actors.py", "runtime/api/domain/test_actor_project_role.py", "runtime/api/domain/test_actors_roster_visibility.py", "runtime/api/universe_ui_team_project_access.test.mjs"],
+ "position": 4
+}

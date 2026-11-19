@@ -2,6 +2,7 @@ row_id,operation,surface,mode,expectation,reason,issue
 windows-f50d9dd7e8126b0e71b4,hook PostToolUse,codex-desktop,local,must-pass,,
 windows-deeccbf88bc870854474,hook PreToolUse,claude-desktop,hosted-client,must-pass,,
 windows-58bf9347d67ec0bc2b74,hook SessionStart,cursor-cli,local,must-pass,,
+windows-450ef321e848d2e49d74,yoke actors role remove,cli,local,must-pass,,
 windows-ee70259989c01ca6f474,yoke claims path release,cli,hosted-client,must-pass,,
 windows-56471b544d301b135574,yoke claims work-claim get,cli,self-hosted-client,must-pass,,
 windows-5d42f839d274684b8134,yoke conduct epic task update-status,cli,hosted-client,must-pass,,

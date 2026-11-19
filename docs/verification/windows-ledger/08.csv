@@ -1,6 +1,7 @@
 row_id,operation,surface,mode,expectation,reason,issue
 windows-fe488a1e1279f1019c88,desktop create,cursor-desktop,self-hosted-client,not-applicable,manifest declares create=none,
 windows-7eadbe8a0891527fcf88,hook SessionStart,claude-cli,hosted-client,must-pass,,
+windows-7cc7e73c199b5e2d7a88,yoke actors role remove,cli,hosted-client,must-pass,,
 windows-93614084b62b64126b88,yoke board,cli,hosted-client,must-pass,,
 windows-94b9ed18bc6e96436148,yoke board data get,cli,self-hosted-client,must-pass,,
 windows-54e47973714305d544c8,yoke claims path override,cli,self-hosted-client,must-pass,,

@@ -1,6 +1,7 @@
 row_id,operation,surface,mode,expectation,reason,issue
 windows-d4f745deeed17f7e0793,hook PermissionRequest,codex-desktop,local,must-pass,,
 windows-92c3a765709752991f93,hook stop,cursor-cli,local,must-pass,,
+windows-6718dfe86c0253f82b93,yoke actors project-role set,cli,local,must-pass,,
 windows-61f92948c4acd9c27713,yoke claims path coordination-decision-build,cli,self-hosted-client,must-pass,,
 windows-a5904707d5bed694a413,yoke claims path required gate,cli,self-hosted-client,must-pass,,
 windows-591349b2cad39a6fff53,yoke claims work claim list,cli,self-hosted-client,must-pass,,
