@@ -34,7 +34,7 @@ def two_universes(tmp_path, monkeypatch):
     launcher.write_text("#!/bin/sh\nexit 0\n")
     launcher.chmod(0o700)
     monkeypatch.setenv("PATH", str(launcher.parent) + os.pathsep + os.environ["PATH"])
-    monkeypatch.setattr(uninstall_commit, "dispatch", lambda *a: {"value": "main"})
+    monkeypatch.setattr(uninstall_commit, "dispatch", lambda *a, **_k: {"value": "main"})
     config = tmp_path / "machine/config.json"
     for label in ("local", "self-hosted"):
         writer.set_connection(
@@ -117,3 +117,20 @@ def test_registration_only_checkout_retires_from_its_own_connection(
         label: [{"checkout": str(root), "project_id": 1}]
         for label, root in roots.items()
     }
+
+
+def test_branch_lookup_asks_the_connection_that_owns_the_checkout(
+    two_universes, monkeypatch
+):
+    roots, config = two_universes
+    writer.set_active_env("self-hosted", path=config)
+    asked = []
+
+    def dispatch(function_id, payload, config_path, **kwargs):
+        asked.append((function_id, payload["project"], kwargs["env"]))
+        return {"value": "main"}
+
+    monkeypatch.setattr(uninstall_commit, "dispatch", dispatch)
+    report = uninstall(roots["local"], config_path=config)
+    assert report["outcome"] == "complete", report
+    assert asked == [("projects.get", "1", "local")]

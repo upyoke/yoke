@@ -7,7 +7,7 @@ import pytest
 
 from yoke_cli.commands.adapters import path_doctor as cli
 from yoke_cli.config import path_doctor as doctor
-from yoke_contracts.shell_path_state import shell_setup_files
+from yoke_contracts.shell_startup_files import shell_setup_files
 
 POSIX_SHELL = pytest.mark.posix_only(
     reason="local POSIX shell path state; Windows counterpart is tests/installer/test_windows_user_path.py"

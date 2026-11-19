@@ -5,7 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from yoke_cli.project_install import checkout_gate, installed_output_paths
+from yoke_cli.config import machine_config
+from yoke_cli.project_install import checkout_gate, installed_output_paths, owned_cleanup
 from yoke_cli.project_install.files import ProjectInstallError
 from yoke_cli.config.project_onboard_support import dispatch
 
@@ -50,6 +51,7 @@ def prepare(
                 "projects.get",
                 {"project": str(project_id), "field": "default_branch"},
                 config_path,
+                env=_owning_connection(root, config_path),
             )
         except Exception as exc:  # noqa: BLE001 — any unanswered lookup orphans the checkout
             current = checkout_gate.current_branch(root) or "detached HEAD"
@@ -65,6 +67,20 @@ def prepare(
         # so only paths git already tracks may enter the removal commit.
         paths = _tracked(root, paths)
     return paths, warnings
+
+
+def _owning_connection(root: Path, config_path: str | Path | None) -> str:
+    """The connection whose universe numbers this checkout's project.
+
+    Each universe numbers its projects from 1, so the lookup must reach the
+    connection that registered the checkout, not whichever one is active.
+    """
+    try:
+        payload = machine_config.load_config(config_path)
+    except (OSError, ValueError, RuntimeError):
+        return ""  # No readable map names an owner; the selected connection answers.
+    owners = owned_cleanup.owning_connections(payload, root)
+    return owned_cleanup.registration_connection(payload, owners)
 
 
 def _tracked(root: Path, paths: list[str]) -> list[str]:

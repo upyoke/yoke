@@ -18,7 +18,7 @@ from typing import Any, Dict, List
 
 from yoke_cli.config import project_worktrees_ignore
 from yoke_cli.project_install import files as files_layer
-from yoke_cli.project_install import uninstall_commit, uninstall_local_views
+from yoke_cli.project_install import uninstall_commit, uninstall_lanes, uninstall_local_views
 from yoke_cli.project_install.installed_output_paths import YOKE_GITIGNORE_REL
 from yoke_cli.project_install import owned_cleanup
 from yoke_cli.project_install import skill_discovery
@@ -48,6 +48,8 @@ from yoke_cli.project_install.source_dev import (
 def uninstall(
     repo_root: str | Path | None = None,
     config_path: str | Path | None = None,
+    *,
+    remove_lanes: bool = False,
 ) -> Dict[str, Any]:
     """Remove the installed layer and exclusive owned registration/folder trust.
 
@@ -98,6 +100,9 @@ def uninstall(
     commit_paths, commit_warnings = uninstall_commit.prepare(
         root, manifest, config_path
     )
+    # Lanes settle before anything changes: an open lane refuses here, never
+    # after the removal commit.
+    lanes_removed = uninstall_lanes.settle(root, config_path, remove=remove_lanes)
     shared_scope = owned_cleanup.scope_reason(root, manifest, config_path)
     file_records = dict(manifest.get("files") or {})
     discovery_removed = skill_discovery.remove(
@@ -247,6 +252,7 @@ def uninstall(
             managed_markdown_removed["stripped_blocks"]
         ),
         "worktrees_ignore": worktrees_ignore,
+        "lanes_removed": lanes_removed,
         "settings_files_deleted": settings_deleted,
         "local_cleanup": local_cleanup,
         "outcome": "complete" if local_cleanup["complete"] else "partial",

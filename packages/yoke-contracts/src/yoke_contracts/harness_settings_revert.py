@@ -38,11 +38,14 @@ def revert_recorded() -> Tuple[List[str], List[str]]:
         return [], [f"{ledger.ledger_path()} could not be read ({exc})"]
     lines: List[str] = []
     failures: List[str] = []
-    # Containers go last, deepest first, once the entries they held are gone.
+    # Containers and created folders go last, deepest first, once the
+    # entries they held are gone.
     containers = [e for e in entries if e.get("kind") == "json_container"]
     containers.sort(key=lambda e: -len(e.get("keys") or ()))
-    leaves = [e for e in entries if e.get("kind") != "json_container"]
-    for entry in [*leaves, *containers]:
+    folders = [e for e in entries if e.get("kind") == "created_parent_dir"]
+    folders.sort(key=lambda e: -len(Path(str(e.get("file"))).parts))
+    leaves = [e for e in entries if e not in containers and e not in folders]
+    for entry in [*leaves, *containers, *folders]:
         try:
             line = revert_entry(entry)
         except (OSError, ValueError, KeyError, TypeError) as exc:

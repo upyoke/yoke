@@ -71,9 +71,15 @@ yoke uninstall --no-backup --projects ~/work/app --yes
 `--projects` accepts all, none, or comma-separated registered checkout paths.
 `--yes` never selects data loss or a project choice for you.
 The detached worker removes Yoke's marked PATH blocks from all supported startup
-files, including `.zshenv` and `.bashrc`, and preserves unrelated shell text. It leaves
-uv, user-owned PATH entries, and the GitHub App installed; remove
-the App in GitHub settings if desired. Push the removal commits made in the
+files, including `.zshenv` and `.bashrc`, and preserves unrelated shell text. A
+startup file Yoke created, and each folder it made for one (such as
+`~/.config/fish`), is deleted once only its block is left; a file that existed
+before keeps its bytes, even when empty. Folders the relay made for its systemd
+unit go with the harness settings once empty. Uninstall removes each selected
+project's clean Yoke lane worktrees (their branches stay) and refuses before
+changing anything while a lane holds uncommitted work. It leaves uv, user-owned
+PATH entries, and the GitHub App installed, and prints uv's own removal
+commands for when nothing else uses uv; remove the App in GitHub settings if desired. Push the removal commits made in the
 chosen checkouts. Project-owned edits and strategy documents are preserved by
 the existing project uninstall.
 
@@ -90,8 +96,11 @@ folder, is neither changed nor reported. A trust entry you edited after Yoke
 wrote it stays and is reported; uninstall still completes. A checkout mapping
 that onboarding or install wrote is installer-owned; one made by
 `yoke project register` stays, and the warning names the machine config entry
-to delete before you rerun. Shared roots, Git worktrees and unproven
-registration are preserved with named reasons.
+to delete before you rerun. Shared roots, Git worktrees outside the lanes
+directory and unproven registration are preserved with named reasons. A Yoke
+lane worktree of an open item refuses with `project_uninstall_open_lanes` before
+anything changes; `--remove-lanes` removes clean lanes first. The default-branch
+check asks the connection that registered the checkout, not the active one.
 A checkout registered on one connection only is retired from that connection
 whichever connection is active, so projects from different universes that share
 a project number uninstall independently; a checkout registered on two

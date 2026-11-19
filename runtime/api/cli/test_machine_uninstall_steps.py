@@ -62,8 +62,9 @@ def test_complete_cleanup_removes_home_and_hands_off_cli(machine):
     teardown = next(args for args in calls if args[:2] == ["self-host", "teardown"])
     assert "--destroy-universe" in teardown and "--yes" in teardown
     assert handoff == ["armed"]
-    assert "handed off" in output[-3]
-    assert output[-1] == steps.NOT_REMOVED
+    assert "handed off" in output[-4]
+    assert output[-2:] == [steps.NOT_REMOVED, steps.UV_REMOVAL]
+    assert "uv cache clean" in steps.UV_REMOVAL and "uv tool dir" in steps.UV_REMOVAL
 
 
 def test_evaluator_stop_failure_retains_home_and_cli(machine, monkeypatch):

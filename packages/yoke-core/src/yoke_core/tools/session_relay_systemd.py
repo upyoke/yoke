@@ -15,6 +15,7 @@ from yoke_core.domain.relay_systemd_status import (
 
 from pathlib import Path
 import subprocess
+import sys
 from typing import Callable, Mapping
 
 from yoke_contracts.machine_config.relay_instance import (
@@ -55,6 +56,8 @@ def install_relay_systemd(
     retire_shared_systemd(selected, home=home, runner=runner, pid1_path=pid1_path)
     create_private_directory(selected.state_dir)
     path = relay_unit_path(selected, home=home)
+    wants = path.parent / "default.target.wants"
+    created = [*_missing_dirs(path.parent), *_missing_dirs(wants)]
     create_private_directory(path.parent)
     temporary = path.with_suffix(".tmp")
     temporary.write_text(relay_unit_document(selected, environ=environ), encoding="utf-8", newline="\n")
@@ -62,6 +65,7 @@ def install_relay_systemd(
     temporary.replace(path)
     _checked(["systemctl", "--user", "daemon-reload"], runner)
     _checked(["systemctl", "--user", "enable", path.name], runner)
+    _record_created_dirs(created)
     _checked(["systemctl", "--user", "restart", path.name], runner)
     status = relay_systemd_status(
         instance=selected,
@@ -110,3 +114,23 @@ def uninstall_relay_systemd(
             code="relay_systemd_not_stopped",
         )
     return status
+
+
+def _missing_dirs(path: Path) -> list[Path]:
+    """*path* and each missing ancestor, deepest first, that do not exist yet."""
+    missing = []
+    for candidate in (path, *path.parents):
+        if candidate.exists():
+            break
+        missing.append(candidate)
+    return missing
+
+
+def _record_created_dirs(created: list[Path]) -> None:
+    """Record the unit folders this install made so `yoke uninstall` removes them."""
+    from yoke_contracts import harness_settings_ledger as ledger
+
+    for directory in dict.fromkeys(created):
+        if directory.is_dir():
+            if failure := ledger.record(ledger.created_parent_dir_entry(directory)):
+                print(f"warning: relay unit folder {failure}", file=sys.stderr)

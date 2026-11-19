@@ -105,7 +105,7 @@ def cleanup(root: Path, manifest: dict, config_path) -> dict:
         }
 
 
-def _lanes_dir(root: Path, payload: dict) -> Path:
+def lanes_dir(root: Path, payload: dict) -> Path:
     """The checkout's linked-worktree directory, as lane provisioning names it."""
     settings = payload.get("settings") if isinstance(payload, dict) else None
     configured = settings.get("worktrees_dir") if isinstance(settings, dict) else None
@@ -131,7 +131,7 @@ def _cleanup(root: Path, manifest: dict, *, path=None) -> dict:
     if not reason:
         from yoke_contracts.harness_lane_cleanup import cleanup_lane_configs
 
-        receipt = cleanup_lane_configs(managed_roots=(_lanes_dir(root, payload),))
+        receipt = cleanup_lane_configs(managed_roots=(lanes_dir(root, payload),))
         lane_cleanup = [
             dict(
                 harness=row["harness"],
@@ -145,7 +145,7 @@ def _cleanup(root: Path, manifest: dict, *, path=None) -> dict:
         ]
     trust = (
         revert_folder_trust(
-            root, exclusive_reason=reason, lanes_dir=_lanes_dir(root, payload)
+            root, exclusive_reason=reason, lanes_dir=lanes_dir(root, payload)
         )
         + lane_cleanup
     )

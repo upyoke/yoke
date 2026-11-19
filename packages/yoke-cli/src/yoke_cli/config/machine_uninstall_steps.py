@@ -31,6 +31,18 @@ NOT_REMOVED = (
     "Not removed: uv, user-owned PATH entries, the Yoke GitHub App "
     "(remove it in GitHub settings). Push the project-uninstall commits in your chosen checkouts."
 )
+# uv's documented uninstall; it also removes every other uv tool and Python.
+UV_REMOVAL = (
+    "Remove uv too only if nothing else uses it: "
+    + (
+        'uv cache clean; rm -r "$(uv python dir)" "$(uv tool dir)"; '
+        "rm $HOME\\.local\\bin\\uv.exe $HOME\\.local\\bin\\uvx.exe $HOME\\.local\\bin\\uvw.exe "
+        "(PowerShell)"
+        if sys.platform == "win32"
+        else 'uv cache clean && rm -r "$(uv python dir)" "$(uv tool dir)" && '
+        'rm -rf ~/.config/uv && rm "$(command -v uv)" "$(command -v uvx)"'
+    )
+)
 
 
 def command(args: list[str], *, forward_stderr: bool = True) -> str:
@@ -154,6 +166,7 @@ def remove(
                         str(checkout),
                         "--config",
                         str(inventory.config),
+                        "--remove-lanes",
                         "--json",
                     ]
                 ),
@@ -259,6 +272,7 @@ def remove(
         f"Uninstall summary: {counts['done']} done, {counts['skipped']} skipped, {counts['failed']} failed."
     )
     emit(NOT_REMOVED)
+    emit(UV_REMOVAL)
     return 1 if counts["failed"] else 0
 
 

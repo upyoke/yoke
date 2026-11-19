@@ -41,7 +41,9 @@ PROJECT_REFRESH_USAGE = (
 # committed the layer but could not publish it is neither a success nor an
 # install failure, so it gets its own status rather than borrowing either.
 PUBLICATION_PENDING_EXIT = 3
-PROJECT_UNINSTALL_USAGE = "yoke project uninstall [REPO_ROOT] [--config PATH] [--json]"
+PROJECT_UNINSTALL_USAGE = (
+    "yoke project uninstall [REPO_ROOT] [--config PATH] [--remove-lanes] [--json]"
+)
 
 
 def _install_parser(prog: str, usage: str) -> argparse.ArgumentParser:
@@ -234,6 +236,11 @@ def project_uninstall(args: List[str]) -> int:
     )
     _add_root_and_config(parser)
     parser.add_argument(
+        "--remove-lanes",
+        action="store_true",
+        help="Remove this project's clean Yoke lane worktrees first (their branches stay); without it an open lane refuses before anything changes.",
+    )
+    parser.add_argument(
         "--json", dest="json_mode", action="store_true", help="Print JSON output."
     )
     parsed = parse_or_usage_error(parser, args, PROJECT_UNINSTALL_USAGE)
@@ -244,6 +251,7 @@ def project_uninstall(args: List[str]) -> int:
         lambda: domain.uninstall(
             parsed.repo_root,
             config_path=parsed.config_path,
+            remove_lanes=parsed.remove_lanes,
         ),
         json_mode=parsed.json_mode,
         config_path=parsed.config_path,

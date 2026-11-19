@@ -37,7 +37,7 @@ def machine(tmp_path, monkeypatch):
     launcher.write_text("#!/bin/sh\nexit 0\n")
     launcher.chmod(0o700)
     monkeypatch.setenv("PATH", str(launcher.parent) + os.pathsep + os.environ["PATH"])
-    monkeypatch.setattr(uninstall_commit, "dispatch", lambda *a: {"value": "main"})
+    monkeypatch.setattr(uninstall_commit, "dispatch", lambda *a, **_k: {"value": "main"})
     bundle = make_bundle(
         contract=[
             *DEFAULT_CONTRACT_FILES,

@@ -75,7 +75,7 @@ class PathDiagnosis:
 
 def update_shell(*, env: dict[str, str] | None = None) -> str:
     """Repair owned shell PATH blocks using the shared startup-file contract."""
-    from yoke_contracts.shell_path_state import write_shell_path
+    from yoke_contracts.shell_startup_files import write_shell_path
 
     environ = dict(os.environ if env is None else env)
     changed = write_shell_path(env=environ)

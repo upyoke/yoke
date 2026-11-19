@@ -8,11 +8,8 @@ import subprocess
 import pytest
 
 from yoke_cli.config import path_doctor as doctor
-from yoke_contracts.shell_path_state import (
-    MANAGED_BEGIN,
-    remove_shell_path,
-    shell_setup_files,
-)
+from yoke_contracts.shell_path_state import MANAGED_BEGIN
+from yoke_contracts.shell_startup_files import remove_shell_path, shell_setup_files
 
 POSIX_SHELL = pytest.mark.posix_only(
     reason="local POSIX shell path state; Windows counterpart is tests/installer/test_windows_user_path.py"
@@ -62,18 +59,29 @@ def test_reinstall_and_uninstall_preserve_unrelated_bytes_and_symlinks(tmp_path)
 
 
 @POSIX_SHELL
-def test_uninstall_deletes_files_yoke_created_and_keeps_user_files(tmp_path):
+def test_uninstall_deletes_only_what_yoke_created(tmp_path):
     env = environment(tmp_path)
-    files = list(shell_setup_files(env))
-    user_file, created = files[0], files[1:]
-    user_file.parent.mkdir(parents=True, exist_ok=True)
+    roster = shell_setup_files(env)
+    by_name = {file.name: file for file in roster}
+    user_file, empty_file = by_name[".bashrc"], by_name[".zshenv"]
+    fish = by_name["config.fish"]
+    for file in (user_file, empty_file):
+        file.parent.mkdir(parents=True, exist_ok=True)
     user_file.write_bytes(b"export USER_SETTING=yes\n")
-    assert created and all(not file.exists() for file in created)
+    empty_file.write_bytes(b"")
+    created = [file for file in roster if not file.exists()]
+    assert fish in created and not fish.parent.parent.exists()
     doctor.update_shell(env=env)
-    assert all(file.is_file() for file in files)
+    doctor.update_shell(env=env)
+    assert all(file.is_file() for file in roster)
     remove_shell_path(env=env)
     assert user_file.read_bytes() == b"export USER_SETTING=yes\n"
+    # A file that existed before install survives, even when it was empty.
+    assert empty_file.read_bytes() == b""
     assert [file for file in created if file.exists()] == []
+    # Directories Yoke made to hold the fish file go with it.
+    assert not fish.parent.exists() and not fish.parent.parent.exists()
+    assert remove_shell_path(env=env) == []
 
 
 @POSIX_SHELL
