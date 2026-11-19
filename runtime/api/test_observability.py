@@ -285,9 +285,6 @@ def test_emf_logger_does_not_propagate_into_json_formatter() -> None:
 
 def test_each_server_process_exports_its_own_instance(monkeypatch) -> None:
     """API workers share a service name; each process gets its own series."""
-    import os
-    import socket
-
     resources = pytest.importorskip("opentelemetry.sdk.resources")
     seen: list[dict] = []
     real = resources.Resource.create
@@ -299,4 +296,6 @@ def test_each_server_process_exports_its_own_instance(monkeypatch) -> None:
     monkeypatch.setattr(resources.Resource, "create", staticmethod(capture))
     observability.configure_otel(None, env={})
     assert seen, "configure_otel built no resource"
-    assert seen[-1]["service.instance.id"] == f"{socket.gethostname()}-{os.getpid()}"
+    instance = seen[-1]["service.instance.id"]
+    assert instance == observability_otel.PROCESS_INSTANCE_ID
+    assert len(instance) == 32 and int(instance, 16) >= 0
