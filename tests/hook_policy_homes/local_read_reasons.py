@@ -61,7 +61,8 @@ AUTHORITY_TRANSPORT = (
     "Reaches the control plane through the evaluating process's own route: "
     "the CLI dispatcher with its machine config, credentials, engine "
     "handshake, install identity, relay telemetry and whether the process "
-    "declared a direct-database command for its connection. These describe "
+    "declared a direct-database command for its connection or names a "
+    "database authority in place of setup. These describe "
     "the process making the call; the request's session and project come "
     "from the hook payload.",
     (
@@ -71,6 +72,7 @@ AUTHORITY_TRANSPORT = (
         "yoke_cli.config.checkout_context:resolve_repo_root_from_cwd",
         "yoke_cli.config.machine_config:load_config",
         "yoke_cli.transport.dispatcher:_resolve_session_id",
+        "yoke_cli.transport.dispatcher:call_dispatcher",
         "yoke_cli.transport.dispatcher:build_actor",
         "yoke_cli.transport.https_credentials:resolve_token",
         "yoke_cli.transport.relay_telemetry:drain",
