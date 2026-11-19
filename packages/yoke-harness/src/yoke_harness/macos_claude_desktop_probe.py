@@ -1,4 +1,10 @@
-"""A sealed native Claude window probe. Screen contents stay on the fixture."""
+"""A sealed native Claude window probe. Screen contents stay on the fixture.
+
+The probe passes on any signed-in tab (Chat, Code or Cowork), reports the
+first-run and Sign In screens as signed out, and names a window it cannot
+classify as an unrecognized layout rather than telling the operator to sign in.
+It only launches and quits the app; it never clicks or types.
+"""
 
 from __future__ import annotations
 
@@ -8,7 +14,13 @@ func hasLabel(_ label: String, in labels: Set<String>) -> Bool {
     labels.contains { $0 == label || $0.hasSuffix(" " + label) }
 }
 
-func isSignedInChat(_ sidebar: Set<String>) -> Bool {
+func hasWord(_ word: String, in labels: Set<String>) -> Bool {
+    labels.contains {
+        $0.range(of: "\\b" + word + "\\b", options: [.regularExpression, .caseInsensitive]) != nil
+    }
+}
+
+func isChatSidebar(_ sidebar: Set<String>) -> Bool {
     // Vision may include a leading icon glyph in a navigation label.
     hasLabel("projects", in: sidebar) && (
         (hasLabel("new", in: sidebar) && hasLabel("artifacts", in: sidebar))
@@ -20,6 +32,15 @@ func isCodeSidebar(_ sidebar: Set<String>) -> Bool {
     ["new", "search", "artifacts", "customize"].allSatisfy { hasLabel($0, in: sidebar) }
 }
 
+func isCoworkSidebar(_ sidebar: Set<String>) -> Bool {
+    hasLabel("new task", in: sidebar)
+}
+
+func hasModeSwitcher(_ text: Set<String>) -> Bool {
+    // The Chat, Cowork and Code switcher renders only inside the signed-in app.
+    ["chat", "cowork", "code"].allSatisfy { hasWord($0, in: text) }
+}
+
 func hasAccountFooter(_ footer: Set<String>) -> Bool {
     // Vision reads the account name and plan on one line, followed by the menu
     // chevron. Check the account/plan separator without assuming a user's name.
@@ -27,6 +48,27 @@ func hasAccountFooter(_ footer: Set<String>) -> Bool {
     return footer.contains {
         $0.range(of: accountWithPlan, options: [.regularExpression, .caseInsensitive]) != nil
     }
+}
+
+func isSignedOutScreen(_ text: Set<String>) -> Bool {
+    let signIn = text.contains("sign in")
+        && !text.isDisjoint(with: ["continue with google", "continue with email"])
+    let firstRun = text.contains("claude for mac") && text.contains("get started")
+    return signIn || firstRun
+}
+
+let signedIn: Int32 = 0
+let signedOut: Int32 = 10
+let layoutUnrecognized: Int32 = 14
+
+/// Classify one window frame; nil means no known layout yet, so keep looking.
+/// A tab's sidebar markers prove its layout; the account footer or the mode
+/// switcher proves the account, so unreadable footer text alone cannot fail it.
+func classify(text: Set<String>, sidebar: Set<String>, footer: () -> Set<String>) -> Int32? {
+    if isSignedOutScreen(text) { return signedOut }
+    guard isChatSidebar(sidebar) || isCodeSidebar(sidebar) || isCoworkSidebar(sidebar)
+    else { return nil }
+    return hasModeSwitcher(text) || hasAccountFooter(footer()) ? signedIn : nil
 }
 """
 
@@ -41,6 +83,8 @@ import Vision
 let appPath = "/Applications/Claude.app"
 let bundleID = "com.anthropic.claudefordesktop"
 let screenshot = URL(fileURLWithPath: CommandLine.arguments[1])
+// The account footer sits at the bottom of the sidebar on every tab.
+let footerRegion = CGRect(x: 0, y: 0, width: 0.32, height: 0.12)
 
 func run(_ executable: String, _ arguments: [String]) -> Bool {
     let process = Process()
@@ -69,7 +113,13 @@ func windowNumber(of app: NSRunningApplication) -> Int? {
     }?[kCGWindowNumber as String] as? Int
 }
 
-func labels(in window: Int) -> (text: Set<String>, sidebar: Set<String>)? {
+struct Frame {
+    let text: Set<String>
+    let sidebar: Set<String>
+    let footer: Set<String>
+}
+
+func frame(of window: Int) -> Frame? {
     try? FileManager.default.removeItem(at: screenshot)
     guard run("/usr/sbin/screencapture", ["-x", "-o", "-l", String(window), screenshot.path])
     else { return nil }
@@ -77,7 +127,12 @@ func labels(in window: Int) -> (text: Set<String>, sidebar: Set<String>)? {
     let navigation = observations.filter {
         $0.boundingBox.midX < 0.32 && $0.boundingBox.midY > 0.60
     }
-    return (recognized(observations), recognized(navigation))
+    let footer = observations.filter {
+        $0.boundingBox.midX < 0.32 && $0.boundingBox.midY < footerRegion.height
+    }
+    return Frame(
+        text: recognized(observations), sidebar: recognized(navigation), footer: recognized(footer)
+    )
 }
 
 func recognizeText(in region: CGRect = CGRect(x: 0, y: 0, width: 1, height: 1))
@@ -105,21 +160,17 @@ func observe() -> Int32 {
     let deadline = ProcessInfo.processInfo.systemUptime + 35
     var observedWindow = false
     while ProcessInfo.processInfo.systemUptime < deadline {
-        if let app = claude(), let window = windowNumber(of: app), let frame = labels(in: window) {
+        if let app = claude(), let window = windowNumber(of: app), let frame = frame(of: window) {
             observedWindow = true
-            if frame.text.contains("sign in")
-                && !frame.text.isDisjoint(with: ["continue with google", "continue with email"]) {
-                return 10
+            // A second, cropped pass reads small footer text the full frame missed.
+            let outcome = classify(text: frame.text, sidebar: frame.sidebar) {
+                frame.footer.union(recognizeText(in: footerRegion).map(recognized) ?? [])
             }
-            if frame.text.contains("claude for mac") && frame.text.contains("get started") { return 10 }
-            if isSignedInChat(frame.sidebar) { return 0 }
-            if isCodeSidebar(frame.sidebar),
-                let footer = recognizeText(in: CGRect(x: 0, y: 0, width: 0.24, height: 0.08)),
-                hasAccountFooter(recognized(footer)) { return 0 }
+            if let outcome { return outcome }
         }
         Thread.sleep(forTimeInterval: 1)
     }
-    return observedWindow ? 10 : 13
+    return observedWindow ? layoutUnrecognized : 13
 }
 
 let outcome = observe()
@@ -158,6 +209,7 @@ with tempfile.TemporaryDirectory(prefix='yoke-claude-desktop-') as workspace:
         10: 'probe_check_unmet',
         12: 'probe_executable_missing',
         13: 'probe_request_timed_out',
+        14: 'probe_layout_unrecognized',
     }}
     sys.exit(0 if probe.returncode == 0 else EXIT[cause.get(probe.returncode, 'probe_launch_failed')])
 """

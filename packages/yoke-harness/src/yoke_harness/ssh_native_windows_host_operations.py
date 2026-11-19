@@ -158,6 +158,7 @@ class SshNativeWindowsHostOperations(WindowsMissionOperations, WindowsTransport)
 
     def prove_user_equivalent(self):
         from yoke_harness.native_windows.probes import prove_document
+        from yoke_harness.standard_baseline_probes import prove_current_standard
 
         document = (
             self.read_remote_text(self.golden_baseline_path + ".probes")
@@ -172,7 +173,9 @@ class SshNativeWindowsHostOperations(WindowsMissionOperations, WindowsTransport)
                 },
                 "baseline_probes_not_declared",
             )
-        return prove_document(self, document)
+        return prove_current_standard(
+            "windows", document, lambda current: prove_document(self, current)
+        )
 
     def reach_baseline(self, name):
         return reach_baseline(self, name)

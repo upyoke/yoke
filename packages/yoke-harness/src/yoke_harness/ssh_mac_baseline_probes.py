@@ -2,8 +2,8 @@
 
 Restored credentials can be byte-identical but expired: declared harnesses must
 answer a real request. Other probes retain their declared argv and expectation.
-An undelivered host-session command is distinct from a delivered failing probe,
-because repairing the session and re-signing-in have different recoveries.
+An undelivered host-session command and a delivered failing probe differ: one
+needs the session repaired, the other a new sign-in.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ from yoke_contracts.ssh_mac_full_reset_contract import GOLDEN_PROBES_SUFFIX
 from yoke_harness.ssh_mac_gui_session import (
     classify_macos_session_context_failure,
 )
-from yoke_harness.standard_baseline_probes import standard_probe_failure
+from yoke_harness.standard_baseline_probes import prove_current_standard, standard_probe_failure
 from yoke_contracts.test_machine_types import HostActionResult
 
 
@@ -284,12 +284,10 @@ def prove_probes_document(control: Any, document: str) -> HostActionResult:
 
 
 def prove_declared_probes(control: Any) -> HostActionResult:
-    """Run the probes the host's declared baseline carries beside itself.
+    """Run the declared baseline's sealed probes, standard ones current.
 
-    Separate from the restore because they answer different questions. The
-    restore asks whether the home is the captured one; this asks whether that
-    home still works, which structure alone cannot say -- a credential can come
-    back byte-identical and expired.
+    The restore asks whether the home is the captured one; this asks whether it
+    still works -- a credential can come back byte-identical and expired.
     """
     document = read_declared_probes_document(control)
     if document is None:
@@ -298,15 +296,15 @@ def prove_declared_probes(control: Any) -> HostActionResult:
             {"probes": [], "declared": False},
             "baseline_probes_not_declared",
         )
-    return prove_probes_document(control, document)
+    return prove_current_standard(
+        "macos", document, lambda current: prove_probes_document(control, current)
+    )
 
 
 def read_declared_probes_document(control: Any) -> str | None:
     """Return the probe document sealed beside the declared golden, if any."""
     golden = control.golden_baseline_path or ""
-    if not golden:
-        return None
-    return control.read_remote_text(golden + GOLDEN_PROBES_SUFFIX)
+    return control.read_remote_text(golden + GOLDEN_PROBES_SUFFIX) if golden else None
 
 
 def reach_user_equivalent_baseline(control: Any) -> HostActionResult:
