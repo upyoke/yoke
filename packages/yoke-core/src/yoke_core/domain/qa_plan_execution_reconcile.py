@@ -97,12 +97,11 @@ def _close_unreviewable(conn: Any, bundle_id: str, actor_id, session_id) -> None
     )
 
 
-def _subject_flag(conn: Any, execution: dict, project: str) -> str:
+def subject_flag(conn: Any, execution: dict, project: str) -> str:
     """The subject flag abort and review-begin take for this execution."""
     from yoke_core.domain.qa_pending_agent_review import review_scope_flag
 
-    flag = review_scope_flag(conn, execution)
-    return f"--project {project}" if flag == "--project PROJECT" else flag
+    return review_scope_flag(conn, execution) or f"--project {project}"
 
 
 def reconcile_execution(
@@ -134,7 +133,7 @@ def reconcile_execution(
             f"qa_reconcile_already_settled: execution {execution_id} is already "
             f"{state} with no pending review; there is nothing to reconcile."
         )
-    flag = _subject_flag(conn, execution, project)
+    flag = subject_flag(conn, execution, project)
     if state == "active":
         raise QaPlanExecutionStateError(
             f"qa_reconcile_runner_driven: execution {execution_id} is active, so "
@@ -253,7 +252,7 @@ def reconcile_execution(
         "released_lease_ids": released,
         "review_bundle_id": bundle_id,
         "next_command": (
-            f"yoke qa plan review-begin {_subject_flag(conn, execution, project)} "
+            f"yoke qa plan review-begin {subject_flag(conn, execution, project)} "
             f"--execution-id {execution_id}"
             if bundle_id
             else None
@@ -266,4 +265,5 @@ __all__ = [
     "execution_project",
     "reconcile_command",
     "reconcile_execution",
+    "subject_flag",
 ]

@@ -82,6 +82,9 @@ def test_a_walk_silent_twenty_minutes_mails_its_owner_once(
     assert "has sent no heartbeat for 20m" in body
     assert "aborts it at 2026-11-19T16:40Z" in body
     assert "`yoke qa mission host-command`" in body
+    assert "`yoke qa plan abort " in body
+    assert f"--execution-id {walk} --reason TEXT`" in body
+    assert "coordination-claim release" not in body
     assert _state(test_db, walk) == state
 
     reap_stale_plan_executions(test_db, now=NOW + timedelta(minutes=2))

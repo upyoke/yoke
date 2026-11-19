@@ -4,18 +4,50 @@ from typing import Any
 
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.db_savepoint import savepoint
+from yoke_core.domain.domain_refusal import DomainRefusal
 from yoke_core.domain.qa_plan_execution_schema import LIVE_PLAN_EXECUTION_SQL
 from yoke_core.domain.qa_plan_execution_store import lock_plan_execution
 from yoke_core.domain.schema_common import _table_exists
 
 
+class QaExecutionHoldsLease(DomainRefusal):
+    """A holder asked to release a lease its live plan execution still needs."""
+
+    code = "qa_execution_holds_lease"
+
+
+def _holder_refusal(conn: Any, claim: Any, execution: dict) -> QaExecutionHoldsLease:
+    from yoke_core.domain.qa_plan_execution_reconcile import (
+        subject_flag,
+        execution_project,
+    )
+
+    flag = subject_flag(conn, execution, execution_project(conn, execution)[1])
+    return QaExecutionHoldsLease(
+        f"qa_execution_holds_lease: lease {claim.id} backs QA plan execution "
+        f"{execution['id']}, which is still {execution['state']}; releasing it "
+        "would abort that execution and discard its unwalked cases. The lease "
+        "is released when the execution ends. To cancel the execution "
+        f"deliberately, run `yoke qa plan abort {flag} --execution-id "
+        f"{execution['id']} --reason TEXT`. Nothing changed."
+    )
+
+
 def release_host_claim(
-    conn: Any, claim_id: int, reason: str, *, commit: bool = True, **kwargs: Any
+    conn: Any,
+    claim_id: int,
+    reason: str,
+    *,
+    commit: bool = True,
+    holder: bool = False,
+    **kwargs: Any,
 ) -> Any:
     """Manual release is custody loss, never a successful QA completion.
 
     This is the holder/steering recovery boundary. Internal case handoffs and
     teardown use ordinary release and keep their own execution lifecycle.
+    A ``holder`` release refuses while a live execution needs the lease;
+    steering, claim-id and idle-hold release abort that execution instead.
     """
     from yoke_core.domain.coordination_claims import get_claim, release
     from yoke_core.domain.qa_plan_execution_lifecycle import finish_plan_execution
@@ -42,6 +74,8 @@ def release_host_claim(
                 (claim_id, companion),
             )
             executions = [lock_plan_execution(conn, str(row["id"])) for row in rows]
+        if holder and executions:
+            raise _holder_refusal(conn, claim, executions[0])
         from yoke_core.domain.machine_reset_debt import record_execution_reset_debt
 
         for execution in executions:

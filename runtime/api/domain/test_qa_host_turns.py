@@ -76,6 +76,9 @@ def test_manual_and_execution_waiters_share_one_fifo_line(test_db, monkeypatch):
     reservation = active_claim(test_db, target)
     assert reservation.session_id == "manual"
     assert len(notices) == 1 and "yoke claims coordination-claim acquire" in notices[0]
+    assert "If you no longer need this turn, release it before taking it" in (
+        notices[0]
+    )
     with pytest.raises(CoordinationClaimHeldError):
         acquire(test_db, target, "outsider")
     test_db.rollback()
