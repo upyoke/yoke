@@ -1,0 +1,14 @@
+{
+ "id": "broad-filesystem-scans",
+ "title": "Refuse whole-disk searches before they stall the turn",
+ "status": "observed",
+ "audience": "agent",
+ "when": "A Bash command would search a whole-disk root with find, bfs, fd, rg, grep -r, du or tree, or would query locate or mdfind without -onlyin.",
+ "need": "Roots resolving to /, /System, /Users, /Volumes, /private, /home or /mnt are refused by lint-broad-filesystem-scan, including relative roots after a cd, a glob whose static prefix is such a root, the working directory when no root is written, and commands nested in bash -c or zsh -c. The refusal names the tool and root, says the scan can block the turn so Yoke messages cannot arrive, and offers rg --files -g, find in the checkout, mdfind -onlyin, or asking the owning tool for a module path (python3 -c, pip show -f, npm root, brew --prefix). Home roots stay an advisory under lint-local-privacy; scoped roots such as the checkout or /tmp run normally.",
+ "disclosure": "current cue",
+ "surface": "Client-local and core broad-scan refusals share one classifier and refusal text; the client denial row records the registered check id.",
+ "review": "Source regression cases cover every refused and allowed shape on both hook paths with identical decisions and text, the implicit working-directory root, warn mode, and the client denial row carrying lint-broad-filesystem-scan with its session id. Live installed delivery on claude-cli and codex-cli is owed by the item's post-deploy QA.",
+ "plan_notes": ["YOK-5498"],
+ "sources": ["packages/yoke-contracts/src/yoke_contracts/hook_runner/broad_filesystem_scan.py", "packages/yoke-contracts/src/yoke_contracts/hook_runner/search_roots.py", "packages/yoke-core/src/yoke_core/domain/lint_broad_filesystem_scan.py", "packages/yoke-harness/src/yoke_harness/hooks/broad_filesystem_scan.py", "runtime/api/domain/test_lint_broad_filesystem_scan.py"],
+ "position": 5
+}

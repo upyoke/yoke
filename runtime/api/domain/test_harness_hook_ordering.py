@@ -55,6 +55,7 @@ class TestPreToolUseBash(unittest.TestCase):
                 "yoke_core.domain.lint_yoke_quoted_shell_substitution",
                 "yoke_core.domain.lint_local_privacy",
                 "yoke_core.domain.lint_unmatched_path_glob",
+                "yoke_core.domain.lint_broad_filesystem_scan",
                 "yoke_core.domain.lint_no_agent_runtime_api_import_from_c",
                 "yoke_core.domain.lint_no_agent_curl_against_yoke_api",
                 "yoke_core.domain.lint_no_agent_session_end",
