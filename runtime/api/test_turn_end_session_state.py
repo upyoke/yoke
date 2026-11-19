@@ -39,6 +39,10 @@ def _no_events(monkeypatch) -> None:
         "yoke_core.domain.session_tool_call_projections.has_session_tool_calls_table",
         lambda conn: True,
     )
+    monkeypatch.setattr(
+        "yoke_core.domain.session_tool_call_projections._child_marked",
+        lambda conn: True,
+    )
 
 
 def test_a_parked_session_reads_as_parked() -> None:
@@ -65,6 +69,8 @@ def test_waiter_armed_for_a_last_monitor_call(monkeypatch) -> None:
 
     assert state.monitor_waiter_armed(conn, "sess-1") is True
     assert not any("events" in query for query in conn.queries)
+    # A subagent's Monitor is not the parent's armed waiter.
+    assert any("agent_type IS NULL" in query for query in conn.queries)
 
 
 def test_waiter_not_armed_when_the_last_call_was_something_else(

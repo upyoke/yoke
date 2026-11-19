@@ -28,6 +28,11 @@ class AttemptView:
     last_failed_evidence: Mapping[str, Any]
     completed_at: datetime | None = None
     wake_delivered_at: datetime | None = None
+    #: The newest hook-route result and when it was last recorded. A probe
+    #: row folds repeat declines into one row, so its ``completed_at`` is the
+    #: latest decline while its ``started_at`` keeps the first.
+    hook_result_code: str = ""
+    hook_recorded_at: datetime | None = None
 
 
 def _evidence(raw: Any) -> Mapping[str, Any]:
@@ -49,6 +54,7 @@ def last_attempts(
                    a.result_code AS result_code,
                    a.evidence AS evidence,
                    a.completed_at AS completed_at,
+                   a.attempt_kind AS attempt_kind,
                    (SELECT MAX(w.completed_at) FROM session_message_attempts w
                     WHERE w.target_session_id=a.target_session_id
                     AND w.result_code='wake_delivered') AS wake_delivered_at
@@ -75,18 +81,25 @@ def last_attempts(
             failed_count += 1
             last_failed_code = code
             last_failed_evidence = evidence
+        completed = parse_instant(row["completed_at"]) if row["completed_at"] else None
+        hook_code = prior.hook_result_code if prior else ""
+        hook_at = prior.hook_recorded_at if prior else None
+        if row.get("attempt_kind") == "hook" and (
+            hook_at is None or (completed is not None and completed >= hook_at)
+        ):
+            hook_code, hook_at = code, completed
         latest[key] = AttemptView(
             result_code=code,
             evidence=evidence,
             failed_count=failed_count,
             last_failed_code=last_failed_code,
             last_failed_evidence=last_failed_evidence,
-            completed_at=parse_instant(row["completed_at"])
-            if row["completed_at"]
-            else None,
+            completed_at=completed,
             wake_delivered_at=parse_instant(row["wake_delivered_at"])
             if row["wake_delivered_at"]
             else None,
+            hook_result_code=hook_code,
+            hook_recorded_at=hook_at,
         )
     return latest
 

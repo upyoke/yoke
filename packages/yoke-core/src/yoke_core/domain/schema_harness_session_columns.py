@@ -40,6 +40,7 @@ def apply_harness_session_columns(conn: Any) -> None:
         ("executor_version", "TEXT DEFAULT NULL"),
         ("machine_id", "TEXT DEFAULT NULL"),
         ("last_tool_call_at", "TIMESTAMPTZ DEFAULT NULL"),
+        ("last_child_tool_call_at", "TIMESTAMPTZ DEFAULT NULL"),
         ("tool_call_count", "INTEGER NOT NULL DEFAULT 0"),
         ("episode_started_at", "TIMESTAMPTZ DEFAULT NULL"),
         (NATIVE_PROCESS_GONE_AT_COLUMN, NATIVE_PROCESS_INSTANT_COLUMN_DDL),

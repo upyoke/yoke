@@ -15,7 +15,7 @@ from .session_cleanup_holdings import (
 )
 from .session_reclaim_activity import classify_activity
 from .session_reclaim_evidence import ReclaimActivityEvidence, ReclaimClassification
-from .session_reclaim_progress import newest_activity_stamp
+from .session_reclaim_progress import newest_activity_stamp, tool_activity_stamp
 from .sessions_analytics_core import (
     DEFAULT_PROGRESS_THRESHOLD_MINUTES,
     DEFAULT_STALE_THRESHOLD_MINUTES,
@@ -32,6 +32,7 @@ RECLAIM_SESSION_FIELDS = (
     "quiet_reason",
     "last_heartbeat",
     "last_tool_call_at",
+    "last_child_tool_call_at",
     "ended_at",
     "terminated_at",
     "mode",
@@ -66,12 +67,12 @@ def automatic_reclaim(
         executor=str(row.get("executor") or "unknown"),
         effective_ttl_minutes=ttl,
         last_heartbeat=stamp("last_heartbeat"),
-        last_event_at=stamp("last_tool_call_at"),
+        last_event_at=tool_activity_stamp(row),
         claim_last_heartbeat=None,
         claim_claimed_at=None,
         episode_started_at=stamp("episode_started_at"),
         activity_at=newest_activity_stamp(
-            row.get("last_heartbeat"), row.get("last_tool_call_at")
+            row.get("last_heartbeat"), tool_activity_stamp(row)
         ),
         ended_at=stamp("ended_at") or stamp("terminated_at"),
         turn_posture=row.get("turn_posture"),

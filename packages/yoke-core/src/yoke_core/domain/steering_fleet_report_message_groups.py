@@ -9,7 +9,11 @@ from typing import Any, Mapping
 from yoke_contracts.session_control.capabilities import native_wake_supported
 from yoke_contracts.session_control.evidence import valid_native_diagnostic_reference
 from yoke_contracts.session_control.wake_delivery import delivery_attempt_diagnostic
-from yoke_core.domain.session_tool_call_projections import OPEN_TOOL_CALL_COLUMN
+from yoke_core.domain.session_tool_call_projections import (
+    CHILD_ACTIVITY_SINCE_COLUMN,
+    CHILD_AGENT_TYPE_COLUMN,
+    OPEN_TOOL_CALL_COLUMN,
+)
 from yoke_core.domain.steering_fleet_report_detectors import parse_stamp
 from yoke_core.domain.steering_fleet_report_queued_wake import unattempted_explicit_wake
 from yoke_core.domain.steering_fleet_report_delivery_states import (
@@ -48,6 +52,10 @@ class MessageGroup:
     queued_wake: bool = False
     wake_releasable_at: datetime | None = None
     failed_attempt_count: int = 0
+    parent_idle_since: datetime | None = None
+    held_subagent_type: str = ""
+    held_subagent_since: datetime | None = None
+    held_declined_at: datetime | None = None
 
     def __post_init__(self) -> None:
         if self.message_ids is None:
@@ -122,6 +130,22 @@ class MessageGroup:
         )
         if reference is not None:
             self.evidence_id = reference
+
+    def note_held_subagent(
+        self, record: Mapping[str, Any], *, declined_at: datetime | None
+    ) -> None:
+        """Name the parent's own last hook, the subagent, and the newest decline.
+
+        ``last_tool_call_at`` and ``turn_posture_at`` move only on the
+        parent's own hooks, so the newer of the two is when it went idle.
+        """
+        self.parent_idle_since = _latest(
+            parse_stamp(record.get("last_tool_call_at")),
+            parse_stamp(record.get("turn_posture_at")),
+        )
+        self.held_subagent_type = str(record.get(CHILD_AGENT_TYPE_COLUMN) or "")
+        self.held_subagent_since = parse_stamp(record.get(CHILD_ACTIVITY_SINCE_COLUMN))
+        self.held_declined_at = _latest(self.held_declined_at, declined_at)
 
     def note_held_native(
         self,

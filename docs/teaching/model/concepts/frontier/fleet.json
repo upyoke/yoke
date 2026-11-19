@@ -7,6 +7,6 @@
  "skills": ["steer"],
  "page": "frontier",
  "position": 4,
- "current": "Undelivered receipts in an actively draining machine wake queue show their positions in wake claim order. This waiting state requires a connected relay and a wake relay attempt there within three polls; stale or disconnected queues retain overdue delivery findings. Queue positions do not change report fingerprints.",
+ "current": "Undelivered receipts in an actively draining machine wake queue show their positions in wake claim order. This waiting state requires a connected relay and a wake relay attempt there within three polls; stale or disconnected queues retain overdue delivery findings. Queue positions do not change report fingerprints. A receipt whose only running hooks are a subagent's (the subagent declined it, or the only open call is a child's) is held behind that subagent: the row names when the parent went idle, which subagent has been running since when, and the latest decline, and it delivers on the parent's next hook. Subagent tool calls never move the parent's last tool call or turn posture, so the starved-envelope alarm measures the parent's own silence.",
  "description": "Watcher updates mark a heading (changes only) when any descendant row is omitted. Whole sections keep their headings; no longer listed is the only removal signal. Seen rows use unsuffixed headings."
 }

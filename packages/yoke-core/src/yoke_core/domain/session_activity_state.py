@@ -2,8 +2,8 @@
 
 Liveness, counts and open calls read this state without retained telemetry.
 Each call identity closes once; replay does not recount completed work.
+A subagent's call goes to :mod:`session_child_activity` instead.
 Writers introspect minimal fixtures and skip unavailable state tables.
-Owned endpoints parse strictly before mutation and bind native instants.
 """
 
 from __future__ import annotations
@@ -283,6 +283,15 @@ def apply_envelope_state(conn: Any, envelope: Dict[str, Any]) -> None:
     if event_time is None:
         return
     observed_at = parse_instant(event_time)
+    from yoke_core.domain import session_child_activity as child
+
+    if agent_type := child.child_agent_type(envelope):
+        # A subagent's call is the child's activity, never the parent's hook.
+        return child.apply_child_envelope_state(
+            conn, envelope, agent_type=agent_type, observed_at=observed_at,
+            started=event_name == _STARTED_EVENT_NAME,
+            counts_as_activity=event_name in ACTIVITY_EVENT_NAMES,
+        )
     from yoke_core.domain.session_turn_posture import stamp_turn_posture
 
     applied = stamp_turn_posture(

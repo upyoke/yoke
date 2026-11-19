@@ -84,6 +84,10 @@ def _undelivered_dict(entry: UndeliveredMessages) -> dict[str, Any]:
         "diagnostic": entry.diagnostic,
         "evidence_id": entry.evidence_id,
         "turn_in_flight_since": entry.turn_in_flight_since,
+        "parent_idle_since": entry.parent_idle_since,
+        "held_subagent_type": entry.held_subagent_type or None,
+        "held_subagent_since": entry.held_subagent_since,
+        "held_declined_at": entry.held_declined_at,
         "recipient_gone_at": entry.recipient_gone_at,
     }
 
