@@ -217,3 +217,37 @@ def test_waiting_partial_host_set_returns_its_reservations_and_keeps_its_place(
     assert [(r[0], r[1]) for r in after] == [(a, "reserved"), (b, "reserved")]
     assert {r[2] for r in after} == {places[0][2]}
     assert len(bodies) == 1
+
+
+def test_steering_report_alarms_on_a_parked_holder_of_a_host(test_db) -> None:
+    """The one-statement holder read carries held hosts; a parked holder alarms."""
+    from runtime.api.domain.steering_fleet_report_holder_read_test_support import _claim
+    from runtime.api.steering_fleet_test_helpers import (
+        LONG_AGO,
+        NOW,
+        PROJECT_ID,
+        seed_session,
+        seed_steering_scope,
+    )
+    from yoke_core.domain.steering_fleet_report_holders import (
+        claim_holders,
+        quiet_holders,
+        with_session_state,
+    )
+
+    fleet = seed_steering_scope(test_db)
+    seed_session(fleet, "parked-walker", last_tool_call_at=LONG_AGO)
+    _claim(fleet, "parked-walker", 1)
+    acquire(fleet, make_qa_admission_target("lab-a"), "parked-walker")
+    _set_session(fleet, "parked-walker", mode="parked", quiet_reason="HUMAN_GATE")
+
+    holders = with_session_state(
+        claim_holders(fleet, project_id=PROJECT_ID, now=NOW),
+        now=NOW,
+        idle_after_seconds=20 * 60,
+    )
+
+    [holder] = holders
+    assert holder.session_state["custody"]["qa_hosts"] == ["lab-a"]
+    assert holder.session_state["intent"]["state"] == "parked"
+    assert quiet_holders(holders) == holders

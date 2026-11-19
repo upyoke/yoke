@@ -83,6 +83,32 @@ def held_qa_hosts(conn: Any, session_ids: Iterable[str]) -> dict[str, list[str]]
     return held
 
 
+def held_qa_hosts_sql(conn: Any, session_expr: str) -> str:
+    """A correlated subquery: the comma-joined hosts *session_expr* holds.
+
+    For reads pinned to one statement, such as the steering report's holders;
+    :func:`held_qa_hosts_csv` splits its value.
+    """
+    from yoke_core.domain.schema_connection import connection_is_postgres
+    from yoke_core.domain.schema_work_claim_sql import scope_text_sql
+
+    machine = scope_text_sql(conn, "wc.scope", "test_machine")
+    joined = (
+        f"string_agg({machine}, ',' ORDER BY {machine})"
+        if connection_is_postgres(conn)
+        else f"group_concat({machine}, ',')"
+    )
+    return (
+        f"(SELECT {joined} FROM work_claims wc WHERE {_HELD} "
+        f"AND wc.session_id={session_expr})"
+    )
+
+
+def held_qa_hosts_csv(value: Any) -> list[str]:
+    """The hosts a :func:`held_qa_hosts_sql` column names, in order."""
+    return sorted(part for part in str(value or "").split(",") if part)
+
+
 def _held_rows(conn: Any) -> list[dict[str, Any]]:
     operation = (
         "(SELECT MAX(r.performed_at) FROM test_machine_operation_receipts r "
@@ -253,6 +279,8 @@ __all__ = [
     "IDLE_HOLD_RESERVATION_REASON",
     "IDLE_HOLD_SETTING",
     "held_qa_hosts",
+    "held_qa_hosts_csv",
+    "held_qa_hosts_sql",
     "holder_away",
     "idle_hold_limit",
     "idle_since",
