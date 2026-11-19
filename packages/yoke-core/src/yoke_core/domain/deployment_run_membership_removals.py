@@ -99,10 +99,10 @@ def _predecessor_operator_removals(
         REOPENED_REASON,
         REPLACED_REASON,
     )
-    from yoke_core.domain.deployment_run_member_set_aside import SET_ASIDE_REASON
+    from yoke_core.domain.deployment_run_member_set_aside import SET_ASIDE_REASONS
 
     awaiting_later_release = {
-        SET_ASIDE_REASON,
+        *SET_ASIDE_REASONS,
         CORRECTION_RELEASE_REASON,
         REPLACED_REASON,
         REOPENED_REASON,

@@ -1,7 +1,10 @@
 """Atomically carry existing QA into a containing release on the same target.
 
 Only closed members retain their original delivery ownership. Unfinished
-members and their private/shared QA move, and run-level QA moves once.
+members and their private/shared QA move, and run-level QA moves once. An
+unfinished member whose hard-block blocker neither moves nor has shipped is
+set aside on the older run with its QA instead; the first release after the
+blocker ships enrolls it (:mod:`deployment_run_blocked_dependents`).
 Requirement and execution identities, state, custody and evidence survive.
 Selections, snapshots and plan pins re-derive from live state; only plans
 whose rows already ran keep their pin.
@@ -194,6 +197,12 @@ def _supersede(
         succeed_taken_over_run,
     )
     from yoke_core.domain.deployment_run_terminalization import terminalize_run_on
+    from yoke_core.domain.deployment_run_blocked_dependents import (
+        blocked_members,
+        set_aside_blocked_members,
+        takeover_shipping,
+    )
+    from yoke_core.domain.deployment_run_composition_freeze import member_ids
     from yoke_core.domain.deployment_runs_lock import lock_run_with_stable_membership
 
     new_run_id = str(new_run["id"])
@@ -207,6 +216,15 @@ def _supersede(
         if status != old["status"]:
             return False
     moving = _moving_members(conn, old)
+    # A member whose blocker neither moves nor has shipped would refuse this
+    # run's composition; it waits on the older run for a later release.
+    moving_ids = [int(member["item_id"]) for member in moving]
+    blocked = blocked_members(
+        conn,
+        moving_ids,
+        shipping=takeover_shipping(conn, moving_ids, member_ids(conn, new_run_id)),
+    )
+    moving = [member for member in moving if int(member["item_id"]) not in blocked]
     if apply:
         require_takeover_authority(conn, old_id, int(new_run["project_id"]), session_id)
         read = current_takeover_read(conn, read, new_run, old)
@@ -260,6 +278,15 @@ def _supersede(
             session_id=session_id,
             actor_id=actor_id,
             transferred_to_run_id=new_run_id,
+        )
+    if apply:
+        set_aside_blocked_members(
+            conn, old_id, blocked, session_id=session_id, actor_id=actor_id
+        )
+    else:
+        conn.execute(
+            "DELETE FROM deployment_run_items WHERE run_id=%s AND item_id=ANY(%s)",
+            (old_id, sorted(blocked)),
         )
     conn.execute(
         f"UPDATE deployment_runs SET {SUPERSEDED_BY_COLUMN}=%s WHERE id=%s",

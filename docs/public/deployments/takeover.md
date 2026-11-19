@@ -76,6 +76,11 @@ credits inherited attempts to their ancestor through `verdict_run_id`
 (`qa_verdict_owner_run`).
 
 Members the older run already closed stay with it and keep their history.
+A member whose hard-block blocker neither moves, enrolls in the newer run as
+carried work, nor has shipped does not move: it is set aside on the older run
+with its QA, the newer run's notice names it and its blocker, and the first
+release after the blocker ships enrolls it
+([run composition](model/run-composition.md)).
 Creation also pins bound sources before transfer (uncarried projects refuse)
 and enrolls newly carried work. A takeover honors pre-start parks until the
 item lands again or an operator adds it back. An item removed at QA can

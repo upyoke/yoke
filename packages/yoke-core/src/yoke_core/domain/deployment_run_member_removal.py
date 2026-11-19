@@ -166,6 +166,26 @@ def remove_member_on(
     )[int(item_id)]
 
 
+def stranded_dependents_notice(conn: Any, run_id: str, item_id: int, ref: str) -> str:
+    """Name the members still here whose hard-block blocker this removal took."""
+    from yoke_core.domain.deployment_run_blocked_dependents import (
+        dependents_stranded_by,
+        describe_blocked,
+    )
+    from yoke_core.domain.deployment_run_composition_freeze import member_ids
+
+    stranded = dependents_stranded_by(conn, (item_id,), member_ids(conn, run_id))
+    if not stranded:
+        return ""
+    return (
+        f" Members still in this run depend on {ref} and now wait on a blocker "
+        f"it does not ship: {describe_blocked(conn, stranded)}. A release that "
+        "takes this run over leaves them for the first release after the "
+        "blocker ships; to stop delivering one here now, run "
+        f'`yoke deployment-runs remove-item {run_id} <dependent> --reason "<why>"`.'
+    )
+
+
 @composition_operation
 def cmd_remove_item(
     run_id: str,
@@ -209,6 +229,7 @@ def cmd_remove_item(
                 actor_id=actor_id,
             )
             conn.commit()
+        stranded = stranded_dependents_notice(conn, run_id, int(item_id), ref)
         recovery = (
             f"To undo now, run `yoke deployment-runs add-item {run_id} {ref}` "
             "while this run is still created."
@@ -254,6 +275,7 @@ def cmd_remove_item(
             )
         return (
             f"Removed {ref} from run {run_id} ({reason}). {REMOVAL_EFFECT} {recovery}"
+            + stranded
         )
     finally:
         conn.close()

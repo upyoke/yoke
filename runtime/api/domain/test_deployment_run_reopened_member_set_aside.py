@@ -252,3 +252,28 @@ def test_failed_run_start_uses_the_reopened_member_rule(
     test_db.commit()  # The basis set-aside belongs to its caller transaction.
     assert cmd_update(RUN, "status", "executing", candidate_containment=attestation) is None
     assert _members(test_db) == expected_members
+
+
+@RESUMES
+def test_resume_sets_aside_the_dependents_of_a_reopened_blocker(
+    test_db, tmp_path, monkeypatch, resume
+):
+    from runtime.api.domain.structural_status_gate_test_helpers import (
+        insert_dependency,
+    )
+    from yoke_core.domain.deployment_run_blocked_dependents import (
+        BLOCKED_SET_ASIDE_REASON,
+    )
+
+    _frozen_run_with_reopened_member(
+        test_db, tmp_path, monkeypatch, reopened_sha="correction", settled=True
+    )
+    insert_dependency(test_db, SIBLING, REOPENED, "activation", "status:done")
+
+    ok, message = resume(test_db)
+
+    assert ok, message
+    assert _members(test_db) == set()
+    reasons = {int(r["item_id"]): r["reason"] for r in membership_removals(test_db, RUN)}
+    assert reasons[SIBLING] == BLOCKED_SET_ASIDE_REASON
+    assert "awaiting enrollment in a later release" in reasons[REOPENED]
