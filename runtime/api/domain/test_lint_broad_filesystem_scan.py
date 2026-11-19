@@ -14,7 +14,11 @@ from unittest import mock
 
 import pytest
 
-from yoke_contracts.hook_runner.broad_filesystem_scan import CHECK_ID
+from yoke_contracts.hook_runner.bash_paths import client_path_scope
+from yoke_contracts.hook_runner.broad_filesystem_scan import (
+    CHECK_ID,
+    find_broad_scan,
+)
 from yoke_contracts.hook_runner.hook_guard_catalog import GUARD_CATALOG
 from yoke_contracts.hook_runner.shell_parse import parse_shell
 from yoke_core.api.routes.hooks_denial_audit import (
@@ -67,6 +71,37 @@ ALLOWED = [
     "find /Users/someone/project -name x",
     "echo 'find / -name x'",
     "grep needle /etc/hosts",
+]
+
+
+WINDOWS_HOME = "C:\\Users\\me"
+WINDOWS_REPO = "C:\\Users\\me\\repo"
+# Git Bash maps `/` to its install directory and `/c` to the drive; the
+# second fact set has no mount table, so `/` and `/c` cannot resolve at all.
+WINDOWS_FACTS = [
+    {
+        "windows": True,
+        "home": WINDOWS_HOME,
+        "mount_paths": {"/": "C:\\Program Files\\Git", "/c": "C:\\"},
+    },
+    {"windows": True, "home": WINDOWS_HOME},
+]
+WINDOWS_REFUSED = [
+    "find / -name x",
+    "find /Users -name x",
+    "find /c -name x",
+    "find /c/ -name x",
+    "find /D -name x",
+    "find /c/Users -name x",
+    "find C:/ -name x",
+    "find C:/Users -name x",
+    "bash -c 'find /c -name x'",
+]
+WINDOWS_ALLOWED = [
+    "find /c/Users/me/repo -name x",
+    "find C:/Users/me/repo -name x",
+    "find . -name x",
+    "fd x",
 ]
 
 
@@ -139,6 +174,35 @@ def test_engine_and_client_decide_identically(command) -> None:
     assert (core.outcome is Outcome.DENY) == (client.outcome == DENY)
     if client.outcome == DENY:
         assert client.message == core.message
+
+
+@pytest.mark.parametrize("facts", WINDOWS_FACTS)
+@pytest.mark.parametrize("cwd", [WINDOWS_REPO, None])
+@pytest.mark.parametrize("command", WINDOWS_REFUSED)
+def test_git_bash_whole_disk_roots_are_refused_before_mount_mapping(
+    command, cwd, facts
+) -> None:
+    with client_path_scope(facts):
+        scan = find_broad_scan(command, cwd=cwd, home=WINDOWS_HOME)
+    assert scan is not None and scan.tool == "find"
+
+
+@pytest.mark.parametrize("command", WINDOWS_ALLOWED)
+def test_git_bash_repo_scoped_searches_are_allowed(command) -> None:
+    with client_path_scope(WINDOWS_FACTS[0]):
+        assert find_broad_scan(command, cwd=WINDOWS_REPO, home=WINDOWS_HOME) is None
+
+
+@pytest.mark.parametrize("cwd", ["C:\\", "C:\\Users"])
+def test_git_bash_implicit_cwd_at_a_drive_root_is_refused(cwd) -> None:
+    with client_path_scope(WINDOWS_FACTS[0]):
+        assert find_broad_scan("find -name x", cwd=cwd, home=WINDOWS_HOME)
+
+
+def test_drive_mounts_stay_scoped_on_posix_clients() -> None:
+    with client_path_scope({"windows": False, "home": "/Users/me"}):
+        assert find_broad_scan("find /c -name x", cwd="/repo", home="/Users/me") is None
+        assert find_broad_scan("find / -name x", cwd="/repo", home="/Users/me")
 
 
 def test_guard_is_registered_deny_by_default_and_unprotected() -> None:

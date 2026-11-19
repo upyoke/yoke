@@ -12,11 +12,13 @@ Home roots (``~``, ``$HOME``) stay advisory under ``lint_local_privacy``.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import os
 import re
 from typing import Sequence
 
 from yoke_contracts.hook_runner.bash_paths import (
     BashPathResolutionError,
+    client_path_facts,
     is_absolute,
     resolve_bash_path,
 )
@@ -39,6 +41,10 @@ _INDEX_SEARCHERS = {
     "mdfind": "the whole Spotlight index",
 }
 _GLOB = re.compile(r"[*?\[]")
+# Git Bash drive mounts (``/c``, ``/d/Users``) as written, and native Windows
+# drive roots and their ``Users`` trees once resolved (``C:``, ``C:/Users``).
+_DRIVE_MOUNT = re.compile(r"/[a-z](/users)?", re.IGNORECASE)
+_DRIVE_ROOT = re.compile(r"[a-z]:(/users)?", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -61,7 +67,7 @@ def _static_root(path: str) -> str:
 
 
 def _resolved(root: str, cwd: str, home: str) -> str | None:
-    anchored = root.startswith(("/", "~", "$HOME", "${HOME}"))
+    anchored = is_absolute(root) or root.startswith(("~", "$HOME", "${HOME}"))
     if not root or (not anchored and (root.startswith("$") or not cwd)):
         return None
     try:
@@ -90,13 +96,42 @@ def _onlyin_values(args: Sequence[str]) -> list[str]:
     ]
 
 
+def _collapsed(path: str) -> str:
+    value = re.sub(r"/+", "/", _static_root(path.replace("\\", "/")))
+    return value.rstrip("/") or "/"
+
+
+def _windows_client() -> bool:
+    facts = client_path_facts()
+    return bool(facts.get("windows")) if facts is not None else os.name == "nt"
+
+
+def _broad_scope(root: str, cwd: str, home: str) -> str | None:
+    """The whole-disk scope ``root`` walks, or ``None`` when it is scoped.
+
+    The root as written is checked before Git Bash maps ``/`` to its install
+    directory and ``/c`` to ``C:\\``, so mount mapping cannot hide a scan.
+    """
+    written = _collapsed(root) if root.startswith("/") else ""
+    if written in BROAD_ROOTS or (
+        _windows_client() and _DRIVE_MOUNT.fullmatch(written)
+    ):
+        return f"`{written}`"
+    resolved = _resolved(root, cwd, home)
+    if resolved is None:
+        return None
+    if resolved in BROAD_ROOTS or _DRIVE_ROOT.fullmatch(_collapsed(resolved)):
+        return f"`{resolved}`"
+    return None
+
+
 def _broad_root(
     tool: str, roots: Sequence[str], cwd: str, home: str
 ) -> BroadScan | None:
     for root in roots:
-        resolved = _resolved(root, cwd, home)
-        if resolved in BROAD_ROOTS:
-            return BroadScan(tool, root, f"`{resolved}`")
+        scope = _broad_scope(root, cwd, home)
+        if scope is not None:
+            return BroadScan(tool, root, scope)
     return None
 
 
