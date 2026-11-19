@@ -267,7 +267,7 @@ class TestExecuteCreate:
         assert result["success"] is True
         attribution = _session_attribution(tmp_db)
         assert attribution["current_item_id"] is None
-        assert attribution["recent_item_id"] == str(result["item_id"])
+        assert attribution["recent_item_id"] == result["item_id"]
 
     def test_create_while_claimed_records_recent_and_keeps_focus(self, tmp_db):  # noqa: F811
         """Filing an item never displaces the work a claim holds."""
@@ -298,7 +298,7 @@ class TestExecuteCreate:
         assert str(result["item_id"]) != "10"
         attribution = _session_attribution(tmp_db)
         assert attribution["current_item_id"] == 10
-        assert attribution["recent_item_id"] == str(result["item_id"])
+        assert attribution["recent_item_id"] == result["item_id"]
 
     def test_create_with_numeric_project_and_same_project_flow(self, tmp_db):  # noqa: F811
         """A numeric project id matches its own project's delivery flow."""

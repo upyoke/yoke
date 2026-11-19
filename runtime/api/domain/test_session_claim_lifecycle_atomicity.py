@@ -303,7 +303,7 @@ def test_end_failure_rolls_back_claim_release_focus_and_terminal_row(
         "SELECT released_at,release_reason FROM work_claims WHERE id=%s",
         (int(claim["id"]),),
     ).fetchone()
-    assert tuple(session) == (None, str(item_id))
+    assert tuple(session) == (None, item_id)
     assert tuple(stored_claim) == (None, None)
     assert emitted_events == []
 

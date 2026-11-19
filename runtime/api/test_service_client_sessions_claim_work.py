@@ -70,7 +70,7 @@ class TestClaimItem:
         assert row[0] == sid
         assert json.loads(row[1]) == {"item_id": 10}
         assert row[2] == "exclusive"
-        assert attribution[0] == "10"
+        assert attribution[0] == 10
 
     def test_claim_item_rejects_project_scoped_bare_sequence(self, session_test_db):
         """A project hint cannot authorize a bare sequence to acquire a claim."""

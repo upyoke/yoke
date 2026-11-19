@@ -295,6 +295,6 @@ def test_handoff_focus_failure_rolls_back_both_claim_sides(
     assert old_claim[0] is None
     assert int(target_claims) == 0
     assert [(row[0], row[1]) for row in focus_rows] == [
-        ("handoff-source-session", str(item_id)),
+        ("handoff-source-session", item_id),
         ("handoff-target-session", None),
     ]
