@@ -11,30 +11,60 @@ from yoke_core.domain.qa_plan_execution_store import marker, result_rows
 from yoke_core.domain.qa_run_verdict_record import update_qa_run
 
 
+# Restore receipts and blocker notes record a walk's setup, never its product proof.
+NON_PROOF_ARTIFACT_TYPES = ("diagnostic", "starting_state_restore")
+
+
 def mission_review_cases(
     conn: Any, cases: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
-    """Project frozen bundles without missions that settled before capturing proof."""
+    """Project live mission evidence over the frozen bundle.
+
+    Preparation freezes a mission case before its walker runs, so each read
+    re-reads the capture run's artifacts and degraded reason. A mission that
+    settled before capturing proof leaves the review entirely.
+    """
+    from yoke_core.domain.qa_review_evidence import capture_artifacts
+
     reviewable = []
     p = marker(conn)
     for case in cases:
-        stopped = None
         if (
-            case.get("capture_runner") == "agent_mission"
-            and case.get("capture_run_id") is not None
-            and case.get("requirement_id") is not None
+            case.get("capture_runner") != "agent_mission"
+            or case.get("capture_run_id") is None
+            or case.get("requirement_id") is None
         ):
-            stopped = query_one(
-                conn,
-                f"SELECT capture_degraded_reason FROM qa_runs WHERE id={p} AND qa_requirement_id={p} "
-                "AND performed_by='agent_mission' AND verdict='error' "
-                "AND case_outcome='blocked_on_precondition'",
-                (int(case["capture_run_id"]), int(case["requirement_id"])),
-            )
-        if stopped is None or not str(
-            stopped["capture_degraded_reason"] or ""
-        ).startswith("mission_setup_blocked:"):
             reviewable.append(case)
+            continue
+        run_id, requirement_id = int(case["capture_run_id"]), int(case["requirement_id"])
+        run = query_one(
+            conn,
+            "SELECT capture_degraded_reason,verdict,case_outcome FROM qa_runs "
+            f"WHERE id={p} AND qa_requirement_id={p} AND performed_by='agent_mission'",
+            (run_id, requirement_id),
+        )
+        if run is None:
+            reviewable.append(case)
+            continue
+        reason = run["capture_degraded_reason"]
+        if (
+            run["verdict"] == "error"
+            and run["case_outcome"] == "blocked_on_precondition"
+            and str(reason or "").startswith("mission_setup_blocked:")
+        ):
+            continue
+        artifacts = capture_artifacts(conn, requirement_id=requirement_id, run_id=run_id)
+        proven = any(
+            artifact["artifact_type"] not in NON_PROOF_ARTIFACT_TYPES
+            for artifact in artifacts
+        )
+        reviewable.append(
+            {
+                **case,
+                "artifacts": artifacts,
+                "capture_degraded_reason": None if proven else reason,
+            }
+        )
     return reviewable
 
 
@@ -69,9 +99,8 @@ def settle_stopped_mission_dockets(
         proof = query_one(
             conn,
             f"SELECT id FROM qa_artifacts WHERE qa_run_id={p} "
-            "AND artifact_type NOT IN ('diagnostic','starting_state_restore') "
-            "LIMIT 1",
-            (int(run_id),),
+            f"AND artifact_type NOT IN ({p},{p}) LIMIT 1",
+            (int(run_id), *NON_PROOF_ARTIFACT_TYPES),
         )
         if proof is not None:
             continue
