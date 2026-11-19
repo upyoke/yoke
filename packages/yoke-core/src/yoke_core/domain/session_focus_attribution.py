@@ -29,7 +29,7 @@ from typing import Any, Dict, Iterable, Mapping, Optional
 def focus_attribution(
     session_id: str,
     current_item_display: Optional[str],
-    current_item_id: Any,
+    current_item_id: Optional[int],
     *,
     claims: Iterable[Mapping[str, Any]],
     roles: Iterable[Mapping[str, Any]],
@@ -53,8 +53,7 @@ def focus_attribution(
         and claim.get("target") == current_item_display
     ]
     owns_current_item = bool(item_claims)
-    item_num = int(current_item_id) if current_item_id is not None else None
-    held_roles = [claim for claim in roles if claim.get("item_id") == item_num]
+    held_roles = [claim for claim in roles if claim.get("item_id") == current_item_id]
     task_roles = [
         claim.get("lane_role")
         for claim in held_roles
@@ -73,7 +72,7 @@ def focus_attribution(
     work_role = next(iter(task_roles or item_roles), None)
     if not work_role and owns_current_item:
         work_role = "item"
-    holder = item_holders.get(item_num) if item_num is not None else None
+    holder = item_holders.get(current_item_id) if current_item_id is not None else None
     return {
         "work_role": work_role,
         "owns_current_item": owns_current_item,

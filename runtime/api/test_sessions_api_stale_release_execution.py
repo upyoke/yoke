@@ -46,7 +46,7 @@ class TestReleaseItemClaimForExecution:
         row = conn.execute(
             "SELECT current_item_id FROM harness_sessions WHERE session_id='exec-sess'",
         ).fetchone()
-        assert row["current_item_id"] == "500"
+        assert row["current_item_id"] == 500
 
         result = release_item_claim_for_execution(
             conn,
@@ -125,7 +125,7 @@ class TestReleaseItemClaimForExecution:
         row = conn.execute(
             "SELECT current_item_id FROM harness_sessions WHERE session_id='active-status-sess'",
         ).fetchone()
-        assert row["current_item_id"] == "530"
+        assert row["current_item_id"] == 530
         claim_row = conn.execute(
             "SELECT released_at FROM work_claims "
             "WHERE session_id='active-status-sess' AND target_kind='item' AND scope=%s",
@@ -204,7 +204,7 @@ class TestReleaseItemClaimForExecution:
         row = conn.execute(
             "SELECT current_item_id FROM harness_sessions WHERE session_id='multi-sess'",
         ).fetchone()
-        assert row["current_item_id"] == "800"
+        assert row["current_item_id"] == 800
 
     def test_generic_attribution_helpers_are_not_claim_owning(self, conn):
         """Set_current_item / clear_current_item MUST stay attribution-only."""

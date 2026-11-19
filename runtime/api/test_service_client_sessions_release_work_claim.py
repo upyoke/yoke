@@ -321,4 +321,4 @@ class TestReleaseItemClaim:
         assert row is not None
         assert row[0] is None
         assert session_row is not None
-        assert session_row[0] == "99"
+        assert session_row[0] == 99

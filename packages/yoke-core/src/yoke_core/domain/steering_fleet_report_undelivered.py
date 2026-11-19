@@ -178,8 +178,7 @@ def report_receipts(
               FROM session_message_recipients r
               JOIN session_messages m ON m.message_id = r.message_id
               JOIN harness_sessions s ON s.session_id = r.session_id
-              LEFT JOIN items i ON CAST(i.id AS TEXT) =
-                   COALESCE(NULLIF(s.current_item_id, ''), NULLIF(s.recent_item_id, ''))
+              LEFT JOIN items i ON i.id = COALESCE(s.current_item_id, s.recent_item_id)
                    AND i.project_id = r.project_id
               LEFT JOIN projects p ON p.id = i.project_id
              WHERE r.project_id = {placeholder}

@@ -177,7 +177,7 @@ class TestReleaseCascade:
         ).fetchone()
         assert row["current_item_id"] is None
         assert row["current_item_set_at"] is None
-        assert row["recent_item_id"] == "50002"
+        assert row["recent_item_id"] == 50002
 
     def test_item_release_leaves_unrelated_current_item_id_intact(self, conn):
         item_claim_id = _seed_item_work_claim(
@@ -198,4 +198,4 @@ class TestReleaseCascade:
             "SELECT current_item_id FROM harness_sessions WHERE session_id = %s",
             (SESS,),
         ).fetchone()
-        assert row["current_item_id"] == "99999"
+        assert row["current_item_id"] == 99999

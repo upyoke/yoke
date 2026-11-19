@@ -45,8 +45,8 @@ def test_item_focus_release_is_sorted_and_moves_matching_focus_to_recent(
         "ORDER BY session_id",
     ).fetchall()
     assert [tuple(row) for row in rows] == [
-        ("terminal-focus-a", None, "9811"),
-        ("terminal-focus-b", None, "9811"),
+        ("terminal-focus-a", None, 9811),
+        ("terminal-focus-b", None, 9811),
     ]
 
 
@@ -100,4 +100,4 @@ def test_item_focus_release_preserves_concurrent_new_focus(test_db) -> None:
         "FROM harness_sessions WHERE session_id=%s",
         (session_id,),
     ).fetchone()
-    assert tuple(row) == ("9822", "9821")
+    assert tuple(row) == (9822, 9821)

@@ -35,7 +35,7 @@ def insert_session(
     conn,
     session_id: str,
     *,
-    current_item_id: str | None = None,
+    current_item_id: int | None = None,
     ended_at: str | datetime | None = None,
 ) -> None:
     """Seed one harness session, optionally already ended.

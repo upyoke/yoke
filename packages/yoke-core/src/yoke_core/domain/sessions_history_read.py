@@ -185,8 +185,7 @@ def read_ended_session_history(
         "FROM harness_sessions s "
         "LEFT JOIN projects pr ON pr.id = s.project_id "
         "LEFT JOIN actors a ON a.id = s.actor_id "
-        "LEFT JOIN items fi ON CAST(fi.id AS TEXT) = "
-        "COALESCE(NULLIF(s.recent_item_id, ''), NULLIF(s.current_item_id, '')) "
+        "LEFT JOIN items fi ON fi.id = COALESCE(s.recent_item_id, s.current_item_id) "
         "LEFT JOIN projects fpr ON fpr.id = fi.project_id "
     )
     where = _where(clauses)

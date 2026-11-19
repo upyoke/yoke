@@ -21,7 +21,7 @@ _LIVE_DDL = (
     "CREATE TABLE item_worktrees(id INTEGER PRIMARY KEY,item_id INTEGER NOT NULL,"
     "branch TEXT NOT NULL,path TEXT,lane_role TEXT NOT NULL,state TEXT NOT NULL,"
     "created_at TIMESTAMPTZ,updated_at TIMESTAMPTZ,released_at TIMESTAMPTZ);"
-    "CREATE TABLE harness_sessions(session_id TEXT PRIMARY KEY,current_item_id TEXT);"
+    "CREATE TABLE harness_sessions(session_id TEXT PRIMARY KEY,current_item_id INTEGER);"
     "CREATE TABLE path_claims(id INTEGER PRIMARY KEY,integration_target TEXT,state TEXT,mode TEXT DEFAULT 'exclusive',owner_kind TEXT,owner_item_id INTEGER,owner_session_id TEXT,owner_work_claim_id INTEGER,registered_by_actor_id INTEGER,registered_by_session_id TEXT);"
     "CREATE TABLE path_targets(id INTEGER PRIMARY KEY AUTOINCREMENT,path_string TEXT UNIQUE,kind TEXT NOT NULL DEFAULT 'directory');"
     "CREATE TABLE path_claim_targets(id INTEGER PRIMARY KEY AUTOINCREMENT,claim_id INTEGER,target_id INTEGER);"

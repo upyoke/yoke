@@ -129,8 +129,8 @@ CREATE TABLE harness_sessions (
     terminated_at TIMESTAMPTZ, terminated_by_actor_id INTEGER,
     terminated_by_session_id TEXT, termination_reason TEXT,
     offer_envelope TEXT,
-    current_item_id TEXT, current_item_set_at TIMESTAMPTZ,
-    recent_item_id TEXT, recent_item_status TEXT, recent_item_recorded_at TIMESTAMPTZ
+    current_item_id INTEGER, current_item_set_at TIMESTAMPTZ,
+    recent_item_id INTEGER, recent_item_status TEXT, recent_item_recorded_at TIMESTAMPTZ
 );
 CREATE TABLE work_claims (
     id INTEGER PRIMARY KEY,

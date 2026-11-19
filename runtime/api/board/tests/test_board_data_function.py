@@ -237,7 +237,7 @@ class TestBoardDataOverHttpBoundary:
                     (
                         "CREATE TABLE IF NOT EXISTS harness_sessions ("
                         " session_id TEXT PRIMARY KEY, actor_id TEXT,"
-                        " current_item_id TEXT, recent_item_id TEXT,"
+                        " current_item_id INTEGER, recent_item_id INTEGER,"
                         " executor TEXT, executor_surface TEXT, model TEXT,"
                         " reasoning_effort TEXT, context_window_tokens INTEGER,"
                         " requested_model TEXT, requested_reasoning_effort TEXT,"

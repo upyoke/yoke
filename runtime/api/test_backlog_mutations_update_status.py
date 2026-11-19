@@ -89,8 +89,8 @@ class TestExecuteUpdate:
         assert result["success"] is True
         attribution = _session_attribution(tmp_db)
         # Focus belongs to the claim lifecycle; a status write never moves it.
-        assert attribution["current_item_id"] == "8"
-        assert attribution["recent_item_id"] == "10"
+        assert attribution["current_item_id"] == 8
+        assert attribution["recent_item_id"] == 10
 
     def test_status_update_denied_without_session_id(self, tmp_db):
         _seed_item(tmp_db, id=10, status="idea")

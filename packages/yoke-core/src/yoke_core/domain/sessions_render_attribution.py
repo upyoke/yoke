@@ -59,6 +59,23 @@ def focus_fallback_item_id(
     return normalize_claim_item_id(str(row["item_id"]))
 
 
+def session_item_number(item_id: Any) -> int:
+    """Return the ``items.id`` a session focus column stores.
+
+    ``current_item_id`` and ``recent_item_id`` are INTEGER columns. A
+    non-numeric id refuses here, before any statement runs, so the
+    caller's transaction stays usable.
+    """
+    text = normalize_session_item_id(item_id)
+    if not text.isdigit():
+        raise SessionError(
+            "INVALID_ITEM_ID",
+            f"Session item id {item_id!r} is not an items.id; pass the "
+            "numeric id of the item (resolve a PREFIX-N ref first).",
+        )
+    return int(text)
+
+
 def record_recent_item(
     conn: Any,
     session_id: str,
@@ -72,7 +89,7 @@ def record_recent_item(
     session whose focus belongs to claimed work. Silently no-ops if the
     session is ended.
     """
-    item_id = normalize_session_item_id(item_id)
+    item_num = session_item_number(item_id)
     row = conn.execute(
         "SELECT ended_at FROM harness_sessions WHERE session_id = %s",
         (session_id,),
@@ -86,7 +103,7 @@ def record_recent_item(
         "recent_item_id = %s, recent_item_status = NULL, "
         "recent_item_recorded_at = %s "
         "WHERE session_id = %s",
-        (item_id, instant_parameter(conn, utc_now()), session_id),
+        (item_num, instant_parameter(conn, utc_now()), session_id),
     )
     if commit:
         conn.commit()
@@ -109,12 +126,12 @@ def set_current_item(
     Args:
         conn: DB connection.
         session_id: Session to update.
-        item_id: Item identifier (stored bare numeric when possible).
+        item_id: Item id (``items.id``); a non-numeric id refuses before SQL.
         item_status: Optional status to record in ``recent_item_status``
             when the current item becomes the recent item.
     """
     now = utc_now()
-    item_id = normalize_session_item_id(item_id)
+    item_num = session_item_number(item_id)
     row = conn.execute(
         "SELECT ended_at, current_item_id, current_item_set_at "
         "FROM harness_sessions WHERE session_id = %s",
@@ -146,7 +163,7 @@ def set_current_item(
         "UPDATE harness_sessions SET "
         "current_item_id = %s, current_item_set_at = %s "
         "WHERE session_id = %s",
-        (item_id, instant_parameter(conn, now), session_id),
+        (item_num, instant_parameter(conn, now), session_id),
     )
     if commit:
         conn.commit()

@@ -44,8 +44,8 @@ def _seed_refs(connection) -> None:
         """
         CREATE TABLE harness_sessions (
             session_id TEXT PRIMARY KEY,
-            current_item_id TEXT,
-            recent_item_id TEXT
+            current_item_id INTEGER,
+            recent_item_id INTEGER
         )
         """
     )

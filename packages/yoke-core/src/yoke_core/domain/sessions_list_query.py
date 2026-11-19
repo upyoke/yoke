@@ -57,7 +57,7 @@ _JOINS = (
     "FROM harness_sessions s "
     "LEFT JOIN projects pr ON pr.id = s.project_id "
     "LEFT JOIN actors a ON a.id = s.actor_id "
-    "LEFT JOIN items i ON CAST(i.id AS TEXT) = CAST(s.current_item_id AS TEXT)"
+    "LEFT JOIN items i ON i.id = s.current_item_id"
 )
 
 

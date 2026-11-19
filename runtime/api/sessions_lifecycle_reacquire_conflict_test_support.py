@@ -55,9 +55,9 @@ CREATE TABLE IF NOT EXISTS harness_sessions (
     tool_call_count INTEGER NOT NULL DEFAULT 0,
     episode_started_at TIMESTAMPTZ,
     pending_resume_notice TEXT,
-    current_item_id TEXT,
+    current_item_id INTEGER,
     current_item_set_at TIMESTAMPTZ,
-    recent_item_id TEXT,
+    recent_item_id INTEGER,
     recent_item_status TEXT,
     recent_item_recorded_at TIMESTAMPTZ
 );

@@ -209,13 +209,13 @@ def test_a_reply_before_the_question_does_not_clear_the_wait(test_db):
     assert waits[0].reason == "answerer session has ended"
 
 
-def test_a_malformed_current_item_id_is_unresolved_not_terminal(test_db):
+def test_an_answerer_with_no_current_item_is_unresolved_not_terminal(test_db):
     seed_session(test_db, ASKER, last_tool_call_at=BEFORE_THAT)
     seed_session(
         test_db,
         ANSWERER,
         last_tool_call_at=BEFORE_THAT,
-        current_item_id="not-an-id",
+        current_item_id=None,
     )
     _send(test_db, "msg-1", sender=ASKER, to=ANSWERER, at=LONG_AGO)
     test_db.commit()
