@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from yoke_contracts.timestamps import parse_instant, utc_now
-from typing import Any, Optional
+from typing import Any, Mapping, Optional
 
 from . import db_backend
 from .schema_common import _get_columns as _schema_get_columns
@@ -95,6 +95,19 @@ def open_tool_call_is_live(
 
 
 
+def tool_activity_stamp(row: Mapping[str, Any]) -> datetime | None:
+    """The newest tool call by the session or any subagent it runs.
+
+    ``last_tool_call_at`` moves only on the parent's own calls, because
+    delivery asks when the parent last ran a hook. Liveness and reclaim ask
+    whether the session is doing work, and a parent waiting on a working
+    subagent is: its child calls stamp ``last_child_tool_call_at``.
+    """
+    return newest_activity_stamp(
+        row.get("last_tool_call_at"), row.get("last_child_tool_call_at")
+    )
+
+
 def session_turn_is_running(turn_posture: Optional[str]) -> bool:
     """Read native turn phase without making a liveness decision."""
     return turn_posture == "running"
@@ -109,4 +122,5 @@ __all__ = [
     "open_tool_call_started_at",
     "parse_stamp",
     "session_turn_is_running",
+    "tool_activity_stamp",
 ]

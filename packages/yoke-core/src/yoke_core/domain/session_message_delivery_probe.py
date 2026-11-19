@@ -14,7 +14,10 @@ table an operator already reads to follow a message, carrying the reason and
 the event that declined. Its identifier is derived from the receipt, the
 session, the event, and the reason, so a chatty event class records the fact
 once and every later invocation folds into that row instead of growing one
-per hook.
+per hook. Folding keeps ``started_at`` at the first decline and advances
+``completed_at`` to the latest, so a receipt held for an hour behind a
+subagent shows the hold still being re-declined rather than a row frozen at
+its first minute.
 """
 
 from __future__ import annotations
@@ -143,7 +146,11 @@ def record_undelivered_receipts(
                 "(attempt_id,message_id,target_session_id,attempt_kind,"
                 "adapter_revision,started_at,completed_at,result_code,evidence) "
                 f"VALUES ({','.join(marker for _ in range(9))}) "
-                "ON CONFLICT(attempt_id) DO NOTHING",
+                "ON CONFLICT(attempt_id) DO UPDATE SET "
+                "completed_at=CASE WHEN session_message_attempts.completed_at IS NULL "
+                "OR session_message_attempts.completed_at<excluded.completed_at "
+                "THEN excluded.completed_at "
+                "ELSE session_message_attempts.completed_at END",
                 (
                     probe_attempt_id(
                         message_id=message_id,

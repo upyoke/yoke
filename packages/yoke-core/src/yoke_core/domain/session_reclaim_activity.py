@@ -16,6 +16,7 @@ from .session_reclaim_progress import (
     current_episode_progress_stamp,
     live_activity_stamp,
     newest_activity_stamp,
+    tool_activity_stamp,
     parse_stamp,
 )
 
@@ -117,12 +118,12 @@ def read_activity_signals(
             row.get("executor"), base_ttl_minutes=base_ttl_minutes, overrides=overrides
         ),
         last_heartbeat=parse_stamp(row.get("last_heartbeat")),
-        last_event_at=parse_stamp(row.get("last_tool_call_at")),
+        last_event_at=tool_activity_stamp(row),
         claim_last_heartbeat=claim_heartbeat,
         claim_claimed_at=claimed_at,
         episode_started_at=parse_stamp(row.get("episode_started_at")),
         activity_at=newest_activity_stamp(
-            row.get("last_heartbeat"), row.get("last_tool_call_at"),
+            row.get("last_heartbeat"), tool_activity_stamp(row),
             claim_heartbeat, claimed_at,
         ),
         ended_at=parse_stamp(row.get("ended_at") or row.get("terminated_at")),

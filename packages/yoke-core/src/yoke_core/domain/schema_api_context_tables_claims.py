@@ -69,6 +69,7 @@ CLAIMS_TABLES: dict[str, dict] = {
             ("terminated_by_session_id", "TEXT"),
             ("termination_reason", "TEXT"),
             ("last_tool_call_at", "TIMESTAMPTZ"),
+            ("last_child_tool_call_at", "TIMESTAMPTZ"),
             ("tool_call_count", "INTEGER"),
             ("episode_started_at", "TIMESTAMPTZ"),
             ("native_process_gone_at", "TIMESTAMPTZ"),
@@ -147,6 +148,7 @@ CLAIMS_TABLES: dict[str, dict] = {
             ("outcome", "TEXT"),
             ("command_summary", "TEXT"),
             ("monitor_deadline_at", "TIMESTAMPTZ"),
+            ("agent_type", "TEXT"),
         ],
         "notes": (
             "Rolling per-tool-call state (seven days after completed_at via "
@@ -171,6 +173,8 @@ CLAIMS_TABLES: dict[str, dict] = {
             "session's own harness arms it with "
             "(session_tool_call_projections.last_completed_tool_select "
             "projects the name; that module names the tool). "
+            agent_type names the subagent that made a child call (NULL for the parent's own); "
+            "session_tool_call_projections reads open calls from parent rows only. "
             "Closing a row is idempotent: the activity bump and the "
             "completed-work markers fire only on the transition, so a "
             "replayed observation converges. monitor_deadline_at is the effective "

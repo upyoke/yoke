@@ -90,6 +90,7 @@ def create_session_tables(conn: Any) -> None:
           recent_item_status TEXT DEFAULT NULL,
           recent_item_recorded_at TIMESTAMPTZ DEFAULT NULL,
           last_tool_call_at TIMESTAMPTZ DEFAULT NULL,
+          last_child_tool_call_at TIMESTAMPTZ DEFAULT NULL,
           tool_call_count INTEGER NOT NULL DEFAULT 0,
           episode_started_at TIMESTAMPTZ DEFAULT NULL,
           {NATIVE_PROCESS_GONE_AT_COLUMN} {NATIVE_PROCESS_INSTANT_COLUMN_DDL},
@@ -118,7 +119,8 @@ def create_session_tables(conn: Any) -> None:
           completed_at TIMESTAMPTZ,
           outcome TEXT,
           command_summary TEXT,
-          monitor_deadline_at TIMESTAMPTZ
+          monitor_deadline_at TIMESTAMPTZ,
+          agent_type TEXT
         );
         CREATE UNIQUE INDEX IF NOT EXISTS idx_session_tool_calls_dedup
           ON session_tool_calls(session_id, tool_use_id);
@@ -158,6 +160,7 @@ def create_session_tables(conn: Any) -> None:
     _add_column_if_not_exists(
         conn, "session_tool_calls", "monitor_deadline_at", "TIMESTAMPTZ"
     )
+    _add_column_if_not_exists(conn, "session_tool_calls", "agent_type", "TEXT")
     _add_column_if_not_exists(
         conn, "harness_sessions", "org_id", "INTEGER REFERENCES organizations(id)"
     )

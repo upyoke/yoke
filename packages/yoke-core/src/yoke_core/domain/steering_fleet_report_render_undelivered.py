@@ -32,6 +32,7 @@ from yoke_core.domain.steering_fleet_report_delivery_states import (
     ATTEMPT_FAILED,
     ATTEMPT_IN_FLIGHT,
     AWAITING_ATTEMPT,
+    HELD_BEHIND_SUBAGENT,
     IN_DELIVERY_STATES,
     NEVER_ATTEMPTED,
     RECIPIENT_ENDED,
@@ -103,6 +104,8 @@ def _state_phrase(entry: UndeliveredMessages) -> str:
         )
     if entry.delivery_state == ATTEMPT_FAILED:
         return f"never injected, last attempt failed ({entry.diagnostic})"
+    if entry.delivery_state == HELD_BEHIND_SUBAGENT:
+        return _held_behind_subagent(entry)
     if entry.delivery_state == WAKE_HELD_FOR_NATIVE_TURN and entry.held_turn_ended_at:
         return _held_after_turn(entry)
     if entry.delivery_state == WAKE_HELD_FOR_NATIVE_TURN:
@@ -174,6 +177,30 @@ def _wake_suffix(entry: UndeliveredMessages) -> str:
             "only when that wake reports the transcript gone"
         )
     return ""
+
+
+def _stamp(value: object) -> str:
+    return format_instant(value) if value is not None else "unknown"
+
+
+def _held_behind_subagent(entry: UndeliveredMessages) -> str:
+    """Only a subagent's hooks are running; the parent's own next hook delivers.
+
+    Both clocks are named because they answer different questions: how long
+    the parent has run no hook of its own, and how long the subagent that
+    holds the session has been working.
+    """
+    agent = entry.held_subagent_type or "unknown"
+    declined = (
+        f", last subagent decline {_stamp(entry.held_declined_at)}"
+        if entry.held_declined_at is not None
+        else ""
+    )
+    return (
+        f"held — parent idle since {_stamp(entry.parent_idle_since)}, subagent "
+        f"{agent} running since {_stamp(entry.held_subagent_since)}{declined}, "
+        "delivers on the parent's next hook"
+    )
 
 
 def _held_after_turn(entry: UndeliveredMessages) -> str:

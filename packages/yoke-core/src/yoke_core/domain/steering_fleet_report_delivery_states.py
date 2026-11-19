@@ -1,4 +1,4 @@
-"""Which of nine reasons an envelope has not been read yet.
+"""Which of ten reasons an envelope has not been read yet.
 
 A message that has not landed is one symptom with unrelated causes, and the
 responses to them are opposite. A plane that never tried needs a wake. An
@@ -32,10 +32,14 @@ from datetime import timedelta
 from typing import Any, Mapping
 
 from yoke_contracts.session_control.wake_delivery import (
+    HOOK_SUBAGENT_EXIT_RESULT,
     WAKE_DEFERRED_RESULTS,
     delivery_attempt_failed,
 )
-from yoke_core.domain.session_tool_call_projections import OPEN_TOOL_CALL_COLUMN
+from yoke_core.domain.session_tool_call_projections import (
+    OPEN_CHILD_CALL_COLUMN,
+    OPEN_TOOL_CALL_COLUMN,
+)
 from yoke_core.domain.session_message_starvation import hook_route_silent_since
 from yoke_core.domain.session_state import session_in_flight
 from yoke_core.domain.session_message_ended_recipient import (
@@ -65,6 +69,13 @@ RECIPIENT_TERMINATED = "recipient_terminated"
 #: conversation. Nothing broke, and nothing is progressing either -- which
 #: is why it cannot borrow the words of the two states it sits between.
 WAKE_HELD_FOR_NATIVE_TURN = "wake_held_for_native_turn"
+#: Every hook running for this session is a subagent's, and a subagent may
+#: not read its parent's inbox. The parent is idle -- typically it started a
+#: background agent and ended its turn -- so the envelope lands on the
+#: parent's own next hook. Read as a turn or attempt in flight, one session
+#: held two steering messages for over an hour behind a line saying both
+#: were moments away.
+HELD_BEHIND_SUBAGENT = "held_behind_subagent"
 
 #: The states that are a delivery the seat has to do something about. Every
 #: other state is either still progressing or beyond anyone's reach, and
@@ -94,6 +105,7 @@ DELIVERY_STATES = (
     ATTEMPT_FAILED,
     NEVER_ATTEMPTED,
     WAKE_HELD_FOR_NATIVE_TURN,
+    HELD_BEHIND_SUBAGENT,
     RECIPIENT_TERMINATED,
     RECIPIENT_ENDED,
     ATTEMPT_IN_FLIGHT,
@@ -157,6 +169,20 @@ def _attempt_owed(
     return owed_at + sla <= current
 
 
+def held_behind_subagent(record: Mapping[str, Any], *, hook_result_code: str) -> bool:
+    """True when only a subagent's hooks are running for this recipient.
+
+    Either the latest hook to see the receipt was a subagent's and declined
+    it, or the only open call is a child's while the parent has none.
+    """
+    if hook_result_code == HOOK_SUBAGENT_EXIT_RESULT:
+        return True
+    return (
+        record.get(OPEN_CHILD_CALL_COLUMN) is not None
+        and record.get(OPEN_TOOL_CALL_COLUMN) is None
+    )
+
+
 def delivery_state(
     record: Mapping[str, Any],
     *,
@@ -167,6 +193,7 @@ def delivery_state(
     current: datetime,
     failed_count: int = 0,
     attempt_evidence: Mapping[str, Any] | None = None,
+    hook_result_code: str = "",
 ) -> str:
     """Classify one undelivered receipt into exactly one delivery state.
 
@@ -174,7 +201,9 @@ def delivery_state(
     Repeated failed attempts are next: an open tool call used to hide a
     hundred expired hook leases as a wait for a hook that had already
     fired. One failure a live turn has since overtaken still yields to
-    that turn; two or more are the finding even mid-call.
+    that turn; two or more are the finding even mid-call. A receipt held
+    behind a subagent is decided before the parent's own turn, because the
+    subagent's hooks are the ones that declined it.
     """
     if record.get("terminated_at") is not None:
         return RECIPIENT_TERMINATED
@@ -182,6 +211,8 @@ def delivery_state(
         return RECIPIENT_ENDED
     if failed_count >= REPEATED_FAILURE_COUNT:
         return ATTEMPT_FAILED
+    if held_behind_subagent(record, hook_result_code=hook_result_code):
+        return HELD_BEHIND_SUBAGENT
     if session_in_flight(
         {**record, "open_tool_call_at": record.get(OPEN_TOOL_CALL_COLUMN)}, now=current
     ):
@@ -206,6 +237,7 @@ __all__ = [
     "ATTEMPT_IN_FLIGHT",
     "AWAITING_ATTEMPT",
     "DELIVERY_STATES",
+    "HELD_BEHIND_SUBAGENT",
     "IN_DELIVERY_STATES",
     "NEVER_ATTEMPTED",
     "RECIPIENT_ENDED",
@@ -216,5 +248,6 @@ __all__ = [
     "WAKE_HELD_FOR_NATIVE_TURN",
     "WAKE_DRAINING",
     "delivery_state",
+    "held_behind_subagent",
     "deliverable_receipt",
 ]

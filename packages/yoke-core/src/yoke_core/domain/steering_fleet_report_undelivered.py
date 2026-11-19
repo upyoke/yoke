@@ -26,6 +26,7 @@ from yoke_core.domain.session_message_ended_recipient import (
 )
 from yoke_core.domain.session_message_visibility import visible_clause
 from yoke_core.domain.session_tool_call_projections import (
+    child_activity_select,
     latest_tool_call_select,
     open_tool_call_select,
 )
@@ -43,6 +44,7 @@ from yoke_core.domain.steering_fleet_report_queued_wake import (
 )
 from yoke_core.domain.steering_fleet_report_delivery_states import (
     ATTEMPT_FAILED,
+    HELD_BEHIND_SUBAGENT,
     WAKE_HELD_FOR_NATIVE_TURN,
     DELIVERY_STATES,
     IN_DELIVERY_STATES,
@@ -96,6 +98,12 @@ class UndeliveredMessages:
     held_turn_ended_at: datetime | None = None
     held_background_child: tuple[int, str] | None = None
     held_background_count: int = 0
+    #: For ``HELD_BEHIND_SUBAGENT``: the parent's own last hook, the agent
+    #: running since then and its first call, and the newest decline.
+    parent_idle_since: datetime | None = None
+    held_subagent_type: str = ""
+    held_subagent_since: datetime | None = None
+    held_declined_at: datetime | None = None
     #: Positions in the actively draining machine queue, in claim order.
     wake_queue_positions: tuple[tuple[str, int], ...] = ()
     #: True when an explicit wake was requested for this recipient, the
@@ -144,6 +152,7 @@ def report_receipts(
         )
     open_call = open_tool_call_select(conn, session_alias="s")
     latest_call = latest_tool_call_select(conn, session_alias="s")
+    latest_call += child_activity_select(conn, session_alias="s")
     rows = conn.execute(
         f"""SELECT r.message_id AS message_id,
                    r.session_id AS session_id, r.machine_id AS machine_id,
@@ -252,6 +261,7 @@ def undelivered_messages(
             current=current,
             failed_count=failed_count,
             attempt_evidence=evidence,
+            hook_result_code=view.hook_result_code if view else "",
         )
         group = groups.setdefault((session_id, state), MessageGroup())
         group.absorb(
@@ -269,6 +279,8 @@ def undelivered_messages(
                 result_code = view.last_failed_code
                 evidence = view.last_failed_evidence
             group.name_the_failure(result_code=result_code, evidence=evidence)
+        elif state == HELD_BEHIND_SUBAGENT:
+            group.note_held_subagent(record, declined_at=view.hook_recorded_at if view else None)
         elif state == WAKE_HELD_FOR_NATIVE_TURN:
             group.note_held_native(
                 record,
@@ -297,6 +309,10 @@ def undelivered_messages(
             held_background_count=group.held_background_count,
             evidence_id=group.evidence_id,
             turn_in_flight_since=group.turn_in_flight_since,
+            parent_idle_since=group.parent_idle_since,
+            held_subagent_type=group.held_subagent_type,
+            held_subagent_since=group.held_subagent_since,
+            held_declined_at=group.held_declined_at,
             recipient_gone_at=group.recipient_gone_at,
             wake_queue_positions=tuple(
                 sorted(group.wake_queue_positions, key=lambda pair: pair[1])

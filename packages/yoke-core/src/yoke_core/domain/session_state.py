@@ -18,7 +18,10 @@ from yoke_contracts.session_queue_posture import (
 from yoke_contracts.timestamps import as_utc, parse_instant, temporal_wire, utc_now
 from yoke_core.domain.next_actor import session_next_actor, reason_sentence
 from yoke_core.domain.session_tool_call_liveness import open_call_predates_park
-from yoke_core.domain.session_reclaim_progress import open_tool_call_is_live
+from yoke_core.domain.session_reclaim_progress import (
+    open_tool_call_is_live,
+    tool_activity_stamp,
+)
 
 
 def session_presence(row: Mapping[str, Any]) -> str:
@@ -78,11 +81,7 @@ def session_state(
     from yoke_core.domain.session_automatic_reclaim import automatic_reclaim
 
     current = utc_now() if now is None else as_utc(now)
-    tool = (
-        parse_instant(row["last_tool_call_at"])
-        if row.get("last_tool_call_at")
-        else None
-    )
+    tool = tool_activity_stamp(row)
     open_call = _open_call_start(row)
     active_at = max(
         (stamp for stamp in (tool, open_call) if stamp is not None), default=None

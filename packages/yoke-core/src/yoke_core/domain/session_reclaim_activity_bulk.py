@@ -14,7 +14,7 @@ from .schema_common import _get_columns as _schema_get_columns
 from .session_reclaim_activity import (
     newest_activity_stamp as _newest,
 )
-from .session_reclaim_progress import live_activity_stamp
+from .session_reclaim_progress import live_activity_stamp, tool_activity_stamp
 from .session_state import session_in_flight
 
 
@@ -74,7 +74,8 @@ def latest_activity_by_session(
         selected = [
             name
             for name in (
-                "executor", "last_heartbeat", "last_tool_call_at", "ended_at",
+                "executor", "last_heartbeat", "last_tool_call_at",
+                "last_child_tool_call_at", "ended_at",
                 "terminated_at", "mode", "turn_posture", "turn_posture_at",
                 "quiet_reason", "native_process_gone_at", "native_process_gone_evidence",
             )
@@ -92,7 +93,7 @@ def latest_activity_by_session(
                     for index, name in enumerate(selected)
                 }
                 session_facts[session_id] = values
-                stamps = [values.get("last_heartbeat"), values.get("last_tool_call_at")]
+                stamps = [values.get("last_heartbeat"), tool_activity_stamp(values)]
                 activity[session_id] = _newest(activity.get(session_id), *stamps)
 
     claim_columns = _columns(conn, "work_claims")
