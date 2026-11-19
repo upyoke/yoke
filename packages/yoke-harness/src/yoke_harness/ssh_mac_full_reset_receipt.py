@@ -31,12 +31,18 @@ from yoke_contracts.ssh_mac_full_reset_contract import (
     RESET_RESTORE_UNRESTORED_PREFIX,
     RESTORE_ERROR_EXCERPT_CHAR_CAP,
     RESTORE_REPORT_ENTRY_CAP,
+    YOKE_ABSENT_RELATIVE_DIRECTORIES,
+    YOKE_ABSENT_TEMP_FILES,
+)
+from yoke_contracts.ssh_mac_full_reset_self_host_contract import (
     SELF_HOST_COMPOSE_PROJECT,
     RESET_SELF_HOST_CONTAINERS_PREFIX,
     RESET_SELF_HOST_IMAGES_PREFIX,
+    RESET_SELF_HOST_KIND_PATHS,
+    RESET_SELF_HOST_REACHABLE_PREFIX,
+    RESET_SELF_HOST_RECOVERY,
+    RESET_SELF_HOST_STATE_PREFIX,
     RESET_SELF_HOST_VOLUMES_PREFIX,
-    YOKE_ABSENT_RELATIVE_DIRECTORIES,
-    YOKE_ABSENT_TEMP_FILES,
 )
 
 
@@ -47,7 +53,13 @@ _COUNT_PREFIXES = {
     RESET_SELF_HOST_CONTAINERS_PREFIX: "self_host_containers_removed",
     RESET_SELF_HOST_VOLUMES_PREFIX: "self_host_volumes_removed",
     RESET_SELF_HOST_IMAGES_PREFIX: "self_host_images_removed",
+    RESET_SELF_HOST_REACHABLE_PREFIX: "self_host_stack_reachable",
 }
+_SELF_HOST_REMOVAL_FIELDS = (
+    "self_host_containers_removed",
+    "self_host_volumes_removed",
+    "self_host_images_removed",
+)
 #: One line per counted outcome, plus the closing marker.
 _RECEIPT_LINE_COUNT = len(_COUNT_PREFIXES) + 1
 #: The character set every name reduced for the closed output contract is
@@ -142,6 +154,23 @@ def absent_path_detail(detail: str) -> dict[str, str] | None:
     }
 
 
+def self_host_detail(detail: str) -> dict[str, str] | None:
+    """Parse the runtime the self-host phases could not list or stop."""
+    body = detail.removeprefix(RESET_SELF_HOST_STATE_PREFIX)
+    kind, separator, runtime = body.partition(" ")
+    if (
+        not separator
+        or kind not in RESET_SELF_HOST_KIND_PATHS
+        or runtime not in RESET_SELF_HOST_KIND_PATHS[kind]
+    ):
+        return None
+    return {
+        "runtime": runtime,
+        "reason": kind,
+        "recovery": RESET_SELF_HOST_RECOVERY[kind].format(runtime=runtime),
+    }
+
+
 def closed_outcomes(stdout: str) -> dict[str, str | int | float] | None:
     """Parse the counted success receipt the restore program emits."""
     lines = tuple(line.strip() for line in stdout.splitlines() if line.strip())
@@ -168,6 +197,13 @@ def closed_outcomes(stdout: str) -> dict[str, str | int | float] | None:
     ):
         return None
     if counts["restored_entries"] < 1:
+        return None
+    # Removal counts only come from a daemon that listed the stack, so a host
+    # with no runtime client that still reports removals was not this program.
+    reachable = counts["self_host_stack_reachable"]
+    if reachable not in {0, 1} or (
+        reachable == 0 and any(counts[field] for field in _SELF_HOST_REMOVAL_FIELDS)
+    ):
         return None
     return counts
 
@@ -197,6 +233,9 @@ def failure_outcome(stdout: str) -> tuple[str, bool, str | None] | None:
             return None
     elif detail is not None and detail.startswith(RESET_RELAY_SERVICE_PREFIX):
         if relay_service_detail(detail) is None:
+            return None
+    elif detail is not None and detail.startswith(RESET_SELF_HOST_STATE_PREFIX):
+        if self_host_detail(detail) is None:
             return None
     elif detail is not None and not recovery_failed:
         parts = tuple(detail.split())
@@ -283,7 +322,7 @@ def success_evidence(
             "containers_removed": outcomes["self_host_containers_removed"],
             "volumes_removed": outcomes["self_host_volumes_removed"],
             "images_removed": outcomes["self_host_images_removed"],
-            "stack_reachable": False,
+            "stack_reachable": outcomes["self_host_stack_reachable"] == 1,
         },
     }
 
@@ -293,6 +332,7 @@ __all__ = [
     "closed_outcomes",
     "failure_outcome",
     "relay_service_detail",
+    "self_host_detail",
     "success_evidence",
     "unrestored_detail",
 ]

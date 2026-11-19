@@ -18,8 +18,11 @@ from yoke_contracts.ssh_mac_full_reset_contract import (
     RESET_PROCESS_REAPED_PREFIX,
     RESET_RELAY_UNLOADED_PREFIX,
     RESET_RESTORED_ENTRIES_PREFIX,
+)
+from yoke_contracts.ssh_mac_full_reset_self_host_contract import (
     RESET_SELF_HOST_CONTAINERS_PREFIX,
     RESET_SELF_HOST_IMAGES_PREFIX,
+    RESET_SELF_HOST_REACHABLE_PREFIX,
     RESET_SELF_HOST_VOLUMES_PREFIX,
 )
 
@@ -68,6 +71,7 @@ def closed_reset_stdout(
     self_host_containers: int = 0,
     self_host_volumes: int = 0,
     self_host_images: int = 0,
+    self_host_stack_reachable: int = 1,
 ) -> str:
     """Return the counted success receipt the restore parser accepts."""
     return "\n".join(
@@ -78,6 +82,7 @@ def closed_reset_stdout(
             f"{RESET_SELF_HOST_CONTAINERS_PREFIX}{self_host_containers}",
             f"{RESET_SELF_HOST_VOLUMES_PREFIX}{self_host_volumes}",
             f"{RESET_SELF_HOST_IMAGES_PREFIX}{self_host_images}",
+            f"{RESET_SELF_HOST_REACHABLE_PREFIX}{self_host_stack_reachable}",
             FULL_RESET_MARKER,
         )
     )

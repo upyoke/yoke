@@ -189,6 +189,7 @@ verify_restored_home() {
     return 1
   done
   self_host_stack_is_absent || return 1
+  restore_container_runtime_state || return 1
   # The service was booted out before the clear. Asserting it again here is
   # what names the relay when a home comes back carrying state, instead of
   # reporting only that some absent path was present and leaving the operator
@@ -258,6 +259,9 @@ relay_unloaded_count=0
 self_host_containers_removed=0
 self_host_volumes_removed=0
 self_host_images_removed=0
+self_host_stack_reachable=0
+self_host_runtime_stopped=0
+self_host_runtime_started=""
 failure_detail=""
 failure_excerpts=""
 trap finish EXIT
@@ -286,6 +290,7 @@ print -r -- "$relay_unloaded_prefix$relay_unloaded_count"
 print -r -- "$self_host_containers_prefix$self_host_containers_removed"
 print -r -- "$self_host_volumes_prefix$self_host_volumes_removed"
 print -r -- "$self_host_images_prefix$self_host_images_removed"
+print -r -- "$self_host_reachable_prefix$self_host_stack_reachable"
 print -r -- "$reset_process_reaped_prefix$reap_target_count"
 print -r -- "$full_reset_marker"
 reset_step="$reset_phase_complete"
