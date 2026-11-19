@@ -190,6 +190,9 @@ def collect_facts(
     edition = _registry(
         winreg.HKEY_LOCAL_MACHINE, current, "ProductName", errors, "unknown"
     )
+    # Windows 11 keeps "Windows 10" in ProductName; build 22000 marks Windows 11.
+    if str(build).isdecimal() and int(str(build)) >= 22000:
+        edition = str(edition).replace("Windows 10", "Windows 11")
     long_paths = _registry(
         winreg.HKEY_LOCAL_MACHINE,
         r"SYSTEM\CurrentControlSet\Control\FileSystem",

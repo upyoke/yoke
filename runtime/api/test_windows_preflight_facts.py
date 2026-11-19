@@ -13,6 +13,7 @@ import urllib.error
 import pytest
 
 from yoke_contracts import windows_preflight_facts as collector
+from yoke_contracts.windows_preflight import verdicts
 
 
 pytestmark = pytest.mark.windows
@@ -173,8 +174,15 @@ def test_vc_runtime_fact_reads_system32(monkeypatch, present):
     assert seen == [expected]
 
 
+@pytest.mark.parametrize(
+    "build,product,edition",
+    [
+        ("26200", "Windows 10 Enterprise", "Windows 11 Enterprise"),
+        ("19045", "Windows 10 Pro", "Windows 10 Pro"),
+    ],
+)
 def test_windows_collection_is_read_only_and_reports_real_probe_results(
-    monkeypatch, tmp_path
+    monkeypatch, tmp_path, build, product, edition
 ):
     monkeypatch.setitem(
         sys.modules,
@@ -182,8 +190,8 @@ def test_windows_collection_is_read_only_and_reports_real_probe_results(
         SimpleNamespace(HKEY_LOCAL_MACHINE=1, HKEY_CURRENT_USER=2),
     )
     values = {
-        "CurrentBuildNumber": "26100",
-        "ProductName": "Windows 11 Enterprise",
+        "CurrentBuildNumber": build,
+        "ProductName": product,
         "LongPathsEnabled": 0,
         "ProgId": "browser",
         "RemoveWindowsStore": 1,
@@ -235,7 +243,13 @@ def test_windows_collection_is_read_only_and_reports_real_probe_results(
 
     monkeypatch.setattr(collector.urllib.request, "urlopen", head)
     result = collector.collect_facts(home=tmp_path / "absent", repo=tmp_path)
-    assert result["build"] == 26100 and result["store_blocked"]
+    assert result["build"] == int(build) and result["store_blocked"]
+    assert result["edition"] == edition
+    codes = {r["code"]: r for r in verdicts(result)}
+    assert "windows_version" not in codes
+    coverage = codes["windows_coverage_untested"]
+    assert coverage["severity"] == "warning"
+    assert coverage["message"].startswith(f"{edition} build {build}")
     assert result["wsl_yoke"] and result["desktop"] and result["browser"]
     assert result["vc_runtime"] == "vcruntime140.dll"
     assert result["blocked_hosts"] == ["registry.npmjs.org (URLError)"]

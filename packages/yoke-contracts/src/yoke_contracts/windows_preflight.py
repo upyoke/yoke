@@ -61,7 +61,7 @@ def verdicts(facts: Mapping[str, Any], *, local: bool = False) -> list[dict[str,
         add(
             "warning",
             "coverage_untested",
-            f"Windows {edition} build {build}, {arch}: runtime coverage untested.",
+            f"{edition} build {build}, {arch}: runtime coverage untested.",
             "Keep the build and edition with test results; native support awaits integrated acceptance.",
         )
     add(
