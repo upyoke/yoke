@@ -63,3 +63,44 @@ def import_failure_details(name, password, exec_code, stderr, stdout, completion
         f"Exec stdout: {clean(stdout)}",
         f"Container logs (docker logs exit {logs_code}): {clean(container_log)}",
     )
+
+
+def _core_state(directory, executable) -> str:
+    try:
+        found = terminal_detached_process.run(
+            (executable, "compose", "ps", "--all", "--quiet", "core"),
+            cwd=directory,
+            capture_output=True,
+            timeout=30,
+            check=False,
+        )
+        container = found.stdout.decode("utf-8", errors="replace").strip()
+        if found.returncode or not container:
+            return "no core container found"
+        state = terminal_detached_process.run(
+            (
+                executable,
+                "inspect",
+                "--format",
+                "{{.State.Status}} exit {{.State.ExitCode}}",
+                container.splitlines()[0],
+            ),
+            capture_output=True,
+            timeout=30,
+            check=False,
+        )
+        if state.returncode:
+            return f"unavailable (docker inspect exit {state.returncode})"
+        return state.stdout.decode("utf-8", errors="replace")
+    except (OSError, subprocess.TimeoutExpired):
+        return "unavailable (Docker did not answer)"
+
+
+def handoff_failure_details(directory, executable, exec_code, stderr):
+    """Exec exit, bounded stderr and the core container's state; never stdout."""
+    return (
+        f"docker compose exec exit: {exec_code}",
+        f"Exec stderr: {_diagnostic(stderr.decode('utf-8', errors='replace'))}",
+        f"Core container State.Status / ExitCode: "
+        f"{_diagnostic(_core_state(directory, executable))}",
+    )

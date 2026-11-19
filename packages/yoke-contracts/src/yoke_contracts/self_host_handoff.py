@@ -9,6 +9,13 @@ HANDOFF_ACK = b"saved\n"
 DB_PASSWORD_RUNTIME_PATH = "/run/yoke-db-bootstrap/password"
 DB_PASSWORD_INGRESS = f"umask 077; cat > {DB_PASSWORD_RUNTIME_PATH}.tmp && mv {DB_PASSWORD_RUNTIME_PATH}.tmp {DB_PASSWORD_RUNTIME_PATH}"
 HANDOFF_CLIENT_MODULE = "yoke_core.tools.self_host_handoff"
+#: Closed failure classes the in-container client prints as ``{"error": CLASS}``.
+HANDOFF_FAILURES = (
+    "connect_timeout",
+    "bootstrap_closed",
+    "ack_missing",
+    "unhealthy_timeout",
+)
 
 
 @dataclass(frozen=True)

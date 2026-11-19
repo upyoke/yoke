@@ -19,6 +19,7 @@ import urllib.error
 
 from yoke_contracts.self_host_handoff import (
     HANDOFF_ACK,
+    HANDOFF_FAILURES,
     HANDOFF_MAX_BYTES,
     HANDOFF_SOCKET,
     HANDOFF_TIMEOUT_SECONDS,
@@ -115,6 +116,29 @@ def _stream_import(connection: socket.socket) -> int:
     return 0
 
 
+class _HandoffFailure(Exception):
+    """One closed failure class the host maps to its own named reason."""
+
+    def __init__(self, failure: str) -> None:
+        if failure not in HANDOFF_FAILURES:
+            raise ValueError(f"unknown handoff failure class {failure!r}")
+        super().__init__(failure)
+        self.failure = failure
+
+
+def _read_token(connection: socket.socket) -> bytes:
+    token = bytearray()
+    try:
+        while not token.endswith(b"\n") and len(token) < 256:
+            chunk = connection.recv(1)
+            if not chunk:
+                raise _HandoffFailure("bootstrap_closed")
+            token.extend(chunk)
+    except OSError:
+        raise _HandoffFailure("bootstrap_closed") from None
+    return bytes(token)
+
+
 def main() -> int:
     """Read secrets on stdin and return a token or healthy-restart receipt."""
     deadline = time.monotonic() + HANDOFF_TIMEOUT_SECONDS
@@ -129,36 +153,37 @@ def main() -> int:
                     break
                 except (FileNotFoundError, ConnectionRefusedError):
                     if time.monotonic() >= deadline:
-                        raise TimeoutError("bootstrap did not open its handoff")
+                        raise _HandoffFailure("connect_timeout") from None
                     time.sleep(0.1)
-            connection.sendall(header)
+            try:
+                connection.sendall(header)
+            except OSError:
+                raise _HandoffFailure("bootstrap_closed") from None
             if sys.argv[1:] == ["--stream"]:
                 return _stream_import(connection)
             connection.settimeout(HANDOFF_TIMEOUT_SECONDS)
             while time.monotonic() < deadline:
                 if select.select([connection], [], [], 0.2)[0]:
-                    token = bytearray()
-                    while not token.endswith(b"\n") and len(token) < 256:
-                        chunk = connection.recv(1)
-                        if not chunk:
-                            raise ValueError("bootstrap closed before token delivery")
-                        token.extend(chunk)
+                    token = _read_token(connection)
                     print(dumps_compact({"token": token.decode().strip()}), flush=True)
                     if sys.stdin.buffer.readline(len(HANDOFF_ACK) + 1) != HANDOFF_ACK:
-                        raise ValueError(
-                            "host did not acknowledge durable token storage"
-                        )
+                        raise _HandoffFailure("ack_missing")
                     connection.sendall(HANDOFF_ACK)
                     return 0
                 state = _health_status()
                 if state is not None:
                     print(dumps_compact(state), flush=True)
                     return 0
-            raise TimeoutError("bootstrap did not become healthy")
-    except (OSError, ValueError, UnicodeError):
+            raise _HandoffFailure("unhealthy_timeout")
+    except _HandoffFailure as failure:
+        print(dumps_compact({"error": failure.failure}), flush=True)
+        return 1
+    except (OSError, ValueError, UnicodeError) as exc:
+        # Name only the class: a message could echo bytes of the handoff.
         print(
-            "self_host_handoff_failed: bootstrap transport failed; inspect core logs "
-            "and retry self-host init --protect-existing --start",
+            f"self_host_handoff_client_failed: {type(exc).__name__}; inspect "
+            "`docker compose logs core` and retry self-host init "
+            "--protect-existing --start",
             file=sys.stderr,
         )
         return 1
