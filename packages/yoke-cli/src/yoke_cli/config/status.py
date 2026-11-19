@@ -82,7 +82,8 @@ def build_status(
     # The installer's own config file (machine id, distribution) is not setup.
     set_up = setup_status.is_set_up(payload)
     if not set_up:
-        issues.append(setup_status.not_set_up_issue(selected_path))
+        preflight = setup_status.setup_blocking(issues)
+        issues = [setup_status.not_set_up_issue(selected_path), *preflight]
     else:
         issues.extend(
             issue.as_dict()

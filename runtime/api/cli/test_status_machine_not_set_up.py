@@ -98,3 +98,38 @@ def test_installer_written_config_is_not_setup(tmp_path: Path) -> None:
     assert [issue["code"] for issue in report["issues"]] == ["machine_not_set_up"]
     for wrong_hint in ("yoke config", "yoke env", "yoke project register"):
         assert wrong_hint not in text
+
+
+def test_unset_up_reports_keep_only_setup_blocking_preflight(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """Before setup, only an error verdict joins `machine_not_set_up`."""
+    from yoke_contracts import windows_preflight_facts
+    from yoke_core.domain import machine_config_status
+
+    facts = {
+        "system": "Windows",
+        "build": 9600,
+        "edition": "Windows 8",
+        "arch": "x86",
+        "elevated": True,
+    }
+    monkeypatch.setattr(windows_preflight_facts, "collect_facts", lambda **kw: facts)
+    home = tmp_path / "home"
+    home.mkdir()
+    folder = tmp_path / "plain-folder"
+    folder.mkdir()
+    kwargs = {
+        "config_path": home / ".yoke" / "config.json",
+        "repo_root": folder,
+        "check_reachability": False,
+    }
+
+    cli = status_module.build_status(**kwargs)
+    engine = machine_config_status.build_status(**kwargs)
+
+    expected = ["machine_not_set_up", "windows_version"]
+    assert [issue["code"] for issue in cli["issues"]] == expected
+    assert [issue["code"] for issue in engine["issues"]] == expected
+    assert cli["native_preflight"] == facts
+    assert engine["runtime"]["native_preflight"] == facts
