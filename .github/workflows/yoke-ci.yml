@@ -327,6 +327,7 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c
+        with: {driver-opts: image=ghcr.io/upyoke/buildkit:v0.34.2}
       - name: Pull the base image with bounded transport retries
         run: |
           python_image="$(sed -n 's/^ARG PYTHON_IMAGE=//p' Dockerfile)"

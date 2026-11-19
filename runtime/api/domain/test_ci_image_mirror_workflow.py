@@ -5,7 +5,9 @@ from pathlib import Path
 from yoke_core.domain.yaml_helper import load_document
 
 
-WORKFLOW = Path(__file__).resolve().parents[3] / ".github/workflows/ci-image-mirror.yml"
+WORKFLOWS = Path(__file__).resolve().parents[3] / ".github/workflows"
+WORKFLOW = WORKFLOWS / "ci-image-mirror.yml"
+BUILDKIT_MIRROR = "ghcr.io/upyoke/buildkit:v0.34.2"
 
 
 def test_mirror_refresh_is_scheduled_manual_and_self_updating() -> None:
@@ -62,3 +64,20 @@ def test_mirror_verifies_public_digest_and_both_linux_platforms() -> None:
         assert reason in script
     assert "GITHUB_STEP_SUMMARY" in script
     assert "continue-on-error" not in WORKFLOW.read_text()
+
+
+def test_every_buildx_setup_uses_the_mirrored_buildkit_image() -> None:
+    # Buildx's docker-container driver otherwise pulls moby/buildkit from
+    # Docker Hub, whose token endpoint failed a required check (YOK-5525).
+    mirrored = load_document(WORKFLOW)["jobs"]["copy"]["strategy"]["matrix"]["include"]
+    assert BUILDKIT_MIRROR in {entry["image"] for entry in mirrored}
+    setups = [
+        (path.name, step)
+        for path in sorted(WORKFLOWS.glob("*.yml"))
+        for job in (load_document(path).get("jobs") or {}).values()
+        for step in job.get("steps") or []
+        if str(step.get("uses", "")).startswith("docker/setup-buildx-action@")
+    ]
+    assert setups
+    for name, step in setups:
+        assert step.get("with", {}).get("driver-opts") == f"image={BUILDKIT_MIRROR}", name
