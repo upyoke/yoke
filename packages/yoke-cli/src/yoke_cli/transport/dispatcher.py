@@ -28,6 +28,7 @@ from yoke_contracts.api.function_call import (
     TargetRef,
 )
 from yoke_contracts import direct_database_access, qa_evidence_plane
+from yoke_contracts.machine_config import setup_status
 from yoke_contracts.session_identity import (
     ANCHORS_DIR_NAME,
     CURSOR_SESSION_MAP_DIR_NAME,
@@ -222,12 +223,10 @@ def call_dispatcher(
         )
     if https is not None:
         return _settle_response(relay(https), sensitive_values, actor=request.actor, relay_env=https.env)
-    refused = direct_database_access.use_https_env_error(function_id)
-    answer = (
-        _call_local(request, _local_dispatch)
-        if refused is None
-        else _refusal(request, refused)
-    )
+    refused = direct_database_access.use_https_env_error(
+        function_id
+    ) or setup_status.not_set_up_error(machine_config.load_config(), os.environ)
+    answer = _refusal(request, refused) if refused else _call_local(request, _local_dispatch)
     return _settle_response(answer, sensitive_values, actor=request.actor)
 
 
