@@ -250,7 +250,8 @@ def test_linux_desktop_access_runs_shared_startup_before_opening_route(
     def run(argv, **kw):
         assert PASSWORD not in str(argv)
         if argv[-1] == "id -un":
-            assert kw["input"] is None
+            # Nothing to feed: ssh reads /dev/null, never the caller's stdin.
+            assert "input" not in kw and kw["stdin"] is subprocess.DEVNULL
             calls.append("identity")
             return subprocess.CompletedProcess(argv, 0, "test\n", "")
         assert kw["input"] == PASSWORD + "\n"
