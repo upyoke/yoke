@@ -263,7 +263,6 @@ def run(
         item_id,
         deploy_flow,
         skip_deploy,
-        item_project,
         old_status,
         delivery_redirect_stage(workflow),
         public_ref=public_ref,

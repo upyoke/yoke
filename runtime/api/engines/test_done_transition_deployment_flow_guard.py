@@ -6,7 +6,7 @@ from runtime.api.engines.done_transition_deployment_flow_guard_test_support impo
     _patch_latest_run as _patch_latest_run,
     _patch_qa_gates as _patch_qa_gates,
     _patch_registered_flows as _patch_registered_flows,
-    _patch_target_tier as _patch_target_tier,
+    _patch_merge_only as _patch_merge_only,
 )
 
 
@@ -15,6 +15,7 @@ from unittest import mock
 
 import pytest
 
+from yoke_core.domain import deployment_flow_clearance
 from yoke_core.engines import (
     done_transition,
     done_transition_deploy_gates,
@@ -22,70 +23,100 @@ from yoke_core.engines import (
 )
 
 
-class TestDeploymentFlowTargetTierRead:
-    def test_null_target_tier_is_the_merge_only_marker(self):
-        response = SimpleNamespace(success=True, result={"value": None}, error=None)
-        with mock.patch.object(
-            done_transition_deploy_gates,
-            "call_dispatcher",
-            return_value=response,
-        ) as dispatch:
-            result = done_transition_deploy_gates._read_deployment_flow_target_tier(
-                "custom-flow", required=True
-            )
+def _clearance_response(*, success=True, result=None, message=""):
+    return SimpleNamespace(
+        success=success,
+        result=result or {},
+        error=SimpleNamespace(message=message) if not success else None,
+    )
 
-        assert result == ""
-        assert dispatch.call_args.kwargs["payload"] == {
-            "flow_id": "custom-flow",
-            "field": "target_tier",
-        }
 
-    def test_unavailable_read_is_tolerant_or_strict_by_caller(self):
-        response = SimpleNamespace(
-            success=False,
-            result={},
-            error=SimpleNamespace(message="control plane unavailable"),
+class TestDeploymentFlowMergeOnlyRead:
+    def test_merge_only_comes_from_the_project_scoped_clearance_read(self):
+        response = _clearance_response(
+            result={"merge_only": True, "resolved_flow": "custom-flow"}
         )
         with mock.patch.object(
-            done_transition_deploy_gates,
-            "call_dispatcher",
-            return_value=response,
+            deployment_flow_clearance, "call_dispatcher", return_value=response
+        ) as dispatch:
+            result = done_transition_deploy_gates._read_deployment_flow_merge_only(
+                "custom-flow", public_ref="YOK-1", required=True
+            )
+
+        assert result is True
+        call = dispatch.call_args.kwargs
+        assert call["function_id"] == "done_transition.delivery_clearance"
+        assert call["target"].public_ref == "YOK-1"
+        assert call["payload"] == {"workflow_id": "", "deploy_flow": "custom-flow"}
+
+    def test_unavailable_read_is_tolerant_or_strict_by_caller(self):
+        response = _clearance_response(
+            success=False, message="control plane unavailable"
+        )
+        with mock.patch.object(
+            deployment_flow_clearance, "call_dispatcher", return_value=response
         ):
             assert (
-                done_transition_deploy_gates._read_deployment_flow_target_tier(
-                    "custom-flow", required=False
+                done_transition_deploy_gates._read_deployment_flow_merge_only(
+                    "custom-flow", public_ref="YOK-1", required=False
                 )
                 is None
             )
             with pytest.raises(
                 RuntimeError,
-                match="deployment_flows.get read failed: control plane unavailable",
+                match=(
+                    "done_transition.delivery_clearance read failed: "
+                    "control plane unavailable"
+                ),
             ):
-                done_transition_deploy_gates._read_deployment_flow_target_tier(
-                    "custom-flow", required=True
+                done_transition_deploy_gates._read_deployment_flow_merge_only(
+                    "custom-flow", public_ref="YOK-1", required=True
+                )
+
+    def test_unregistered_flow_is_tolerant_or_strict_by_caller(self):
+        reason = "deployment_flow 'ghost' is not a registered deployment flow."
+        response = _clearance_response(
+            result={"merge_only": False, "resolved_flow": "ghost",
+                    "blocked_reason": reason}
+        )
+        with mock.patch.object(
+            deployment_flow_clearance, "call_dispatcher", return_value=response
+        ):
+            assert (
+                done_transition_deploy_gates._read_deployment_flow_merge_only(
+                    "ghost", public_ref="YOK-1", required=False
+                )
+                is None
+            )
+            with pytest.raises(RuntimeError, match="is not a registered"):
+                done_transition_deploy_gates._read_deployment_flow_merge_only(
+                    "ghost", public_ref="YOK-1", required=True
                 )
 
 
-class TestDeploymentRedirectTargetTier:
+class TestDeploymentRedirectMergeOnly:
     def test_registered_merge_only_flow_bypasses_pipeline_redirect(self):
         with mock.patch.object(
             done_transition_gates,
-            "_read_deployment_flow_target_tier",
-            return_value="",
-        ):
+            "_read_deployment_flow_merge_only",
+            return_value=True,
+        ) as read:
             result = done_transition_gates._check_deployment_redirect(
                 "custom-merge", False, 500, public_ref="YOK-500"
             )
         assert result is None
+        read.assert_called_once_with(
+            "custom-merge", public_ref="YOK-500", required=False
+        )
 
-    @pytest.mark.parametrize("target_tier", ["persistent", "ephemeral", None])
+    @pytest.mark.parametrize("merge_only", [False, None])
     def test_targeted_or_unresolved_flow_keeps_pipeline_redirect(
-        self, target_tier, capsys
+        self, merge_only, capsys
     ):
         with mock.patch.object(
             done_transition_gates,
-            "_read_deployment_flow_target_tier",
-            return_value=target_tier,
+            "_read_deployment_flow_merge_only",
+            return_value=merge_only,
         ):
             result = done_transition_gates._check_deployment_redirect(
                 "custom-flow", False, 501, public_ref="YOK-501"
@@ -101,7 +132,6 @@ class TestDeploymentFlowGuardInvalidFlow:
                 item_id=510,
                 deploy_flow="garbage",
                 skip_deploy=False,
-                item_project="yoke",
                 old_status="implemented",
                 delivery_stage_id="ship-ready",
                 public_ref="YOK-510",
@@ -120,7 +150,6 @@ class TestDeploymentFlowGuardInvalidFlow:
                 item_id=511,
                 deploy_flow="none",
                 skip_deploy=False,
-                item_project="yoke",
                 old_status="implemented",
                 delivery_stage_id="ship-ready",
                 public_ref="YOK-511",
@@ -137,7 +166,6 @@ class TestDeploymentFlowGuardInvalidFlow:
                 item_id=512,
                 deploy_flow="garbage",
                 skip_deploy=False,
-                item_project="yoke",
                 old_status="implemented",
                 delivery_stage_id="ship-ready",
                 public_ref="YOK-512",
@@ -151,14 +179,13 @@ class TestDeploymentFlowGuardRegisteredButMissingEvidence:
     def test_registered_flow_skip_deploy_no_evidence_preserves_message(self, capsys):
         with (
             _patch_registered_flows(["externalwebapp-prod-release"]),
-            _patch_target_tier("persistent"),
+            _patch_merge_only(False),
             _patch_latest_run(""),
         ):
             result = done_transition._check_deployment_flow_guard(
                 item_id=520,
                 deploy_flow="externalwebapp-prod-release",
                 skip_deploy=True,
-                item_project="yoke",
                 old_status="implemented",
                 delivery_stage_id="ship-ready",
                 public_ref="YOK-520",
@@ -172,7 +199,7 @@ class TestDeploymentFlowGuardRegisteredButMissingEvidence:
     def test_registered_merge_only_flow_needs_no_deployment_evidence(self):
         with (
             _patch_registered_flows(["custom-merge"]),
-            _patch_target_tier(""),
+            _patch_merge_only(True),
             mock.patch.object(
                 done_transition_deploy_gates,
                 "_check_deployment_evidence",
@@ -183,7 +210,6 @@ class TestDeploymentFlowGuardRegisteredButMissingEvidence:
                 item_id=521,
                 deploy_flow="custom-merge",
                 skip_deploy=True,
-                item_project="yoke",
                 old_status="implemented",
                 delivery_stage_id="ship-ready",
                 public_ref="YOK-521",
@@ -197,7 +223,6 @@ class TestDeploymentFlowGuardRegisteredButMissingEvidence:
                 item_id=530,
                 deploy_flow="yoke-internal",
                 skip_deploy=False,
-                item_project="yoke",
                 old_status="implemented",
                 delivery_stage_id="ship-ready",
                 public_ref="YOK-530",
@@ -222,7 +247,6 @@ class TestDeploymentFlowGuardMissingFlowResolution:
                 item_id=540,
                 deploy_flow="",
                 skip_deploy=False,
-                item_project="yoke",
                 old_status="reviewing-implementation",
                 delivery_stage_id=None,
                 public_ref="YOK-540",
@@ -243,20 +267,19 @@ class TestDeploymentFlowGuardMissingFlowResolution:
                 return_value="externalwebapp-prod-release",
             ) as freeze,
             _patch_registered_flows(["externalwebapp-prod-release"]),
-            _patch_target_tier(""),
+            _patch_merge_only(True),
         ):
             result = done_transition._check_deployment_flow_guard(
                 item_id=541,
                 deploy_flow="",
                 skip_deploy=False,
-                item_project="externalwebapp",
                 old_status="reviewing-implementation",
                 delivery_stage_id="release",
                 public_ref="EXT-541",
                 workflow_id="dash",
             )
         resolve.assert_called_once_with(
-            item_project="externalwebapp", workflow_id="dash"
+            public_ref="EXT-541", workflow_id="dash"
         )
         freeze.assert_called_once_with(
             541, "externalwebapp-prod-release", public_ref="EXT-541"
@@ -287,7 +310,6 @@ class TestDeploymentFlowGuardMissingFlowResolution:
                 item_id=543,
                 deploy_flow="",
                 skip_deploy=False,
-                item_project="externalwebapp",
                 old_status="reviewing-implementation",
                 delivery_stage_id="release",
                 public_ref="EXT-543",
@@ -307,7 +329,6 @@ class TestDeploymentFlowGuardMissingFlowResolution:
                 item_id=542,
                 deploy_flow="",
                 skip_deploy=False,
-                item_project="externalwebapp",
                 old_status="reviewing-implementation",
                 delivery_stage_id="release",
                 public_ref="EXT-542",

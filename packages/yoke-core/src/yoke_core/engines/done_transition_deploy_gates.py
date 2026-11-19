@@ -27,6 +27,10 @@ from typing import Any, Dict, Optional, Tuple
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.deployment_run_lifecycle import run_is_open
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+from yoke_core.domain.deployment_flow_clearance import (
+    FUNCTION_ID as _CLEARANCE_READ,
+    resolve_delivery_clearance as _resolve_delivery_clearance,
+)
 from yoke_core.engines.done_transition_delivery_default import (
     freeze_resolved_delivery_flow as _freeze_resolved_delivery_flow,
     resolve_default_delivery_flow as _resolve_default_delivery_flow,
@@ -69,39 +73,38 @@ def _relay_read(
     return resp.result or {}
 
 
-def _read_deployment_flow_target_tier(
-    deploy_flow: str, *, required: bool
-) -> Optional[str]:
-    """Read one flow's semantic target tier.
+def _read_deployment_flow_merge_only(
+    deploy_flow: str, *, public_ref: str, required: bool
+) -> Optional[bool]:
+    """Whether one named flow is merge-only (its ``target_tier`` is null).
 
-    A successful null value is the merge-only marker. Pre-merge routing uses
-    ``required=False`` so an unavailable read retains the pipeline redirect;
-    post-merge validation fails closed with the registered read name.
+    Reads the project-scoped ``done_transition.delivery_clearance``, so a
+    project operator without org admin gets the same answer an admin does.
+    Pre-merge routing uses ``required=False`` so an unavailable read or an
+    unregistered flow retains the pipeline redirect; post-merge validation
+    fails closed with the read's name.
     """
     try:
-        resp = call_dispatcher(
-            function_id="deployment_flows.get",
-            target=TargetRef(kind="global"),
-            payload={"flow_id": deploy_flow, "field": "target_tier"},
+        clearance = _resolve_delivery_clearance(
+            public_ref=public_ref, deploy_flow=deploy_flow, workflow_id=""
         )
     except Exception as exc:  # noqa: BLE001 - normalize transport failures
         if not required:
             return None
-        raise RuntimeError(f"deployment_flows.get read failed: {exc}") from exc
-    if not resp.success:
+        if isinstance(exc, RuntimeError):
+            raise
+        raise RuntimeError(f"{_CLEARANCE_READ} read failed: {exc}") from exc
+    if clearance.blocked_reason:
         if not required:
             return None
-        message = resp.error.message if resp.error else "unknown error"
-        raise RuntimeError(f"deployment_flows.get read failed: {message}")
-    value = (resp.result or {}).get("value")
-    return "" if value is None else str(value)
+        raise RuntimeError(f"{_CLEARANCE_READ} read failed: {clearance.blocked_reason}")
+    return clearance.merge_only
 
 
 def _check_deployment_flow_guard(
     item_id: int,
     deploy_flow: str,
     skip_deploy: bool,
-    item_project: str,
     old_status: str,
     delivery_stage_id: str | None,
     *,
@@ -123,7 +126,7 @@ def _check_deployment_flow_guard(
     """
     if not deploy_flow and delivery_stage_id is not None:
         resolved = _resolve_default_delivery_flow(
-            item_project=item_project, workflow_id=workflow_id
+            public_ref=public_ref, workflow_id=workflow_id
         )
         if resolved:
             deploy_flow = _freeze_resolved_delivery_flow(
@@ -164,7 +167,9 @@ def _check_deployment_flow_guard(
             print("No deployment flows are registered. Seed deployment_flows first.")
         return 7, old_status
 
-    if _read_deployment_flow_target_tier(deploy_flow, required=True) == "":
+    if _read_deployment_flow_merge_only(
+        deploy_flow, public_ref=public_ref, required=True
+    ):
         return None
 
     # The shared delivery ladder answers the evidence question — membership

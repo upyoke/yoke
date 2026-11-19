@@ -112,12 +112,12 @@ def _request(
 
 def _empty_delivery_reads(monkeypatch) -> None:
     def _dispatch(*, function_id, **_kwargs):
-        if function_id == "workflows.mechanics.get":
+        if function_id == "done_transition.delivery_clearance":
             return SimpleNamespace(
-                success=True, result={"delivery_defaults": []}, error=None
+                success=True,
+                result={"merge_only": True, "resolved_flow": "", "blocked_reason": ""},
+                error=None,
             )
-        if function_id == "done_transition.registered_flow_ids":
-            return SimpleNamespace(success=True, result={"flow_ids": []}, error=None)
         raise AssertionError(function_id)
 
     monkeypatch.setattr(clearance, "call_dispatcher", _dispatch)

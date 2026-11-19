@@ -13,6 +13,7 @@ from __future__ import annotations
 import pytest
 
 from yoke_contracts.api.function_call import FunctionCallResponse
+from yoke_core.domain import deployment_flow_clearance
 from yoke_core.engines import done_transition as dt
 from yoke_core.engines import done_transition_deploy_gates as deploy_gates
 from yoke_core.engines import done_transition_run_qa_gates as run_qa_gates
@@ -29,6 +30,7 @@ def _resp(function_id, result=None, *, success=True):
 
 def _install(monkeypatch, fake):
     monkeypatch.setattr(deploy_gates, "call_dispatcher", fake)
+    monkeypatch.setattr(deployment_flow_clearance, "call_dispatcher", fake)
     monkeypatch.setattr(run_qa_gates, "call_dispatcher", fake)
     monkeypatch.setattr(
         dt,
@@ -221,7 +223,6 @@ class TestDeploymentFlowGuard:
             item_id=510,
             deploy_flow="garbage",
             skip_deploy=False,
-            item_project="yoke",
             old_status="implemented",
             delivery_stage_id="ship-ready",
             public_ref="YOK-510",
@@ -245,6 +246,10 @@ class TestDeploymentFlowGuard:
                     "done_transition.run_stage": _resp(
                         "done_transition.run_stage", {"current_stage": "complete"}
                     ),
+                    "done_transition.delivery_clearance": _resp(
+                        "done_transition.delivery_clearance",
+                        {"merge_only": False, "resolved_flow": "acme-prod"},
+                    ),
                 }
             ),
         )
@@ -252,7 +257,6 @@ class TestDeploymentFlowGuard:
             item_id=511,
             deploy_flow="acme-prod",
             skip_deploy=False,
-            item_project="yoke",
             old_status="implemented",
             delivery_stage_id="ship-ready",
             public_ref="YOK-511",
@@ -265,7 +269,6 @@ class TestDeploymentFlowGuard:
             item_id=512,
             deploy_flow="yoke-internal",
             skip_deploy=False,
-            item_project="yoke",
             old_status="implemented",
             delivery_stage_id="ship-ready",
             public_ref="YOK-512",
@@ -288,7 +291,6 @@ class TestDeploymentFlowGuard:
                 item_id=513,
                 deploy_flow="acme-prod",
                 skip_deploy=False,
-                item_project="yoke",
                 old_status="implemented",
                 delivery_stage_id="ship-ready",
                 public_ref="YOK-513",

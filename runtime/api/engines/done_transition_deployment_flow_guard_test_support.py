@@ -25,11 +25,11 @@ def _patch_registered_flows(flows):
     )
 
 
-def _patch_target_tier(value):
+def _patch_merge_only(merge_only):
     return mock.patch.object(
         done_transition_deploy_gates,
-        "_read_deployment_flow_target_tier",
-        return_value=value,
+        "_read_deployment_flow_merge_only",
+        return_value=merge_only,
     )
 
 

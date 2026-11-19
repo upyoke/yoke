@@ -152,6 +152,27 @@ def _delivery_payload(conn: Any, project_id: int) -> dict:
     return _json_object(row["payload"]) if row is not None else {}
 
 
+def _effective_delivery_flow(payload: dict, workflow_id: str) -> str:
+    """The workflow's own choice, else the project-wide flow.
+
+    A workflow that declares an explicitly empty choice keeps it: the
+    project-wide flow fills only a workflow the payload does not name.
+    """
+    workflow_defaults = payload.get("workflow_defaults")
+    declared = workflow_defaults if isinstance(workflow_defaults, dict) else {}
+    flow_id = declared.get(workflow_id, payload.get("deployment_flow"))
+    return flow_id if isinstance(flow_id, str) else ""
+
+
+def project_delivery_default(conn: Any, *, project_id: int, workflow_id: str) -> str:
+    """One project's effective delivery flow for one workflow, or ``""``.
+
+    The same answer :func:`list_delivery_defaults` gives for this pair,
+    read without touching any other project's defaults.
+    """
+    return _effective_delivery_flow(_delivery_payload(conn, project_id), workflow_id)
+
+
 def list_delivery_defaults(conn: Any) -> list[dict]:
     """Return effective per-workflow flow choices, including legacy fallback."""
     workflows = [str(row["id"]) for row in _current_workflows(conn)]
@@ -166,12 +187,9 @@ def list_delivery_defaults(conn: Any) -> list[dict]:
     result = []
     for row in rows:
         payload = _json_object(row["payload"])
-        fallback = payload.get("deployment_flow")
-        workflow_defaults = payload.get("workflow_defaults")
-        declared = workflow_defaults if isinstance(workflow_defaults, dict) else {}
         for workflow_id in workflows:
-            flow_id = declared.get(workflow_id, fallback)
-            if isinstance(flow_id, str) and flow_id:
+            flow_id = _effective_delivery_flow(payload, workflow_id)
+            if flow_id:
                 result.append(
                     {
                         "project_id": int(row["project_id"]),
@@ -279,6 +297,7 @@ __all__ = [
     "get_delivery_default",
     "list_approval_actors",
     "list_delivery_defaults",
+    "project_delivery_default",
     "list_testing_defaults",
     "set_delivery_default",
     "set_testing_default",

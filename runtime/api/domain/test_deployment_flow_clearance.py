@@ -1,224 +1,157 @@
-"""Whether a deployment flow discharges delivery without a release wait.
+"""The client half of delivery clearance: one project-scoped read.
 
-Shared by the done-transition engine's deployment-flow guard and the
-standalone merge boundary's terminal transition -- see the module docstring
-for why an empty ``deployment_flow`` scalar is never itself the merge-only
-signal, and why an arbitrary flow id is checked against the registry and
-its own ``target_tier`` rather than a naming convention.
+The verdict itself (project default, registration, target tier) is resolved
+on the server -- see ``handlers/test_done_transition_delivery_clearance_read``.
+These tests pin what the close-outs send and how they treat the answer: an
+unread or malformed answer raises rather than reading as merge-only, and no
+close-out path reaches for the org-admin ``workflows.mechanics.get`` or
+``deployment_flows.get`` reads.
 """
 
 from __future__ import annotations
 
 from types import SimpleNamespace
-from unittest import mock
 
 import pytest
 
 from yoke_core.domain import deployment_flow_clearance as clearance
 
 
-class TestResolveDefaultDeliveryFlow:
-    def test_matches_project_and_workflow_from_the_mechanics_read(self):
-        response = SimpleNamespace(
-            success=True,
-            result={
-                "delivery_defaults": [
-                    {"project": "yoke", "workflow_id": "dash", "flow_id": "yoke-default"},
-                    {"project": "externalwebapp", "workflow_id": "dash", "flow_id": "ext-default"},
-                ]
-            },
-            error=None,
-        )
-        with mock.patch.object(clearance, "call_dispatcher", return_value=response):
-            assert (
-                clearance.resolve_default_delivery_flow(
-                    item_project="externalwebapp", workflow_id="dash"
-                )
-                == "ext-default"
-            )
+def _recorder(result=None, *, success=True, message=""):
+    calls: list[dict] = []
 
-    def test_no_match_and_empty_workflow_id_both_resolve_empty(self):
-        response = SimpleNamespace(
-            success=True, result={"delivery_defaults": []}, error=None,
-        )
-        with mock.patch.object(clearance, "call_dispatcher", return_value=response):
-            assert (
-                clearance.resolve_default_delivery_flow(
-                    item_project="externalwebapp", workflow_id="dash"
-                )
-                == ""
-            )
-        assert (
-            clearance.resolve_default_delivery_flow(
-                item_project="externalwebapp", workflow_id=""
-            )
-            == ""
+    def dispatch(**kwargs):
+        calls.append(kwargs)
+        return SimpleNamespace(
+            success=success,
+            result=result if result is not None else {},
+            error=None if success else SimpleNamespace(message=message),
         )
 
-    def test_relay_failure_raises_rather_than_reading_as_no_config(self):
-        response = SimpleNamespace(
-            success=False, result={}, error=SimpleNamespace(message="unavailable"),
-        )
-        with mock.patch.object(clearance, "call_dispatcher", return_value=response):
-            with pytest.raises(RuntimeError, match="unavailable"):
-                clearance.resolve_default_delivery_flow(
-                    item_project="yoke", workflow_id="dash"
-                )
-
-
-def _dispatch(answers: dict[str, object]):
-    def dispatch(*, function_id, payload=None, **_kw):
-        if function_id not in answers:
-            raise AssertionError(f"unexpected read: {function_id}")
-        return SimpleNamespace(success=True, result=answers[function_id], error=None)
-
-    return dispatch
-
-
-class TestDeploymentFlowTargetTier:
-    def test_an_explicit_null_value_is_the_merge_only_marker(self, monkeypatch):
-        monkeypatch.setattr(
-            clearance, "call_dispatcher", _dispatch({"deployment_flows.get": {"value": None}}),
-        )
-        assert clearance.deployment_flow_target_tier("custom-flow") == ""
-
-    def test_a_response_missing_the_value_field_raises_rather_than_reading_null(
-        self, monkeypatch,
-    ):
-        """A malformed response is not the same fact as a flow that
-        resolved empty -- reading it as merge-only would waive delivery
-        on a broken read instead of refusing it."""
-        monkeypatch.setattr(
-            clearance, "call_dispatcher", _dispatch({"deployment_flows.get": {}}),
-        )
-        with pytest.raises(RuntimeError, match="named no 'value' field"):
-            clearance.deployment_flow_target_tier("custom-flow")
+    return dispatch, calls
 
 
 class TestResolveDeliveryClearance:
-    def test_an_arbitrary_named_flow_with_a_real_target_tier_is_not_merge_only(
-        self, monkeypatch,
-    ):
-        """Naming alone never decides this -- only the registry and tier do."""
-        monkeypatch.setattr(
-            clearance,
-            "call_dispatcher",
-            _dispatch(
-                {
-                    "done_transition.registered_flow_ids": {"flow_ids": ["acme-prod"]},
-                    "deployment_flows.get": {"value": "production"},
-                }
-            ),
+    def test_sends_one_item_scoped_read_with_the_flow_and_workflow(self, monkeypatch):
+        dispatch, calls = _recorder(
+            {"merge_only": False, "resolved_flow": "acme-prod", "blocked_reason": ""}
         )
+        monkeypatch.setattr(clearance, "call_dispatcher", dispatch)
+
         result = clearance.resolve_delivery_clearance(
-            deploy_flow="acme-prod", item_project="yoke", workflow_id="dash",
+            public_ref="YOK-7", deploy_flow="acme-prod", workflow_id="dash"
         )
+
+        assert result == clearance.DeliveryClearance(
+            merge_only=False, resolved_flow="acme-prod"
+        )
+        [call] = calls
+        assert call["function_id"] == "done_transition.delivery_clearance"
+        assert call["target"].kind == "item"
+        assert call["target"].public_ref == "YOK-7"
+        assert call["payload"] == {"workflow_id": "dash", "deploy_flow": "acme-prod"}
+
+    def test_never_asks_the_org_admin_reads(self, monkeypatch):
+        dispatch, calls = _recorder({"merge_only": True, "resolved_flow": ""})
+        monkeypatch.setattr(clearance, "call_dispatcher", dispatch)
+
+        clearance.resolve_delivery_clearance(
+            public_ref="YOK-7", deploy_flow="", workflow_id="dash"
+        )
+
+        assert {c["function_id"] for c in calls} == {
+            "done_transition.delivery_clearance"
+        }
+
+    def test_blocked_reason_passes_through_unchanged(self, monkeypatch):
+        reason = "deployment_flow 'typo' is not a registered deployment flow."
+        dispatch, _ = _recorder(
+            {"merge_only": False, "resolved_flow": "typo", "blocked_reason": reason}
+        )
+        monkeypatch.setattr(clearance, "call_dispatcher", dispatch)
+
+        result = clearance.resolve_delivery_clearance(
+            public_ref="YOK-7", deploy_flow="typo", workflow_id="dash"
+        )
+
         assert result.merge_only is False
-        assert result.resolved_flow == "acme-prod"
-        assert result.blocked_reason == ""
+        assert result.blocked_reason == reason
 
-    def test_an_arbitrary_named_flow_with_a_null_target_tier_is_merge_only(
-        self, monkeypatch,
+    def test_a_refused_read_raises_rather_than_reading_as_merge_only(
+        self, monkeypatch
     ):
-        monkeypatch.setattr(
-            clearance,
-            "call_dispatcher",
-            _dispatch(
-                {
-                    "done_transition.registered_flow_ids": {"flow_ids": ["acme-runless"]},
-                    "deployment_flows.get": {"value": None},
-                }
-            ),
-        )
-        result = clearance.resolve_delivery_clearance(
-            deploy_flow="acme-runless", item_project="yoke", workflow_id="dash",
-        )
-        assert result.merge_only is True
-        assert result.resolved_flow == "acme-runless"
+        dispatch, _ = _recorder(success=False, message="permission denied")
+        monkeypatch.setattr(clearance, "call_dispatcher", dispatch)
 
-    def test_an_unregistered_flow_id_is_blocked_rather_than_merge_only(
-        self, monkeypatch,
+        with pytest.raises(
+            RuntimeError,
+            match="done_transition.delivery_clearance read failed: permission denied",
+        ):
+            clearance.resolve_delivery_clearance(
+                public_ref="YOK-7", deploy_flow="", workflow_id="dash"
+            )
+
+    def test_a_response_missing_merge_only_raises(self, monkeypatch):
+        """A malformed answer is not the same fact as a merge-only flow."""
+        dispatch, _ = _recorder({"resolved_flow": "acme-prod"})
+        monkeypatch.setattr(clearance, "call_dispatcher", dispatch)
+
+        with pytest.raises(RuntimeError, match="named no 'merge_only' field"):
+            clearance.resolve_delivery_clearance(
+                public_ref="YOK-7", deploy_flow="acme-prod", workflow_id="dash"
+            )
+
+    def test_a_missing_public_ref_raises_a_named_refusal(self, monkeypatch):
+        monkeypatch.setattr(
+            clearance, "call_dispatcher",
+            lambda **_: pytest.fail("no read without an item"),
+        )
+        with pytest.raises(RuntimeError, match="needs the item's public ref"):
+            clearance.resolve_delivery_clearance(
+                public_ref="", deploy_flow="", workflow_id="dash"
+            )
+
+
+class TestResolveDefaultDeliveryFlow:
+    def test_returns_the_servers_resolved_default(self, monkeypatch):
+        dispatch, calls = _recorder(
+            {"merge_only": False, "resolved_flow": "ext-default", "blocked_reason": ""}
+        )
+        monkeypatch.setattr(clearance, "call_dispatcher", dispatch)
+
+        assert (
+            clearance.resolve_default_delivery_flow(
+                public_ref="EXT-3", workflow_id="dash"
+            )
+            == "ext-default"
+        )
+        assert calls[0]["payload"] == {"workflow_id": "dash", "deploy_flow": ""}
+
+    def test_an_unregistered_default_is_still_returned_for_the_guard_to_name(
+        self, monkeypatch
     ):
-        monkeypatch.setattr(
-            clearance,
-            "call_dispatcher",
-            _dispatch({"done_transition.registered_flow_ids": {"flow_ids": []}}),
+        dispatch, _ = _recorder(
+            {"merge_only": False, "resolved_flow": "ghost",
+             "blocked_reason": "deployment_flow 'ghost' is not a registered deployment flow."}
         )
-        result = clearance.resolve_delivery_clearance(
-            deploy_flow="typo-d-flow", item_project="yoke", workflow_id="dash",
-        )
-        assert result.merge_only is False
-        assert "not a registered deployment flow" in result.blocked_reason
+        monkeypatch.setattr(clearance, "call_dispatcher", dispatch)
 
-    def test_an_internal_suffixed_name_is_not_a_merge_only_shortcut(
-        self, monkeypatch,
-    ):
-        """Naming alone must not waive delivery -- an unregistered
-        ``-internal``-spelled flow is blocked exactly like any other typo,
-        and a registered one still answers from its own target tier."""
-        monkeypatch.setattr(
-            clearance,
-            "call_dispatcher",
-            _dispatch({"done_transition.registered_flow_ids": {"flow_ids": []}}),
+        assert (
+            clearance.resolve_default_delivery_flow(public_ref="EXT-3", workflow_id="dash")
+            == "ghost"
         )
-        result = clearance.resolve_delivery_clearance(
-            deploy_flow="dash-internal", item_project="yoke", workflow_id="dash",
-        )
-        assert result.merge_only is False
-        assert "not a registered deployment flow" in result.blocked_reason
 
-    def test_a_registered_internal_suffixed_flow_answers_from_its_own_tier(
-        self, monkeypatch,
-    ):
+    def test_no_workflow_id_resolves_empty_without_a_read(self, monkeypatch):
         monkeypatch.setattr(
-            clearance,
-            "call_dispatcher",
-            _dispatch(
-                {
-                    "done_transition.registered_flow_ids": {"flow_ids": ["dash-internal"]},
-                    "deployment_flows.get": {"value": "production"},
-                }
-            ),
+            clearance, "call_dispatcher", lambda **_: pytest.fail("no read needed"),
         )
-        result = clearance.resolve_delivery_clearance(
-            deploy_flow="dash-internal", item_project="yoke", workflow_id="dash",
+        assert (
+            clearance.resolve_default_delivery_flow(public_ref="EXT-3", workflow_id="")
+            == ""
         )
-        assert result.merge_only is False
 
-    def test_an_empty_flow_resolves_the_project_default_before_any_verdict(
-        self, monkeypatch,
-    ):
-        """A new item's blank scalar is not itself a merge-only signal."""
-        monkeypatch.setattr(
-            clearance,
-            "call_dispatcher",
-            _dispatch(
-                {
-                    "workflows.mechanics.get": {
-                        "delivery_defaults": [
-                            {"project": "yoke", "workflow_id": "dash", "flow_id": "yoke-default"}
-                        ]
-                    },
-                    "done_transition.registered_flow_ids": {"flow_ids": ["yoke-default"]},
-                    "deployment_flows.get": {"value": "production"},
-                }
-            ),
-        )
-        result = clearance.resolve_delivery_clearance(
-            deploy_flow="", item_project="yoke", workflow_id="dash",
-        )
-        assert result.merge_only is False
-        assert result.resolved_flow == "yoke-default"
-
-    def test_an_empty_flow_with_no_configured_default_is_merge_only(self, monkeypatch):
-        monkeypatch.setattr(
-            clearance,
-            "call_dispatcher",
-            _dispatch({"workflows.mechanics.get": {"delivery_defaults": []}}),
-        )
-        result = clearance.resolve_delivery_clearance(
-            deploy_flow="", item_project="yoke", workflow_id="dash",
-        )
-        assert result.merge_only is True
-        assert result.resolved_flow == ""
-        assert result.blocked_reason == ""
+    def test_relay_failure_raises_rather_than_reading_as_no_config(self, monkeypatch):
+        dispatch, _ = _recorder(success=False, message="unavailable")
+        monkeypatch.setattr(clearance, "call_dispatcher", dispatch)
+        with pytest.raises(RuntimeError, match="unavailable"):
+            clearance.resolve_default_delivery_flow(public_ref="YOK-3", workflow_id="dash")

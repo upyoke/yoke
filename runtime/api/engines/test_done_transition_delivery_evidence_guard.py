@@ -24,9 +24,9 @@ def _patch_registered_flows(flows):
     )
 
 
-def _patch_target_tier(tier):
+def _patch_merge_only(merge_only):
     return mock.patch.object(
-        deploy_gates, "_read_deployment_flow_target_tier", return_value=tier
+        deploy_gates, "_read_deployment_flow_merge_only", return_value=merge_only
     )
 
 
@@ -47,7 +47,6 @@ def _guard(**kwargs):
         item_id=900,
         deploy_flow="yoke-prod-release",
         skip_deploy=False,
-        item_project="yoke",
         old_status="release",
         delivery_stage_id="release",
         public_ref="YOK-900",
@@ -60,7 +59,7 @@ def test_containment_delivery_closes_out_an_unenrolled_member(capsys):
     """No membership row, but the release contains the merge: delivered."""
     with (
         _patch_registered_flows(["yoke-prod-release"]),
-        _patch_target_tier("persistent"),
+        _patch_merge_only(False),
         _patch_delivery({
             "state": "discharged",
             "run_id": "run-4",
@@ -80,7 +79,7 @@ def test_containment_delivery_closes_out_an_unenrolled_member(capsys):
 def test_an_unreadable_delivery_answer_blocks_as_unreadable(capsys):
     with (
         _patch_registered_flows(["yoke-prod-release"]),
-        _patch_target_tier("persistent"),
+        _patch_merge_only(False),
         _patch_delivery({
             "state": "undetermined",
             "reason": "repository_provider_read_failed",
@@ -100,7 +99,7 @@ def test_skip_deploy_is_refused_for_a_delivery_the_flow_made(capsys):
     """Recording a selected-flow delivery as out-of-band is a false record."""
     with (
         _patch_registered_flows(["yoke-prod-release"]),
-        _patch_target_tier("persistent"),
+        _patch_merge_only(False),
         _patch_delivery({"state": "discharged", "run_id": "run-4"}),
         _patch_latest_run(""),
     ):
@@ -116,7 +115,7 @@ def test_skip_deploy_still_serves_a_genuinely_out_of_band_delivery(capsys):
     """The flag keeps its real use: delivery the selected flow did not make."""
     with (
         _patch_registered_flows(["yoke-prod-release"]),
-        _patch_target_tier("persistent"),
+        _patch_merge_only(False),
         _patch_delivery({"state": "not_discharged", "reason": "no run"}),
         _patch_latest_run("succeeded", "run-2"),
         mock.patch.object(deploy_gates, "check_run_qa_gates", return_value=False),

@@ -194,12 +194,17 @@ def test_the_shared_clearance_reader_is_the_one_authority(monkeypatch) -> None:
     registered merge-only flow -- never the flow id's spelling -- is what
     discharges delivery."""
     _serve(monkeypatch, "dash")
-    monkeypatch.setattr(
-        clearance, "registered_deployment_flow_ids", lambda: [MERGE_ONLY_FLOW],
-    )
-    monkeypatch.setattr(
-        clearance, "deployment_flow_target_tier", lambda flow_id: "",
-    )
+    asked: list[dict] = []
+
+    def _dispatch(*, function_id, target, payload, **_kwargs):
+        asked.append({"function_id": function_id, "ref": target.public_ref, **payload})
+        return SimpleNamespace(
+            success=True,
+            error=None,
+            result={"merge_only": True, "resolved_flow": MERGE_ONLY_FLOW},
+        )
+
+    monkeypatch.setattr(clearance, "call_dispatcher", _dispatch)
 
     route = release_status.close_out_route(
         _item(
@@ -212,6 +217,14 @@ def test_the_shared_clearance_reader_is_the_one_authority(monkeypatch) -> None:
 
     assert route.stages == ("release", "done")
     assert route.delivery_discharged is True
+    assert asked == [
+        {
+            "function_id": "done_transition.delivery_clearance",
+            "ref": "ITEM-41",
+            "workflow_id": "dash",
+            "deploy_flow": MERGE_ONLY_FLOW,
+        }
+    ]
 
 
 def test_an_already_closed_out_item_asks_no_delivery_authority(
