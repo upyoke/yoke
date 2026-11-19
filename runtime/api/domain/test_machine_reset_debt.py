@@ -172,18 +172,20 @@ def test_mission_recovers_before_scratch_and_commands(monkeypatch, ok):
         )
 
 
-def test_failed_artifact_storage_still_releases_and_records_debt(
+def test_failed_artifact_storage_refuses_and_keeps_custody(
     test_db, removed_mission, monkeypatch
 ):
+    from yoke_core.domain.qa_artifact_storage import ArtifactStorageError
+
     request, _, original = removed_mission
     acquired = handle_agent_mission_access(request)
     assert acquired.primary_success, acquired.error
 
-    def unavailable(*args):
-        raise OSError("artifact store unavailable")
+    def unavailable(*args, **kwargs):
+        raise ArtifactStorageError("local_storage_failed", "artifact disk is full")
 
     monkeypatch.setattr(
-        "yoke_core.domain.qa_artifact_recording.handle_qa_artifact_add", unavailable
+        "yoke_core.domain.qa_artifact_storage.store_artifact_bytes", unavailable
     )
     finished = handle_agent_mission_access(
         request.model_copy(
@@ -199,8 +201,25 @@ def test_failed_artifact_storage_still_releases_and_records_debt(
     )
     assert not finished.primary_success
     assert finished.error.code == "mission_restore_evidence_failed"
-    assert not get_claim(test_db, original["lease_id"]).is_active
-    assert reset_owed(test_db, original["settings"]["resource_name"]) == "fresh-host"
+    message = finished.error.message
+    assert "local_storage_failed: artifact disk is full" in message
+    assert f"cleanup lease {original['lease_id']} is still held" in message
+    assert "is still walking" in message
+    assert "rerun the same yoke qa mission walk-end" in message
+    # Nothing committed: custody, state and debt are exactly as before.
+    assert get_claim(test_db, original["lease_id"]).is_active
+    assert reset_owed(test_db, original["settings"]["resource_name"]) is None
+    execution = lock_plan_execution(test_db, request.payload["execution_id"])
+    test_db.rollback()
+    assert execution["state"] == "walking"
+    assert execution["test_machine_lease_id"] == original["lease_id"]
+    assert (
+        test_db.execute(
+            "SELECT count(*) FROM qa_artifacts WHERE artifact_type="
+            "'starting_state_restore'"
+        ).fetchone()[0]
+        == 0
+    )
 
 
 def test_debt_changes_fleet_actionability_fingerprint_and_render(
@@ -254,11 +273,11 @@ def test_lost_savepoint_is_not_treated_as_an_artifact_failure(
     request, _, original = removed_mission
     assert handle_agent_mission_access(request).primary_success
 
-    def lost(*args):
+    def lost(*args, **kwargs):
         raise SavepointLostError("transaction lost")
 
     monkeypatch.setattr(
-        "yoke_core.domain.qa_artifact_recording.handle_qa_artifact_add", lost
+        "yoke_core.domain.qa_artifact_recording.record_qa_artifact", lost
     )
     with pytest.raises(SavepointLostError):
         handle_agent_mission_access(

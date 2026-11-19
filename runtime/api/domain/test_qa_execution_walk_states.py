@@ -12,7 +12,7 @@ from unittest.mock import patch
 
 from runtime.api.fixtures.qa_captured_plan_review_fixture import captured_plan_review
 from yoke_core.domain.agent_mission_restore import (
-    commit_mission_handback,
+    hand_back_mission_walk,
     post_capture_state,
 )
 from yoke_core.domain.qa_plan_execution_store import lock_plan_execution, roster_digest
@@ -86,13 +86,13 @@ def test_last_mission_handback_changes_state_atomically_and_retry_is_safe(test_d
         (execution["id"], second_requirement, json.dumps({"run_id": second_run})),
     )
     _restore(test_db, first_run)
-    commit_mission_handback(
+    hand_back_mission_walk(
         test_db, artifact_type="starting_state_restore", run_id=first_run
     )
     current = lock_plan_execution(test_db, execution["id"])
     assert current["state"] == post_capture_state(test_db, current) == "walking"
     _restore(test_db, second_run)
-    commit_mission_handback(
+    hand_back_mission_walk(
         test_db, artifact_type="starting_state_restore", run_id=second_run
     )
     current = lock_plan_execution(test_db, execution["id"])
@@ -102,7 +102,7 @@ def test_last_mission_handback_changes_state_atomically_and_retry_is_safe(test_d
         == "awaiting_walk_review"
     )
     assert current["completed_at"] is None
-    commit_mission_handback(
+    hand_back_mission_walk(
         test_db, artifact_type="starting_state_restore", run_id=second_run
     )
     assert (
@@ -112,7 +112,7 @@ def test_last_mission_handback_changes_state_atomically_and_retry_is_safe(test_d
 
 def test_non_restore_artifact_and_ordinary_capture_do_not_start_a_walk(test_db):
     execution, _, run_id = _mission(test_db, 91006)
-    commit_mission_handback(test_db, artifact_type="diagnostic", run_id=run_id)
+    hand_back_mission_walk(test_db, artifact_type="diagnostic", run_id=run_id)
     assert lock_plan_execution(test_db, execution["id"])["state"] == "walking"
     ordinary, _, _ = _capture(test_db, 91007)
     assert post_capture_state(test_db, ordinary) == "awaiting_walk_review"

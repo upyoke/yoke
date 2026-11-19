@@ -16,7 +16,7 @@ from runtime.api.fixtures.qa_captured_plan_review_fixture import captured_plan_r
 from yoke_core.domain import db_backend
 
 from yoke_core.domain.agent_mission_restore import (
-    commit_mission_handback,
+    hand_back_mission_walk,
     post_capture_state,
 )
 
