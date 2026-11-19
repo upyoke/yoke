@@ -9,8 +9,10 @@ So the reset lists the test user's foreground apps with ``lsappinfo``, which
 reads LaunchServices and needs no Apple Events grant, and quits every one this
 module does not keep. It keeps the session's own UI, and the apps the reset
 stops itself: identity browsers get a clean SIGTERM that keeps their cookies,
-and the self-host teardown stops the container runtime app. Apps are matched
-by bundle ID, never by display name.
+and the self-host teardown stops the container runtime app. It never quits the
+app that carries the controller's connection: the reset's SSH runs over the
+Tailscale tunnel, so quitting Tailscale cut one reset off from its own host.
+Apps are matched by bundle ID, never by display name.
 
 A listing that fails, or that does not show the GUI session at all, refuses:
 an unreadable session and an empty one look alike, and skipping the sweep is
@@ -31,7 +33,17 @@ GUI_APP_LIST_FAILED = "test_machine_gui_app_list_failed"
 TERMINAL_BUNDLE_ID = "com.apple.Terminal"
 # Every GUI session runs the Dock; a listing without it read no session.
 SESSION_PROOF_BUNDLE_ID = "com.apple.dock"
-KEPT_BUNDLE_IDS = frozenset(
+# The tailnet client the controller reaches the host through (``*.ts.net``).
+# The reset's own SSH runs over this tunnel, so quitting the app cuts the reset
+# off from its host and leaves it off the tailnet until someone relaunches
+# Tailscale at the console. Standalone and App Store builds.
+TRANSPORT_BUNDLE_IDS = frozenset(
+    {
+        "io.tailscale.ipn.macsys",
+        "io.tailscale.ipn.macos",
+    }
+)
+KEPT_BUNDLE_IDS = TRANSPORT_BUNDLE_IDS | frozenset(
     {
         # The session's own UI. Only Finder is normally a foreground app; the
         # agents are listed in case a macOS release changes their type.
@@ -146,6 +158,7 @@ __all__ = [
     "KEPT_BUNDLE_IDS",
     "LIST_COMMAND",
     "TERMINAL_BUNDLE_ID",
+    "TRANSPORT_BUNDLE_IDS",
     "ForegroundApp",
     "list_foreground_apps",
     "running_pid",
