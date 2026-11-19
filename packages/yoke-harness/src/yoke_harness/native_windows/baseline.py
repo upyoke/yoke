@@ -95,6 +95,19 @@ foreach($root in @($source,$target)){{
   }}
  }}
 }}
+# /MIR purges target links its source lacks, and goldens hold none (/XJ), so
+# exclude Windows' own System-marked profile compatibility junctions.
+$walk=New-Object System.Collections.Generic.Stack[string]; $walk.Push($target)
+while($walk.Count){{
+ $dir=$walk.Pop(); try {{$entries=@([IO.DirectoryInfo]::new($dir).GetFileSystemInfos())}} catch {{continue}}
+ foreach($entry in $entries){{
+  if($exclude -contains $entry.FullName){{continue}}
+  $attributes=$entry.Attributes
+  if($attributes -band [IO.FileAttributes]::ReparsePoint){{
+   if(($attributes -band [IO.FileAttributes]::System) -and ($attributes -band [IO.FileAttributes]::Directory)){{$exclude+=$entry.FullName}}
+  }} elseif($attributes -band [IO.FileAttributes]::Directory){{$walk.Push($entry.FullName)}}
+ }}
+}}
 $logRoot=Join-Path $env:LOCALAPPDATA 'YokeQa'
 New-Item -ItemType Directory -Path $logRoot -Force | Out-Null
 $copyLog=Join-Path $logRoot ('profile-copy-'+[Guid]::NewGuid().ToString('N')+'.log')

@@ -259,3 +259,11 @@ def test_mirror_excludes_the_live_windows_data_store_and_names_copy_errors():
     assert quote(GOLDEN + r"\profile\AppData\Local\Comms") in mirror
     assert "Select-String -LiteralPath $copyLog -Pattern 'ERROR" in mirror
     assert "($copyErrors -join ' | ')" in mirror
+
+
+def test_mirror_keeps_windows_profile_compatibility_junctions():
+    mirror = profile_copy_script(SimpleNamespace(home=HOME), GOLDEN)
+    walk, robocopy = mirror.index("$walk.Push($target)"), mirror.index("robocopy.exe")
+    assert walk < robocopy
+    assert "[IO.FileAttributes]::System) -and" in mirror
+    assert "$exclude+=$entry.FullName" in mirror
