@@ -195,6 +195,12 @@ UNTRUSTED_UV = (
     ">>\"%FAKE_UV_LOG%\" echo %*\r\n"
     "if \"%FAKE_UV_MODE%\"==\"ok\" if \"%1 %2\"==\"python find\" (echo 3.12.16 & exit /b 0)\r\n"
     "if \"%FAKE_UV_MODE%\"==\"ok\" exit /b 0\r\n"
+    "if \"%FAKE_UV_MODE%\"==\"warn\" if \"%1 %2\"==\"python find\" (echo 3.12.16 & exit /b 0)\r\n"
+    "if \"%FAKE_UV_MODE%\"==\"warn\" if not \"%~x7\"==\".py\" exit /b 0\r\n"
+    "if \"%FAKE_UV_MODE%\"==\"warn\" (echo warning: windows_coverage_untested 1>&2 & exit /b 0)\r\n"
+    "if \"%FAKE_UV_MODE%\"==\"fail\" if \"%1 %2\"==\"python find\" (echo 3.12.16 & exit /b 0)\r\n"
+    "if \"%FAKE_UV_MODE%\"==\"fail\" if not \"%~x7\"==\".py\" exit /b 0\r\n"
+    "if \"%FAKE_UV_MODE%\"==\"fail\" exit /b 3\r\n"
     "if \"%FAKE_UV_MODE%\"==\"other\" (echo error: network unreachable 1>&2 & exit /b 2)\r\n"
     "echo  Downloaded cpython-3.12.16-windows-x86_64-none\r\n"
     "echo error: Failed to create Python minor version link directory 1>&2\r\n"
@@ -270,3 +276,18 @@ def test_shim_reads_uv_python_preparation(tmp_path, mode, code):
     if code == "windows_untrusted_mount_point":
         assert "https://github.com/astral-sh/uv/issues/19616" in output
         assert "local PowerShell" in output
+
+
+@pytest.mark.windows_only(reason="install.ps1 runs only in Windows PowerShell")
+@pytest.mark.parametrize("mode", ["warn", "fail"])
+def test_shim_judges_install_py_by_exit_code(tmp_path, mode):
+    result = _run_shim(tmp_path, mode)
+    output = result.stdout + result.stderr
+    calls = (tmp_path / "uv-calls.log").read_text(encoding="ascii").splitlines()
+    assert any(call.endswith("install.py --yes") for call in calls), calls
+    if mode == "warn":
+        assert result.returncode == 0, output
+        assert "windows_coverage_untested" in result.stderr
+        return
+    assert result.returncode != 0
+    assert "yoke_install_failed: Python installer exited 3" in output

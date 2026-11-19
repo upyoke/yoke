@@ -56,9 +56,11 @@ try {
     $pythonArgs = @('run', '--isolated', '--no-project', '--python', $pythonVersion, 'python')
     Invoke-PreparationUv ($pythonArgs + @('-c', 'pass'))
     Assert-PreparationUv "preparing Python $pythonVersion"
-    $ErrorActionPreference = 'Stop'
+    # Judge install.py by its exit code: under 'Stop', Windows PowerShell 5.1
+    # turns its first redirected stderr line (a warning) into a terminating error.
     & uv @pythonArgs $helper @installerArgs
     if ($LASTEXITCODE -ne 0) { throw "yoke_install_failed: Python installer exited $LASTEXITCODE; follow its recovery above, then retry." }
+    $ErrorActionPreference = 'Stop'
     $env:PATH = [Environment]::GetEnvironmentVariable('PATH', 'User') + ';' + $env:PATH
 } finally {
     Remove-Item -LiteralPath $temporary -Recurse -Force -ErrorAction SilentlyContinue
