@@ -34,6 +34,13 @@ read. The daemon allows that read to settle against the new document while
 keeping the same owned page, viewport and requested theme; it never repeats
 the action. Persistent observation failures remain named refusals.
 
+The daemon reads that media preference before and after every step, and
+whenever an owned page is reopened. A page whose main thread is busy or
+blocked answers no script, so the read stops after 5 seconds and the request
+refuses with `page_unresponsive`, naming the page URL. The page stays open
+and nothing replaces it. Treat it like any other uncertain outcome: inspect
+the page and retained evidence, and never replay a submit blindly.
+
 A missing creating-state capture or exact submit-to-next-screen measurement
 stays unknown when retained evidence cannot establish it. Keep the original
 assertions and failed capture evidence. A new real acceptance transaction

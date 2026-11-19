@@ -116,7 +116,32 @@ async function main() {
       { action: 'screenshot', target: 'h1', capture: true }, { baseUrl: url });
     assert.equal(capture.success, true);
     assert.ok(capture.artifacts.length);
-    console.log('PASS: page scheme isolation, navigation/reload, ownership, observation and failure boundaries');
+    // A blocked main thread answers no script. The daemon names the page
+    // within the observation deadline instead of holding the request until
+    // the client's transport limit.
+    await manager.openOwnedPage(viewport, 'busy-case');
+    const busy = manager.ownedPage('busy-case');
+    await busy.goto(`${url}/fixture`);
+    await busy.evaluate(() => { setTimeout(() => { for (;;) {} }, 0); });
+    const post = async (route, body) => {
+      const started = performance.now();
+      const response = await fetch(`${url}${route}`, {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
+      });
+      return { status: response.status, body: await response.json(), ms: performance.now() - started };
+    };
+    const unresponsive = /^page_unresponsive: .*within 5s \(url=http:\/\/127\.0\.0\.1:\d+\/fixture\).*do not replay a submit blindly/;
+    const reopened = await post('/api/exec/page', { viewport, pageId: 'busy-case' });
+    assert.equal(reopened.status, 400);
+    assert.match(reopened.body.error, unresponsive);
+    assert.ok(reopened.ms >= 4500 && reopened.ms < 10000, `page refusal took ${reopened.ms}ms`);
+    assert.equal(manager.ownedPage('busy-case'), busy, 'the unresponsive page stays open, unsubstituted');
+    const stepped = await post('/api/exec/step',
+      { step: { action: 'screenshot', capture: true }, baseUrl: url, pageId: 'busy-case' });
+    assert.equal(stepped.status, 500);
+    assert.match(stepped.body.error, unresponsive);
+    assert.ok(stepped.ms < 10000, `step refusal took ${stepped.ms}ms`);
+    console.log('PASS: page scheme isolation, navigation/reload, ownership, observation, unresponsive page and failure boundaries');
   } finally {
     await fixture.close();
   }
