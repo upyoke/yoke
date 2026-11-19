@@ -53,10 +53,12 @@ Install and `yoke setup` Apply also converge the Windows user's
 other settings and comments. This disables distro idle shutdown so the relay
 and background work keep running after every WSL terminal closes. The setting
 applies to all WSL2 distributions owned by that Windows user. It requires WSL
-2.5.4 or newer. An older WSL version or unreachable Windows interop produces
-a clear warning, skips the lifetime change, and allows installation and setup
-to finish. Run `wsl --update` from Windows, restore interop if needed, and
-retry `yoke wsl setup`. Invalid configuration still refuses with its recovery.
+2.5.4 or newer. An older WSL version, unreachable Windows interop or a failing
+`wsl.exe` produces one warning with its own recovery, skips the lifetime change,
+and allows installation and setup to finish. Older WSL: run `wsl --update` from
+Windows. Missing interop: enable it in `/etc/wsl.conf` and restart WSL. A failing
+`wsl.exe`: run `wsl --shutdown` from Windows, then `wsl --update` if it still
+fails. Then retry `yoke wsl setup`. Invalid configuration still refuses with its recovery.
 Onboarding preparation and preview never write `/etc/wsl.conf` or `.wslconfig`;
 the WSL configuration changes happen only on Apply.
 See [Microsoft's WSL configuration reference](https://learn.microsoft.com/windows/wsl/wsl-config)

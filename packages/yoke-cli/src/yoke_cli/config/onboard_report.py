@@ -101,8 +101,9 @@ def build_plan(
     # Every destination, because the harness a person opens prompts the same
     # way whether their control plane is local, a team server, or hosted.
     steps.append(harness_unattended_posture.posture_plan_step())
-    # Machine-wide hooks for every existing harness home, with or without a project.
-    steps.extend(harness_machine_hooks.machine_hooks_plan_steps())
+    # Machine-wide hooks for each harness home whose hooks are not yet current,
+    # with or without a project.
+    steps.extend(_machine_hooks_plan_steps())
     steps.extend(
         onboard_session_relay.plan_steps(
             local_destination=local_destination,
@@ -228,6 +229,28 @@ def _public_clone(value: Any) -> dict[str, Any] | None:
         "fork_api_url": str(getattr(value, "fork_api_url", "") or ""),
         "publish": _public_publish(getattr(value, "publish", None)),
     }
+
+
+def _machine_hooks_plan_steps() -> list[dict[str, str]]:
+    """Review entries naming each harness config whose machine hooks need writing."""
+    from yoke_harness.hooks.machine_hooks_inspect import (
+        STATE_INSTALLED,
+        inspect_machine_hooks,
+    )
+
+    current = {
+        result.harness_id
+        for result in inspect_machine_hooks()
+        if result.outcome == STATE_INSTALLED
+    }
+    return [
+        {
+            "action": harness_machine_hooks.MACHINE_HOOKS_PLAN_ACTION,
+            "target": spec.display_path(),
+        }
+        for spec in harness_machine_hooks.installed_machine_hooks()
+        if spec.harness_id not in current
+    ]
 
 
 def _source_choice_target(project_mode: str, project_inputs: dict[str, Any]) -> str:

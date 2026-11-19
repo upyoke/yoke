@@ -44,9 +44,9 @@ with systemd enabled. To open a URL in the Windows browser, Yoke tries
 interop/PATH when both are unavailable. Verify the local UI
 through Windows localhost forwarding before changing WSL networking modes.
 Install and onboard Apply disable WSL2 idle shutdown through the Windows user
-profile `.wslconfig` (WSL 2.5.4 or newer). Older WSL or unavailable Windows
-interop warns without blocking completion; run `wsl --update` from Windows
-and retry `yoke wsl setup`. Preview does not write WSL configuration.
+profile `.wslconfig` (WSL 2.5.4 or newer). Older WSL, unavailable Windows
+interop or a failing `wsl.exe` warns without blocking completion; follow the
+warning's one recovery step and retry `yoke wsl setup`. Preview does not write WSL configuration.
 Follow the printed `wsl --shutdown`
 restart step when setup changes it; afterward terminals can close while the
 relay and background work continue. After a deliberate distro shutdown, run
@@ -212,8 +212,8 @@ its exclusive start lock. An already-running resident from before this fix needs
 one ordinary `yoke hook resident restart` after installing the corrected CLI;
 installing code alone cannot change that old process. Hook timing stays in the
 diagnostics log. Setup also
-writes Yoke's machine-wide hooks into each existing harness home's user config,
-so sessions outside a project get local help without sending data; inside one,
+writes Yoke's machine-wide hooks into each existing harness home's user config
+(Review lists only the configs whose hooks are missing or out of date), so sessions outside a project get local help without sending data; inside one,
 the project's hooks route to its connection. Disable any folder and subfolders
 on this machine with `yoke folder disable PATH`; restore with
 `yoke folder enable PATH`. See [What Yoke sends](../agents/harness-discovery.md#what-yoke-sends).

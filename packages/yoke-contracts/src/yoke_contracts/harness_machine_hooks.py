@@ -231,14 +231,6 @@ def installed_machine_hooks(
     ]
 
 
-def machine_hooks_plan_steps() -> list[dict[str, str]]:
-    """Setup review entries naming each user config the install writes."""
-    return [
-        {"action": MACHINE_HOOKS_PLAN_ACTION, "target": spec.display_path()}
-        for spec in installed_machine_hooks()
-    ]
-
-
 def machine_hooks_for_harness(harness_id: str) -> HarnessMachineHooks:
     try:
         return HARNESS_MACHINE_HOOKS[harness_id]
@@ -256,5 +248,4 @@ __all__ = [
     "entry_commands",
     "installed_machine_hooks",
     "machine_hooks_for_harness",
-    "machine_hooks_plan_steps",
 ]

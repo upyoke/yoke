@@ -17,6 +17,10 @@ CONFIG_RECOVERY = (
     "Repair the Windows user profile .wslconfig and its permissions, "
     "then rerun yoke wsl setup."
 )
+COMMAND_FAILED_RECOVERY = (
+    "Restart WSL (`wsl --shutdown` from Windows) and rerun yoke wsl setup in Ubuntu; "
+    "if it still fails, run wsl --update from Windows."
+)
 INTEROP_RECOVERY = (
     "Enable Windows interop/PATH in /etc/wsl.conf, restart WSL, "
     "then rerun yoke wsl setup."
@@ -45,7 +49,7 @@ def _run(command: list[str]) -> str:
     if result.returncode:
         raise RuntimeError(
             f"wsl_windows_command_failed: {command[0]} exited {result.returncode}; "
-            f"{_decode(result.stderr or result.stdout)}. {RECOVERY}"
+            f"{_decode(result.stderr or result.stdout)}. {COMMAND_FAILED_RECOVERY}"
         )
     return _decode(result.stdout)
 
@@ -204,7 +208,7 @@ def setup(*, emit=print) -> bool:
             )
         ):
             raise
-        emit(f"Warning: {exc} WSL lifetime setup was skipped. {RECOVERY}")
+        emit(f"Warning: {exc} WSL lifetime setup was skipped.")
         return False
     changed = _enable(path)
     if changed:
