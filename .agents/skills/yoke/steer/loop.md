@@ -61,7 +61,8 @@ yoke db read "SELECT release_reason FROM work_claims WHERE target_kind = 'item' 
 ## 3. Staff everything
 
 Only this seat staffs work: [launch](worker-launch.md) every runnable,
-unclaimed scoped item this pass.
+unclaimed scoped item this pass. Vet any item you have not vetted yourself
+before launching it.
 
 For specs:
 
