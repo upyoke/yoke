@@ -23,7 +23,8 @@ from __future__ import annotations
 import json
 import os
 import re
-from collections.abc import Mapping
+import time
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -42,6 +43,14 @@ _FULL_COMMIT = re.compile(r"^[0-9a-f]{40}$")
 
 class QaControllerNotCandidate(QaPlanExecutionError):
     """The controller cannot run this release-run stage's candidate code."""
+
+
+class QaControllerStaleTarget(QaControllerNotCandidate):
+    """The destination serves another build than the execution's frozen target.
+
+    The owner's begin re-freezes an unbegun execution to the run's current
+    target, so the caller retries the begin in place before giving it up.
+    """
 
 
 @dataclass(frozen=True)
@@ -163,15 +172,17 @@ def controller_candidate(execution: Mapping[str, Any]) -> ControllerCandidate | 
     owes one: that origin serves the Yoke release the run delivered (or the
     release its deployed commit pins). Other executions run in-process.
     """
-    run_id = str(execution.get("deployment_run_id") or "")
+    owner = str(execution.get("deployment_run_id") or "")
     target = execution.get("execution_target")
-    if not run_id or not isinstance(target, dict):
+    if not owner or not isinstance(target, dict):
         return None
     endpoints = target.get("endpoints") or {}
     base_url = str(endpoints.get("installer_base_url") or "").strip().rstrip("/")
     if not base_url:
         return None
     deployment = target.get("deployment") or {}
+    # The build is the frozen target's; name the run that delivered it.
+    run_id = str(deployment.get("run_id") or owner)
     stage = str(execution.get("deployment_stage") or deployment.get("stage") or "")
     pinned = str(endpoints.get("release_version") or "").strip()
     if pinned:
@@ -185,12 +196,19 @@ def controller_candidate(execution: Mapping[str, Any]) -> ControllerCandidate | 
         version, commit = _channel_release(base_url, channel)
         lineage = str(deployment.get("release_lineage") or "")
         if commit != lineage:
-            raise QaControllerNotCandidate(
+            moved = (
+                f" Run {owner} now owns this execution, which still carries run "
+                f"{run_id}'s frozen target."
+                if owner != run_id
+                else ""
+            )
+            raise QaControllerStaleTarget(
                 f"{REFUSAL_CODE}: run {run_id} stage {stage} delivered candidate "
                 f"{lineage[:12] or '<none>'}, but {base_url} channel {channel} now "
-                f"serves Yoke {version} built from {commit[:12]}. The destination "
-                "no longer serves this run's candidate; read `yoke deployment-runs "
-                f"get {run_id}` and run QA on the run that owns the destination"
+                f"serves Yoke {version} built from {commit[:12]}.{moved} The "
+                "destination no longer serves that candidate; read `yoke "
+                f"deployment-runs get {owner}` and run QA on the run that owns the "
+                "destination"
             )
     return ControllerCandidate(run_id, stage, version, commit, base_url)
 
@@ -220,6 +238,43 @@ def require_candidate_controller(
     return candidate
 
 
+#: Re-begins after a stale-target refusal, and the pause before each; the
+#: destination's new build can publish moments before its deploy receipt.
+RETARGET_ATTEMPTS = 3
+RETARGET_WAIT_SECONDS = 20.0
+
+
+def require_retargeted_candidate(
+    execution: Mapping[str, Any],
+    *,
+    adopted: bool,
+    rebegin: Callable[[], Mapping[str, Any]] | None,
+) -> tuple[ControllerCandidate | None, Mapping[str, Any]]:
+    """The candidate and the execution it holds, re-targeted in place if stale.
+
+    ``rebegin`` repeats the owner's begin, which re-freezes an execution that
+    has run nothing to its run's current target, keeping its id and queue
+    place. Without it (resume or adoption) a stale target refuses at once.
+    """
+    for attempt in range(RETARGET_ATTEMPTS + 1):
+        try:
+            return require_candidate_controller(execution, adopted=adopted), execution
+        except QaControllerStaleTarget:
+            if rebegin is None or attempt == RETARGET_ATTEMPTS:
+                raise
+        time.sleep(RETARGET_WAIT_SECONDS)
+        again = rebegin()
+        if str(again.get("execution_id")) != str(execution.get("execution_id")):
+            raise QaPlanExecutionError(
+                f"qa_resume_identity_mismatch: re-targeting execution "
+                f"{execution.get('execution_id')} returned execution "
+                f"{again.get('execution_id')}; preserve both receipts and report "
+                "to the control-plane operator"
+            )
+        execution = again
+    raise AssertionError("unreachable")
+
+
 def not_candidate_refusal(
     candidate: ControllerCandidate, detail: str
 ) -> QaControllerNotCandidate:
@@ -243,11 +298,13 @@ __all__ = [
     "CONTROLLER_RUNTIME_KEY",
     "ControllerCandidate",
     "QaControllerNotCandidate",
+    "QaControllerStaleTarget",
     "REFUSAL_CODE",
     "controller_candidate",
     "controller_runtime_identity",
     "not_candidate_refusal",
     "require_candidate_controller",
+    "require_retargeted_candidate",
     "stamp_controller_runtime",
     "stamp_submission",
 ]

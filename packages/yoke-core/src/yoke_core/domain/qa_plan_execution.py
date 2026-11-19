@@ -140,14 +140,16 @@ def execute_plan(
             execution_id=resume_execution_id,
             project=project or target.project_id or _checkout_project(checkout_path),
         )
-    try:
-        execution = adopted_execution or _call_plan_function(
+    begin_target = target
+
+    def begin_call() -> dict[str, Any]:
+        return _call_plan_function(
             function_id=(
                 "qa.plan_execution.resume"
                 if resume_execution_id
                 else "qa.plan_execution.begin"
             ),
-            target=target,
+            target=begin_target,
             payload=(
                 {**begin_payload, "execution_id": resume_execution_id}
                 if resume_execution_id
@@ -155,6 +157,9 @@ def execute_plan(
             ),
             actor=resolved_actor,
         )
+
+    try:
+        execution = adopted_execution or begin_call()
     except QaPlanExecutionError as exc:
         from yoke_core.domain.qa_plan_empty_roster import as_discharged_plan_result
 
@@ -196,16 +201,23 @@ def execute_plan(
             "qa_resume_identity_mismatch: preserve both receipts and report to the control-plane operator"
         )
     try:
-        begun = validate_begun_execution(
-            execution, test_machine=test_machine, base_url=base_url, public_ref=public_ref
-        )
         from yoke_core.domain.qa_controller_candidate import (
-            require_candidate_controller,
+            require_retargeted_candidate,
         )
 
-        # Before any host lease: a stale controller never runs this roster.
-        candidate = require_candidate_controller(
-            execution, adopted=adopted_execution is not None
+        # Before any host lease: a stale controller never runs this roster,
+        # and a stale target re-begins in place rather than requeueing.
+        candidate, execution = require_retargeted_candidate(
+            execution,
+            adopted=adopted_execution is not None,
+            rebegin=(
+                begin_call
+                if adopted_execution is None and not resume_execution_id
+                else None
+            ),
+        )
+        begun = validate_begun_execution(
+            execution, test_machine=test_machine, base_url=base_url, public_ref=public_ref
         )
         if candidate is not None:
             from yoke_core.domain.qa_controller_handoff_cli import provision

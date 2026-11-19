@@ -280,3 +280,52 @@ def test_walker_commands_run_on_the_candidate_executable(monkeypatch):
     dispatch = result["review_bundle"]["dispatch"]
     assert dispatch["submit_command"].startswith("/rt/bin/yoke --env prod qa plan")
     assert "candidate controller" in dispatch["prompt"]
+
+
+def _moved(lineage):
+    """Run run-2 took over an execution run-1 froze on ``lineage``."""
+    moved = _execution()
+    moved["deployment_run_id"] = "run-2"
+    moved["execution_target"]["deployment"]["release_lineage"] = lineage
+    return moved
+
+
+def _begins(monkeypatch, plan, responses):
+    """Each begin returns the next response; every call is recorded."""
+    responses = iter(responses)
+
+    def call(*, function_id, payload, **_):
+        plan.calls.append(function_id)
+        return next(responses) if function_id == "qa.plan_execution.begin" else {}
+
+    monkeypatch.setattr(qa_plan_execution, "_call_plan_function", call)
+
+
+def test_stale_refusal_names_the_frozen_run_with_its_own_build(served):
+    with pytest.raises(candidate_mod.QaControllerStaleTarget) as refused:
+        controller_candidate(_moved(STALE))
+    message = str(refused.value)
+    assert f"run run-1 stage item-qa delivered candidate {STALE[:12]}" in message
+    assert "Run run-2 now owns this execution" in message
+    assert "run run-2 stage item-qa delivered candidate" not in message
+
+
+def test_stale_target_re_begins_in_place_instead_of_requeueing(monkeypatch, served):
+    _identity(monkeypatch, CANDIDATE)
+    plan = _Plan(monkeypatch)
+    _begins(monkeypatch, plan, [_moved(STALE), {**_moved(CANDIDATE), "deployment_run_id": "run-1"}])
+    monkeypatch.setattr(candidate_mod.time, "sleep", lambda _: None)
+    assert plan.run()["state"] == "passed"
+    assert plan.calls.count("qa.plan_execution.begin") == 2
+    assert "qa.plan_execution.abort" not in plan.calls
+
+
+def test_target_still_stale_after_retries_is_released(monkeypatch, served):
+    _identity(monkeypatch, CANDIDATE)
+    plan = _Plan(monkeypatch)
+    _begins(monkeypatch, plan, [_moved(STALE)] * (candidate_mod.RETARGET_ATTEMPTS + 1))
+    monkeypatch.setattr(candidate_mod.time, "sleep", lambda _: None)
+    with pytest.raises(Exception, match="Run run-2 now owns.*has been released"):
+        plan.run()
+    assert plan.calls.count("qa.plan_execution.begin") == candidate_mod.RETARGET_ATTEMPTS + 1
+    assert "qa.plan_execution.abort" in plan.calls

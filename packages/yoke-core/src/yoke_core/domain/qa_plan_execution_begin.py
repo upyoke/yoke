@@ -220,6 +220,8 @@ def begin_plan_execution(
         }:
             if same_owner(existing, actor_id=actor_id, session_id=session_id):
                 from yoke_core.domain.qa_environment_served_build import observe_resume
+                from yoke_core.domain.deployment_qa_execution_refreeze import refreeze_unbegun_execution as refreeze
+                refreeze(conn, existing, prepared)  # a takeover's successor redeployed
                 observe_resume(conn, existing)
                 if not retire_unstarted_changed_roster(
                     conn, existing, digest=prepared.digest
