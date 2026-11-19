@@ -27,6 +27,7 @@ from yoke_core.domain.profile_read import (
     read_actor,
     read_identity,
     read_preferences,
+    read_project_create_orgs,
     read_roles,
     read_tokens,
 )
@@ -42,6 +43,7 @@ class ProfileGetResponse(BaseModel):
     actor: Dict[str, Any]
     identity: Optional[Dict[str, Any]]
     roles: Dict[str, List[Dict[str, Any]]]
+    project_create_orgs: List[Dict[str, Any]]
     tokens: List[Dict[str, Any]]
     preferences: Dict[str, Any]
     onboarding: Dict[str, Any]
@@ -115,6 +117,7 @@ def handle_profile_get(request: FunctionCallRequest) -> HandlerOutcome:
             "actor": actor,
             "identity": read_identity(conn, actor_id),
             "roles": read_roles(conn, actor_id),
+            "project_create_orgs": read_project_create_orgs(conn, actor_id),
             "tokens": read_tokens(conn, actor_id),
             "preferences": read_preferences(conn, actor_id),
             "onboarding": {"hidden_count": hidden_module_count(conn, actor_id)},

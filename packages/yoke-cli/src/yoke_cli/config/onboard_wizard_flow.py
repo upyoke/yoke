@@ -271,11 +271,18 @@ class WizardFlow(
         Single seam over :func:`onboard_preflight.preflight` so tests stub one
         method; the live wizard wires the real network probes.
         """
-        from yoke_cli.config import onboard_preflight
+        from dataclasses import replace
 
-        return onboard_preflight.preflight(
-            self.result, probes=onboard_preflight.default_probes()
+        from yoke_cli.config import onboard_preflight
+        from yoke_cli.config import onboard_project_create_permission
+
+        probes = replace(
+            onboard_preflight.default_probes(),
+            project_create_allowed=onboard_project_create_permission.probe_for(
+                self.result, self._yoke_token_for_project_lookup
+            ),
         )
+        return onboard_preflight.preflight(self.result, probes=probes)
 
     def _on_confirm(self, choice: str) -> None:
         if choice == "show-all":
