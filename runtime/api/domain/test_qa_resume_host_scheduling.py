@@ -33,7 +33,9 @@ def test_resumed_platform_retains_host_and_new_platform_selects_normally(
     )
     monkeypatch.setattr(
         "yoke_core.domain.qa_plan_host_leases.get_claim",
-        lambda *a: SimpleNamespace(target=SimpleNamespace(test_machine="test-mac")),
+        lambda *a: SimpleNamespace(
+            is_active=True, target=SimpleNamespace(test_machine="test-mac")
+        ),
     )
     released = Mock()
     monkeypatch.setattr("yoke_core.domain.qa_plan_host_leases.release", released)
@@ -72,7 +74,9 @@ def test_resumed_single_platform_keeps_live_lease(monkeypatch):
     )
     monkeypatch.setattr(
         "yoke_core.domain.qa_plan_host_leases.get_claim",
-        lambda *a: SimpleNamespace(target=SimpleNamespace(test_machine="linux-lab")),
+        lambda *a: SimpleNamespace(
+            is_active=True, target=SimpleNamespace(test_machine="linux-lab")
+        ),
     )
     monkeypatch.setattr(protocol, "plan_case_contract_arguments", lambda *a, **k: {})
     continuation = Mock()

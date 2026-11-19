@@ -308,7 +308,7 @@ def held_host_leases(conn: Any, execution: dict[str, Any]) -> dict[str, int]:
     if lease_id is not None:
         primary = get_claim(conn, int(lease_id))
         if primary.is_active:
-            leases[str(primary.target.test_machine)] = primary.id
+            leases[str(primary.target.test_machine)] = int(lease_id)
     return leases
 
 
