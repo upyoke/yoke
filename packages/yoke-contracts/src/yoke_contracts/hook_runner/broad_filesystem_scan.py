@@ -143,9 +143,11 @@ def find_broad_scan(
 
 def broad_scan_reason(scan: BroadScan) -> str:
     """The refusal: what would be walked, why it is refused, and what to run."""
-    target = f" `{scan.root}`" if scan.root else ""
+    written = ""
+    if scan.root and f"`{scan.root}`" != scan.scope:
+        written = f" (root written `{scan.root}`)"
     body = (
-        f"BLOCKED: `{scan.tool}`{target} would search {scan.scope}. A whole-disk "
+        f"BLOCKED: `{scan.tool}` would search {scan.scope}{written}. A whole-disk "
         "scan can run for tens of minutes with no output; the turn stays "
         "blocked and Yoke messages cannot reach this session.\n\n"
         "Search the repo or worktree that holds the answer:\n"
