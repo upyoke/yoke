@@ -199,6 +199,32 @@ def test_git_bash_implicit_cwd_at_a_drive_root_is_refused(cwd) -> None:
         assert find_broad_scan("find -name x", cwd=cwd, home=WINDOWS_HOME)
 
 
+@pytest.mark.parametrize(
+    "command",
+    ["cd / && find . -name x", "cd / && find -name x", "cd /Users && find . -name x"],
+)
+def test_git_bash_cd_to_a_whole_disk_root_is_refused_before_mount_mapping(
+    command,
+) -> None:
+    # `cd /` resolves to the Git Bash install directory, so only the
+    # directory as written shows the scan walks the whole disk.
+    with client_path_scope(WINDOWS_FACTS[0]):
+        scan = find_broad_scan(command, cwd=WINDOWS_REPO, home=WINDOWS_HOME)
+    assert scan is not None and scan.tool == "find"
+
+
+def test_git_bash_cd_into_a_repo_still_allows_a_relative_scan() -> None:
+    with client_path_scope(WINDOWS_FACTS[0]):
+        assert (
+            find_broad_scan(
+                "cd /c/Users/me/repo && find . -name x",
+                cwd=WINDOWS_REPO,
+                home=WINDOWS_HOME,
+            )
+            is None
+        )
+
+
 def test_drive_mounts_stay_scoped_on_posix_clients() -> None:
     with client_path_scope({"windows": False, "home": "/Users/me"}):
         assert find_broad_scan("find /c -name x", cwd="/repo", home="/Users/me") is None
