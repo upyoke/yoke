@@ -215,6 +215,8 @@ def test_verify_reports_surviving_yoke_state_after_a_restore(
         "yoke_absent_files=()",
         "yoke_absent_temp_files=()",
         "container_runtime_paths=()",
+        # The driver initializes this; verify reads it to restore the runtime.
+        'self_host_runtime_started=""',
         # No test reads the operator's own launchd domain: an unreachable
         # launchctl is how this host reports that nothing is loaded, the same
         # way an absent container runtime reports an idle self-host stack.
