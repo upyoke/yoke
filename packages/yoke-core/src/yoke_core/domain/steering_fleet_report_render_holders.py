@@ -1,5 +1,6 @@
 """Render a holder's shared intent, next actor and message recovery."""
 
+from yoke_core.domain.next_actor import reason_sentence
 from yoke_core.domain.steering_fleet_report_holders import ClaimHolder
 from yoke_core.domain.steering_fleet_report_render_text import (
     SECTION_LIMIT,
@@ -32,6 +33,10 @@ def holder_lines(holders: tuple[ClaimHolder, ...], *, idle: bool = False) -> lis
             line += (
                 f"  next: {people or next_action['actor']} — {next_action['reason']}"
             )
+            sentence = next_action.get("sentence")
+            if sentence and sentence != reason_sentence(next_action["reason"]):
+                # A fact that composed its own sentence names what the code cannot.
+                line += f": {sentence}"
         if holder.hand_started:
             line += "  hand-started (operator origin)"
         line += f"  {holder.message_delivery}"
