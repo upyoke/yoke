@@ -56,4 +56,12 @@ that excludes Windows. The tracked-source scanner refuses hand-written OS
 `skipif`/`xfail` conditions and OS-guarded `pytest.skip`/`pytest.xfail`.
 Root-user and missing-tool skips stay ordinary conditions.
 
+The same scanner refuses a `/tmp` literal used as a real path: passed to
+`dir=`, to `open`, `os` or `shutil` calls, or to path I/O such as
+`Path("/tmp/x").write_text(...)`. Windows has no `/tmp`. Use
+`shortest_temp_directory()` for socket or Postgres roots, the machine home's
+tmp tree where the code under test writes runtime state, and pytest
+`tmp_path` everywhere else. Data-only literals go on the allowlist in
+`tests/test_os_scope_markers.py`.
+
 Use these markers only when a test requires a native OS capability.

@@ -147,3 +147,37 @@ def test_x(value): pass
     result = _run(tmp_path, source, "win32")
     assert result.returncode == 0, result.stdout + result.stderr
     assert "1 passed, 1 skipped" in result.stdout
+
+
+# Data-only /tmp literals the scanner reaches; each names what keeps it off disk.
+TMP_DATA_LITERALS = {
+    # Expected-value resolve() of the relay's machine-config path; nothing is written.
+    ("runtime/api/cli/test_onboard_wizard_session_relay.py", "'/tmp/machine-config.json'"),
+}
+
+
+@pytest.mark.parametrize("source", [
+    'import tempfile\ntempfile.TemporaryDirectory(dir="/tmp")',
+    'open("/tmp/x", "w")',
+    'from pathlib import Path\nPath("/tmp/x").write_text("data")',
+    'import os\nos.makedirs(f"/tmp/{name}")',
+    'from pathlib import Path\nLOCK = Path("/tmp") / "x.lock"\nLOCK.touch()',
+])
+def test_tmp_scanner_finds_real_paths(source):
+    assert scopes.hardcoded_tmp_paths(source)
+
+
+@pytest.mark.parametrize("source", [
+    'expected = "/tmp/x"',
+    'assert normalize("/tmp/x") == "/tmp/x"',
+    'import os\nos.fspath("/tmp/x")',
+    'import tempfile\ntempfile.TemporaryDirectory(dir=tmp_path)',
+])
+def test_tmp_scanner_preserves_data_literals(source):
+    assert scopes.hardcoded_tmp_paths(source) == []
+
+
+def test_no_hardcoded_tmp_paths_remain():
+    hits = [f"{path}:{line} {literal}" for path, line, literal in scopes.scan_tracked_tmp_paths(ROOT)
+            if (path, literal) not in TMP_DATA_LITERALS]
+    assert hits == [], f"{scopes.TMP_PATH_FIX}:\n" + "\n".join(hits)

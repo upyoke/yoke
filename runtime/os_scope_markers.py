@@ -256,10 +256,78 @@ def handwritten_os_skips(source: str) -> list[int]:
     return sorted(hits)
 
 
-def scan_tracked(root: Path) -> list[str]:
+TMP_PATH_FIX = (
+    "hardcoded /tmp used as a real path: use shortest_temp_directory() "
+    "(yoke_contracts.machine_config.directories) for socket or Postgres roots, "
+    "the machine home's tmp tree (~/.yoke/tmp/...) where the code under test "
+    "writes runtime state, or pytest tmp_path everywhere else"
+)
+_PATH_TYPES = {"Path", "PurePath", "PosixPath"}
+_PATH_IO = {"chmod", "exists", "glob", "is_dir", "is_file", "iterdir", "lstat", "mkdir",
+            "open", "read_bytes", "read_text", "rename", "replace", "resolve", "rglob",
+            "rmdir", "stat", "symlink_to", "touch", "unlink", "write_bytes", "write_text"}
+_PURE_OS = {"fsdecode", "fsencode", "fspath", "getenv"}
+
+
+def _tmp_root(node, bound):
+    """The /tmp string node a path expression starts from, or None."""
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node if node.value == "/tmp" or node.value.startswith("/tmp/") else None
+    if isinstance(node, ast.JoinedStr) and node.values:
+        return node if _tmp_root(node.values[0], bound) else None
+    if isinstance(node, ast.Name):
+        return bound.get(node.id)
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div):
+        return _tmp_root(node.left, bound)
+    callee = getattr(node, "func", None)
+    callee = getattr(callee, "attr", getattr(callee, "id", None))
+    if isinstance(node, ast.Call) and node.args and callee in _PATH_TYPES | {"join"}:
+        return _tmp_root(node.args[0], bound)
+    return None
+
+
+def hardcoded_tmp_paths(source: str) -> list[tuple[int, str]]:
+    """(line, literal) for each /tmp literal reaching dir=, a filesystem call or path I/O."""
+    tree = ast.parse(source)
+    bound: dict[str, ast.AST] = {}
+    while True:
+        found = {target.id: root for node in ast.walk(tree) if isinstance(node, ast.Assign)
+                 for target in node.targets if isinstance(target, ast.Name)
+                 and target.id not in bound and (root := _tmp_root(node.value, bound))}
+        if not found:
+            break
+        bound |= found
+    hits = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        sinks = [k.value for k in node.keywords if k.arg == "dir"]
+        if (isinstance(func, ast.Name) and func.id == "open") or (
+                isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name)
+                and func.value.id in {"os", "shutil"} and func.attr not in _PURE_OS):
+            sinks += node.args
+        if isinstance(func, ast.Attribute) and func.attr in _PATH_IO:
+            sinks.append(func.value)
+        for sink in sinks:
+            if (root := _tmp_root(sink, bound)) is not None:
+                hits.add((root.lineno, ast.unparse(root)))
+    return sorted(hits)
+
+
+def _tracked_sources(root: Path):
     paths = subprocess.check_output(
         ["git", "ls-files", "-z", "--", "runtime/**/*.py", "runtime/*.py", "tests/**/*.py", "tests/*.py"],
         cwd=root,
     ).decode().split("\0")
-    return [f"{path}:{line}" for path in paths if path
-            for line in handwritten_os_skips((root / path).read_text(encoding="utf-8"))]
+    return [(path, (root / path).read_text(encoding="utf-8")) for path in paths if path]
+
+
+def scan_tracked(root: Path) -> list[str]:
+    return [f"{path}:{line}" for path, source in _tracked_sources(root)
+            for line in handwritten_os_skips(source)]
+
+
+def scan_tracked_tmp_paths(root: Path) -> list[tuple[str, int, str]]:
+    return [(path, line, literal) for path, source in _tracked_sources(root)
+            for line, literal in hardcoded_tmp_paths(source)]

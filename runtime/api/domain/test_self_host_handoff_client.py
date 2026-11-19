@@ -11,6 +11,7 @@ import types
 
 import pytest
 
+from yoke_contracts.machine_config.directories import shortest_temp_directory
 from yoke_core.tools import self_host_handoff
 from yoke_contracts.self_host_bootstrap_output import TOKEN_PREFIX, TOKEN_BODY_LENGTH
 
@@ -21,7 +22,7 @@ POSIX = pytest.mark.posix_only(reason="the handoff socket is a Unix socket")
 @pytest.fixture
 def handoff(monkeypatch):
     """A short-lived socket path, a short deadline and a scripted stdin."""
-    directory = tempfile.mkdtemp(dir="/tmp")
+    directory = tempfile.mkdtemp(dir=shortest_temp_directory())
     path = f"{directory}/handoff.sock"
     monkeypatch.setattr(self_host_handoff, "HANDOFF_SOCKET", path)
     monkeypatch.setattr(self_host_handoff, "HANDOFF_TIMEOUT_SECONDS", 0.5)

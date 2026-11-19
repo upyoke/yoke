@@ -6,13 +6,14 @@ import tempfile
 
 import pytest
 
+from yoke_contracts.machine_config.directories import shortest_temp_directory
 from yoke_harness import ssh_test_machine_transport as transport
 
 
 @pytest.fixture
 def tmp_path():
     # Exercise real Unix socket path limits independently of pytest's long root.
-    with tempfile.TemporaryDirectory(prefix="ssh-test-", dir="/tmp") as root:
+    with tempfile.TemporaryDirectory(prefix="ssh-test-", dir=shortest_temp_directory()) as root:
         yield Path(root)
 
 
