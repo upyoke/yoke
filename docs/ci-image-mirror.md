@@ -1,11 +1,15 @@
 # CI image mirrors
 
-CI uses public `ghcr.io/upyoke/postgres:16`, `ghcr.io/upyoke/registry:2`, and
-`ghcr.io/upyoke/python:3.13-slim`. The Python mirror also supplies the root
-Dockerfile. Consumers need no registry credentials.
+CI uses public `ghcr.io/upyoke/postgres:16`, `ghcr.io/upyoke/registry:2`,
+`ghcr.io/upyoke/python:3.13-slim`, and `ghcr.io/upyoke/buildkit:v0.34.2`. The
+Python mirror also supplies the root Dockerfile; the buildkit mirror is the
+Buildx `docker-container` driver image, so Buildx setup never pulls from Docker
+Hub. Consumers need no registry credentials.
 
 The [ci-image-mirror workflow](../.github/workflows/ci-image-mirror.yml) copies
-Docker Official Images from `docker.io/library` daily at 04:37 UTC, on changes
+each image from the upstream source its matrix entry names (Docker Official
+Images from `docker.io/library`, buildkit from `docker.io/moby`) daily at
+04:37 UTC, on changes
 to itself, and on manual dispatch. Its repository-scoped `GITHUB_TOKEN` has
 only `packages: write`; no AWS credentials or personal token are needed.
 Forks skip publication to upyoke. Skopeo copies every upstream platform and
@@ -16,11 +20,14 @@ Each stable tag moves only when its complete multi-platform copy succeeds.
 A failed refresh leaves the last successfully published image available;
 consumers do not depend on the refresh workflow's conclusion. Postgres tracks
 the upstream 16.x line, registry tracks 2, and Python tracks 3.13-slim.
+Buildkit is pinned to one release (`v0.34.2`, the `buildx-stable-1` release
+when mirrored); move it by changing the tag in the mirror matrix and in every
+`driver-opts` consumer together.
 
 ## First publication and public visibility
 
 Publish the mirror workflow on the candidate branch before switching CI
-consumers. Its push trigger seeds all three packages. New GHCR packages are
+consumers. Its push trigger seeds every package. New GHCR packages are
 private by default, even when published by a public repository.
 
 GitHub exposes the visibility change in package settings; its package REST
@@ -34,6 +41,7 @@ Public, and confirm the package name:
 - [postgres settings](https://github.com/orgs/upyoke/packages/container/postgres/settings)
 - [registry settings](https://github.com/orgs/upyoke/packages/container/registry/settings)
 - [python settings](https://github.com/orgs/upyoke/packages/container/python/settings)
+- [buildkit settings](https://github.com/orgs/upyoke/packages/container/buildkit/settings)
 
 These packages contain unchanged public upstream images. The intended Public
 visibility is declared here and enforced on every refresh by anonymous reads.
@@ -41,7 +49,7 @@ The publishing repository is linked automatically by `GITHUB_TOKEN`; consumer
 repositories require no package access grants.
 
 After setting visibility, rerun the failed mirror run from Actions. Switch
-consumer references only after all three copy jobs pass. After landing, the
+consumer references only after every copy job passes. After landing, the
 daily schedule and manual dispatch operate from the default branch.
 
 ## Failure recovery and evidence

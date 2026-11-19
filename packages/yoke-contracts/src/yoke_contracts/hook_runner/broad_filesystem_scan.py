@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import os
+import posixpath
 import re
 from typing import Sequence
 
@@ -25,7 +26,11 @@ from yoke_contracts.hook_runner.bash_paths import (
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
 from yoke_contracts.hook_runner.local_privacy_command_parse import unwrap
 from yoke_contracts.hook_runner.search_roots import tree_walk
-from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
+from yoke_contracts.hook_runner.shell_parse import (
+    ShellParse,
+    cd_destination,
+    parse_shell,
+)
 
 
 CHECK_ID = "lint-broad-filesystem-scan"
@@ -106,13 +111,46 @@ def _windows_client() -> bool:
     return bool(facts.get("windows")) if facts is not None else os.name == "nt"
 
 
-def _broad_scope(root: str, cwd: str, home: str) -> str | None:
+def _written_root(root: str, written_cwd: str, implicit: bool) -> str:
+    """``root`` as written, joined onto the written directory when relative."""
+    if implicit:
+        return written_cwd
+    if root.startswith("/"):
+        return _collapsed(root)
+    if not written_cwd or not root or root.startswith(("~", "$", "`")):
+        return ""
+    return _collapsed(posixpath.normpath(posixpath.join(written_cwd, root)))
+
+
+def _next_written_cwd(written_cwd: str, argv: Sequence[str]) -> str:
+    """The written directory after a ``cd``, ``""`` when it is not known."""
+    destination = cd_destination(argv)
+    if destination is None:
+        return written_cwd
+    if destination.startswith("/"):
+        return _collapsed(posixpath.normpath(destination))
+    if (
+        not written_cwd
+        or is_absolute(destination)
+        or destination == "-"
+        or destination.startswith("~")
+        or any(mark in destination for mark in "$`")
+    ):
+        return ""
+    return _collapsed(posixpath.normpath(posixpath.join(written_cwd, destination)))
+
+
+def _broad_scope(
+    root: str, cwd: str, home: str, written_cwd: str, implicit: bool
+) -> str | None:
     """The whole-disk scope ``root`` walks, or ``None`` when it is scoped.
 
-    The root as written is checked before Git Bash maps ``/`` to its install
-    directory and ``/c`` to ``C:\\``, so mount mapping cannot hide a scan.
+    The root as written, joined onto the directory every earlier ``cd``
+    wrote when relative, is checked before Git Bash maps ``/`` to its
+    install directory and ``/c`` to ``C:\\``, so mount mapping cannot hide
+    a scan.
     """
-    written = _collapsed(root) if root.startswith("/") else ""
+    written = _written_root(root, written_cwd, implicit)
     if written in BROAD_ROOTS or (
         _windows_client() and _DRIVE_MOUNT.fullmatch(written)
     ):
@@ -126,16 +164,23 @@ def _broad_scope(root: str, cwd: str, home: str) -> str | None:
 
 
 def _broad_root(
-    tool: str, roots: Sequence[str], cwd: str, home: str
+    tool: str,
+    roots: Sequence[str],
+    cwd: str,
+    home: str,
+    written_cwd: str,
+    implicit: bool = False,
 ) -> BroadScan | None:
     for root in roots:
-        scope = _broad_scope(root, cwd, home)
+        scope = _broad_scope(root, cwd, home, written_cwd, implicit)
         if scope is not None:
             return BroadScan(tool, root, scope)
     return None
 
 
-def _segment(argv: Sequence[str], cwd: str, home: str) -> BroadScan | None:
+def _segment(
+    argv: Sequence[str], cwd: str, home: str, written_cwd: str
+) -> BroadScan | None:
     executable, args = unwrap(argv)
     if not executable:
         return None
@@ -148,13 +193,16 @@ def _segment(argv: Sequence[str], cwd: str, home: str) -> BroadScan | None:
         if executable == "mdfind":
             scoped = _onlyin_values(args)
             if scoped:
-                return _broad_root(executable, scoped, cwd, home)
+                return _broad_root(executable, scoped, cwd, home, written_cwd)
         return BroadScan(executable, "", _INDEX_SEARCHERS[executable])
     walk = tree_walk(executable, args)
     if walk is None or (executable == "ls" and not _recursive_ls(args)):
         return None
-    roots = walk.roots or ((cwd,) if walk.implicit_cwd and cwd else ())
-    return _broad_root(executable, roots, cwd, home)
+    if walk.roots:
+        return _broad_root(executable, walk.roots, cwd, home, written_cwd)
+    if not walk.implicit_cwd or not (cwd or written_cwd):
+        return None
+    return _broad_root(executable, (cwd,), cwd, home, written_cwd, implicit=True)
 
 
 def find_broad_scan(
@@ -164,15 +212,19 @@ def find_broad_scan(
 
     Each segment's relative roots resolve against the directory it runs in,
     after every earlier ``cd``; a segment whose directory is unknown keeps
-    only its absolute and home roots.
+    only its absolute and home roots. The directory as written (a POSIX
+    ``cwd``, then each ``cd`` operand) is tracked beside the resolved one,
+    because Git Bash resolves ``/`` to its install directory.
     """
     parsed = command if isinstance(command, ShellParse) else parse_shell(command)
+    written_cwd = _collapsed(cwd) if cwd and cwd.startswith("/") else ""
     for segment, segment_cwd in zip(
         parsed.segments, parsed.segment_cwds(cwd or "", home=home)
     ):
-        found = _segment(segment.argv, segment_cwd, home)
+        found = _segment(segment.argv, segment_cwd, home, written_cwd)
         if found is not None:
             return found
+        written_cwd = _next_written_cwd(written_cwd, segment.argv)
     return None
 
 
