@@ -172,13 +172,8 @@ def _seed_member_execution(conn, monkeypatch, *, producer=HOLDER_A):
     return execution
 
 
-def _take_over_and_deploy(
-    conn,
-    monkeypatch=None,
-    state=containment.CONTAINED,
-    *,
-    observed_url="https://preview.example.test",
-):
+def _take_over(conn):
+    """The successor run takes over; it has not deployed yet."""
     conn.execute(
         "INSERT INTO deployment_runs(id,project_id,flow,target_tier,target_environment_id,"
         "release_lineage,status,created_at,composition_frozen_at,requirement_snapshot) "
@@ -193,6 +188,11 @@ def _take_over_and_deploy(
         )
         == shared.RUN
     )
+    conn.commit()
+
+
+def _deploy_successor(conn, *, observed_url="https://preview.example.test"):
+    """The successor run records a ready deploy receipt, then stands on item-qa."""
     conn.execute(
         "UPDATE deployment_runs SET status='executing',current_stage='deploy' WHERE id=%s",
         (takeover.NEW,),
@@ -223,6 +223,17 @@ def _take_over_and_deploy(
         (takeover.NEW,),
     )
     conn.commit()
+
+
+def _take_over_and_deploy(
+    conn,
+    monkeypatch=None,
+    state=containment.CONTAINED,
+    *,
+    observed_url="https://preview.example.test",
+):
+    _take_over(conn)
+    _deploy_successor(conn, observed_url=observed_url)
     if monkeypatch is not None:
         takeover._contains(monkeypatch, state)
 

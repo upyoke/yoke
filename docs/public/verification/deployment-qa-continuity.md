@@ -36,8 +36,11 @@ QA tests whatever is deployed at the authorized destination. A newer build than
 the run delivered is normal, not drift: QA start reports a different served
 commit and proceeds, and each deployment-bound browser case records the commit
 its environment served at case start (an observation, not a per-step proof).
-Once the successor deploys, install steps get its pinned `release_version` and
-command cases check out its project source. Fresh attempts resolve the
+Once the successor deploys, install steps get its pinned `release_version`,
+the candidate check expects its `release_lineage` (so a moved execution that
+already recorded a case begins on a channel target without refreezing), and
+command cases check out its project source; the stored target and digest stay
+as the recorded results' provenance. Fresh attempts resolve the
 successor's ready receipt and candidate; before that receipt exists they retain
 the predecessor target. Private and run QA materialization resolve each frozen plan's case and host
 baseline through its correction lineage within the run, stage and member.

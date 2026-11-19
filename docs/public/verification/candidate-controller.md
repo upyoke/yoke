@@ -15,8 +15,9 @@ runtime under `~/.yoke/qa-controller-runtimes/` and hands it the begun
 execution; the installed CLI and its channel are never changed. The walker's
 review bundle names that runtime's `yoke`; run those commands exactly as shown.
 
-When the target's channel serves another build than the frozen target's
-`release_lineage`, the refusal names the run and build from that target, and
+When the target's channel serves another build than the target's
+`release_lineage` (after a takeover, the owning run's once it has a ready
+deploy receipt), the refusal names the run and build from that target, and
 the run that now owns the execution when a takeover moved it. Before giving
 the execution up, the command begins it again in place up to three times,
 20 seconds apart: an execution that has run nothing takes its owning run's
