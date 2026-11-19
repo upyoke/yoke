@@ -27,9 +27,9 @@ requires account/workspace permission. [Cursor auth](https://cursor.com/docs/cli
 is separate from app presence. A login-status line or credential file is
 insufficient: every harness must answer a real request without tool calls.
 Open Claude for Mac as the test user, finish its first-run prompts, sign in,
-and quit it normally. The Mac golden probe opens the native app, checks its
-signed-in chat view and quits it. It leaves screen text and images on the
-fixture only for the duration of the check. For fixtures covering other
+and quit it normally. The Mac golden probe opens the native app, checks for
+authenticated Chat or Code controls, and quits it. It leaves screen text and
+images on the fixture only for the duration of the check. For other
 desktop surfaces, verify Codex in the ChatGPT app and Cursor independently
 after the golden reset.
 
@@ -68,7 +68,7 @@ login Keychain (`Library/Keychains`, holding Claude's and Cursor's CLI logins),
 `.claude/.credentials.json`, `.codex/auth.json`, the native Claude profile
 `Library/Application Support/Claude`, and `.yoke-browser-identities` stay live
 outside the golden. Restore skips captured copies of these paths even on an
-older golden. Capture a new baseline to seal the native Claude desktop probe.
+older golden. Capture a new baseline to seal the current native Claude desktop probe.
 The identity profiles are the machine's only saved browser logins. Chromium writes
 a profile's cookies as it closes, so capture and reset first find each
 identity browser's main process with `/bin/ps`, send it SIGTERM (Chromium's

@@ -3,6 +3,34 @@
 from __future__ import annotations
 
 
+_AUTHENTICATION_SWIFT = r"""
+func hasLabel(_ label: String, in labels: Set<String>) -> Bool {
+    labels.contains { $0 == label || $0.hasSuffix(" " + label) }
+}
+
+func isSignedInChat(_ sidebar: Set<String>) -> Bool {
+    // Vision may include a leading icon glyph in a navigation label.
+    hasLabel("projects", in: sidebar) && (
+        (hasLabel("new", in: sidebar) && hasLabel("artifacts", in: sidebar))
+            || (hasLabel("new chat", in: sidebar) && hasLabel("chats", in: sidebar))
+    )
+}
+
+func isCodeSidebar(_ sidebar: Set<String>) -> Bool {
+    ["new", "search", "artifacts", "customize"].allSatisfy { hasLabel($0, in: sidebar) }
+}
+
+func hasAccountFooter(_ footer: Set<String>) -> Bool {
+    // Vision reads the account name and plan on one line, followed by the menu
+    // chevron. Check the account/plan separator without assuming a user's name.
+    let accountWithPlan = #"\p{L}[^\n]*\s*[·•]\s*(free|pro|max|ultra|team|enterprise)\b"#
+    return footer.contains {
+        $0.range(of: accountWithPlan, options: [.regularExpression, .caseInsensitive]) != nil
+    }
+}
+"""
+
+
 _SWIFT = r"""
 import AppKit
 import CoreGraphics
@@ -45,35 +73,31 @@ func labels(in window: Int) -> (text: Set<String>, sidebar: Set<String>)? {
     try? FileManager.default.removeItem(at: screenshot)
     guard run("/usr/sbin/screencapture", ["-x", "-o", "-l", String(window), screenshot.path])
     else { return nil }
-    let request = VNRecognizeTextRequest()
-    request.recognitionLevel = .accurate
-    request.recognitionLanguages = ["en-US"]
-    let handler = VNImageRequestHandler(url: screenshot, options: [:])
-    do { try handler.perform([request]) } catch { return nil }
-    let observations = request.results ?? []
-    func recognized(_ rows: [VNRecognizedTextObservation]) -> Set<String> {
-        Set(rows.compactMap {
-            $0.topCandidates(1).first?.string
-                .trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        })
-    }
+    guard let observations = recognizeText() else { return nil }
     let navigation = observations.filter {
         $0.boundingBox.midX < 0.32 && $0.boundingBox.midY > 0.60
     }
     return (recognized(observations), recognized(navigation))
 }
 
-func isSignedInChat(_ sidebar: Set<String>) -> Bool {
-    func hasLabel(_ label: String) -> Bool {
-        sidebar.contains { $0 == label || $0.hasSuffix(" " + label) }
-    }
-    // The current desktop renders New, Projects and Artifacts. Vision may
-    // include a leading icon glyph in a navigation label.
-    return hasLabel("projects") && (
-        (hasLabel("new") && hasLabel("artifacts"))
-            || (hasLabel("new chat") && hasLabel("chats"))
-    )
+func recognizeText(in region: CGRect = CGRect(x: 0, y: 0, width: 1, height: 1))
+    -> [VNRecognizedTextObservation]? {
+    let request = VNRecognizeTextRequest()
+    request.recognitionLevel = .accurate
+    request.recognitionLanguages = ["en-US"]
+    request.regionOfInterest = region
+    let handler = VNImageRequestHandler(url: screenshot, options: [:])
+    do { try handler.perform([request]) } catch { return nil }
+    return request.results
 }
+
+func recognized(_ rows: [VNRecognizedTextObservation]) -> Set<String> {
+    Set(rows.compactMap {
+        $0.topCandidates(1).first?.string
+            .trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    })
+}
+""" + _AUTHENTICATION_SWIFT + r"""
 
 func observe() -> Int32 {
     guard FileManager.default.fileExists(atPath: appPath) else { return 12 }
@@ -89,6 +113,9 @@ func observe() -> Int32 {
             }
             if frame.text.contains("claude for mac") && frame.text.contains("get started") { return 10 }
             if isSignedInChat(frame.sidebar) { return 0 }
+            if isCodeSidebar(frame.sidebar),
+                let footer = recognizeText(in: CGRect(x: 0, y: 0, width: 0.24, height: 0.08)),
+                hasAccountFooter(recognized(footer)) { return 0 }
         }
         Thread.sleep(forTimeInterval: 1)
     }
