@@ -29,7 +29,9 @@ from yoke_cli.hook_resident_lifecycle import stop_resident
 COMMAND_TIMEOUT_SECONDS = 300
 NOT_REMOVED = (
     "Not removed: uv, user-owned PATH entries, the Yoke GitHub App "
-    "(remove it in GitHub settings). Push the project-uninstall commits in your chosen checkouts."
+    "(remove it in GitHub settings), strategy documents under each project's "
+    ".yoke/strategy (commit or delete them). Push the project-uninstall commits "
+    "in your chosen checkouts."
 )
 # uv's documented uninstall; it also removes every other uv tool and Python.
 UV_REMOVAL = (
@@ -206,7 +208,7 @@ def remove(
         skipped("local Postgres", "no embedded universe")
     for directory, _env in inventory.bundles:
         attempt(
-            f"self-host {directory}",
+            f"self-host {directory} (its connection goes with the machine home)",
             lambda directory=directory: command(
                 [
                     "self-host",
@@ -266,7 +268,7 @@ def remove(
                         finish.cancel()
                     else:
                         emit(
-                            f"CLI: handed off (removes yoke-cli at {finish.releases} and its PATH blocks after this process exits; log: {finish.log})"
+                            f"CLI: handed off (removes yoke-cli at {finish.releases} and its PATH blocks after this process exits; a failure keeps its log at {finish.log})"
                         )
     emit(
         f"Uninstall summary: {counts['done']} done, {counts['skipped']} skipped, {counts['failed']} failed."

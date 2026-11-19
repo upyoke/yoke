@@ -203,14 +203,37 @@ def test_real_detached_handoff_survives_main_exit(tmp_path, monkeypatch):
         assert root.exists(), "detached worker raced the main process"
         assert parent.wait(timeout=10) == 0
         deadline = time.monotonic() + 10
-        while time.monotonic() < deadline:
-            if "shell PATH:" in log.read_text():
-                break
+        # A successful worker removes its own folder, log included.
+        while time.monotonic() < deadline and log.parent.exists():
             time.sleep(0.05)
-        assert not root.exists(), log.read_text()
+        assert not log.parent.exists(), log.read_text() if log.exists() else ""
+        assert not root.exists()
         assert not (bin_dir / "yoke").exists()
-        assert "CLI: done" in log.read_text()
     finally:
         if parent.poll() is None:
             parent.terminate()
             parent.wait(timeout=10)
+
+
+@pytest.mark.windows
+@pytest.mark.parametrize("succeeds", [True, False])
+def test_handoff_folder_is_removed_only_after_success(tmp_path, monkeypatch, succeeds):
+    folder = tmp_path / f"{detached.HANDOFF_PREFIX}fixture"
+    folder.mkdir()
+    lock = folder / detached.LOCK_NAME
+    lock.touch()
+    (folder / "armed").write_text("armed")
+    (folder / "result.log").write_text("log\n")
+    monkeypatch.setattr(platform_file_lock, "acquire_exclusive", lambda _d: None)
+
+    def remove(root, bin_dir):
+        if not succeeds:
+            raise OSError("launcher is open")
+
+    monkeypatch.setattr(cli_release_runtime, "uninstall", remove)
+    monkeypatch.setattr(shell_startup_files, "remove_shell_path", lambda: [])
+    code = detached.finish(
+        lock, folder / "armed", folder / "ready", tmp_path / "tools", tmp_path / "bin"
+    )
+    assert code == (0 if succeeds else 1)
+    assert folder.exists() is not succeeds

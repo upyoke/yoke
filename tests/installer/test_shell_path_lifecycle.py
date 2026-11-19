@@ -8,7 +8,7 @@ import subprocess
 import pytest
 
 from yoke_cli.config import path_doctor as doctor
-from yoke_contracts.shell_path_state import MANAGED_BEGIN
+from yoke_contracts.shell_path_state import MANAGED_BEGIN, MANAGED_END
 from yoke_contracts.shell_startup_files import remove_shell_path, shell_setup_files
 
 POSIX_SHELL = pytest.mark.posix_only(
@@ -82,6 +82,21 @@ def test_uninstall_deletes_only_what_yoke_created(tmp_path):
     # Directories Yoke made to hold the fish file go with it.
     assert not fish.parent.exists() and not fish.parent.parent.exists()
     assert remove_shell_path(env=env) == []
+
+
+@POSIX_SHELL
+def test_created_record_survives_an_older_cli_rewriting_the_block(tmp_path):
+    env = environment(tmp_path)
+    zshenv = next(file for file in shell_setup_files(env) if file.name == ".zshenv")
+    doctor.update_shell(env=env)
+    # An older release replaces only the marked block and keeps the rest.
+    text = zshenv.read_text()
+    block_end = text.index(MANAGED_END) + len(MANAGED_END) + 1
+    zshenv.write_text(f"{MANAGED_BEGIN}\nold body\n{MANAGED_END}\n" + text[block_end:])
+    doctor.update_shell(env=env)
+    remove_shell_path(env=env)
+    assert not zshenv.exists()
+    assert not zshenv.parent.exists()  # ZDOTDIR was made for it too.
 
 
 @POSIX_SHELL

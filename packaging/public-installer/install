@@ -643,6 +643,8 @@ else
 fi
 
 tmp_dir=$($python_runner -c 'import tempfile; print(tempfile.mkdtemp(prefix="yoke-install-"))') || fail "could not create temp directory"
+# The downloaded helper is needed only while it runs; leave no temp folder behind.
+trap 'rm -rf "$tmp_dir"' EXIT
 installer_py="$tmp_dir/install.py"
 
 INSTALLER_URL="${base_url%/}/dist/install.py" INSTALLER_OUT="$installer_py" $python_runner - <<'PY'

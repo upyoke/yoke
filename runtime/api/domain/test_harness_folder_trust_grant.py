@@ -143,3 +143,24 @@ def test_cursor_grant_preserves_native_microseconds(tmp_path: Path, monkeypatch)
     payload = json.loads(cursor.read_text())
     assert payload["trustedAt"] == "2026-10-09T18:00:12.123456Z"
     assert payload["workspacePath"] == CHECKOUT
+
+
+def test_cursor_workspace_folder_yoke_made_is_removed_with_its_trust(
+    tmp_path: Path, monkeypatch
+):
+    from yoke_contracts.harness_settings_revert import revert_recorded
+
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
+    cursor = _cursor(tmp_path)
+    grant_folder_trust(
+        CHECKOUT,
+        claude_state=tmp_path / "absent-claude",
+        codex_config=tmp_path / "absent-codex",
+        cursor_file=cursor,
+    )
+    assert cursor.is_file()
+    lines, failures = revert_recorded()
+    assert failures == []
+    assert not cursor.parent.exists()
+    assert cursor.parent.parent.is_dir()  # Cursor's own projects folder stays.
+    assert f"removed empty {cursor.parent}" in lines

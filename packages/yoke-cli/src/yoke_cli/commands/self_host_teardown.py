@@ -136,7 +136,7 @@ def self_host_teardown(args: List[str]) -> int:
     if parsed.json_mode:
         print(json.dumps(report, indent=2, sort_keys=True))
     else:
-        _print_teardown_summary(report)
+        _print_teardown_summary(report, kept=parsed.keep_connection)
     return 0
 
 
@@ -160,7 +160,7 @@ def _confirm_destroy_universe(parsed) -> None:
         )
 
 
-def _print_teardown_summary(report: Dict[str, object]) -> None:
+def _print_teardown_summary(report: Dict[str, object], *, kept: bool) -> None:
     print(f"self-host stack removed: {report.get('directory')}")
     universe = report.get("universe_destroyed")
     print(
@@ -188,8 +188,10 @@ def _print_teardown_summary(report: Dict[str, object]) -> None:
         for env in connection.get("credential_removed_envs") or []:
             print(f"connection credential removed: {env}")
         print(f"active connection now: {active}")
+    elif kept:
+        print("connection: kept, as --keep-connection asked")
     else:
-        print("connection: unchanged")
+        print("connection: unchanged; no machine connection reached this server")
     for left in report.get("connections_left") or []:
         env = left.get("env")
         print(

@@ -19,6 +19,8 @@ import sys
 import tempfile
 import time
 
+HANDOFF_PREFIX = "yoke-uninstall-"
+
 LOCK_NAME = "parent.lock"
 
 
@@ -63,7 +65,7 @@ def prepare(home: Path) -> Handoff:
         )
     tools, bin_dir = (_uv_directory(uv, args) for args in (["dir"], ["dir", "--bin"]))
     releases = tools / "yoke-cli-releases"
-    directory = Path(tempfile.mkdtemp(prefix="yoke-uninstall-", dir=root))
+    directory = Path(tempfile.mkdtemp(prefix=HANDOFF_PREFIX, dir=root))
     script = directory / "finish.py"
     script.write_text(Path(__file__).read_text(encoding="utf-8"), encoding="utf-8")
     log = directory / "result.log"
@@ -210,6 +212,10 @@ def finish(
     print(
         f"shell PATH: done ({', '.join(changed) or 'no Yoke PATH blocks'})", flush=True
     )
+    # Success needs no recovery evidence: remove this worker's own folder.
+    os.close(descriptor)
+    if lock.parent.name.startswith(HANDOFF_PREFIX):
+        shutil.rmtree(lock.parent, ignore_errors=True)
     return 0
 
 
