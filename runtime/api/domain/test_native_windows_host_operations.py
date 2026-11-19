@@ -61,6 +61,8 @@ def test_profile_copy_failure_does_not_report_restored():
     scripts = []
 
     def run(script, **kwargs):
+        if "Get-YokeProfileProcesses).Count" in script:
+            return completed(returncode=0)  # nothing runs from the profile
         scripts.append(script)
         return completed(returncode=1, stderr="locked profile: close app and retry")
 
@@ -71,6 +73,7 @@ def test_profile_copy_failure_does_not_report_restored():
     )
     assert not result.ok
     assert result.error_code == "windows_profile_reset_failed"
+    assert len(scripts) == 1
     assert "robocopy.exe" in scripts[0]
     assert "Restore-YokeUserPath $pathKey $state.user_path_snapshot" in scripts[0]
     assert "Remove-YokeTask $task.Path" in scripts[0]

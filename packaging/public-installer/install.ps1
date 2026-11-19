@@ -6,7 +6,9 @@ if ($ExecutionContext.SessionState.LanguageMode -ne 'FullLanguage') {
 $installerArgs = @($args)
 # Keep in step with the uv version CI pins in pyproject.toml.
 $uvVersion = '0.12.1'
-$pythonArgs = @('run', '--isolated', '--no-project', '--python', '3.12', 'python')
+# Resolve the exact patch, as install.py does, so no step runs through uv's
+# minor-version link: a junction that a profile reset can leave dangling.
+$pythonRequest = '3.12'
 $origin = 'https://api.upyoke.com'
 if ($env:YOKE_INSTALL_BASE_URL) { $origin = $env:YOKE_INSTALL_BASE_URL.TrimEnd('/') }
 $temporary = Join-Path ([IO.Path]::GetTempPath()) ('yoke-install-' + [guid]::NewGuid())
@@ -29,15 +31,32 @@ try {
     # Prepare the interpreter non-interactively so uv's output can be read;
     # the install below keeps the terminal for its prompts.
     $ErrorActionPreference = 'Continue'
-    $prepared = @(& uv @pythonArgs -c 'pass' 2>&1 | ForEach-Object { $line = "$_"; Write-Host $line; $line })
-    $preparedExit = $LASTEXITCODE
-    $ErrorActionPreference = 'Stop'
-    if ($preparedExit -ne 0) {
-        if (($prepared -join "`n") -match 'os error 448') {
+    function Invoke-PreparationUv([string[]]$uvArgs) {
+        $script:uvOutput = @(& uv @uvArgs 2>&1 | ForEach-Object { $line = "$_"; Write-Host $line; $line })
+        $script:uvExit = $LASTEXITCODE
+    }
+    function Assert-PreparationUv([string]$step) {
+        if ($script:uvExit -eq 0) { return }
+        if (($script:uvOutput -join "`n") -match 'os error 448') {
             throw 'windows_untrusted_mount_point: uv could not follow the Python link directory it just created (os error 448, untrusted mount point). Windows Redirection Guard blocks this process from following directory junctions; OpenSSH sessions run under it. See https://github.com/astral-sh/uv/issues/19616. Run the installer from a local PowerShell window on this computer, not over SSH.'
         }
-        throw "python_bootstrap_failed: uv exited $preparedExit while preparing Python 3.12; follow its message above, then retry."
+        throw "python_bootstrap_failed: uv exited $($script:uvExit) while $step; follow its message above, then retry."
     }
+    $find = @('python', 'find', '--no-project', '--show-version', $pythonRequest)
+    $found = @(& uv @find 2>$null | ForEach-Object { "$_".Trim() })
+    if ($LASTEXITCODE -ne 0) {
+        Invoke-PreparationUv @('python', 'install', $pythonRequest)
+        Assert-PreparationUv "installing Python $pythonRequest"
+        $found = @(& uv @find 2>$null | ForEach-Object { "$_".Trim() })
+    }
+    $pythonVersion = "$($found | Select-Object -Last 1)"
+    if ($LASTEXITCODE -ne 0 -or $pythonVersion -notmatch '^\d+\.\d+\.\d+$') {
+        throw "python_bootstrap_failed: uv could not name the exact Python $pythonRequest to install Yoke with. Run uv python find --show-version $pythonRequest to see why, then retry."
+    }
+    $pythonArgs = @('run', '--isolated', '--no-project', '--python', $pythonVersion, 'python')
+    Invoke-PreparationUv ($pythonArgs + @('-c', 'pass'))
+    Assert-PreparationUv "preparing Python $pythonVersion"
+    $ErrorActionPreference = 'Stop'
     & uv @pythonArgs $helper @installerArgs
     if ($LASTEXITCODE -ne 0) { throw "yoke_install_failed: Python installer exited $LASTEXITCODE; follow its recovery above, then retry." }
     $env:PATH = [Environment]::GetEnvironmentVariable('PATH', 'User') + ';' + $env:PATH

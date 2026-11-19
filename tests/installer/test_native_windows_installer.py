@@ -192,6 +192,8 @@ def test_constrained_language_refuses_with_no_iex_recovery():
 SHIM = Path(__file__).resolve().parents[2] / "packaging/public-installer/install.ps1"
 UNTRUSTED_UV = (
     "@echo off\r\n"
+    ">>\"%FAKE_UV_LOG%\" echo %*\r\n"
+    "if \"%FAKE_UV_MODE%\"==\"ok\" if \"%1 %2\"==\"python find\" (echo 3.12.16 & exit /b 0)\r\n"
     "if \"%FAKE_UV_MODE%\"==\"ok\" exit /b 0\r\n"
     "if \"%FAKE_UV_MODE%\"==\"other\" (echo error: network unreachable 1>&2 & exit /b 2)\r\n"
     "echo  Downloaded cpython-3.12.16-windows-x86_64-none\r\n"
@@ -228,6 +230,7 @@ def _run_shim(tmp_path, mode):
         env = dict(
             os.environ,
             FAKE_UV_MODE=mode,
+            FAKE_UV_LOG=str(tmp_path / "uv-calls.log"),
             PATH=str(tmp_path / "bin") + os.pathsep + os.environ["PATH"],
             YOKE_INSTALL_BASE_URL=f"http://127.0.0.1:{server.server_port}",
         )
@@ -253,6 +256,13 @@ def test_shim_reads_uv_python_preparation(tmp_path, mode, code):
     output = result.stdout + result.stderr
     if code is None:
         assert result.returncode == 0, output
+        calls = (tmp_path / "uv-calls.log").read_text(encoding="ascii").splitlines()
+        assert calls[0] == "python find --no-project --show-version 3.12"
+        runs = [call for call in calls if call.startswith("run ")]
+        assert runs and all(
+            call.startswith("run --isolated --no-project --python 3.12.16 python ")
+            for call in runs
+        )
         return
     assert result.returncode != 0
     assert code in output

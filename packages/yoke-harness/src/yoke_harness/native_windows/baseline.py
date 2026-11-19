@@ -7,6 +7,15 @@ from yoke_harness.native_windows.desktop import desktop_script
 from yoke_harness.native_windows.transport import quote
 from yoke_harness.native_windows.tasks import HELPERS as TASK_HELPERS
 from yoke_harness.native_windows.profile_path import HELPERS as PATH_HELPERS
+from yoke_harness.native_windows.mission import (
+    WINDOWS_MISSION_SCRATCH_DIRECTORY, windows_stale_scratch_script,
+)
+from yoke_harness.native_windows.profile_processes import (
+    profile_process_stop_script, stop_desktop_profile_processes, stopped_processes,
+)
+from yoke_harness.native_windows.profile_links import (
+    link_sweep_record, stale_link_sweep_script,
+)
 
 
 # Windows services and signed-in apps keep this state live outside the mirror.
@@ -26,7 +35,7 @@ PRESERVED_DIRECTORIES = (
     "AppData/Local/Google",
     "AppData/Local/YokeQa",
     # A walk's secret staging outlives any reset inside the walk; walk-end
-    # removes it (native_windows/mission.py).
+    # removes it, and reset removes other executions' (native_windows/mission.py).
     "AppData/Local/YokeQaMission",
     "AppData/Local/Temp",
 )
@@ -140,7 +149,13 @@ $state=Get-Content -Raw (Join-Path $golden 'state.json') | ConvertFrom-Json
 Assert-YokeUserPath $state.user_path_snapshot
 $source=Join-Path $golden 'profile'; $target=$profileRoot
 """
+        + profile_process_stop_script(control.home, PRESERVED_DIRECTORIES)
         + copy
+        + stale_link_sweep_script(control.home, PRESERVED_DIRECTORIES)
+        + windows_stale_scratch_script(
+            str(PureWindowsPath(control.home) / WINDOWS_MISSION_SCRATCH_DIRECTORY),
+            tuple(getattr(control, "baseline_preserved_temp_paths", ())),
+        )
         + r"""$pathKey=[Microsoft.Win32.Registry]::CurrentUser.CreateSubKey('Environment')
 try {Restore-YokeUserPath $pathKey $state.user_path_snapshot} finally {$pathKey.Dispose()}
 $env:Path=[Environment]::GetEnvironmentVariable('Path','Machine')+';'+[Environment]::GetEnvironmentVariable('Path','User')
@@ -162,6 +177,17 @@ foreach($task in $state.tasks){Restore-YokeTask $task}
 def profile_operation(control, operation, path):
     try:
         script = profile_script(control, operation, path)
+        desktop_stopped = []
+        if operation == "reset":
+            refused, desktop_stopped = stop_desktop_profile_processes(
+                control, PRESERVED_DIRECTORIES
+            )
+            if refused:
+                return HostActionResult(
+                    False,
+                    {"operation": operation, "golden_baseline_path": path, "recovery": refused},
+                    "windows_reset_profile_process_running",
+                )
         result = control._run(script, timeout=600)
     except ValueError as exc:
         return HostActionResult(
@@ -176,6 +202,15 @@ def profile_operation(control, operation, path):
             "profile": control.home,
             "preserved_identity_paths": list(PRESERVED_DIRECTORIES),
             **(
+                {
+                    **link_sweep_record(result.stdout),
+                    "profile_processes_stopped": desktop_stopped
+                    + stopped_processes(result.stdout),
+                }
+                if operation == "reset"
+                else {}
+            ),
+            **(
                 {}
                 if ok
                 else {
@@ -185,6 +220,24 @@ def profile_operation(control, operation, path):
             ),
         },
         None if ok else "windows_profile_" + operation + "_failed",
+    )
+
+
+INSTALL_OUTPUT_LINES = 40
+
+
+def install_output(result):
+    """Keep the end of both install streams: the installer's refusal lands on
+    stderr while uv's own explanation streams to stdout."""
+    parts = [
+        f"install {label} (last {INSTALL_OUTPUT_LINES} lines):\n"
+        + "\n".join(text.splitlines()[-INSTALL_OUTPUT_LINES:])
+        for label, text in (("stderr", result.stderr), ("stdout", result.stdout))
+        if (text or "").strip()
+    ]
+    return "\n".join(parts) or (
+        f"The console install exited {result.returncode} without output; "
+        "rerun it from the test user's desktop PowerShell to read its failure."
     )
 
 
@@ -209,7 +262,9 @@ def reach_baseline(control, name):
         "$env:YOKE_INSTALL_YES='1'; $env:YOKE_NO_SETUP='1'; "
         f"$env:YOKE_INSTALL_BASE_URL={quote(origin)}; "
         f"$installer=Invoke-WebRequest -UseBasicParsing {quote(origin + '/install.ps1')}; "
-        "& ([ScriptBlock]::Create($installer.Content)) --yes --no-setup; "
+        # install.ps1 echoes uv's output with Write-Host, the information
+        # stream; merge it into stdout so the console task returns it.
+        "& ([ScriptBlock]::Create($installer.Content)) --yes --no-setup 6>&1; "
         "if($LASTEXITCODE){exit $LASTEXITCODE}"
     )
     # Users install from a local PowerShell. sshd runs its sessions under
@@ -222,7 +277,7 @@ def reach_baseline(control, name):
             {
                 "install_surface": "windows-console",
                 "reset": reset,
-                "recovery": installed.stderr or installed.stdout,
+                "recovery": install_output(installed),
             },
             "windows_baseline_install_failed",
         )

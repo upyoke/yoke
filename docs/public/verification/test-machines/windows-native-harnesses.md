@@ -133,6 +133,19 @@ remain fatal and retain a private robocopy log under `AppData/Local/YokeQa`.
 Goldens also retain raw User PATH values, registry types and absence. Reset
 validates that metadata before mirroring the profile and verifies it afterward;
 older goldens without it require recapture rather than guessing a registry type.
+Before mirroring, reset stops processes whose executable lives in the resettable
+profile (such as the installed Yoke tool's Python), because robocopy cannot purge
+open files. Processes the signed-in session owns are ended from that session; one that will not exit refuses `windows_reset_profile_process_running`.
+Stopped executables are recorded as `profile_processes_stopped`.
+Robocopy never copies or purges links, so after the mirror reset removes each
+profile link the golden lacks (Windows' own System-marked profile junctions stay)
+and records them as `stale_links_removed`. It then proves no uv-managed Python the
+golden lacks remains under `AppData/Roaming/uv/python`, refusing with
+`windows_reset_uv_state_left` and the path otherwise. A failed shell-preconfigured
+console install keeps the last 40 lines of its stdout and stderr in `recovery`.
+Reset also removes `AppData/Local/YokeQaMission` scratch that the running
+execution does not own, so a mission aborted before walk-end leaves nothing
+behind; a removal it cannot finish refuses `windows_reset_mission_scratch_left`.
 
 ## Verified standard-user transfer
 
