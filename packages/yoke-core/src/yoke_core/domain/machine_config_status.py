@@ -88,7 +88,10 @@ def build_status(
     if set_up:
         issues.extend(setup_issues)
     runtime = _runtime_status(connection, home=selected_path.parent, repo=selected_repo)
-    issues.extend(runtime.pop("issues"))
+    runtime_issues = runtime.pop("issues")
+    issues.extend(
+        runtime_issues if set_up else setup_status.setup_blocking(runtime_issues)
+    )
     db = _db_status(connection, check_reachability=check_reachability)
     issues.extend(db.pop("issues"))
     env = _ambient_env_status()

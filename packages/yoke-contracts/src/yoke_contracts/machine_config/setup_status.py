@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Mapping, Optional
+from typing import Any, Iterable, Mapping, Optional
 
 from yoke_contracts.api.function_call import FunctionError
 from yoke_contracts.control_plane_locality import PG_DSN_ENV, PG_DSN_FILE_ENV
@@ -12,6 +12,8 @@ from yoke_contracts.machine_config.schema_github import has_github_config
 
 MACHINE_NOT_SET_UP = "machine_not_set_up"
 SETUP_HINT = "Run `yoke setup`."
+#: Code prefix of the native Windows preflight verdicts.
+NATIVE_PREFLIGHT_PREFIX = "windows_"
 #: An explicit database authority in the environment (a lane, CI, a hosted
 #: tenant) stands in for setup's connection.
 DATABASE_AUTHORITY_ENVS = (PG_DSN_ENV, PG_DSN_FILE_ENV, "YOKE_DB_SECRET_ARN")
@@ -35,6 +37,20 @@ def not_set_up_issue(config_path: Path) -> dict[str, str]:
         ),
         "hint": SETUP_HINT,
     }
+
+
+def setup_blocking(issues: Iterable[Mapping[str, str]]) -> list[dict[str, str]]:
+    """Drop native-preflight warning and info rows from an unset-up report.
+
+    Only the error verdicts would refuse `yoke setup`; setup itself prints
+    every verdict, so the rest would bury its one answer.
+    """
+    return [
+        dict(issue)
+        for issue in issues
+        if not str(issue.get("code", "")).startswith(NATIVE_PREFLIGHT_PREFIX)
+        or issue.get("severity") == "error"
+    ]
 
 
 def not_set_up_error(
@@ -74,10 +90,12 @@ def folder_line(report: Mapping[str, Any]) -> str:
 __all__ = [
     "DATABASE_AUTHORITY_ENVS",
     "MACHINE_NOT_SET_UP",
+    "NATIVE_PREFLIGHT_PREFIX",
     "SETUP_HINT",
     "folder_line",
     "is_git_checkout",
     "is_set_up",
     "not_set_up_error",
     "not_set_up_issue",
+    "setup_blocking",
 ]
