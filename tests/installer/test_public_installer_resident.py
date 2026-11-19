@@ -17,7 +17,7 @@ def test_evaluator_failure_never_reports_install_ready(tmp_path, monkeypatch):
         stdout="2.0.0\n",
         responses={
             (yoke_bin, "status", "--json"): _status_ok("2.0.0"),
-            (yoke_bin, "hook", "resident", "restart"): subprocess.CompletedProcess(
+            (yoke_bin, "hook", "resident", "verify"): subprocess.CompletedProcess(
                 [], 1, "YOKE_HOOK_RESIDENT_START_TIMEOUT: inspect evaluator.log", ""
             ),
         },

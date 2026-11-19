@@ -1438,7 +1438,9 @@ class Installer(InstallerVerification, InstallerResolution):
         self._product_boundary_audit(expected_version=version, yoke_bin=yoke_bin)
         self._repair_credential_helper(yoke_bin)
         self._record_distribution(yoke_bin)
-        argv = [yoke_bin, "hook", "resident", "restart"]
+        # Prove the installed evaluator, then stop it: an install leaves no
+        # resident running; setup or the first hook starts one.
+        argv = [yoke_bin, "hook", "resident", "verify"]
         resident = self.capture_runner(argv)
         if resident.returncode:
             raise InstallError(
@@ -1448,7 +1450,7 @@ class Installer(InstallerVerification, InstallerResolution):
                     (resident.stdout or "") + "\n" + (resident.stderr or ""),
                     DIAGNOSTIC_MAX_CHARS,
                 )
-                + "; run yoke hook resident restart, then retry the installer."
+                + "; run yoke hook resident verify, then retry the installer."
             )
         self._restart_running_dashboard(yoke_bin)
         if sys.platform != "win32":

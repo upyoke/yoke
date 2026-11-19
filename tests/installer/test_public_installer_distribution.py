@@ -58,7 +58,7 @@ def test_install_records_actual_selection_before_ready(monkeypatch, tmp_path):
         if argv[1:] == ["ui", "restart-running", "--json"]:
             return runner(argv)
         assert "is ready" not in instance.stdout.getvalue()
-        if argv[1:] == ["hook", "resident", "restart"]:
+        if argv[1:] == ["hook", "resident", "verify"]:
             assert distribution.recorded() == {
                 "origin": "https://fork.example",
                 "channel": "preview",

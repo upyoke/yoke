@@ -82,9 +82,9 @@ function a server-run policy reaches for local reads (subprocess, environment,
 filesystem, cwd, home, `__file__`); each needs a new home, a named fact, or a
 written reason in `local_read_reasons.py`.
 
-Setup, every public install and `yoke hook resident restart` start the resident
-and prove it with a dry evaluation, so a first session meets a warm evaluator;
-otherwise the client starts it on demand. It binds its socket before importing
+Setup and `yoke hook resident restart` start the resident and prove it with a dry
+evaluation, so a first session meets a warm evaluator; otherwise the client starts
+it on demand. It binds its socket before importing
 the evaluator, so callers during a cold start queue and are answered once it
 loads. It retires after ten idle minutes; a request for a different installed
 revision closes acceptance and re-execs into the current immutable CLI release,
@@ -120,7 +120,7 @@ call repeats one warning: guard rules are NOT enforced, the cause, the operator
 subfolders use `yoke folder disable PATH`; `yoke folder enable PATH` restores.
 [What Yoke sends](public/agents/harness-discovery.md#what-yoke-sends) owns scope and privacy.
 
-`yoke hook resident stop`/`restart` SIGTERM, then after ten seconds SIGKILL, residents
+`yoke hook resident stop`/`restart`/`verify` SIGTERM, then after ten seconds SIGKILL, residents
 proven by start time; a loading one exits at once. Failures name a running pid or held
 start lock with recovery; a restart accepts a resident a live hook launched meanwhile.
 
@@ -211,9 +211,9 @@ and a refusal code, never payload/environment/secret;
 rendering cannot delay or fail the tool. Resident wait includes connect/restart/
 response; fallback includes its synchronous completion telemetry.
 
-Every public install, reinstall and upgrade stops the previous evaluator,
-starts the installed version and proves readiness with a dry evaluation.
-Uninstall stops it before removing the machine home and CLI.
+Every public install, reinstall and upgrade runs `yoke hook resident verify`: stop
+the old evaluator, dry-evaluate the installed one, then stop it, so no resident
+outlives the installer. Uninstall stops it before removing the machine home and CLI.
 
 ```text
 yoke hook resident restart

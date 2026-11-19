@@ -1,6 +1,6 @@
 {
  "id": "evaluator-readiness",
- "title": "Setup and install warm the evaluator before the first hook; a cold one still answers inside the hook budget; timing stays in diagnostics.",
+ "title": "Setup warms the evaluator before the first hook; install proves it and then stops it; a cold one still answers inside the hook budget; timing stays in diagnostics.",
  "status": "observed",
  "form": "Do",
  "verification": "Candidate source and process-level tests; deployed proof remains release-owned.",

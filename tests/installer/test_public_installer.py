@@ -111,7 +111,7 @@ def test_full_install_pins_channel_version_and_smokes(
     assert [yoke_bin, "--version"] in runner.commands
     assert [yoke_bin, "--help"] in runner.commands
     assert [yoke_bin, "status", "--json"] in runner.commands
-    assert [yoke_bin, "hook", "resident", "restart"] in runner.commands
+    assert [yoke_bin, "hook", "resident", "verify"] in runner.commands
     rendered = output.getvalue()
     # Condensed friendly screen: one banner, one install line, one success line.
     # The shell shim owns the setup handoff, so the helper cannot claim it when
