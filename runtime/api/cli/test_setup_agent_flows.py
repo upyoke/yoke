@@ -175,6 +175,36 @@ def test_saved_github_authorization_skips_the_github_question(agent, monkeypatch
     assert (code, lines[-1]["key"]) == (0, "review.confirm")
 
 
+def test_machine_github_disabled_flag_never_asks_the_github_question(agent):
+    drive, fake = agent
+    flags = ("--machine-github", "disabled")
+    drive(flags=flags)
+
+    for answer in MACHINE_ONLY_ANSWERS[:4]:
+        code, line = _last(drive(answer))
+        assert line.get("key") != "github.machine", line
+    assert (code, line["key"]) == (0, "review.confirm")
+
+    code, line = _last(drive("review.confirm=apply"))
+    assert (code, line["state"]) == (0, "done"), line
+    assert fake.applied[0]["machine_github_choice"] == "skip"
+
+
+def test_machine_github_connect_flag_starts_the_connect_check(agent, monkeypatch):
+    from unittest.mock import Mock
+
+    drive, _ = agent
+    connect = Mock(return_value={"ok": False, "error": "connect stub"})
+    monkeypatch.setattr(github_machine, "connect", connect)
+    drive(flags=("--machine-github", "connect"))
+
+    for answer in MACHINE_ONLY_ANSWERS[:4]:
+        code, line = _last(drive(answer))
+        assert line.get("key") != "github.machine", line
+
+    connect.assert_called_once()
+
+
 def test_saved_yoke_sign_in_is_reused_without_a_browser_step(agent, monkeypatch):
     drive, _ = agent
     writer.set_connection(

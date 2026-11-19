@@ -276,6 +276,7 @@ class WizardDefaults:
     project_clone_outcome: str | None = None
     apply: bool = False
     post_install: bool = False
+    machine_github: str | None = None
 
 
 def run_wizard(

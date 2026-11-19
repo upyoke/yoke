@@ -124,10 +124,14 @@ are presets, like wizard defaults. Later calls may repeat them or leave them
 out. Changed project flags (such as `--project-mode`, `--checkout` or
 `--remote-url`) keep sign-in answers, the confirmed folder
 and item prefix; other project answers are asked again for the new path.
-Changing any other flag refuses with `setup_agent_flags_changed` before setup
-runs, leaves the setup file unchanged and names the saved waiting `key`.
-Rerun without changed flags to see that question. `--yes` answers the review
-question with `apply`.
+Before any question is answered, changed flags replace the saved presets, so
+`yoke setup --post-install` from install can be followed by
+`yoke setup --connect URL --agent`. Once an answer is saved, a pending browser
+approval exists or Apply failed, changing any other flag refuses with
+`setup_agent_flags_changed` before setup runs, leaves the setup file unchanged
+and names the saved waiting `key`. Rerun without changed flags to see that
+question. `--yes` answers the review question with `apply`, and
+`--machine-github disabled` or `connect` answers `github.machine`.
 
 Answering `review.confirm` with `apply` writes the setup and returns `done`.
 A failed Apply returns `state` `failed` with `reason` `setup_apply_failed`, the

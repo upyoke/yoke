@@ -108,7 +108,12 @@ class AnswerStore:
     # ── writing ─────────────────────────────────────────────
 
     def apply_presets(self, given: dict[str, Any]) -> tuple[str, str] | None:
-        """Accept project changes without reusing answers tied to the old path."""
+        """Accept project changes without reusing answers tied to the old path.
+
+        Flags left out keep their saved values. A run that has accepted nothing
+        yet takes changed flags whole: nothing it saved depends on the old
+        ones, so only its facts carry over.
+        """
         if not self.existed:
             self.presets = given
             return None
@@ -116,6 +121,9 @@ class AnswerStore:
             not name.startswith("project_") and value != self.presets.get(name)
             for name, value in given.items()
         ):
+            if not (self.answers or self.apply_failure or self.pending_approval):
+                self.presets = given
+                return None
             return (
                 "setup_agent_flags_changed",
                 "non-project setup flags differ from this setup's saved flags; "

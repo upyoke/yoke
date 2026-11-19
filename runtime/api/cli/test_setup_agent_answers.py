@@ -208,10 +208,32 @@ def test_changed_presets_refuse_and_keep_the_stored_ones(agent):
     assert _store_bytes() == before
 
 
-@pytest.mark.parametrize("approval_started", [False, True])
-def test_changed_presets_stop_before_machine_setup(
-    agent, monkeypatch, approval_started
-):
+def test_flags_replace_the_presets_of_a_run_with_no_answers(agent):
+    facts = {"machine": {"step": "done"}}
+    store = setup_agent_answers.AnswerStore(
+        {"presets": {"post_install": True}, "waiting_key": "project.mode",
+         "facts": facts},
+        existed=True,
+    )
+
+    assert store.apply_presets({"api_url": "https://yoke.example"}) is None
+    assert store.presets == {"api_url": "https://yoke.example"}
+    assert store.facts == facts
+
+
+def test_flags_still_refuse_once_a_question_is_answered(agent):
+    store = setup_agent_answers.AnswerStore(
+        {"presets": {"post_install": True}, "waiting_key": "connect.destination",
+         "answers": {"project.mode": "machine-only"}},
+        existed=True,
+    )
+
+    refusal = store.apply_presets({"api_url": "https://yoke.example"})
+    assert refusal is not None and refusal[0] == "setup_agent_flags_changed"
+    assert store.presets == {"post_install": True}
+
+
+def test_changed_presets_stop_before_machine_setup(agent, monkeypatch):
     from unittest.mock import Mock
 
     from runtime.api.cli.setup_agent_approvals_test_support import _pending
@@ -221,11 +243,10 @@ def test_changed_presets_stop_before_machine_setup(
     drive, _ = agent
     start = Mock(return_value=_pending("FIRST"))
     monkeypatch.setattr(hosted_machine_authorization, "start", start)
-    drive()
-    if approval_started:
-        drive("connect.destination=hosted")
-        start.reset_mock()
+    drive.walk(("project.mode=machine-only", "connect.destination=hosted"))
+    start.reset_mock()
     before = _store_bytes()
+    assert json.loads(before)["pending_approval"]
     prepare = Mock(side_effect=AssertionError("refused setup must stop before prepare"))
     monkeypatch.setattr(onboard_agent.onboard_resume, "prepare_run", prepare)
     monkeypatch.setattr(onboard_agent.onboard_machine_setup, "prepare", prepare)

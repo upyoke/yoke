@@ -6,5 +6,5 @@
  "verification": "Source and focused agent replay tests; released setup proof remains pending.",
  "topics": ["projects/adoption"],
  "sources": ["packages/yoke-cli/src/yoke_cli/config/setup_agent_answers.py", "docs/public/start/agent-setup.md"],
- "text": "Agent setup accepts changed project flags, clears answers tied to the old project path, and carries the confirmed folder and item prefix. Non-project flag changes still refuse before setup and require the saved flags or an explicit discard."
+ "text": "Agent setup accepts changed project flags, clears answers tied to the old project path, and carries the confirmed folder and item prefix. Before any answer is saved, changed flags replace the saved presets, so a post-install run can be followed by a connect run. Once an answer, a pending browser approval or an Apply failure is saved, non-project flag changes refuse before setup and require the saved flags or an explicit discard. --machine-github disabled or connect answers the machine GitHub question."
 }

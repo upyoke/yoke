@@ -41,6 +41,16 @@ class MachineGithubFlow:
     """Machine GitHub App routing screens."""
 
     def _goto_machine_github(self: _Shell) -> None:
+        preset = getattr(self, "_machine_github_preset", None)
+        if preset is not None:
+            # --machine-github answers this question once; returning here asks it.
+            self._machine_github_preset = None
+            self._on_machine_github(
+                onboard_machine_github.CHOICE_CONNECT
+                if preset == "connect"
+                else onboard_machine_github.CHOICE_SKIP
+            )
+            return
         steps = _wizard_steps()
         status = str(getattr(self, "_connection_status_line", "") or "")
         self._goto(
