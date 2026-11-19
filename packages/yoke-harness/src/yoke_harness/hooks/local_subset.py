@@ -25,10 +25,8 @@ from yoke_contracts.hook_runner.project_scope import (
     HookProjectScope,
     resolve_hook_project_scope,
 )
-from yoke_contracts.hook_runner.shell_guard_repairs import (
-    NOTHING_RAN,
-    RIPGREP_REPLACE_CHECK_ID,
-)
+from yoke_contracts.hook_runner.denial_identity import CHECK_ID_PREFIX
+from yoke_contracts.hook_runner.shell_guard_repairs import NOTHING_RAN
 from yoke_contracts.harness_shell_tools import payload_shell_kind
 from yoke_contracts.hook_tool_names import canonicalize_shell_payload
 from yoke_contracts.hook_runner.shell_parse import parse_for_shell
@@ -51,6 +49,7 @@ from yoke_harness.hooks.local_policies import (
 )
 from yoke_harness.hooks.session_lifecycle import session_lifecycle
 from yoke_harness.hooks.unmatched_path_glob import lint_unmatched_path_glob
+from yoke_harness.hooks.broad_filesystem_scan import lint_broad_filesystem_scan
 from yoke_harness.hooks.local_policy_common import (
     ADVISORY,
     DENY,
@@ -70,6 +69,15 @@ class LocalSubsetEvaluation:
     denial_audit: dict | None = None
 
 
+def _check_id(module_id: str, reason: str) -> str:
+    """The check id the refusal names, else the guard's registered one."""
+    for line in reversed(reason.splitlines()):
+        if line.startswith(CHECK_ID_PREFIX):
+            return line.removeprefix(CHECK_ID_PREFIX).strip()
+    spec = lint_policy.spec_for(module_id)
+    return spec.check_id if spec is not None else module_id
+
+
 def _denial_audit(module_id: str, mode: str, payload: dict, reason: str) -> dict:
     """Build the audit fields a denied evaluation carries back to its caller.
 
@@ -85,9 +93,7 @@ def _denial_audit(module_id: str, mode: str, payload: dict, reason: str) -> dict
     agent_type = payload.get("agent_type") or ""
     return {
         "hook": module_id,
-        "check_id": RIPGREP_REPLACE_CHECK_ID
-        if f"Yoke check id: {RIPGREP_REPLACE_CHECK_ID}" in reason
-        else module_id,
+        "check_id": _check_id(module_id, reason),
         "guard_key": module_id,
         "mode": mode,
         "reason": reason,
@@ -119,6 +125,7 @@ _POLICY_EVALUATORS = {
     "yoke_core.domain.hint_file_line_limit_approach": hint_file_line,
     "yoke_core.domain.db_error_hook": db_error_advisory,
     "yoke_core.domain.lint_unmatched_path_glob": lint_unmatched_path_glob,
+    "yoke_core.domain.lint_broad_filesystem_scan": lint_broad_filesystem_scan,
 }
 _SESSION_DISPATCH = "yoke_core.hooks.session_dispatch"
 

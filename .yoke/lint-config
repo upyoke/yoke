@@ -81,6 +81,9 @@ lint_local_privacy=deny
 # Refuse unquoted path globs that match no files; teach rg --files.
 lint_unmatched_path_glob=deny
 
+# Refuse whole-disk find/fd/bfs/locate scans that stall the turn.
+lint_broad_filesystem_scan=deny
+
 # Refuse `python3 -c "from runtime..."` agent reach-in. [protected]
 lint_no_agent_runtime_api_import_from_c=deny
 

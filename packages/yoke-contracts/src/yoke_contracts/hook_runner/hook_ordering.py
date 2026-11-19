@@ -38,10 +38,9 @@ PreToolUse Bash chain order rationale:
     on the named state-changing Yoke CLI families.
 11. ``lint_shell_backtick_search`` /
     ``lint_yoke_quoted_shell_substitution`` / ``lint_local_privacy`` /
-    ``lint_unmatched_path_glob`` — shell-footgun deniers (backticks/`$()`
-    in double-quoted grep/rg or yoke args; unquoted path globs that match
-    no files, teaching ``rg --files``). Shape parse first; unmatched globs
-    then check the command cwd.
+    ``lint_unmatched_path_glob`` / ``lint_broad_filesystem_scan`` —
+    shell-footgun deniers (backticks/`$()` in double-quoted grep/rg or yoke
+    args; unquoted path globs that match no files; whole-disk scans).
 12. ``lint_no_agent_runtime_api_import_from_c`` — block ad-hoc
     ``python3 -c "from runtime..."`` one-liners. Shape-only denier in the
     keyed on the CLI-only-as-agent-interface doctrine.
@@ -140,6 +139,7 @@ _PRE_BASH: tuple[str, ...] = (
     "yoke_core.domain.lint_yoke_quoted_shell_substitution",
     "yoke_core.domain.lint_local_privacy",
     "yoke_core.domain.lint_unmatched_path_glob",
+    "yoke_core.domain.lint_broad_filesystem_scan",
     "yoke_core.domain.lint_no_agent_runtime_api_import_from_c",
     "yoke_core.domain.lint_no_agent_curl_against_yoke_api",
     "yoke_core.domain.lint_no_agent_session_end",

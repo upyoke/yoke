@@ -91,6 +91,7 @@ _POLICY_HOMES: dict[str, PolicyPlacement] = {
     _D + "lint_python_runtime_import_in_tmp": _CLIENT,  # walks target parents
     _D + "lint_shell_backtick_search": _CLIENT,  # machine guard, no project
     _D + "lint_unmatched_path_glob": _CLIENT,  # expands globs on client FS
+    _D + "lint_broad_filesystem_scan": _CLIENT,  # client cwd and home
     # Lifecycle side effects on the client's checkout and env file. The
     # authority's identity and cleanup halves run as relay ensure-register
     # and ``yoke_core.hooks.remote_lifecycle``.

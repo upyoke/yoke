@@ -217,6 +217,13 @@ GUARD_CATALOG: Tuple[GuardSpec, ...] = (
         accepted_check_ids=(RIPGREP_REPLACE_CHECK_ID,),
     ),
     GuardSpec(
+        "lint_broad_filesystem_scan",
+        f"{_MODULE_PREFIX}lint_broad_filesystem_scan",
+        False,
+        "Refuse whole-disk find/fd/bfs/locate scans that stall the turn.",
+        check_id="lint-broad-filesystem-scan",
+    ),
+    GuardSpec(
         "lint_no_agent_runtime_api_import_from_c",
         f"{_MODULE_PREFIX}lint_no_agent_runtime_api_import_from_c",
         True,
