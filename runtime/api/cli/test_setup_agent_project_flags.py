@@ -71,7 +71,7 @@ def test_non_project_change_refuses_before_project_answers_change(
 ):
     isolate_agent_setup(tmp_path, monkeypatch)
     drive = AgentDriver(capsys)
-    drive()
+    drive.walk(("project.mode=machine-only",))
     before = setup_agent_answers.store_path().read_bytes()
 
     code, lines = drive(flags=("--project-mode", "clone-remote", *flag))

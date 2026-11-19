@@ -70,6 +70,7 @@ def wizard_defaults(
         project_clone_outcome=parsed.project_clone_outcome,
         apply=parsed.apply,
         post_install=parsed.post_install,
+        machine_github=parsed.machine_github,
     )
 
 

@@ -89,6 +89,7 @@ def test_wizard_runs_after_preparation_even_when_browser_setup_fails(
         project_clone_outcome=None,
         apply=False,
         post_install=False,
+        machine_github=None,
     )
     assert (
         onboard_interactive.run_wizard(

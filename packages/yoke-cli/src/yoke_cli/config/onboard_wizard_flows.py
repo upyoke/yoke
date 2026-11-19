@@ -131,6 +131,7 @@ def init_setup_state(
     )
     shell._hydrate_stored_credentials(defaults)
     shell._post_install = defaults.post_install
+    shell._machine_github_preset = defaults.machine_github
     shell._history: list[_View] = []
     shell._checking = False
     shell._checking_blocks_quit = False
