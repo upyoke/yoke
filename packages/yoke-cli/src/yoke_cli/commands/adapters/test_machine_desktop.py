@@ -37,9 +37,14 @@ def test_machine_desktop_access(args: list[str]) -> int:
             "a connected RDP client must close before that repair. "
             "Any second Linux viewer refuses linux_desktop_viewer_connected: close the open "
             "'Yoke desktop: MACHINE' viewer (or let browser authorize finish), then retry. "
-            "Windows desktop_user and desktop_port name the WSL user and its xrdp port. "
+            "On os=wsl, desktop_user and desktop_port name the WSL user and its xrdp port. "
             "--view opens that same XFCE display in FreeRDP's visible SDL client, feeds the fixture "
             "password on stdin, and closes any SSH forward when the viewer closes; no password file. "
+            "On native Windows (os=windows), --view opens FreeRDP on the registered RDP listener "
+            "(desktop_port, usually 3389) as desktop_user, splitting DOMAIN\\user into /d: and /u:, "
+            "with no SSH command or XFCE; the remote desktop follows the window size and the output "
+            "reports desktop_session=native. Signing in as the autologon user disconnects the console; "
+            "after the viewer closes the host's YokeQa-ReturnToConsole task returns it to the console. "
             "On the SSH forward, SSH host-key verification is the trust boundary (/cert:ignore). "
             "A direct RDP route pins the host's self-signed certificate on first use under the Yoke "
             "home (test-machine/rdp_certificates), prints certificate_sha256 and passes FreeRDP that "
@@ -78,7 +83,7 @@ def test_machine_desktop_access(args: list[str]) -> int:
         "--view",
         action="store_true",
         help=(
-            "Open the desktop in a visible viewer: FreeRDP for Linux and Windows WSL, "
+            "Open the desktop in a visible viewer: FreeRDP for Linux, Windows and Windows WSL, "
             "Screen Sharing for macOS."
         ),
     )

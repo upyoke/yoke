@@ -183,3 +183,70 @@ def test_cli_dispatch_never_contains_a_password(credentials, forward, monkeypatc
         Path(result["password_file"]).unlink()
 
 
+
+
+WINDOWS = {
+    **SETTINGS,
+    "os": "windows",
+    "desktop_route": "direct",
+    "host": "lab.tail.ts.net",
+    "desktop_user": "yokeqa",
+}
+
+
+def test_native_windows_view_opens_the_native_viewer(credentials, monkeypatch):
+    from yoke_harness import native_windows_desktop_view as native
+
+    calls = []
+    monkeypatch.setattr(
+        native,
+        "view_native_desktop",
+        lambda *a: calls.append(a) or {"desktop_session": "native", "viewer": "closed"},
+    )
+    monkeypatch.setattr(
+        desktop, "_prepare_desktop", lambda *a: pytest.fail("SSH desktop run")
+    )
+    announced = []
+    desktop.open_desktop_access(
+        project="project",
+        test_machine="lab",
+        settings=WINDOWS,
+        announce=announced.append,
+        view=True,
+    )
+    assert announced == [{"desktop_session": "native", "viewer": "closed"}]
+    assert calls == [("project", "lab", WINDOWS, PASSWORD)]
+
+
+def test_native_windows_plain_access_is_unchanged(credentials, forward, monkeypatch):
+    from yoke_harness import rdp_certificate_pin
+
+    monkeypatch.setattr(
+        rdp_certificate_pin, "pinned_certificate", lambda *a, **kw: "cd" * 32
+    )
+    monkeypatch.setattr(
+        desktop, "_prepare_desktop", lambda *a: pytest.fail("SSH desktop run")
+    )
+    monkeypatch.setattr(desktop, "_hold_forward", lambda: pytest.fail("direct route holds"))
+    [result] = _open(WINDOWS)
+    try:
+        assert set(result) == {
+            "address", "route", "user", "password_file", "certificate_sha256"
+        }
+        assert result["address"] == "rdp://lab.tail.ts.net:3389"
+        assert result["user"] == "yokeqa"
+    finally:
+        Path(result["password_file"]).unlink()
+
+
+def test_view_refuses_an_unviewable_route_by_name(credentials):
+    with pytest.raises(desktop.DesktopAccessError) as refused:
+        desktop.open_desktop_access(
+            project="project",
+            test_machine="lab",
+            settings={**WINDOWS, "desktop_protocol": "vnc", "desktop_port": "5900"},
+            announce=lambda result: pytest.fail("announced"),
+            view=True,
+        )
+    assert "desktop_view_route_unsupported" in str(refused.value)
+    assert "windows_desktop_view_requires_rdp" not in str(refused.value)

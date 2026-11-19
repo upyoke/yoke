@@ -1,4 +1,4 @@
-"""View the existing XFCE display over a bounded credential-owned RDP route."""
+"""View a test machine desktop in FreeRDP over a bounded credential-owned RDP route."""
 
 from __future__ import annotations
 
@@ -97,10 +97,23 @@ def _certificate_option(host, port, settings):
     return f"/cert:fingerprint:sha256:{fingerprint}"
 
 
+def _client_executable():
+    executable = shutil.which("sdl-freerdp") or shutil.which("sdl-freerdp3")
+    if not executable:
+        raise DesktopAccessError("desktop_rdp_client_missing: " + CLIENT_RECOVERY)
+    return executable
+
+
+def _user_options(user):
+    """A DOMAIN\\user name splits so an empty /d: never overrides its domain."""
+    domain, _, name = user.rpartition("\\")
+    return [f"/u:{name}", f"/d:{domain}"]
+
+
 class DesktopView:
     """One FreeRDP viewer. Close stops the client and its SSH forward."""
 
-    def __init__(self, stack, process, reader, log, log_path, evidence, user, receipt):
+    def __init__(self, stack, process, reader, log, log_path, evidence, user, session):
         self._stack = stack
         self.process = process
         self._reader = reader
@@ -108,24 +121,18 @@ class DesktopView:
         self.log_path = log_path
         self.evidence = evidence
         self.user = user
-        self.receipt = receipt
+        self.session = session
         self._client_stopped = False
         self._forward_closed = False
 
     @classmethod
     def open(cls, project, test_machine, settings, password, receipt, run):
-        executable = shutil.which("sdl-freerdp") or shutil.which("sdl-freerdp3")
-        if not executable:
-            raise DesktopAccessError("desktop_rdp_client_missing: " + CLIENT_RECOVERY)
+        """View the registered XFCE display at its measured geometry."""
+        _client_executable()
         environment = receipt["environment"]
         probe = run(
             shlex.join(
-                [
-                    "env",
-                    *[f"{k}={v}" for k, v in environment.items()],
-                    "xwininfo",
-                    "-root",
-                ]
+                ["env", *[f"{k}={v}" for k, v in environment.items()], "xwininfo", "-root"]
             ),
             timeout=20,
         )
@@ -146,23 +153,49 @@ class DesktopView:
             raise DesktopAccessError(
                 "desktop_view_geometry_invalid: inspect the registered XFCE display before retrying"
             )
+        window_width, window_height = _window_geometry(width, height)
+        # SDL retains /size as local window dimensions and negotiates the
+        # smart-sizing dimensions remotely. Keep the existing XFCE size.
+        display_options = [
+            f"/size:{window_width}x{window_height}",
+            f"/smart-sizing:{width}x{height}",
+            f"/bpp:{depth}",
+        ]
+        session = {
+            "desktop_session": receipt["desktop_session"],
+            "display": environment["DISPLAY"],
+        }
+        return cls.start(
+            project, test_machine, settings, password, display_options, session
+        )
+
+    @classmethod
+    def start(cls, project, test_machine, settings, password, display_options, session):
+        """Launch FreeRDP with caller-owned display options and outcome fields."""
+        executable = _client_executable()
         stack = ExitStack()
         host, port, user = stack.enter_context(desktop_forward(project, settings))
         launched = False
         try:
+            certificate = _certificate_option(host, port, settings)
+            if certificate.startswith("/cert:fingerprint:sha256:"):
+                session = {**session, "certificate_sha256": certificate.rsplit(":", 1)[1]}
             opened = cls._launch(
                 stack,
-                executable,
-                host,
-                port,
-                user,
-                test_machine,
-                settings,
+                [
+                    executable,
+                    f"/v:{f'[{host}]' if ':' in host else host}:{port}",
+                    *_user_options(user),
+                    "/from-stdin:force",
+                    certificate,
+                    "/log-level:INFO",
+                    "/timeout:15000",
+                    *display_options,
+                    f"/t:Yoke desktop: {test_machine}",
+                ],
                 password,
-                receipt,
-                width,
-                height,
-                depth,
+                user,
+                session,
             )
             launched = True
             return opened
@@ -171,39 +204,7 @@ class DesktopView:
                 stack.close()
 
     @classmethod
-    def _launch(
-        cls,
-        stack,
-        executable,
-        host,
-        port,
-        user,
-        test_machine,
-        settings,
-        password,
-        receipt,
-        width,
-        height,
-        depth,
-    ):
-        authority = f"[{host}]" if ":" in host else host
-        window_width, window_height = _window_geometry(width, height)
-        argv = [
-            executable,
-            f"/v:{authority}:{port}",
-            f"/u:{user}",
-            "/d:",
-            "/from-stdin:force",
-            _certificate_option(host, port, settings),
-            "/log-level:INFO",
-            "/timeout:15000",
-            # SDL retains /size as local window dimensions and negotiates the
-            # smart-sizing dimensions remotely. Keep the existing XFCE size.
-            f"/size:{window_width}x{window_height}",
-            f"/smart-sizing:{width}x{height}",
-            f"/bpp:{depth}",
-            f"/t:Yoke desktop: {test_machine}",
-        ]
+    def _launch(cls, stack, argv, password, user, session):
         local_environment = dict(os.environ)
         local_environment.pop("SDL_VIDEODRIVER", None)
         if sys.platform == "darwin":
@@ -253,7 +254,7 @@ class DesktopView:
             raise DesktopAccessError(
                 f"desktop_view_unavailable: {type(exc).__name__}; retained log: {log_path}; check workstation client permissions and resources, then rerun desktop-access --view"
             ) from None
-        return cls(stack, process, reader, log, log_path, evidence, user, receipt)
+        return cls(stack, process, reader, log, log_path, evidence, user, session)
 
     @staticmethod
     def _abandon(process, reader, log, log_path, evidence):
@@ -315,8 +316,7 @@ class DesktopView:
             )
         return {
             "user": self.user,
-            "desktop_session": self.receipt["desktop_session"],
-            "display": self.receipt["environment"]["DISPLAY"],
+            **self.session,
             "viewer": "closed",
             "log_path": self.log_path,
             "client_exit_code": self.process.returncode,
@@ -324,7 +324,13 @@ class DesktopView:
 
 
 def view_desktop(project, test_machine, settings, password, receipt, run):
-    opened = DesktopView.open(project, test_machine, settings, password, receipt, run)
+    return watch_view(
+        DesktopView.open(project, test_machine, settings, password, receipt, run)
+    )
+
+
+def watch_view(opened):
+    """Wait for the viewer to close, then stop its client and forward."""
     code = None
     try:
         try:

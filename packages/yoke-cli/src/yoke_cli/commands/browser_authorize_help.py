@@ -64,9 +64,9 @@ or borrows your own lease, starts stopped cloud machines and waits for SSH.
 The lease stays held through sign-in and viewer cleanup; only a lease this
 command acquired releases afterward, with stop-on-last-release. Before opening
 a viewer it checks Yoke on the login-shell PATH; test_machine_yoke_missing
-names the reset with --baseline shell-preconfigured needed to install it. A Linux or Windows WSL
-machine with a registered RDP desktop opens in the same FreeRDP viewer as
-`yoke test-machine desktop-access --view`: a window titled
+names the reset with --baseline shell-preconfigured needed to install it. A Linux,
+native Windows or Windows WSL machine with a registered RDP desktop opens in the
+same FreeRDP viewer as `yoke test-machine desktop-access --view`: a window titled
 "Yoke desktop: MACHINE" appears, you sign in with the identity's declared
 account, and the viewer closes when verification finishes. Close the browser
 window when done. If no viewer route or FreeRDP client is available, the

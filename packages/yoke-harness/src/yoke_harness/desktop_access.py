@@ -79,13 +79,13 @@ def _read_prefix(connection: socket.socket) -> bytes:
 
 
 def _prepare_desktop(settings, key_path, password):
-    """Use the same framed WSL transport and XFCE helper as GUI operations."""
+    """Use the same framed WSL transport and XFCE helper as GUI operations.
+
+    Native Windows never comes here: it owns its RDP listener and autologon
+    session, and its viewer connects to that listener directly.
+    """
     from types import SimpleNamespace
 
-    if settings["os"] == "windows":
-        # Windows owns its RDP listener and autologon session. Captures use
-        # Task Scheduler; a human viewer opens the announced address.
-        return {"desktop_session": "native"}, None
     from yoke_harness.linux_desktop_session import ensure_desktop
     from yoke_contracts.windows_wsl_command import (
         windows_wsl_command,
@@ -165,18 +165,14 @@ def _desktop_password(project, test_machine):
 
 
 def _screen_sharing_route(settings, route) -> bool:
-    """macOS test machines are viewed in Screen Sharing; Linux and WSL in FreeRDP."""
-    if settings.get("os") == "windows":
-        raise DesktopAccessError(
-            "windows_desktop_view_requires_rdp: run desktop-access without --view and open its announced address in your RDP client"
-        )
+    """macOS test machines are viewed in Screen Sharing; Linux, WSL and Windows in FreeRDP."""
     if settings.get("os") == "macos" and route["desktop_protocol"] == "vnc":
         return True
-    if settings.get("os") in {"linux", "wsl"} and route["desktop_protocol"] == "rdp":
+    if settings.get("os") in {"linux", "wsl", "windows"} and route["desktop_protocol"] == "rdp":
         return False
     raise DesktopAccessError(
-        "desktop_view_route_unsupported: --view needs an RDP route on Linux or "
-        "Windows WSL, or a VNC route on macOS; run desktop-access without --view"
+        "desktop_view_route_unsupported: --view needs an RDP route on Linux, Windows "
+        "or Windows WSL, or a VNC route on macOS; run desktop-access without --view"
     )
 
 
@@ -201,6 +197,11 @@ def begin_desktop_view(*, project: str, test_machine: str, settings: Mapping[str
 
         password = _desktop_password(project, test_machine)
         return ScreenSharingView.open(project, test_machine, settings, password)
+    if settings["os"] == "windows":
+        from yoke_harness.native_windows_desktop_view import open_native_view
+
+        password = _desktop_password(project, test_machine)
+        return open_native_view(project, test_machine, settings, password)
     password, receipt, run = _ready_desktop_view(project, test_machine, settings)
     from yoke_harness.rdp_desktop_client import DesktopView
 
@@ -251,6 +252,12 @@ def open_desktop_access(
 
         password = _desktop_password(project, test_machine)
         announce(view_screen_sharing(project, test_machine, settings, password))
+        return
+    if view and settings["os"] == "windows":
+        from yoke_harness.native_windows_desktop_view import view_native_desktop
+
+        password = _desktop_password(project, test_machine)
+        announce(view_native_desktop(project, test_machine, settings, password))
         return
     if view:
         password, receipt, run = _ready_desktop_view(project, test_machine, settings)
