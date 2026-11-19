@@ -222,7 +222,12 @@ def test_prepare_uses_registered_xfce_user_port_and_wsl_stdin_frame(
     def run(argv, **kw):
         calls.append((argv, kw))
         command = argv[-1]
-        supplied = kw["input"]
+        # A command with nothing to feed must not inherit the caller's stdin,
+        # or ssh swallows the Enter that later closes the SSH-forward hold.
+        assert ("input" in kw) != ("stdin" in kw), kw
+        if "stdin" in kw:
+            assert kw["stdin"] is subprocess.DEVNULL
+        supplied = kw.get("input")
         if os_name == "wsl":
             assert command.startswith("powershell.exe -NoLogo")
             command, supplied = supplied.split("\n", 1)
@@ -238,6 +243,8 @@ def test_prepare_uses_registered_xfce_user_port_and_wsl_stdin_frame(
     receipt, _ = desktop_access._prepare_desktop(settings, tmp_path / "key", PASSWORD)
     assert receipt == RECEIPT
     assert len(calls) == 2
+    if os_name == "linux":
+        assert calls[0][1]["stdin"] is subprocess.DEVNULL
 
 
 def test_wrong_default_wsl_user_refuses_before_desktop_login(tmp_path, monkeypatch):

@@ -98,10 +98,13 @@ def _prepare_desktop(settings, key_path, password):
         if settings["os"] == "wsl":
             command, input_text = windows_wsl_input(command, input_text)
             command = windows_wsl_command(command)
+        # Without input, ssh must not inherit stdin: it would swallow the Enter
+        # that later closes the SSH-forward hold.
+        feed = {"input": input_text} if input_text is not None else {"stdin": subprocess.DEVNULL}
         try:
             return subprocess.run(
                 [*_ssh_args(settings, key_path, "none"), target, command],
-                input=input_text,
+                **feed,
                 text=True,
                 capture_output=True,
                 timeout=timeout,
