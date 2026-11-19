@@ -161,3 +161,68 @@ def test_wsl_streamed_gui_command_goes_over_stdin(monkeypatch, tmp_path, capsys)
     assert control.streamed and result.returncode == 0
     assert len(seen[0][-1]) < WSL_COMMAND_LINE_LIMIT
     assert _decoded_wsl_stdin(result.stdout) == (command, "")
+
+
+WINDOWS = {**SETTINGS, "resource_name": "windows-native-lab", "os": "windows"}
+WINDOWS_FACTS = {
+    "os": "Windows", "admin": False, "home": "C:\\Users\\yokeqa",
+    "shell": "powershell.exe", "edition": "Windows 11 Pro", "build": "26100",
+    "user": "winnative\\yokeqa",
+}
+
+
+def _windows_route(monkeypatch, tmp_path, *, key=True):
+    from yoke_contracts.machine_config import capability_secret_store
+    from yoke_harness.native_windows import desktop, transport
+
+    key_path = tmp_path / "ssh_private_key"
+    if key:
+        key_path.write_text("key")
+    monkeypatch.setenv("SSH_AUTH_SOCK", "/fake/agent")
+    monkeypatch.setattr(
+        capability_secret_store, "test_machine_secret_path", lambda name, k: key_path
+    )
+    monkeypatch.setattr(
+        transport.WindowsTransport,
+        "_host_facts",
+        lambda self: setattr(self, "windows_facts", WINDOWS_FACTS) or WINDOWS_FACTS,
+    )
+    handed = []
+    monkeypatch.setattr(
+        desktop,
+        "desktop_script",
+        lambda control, script, timeout: handed.append((control, script, timeout))
+        or subprocess.CompletedProcess([], 0, "signed in", ""),
+    )
+    return key_path, handed
+
+
+def test_windows_desktop_runs_through_the_full_native_transport(monkeypatch, tmp_path):
+    from yoke_harness.ssh_test_machine_transport import SshTestMachineTransport
+
+    key_path, handed = _windows_route(monkeypatch, tmp_path)
+    result = gui.run_gui_command(
+        settings=WINDOWS,
+        argv=["yoke", "browser", "authorize", "--declarations-json", json.dumps(DECLARATIONS)],
+        yoke_home=tmp_path,
+    )
+    assert result.stdout == "signed in" and result.output_streamed is False
+    control, script, timeout = handed[0]
+    # Staging reads these through the base transport; the old ssh-agent
+    # control had none of them and crashed with AttributeError on `os`.
+    assert control.os == "windows" and control.windows_facts["admin"] is False
+    assert control.home == "C:\\Users\\yokeqa"
+    base = SshTestMachineTransport._ssh_argv(control, "")
+    assert base[:3] == ["ssh", "-i", str(key_path)]
+    assert base[-2] == "tester@test.example.com"
+    assert "$Matches[1]" in script and "browser authorize" in script
+    assert timeout == 1920
+
+
+def test_windows_desktop_without_an_imported_key_refuses_by_name(monkeypatch, tmp_path):
+    _, handed = _windows_route(monkeypatch, tmp_path, key=False)
+    with pytest.raises(RemoteExecRefusal) as raised:
+        gui.run_gui_command(settings=WINDOWS, argv=["yoke", "--version"], yoke_home=tmp_path)
+    assert raised.value.code == "desktop_ssh_key_missing"
+    assert "yoke test-machine secret set --test-machine windows-native-lab" in raised.value.recovery
+    assert handed == []

@@ -29,7 +29,11 @@ yoke browser authorize --project P --identity NAME --test-machine windows-native
 ```
 
 Read `--help`. The command checks declared sites and opens sign-in on the
-test user's desktop only for expired ones. Agents drive setup and navigation;
+test user's desktop only for expired ones. It reaches that desktop through the
+same native SSH transport Machine QA uses, so the workstation needs the lab's
+SSH key imported (`yoke test-machine secret set --test-machine
+windows-native-lab --key ssh_private_key --value-file FILE`); without it the
+command refuses `desktop_ssh_key_missing`. Agents drive setup and navigation;
 Ben enters his own password or credential. No automated browser runs while
 authorization owns the profile. Keep cookies and profile contents on the VM,
 outside evidence.

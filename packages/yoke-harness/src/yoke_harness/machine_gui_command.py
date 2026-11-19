@@ -17,11 +17,7 @@ from yoke_harness.test_machine_remote_exec import (
     remote_exec_argv,
     _stream_command,
 )
-from yoke_harness.native_windows.transport import (
-    WindowsTransport,
-    encoded,
-    process_script,
-)
+from yoke_harness.native_windows.transport import encoded, process_script
 from yoke_harness.native_windows.yoke_python import yoke_python_command
 
 
@@ -52,8 +48,12 @@ class _Progress:
         self.destination.flush()
 
 
-class _GuiSshControl(WindowsTransport):
-    """Adapt ssh-agent execution to the existing OS GUI command helpers."""
+class _GuiSshControl:
+    """Adapt ssh-agent execution to the existing OS GUI command helpers.
+
+    Native Windows desktop commands use the full native transport instead
+    (``_run_windows_desktop``); this control only probes over SSH there.
+    """
 
     secret_values = ()
 
@@ -159,6 +159,42 @@ class _GuiSshControl(WindowsTransport):
         return result
 
 
+def _run_windows_desktop(settings, argv, timeout):
+    """Run *argv* in the signed-in Windows user's desktop session.
+
+    The desktop handoff stages its script through the native Windows SSH
+    transport, so this uses that transport itself, keyed by the Test
+    Machine's imported SSH key, exactly as Machine QA does.
+    """
+    from yoke_contracts.machine_config.capability_secret_store import (
+        test_machine_secret_path,
+    )
+    from yoke_harness.native_windows.desktop import desktop_script
+    from yoke_harness.ssh_native_windows_host_operations import (
+        SshNativeWindowsHostOperations,
+    )
+
+    name = settings["resource_name"]
+    key_path = test_machine_secret_path(name, "ssh_private_key")
+    if not key_path.is_file():
+        raise RemoteExecRefusal(
+            "desktop_ssh_key_missing",
+            f"the SSH key for Test Machine {name} is not imported on this workstation",
+            f"Import it with `yoke test-machine secret set --test-machine {name} "
+            "--key ssh_private_key --value-file FILE`, then retry.",
+        )
+    control = SshNativeWindowsHostOperations(settings=settings, key_path=key_path)
+    # ProcessStartInfo finds only .exe on PATH; Yoke is the yoke.cmd shim.
+    script = (
+        yoke_python_command(argv)
+        if argv and argv[0] == "yoke"
+        else process_script(argv)
+    )
+    result = desktop_script(control, script, timeout=timeout)
+    result.output_streamed = False
+    return result
+
+
 def check_yoke_installation(*, project, test_machine, settings, yoke_home):
     """Check the login-shell PATH before opening any GUI desktop."""
     control = _GuiSshControl(settings, yoke_home, None)
@@ -211,25 +247,7 @@ def run_gui_command(
     # and verification before the outer GUI bridge reaches its bound.
     timeout = 1920
     if kind == "windows":
-        from yoke_harness.native_windows.desktop import desktop_script
-
-        home = control._run("$env:USERPROFILE", timeout=20)
-        if home.returncode or not home.stdout.strip():
-            raise RemoteExecRefusal(
-                "windows_profile_unavailable",
-                home.stderr,
-                "Repair the native SSH user profile and retry.",
-            )
-        control.home = home.stdout.strip()
-        # ProcessStartInfo finds only .exe on PATH; Yoke is the yoke.cmd shim.
-        script = (
-            yoke_python_command(argv)
-            if argv and argv[0] == "yoke"
-            else process_script(argv)
-        )
-        result = desktop_script(control, script, timeout=timeout)
-        result.output_streamed = False
-        return result
+        return _run_windows_desktop(settings, argv, timeout)
     if kind == "macos":
         from yoke_harness.ssh_mac_gui_session import run_terminal_app_command
 
