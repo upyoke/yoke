@@ -10,6 +10,9 @@ from yoke_harness.native_windows.profile_path import HELPERS as PATH_HELPERS
 from yoke_harness.native_windows.mission import (
     WINDOWS_MISSION_SCRATCH_DIRECTORY, windows_stale_scratch_script,
 )
+from yoke_harness.native_windows.profile_processes import (
+    profile_process_stop_script, stopped_processes,
+)
 from yoke_harness.native_windows.profile_links import (
     link_sweep_record, stale_link_sweep_script,
 )
@@ -146,6 +149,7 @@ $state=Get-Content -Raw (Join-Path $golden 'state.json') | ConvertFrom-Json
 Assert-YokeUserPath $state.user_path_snapshot
 $source=Join-Path $golden 'profile'; $target=$profileRoot
 """
+        + profile_process_stop_script(control.home, PRESERVED_DIRECTORIES)
         + copy
         + stale_link_sweep_script(control.home, PRESERVED_DIRECTORIES)
         + windows_stale_scratch_script(
@@ -187,7 +191,10 @@ def profile_operation(control, operation, path):
             "profile": control.home,
             "preserved_identity_paths": list(PRESERVED_DIRECTORIES),
             **(
-                link_sweep_record(result.stdout)
+                {
+                    **link_sweep_record(result.stdout),
+                    "profile_processes_stopped": stopped_processes(result.stdout),
+                }
                 if operation == "reset"
                 else {}
             ),

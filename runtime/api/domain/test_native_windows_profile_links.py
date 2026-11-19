@@ -169,3 +169,43 @@ Write-Output 'STALE_SCRATCH_REMOVED'
 """)
     assert result.returncode == 0, result.stderr
     assert "STALE_SCRATCH_REMOVED" in result.stdout
+
+
+def test_reset_stops_profile_processes_before_the_mirror():
+    from yoke_harness.native_windows.profile_processes import stopped_processes
+
+    reset = profile_script(SimpleNamespace(home=HOME), "reset", GOLDEN)
+    assert reset.index("$stopPreserved=") < reset.index("robocopy.exe")
+    assert "windows_reset_profile_process_running" in reset
+    assert quote(HOME + r"\AppData\Local\Microsoft") in reset
+    assert "$stopPreserved" not in profile_script(SimpleNamespace(home=HOME), "capture", GOLDEN)
+    exe = HOME + r"\AppData\Roaming\uv\python\cpython-3.12.13-windows-x86_64-none\python.exe"
+    assert stopped_processes("YOKE_RESET_PROCESSES_STOPPED " + json.dumps([exe])) == [exe]
+    assert stopped_processes("") == []
+
+
+@pytest.mark.windows_only(reason="requires Windows processes")
+def test_profile_process_is_stopped_and_preserved_app_keeps_running(tmp_path):
+    from yoke_harness.native_windows.profile_processes import profile_process_stop_script
+
+    home = str(tmp_path / "profile")
+    stop = profile_process_stop_script(home, PRESERVED_DIRECTORIES)
+    result = _run_powershell(tmp_path, f"$profileRoot={quote(home)}\n" + r"""
+$tool=Join-Path $profileRoot 'AppData\Roaming\uv\python\fixture'
+$app=Join-Path $profileRoot 'AppData\Local\Microsoft\fixture'
+New-Item -ItemType Directory -Path $tool,$app -Force|Out-Null
+Copy-Item "$env:SystemRoot\System32\PING.EXE" (Join-Path $tool 'held.exe')
+Copy-Item "$env:SystemRoot\System32\PING.EXE" (Join-Path $app 'live.exe')
+$held=Start-Process -FilePath (Join-Path $tool 'held.exe') -ArgumentList '-n','120','127.0.0.1' -WindowStyle Hidden -PassThru
+$live=Start-Process -FilePath (Join-Path $app 'live.exe') -ArgumentList '-n','120','127.0.0.1' -WindowStyle Hidden -PassThru
+try {
+""" + stop + r"""
+ if(Get-Process -Id $held.Id -ErrorAction SilentlyContinue){throw 'profile process survived'}
+ if(!(Get-Process -Id $live.Id -ErrorAction SilentlyContinue)){throw 'preserved app stopped'}
+ Remove-Item -LiteralPath (Join-Path $tool 'held.exe') -Force
+ Write-Output 'PROFILE_PROCESS_STOPPED'
+} finally {Stop-Process -Id $live.Id,$held.Id -Force -ErrorAction SilentlyContinue}
+""")
+    assert result.returncode == 0, result.stderr
+    assert "PROFILE_PROCESS_STOPPED" in result.stdout
+    assert "held.exe" in result.stdout
