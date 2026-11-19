@@ -69,7 +69,34 @@ def test_launched_item_title_and_most_recent_released_claim(monkeypatch):
         session_display.session_display_details(conn, ["s1"])["s1"]["chat_title"]
         is None
     )
+    item_ref = label.split()[0]
+    assigned_title = f"{item_ref}: Test work"
+    conn.execute(
+        "UPDATE harness_sessions SET harness_title=? WHERE session_id='s1'",
+        (assigned_title,),
+    )
+    details = session_display.session_display_details(conn, ["s1"])["s1"]
+    assert details["chat_title"] is None
+    assert details["title"] == assigned_title
+    assert details["label"].startswith(assigned_title)
+    custom_title = f"{item_ref}: Investigation"
+    conn.execute(
+        "UPDATE harness_sessions SET harness_title=? WHERE session_id='s1'",
+        (custom_title,),
+    )
+    assert (
+        session_display.session_display_details(conn, ["s1"])["s1"]["chat_title"]
+        == custom_title
+    )
+    conn.execute(
+        "UPDATE harness_sessions SET harness_title=? WHERE session_id='s1'",
+        (assigned_title,),
+    )
     conn.execute("UPDATE work_claims SET released_at=? WHERE session_id='s1'", (NOW,))
+    assert (
+        session_display.session_display_details(conn, ["s1"])["s1"]["chat_title"]
+        == assigned_title
+    )
     assert (
         " · held ALP-1 · " in session_display.session_display_names(conn, ["s1"])["s1"]
     )

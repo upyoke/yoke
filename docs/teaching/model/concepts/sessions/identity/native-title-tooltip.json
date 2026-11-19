@@ -3,5 +3,5 @@
  "title": "Session titles in card details",
  "status": "observed",
  "sources": ["docs/public/sessions/session-titles.md", "runtime/api/universe_ui_session_diagnostics.test.mjs"],
- "summary": "Hover over or tap the Session details button to reveal the registered title, including when the title line is hidden on the card. An unnamed launched session uses its item title in the details."
+ "summary": "Hover over or tap the Session details button to reveal the registered title. A worker that holds its assigned item shows the item once under Currently held when its native title is the generated launch name. An unnamed launched session uses its item title in the details."
 }

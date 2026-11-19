@@ -5,6 +5,7 @@ from collections import defaultdict
 from yoke_contracts.timestamps import parse_instant, utc_now
 from yoke_core.domain.item_ref_render import render_item_refs
 from yoke_core.domain.project_identity import placeholder
+from yoke_core.domain.session_worker_chat_name import format_worker_chat_name
 from yoke_core.domain.work_claim_targets import from_row
 
 
@@ -56,16 +57,16 @@ def session_display_details(conn, session_ids):
         item_id = row["item_id"]
         if item_id not in refs:
             continue
-        title = items.get(item_id, {}).get("title") or ""
         for session_id in (row["registered_session_id"], row["native_session_id"]):
             if session_id:
-                launched.setdefault(session_id, f"{refs[item_id]} {title}".strip())
+                launched.setdefault(session_id, item_id)
     steering = {
         row["session_id"]
         for row, target in targets
         if target.kind == "steering" and row["released_at"] is None
     }
     current, recent = defaultdict(list), {}
+    held_items = set()
     for row, target in targets:
         if target.kind not in {"item", "epic_task"}:
             continue
@@ -74,6 +75,7 @@ def session_display_details(conn, session_ids):
             continue
         title = items.get(item_id, {}).get("title") or ""
         if row["released_at"] is None:
+            held_items.add((row["session_id"], item_id))
             text = f"holds {refs[item_id]} '{title}'"
             if text not in current[row["session_id"]]:
                 current[row["session_id"]].append(text)
@@ -84,7 +86,11 @@ def session_display_details(conn, session_ids):
     for raw in sessions:
         row = dict(raw)
         session_id = row["session_id"]
-        title = row.get("harness_title") or launched.get(session_id)
+        launch_item = launched.get(session_id)
+        launch_ref = refs.get(launch_item)
+        launch_title = items.get(launch_item, {}).get("title") or ""
+        fallback_title = f"{launch_ref} {launch_title}".strip() if launch_ref else None
+        title = row.get("harness_title") or fallback_title
         parts = [title] if title else []
         parts.extend(
             [
@@ -112,7 +118,16 @@ def session_display_details(conn, session_ids):
             )
             parts.append(f"last tool {age} ago")
         chat_title = row.get("harness_title")
-        if session_id in steering or chat_title == launched.get(session_id):
+        assigned_title_is_held = (
+            launch_ref is not None
+            and (session_id, launch_item) in held_items
+            and chat_title == format_worker_chat_name(launch_ref, launch_title)
+        )
+        if (
+            session_id in steering
+            or chat_title == fallback_title
+            or assigned_title_is_held
+        ):
             chat_title = None
         details[session_id] = {
             "title": title,
