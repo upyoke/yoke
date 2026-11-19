@@ -11,6 +11,7 @@ from yoke_core.domain.coordination_claims import (
     CoordinationClaimNotFoundError,
     active_claim,
     get_claim,
+    heartbeat,
 )
 from yoke_core.domain.host_control_runner import load_test_machine_contract
 from yoke_core.domain.machine_qa_capability import host_claim_target
@@ -26,6 +27,8 @@ from yoke_core.domain.qa_plan_execution_store import (
     marker,
     same_owner,
 )
+from yoke_core.domain.qa_host_set_turns import reserved_wait
+from yoke_core.domain.qa_host_turns import HOST_TURN_REASON
 from yoke_core.domain.qa_plan_host_leases import HOST_SET_REASON
 from yoke_core.domain.qa_plan_execution_lifecycle import heartbeat_plan_execution
 from yoke_core.domain.schema_common import _table_exists
@@ -161,6 +164,17 @@ def begin_operation_execution(
             "machine case must begin before it refreshes that host's golden. "
             "Rerun the QA plan"
         )
+    if mission is None and _holds_plan_turn(conn, lease, actor):
+        # Consuming the reservation would release the plan's turn on submit.
+        lease, candidate = _validate_lease_owner(
+            conn,
+            project=project,
+            session_id=actor.session_id,
+            actor_id=actor.actor_id,
+            lease_id=lease.id,
+            allow_released=False,
+        )
+        return _issue(conn, candidate, lease, cases=(), **shape)
     if mission is None:
         return begin_host_control_execution(
             conn,
@@ -193,10 +207,28 @@ def begin_operation_execution(
     return contract
 
 
+def _holds_plan_turn(conn: Any, lease: Any, actor: Any) -> bool:
+    """Whether *lease* is the caller's unconsumed reserved turn for a plan."""
+    if lease is None or lease.session_id != actor.session_id:
+        return False
+    if not (lease.reason or "").startswith(HOST_TURN_REASON):
+        return False
+    wait = reserved_wait(conn, lease)
+    return wait is not None and bool(wait["qa_plan_execution_id"])
+
+
 def finish_operation_execution(
     conn: Any, lease: Any, *, mission: Any, reason: str
 ) -> bool:
-    """Only the plan's own close-out releases a borrowed mission host."""
+    """Only the plan's own close-out releases a borrowed mission host.
+
+    An operation run on its holder's reserved plan turn keeps that turn for the
+    plan's own run: only that path reaches here with a host-turn reason, since
+    every acquire rewrites the reason it consumes.
+    """
+    if mission is None and (lease.reason or "").startswith(HOST_TURN_REASON):
+        heartbeat(conn, lease.id)
+        return False
     if mission is None:
         complete_host_control_execution(conn, lease, reason=reason)
         return True
