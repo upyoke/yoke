@@ -11,6 +11,7 @@ Read [envelope and authority](index.md) first. `none` means no dispatcher work-c
 | Function id | Claim policy |
 |---|---|
 | `done_transition.blocked_gate` | `none` |
+| `done_transition.delivery_clearance` | `none` |
 | `done_transition.delivery_done_notice` | `none` |
 | `done_transition.delivery_evidence` | `none` |
 | `done_transition.done_preconditions` | `none` |

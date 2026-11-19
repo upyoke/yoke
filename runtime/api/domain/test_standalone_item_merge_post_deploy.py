@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest import mock
 
 from yoke_core.domain import standalone_item_merge as merge_domain
+from yoke_core.domain import standalone_item_merge_release_status as release_status
 from yoke_core.domain import standalone_item_merge_landed as landed
 from yoke_core.domain import standalone_item_merge_cli as merge_cli
 from yoke_core.domain import standalone_item_merge_qa as merge_qa
@@ -98,6 +99,11 @@ def test_pending_post_deploy_does_not_block_a_closing_merge(
     monkeypatch.setattr(merge_recovery, "branch_needs_receipt", lambda *a: False)
     monkeypatch.setattr(merge_cli, "_resolve_checkout", lambda *a: (tmp_path, "main"))
     admit_route_gates(monkeypatch)
+    monkeypatch.setattr(
+        release_status,
+        "resolve_delivery_clearance",
+        lambda **_k: release_status.DeliveryClearance(merge_only=True, resolved_flow=""),
+    )
     monkeypatch.setattr(
         merge_cli.close_out, "transition_to_done", lambda **_k: ("release", "")
     )

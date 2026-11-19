@@ -274,9 +274,11 @@ def _check_deployment_redirect(
     """Pre-merge deployment flow redirect. Returns exit code or None."""
     is_internal = deploy_flow.endswith("-internal") if deploy_flow else False
     if deploy_flow and not is_internal and not skip_deploy:
-        if _read_deployment_flow_target_tier(deploy_flow, required=False) == "":
-            return None
         ref = _ref(item_id, public_ref)
+        if _read_deployment_flow_merge_only(
+            deploy_flow, public_ref=public_ref or ref, required=False
+        ):
+            return None
         print("\n=== Deployment flow redirect ===")
         print(f"Item {ref} has deployment flow '{deploy_flow}'.")
         print(f"Use '/yoke usher {ref}' to merge and deploy through the pipeline.")
@@ -293,7 +295,7 @@ from yoke_core.engines.done_transition_deploy_gates import (  # noqa: E402,F401
     _check_deployment_flow_guard,
     _check_deployment_evidence,
     _get_latest_run_status,
-    _read_deployment_flow_target_tier,
+    _read_deployment_flow_merge_only,
     _check_run_stage_consistency,
 )
 from yoke_core.engines.done_transition_run_qa_gates import (  # noqa: E402,F401

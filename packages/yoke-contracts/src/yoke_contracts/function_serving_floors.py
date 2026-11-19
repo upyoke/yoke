@@ -35,6 +35,7 @@ FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
     "teammate_invites.revoke": "next-release",
     "teammate_invites.reissue": "next-release",
     "merge.audit.snapshot": "next-release",
+    "done_transition.delivery_clearance": "next-release",
     "actors.project_role.remove": "next-release",
     "actors.project_role.set": "next-release",
     "actors.role.remove": "next-release",

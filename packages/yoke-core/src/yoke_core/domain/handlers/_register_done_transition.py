@@ -13,6 +13,9 @@ from __future__ import annotations
 
 from yoke_core.domain.handlers import done_transition_delivery_notice as _notice
 from yoke_core.domain.handlers import (
+    done_transition_delivery_clearance_read as _clearance,
+)
+from yoke_core.domain.handlers import (
     done_transition_delivery_evidence_read as _delivery,
 )
 from yoke_core.domain.handlers import done_transition_deploy_reads as _dep
@@ -135,6 +138,22 @@ def register(registry) -> None:
             "yoke_core.domain.handlers.done_transition_delivery_evidence_read"
         ),
         target_kinds=["item"],
+    )
+    registry.register(
+        _clearance.FUNCTION_ID,
+        _clearance.handle_delivery_clearance,
+        _clearance.DeliveryClearanceRequest,
+        _clearance.DeliveryClearanceResponse,
+        stability="stable",
+        owner_module=(
+            "yoke_core.domain.handlers.done_transition_delivery_clearance_read"
+        ),
+        target_kinds=["item"],
+        side_effects=[],
+        guardrails=[],
+        adapter_status="internal",
+        claim_required_kind=None,
+        minimum_serving_version="next-release",
     )
     _register_read(
         registry,

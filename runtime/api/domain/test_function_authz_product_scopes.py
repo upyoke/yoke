@@ -143,3 +143,67 @@ def test_merge_queue_marker_writes_use_project_item_write_authority() -> None:
 
     assert mark == clear == observe
     assert mark.permission_key == "items.write"
+
+
+def _item_in(conn, item_id: int, project_id: int) -> None:
+    from yoke_core.domain.workflow_registry import converge_builtin_workflows
+
+    converge_builtin_workflows(conn)
+    conn.execute(
+        "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, "
+        "created_at, updated_at, project_id, project_sequence) VALUES (%s, 't', "
+        "'dash', (SELECT current_version_id FROM workflows WHERE id='dash'), 'idea', "
+        "'2026-11-19T00:00:00Z', '2026-11-19T00:00:00Z', %s, %s)",
+        (item_id, project_id, item_id),
+    )
+    conn.commit()
+
+
+def test_delivery_clearance_is_a_project_read_the_mechanics_reads_are_not(conn):
+    """A member holding only items.read on the item's project may ask its
+    delivery clearance; the org-admin reads it replaced stay denied, and a
+    caller without access to the item's project is denied the new read."""
+    from yoke_contracts.api.function_call import (
+        ActorContext,
+        FunctionCallRequest,
+        TargetRef,
+    )
+    from yoke_core.domain.actor_permissions import ROLE_VIEWER
+
+    from runtime.api.domain.function_authz_scope_routing_test_support import (
+        _new_actor,
+    )
+    from runtime.api.fixtures.actor_roles import seed_project_role
+
+    member_project = resolve_project_id(conn, "externalwebapp")
+    other_project = resolve_project_id(conn, "yoke")
+    actor = _new_actor(conn)
+    seed_project_role(
+        conn,
+        actor_id=actor,
+        project_id=member_project,
+        role_name=ROLE_VIEWER,
+        granted_by_actor_id=actor,
+    )
+    _item_in(conn, 7101, member_project)
+    _item_in(conn, 7102, other_project)
+
+    def check(function: str, target: TargetRef):
+        request = FunctionCallRequest(
+            function=function,
+            actor=ActorContext(actor_id=str(actor), session_id="s-1"),
+            target=target,
+            payload={},
+        )
+        return check_dispatch_permission(
+            conn, _entry(function, side_effects=False), request
+        )
+
+    clearance = "done_transition.delivery_clearance"
+    assert PRODUCT_AUTHZ_BY_ID[clearance].permission_key == "items.read"
+    own = check(clearance, TargetRef(kind="item", item_id=7101))
+    assert own.error is None
+    assert own.project_id == member_project
+    assert check(clearance, TargetRef(kind="item", item_id=7102)).error is not None
+    for admin_read in ("workflows.mechanics.get", "deployment_flows.get"):
+        assert check(admin_read, TargetRef(kind="global")).error is not None

@@ -264,15 +264,14 @@ class TestDeploymentFlowGuard:
             ),
             mock.patch.object(
                 done_transition_deploy_gates,
-                "_read_deployment_flow_target_tier",
-                return_value="persistent",
+                "_read_deployment_flow_merge_only",
+                return_value=False,
             ),
         ):
             result = done_transition._check_deployment_flow_guard(
                 item_id=207,
                 deploy_flow="externalwebapp-prod-release",
                 skip_deploy=True,
-                item_project="yoke",
                 old_status="implemented",
                 delivery_stage_id="ship-ready",
                 public_ref="YOK-207",
@@ -303,8 +302,8 @@ class TestDeploymentFlowGuard:
             ),
             mock.patch.object(
                 done_transition_deploy_gates,
-                "_read_deployment_flow_target_tier",
-                return_value="persistent",
+                "_read_deployment_flow_merge_only",
+                return_value=False,
             ),
         ):
             with (
@@ -329,7 +328,6 @@ class TestDeploymentFlowGuard:
                     item_id=226,
                     deploy_flow="externalwebapp-prod-release",
                     skip_deploy=False,
-                    item_project="yoke",
                     old_status="implemented",
                     delivery_stage_id="ship-ready",
                     public_ref="YOK-226",

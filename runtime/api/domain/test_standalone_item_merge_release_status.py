@@ -119,18 +119,25 @@ def test_an_unreadable_definition_defaults_true(monkeypatch) -> None:
 
 
 def _clear_flows(monkeypatch, flow: str, tier: str) -> list[str]:
-    """Serve the flow registry and record every flow the clearance checked."""
+    """Serve the clearance read and record every flow the close-out asked."""
     checked: list[str] = []
 
-    def _registered() -> list[str]:
-        return [flow]
+    def _dispatch(*, function_id, target, payload, **_kwargs):
+        assert function_id == "done_transition.delivery_clearance"
+        assert target.public_ref == "ITEM-41"
+        checked.append(payload["deploy_flow"])
+        registered = payload["deploy_flow"] == flow
+        return SimpleNamespace(
+            success=True,
+            error=None,
+            result={
+                "merge_only": registered and tier == "",
+                "resolved_flow": payload["deploy_flow"],
+                "blocked_reason": "" if registered else "unregistered",
+            },
+        )
 
-    def _tier(deploy_flow: str) -> str:
-        checked.append(deploy_flow)
-        return tier
-
-    monkeypatch.setattr(clearance, "registered_deployment_flow_ids", _registered)
-    monkeypatch.setattr(clearance, "deployment_flow_target_tier", _tier)
+    monkeypatch.setattr(clearance, "call_dispatcher", _dispatch)
     return checked
 
 

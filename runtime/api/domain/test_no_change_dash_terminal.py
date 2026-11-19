@@ -153,6 +153,7 @@ def test_sanctioned_close_out_sets_nonce_from_merge_only_delivery(
     )
     item = {
         "id": item_id,
+        "public_ref": f"YOK-{item_id}",
         "status": "reviewing-implementation",
         "deployment_flow": "",
         "project": {"slug": "yoke"},

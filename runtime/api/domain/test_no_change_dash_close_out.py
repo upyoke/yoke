@@ -110,7 +110,7 @@ def test_no_change_dash_closes_without_sha_ci_or_deploy(test_db, monkeypatch):
     assert qa.passed is True
     assert (
         clearance.resolve_delivery_clearance(
-            deploy_flow="", item_project="yoke", workflow_id="dash"
+            public_ref=f"YOK-{ITEM_ID}", deploy_flow="", workflow_id="dash"
         ).merge_only
         is True
     )

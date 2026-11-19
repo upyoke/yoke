@@ -15,7 +15,7 @@ from runtime.api.engines.done_transition_deployment_flow_guard_test_support impo
     _patch_latest_run,
     _patch_qa_gates,
     _patch_registered_flows,
-    _patch_target_tier,
+    _patch_merge_only,
 )
 from yoke_core.engines import done_transition
 
@@ -31,7 +31,7 @@ class TestDeploymentFlowGuardQaAuthorities:
     def test_skip_deploy_with_evidence_still_honours_unsatisfied_qa(self):
         with (
             _patch_registered_flows(["acme-prod"]),
-            _patch_target_tier("persistent"),
+            _patch_merge_only(False),
             _patch_latest_run("succeeded", "run-7"),
             _patch_qa_gates(True) as gate,
         ):
@@ -39,7 +39,6 @@ class TestDeploymentFlowGuardQaAuthorities:
                 item_id=530,
                 deploy_flow="acme-prod",
                 skip_deploy=True,
-                item_project="yoke",
                 old_status="release",
                 delivery_stage_id="release",
                 public_ref="YOK-530",
@@ -50,7 +49,7 @@ class TestDeploymentFlowGuardQaAuthorities:
     def test_skip_deploy_with_satisfied_qa_proceeds(self):
         with (
             _patch_registered_flows(["acme-prod"]),
-            _patch_target_tier("persistent"),
+            _patch_merge_only(False),
             _patch_latest_run("succeeded", "run-7"),
             _patch_qa_gates(False),
         ):
@@ -58,7 +57,6 @@ class TestDeploymentFlowGuardQaAuthorities:
                 item_id=531,
                 deploy_flow="acme-prod",
                 skip_deploy=True,
-                item_project="yoke",
                 old_status="release",
                 delivery_stage_id="release",
                 public_ref="YOK-531",
@@ -68,7 +66,7 @@ class TestDeploymentFlowGuardQaAuthorities:
     def test_the_runless_complete_fallback_honours_unsatisfied_qa(self):
         with (
             _patch_registered_flows(["acme-prod"]),
-            _patch_target_tier("persistent"),
+            _patch_merge_only(False),
             _patch_latest_run("unexpected-status", "run-8"),
             _patch_qa_gates(True) as gate,
             mock.patch.object(
@@ -81,7 +79,6 @@ class TestDeploymentFlowGuardQaAuthorities:
                 item_id=532,
                 deploy_flow="acme-prod",
                 skip_deploy=False,
-                item_project="yoke",
                 old_status="release",
                 delivery_stage_id="release",
                 public_ref="YOK-532",

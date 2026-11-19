@@ -113,6 +113,10 @@ PRODUCT_AUTHZ_BY_ID = {
     # through to the side-effecting DENY default.
     "done_transition.delivery_done_notice": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "done_transition.run_stage_qa_acceptance": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
+    # Delivery clearance for one item, scoped to that item's own project so a
+    # project operator can close out a merge without the org-admin
+    # ``workflows.mechanics.get`` / ``deployment_flows.get`` reads.
+    "done_transition.delivery_clearance": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "item_landings.record": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "item_landings.list": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "merge_receipt.record": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),

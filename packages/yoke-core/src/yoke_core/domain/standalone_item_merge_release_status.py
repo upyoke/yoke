@@ -138,8 +138,8 @@ def close_out_route(
         return CloseOutRoute(stages=(CLOSED_OUT_STATUS,))
     try:
         clearance = resolve_delivery_clearance(
+            public_ref=str(item.get("public_ref") or ""),
             deploy_flow=flow_id(item.get("deployment_flow")),
-            item_project=str((item.get("project") or {}).get("slug") or ""),
             workflow_id=workflow.workflow_id,
         )
     except RuntimeError as exc:
