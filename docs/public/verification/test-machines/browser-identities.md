@@ -145,9 +145,13 @@ Return to [macOS host provisioning](macos-baseline-recovery.md#11-live-browser-i
 
 ## macOS automation diagnostics
 
-`-25211` names Accessibility; `-1743` names Automation. Repair the named
-grant in the UI for the failing Remote Login or Terminal controller and
-rerun. Diagnosis and each Terminal case probe
+`-25211` names Device Control and Data Access (Accessibility on older macOS).
+A GUI-session command that names Terminal needs Terminal's separate grant,
+even when the Remote Login helper is already enabled. Approve Terminal on
+the unlocked test desktop, run the same GUI operation, and confirm the
+expected result of the input. A command that exits successfully can still
+leave the target unchanged. `-1743` names Automation. Repair the named grant
+in the UI for the failing controller and rerun. Diagnosis and each Terminal case probe
 Terminal → System Events: `terminal_system_events_automation_missing` means
 `-1743`, `terminal_system_events_automation_timeout` means timeout without
 denial, and `terminal_window_accumulation` means timeout with over 10 windows
