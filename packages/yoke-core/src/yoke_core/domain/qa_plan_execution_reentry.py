@@ -37,10 +37,20 @@ def checkin_view(execution):
 
 
 def require_execution_custody(conn, execution):
-    """Validate issued leases before any renewal; never revive lost custody."""
-    from yoke_core.domain.machine_qa_execution_protocol import _validate_lease_owner
-    from yoke_core.domain.qa_plan_host_leases import execution_host_leases
+    """Validate issued leases before any renewal; never revive lost custody.
 
+    A set case's hosts are owed only once that case was admitted; before
+    admission the cursor still holds the previous case's custody.
+    """
+    from yoke_core.domain.machine_qa_execution_protocol import _validate_lease_owner
+    from yoke_core.domain.qa_plan_host_leases import (
+        execution_host_leases,
+        require_case_host_leases,
+    )
+
+    cursor = int(execution["cursor_ordinal"])
+    if cursor < len(execution["roster"]) and admitted_case(execution) == cursor:
+        require_case_host_leases(conn, execution, execution["roster"][cursor])
     lease_ids = {claim.id for claim in execution_host_leases(conn, execution)}
     if execution.get("test_machine_lease_id") is not None:
         lease_ids.add(int(execution["test_machine_lease_id"]))
@@ -56,11 +66,6 @@ def require_execution_custody(conn, execution):
             lease_id=lease_id,
             allow_released=False,
         )
-    cursor = int(execution["cursor_ordinal"])
-    if cursor < len(execution["roster"]):
-        from yoke_core.domain.qa_plan_host_leases import require_case_host_leases
-
-        require_case_host_leases(conn, execution, execution["roster"][cursor])
 
 
 def pause_execution(

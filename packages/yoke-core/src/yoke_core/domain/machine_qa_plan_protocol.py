@@ -87,6 +87,7 @@ def continue_plan_host_control_execution(
                     "id": plan_execution_id,
                     "session_id": session_id,
                     "actor_id": actor_id,
+                    "test_machine_lease_id": lease_id,
                 },
                 case,
             )
