@@ -93,6 +93,15 @@ def _item_qa_not_open(run, run_id, stage_name) -> QaStageNotOpen:
     )
 
 
+def stage_not_opened(run: Mapping[str, Any], stage_name: str) -> bool:
+    """*run* has not opened *stage_name*: its composition is unfrozen, or it is
+    still created or executing at another stage."""
+    if run.get("composition_frozen_at") is None:
+        return True
+    not_at_stage = str(run.get("current_stage") or "") != stage_name
+    return not_at_stage and str(run.get("status") or "") in {"", "created", "executing"}
+
+
 def _validate_run_stage(run, run_id, stage_name, *, require_active: bool = False):
     if run is None:
         raise LookupError(f"deployment run {run_id!r} not found")
@@ -128,12 +137,9 @@ def _validate_run_stage(run, run_id, stage_name, *, require_active: bool = False
     pending = run.get("composition_frozen_at") is None
     not_at_stage = str(run.get("current_stage") or "") != stage_name
     status = str(run["status"] or "")
-    not_opened = pending or (
-        not_at_stage and status in {"", "created", "executing"}
-    )
     if (
         require_active
-        and not_opened
+        and stage_not_opened(run, stage_name)
         and str(stage.get("scope") or "") == "item"
     ):
         raise _item_qa_not_open(run, run_id, stage_name)
@@ -277,4 +283,5 @@ __all__ = [
     "DEPLOYMENT_STAGE_ACCEPTANCE_QA_KIND",
     "QaStageNotOpen",
     "deployment_qa_stage_subject",
+    "stage_not_opened",
 ]
