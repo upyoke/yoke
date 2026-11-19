@@ -107,6 +107,18 @@ its SHA, subject and author recorded under its project, and a retry (recorded
 `retry_of`; a takeover is not one) of a run that already froze its members
 reuses that membership rather than deriving against a moved baseline.
 
+A member never waits in a run on a blocker that run does not ship
+(`deployment_run_blocked_dependents`). A takeover moves the older run's
+unfinished members, and a moved member whose hard-block blocker neither
+moves, enrolls here as carried work, nor has shipped stays on the older run,
+set aside with its QA under the reason `hard-block blocker does not ship in
+this run`. The new run's notice lists it as left on the run it took over,
+naming its blocker, and the first release after the blocker ships enrolls it
+and adopts that QA. A start that sets a reworking member aside sets aside the
+members depending on it the same way, transitively. `remove-item` of a
+blocker names the members still waiting on it, with the command that removes
+them too.
+
 Composition warns for a carried item merged but not at release yet: start
 enrolls it once it reaches release, never early. Create refuses with
 `release_stranding_unreleased_blocker` if it would strand a carried dependent;

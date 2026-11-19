@@ -94,7 +94,13 @@ The same audited removal runs without an operator in these cases:
   included.
 - At execution context and resume, members with open landings or back at
   implementing or reviewing are set aside, keeping their unfinished QA and
-  executions for the next run on that flow and target.
+  executions for the next run on that flow and target. Members whose
+  hard-block blocker is set aside go with it, the same way.
+- A takeover sets aside, on the run it takes over, a member whose hard-block
+  blocker does not ship in the newer run.
+
+Removing a blocker with `remove-item` names the members still waiting on it
+and the command that removes them too.
 
 A member whose candidate the lineage still contains stays. Unknown
 containment never removes anything: it holds and refuses by name with its

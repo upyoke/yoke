@@ -1,6 +1,6 @@
 """Carried items a run's composition left out, and why, in one notice.
 
-A run's candidate carries more landed code than the run delivers. Five
+A run's candidate carries more landed code than the run delivers. Six
 reasons keep a carried item out of its membership, and "why is my item not a
 member" is otherwise answerable only by reading several runs and item
 histories by hand:
@@ -19,6 +19,9 @@ histories by hand:
   run, its reason, and what ends it.
 * **open correction** -- an in-flight correction PR keeps its item carried
   until its landing closes; other ready items can enroll.
+* **left by takeover** -- a member of a run this one took over whose
+  hard-block blocker does not ship here stays set aside there with its QA
+  (:mod:`deployment_run_blocked_dependents`).
 * **blocked** -- an open dependency needs a blocker that has not shipped yet.
   A blocker a live or settling release still holds has not shipped either:
   the dependency gate counts only a recorded ``succeeded`` run, so the
@@ -44,6 +47,7 @@ from yoke_core.domain.deployment_run_composition_freeze import (
     items_requiring_release_membership,
     member_ids,
 )
+from yoke_core.domain.deployment_run_blocked_dependents import left_by_takeover
 from yoke_core.domain.deployment_run_dependency_readiness import (
     blocker_holding_run,
     unshipped_dependency_pairs,
@@ -132,6 +136,8 @@ class SkippedCandidates(NamedTuple):
     blocked: list[tuple[int, int, GateResult]]
     open_landings: Mapping[int, str]
     inherited: tuple[InheritedExclusion, ...] = ()
+    #: ``(dependent, blocker, run)`` a takeover left on the run it took over.
+    left: tuple[tuple[int, int, str], ...] = ()
 
 
 def skipped_candidates(
@@ -156,10 +162,15 @@ def skipped_candidates(
     inherited = tuple(
         park for park in inherited_exclusions(conn, run_id) if park.item_id not in own
     )
+    left = tuple(
+        (item_id, blocker, source)
+        for item_id, (blocker, source) in sorted(left_by_takeover(conn, run_id).items())
+    )
     excluded = (
         frozenset(record.item_id for record in held)
         | own
         | frozenset(park.item_id for park in inherited)
+        | frozenset(item_id for item_id, _, _ in left)
     )
     rework = (
         carried_items_in_rework(conn, run_id, carried_work, exclude=excluded)
@@ -183,17 +194,20 @@ def skipped_candidates(
     open_landings = open_landing_refusals(
         conn, [item_id for item_id in candidates if item_id in required]
     )
-    return SkippedCandidates(held, removed, rework, blocked, open_landings, inherited)
+    return SkippedCandidates(
+        held, removed, rework, blocked, open_landings, inherited, left
+    )
 
 
 def describe_skipped(conn: Any, run_id: str, skipped: SkippedCandidates | None) -> str:
     """The one notice naming every skipped carried item and why."""
     if skipped is None:
         return ""
-    held, removed, rework, blocked, open_landings, inherited = skipped
+    held, removed, rework, blocked, open_landings, inherited, left = skipped
     ref = render_item_ref_lookup(
         conn,
-        [i for i, _ in rework]
+        [i for dependent, blocker, _ in left for i in (dependent, blocker)]
+        + [i for i, _ in rework]
         + [int(entry["item_id"]) for entry in removed]
         + [park.item_id for park in inherited]
         + [i for dependent, blocker, _ in blocked for i in (dependent, blocker)],
@@ -205,6 +219,16 @@ def describe_skipped(conn: Any, run_id: str, skipped: SkippedCandidates | None) 
             + "; ".join(
                 _describe_blocked(conn, ref, dependent, blocker, str(verdict.reason))
                 for dependent, blocker, verdict in blocked
+            )
+        )
+    if left:
+        parts.append(
+            "left on the run this one took over because their hard-block blocker "
+            "does not ship here; the first release after the blocker ships "
+            "enrolls them: "
+            + "; ".join(
+                f"{ref(dependent)} blocked by {ref(blocker)} (kept on {source})"
+                for dependent, blocker, source in left
             )
         )
     if open_landings:
@@ -252,6 +276,7 @@ def describe_skipped(conn: Any, run_id: str, skipped: SkippedCandidates | None) 
         + len(rework)
         + len(removed)
         + len(inherited)
+        + len(left)
         + len({d for d, _, _ in blocked} | set(open_landings))
     )
     return (

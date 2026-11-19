@@ -200,6 +200,7 @@ def _supersede(
     from yoke_core.domain.deployment_run_blocked_dependents import (
         blocked_members,
         set_aside_blocked_members,
+        takeover_shipping,
     )
     from yoke_core.domain.deployment_run_composition_freeze import member_ids
     from yoke_core.domain.deployment_runs_lock import lock_run_with_stable_membership
@@ -217,10 +218,11 @@ def _supersede(
     moving = _moving_members(conn, old)
     # A member whose blocker neither moves nor has shipped would refuse this
     # run's composition; it waits on the older run for a later release.
+    moving_ids = [int(member["item_id"]) for member in moving]
     blocked = blocked_members(
         conn,
-        (member["item_id"] for member in moving),
-        shipping=member_ids(conn, new_run_id),
+        moving_ids,
+        shipping=takeover_shipping(conn, moving_ids, member_ids(conn, new_run_id)),
     )
     moving = [member for member in moving if int(member["item_id"]) not in blocked]
     if apply:
