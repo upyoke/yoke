@@ -107,7 +107,20 @@ def handle_execution_reentry(request):
 
                 result = continue_execution(conn, execution, parsed, request.actor)
             else:
-                result = resume_execution(conn, execution)
+                from yoke_core.domain.deployment_qa_execution_refreeze import (
+                    resume_moved_execution,
+                )
+                from yoke_core.domain.qa_plan_execution_store import (
+                    plan_execution_view,
+                )
+
+                # A takeover's successor or a redeploy moved the build: re-freeze.
+                moved = resume_moved_execution(conn, execution, parsed, request.actor)
+                if moved is not None:
+                    execution = moved
+                    result = plan_execution_view(conn, moved)
+                else:
+                    result = resume_execution(conn, execution)
             if execution.get("deployment_stage"):
                 from yoke_core.domain.deployment_qa_start_identity import (
                     START_IDENTITY_FIELD,

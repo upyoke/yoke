@@ -130,7 +130,8 @@ def deployment_qa_execution_target(conn: Any, subject: Mapping[str, Any]) -> dic
     receipt is a new identity resolved live.
     """
     if subject.get("shared_plan"):
-        # A plan group's target is fixed at creation; its group_id keeps it apart.
+        # A plan group carries its own target, rebound to its run's current
+        # receipt by deployment_qa_plan_group_rebind; its group_id keeps it apart.
         return dict(subject["shared_target"])
     return presentation_read(
         conn,

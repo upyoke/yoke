@@ -218,6 +218,12 @@ def resume_execution(conn: Any, execution: dict) -> dict:
     return plan_execution_view(conn, execution)
 
 
+def pause_checkpoint(execution) -> dict:
+    """The recorded pause evidence, or an empty mapping when none was saved."""
+    reason = str(execution.get("release_reason") or "")
+    return json.loads(reason[len(PAUSE_REASON) :]) if reason.startswith(PAUSE_REASON) else {}
+
+
 def resume_if_paused(conn, execution):
     reason = str(execution.get("release_reason") or "")
     if not reason.startswith(PAUSE_REASON):

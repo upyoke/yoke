@@ -144,6 +144,9 @@ def ensure_groups(conn: Any, run_id: str, stage_name: str) -> list[int]:
         plan_owners,
     )
 
+    from yoke_core.domain.deployment_qa_plan_group_rebind import rebind_open_groups
+
+    rebind_open_groups(conn, run_id, stage_name)  # a takeover or redeploy moved them
     freeze_plan_owners(conn, run_id)
     owners = plan_owners(conn, run_id)
     open_plans = {g.plan_id for g in run_groups(conn, run_id, stage_name) if g.open}

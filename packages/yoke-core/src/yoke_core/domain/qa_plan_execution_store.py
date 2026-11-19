@@ -7,7 +7,6 @@ import json
 from typing import Any, Mapping
 from contextlib import nullcontext
 from yoke_core.domain.qa_plan_lock import bounded_plan_lock
-
 from yoke_core.domain import db_backend
 from yoke_contracts.timestamps import temporal_wire, utc_now
 from yoke_core.domain.db_helpers import instant_parameter
@@ -118,8 +117,9 @@ def live_plan_execution_id(
     deployment_member_item_id: int | None = None,
     session_id: str | None = None,
     execution_target_digest: str | None = None,
+    group_id: str = "",
 ) -> str | None:
-    """Return the live execution for this subject, session and target."""
+    """The live execution for this subject, session and target (or plan group)."""
     placeholder = marker(conn)
     if (item_id is None) == (deployment_run_id is None):
         raise QaPlanExecutionStateError(
@@ -142,9 +142,9 @@ def live_plan_execution_id(
         if deployment_stage and deployment_member_item_id is None:
             if not session_id:
                 raise QaPlanExecutionStateError("stage-wide lookup needs a session")
-            where += f" AND session_id={placeholder}"
-            where += f" AND COALESCE(execution_target_digest,'')={placeholder}"
-            params += (str(session_id), execution_target_digest or "")
+            group = f" OR execution_target_json::jsonb #>> '{{deployment,shared_plan,group_id}}'={placeholder}"
+            where += f" AND session_id={placeholder} AND (COALESCE(execution_target_digest,'')={placeholder}{group if group_id else ''})"
+            params += (str(session_id), execution_target_digest or "", *([group_id] if group_id else []))
     cursor = conn.execute(
         "SELECT id FROM qa_plan_executions "
         f"WHERE {where} "
