@@ -53,8 +53,8 @@ CREATE TABLE items (
 CREATE TABLE harness_sessions (
     session_id TEXT PRIMARY KEY,
     actor_id TEXT,
-    current_item_id TEXT,
-    recent_item_id TEXT
+    current_item_id INTEGER,
+    recent_item_id INTEGER
 );
 """
 

@@ -36,7 +36,7 @@ def _make_conn() -> Any:
         CREATE TABLE harness_sessions (
             session_id TEXT PRIMARY KEY,
             mode TEXT,
-            current_item_id TEXT,
+            current_item_id INTEGER,
             ended_at TIMESTAMPTZ
         );
         CREATE TABLE projects (

@@ -40,7 +40,7 @@ def test_cmd_release_all_clears_current_item_id(conn):
     before = conn.execute(
         "SELECT current_item_id FROM harness_sessions WHERE session_id='sess-A'"
     ).fetchone()
-    assert before["current_item_id"] == "4242"
+    assert before["current_item_id"] == 4242
 
     cmd_release_all(conn, "sess-A", reason="released")
 
@@ -49,4 +49,4 @@ def test_cmd_release_all_clears_current_item_id(conn):
         "WHERE session_id='sess-A'"
     ).fetchone()
     assert after["current_item_id"] is None
-    assert after["recent_item_id"] == "4242"
+    assert after["recent_item_id"] == 4242

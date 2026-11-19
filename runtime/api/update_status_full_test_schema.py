@@ -165,9 +165,9 @@ CREATE TABLE IF NOT EXISTS harness_sessions (
     last_heartbeat TIMESTAMPTZ NOT NULL,
     ended_at TIMESTAMPTZ,
     offer_envelope TEXT,
-    current_item_id TEXT DEFAULT NULL,
+    current_item_id INTEGER DEFAULT NULL,
     current_item_set_at TIMESTAMPTZ DEFAULT NULL,
-    recent_item_id TEXT DEFAULT NULL,
+    recent_item_id INTEGER DEFAULT NULL,
     recent_item_status TEXT DEFAULT NULL,
     recent_item_recorded_at TIMESTAMPTZ DEFAULT NULL,
     actor_id INTEGER DEFAULT NULL

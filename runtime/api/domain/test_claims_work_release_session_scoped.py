@@ -31,8 +31,8 @@ CREATE TABLE harness_sessions (
     workspace TEXT NOT NULL DEFAULT '', mode TEXT NOT NULL DEFAULT 'wait',
     offered_at TIMESTAMPTZ NOT NULL, last_heartbeat TIMESTAMPTZ NOT NULL,
     ended_at TIMESTAMPTZ,
-    current_item_id TEXT, current_item_set_at TIMESTAMPTZ,
-    recent_item_id TEXT, recent_item_status TEXT,
+    current_item_id INTEGER, current_item_set_at TIMESTAMPTZ,
+    recent_item_id INTEGER, recent_item_status TEXT,
     recent_item_recorded_at TIMESTAMPTZ, actor_id INTEGER
 );
 CREATE TABLE work_claims (

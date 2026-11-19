@@ -176,14 +176,6 @@ def _replied_pairs(
     return {(str(dict(row)["answerer"]), str(dict(row)["asker"])) for row in rows}
 
 
-def _parse_item_id(raw_item_id: Any) -> int | None:
-    """``current_item_id`` is text; ``items.id`` is an integer."""
-    try:
-        return int(str(raw_item_id))
-    except (TypeError, ValueError):
-        return None
-
-
 def _item_statuses(conn: Any, item_ids: Sequence[int]) -> dict[int, str]:
     if not item_ids:
         return {}
@@ -225,7 +217,7 @@ def _answerability_for(conn: Any, answerers: Sequence[str]) -> dict[str, str]:
         if record.get("ended_at") or record.get("terminated_at"):
             reasons[answerer] = "answerer session has ended"
             continue
-        item_id = _parse_item_id(record.get("current_item_id"))
+        item_id = record.get("current_item_id")
         if item_id is None:
             reasons[answerer] = UNRESOLVED
             continue

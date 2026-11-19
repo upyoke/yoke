@@ -69,7 +69,7 @@ class TestClaimWork:
         row = conn.execute(
             "SELECT current_item_id, recent_item_id FROM harness_sessions WHERE session_id = 'sess-1'"
         ).fetchone()
-        assert row["current_item_id"] == "9999"
+        assert row["current_item_id"] == 9999
         assert row["recent_item_id"] is None
 
     def test_claim_sentinel_item_is_rejected(self, conn):
@@ -164,7 +164,7 @@ class TestClaimWork:
             "SELECT current_item_id, recent_item_id FROM harness_sessions WHERE session_id = 'sess-1'"
         ).fetchone()
         assert row["current_item_id"] is None
-        assert row["recent_item_id"] == "9999"
+        assert row["recent_item_id"] == 9999
 
     def test_claim_race_after_prechecks_is_rejected(self, tmp_path):
         """A late conflicting claim must still be rejected without double-assigning.

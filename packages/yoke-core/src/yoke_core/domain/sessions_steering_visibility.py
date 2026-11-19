@@ -180,7 +180,7 @@ def _held_item_ids(
     rows = conn.execute(
         "SELECT s.session_id AS session_id, s.current_item_id AS item_id, "
         "i.project_id AS project_id FROM harness_sessions s "
-        "JOIN items i ON CAST(i.id AS TEXT) = CAST(s.current_item_id AS TEXT) "
+        "JOIN items i ON i.id = s.current_item_id "
         "WHERE s.session_id IN ("
         + ",".join(marker for _ in session_ids)
         + ") AND s.current_item_id IS NOT NULL",
