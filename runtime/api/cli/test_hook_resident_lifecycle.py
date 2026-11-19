@@ -256,3 +256,61 @@ def test_cli_reports_unwritable_cache_without_retrying_path_creation(
     monkeypatch.setattr(client, "resident_paths", fail)
     assert lifecycle.resident_lifecycle(["restart"]) == 1
     assert "YOKE_HOOK_RESIDENT_LIFECYCLE_FAILED" in capsys.readouterr().out
+
+
+@pytest.mark.windows
+def test_verify_proves_a_real_evaluator_then_leaves_no_resident(
+    monkeypatch, tmp_path, capsys
+):
+    monkeypatch.setattr(client.machine_config, "cache_dir", lambda: tmp_path)
+    paths = client.resident_paths()
+    try:
+        assert lifecycle.resident_lifecycle(["verify"]) == 0
+        assert "Hook evaluator: verified, stopped" in capsys.readouterr().out
+        # Windows virtualenv launchers and their base-Python child both exit.
+        assert lifecycle._resident_processes(paths) == []
+        assert not paths.socket.exists()
+        # The first hook after an install starts the evaluator on demand.
+        result = client.evaluate_with_resident("PreToolUse", "{}", dry_run=True)
+        assert result.exit_code == 0
+        assert lifecycle._resident_processes(paths)
+    finally:
+        lifecycle.stop_resident()
+
+
+@pytest.mark.windows
+def test_failed_verify_still_stops_and_names_the_readiness_failure(
+    monkeypatch, tmp_path
+):
+    monkeypatch.setattr(client.machine_config, "cache_dir", lambda: tmp_path)
+    stops = []
+    monkeypatch.setattr(lifecycle, "stop_resident", lambda paths, **kw: stops.append(kw))
+    monkeypatch.setattr(client, "_start_resident", lambda *_: None)
+    monkeypatch.setattr(lifecycle, "_START_SECONDS", 0)
+    with pytest.raises(
+        lifecycle.ResidentLifecycleError, match="YOKE_HOOK_RESIDENT_START_TIMEOUT"
+    ):
+        lifecycle.verify_resident()
+    # One stop retires the old evaluator, one retires whatever the failed start left.
+    assert stops == [{"require_lock_release": False}] * 2
+
+
+@pytest.mark.windows
+def test_failed_verify_names_a_resident_its_stop_could_not_retire(
+    monkeypatch, tmp_path
+):
+    monkeypatch.setattr(client.machine_config, "cache_dir", lambda: tmp_path)
+    calls = []
+
+    def stop(paths, **_):
+        calls.append(paths)
+        if len(calls) > 1:
+            raise lifecycle.ResidentLifecycleError("YOKE_HOOK_RESIDENT_STOP_TIMEOUT: 42")
+
+    monkeypatch.setattr(lifecycle, "stop_resident", stop)
+    monkeypatch.setattr(client, "_start_resident", lambda *_: None)
+    monkeypatch.setattr(lifecycle, "_START_SECONDS", 0)
+    with pytest.raises(lifecycle.ResidentLifecycleError) as failure:
+        lifecycle.verify_resident()
+    assert "YOKE_HOOK_RESIDENT_START_TIMEOUT" in str(failure.value)
+    assert "YOKE_HOOK_RESIDENT_STOP_TIMEOUT: 42" in str(failure.value)

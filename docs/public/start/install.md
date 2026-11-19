@@ -204,9 +204,9 @@ exact reinstall command when the commit differs from the release manifest's.
 local universe `yoke update` updates the CLI and local server together; a team
 server's admin upgrades it; hosted servers update with each hosted release.
 
-Install, reinstall and upgrade restart the machine's hook evaluator and check
-that it answers; on failure, read the named log, run `yoke hook resident
-restart` and retry. A resident with the immutable-generation restart fix selects
+Install, reinstall and upgrade check that the hook evaluator answers, then stop
+it (`yoke hook resident verify`); setup or the first hook starts it again. On
+failure, read the named log, run `yoke hook resident verify` and retry. A resident with the immutable-generation restart fix selects
 the current installed generation when a hook requests a new revision, retaining
 its exclusive start lock. An already-running resident from before this fix needs
 one ordinary `yoke hook resident restart` after installing the corrected CLI;

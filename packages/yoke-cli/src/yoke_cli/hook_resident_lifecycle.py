@@ -1,8 +1,14 @@
-"""Stop the machine's evaluator, then warm and prove the installed evaluator."""
+"""Stop the machine's evaluator, then warm and prove the installed evaluator.
+
+``restart`` leaves the proven evaluator warm for the first session (setup).
+``verify`` proves it the same way, then stops it, so an install leaves no
+resident process behind; the first hook starts one on demand.
+"""
 
 from __future__ import annotations
 
 import argparse
+import contextlib
 import os
 import re
 import time
@@ -12,7 +18,7 @@ from yoke_cli import hook_resident_start as startup
 from yoke_contracts import platform_file_lock
 from yoke_contracts.designed_wait import announce_designed_wait, poll_every
 
-LIFECYCLE_USAGE = "yoke hook resident {restart|stop}"
+LIFECYCLE_USAGE = "yoke hook resident {restart|verify|stop}"
 # SIGTERM grace, then SIGKILL for residents proven by their start time.
 _STOP_SECONDS = 10.0
 _KILL_SECONDS = 5.0
@@ -122,8 +128,9 @@ def stop_resident(
     )
 
 
-def restart_resident() -> None:
-    """Restart even a same-version install; a dry evaluation proves readiness."""
+@contextlib.contextmanager
+def _lifecycle_lock():
+    """Hold the machine's lifecycle lock, yielding the resident paths."""
     paths = client.resident_paths()
     refusal = client.resident_transport_refusal(paths)
     if refusal is not None:
@@ -138,53 +145,84 @@ def restart_resident() -> None:
                 "another installer is changing the evaluator",
                 paths,
             ) from None
-        stop_resident(paths, require_lock_release=False)
-        request = client._request("PreToolUse", "{}", True, "")
-        client._start_resident(paths, request.environment)
-        deadline = time.monotonic() + _START_SECONDS
-        announce_designed_wait(
-            "installed hook evaluator dry evaluation",
-            max_wait_seconds=_START_SECONDS,
-            cadence=poll_every(_RETRY_SECONDS),
-        )
-        last_error = "the evaluator has not answered"
-        while time.monotonic() < deadline:
-            try:
-                response = client._round_trip(paths, request, deadline)
-                if response.get("status") == "restart":
-                    last_error = client._restart_detail(response)
-                else:
-                    result = client._validated_result(response, paths)
-                    if result.exit_code:
-                        raise _failure(
-                            "YOKE_HOOK_RESIDENT_HEALTH_FAILED",
-                            f"dry evaluation returned exit {result.exit_code}",
-                            paths,
-                        )
-                    return
-            except (OSError, client.HookEvaluatorProtocolError) as exc:
-                last_error = type(exc).__name__
-            except client.ResidentUnavailable as exc:
-                raise _failure(exc.code, exc.detail, paths) from None
-            time.sleep(_RETRY_SECONDS)
-        raise _failure("YOKE_HOOK_RESIDENT_START_TIMEOUT", last_error, paths)
+        yield paths
     finally:
         os.close(lock_fd)
+
+
+def restart_resident() -> None:
+    """Restart even a same-version install; a dry evaluation proves readiness."""
+    with _lifecycle_lock() as paths:
+        _restart_locked(paths)
+
+
+def verify_resident() -> None:
+    """Prove the installed evaluator with a dry evaluation, then stop it.
+
+    The stop runs on failure too, so neither outcome leaves a resident. It
+    accepts a resident a live hook launched meanwhile: that one serves the
+    installed build and belongs to its session.
+    """
+    with _lifecycle_lock() as paths:
+        try:
+            _restart_locked(paths)
+        except Exception as exc:
+            try:
+                stop_resident(paths, require_lock_release=False)
+            except ResidentLifecycleError as stop_exc:
+                raise ResidentLifecycleError(f"{exc}; then {stop_exc}") from exc
+            raise
+        stop_resident(paths, require_lock_release=False)
+
+
+def _restart_locked(paths: client.ResidentPaths) -> None:
+    stop_resident(paths, require_lock_release=False)
+    request = client._request("PreToolUse", "{}", True, "")
+    client._start_resident(paths, request.environment)
+    deadline = time.monotonic() + _START_SECONDS
+    announce_designed_wait(
+        "installed hook evaluator dry evaluation",
+        max_wait_seconds=_START_SECONDS,
+        cadence=poll_every(_RETRY_SECONDS),
+    )
+    last_error = "the evaluator has not answered"
+    while time.monotonic() < deadline:
+        try:
+            response = client._round_trip(paths, request, deadline)
+            if response.get("status") == "restart":
+                last_error = client._restart_detail(response)
+            else:
+                result = client._validated_result(response, paths)
+                if result.exit_code:
+                    raise _failure(
+                        "YOKE_HOOK_RESIDENT_HEALTH_FAILED",
+                        f"dry evaluation returned exit {result.exit_code}",
+                        paths,
+                    )
+                return
+        except (OSError, client.HookEvaluatorProtocolError) as exc:
+            last_error = type(exc).__name__
+        except client.ResidentUnavailable as exc:
+            raise _failure(exc.code, exc.detail, paths) from None
+        time.sleep(_RETRY_SECONDS)
+    raise _failure("YOKE_HOOK_RESIDENT_START_TIMEOUT", last_error, paths)
 
 
 def resident_lifecycle(args: list[str]) -> int:
     parser = argparse.ArgumentParser(prog="yoke hook resident")
     parser.add_argument(
         "action",
-        choices=("restart", "stop"),
-        help="Restart or stop the resident hook process.",
+        choices=("restart", "verify", "stop"),
+        help=(
+            "restart: prove and keep the evaluator warm; verify: prove it, "
+            "then stop it; stop: stop it."
+        ),
     )
     action = parser.parse_args(args).action
     try:
-        if action == "restart":
-            restart_resident()
-        else:
-            stop_resident()
+        {"restart": restart_resident, "verify": verify_resident, "stop": stop_resident}[
+            action
+        ]()
     except ResidentLifecycleError as exc:
         print(str(exc))
         return 1
@@ -194,5 +232,11 @@ def resident_lifecycle(args: list[str]) -> int:
             "is writable, then run yoke hook resident restart and retry the installer."
         )
         return 1
-    print("Hook evaluator: ready" if action == "restart" else "Hook evaluator: stopped")
+    print(
+        {
+            "restart": "Hook evaluator: ready",
+            "verify": "Hook evaluator: verified, stopped",
+            "stop": "Hook evaluator: stopped",
+        }[action]
+    )
     return 0
