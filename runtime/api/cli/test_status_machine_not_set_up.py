@@ -62,3 +62,39 @@ def test_engine_status_reports_only_machine_not_set_up(tmp_path: Path) -> None:
     for wrong_hint in ("yoke config", "yoke env", "yoke project register"):
         assert wrong_hint not in text
     assert f"  folder: {folder} (not a git checkout)\n" in text
+
+
+def test_installer_written_config_is_not_setup(tmp_path: Path) -> None:
+    """The public installer writes machine id and distribution only; that is not setup."""
+    import json
+
+    home = tmp_path / "home"
+    (home / ".yoke").mkdir(parents=True)
+    config = home / ".yoke" / "config.json"
+    config.write_text(
+        json.dumps(
+            {
+                "machine_id": "444a6196-0000-4000-8000-000000000000",
+                "schema_version": 1,
+                "settings": {
+                    "distribution": {
+                        "origin": "https://api.upyoke.com",
+                        "channel": "stable",
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    config.chmod(0o600)
+    folder = tmp_path / "plain-folder"
+    folder.mkdir()
+
+    report = status_module.build_status(
+        config_path=config, repo_root=folder, check_reachability=False
+    )
+    text = status_render.render_human(report)
+
+    assert [issue["code"] for issue in report["issues"]] == ["machine_not_set_up"]
+    for wrong_hint in ("yoke config", "yoke env", "yoke project register"):
+        assert wrong_hint not in text
