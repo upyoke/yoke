@@ -19,12 +19,14 @@ _SWEEP = r"""function Get-YokeEntryAttributes([string]$p){
 }
 function Test-YokeLink($attributes){$null -ne $attributes -and ($attributes -band [IO.FileAttributes]::ReparsePoint)}
 function Get-YokeGoldenPath([string]$p){Join-Path $source $p.Substring($target.Length).TrimStart('\')}
-$stale=New-Object System.Collections.Generic.List[string]
+$stale=New-Object System.Collections.Generic.List[string]; $unscanned=@()
 $pending=New-Object System.Collections.Generic.Stack[string]; $pending.Push($target)
 while($pending.Count){
  $dir=$pending.Pop()
+ # Windows PowerShell cannot list some paths robocopy mirrors (over 260
+ # characters); record them, and let the uv proof refuse if uv state is one.
  try {$entries=@([IO.DirectoryInfo]::new($dir).GetFileSystemInfos())}
- catch {throw ('windows_reset_link_scan_failed: could not list '+$dir+' ('+$_.Exception.Message+'); repair its access for the test user, then rerun yoke test-machine reset')}
+ catch {$unscanned+=$dir; continue}
  foreach($entry in $entries){
   if($sweepPreserved -contains $entry.FullName){continue}
   if(Test-YokeLink $entry.Attributes){
@@ -52,9 +54,9 @@ foreach($link in $stale){
   }
  } catch {}
 }
-Write-Output ('YOKE_RESET_LINKS_REMOVED '+(ConvertTo-Json -Compress -InputObject @($removed)))
+Write-Output ('YOKE_RESET_LINKS_REMOVED '+(ConvertTo-Json -Compress -InputObject @{removed=@($removed);unscanned=@($unscanned)}))
 $uvPython=Join-Path $target 'UV_PYTHON'
-$uvLeft=@($left | Where-Object {$_ -like ($uvPython+'\*')})
+$uvLeft=@(@($left)+@($unscanned) | Where-Object {$_ -eq $uvPython -or $_ -like ($uvPython+'\*')})
 if($null -eq (Get-YokeEntryAttributes (Get-YokeGoldenPath $uvPython)) -and $null -ne (Get-YokeEntryAttributes $uvPython)){$uvLeft=@($uvPython)+$uvLeft}
 if($uvLeft.Count){
  throw ('windows_reset_uv_state_left: uv-managed Python state the golden lacks remains at '+($uvLeft -join ', ')+'. As the signed-in test user, remove it with cmd /c rmdir (which deletes a junction without following it) or Remove-Item for plain files, then rerun yoke test-machine reset')
@@ -71,9 +73,13 @@ def stale_link_sweep_script(home, preserved):
     return f"$sweepPreserved=@({skipped})\n" + _SWEEP.replace("UV_PYTHON", UV_PYTHON)
 
 
-def removed_links(stdout):
-    """Read the sweep's removal record from the reset's standard output."""
+def link_sweep_record(stdout):
+    """Read the links the sweep removed and the directories it could not list."""
     for line in (stdout or "").splitlines():
         if line.startswith(REMOVED_MARKER):
-            return json.loads(line[len(REMOVED_MARKER):])
-    return []
+            record = json.loads(line[len(REMOVED_MARKER):])
+            return {
+                "stale_links_removed": list(record.get("removed") or []),
+                "stale_link_scan_skipped": list(record.get("unscanned") or []),
+            }
+    return {"stale_links_removed": [], "stale_link_scan_skipped": []}

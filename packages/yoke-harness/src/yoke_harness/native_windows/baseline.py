@@ -7,8 +7,11 @@ from yoke_harness.native_windows.desktop import desktop_script
 from yoke_harness.native_windows.transport import quote
 from yoke_harness.native_windows.tasks import HELPERS as TASK_HELPERS
 from yoke_harness.native_windows.profile_path import HELPERS as PATH_HELPERS
+from yoke_harness.native_windows.mission import (
+    WINDOWS_MISSION_SCRATCH_DIRECTORY, windows_stale_scratch_script,
+)
 from yoke_harness.native_windows.profile_links import (
-    removed_links, stale_link_sweep_script,
+    link_sweep_record, stale_link_sweep_script,
 )
 
 
@@ -29,7 +32,7 @@ PRESERVED_DIRECTORIES = (
     "AppData/Local/Google",
     "AppData/Local/YokeQa",
     # A walk's secret staging outlives any reset inside the walk; walk-end
-    # removes it (native_windows/mission.py).
+    # removes it, and reset removes other executions' (native_windows/mission.py).
     "AppData/Local/YokeQaMission",
     "AppData/Local/Temp",
 )
@@ -145,6 +148,10 @@ $source=Join-Path $golden 'profile'; $target=$profileRoot
 """
         + copy
         + stale_link_sweep_script(control.home, PRESERVED_DIRECTORIES)
+        + windows_stale_scratch_script(
+            str(PureWindowsPath(control.home) / WINDOWS_MISSION_SCRATCH_DIRECTORY),
+            tuple(getattr(control, "baseline_preserved_temp_paths", ())),
+        )
         + r"""$pathKey=[Microsoft.Win32.Registry]::CurrentUser.CreateSubKey('Environment')
 try {Restore-YokeUserPath $pathKey $state.user_path_snapshot} finally {$pathKey.Dispose()}
 $env:Path=[Environment]::GetEnvironmentVariable('Path','Machine')+';'+[Environment]::GetEnvironmentVariable('Path','User')
@@ -180,7 +187,7 @@ def profile_operation(control, operation, path):
             "profile": control.home,
             "preserved_identity_paths": list(PRESERVED_DIRECTORIES),
             **(
-                {"stale_links_removed": removed_links(result.stdout)}
+                link_sweep_record(result.stdout)
                 if operation == "reset"
                 else {}
             ),

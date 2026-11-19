@@ -1,5 +1,6 @@
 """Reset removes links the golden lacks and proves no uv-managed Python is left."""
 
+import json
 import subprocess
 from types import SimpleNamespace
 
@@ -10,7 +11,7 @@ from yoke_harness.native_windows.baseline import (
     PRESERVED_DIRECTORIES, profile_copy_script, profile_script,
 )
 from yoke_harness.native_windows.profile_links import (
-    removed_links, stale_link_sweep_script,
+    link_sweep_record, stale_link_sweep_script,
 )
 from yoke_harness.native_windows.transport import quote
 
@@ -51,11 +52,13 @@ def test_reset_records_removed_links_and_refusal_reaches_recovery():
 
     ok = baseline.profile_operation(
         _Control(subprocess.CompletedProcess(
-            [], 0, "noise\nYOKE_RESET_LINKS_REMOVED " + '["' + removed.replace("\\", "\\\\") + '"]\n', "",
+            [], 0, "noise\nYOKE_RESET_LINKS_REMOVED "
+            + json.dumps({"removed": [removed], "unscanned": [r"C:\long"]}) + "\n", "",
         )),
         "reset", GOLDEN,
     )
     assert ok.ok and ok.evidence["stale_links_removed"] == [removed]
+    assert ok.evidence["stale_link_scan_skipped"] == [r"C:\long"]
     refused = baseline.profile_operation(
         _Control(subprocess.CompletedProcess(
             [], 1, "", "windows_reset_uv_state_left: uv-managed Python state remains at X",
@@ -64,7 +67,7 @@ def test_reset_records_removed_links_and_refusal_reaches_recovery():
     )
     assert refused.error_code == "windows_profile_reset_failed"
     assert "windows_reset_uv_state_left" in refused.evidence["recovery"]
-    assert removed_links("") == []
+    assert link_sweep_record("") == {"stale_links_removed": [], "stale_link_scan_skipped": []}
 
 
 def _run_powershell(tmp_path, script):
@@ -104,7 +107,7 @@ Write-Output 'DANGLING_UV_JUNCTION_CLEARED'
     assert result.returncode == 0, result.stderr
     assert "DANGLING_UV_JUNCTION_CLEARED" in result.stdout
     [line] = [x for x in result.stdout.splitlines() if x.startswith("YOKE_RESET_LINKS_REMOVED ")]
-    assert removed_links(line) == [
+    assert link_sweep_record(line)["stale_links_removed"] == [
         home + r"\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none"
     ]
 
@@ -129,3 +132,40 @@ try {
 """)
     assert result.returncode == 0, result.stderr
     assert "UV_STATE_REFUSED" in result.stdout
+
+
+def test_reset_removes_mission_scratch_the_execution_does_not_name():
+    kept = HOME + r"\AppData\Local\YokeQaMission\running-walk"
+    control = SimpleNamespace(home=HOME, baseline_preserved_temp_paths=(kept,))
+    reset = profile_script(control, "reset", GOLDEN)
+    assert "$missionRoot=" + quote(HOME + r"\AppData\Local\YokeQaMission") in reset
+    assert "$missionKeep=@(" + quote(kept) + ")" in reset
+    assert "windows_reset_mission_scratch_left" in reset
+    assert reset.index("$sweepPreserved=") < reset.index("$missionRoot=")
+    bare = profile_script(SimpleNamespace(home=HOME), "reset", GOLDEN)
+    assert "$missionKeep=@()" in bare
+    assert "$missionRoot=" not in profile_script(control, "capture", GOLDEN)
+
+
+@pytest.mark.windows_only(reason="requires Windows junctions")
+def test_stale_mission_scratch_is_removed_and_the_running_walk_kept(tmp_path):
+    from yoke_harness.native_windows.mission import windows_stale_scratch_script
+
+    root = tmp_path / "YokeQaMission"
+    kept, stale = root / "running-walk", root / "aborted-walk"
+    outside = tmp_path / "outside"
+    script = windows_stale_scratch_script(str(root), (str(kept),))
+    result = _run_powershell(tmp_path, f"$kept={quote(str(kept))}; $stale={quote(str(stale))}; $outside={quote(str(outside))}\n" + r"""
+New-Item -ItemType Directory -Path $kept,$stale,$outside -Force|Out-Null
+[IO.File]::WriteAllText((Join-Path $kept 'secret'),'LIVE')
+[IO.File]::WriteAllText((Join-Path $stale 'secret'),'STALE')
+[IO.File]::WriteAllText((Join-Path $outside 'target.txt'),'OUTSIDE')
+cmd /c mklink /J (Join-Path $stale 'link') $outside|Out-Null
+""" + script + r"""
+if(Test-Path -LiteralPath $stale){throw 'stale scratch survived'}
+if([IO.File]::ReadAllText((Join-Path $kept 'secret')) -cne 'LIVE'){throw 'running walk scratch removed'}
+if([IO.File]::ReadAllText((Join-Path $outside 'target.txt')) -cne 'OUTSIDE'){throw 'removal followed a link'}
+Write-Output 'STALE_SCRATCH_REMOVED'
+""")
+    assert result.returncode == 0, result.stderr
+    assert "STALE_SCRATCH_REMOVED" in result.stdout

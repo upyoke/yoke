@@ -4,7 +4,7 @@ Every step is one PowerShell script over ``WindowsTransport``. The scratch
 lives under the test profile at ``AppData\\Local\\YokeQaMission``, which the
 profile reset preserves explicitly (``baseline.PRESERVED_DIRECTORIES``) so a
 reset inside a walk never deletes a lease's staged secrets; walk-end removes
-it. The disk check reads the system drive's free space.
+it, and a reset removes the scratch of every other execution. The disk check reads the system drive's free space.
 """
 
 from __future__ import annotations
@@ -60,6 +60,28 @@ def windows_scratch_probe_script(path: str) -> str:
     return (
         f"if(Test-Path -LiteralPath {quote(path)}){{exit 0}}; "
         f"exit {WINDOWS_SCRATCH_ABSENT_EXIT}"
+    )
+
+
+def windows_stale_scratch_script(root: str, kept: tuple[str, ...]) -> str:
+    """Remove scratch other executions left behind; the reset keeps the root.
+
+    A mission aborted before walk-end never removes its scratch, so the reset
+    deletes every child the running execution does not name. ``rmdir /s``
+    deletes links inside without following them.
+    """
+    keep = ",".join(quote(str(PureWindowsPath(path))) for path in kept)
+    return (
+        f"$missionRoot={quote(root)}; $missionKeep=@({keep})\n"
+        "$missionLeft=@()\n"
+        "foreach($entry in @(Get-ChildItem -LiteralPath $missionRoot -Force -ErrorAction SilentlyContinue)){\n"
+        " if($missionKeep -contains $entry.FullName){continue}\n"
+        " if($entry.Attributes -band [IO.FileAttributes]::Directory){cmd /c rmdir /s /q $entry.FullName 2>&1|Out-Null}\n"
+        " else{Remove-Item -LiteralPath $entry.FullName -Force -ErrorAction SilentlyContinue}\n"
+        " if($null -ne (Get-Item -LiteralPath $entry.FullName -Force -ErrorAction SilentlyContinue)){$missionLeft+=$entry.FullName}\n"
+        "}\n"
+        "if($missionLeft.Count){throw ('windows_reset_mission_scratch_left: stale mission scratch remains at '"
+        "+($missionLeft -join ', ')+'. Finish or abort its mission, delete it as the test user with cmd /c rmdir /s /q, then rerun yoke test-machine reset')}\n"
     )
 
 
