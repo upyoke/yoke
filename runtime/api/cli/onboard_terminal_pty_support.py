@@ -191,6 +191,7 @@ def _worker(scenario: str, ready: int, config: Path, continue_read: int) -> int:
         project_clone_outcome=None,
         apply=False,
         post_install=False,
+        machine_github=None,
     )
     job_signals = (signal.SIGTTIN, signal.SIGTTOU)
     handlers = [signal.getsignal(sig) for sig in job_signals]
