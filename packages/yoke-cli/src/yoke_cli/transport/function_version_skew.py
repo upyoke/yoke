@@ -36,11 +36,13 @@ from yoke_contracts.engine_version import (
     compare_engine_versions,
     local_handshake_version,
 )
-from yoke_contracts.function_serving_floors import (
-    FUNCTION_MINIMUM_SERVING_VERSIONS,
+from yoke_contracts.function_argument_floors import (
     PROJECTLESS_TEST_MACHINE_FUNCTIONS,
     ArgumentFloor,
     declared_argument_floors,
+)
+from yoke_contracts.function_serving_floors import (
+    FUNCTION_MINIMUM_SERVING_VERSIONS,
     declared_minimum_serving_version,
 )
 

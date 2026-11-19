@@ -18,7 +18,7 @@ See [Steering and fleet control](sessions.md) for work coordination.
 
 ### Actors and organizations
 
-An actor is the identity that performs an action in a Universe. Human actors represent people; machine accounts represent services. Organization roles provide access across the organization, while project roles provide grants for a particular project.
+An actor is the identity that performs an action in a Universe. Human actors represent people; machine accounts represent services. Organization roles provide access across the organization, while project roles provide grants for a particular project. A person may hold no organization role and only project roles; they then see and work in only those projects.
 
 Use the dashboard's **Team** page to see people, machine accounts, roles, and active API keys. Recorded identity makes work and decisions attributable without asking teammates to share an account.
 
@@ -38,7 +38,7 @@ A connected machine runs its relay and available harnesses under the configured 
 
 ### Roles and billing boundaries
 
-Organization owners and administrators manage access and create projects. Operators perform normal project work but cannot create projects, and viewers have read access according to their role. Project grants can add project-specific authority. Machine-only roles serve particular automation functions and are not ordinary people roles.
+Organization owners and administrators manage access and create projects. Operators perform normal project work but cannot create projects, and viewers have read access according to their role. Project grants can add project-specific authority, or give a person without an organization role access to one project only. Machine-only roles serve particular automation functions and are not ordinary people roles.
 
 Disabling an actor blocks access and revokes their API keys. Enabling that actor later does not restore the revoked keys; affected machines must reconnect. Yoke protects the last active organization administrator from being removed accidentally.
 

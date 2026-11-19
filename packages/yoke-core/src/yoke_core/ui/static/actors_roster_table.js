@@ -1,6 +1,7 @@
 // One Team roster table: people or machine accounts, with sortable headers.
 
 import { ACTOR_SORT_COLUMNS, actorGrants, projectAccess } from "./actor_roster_sort.js";
+import { projectAccessControls } from "./actor_project_access_control.js";
 import { actorIsOwner, callerIsOwner, roleControl } from "./actor_role_control.js";
 import { sortHeader } from "./item_roster_sort.js";
 import { callFunction, el, labelCellsByColumn } from "./universe_view_support.js";
@@ -30,13 +31,18 @@ function actorCell(documentNode, actor, currentActorId) {
   return cell;
 }
 
-// A person's role is a control for an org admin; a server that does not
+// A person's roles are controls for an org admin; a server that does not
 // yet send person_org_roles shows every grant read-only.
+function manageable(actor, roster) {
+  const personRoles = roster.person_org_roles;
+  return roster.can_manage_actors && actor.kind === "human"
+    && Array.isArray(personRoles) && personRoles.length > 0;
+}
+
 function orgRoleCell(documentNode, actor, roster, feedback, reload) {
   const cell = el(documentNode, "td");
   const personRoles = roster.person_org_roles;
-  if (roster.can_manage_actors && actor.kind === "human"
-      && Array.isArray(personRoles) && personRoles.length) {
+  if (manageable(actor, roster)) {
     cell.appendChild(roleControl(documentNode, actor, personRoles, roster, feedback, reload));
     return cell;
   }
@@ -57,7 +63,10 @@ function roleChip(documentNode, role, roster) {
   return chip;
 }
 
-function projectAccessCell(documentNode, actor, roster) {
+function projectAccessCell(documentNode, actor, roster, feedback, reload) {
+  if (manageable(actor, roster)) {
+    return projectAccessControls(documentNode, actor, roster, feedback, reload);
+  }
   const cell = el(documentNode, "td");
   const entries = projectAccess(actor);
   if (!entries.length) cell.appendChild(el(documentNode, "span", "actors-muted", "—"));
@@ -196,7 +205,7 @@ const CELLS = {
     return cell;
   },
   "Org role": (d, actor, roster, feedback, reload) => orgRoleCell(d, actor, roster, feedback, reload),
-  "Project access": (d, actor, roster) => projectAccessCell(d, actor, roster),
+  "Project access": (d, actor, roster, feedback, reload) => projectAccessCell(d, actor, roster, feedback, reload),
   Grants: (d, actor, roster) => grantsCell(d, actor, roster),
   "Member email": (d, actor) => el(d, "td", "actors-muted", actor.identity?.email || "—"),
   "API keys": (d, actor) => keysCell(d, actor),

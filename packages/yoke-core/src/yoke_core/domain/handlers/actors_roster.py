@@ -1,4 +1,10 @@
-"""Read-only roster for the Actors workbench page."""
+"""Read-only roster for the Team page.
+
+An org owner or admin sees every actor and grant. Anyone else sees grants
+only on projects they can see, and no actor whose only access is to
+projects hidden from them, so a project-only person never learns of a
+project they were not given.
+"""
 
 from __future__ import annotations
 
@@ -24,6 +30,7 @@ from yoke_core.domain.actor_role import (
     HUMAN_ORG_ROLES,
     MACHINE_ONLY_ROLES,
 )
+from yoke_core.domain.actor_project_visibility import actor_visible_project_ids
 from yoke_core.domain.control_plane_authority import require_control_plane_permission
 
 
@@ -39,6 +46,23 @@ class ActorsRosterResponse(BaseModel):
     role_descriptions: Dict[str, str]
     machine_only_roles: List[str]
     bootstrap_only_roles: List[str]
+    projects: List[Dict[str, str]]
+
+
+def _visible_rows(
+    rows: List[Dict[str, Any]], slugs: set, current_actor_id: Optional[int]
+) -> List[Dict[str, Any]]:
+    """Drop grants on hidden projects, then actors left with no visible access."""
+    kept = []
+    for row in rows:
+        grants = row["roles"]["projects"]
+        shown = [grant for grant in grants if grant["project"] in slugs]
+        if grants and not shown and not row["roles"]["org"]:
+            if row["id"] != current_actor_id:
+                continue
+        row["roles"]["projects"] = shown
+        kept.append(row)
+    return kept
 
 
 def handle_actors_roster(request: FunctionCallRequest) -> HandlerOutcome:
@@ -88,6 +112,20 @@ def handle_actors_roster(request: FunctionCallRequest) -> HandlerOutcome:
                 can_manage_actors = True
             except PermissionDenied:
                 pass
+        visible = (
+            None
+            if can_manage_actors
+            else actor_visible_project_ids(conn, current_actor_id)
+        )
+        projects = [
+            {"slug": str(slug), "name": str(name or slug)}
+            for project_id, slug, name in conn.execute(
+                "SELECT id, slug, name FROM projects ORDER BY slug"
+            ).fetchall()
+            if visible is None or int(project_id) in visible
+        ]
+        if visible is not None:
+            rows = _visible_rows(rows, {p["slug"] for p in projects}, current_actor_id)
     finally:
         conn.close()
 
@@ -100,6 +138,7 @@ def handle_actors_roster(request: FunctionCallRequest) -> HandlerOutcome:
             "role_descriptions": dict(ROLE_DESCRIPTIONS),
             "machine_only_roles": list(MACHINE_ONLY_ROLES),
             "bootstrap_only_roles": list(BOOTSTRAP_ONLY_ROLES),
+            "projects": projects,
         },
         primary_success=True,
     )

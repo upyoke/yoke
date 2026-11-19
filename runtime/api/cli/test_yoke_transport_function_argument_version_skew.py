@@ -16,7 +16,7 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     TargetRef,
 )
-from yoke_contracts.function_serving_floors import (
+from yoke_contracts.function_argument_floors import (
     FUNCTION_ARGUMENT_MINIMUM_SERVING_VERSIONS,
     PROJECTLESS_TEST_MACHINE_FUNCTIONS,
     TEST_MACHINE_ARGUMENT_FUNCTIONS,

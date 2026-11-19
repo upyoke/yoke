@@ -34,6 +34,9 @@ class TestRegistrationShape:
         assert ui_server.UI_MUTATION_FUNCTION_ALLOWLIST == {
             "universe.cursor_quota_order.set",
             "actors.role.set",
+            "actors.role.remove",
+            "actors.project_role.set",
+            "actors.project_role.remove",
             "actors.state.set",
             "overview.module.dismiss",
             "overview.module.restore",

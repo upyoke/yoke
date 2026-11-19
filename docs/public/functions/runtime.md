@@ -6,6 +6,9 @@
 
 | Function id | [Claim policy](index.md) |
 |---|---|
+| `actors.project_role.remove` | `none` |
+| `actors.project_role.set` | `none` |
+| `actors.role.remove` | `none` |
 | `actors.role.set` | `none` |
 | `actors.roster` | `none` |
 | `actors.state.set` | `none` |

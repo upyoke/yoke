@@ -3,6 +3,7 @@ windows-9bb7be77030524652a8c,hook PostToolUse,cursor-desktop,hosted-client,must-
 windows-5259935b6f6c1e8ef7cc,hook SessionEnd,claude-vscode,local,must-pass,,
 windows-449205a44c3edaf3920c,hook Stop,codex-desktop,self-hosted-client,must-pass,,
 windows-54077d8afa8701b8014c,hook UserPromptSubmit,claude-desktop,self-hosted-client,must-pass,,
+windows-39f1d822c29599c18a4c,yoke actors project-role set,cli,hosted-client,must-pass,,
 windows-021b2f3db4c94938ba8c,yoke advance preflight hard blocks,cli,self-hosted-client,must-pass,,
 windows-5454ef556ba7964210cc,yoke board art variant create,cli,self-hosted-client,must-pass,,
 windows-5c93f687d6ac683b870c,yoke claims path override,cli,local,must-pass,,

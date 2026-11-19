@@ -2,6 +2,7 @@ row_id,operation,surface,mode,expectation,reason,issue
 windows-d5331b01948ec7d05d3c,desktop create,cursor-desktop,local,not-applicable,manifest declares create=none,
 windows-e6b05e39bfcb079f1cbc,hook PermissionRequest,claude-desktop,self-hosted-client,must-pass,,
 windows-a537925d510c9382e9bc,hook stop,cursor-cli,hosted-client,must-pass,,
+windows-c8914a5861b0c37fbf7c,yoke actors project-role remove,cli,hosted-client,must-pass,,
 windows-1e3f28912e2aae33f23c,yoke audiences list,cli,local,must-pass,,
 windows-1da94cb745d9a5e307fc,yoke claims coordination claim acquire,cli,self-hosted-client,must-pass,,
 windows-d39a125e7c5c086c417c,yoke conduct epic proceed-triage-handoff,cli,self-hosted-client,must-pass,,

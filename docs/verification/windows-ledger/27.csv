@@ -2,6 +2,7 @@ row_id,operation,surface,mode,expectation,reason,issue
 windows-8527186cccfdd8d6f2e7,hook PermissionRequest,codex-vscode,local,must-pass,,
 windows-aa2b5e5459cabb17b2e7,hook Stop,claude-cli,local,must-pass,,
 windows-40af9c93f986e4199067,hook preCompact,cursor-desktop,hosted-client,must-pass,,
+windows-0c53e799f6ada69a06a7,yoke actors project role remove,cli,local,must-pass,,
 windows-49bc02a0895084928067,yoke auth set,cli,self-hosted-client,must-pass,,
 windows-cbb0f6c3c7b6acdcbae7,yoke charge schedule,cli,hosted-client,must-pass,,
 windows-fd0159748b648c8039e7,yoke claims coordination-claim list,cli,self-hosted-client,must-pass,,

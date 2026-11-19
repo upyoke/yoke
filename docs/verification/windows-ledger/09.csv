@@ -1,6 +1,7 @@
 row_id,operation,surface,mode,expectation,reason,issue
 windows-f5eb33577c76b9ee6709,desktop message_stopped,claude-desktop,self-hosted-client,not-applicable,manifest declares message_stopped=none,
 windows-74da304b3ad8b7e52589,hook postToolUse,cursor-desktop,local,must-pass,,
+windows-d7b467cf69043cec6889,yoke actors project role set,cli,self-hosted-client,must-pass,,
 windows-b31edc1ad44cd8d6a609,yoke charge schedule,cli,self-hosted-client,must-pass,,
 windows-b202e55778bb384bad89,yoke check file-line,cli,self-hosted-client,must-pass,,
 windows-f2ab15cd32511bad4689,yoke claims coordination claim release,cli,local,must-pass,,

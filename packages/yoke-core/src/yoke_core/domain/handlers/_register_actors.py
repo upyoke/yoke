@@ -1,8 +1,13 @@
-"""Actor roster, state-change, and role-change function registrations."""
+"""Actor roster, state-change, org-role and project-role function registrations."""
 
 from __future__ import annotations
 
-from yoke_core.domain.handlers import actor_role, actor_state, actors_roster
+from yoke_core.domain.handlers import (
+    actor_project_role,
+    actor_role,
+    actor_state,
+    actors_roster,
+)
 
 
 def register(registry) -> None:
@@ -30,6 +35,51 @@ def register(registry) -> None:
         owner_module="yoke_core.domain.handlers.actor_role",
         target_kinds=["global"],
         side_effects=["actor_org_roles_delete", "actor_org_roles_insert"],
+        guardrails=["org_admin"],
+        adapter_status="live",
+        claim_required_kind=None,
+        ambient_session_required=False,
+        minimum_serving_version="next-release",
+    )
+    registry.register(
+        "actors.role.remove",
+        actor_role.handle_actor_role_remove,
+        actor_role.ActorRoleRemoveRequest,
+        actor_role.ActorRoleRemoveResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.actor_role",
+        target_kinds=["global"],
+        side_effects=["actor_org_roles_delete"],
+        guardrails=["org_admin"],
+        adapter_status="live",
+        claim_required_kind=None,
+        ambient_session_required=False,
+        minimum_serving_version="next-release",
+    )
+    registry.register(
+        "actors.project_role.set",
+        actor_project_role.handle_actor_project_role_set,
+        actor_project_role.ActorProjectRoleSetRequest,
+        actor_project_role.ActorProjectRoleSetResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.actor_project_role",
+        target_kinds=["global"],
+        side_effects=["actor_project_roles_delete", "actor_project_roles_insert"],
+        guardrails=["org_admin"],
+        adapter_status="live",
+        claim_required_kind=None,
+        ambient_session_required=False,
+        minimum_serving_version="next-release",
+    )
+    registry.register(
+        "actors.project_role.remove",
+        actor_project_role.handle_actor_project_role_remove,
+        actor_project_role.ActorProjectRoleRemoveRequest,
+        actor_project_role.ActorProjectRoleRemoveResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.actor_project_role",
+        target_kinds=["global"],
+        side_effects=["actor_project_roles_delete"],
         guardrails=["org_admin"],
         adapter_status="live",
         claim_required_kind=None,
