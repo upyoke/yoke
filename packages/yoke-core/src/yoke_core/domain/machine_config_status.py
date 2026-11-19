@@ -52,9 +52,10 @@ def build_status(
                 )
             ],
         )
-    # An unset-up machine owes one answer, `yoke setup`: it writes the config,
-    # env, paths and project mapping the skipped checks would otherwise flag.
-    set_up = selected_path.is_file()
+    # An unset-up machine owes one answer, `yoke setup`: it writes the
+    # connections, env, paths and project mapping the skipped checks would flag.
+    # The installer's own config file (machine id, distribution) is not setup.
+    set_up = setup_status.is_set_up(payload)
     if not set_up:
         issues.append(setup_status.not_set_up_issue(selected_path))
     else:
