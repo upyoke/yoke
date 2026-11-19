@@ -26,6 +26,7 @@ def _one(conn: Any, sql: str, params: tuple) -> dict | None:
 
 def observe_build(
     conn: Any, target: Mapping[str, Any], *, expected: str = "", tolerate_change: bool = False,
+    execution_id: str = "",
 ) -> dict:
     """Read only the registered owner's origin and path, never the plan's names.
 
@@ -74,7 +75,7 @@ def observe_build(
                 "served_build_status": "served_build_changed",
                 "began_build_sha": expected,
             }
-        _refuse("served_build_changed", f"began on {expected}; now serves {outcome.served}")
+        _refuse_changed(f"began on {expected}; now serves {outcome.served}", execution_id)
     return {"served_build_sha": outcome.served, "served_build_status": "observed"}
 
 
@@ -100,6 +101,16 @@ def require_execution_access(conn: Any, execution: Mapping[str, Any]) -> None:
     require_environment_target_access(conn, require_execution_target(execution))
 
 
+def _refuse_changed(detail: str, execution_id: str) -> None:
+    if not execution_id:
+        _refuse("served_build_changed", detail)
+    raise QaExecutionTargetError(compose_refusal(
+        f"served_build_changed: execution {execution_id} {detail}.",
+        recovery=f"abort it with `yoke qa plan abort --execution-id {execution_id} --reason TEXT` "
+        "and run the plan again; your session keeps its host turn as a hold-over",
+    ))
+
+
 def observe_execution(conn: Any, execution: Mapping[str, Any]) -> dict:
     """A result write proves its build; Test-Machine-only walks record a change."""
     from yoke_core.domain.qa_plan_execution_target_snapshot import require_execution_target
@@ -107,16 +118,42 @@ def observe_execution(conn: Any, execution: Mapping[str, Any]) -> dict:
     return observe_build(
         conn, require_execution_target(execution),
         expected=str(execution.get("served_build_sha") or ""),
-        tolerate_change=machine_only(execution),
+        tolerate_change=machine_only(execution), execution_id=str(execution.get("id") or ""),
     )
 
 
-def observe_resume(conn: Any, execution: Mapping[str, Any]) -> None:
-    """Owner resume of a Test-Machine-only walk keeps its host across a redeploy."""
+def observe_resume(conn: Any, execution: dict[str, Any]) -> None:
+    """Owner resume keeps its host turn across a redeploy.
+
+    A Test-Machine-only walk resumes unprobed. Any other execution that has
+    run no case rebinds to the new build in place, so its queue position and
+    reservation stay with it; one that already ran cases refuses with its
+    owner-abort, whose rerun keeps the session's host turn as a hold-over.
+    """
     if machine_only(execution):
         require_execution_access(conn, execution)
-    else:
-        observe_execution(conn, execution)
+        return
+    from yoke_core.domain.qa_plan_execution_target_snapshot import require_execution_target
+
+    build = observe_build(
+        conn, require_execution_target(execution),
+        expected=str(execution.get("served_build_sha") or ""), tolerate_change=True,
+    )
+    began = build.pop("began_build_sha", None)
+    if not began:
+        return
+    from yoke_core.domain.qa_plan_execution_store import result_rows
+
+    execution_id = str(execution["id"])
+    served = build["served_build_sha"]
+    if int(execution.get("cursor_ordinal") or 0) > 0 or result_rows(conn, execution_id):
+        _refuse_changed(f"ran cases on {began}; now serves {served}", execution_id)
+    conn.execute(
+        f"UPDATE qa_plan_executions SET served_build_sha={marker(conn)},"
+        f"served_build_status='observed' WHERE id={marker(conn)}",
+        (served, execution_id),
+    )
+    execution.update(served_build_sha=served, served_build_status="observed")
 
 
 def bind_run_build(conn: Any, columns: dict, *, run_id: int | None = None) -> None:
@@ -146,7 +183,10 @@ def bind_run_build(conn: Any, columns: dict, *, run_id: int | None = None) -> No
             )
         return
     expected = str((execution or {}).get("served_build_sha") or prior.get("served_build_sha") or "")
-    build = observe_build(conn, target, expected=expected, tolerate_change=machine_only(execution))
+    build = observe_build(
+        conn, target, expected=expected, tolerate_change=machine_only(execution),
+        execution_id=str((execution or {}).get("id") or ""),
+    )
     began = build.pop("began_build_sha", None)
     columns.update(build)
     if began:

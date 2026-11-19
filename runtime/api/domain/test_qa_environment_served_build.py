@@ -17,7 +17,7 @@ SHA = "a" * 40
 OTHER = "b" * 40
 
 
-def _setup(conn, monkeypatch, *, path=True):
+def _setup(conn, monkeypatch, *, path=True, cases=1):
     owner, _ = _hosted_prod_pair(conn)
     conn.execute("UPDATE environments SET name='stage' WHERE id=%s", (owner,))
     if path:
@@ -28,10 +28,10 @@ def _setup(conn, monkeypatch, *, path=True):
         )
     plan = create_plan(conn, project="yoke", slug="remote-proof", target_environment=str(owner))
     replace_plan_cases(conn, plan_id=plan["id"], cases=[{
-        "case_key": "observed", "method_id": "command",
+        "case_key": f"observed-{index}", "method_id": "command",
         "instructions": "Observe the target", "expected_outcome": "Build matches",
         "method_config": {"command": "true"},
-    }])
+    } for index in range(cases)])
     conn.commit()
     monkeypatch.setenv("YOKE_ENVIRONMENT", "prod")
     urls = []
@@ -68,8 +68,10 @@ def test_changed_build_refuses_result_and_preserves_unjudged_run(test_db, monkey
     requirement = execution["roster"][0]["requirement_id"]
     written = insert_qa_run(test_db, qa_requirement_id=requirement, qa_kind="command", performed_by="7", created_at=utc_now())
     monkeypatch.setattr(probe, "fetch_served_revision", lambda _: probe.ServedRevisionRead(status=200, body=OTHER))
-    with pytest.raises(QaExecutionTargetError, match=f"served_build_changed: began on {SHA}; now serves {OTHER}"):
+    with pytest.raises(QaExecutionTargetError) as refused:
         update_qa_run(test_db, written.run_id, {"verdict": "pass"})
+    assert f"served_build_changed: execution {execution['id']} began on {SHA}; now serves {OTHER}" in str(refused.value)
+    assert f"yoke qa plan abort --execution-id {execution['id']} --reason TEXT" in str(refused.value)
     assert test_db.execute("SELECT verdict FROM qa_runs WHERE id=%s", (written.run_id,)).fetchone()[0] is None
 
 
@@ -141,9 +143,26 @@ def test_result_uses_the_executions_frozen_target(test_db, monkeypatch):
     assert test_db.execute("SELECT served_build_sha FROM qa_runs WHERE id=%s", (written.run_id,)).fetchone()[0] == SHA
 
 
-def test_begin_of_a_non_machine_walk_on_a_changed_build_refuses(test_db, monkeypatch):
+
+def test_owner_resume_of_an_unstarted_execution_rebinds_to_the_new_build(test_db, monkeypatch):
     _setup(test_db, monkeypatch)
-    _begin(test_db)
+    queued = _begin(test_db)
     monkeypatch.setattr(probe, "fetch_served_revision", lambda _: probe.ServedRevisionRead(status=200, body=OTHER))
-    with pytest.raises(QaExecutionTargetError, match=f"served_build_changed: began on {SHA}; now serves {OTHER}"):
+    resumed = _begin(test_db)
+    assert resumed["id"] == queued["id"]
+    row = test_db.execute("SELECT served_build_sha,served_build_status FROM qa_plan_executions WHERE id=%s", (queued["id"],)).fetchone()
+    assert tuple(row) == (OTHER, "observed")
+
+
+def test_owner_resume_after_cases_ran_on_the_old_build_names_the_abort(test_db, monkeypatch):
+    from yoke_core.domain.qa_plan_execution_state import advance_plan_execution
+
+    _setup(test_db, monkeypatch, cases=2)
+    execution = _begin(test_db)
+    advance_plan_execution(test_db, execution, ordinal=0, requirement_id=execution["roster"][0]["requirement_id"], result={"verdict": "pass"})
+    test_db.commit()
+    monkeypatch.setattr(probe, "fetch_served_revision", lambda _: probe.ServedRevisionRead(status=200, body=OTHER))
+    with pytest.raises(QaExecutionTargetError) as refused:
         _begin(test_db)
+    assert f"execution {execution['id']} ran cases on {SHA}; now serves {OTHER}" in str(refused.value)
+    assert f"yoke qa plan abort --execution-id {execution['id']} --reason TEXT" in str(refused.value)
