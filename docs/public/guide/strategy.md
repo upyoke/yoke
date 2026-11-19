@@ -45,8 +45,6 @@ The [strategy reference](../strategy/index.md) covers document commands, local r
 
 ## Keep plans current and resume work
 
-A spec and definition of done you give are kept in the document as given, and the plan is done only when all of it is done.
-
 As work progresses, the working document should explain the current objective, completed and pending work, key decisions, and the next useful action. Item links let a new session inspect the authoritative state rather than relying on a prose status that may be old.
 
 Work can be safely stopped and resumed anytime, from anywhere, without loss of any critical context when that context has been recorded in the shared plan and work records. Preserve decisions and unresolved questions there before ending a conversation.

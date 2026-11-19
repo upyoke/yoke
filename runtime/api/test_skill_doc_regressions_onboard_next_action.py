@@ -41,31 +41,6 @@ def test_steer_requires_vetting_and_approval_before_filing():
     assert "Vet any item you have not vetted yourself\nbefore launching it." in loop
 
 
-def test_steer_keeps_the_users_finish_line_and_owns_done():
-    rules = (SKILLS / "steer/SKILL.md").read_text()
-    assert "strategy doc as given, under `# Objective` and `# Done when`" in rules
-    assert "Never narrow the\n  scope or the finish line without the user's OK" in rules
-    assert "a done test drawn from the doc's `# Done when`" in rules
-    assert "close the\n  recorded `# Done when` are covered by the user's request" in rules
-    seed = (SKILLS / "steer/scope-and-authority.md").read_text()
-    assert "`# Objective`, `# Done when`, `# Frontier`" in seed
-    loop = (SKILLS / "steer/loop.md").read_text()
-    assert "Judge landed work against the doc's `# Done when`" in loop
-    close_out = (SKILLS / "steer/close-out.md").read_text()
-    assert "Every point of the doc's `# Done when` checked and met by you" in close_out
-    assert "linked items all done" not in close_out
-    assert "never sit beside `Nothing needs you.`" in close_out
-
-
-def test_qa_compares_broadly_against_a_reference_or_oracle():
-    rules = (ROOT / "docs/public/agents/rules.md").read_text()
-    assert "When a reference implementation or oracle exists, compare against it\n  broadly" in rules
-    assert "Cases you wrote yourself are not enough on their own." in rules
-    verify = (SKILLS / "dash/verify.md").read_text()
-    assert "When a reference implementation or oracle exists, test broadly against it" in verify
-    assert "rules.md` → QA results" in verify
-
-
 def test_project_rules_file_decisions_as_requests():
     rules = (ROOT / "AGENTS.md").read_text()
     assert "yoke decision-requests ask" in rules

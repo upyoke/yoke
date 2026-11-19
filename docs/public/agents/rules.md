@@ -58,9 +58,8 @@ yoke sessions touch --mode parked --reason "awaiting OWNER-ITEM merge"
   the outcome but a case step cannot pass, the case is wrong: repair it through
   its registered write and rerun. If a case passes while the outcome fails, the
   product is wrong.
-- When a reference implementation or oracle exists, compare against it
-  broadly, including its own generated outputs and generated or random inputs.
-  Cases you wrote yourself are not enough on their own.
+- When a reference implementation exists, test against it broadly, not just
+  your own cases.
 - After failed QA: a product defect returns the item to implementation; a setup
   failure is recorded as a blocker; an unclear cause is investigated now.
 - N/A is not a pass.
