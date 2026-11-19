@@ -14,6 +14,7 @@ from yoke_core.domain.session_relay_types import (
     RelayHeartbeat,
     RelayJob,
 )
+from yoke_core.domain.session_worker_chat_name import format_worker_chat_name
 
 
 def worker_chat_name(conn: Any, item_id: int | None) -> str | None:
@@ -24,11 +25,7 @@ def worker_chat_name(conn: Any, item_id: int | None) -> str | None:
     row = conn.execute(
         f"SELECT title FROM items WHERE id={marker(conn)}", (item_id,)
     ).fetchone()
-    return (
-        f"{render_item_ref(conn, item_id, required=True)}: {' '.join(row[0].split())}"[
-            :160
-        ]
-    )
+    return format_worker_chat_name(render_item_ref(conn, item_id, required=True), row[0])
 
 
 def _lock(conn: Any, alias: str) -> str:
