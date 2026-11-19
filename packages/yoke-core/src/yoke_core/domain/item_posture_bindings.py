@@ -2,8 +2,9 @@
 
 The item row keeps the selected posture as the durable declaration.
 Plan selection records a choice without attaching it to any stage.
-The caller explicitly attaches the plan at the phase and transition that
-should enforce it.  Ad-hoc verification intentionally remains a
+Item create attaches its filed plan (``item_posture_plan_attach``); after an
+amend the caller explicitly attaches the plan at the phase and transition
+that should enforce it.  Ad-hoc verification intentionally remains a
 method selection until the executing harness authors the concrete case
 contract from the instruction and actual target.
 """

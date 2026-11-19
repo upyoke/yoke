@@ -271,17 +271,16 @@ def execute_create(
                     workflow_posture=normalized_posture,
                     commit=False,
                 )
-                from yoke_core.domain.item_posture_bindings import (
-                    bind_item_posture_selection,
+                from yoke_core.domain.item_posture_plan_attach import (
+                    bind_filed_item_posture,
                 )
 
-                bind_item_posture_selection(
+                bind_filed_item_posture(
                     conn,
                     item_id=current_id,
                     definition=workflow_runtime.definition,
                     posture=normalized_posture,
                     actor_id=source_actor_id,
-                    commit=False,
                 )
                 if strategy_doc:
                     from yoke_core.domain.strategy_execution_linking import (
