@@ -266,10 +266,15 @@ def run_qa_sharing(conn: Any, run_ids: Iterable[str]) -> dict[str, dict]:
     for run in runs:
         attached = attached_plans(conn, run) if run in active else None
         if attached is not None:
+            covered: dict[int, set[int]] = {}
+            for g in groups.values():
+                if g["run_id"] in {run, *lineages[run]} and g["covered_item_ids"]:
+                    covered.setdefault(g["plan_id"], set()).update(g["covered_item_ids"])
             owners = classify_owners(
                 snapshots.get(run, {}),
                 {g["plan_id"] for g in groups.values() if g["run_id"] == run},
                 attached,
+                covered,
             )
             attached = {
                 plan: items

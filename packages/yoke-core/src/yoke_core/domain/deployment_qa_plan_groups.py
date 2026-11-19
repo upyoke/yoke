@@ -202,6 +202,11 @@ def lineage_run_ids(conn: Any, run_id: str) -> list[str]:
 
 def covered_members(conn: Any, run_id: str, plan_id: int) -> set[int]:
     """Members a closed group of this plan answered in this run or its predecessors."""
+    return lineage_coverage(conn, run_id).get(int(plan_id), set())
+
+
+def lineage_coverage(conn: Any, run_id: str) -> dict[int, set[int]]:
+    """Each plan's members closed groups answered in this run or its predecessors."""
     from yoke_core.domain.deployment_qa_presentation_reads import presentation_read
 
     def read():
@@ -214,9 +219,7 @@ def covered_members(conn: Any, run_id: str, plan_id: int) -> set[int]:
                 )
         return coverage
 
-    return presentation_read(conn, ("closed_group_coverage", str(run_id)), read).get(
-        plan_id, set()
-    )
+    return presentation_read(conn, ("closed_group_coverage", str(run_id)), read)
 
 
 def owing_members(conn: Any, run_id: str, plan_id: int) -> list[int]:
@@ -325,6 +328,7 @@ __all__ = [
     "covered_members",
     "group_for_target",
     "group_marker",
+    "lineage_coverage",
     "lineage_run_ids",
     "open_group",
     "presented_stage_groups",
