@@ -35,12 +35,18 @@ validate_golden() {
   [[ "$golden" == /* ]] || return 1
   case "$golden" in *'~'*|*'$'*|*'/../'*|*'/..') return 1 ;; esac
   [[ -d "$golden" && ! -L "$golden" ]] || return 1
-  local physical_golden
+  local physical_golden suffix
   physical_golden=$(builtin cd -q -- "$golden" 2>/dev/null && /bin/pwd -P)
   [[ "$physical_golden" == "$golden" ]] || return 1
   # A baseline stored inside the home is destroyed by the clear it drives.
   [[ "$golden" != "$home" && "$golden" != "$home"/* ]] || return 1
   [[ -f "$golden$manifest_suffix" && ! -L "$golden$manifest_suffix" ]] || return 1
+  for suffix in "${yoke_absent_directories[@]}" "${yoke_absent_files[@]}"; do
+    if lexists "$golden/$suffix"; then
+      failure_detail="$reset_absent_prefix$reset_absent_kind_golden_residue $golden/$suffix"
+      return 1
+    fi
+  done
   golden_entry_count=$(
     /usr/bin/find "$golden" -mindepth 1 -maxdepth 1 -print | /usr/bin/wc -l
   )

@@ -26,6 +26,7 @@ from yoke_contracts.ssh_mac_full_reset_contract import (
     RELAY_UNLOAD_TIMEOUT_SECONDS,
     RESET_ABSENT_KIND_LEFTOVER,
     RESET_ABSENT_KIND_LIVE_PROCESS,
+    RESET_ABSENT_KIND_GOLDEN_RESIDUE,
     RESET_ABSENT_PATH_PREFIX,
     RESET_FAILURE_PREFIX,
     RESET_PHASES,
@@ -308,6 +309,8 @@ def render_full_reset_script(contract: FullResetPathContract) -> str:
             "reset_absent_kind_leftover=" + shlex.quote(RESET_ABSENT_KIND_LEFTOVER),
             "reset_absent_kind_live_process="
             + shlex.quote(RESET_ABSENT_KIND_LIVE_PROCESS),
+            "reset_absent_kind_golden_residue="
+            + shlex.quote(RESET_ABSENT_KIND_GOLDEN_RESIDUE),
             REAP_FUNCTIONS.lstrip(),
             RELAY_SERVICE_FUNCTIONS.lstrip(),
             SELF_HOST_FUNCTIONS.lstrip(),

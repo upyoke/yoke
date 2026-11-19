@@ -135,7 +135,7 @@ def relay_service_detail(detail: str) -> dict[str, str] | None:
 
 
 def absent_path_detail(detail: str) -> dict[str, str] | None:
-    """Parse the declared-absent temp path a clear or verify still found."""
+    """Parse a path that was required to be absent during reset."""
     body = detail.removeprefix(RESET_ABSENT_PATH_PREFIX)
     kind, separator, path = body.partition(" ")
     selected = PurePosixPath(path)

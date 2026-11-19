@@ -63,7 +63,12 @@ the host. Extra probes name absolute argv and optional
 ## 9. Save a clean home
 
 Keep signed-in vendor state but remove Yoke/uv state through the registered
-baseline preparation path. Harness logins themselves are never captured: the
+baseline preparation path. Remove the installed `yoke-global` skill and its
+Claude discovery link from the dedicated fixture before capture. Other skills
+stay in place. If reset reports Yoke residue inside the golden, prepare and
+register a clean replacement before running another reset.
+
+Harness logins themselves are never captured: the
 login Keychain (`Library/Keychains`, holding Claude's and Cursor's CLI logins),
 `.claude/.credentials.json`, `.codex/auth.json`, the native Claude profile
 `Library/Application Support/Claude`, and `.yoke-browser-identities` stay live

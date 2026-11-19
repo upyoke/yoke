@@ -26,6 +26,8 @@ from runtime.api.domain.ssh_mac_full_reset_test_support import (
 from yoke_cli.config import path_doctor
 from yoke_contracts.ssh_mac_full_reset_contract import (
     GOLDEN_MANIFEST_SUFFIX,
+    RESET_ABSENT_KIND_GOLDEN_RESIDUE,
+    RESET_ABSENT_PATH_PREFIX,
     RESET_FAILURE_PREFIX,
     RESET_PHASES,
     RESET_RESTORE_UNRESTORED_PREFIX,
@@ -166,6 +168,30 @@ def test_validate_golden_refuses_a_baseline_the_clear_would_destroy(
     )
 
     assert "GOLDEN_REFUSED" in result.stdout, result.stdout + result.stderr
+
+
+@pytest.mark.macos_only(reason="executes the generated macOS reset program")
+def test_validate_golden_refuses_a_dangling_global_skill_before_clear(tmp_path):
+    golden, home = _baseline_pair(tmp_path.resolve())
+    skill = golden / ".claude/skills/yoke-global"
+    skill.parent.mkdir(parents=True)
+    skill.symlink_to(home / ".agents/skills/yoke-global")
+    sentinel = _write(home / "live-only.txt", "protect the live home")
+
+    result = _run_functions(
+        (
+            _function_program(),
+            _assignment("home", str(home)),
+            _assignment("golden", str(golden)),
+            "validate_golden || print -r -- \"$failure_detail\"",
+        ),
+        shell_home=tmp_path / "shell-home",
+    )
+
+    assert result.stdout.strip() == (
+        f"{RESET_ABSENT_PATH_PREFIX}{RESET_ABSENT_KIND_GOLDEN_RESIDUE} {skill}"
+    )
+    assert sentinel.read_text() == "protect the live home"
 
 
 @pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")
