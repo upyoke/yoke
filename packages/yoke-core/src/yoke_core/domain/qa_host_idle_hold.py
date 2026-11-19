@@ -19,8 +19,9 @@ released, so each of those hosts serves its line. Each release reserves the host
 for its line's oldest waiter and wakes that session.
 
 Claim heartbeats never measure idleness here: watcher pulses refresh them while
-a parked session does nothing on the host. Unconsumed reservations and
-hold-overs have their own rules (``qa_host_set_turns``, ``qa_host_holdover``).
+a parked session does nothing on the host. An away set-waiter's own unconsumed
+reservations go to the next waiter instead (``qa_host_idle_waiters``);
+hold-overs keep their own expiry (``qa_host_holdover``).
 """
 
 from __future__ import annotations

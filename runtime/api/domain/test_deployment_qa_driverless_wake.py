@@ -165,6 +165,9 @@ def test_upkeep_runs_the_wake_and_survives_its_failure(monkeypatch, caplog) -> N
     monkeypatch.setattr(control_plane_upkeep, "run_scheduled_prune", lambda c: None)
     monkeypatch.setattr(control_plane_upkeep, "expire_holdovers", lambda c: None)
     monkeypatch.setattr(control_plane_upkeep, "release_idle_host_holds", lambda c: None)
+    monkeypatch.setattr(
+        control_plane_upkeep, "hand_off_idle_waiter_reservations", lambda c: None
+    )
 
     control_plane_upkeep.run_control_plane_upkeep()
 
