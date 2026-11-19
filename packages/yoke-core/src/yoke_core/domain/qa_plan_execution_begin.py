@@ -219,8 +219,8 @@ def begin_plan_execution(
             "awaiting_walk_review",
         }:
             if same_owner(existing, actor_id=actor_id, session_id=session_id):
-                from yoke_core.domain.qa_environment_served_build import observe_execution
-                observe_execution(conn, existing)
+                from yoke_core.domain.qa_environment_served_build import observe_resume
+                observe_resume(conn, existing)
                 if not retire_unstarted_changed_roster(
                     conn, existing, digest=prepared.digest
                 ):
