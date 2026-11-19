@@ -181,8 +181,8 @@ for SSH before opening the desktop. It holds custody until sign-in and viewer
 cleanup finish, then releases only the lease it acquired. Cloud machines stay
 running after release. Another session's lease refuses authorization. Before opening
 a viewer it checks the login-shell PATH for Yoke; `test_machine_yoke_missing`
-names the `shell-preconfigured` baseline reset needed to install it. A Linux or Windows
-WSL machine with a registered RDP desktop opens in the same FreeRDP viewer as
+names the `shell-preconfigured` baseline reset needed to install it. A Linux, native
+Windows or Windows WSL machine with a registered RDP desktop opens in the same FreeRDP viewer as
 `yoke test-machine desktop-access --view` (fixture password on stdin, SSH
 forward closed with the viewer). A window titled `Yoke desktop: NAME` appears.
 Sign in with the identity's declared account. Close the browser window when

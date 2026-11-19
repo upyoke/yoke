@@ -112,7 +112,7 @@ def _patch_begin(monkeypatch, route, failure=None):
     monkeypatch.setattr("yoke_harness.desktop_access.begin_desktop_view", begin)
 
 
-@pytest.mark.parametrize("os_name", ["linux", "wsl"])
+@pytest.mark.parametrize("os_name", ["linux", "wsl", "windows"])
 def test_rdp_route_opens_viewer_for_declared_account_then_closes_it(
     route, monkeypatch, capsys, os_name
 ):
@@ -127,9 +127,12 @@ def test_rdp_route_opens_viewer_for_declared_account_then_closes_it(
     assert "signed in" in out
 
 
+@pytest.mark.parametrize("os_name", ["linux", "wsl", "windows"])
 def test_missing_client_prints_view_command_and_still_authorizes(
-    route, monkeypatch, capsys
+    route, monkeypatch, capsys, os_name
 ):
+    route["settings"]["os"] = os_name
+
     def begin(**kwargs):
         raise DesktopAccessError("desktop_rdp_client_missing: " + CLIENT_RECOVERY)
 

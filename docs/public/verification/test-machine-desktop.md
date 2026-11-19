@@ -89,6 +89,14 @@ that display's geometry and supplies the fixture password through stdin. It does
 password file or put the password in the client arguments. Personal sign-in is
 performed by the operator in the visible desktop.
 
+A native Windows Test Machine (`os=windows`) is viewed on its own RDP listener
+as the registered `desktop_user`; a `DOMAIN\user` name is passed as FreeRDP's
+domain and user. There is no SSH command, XFCE display or geometry probe: the
+remote desktop follows the window size (`/dynamic-resolution`) and the receipt
+reports `desktop_session: native` without a `display`. Signing in as the
+autologon user disconnects the console; when the viewer closes, the host's
+`YokeQa-ReturnToConsole` task returns the session to the console.
+
 A macOS Test Machine's VNC route opens in macOS Screen Sharing instead, from a
 Mac workstation. `--view` opens `vnc://USER@HOST:PORT` with the user name only,
 copies the fixture password to the clipboard through `pbcopy` stdin, and prints
@@ -111,7 +119,8 @@ for `HOST:PORT` in `test-machine/rdp_certificates` under the Yoke home, prints
 certificate. A different one refuses `desktop_certificate_changed` with both
 fingerprints; if the host's certificate was deliberately regenerated, delete
 that line and retry, otherwise do not connect. Without `--view`, the direct
-route prints the pinned `certificate_sha256` for comparison in your own client.
+route prints the pinned `certificate_sha256` for comparison in your own client;
+with `--view` the receipt names it too.
 
 Linux and Windows WSL start XFCE and run desktop commands with
 `GDK_BACKEND=x11`, keeping GTK on the captured Xorg display even when WSLg
@@ -155,7 +164,7 @@ fresh request's exact approval tab. An older restored tab is never approval proo
 To sign a browser identity in, run `yoke browser authorize --project P
 --identity NAME --test-machine MACHINE` from the connected workstation. It reads
 the project's declarations, opens this FreeRDP viewer when the machine has a
-Linux or Windows WSL RDP route, and opens the authorization window on that
+Linux, native Windows or Windows WSL RDP route, and opens the authorization window on that
 desktop. Close the browser window when done; the viewer closes when
 verification finishes. A macOS machine with a VNC route opens in Screen Sharing
 the same way as `--view`; quit it after verification finishes. If no viewer

@@ -252,7 +252,7 @@ The probe checks Explorer and an unlocked display in the interactive console.
 Follow the [Tailscale and bootstrap RDP guide](windows-native-harnesses.md#first-tailscale-login-and-bootstrap-desktop).
 Register RDP on port 3389 for `yokeqa` using `direct` and MagicDNS after tailnet
 proof, or `ssh-forward` and `127.0.0.1` during bootstrap. Use
-`yoke test-machine desktop-access` to reconnect and unlock.
+`yoke test-machine desktop-access --view` to reconnect and unlock.
 
 Disconnect without signing out. The administrator-owned `YokeQa-ReturnToConsole`
 task returns this account to the console. If it fails, check Task Scheduler's

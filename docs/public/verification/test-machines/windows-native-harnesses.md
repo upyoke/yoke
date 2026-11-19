@@ -184,6 +184,9 @@ The generated password is in the private file reported by `desktop-access`;
 for this lab its custody is
 `~/.yoke/secrets/capability-secrets/yoke/test-machine_windows-native-lab/desktop_password`.
 The operator enters it only in Windows App, never chat, argv or screenshots.
+Windows App stays the Computer Use path; a person who only needs to look can
+instead run `yoke test-machine desktop-access --test-machine VM --view`, which
+opens FreeRDP over the same route with the password on stdin.
 
 Inside Windows choose **Start > Tailscale > Get Started**, then sign in with the
 existing tailnet account and approve the expected lab device. Accept terms

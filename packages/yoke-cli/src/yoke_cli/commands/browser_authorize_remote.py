@@ -67,6 +67,7 @@ def _desktop_command(project, test_machine, settings) -> str:
     viewable = (settings.get("os"), route.get("desktop_protocol")) in {
         ("linux", "rdp"),
         ("wsl", "rdp"),
+        ("windows", "rdp"),
         # Screen Sharing opens only on a Mac workstation.
         *((("macos", "vnc"),) if sys.platform == "darwin" else ()),
     }
