@@ -13,7 +13,6 @@ from runtime.api.domain.qa_requirement_target_rebind_test_support import _hosted
 from yoke_contracts.timestamps import utc_now
 from yoke_core.domain import served_revision_probe as probe
 from yoke_core.domain.machine_qa_operation_lease import finish_operation_execution
-from yoke_core.domain.qa_execution_environment_target import QaExecutionTargetError
 from yoke_core.domain.qa_plan_execution_lifecycle import heartbeat_plan_execution
 from yoke_core.domain.qa_plan_management import create_plan, replace_plan_cases
 from yoke_core.domain.qa_run_verdict_record import insert_qa_run
