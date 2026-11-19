@@ -54,9 +54,9 @@ def heartbeat_plan_execution(
         execution["state"] == "waiting" and abort_request(execution)
     ):
         raise QaPlanExecutionStateError("QA plan execution cannot heartbeat")
-    from yoke_core.domain.qa_environment_served_build import observe_execution
+    from yoke_core.domain.qa_environment_served_build import require_execution_access
 
-    observe_execution(conn, execution)
+    require_execution_access(conn, execution)
     from yoke_core.domain.qa_plan_execution_reentry import (
         require_execution_custody,
         heartbeat_checkpoint,

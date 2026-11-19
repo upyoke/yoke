@@ -139,3 +139,11 @@ def test_result_uses_the_executions_frozen_target(test_db, monkeypatch):
     written = insert_qa_run(test_db, qa_requirement_id=requirement, qa_kind="command",
                             performed_by="7", created_at=utc_now(), verdict="pass")
     assert test_db.execute("SELECT served_build_sha FROM qa_runs WHERE id=%s", (written.run_id,)).fetchone()[0] == SHA
+
+
+def test_begin_of_a_non_machine_walk_on_a_changed_build_refuses(test_db, monkeypatch):
+    _setup(test_db, monkeypatch)
+    _begin(test_db)
+    monkeypatch.setattr(probe, "fetch_served_revision", lambda _: probe.ServedRevisionRead(status=200, body=OTHER))
+    with pytest.raises(QaExecutionTargetError, match=f"served_build_changed: began on {SHA}; now serves {OTHER}"):
+        _begin(test_db)
