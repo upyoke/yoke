@@ -7,6 +7,11 @@ can never be served again, yet it still counts as an open walk, so control-
 plane upkeep would never wake its owner. It is therefore aborted in the same
 transaction with :data:`HOST_TURN_RELEASED_REASON`, naming the fresh run that
 recovers it; an aborted execution cannot be resumed.
+
+A reservation held for an execution whose owning run has not opened its QA
+stage (a takeover moved it to a successor still before that stage) is not
+cancelled: the wait returns to ``waiting`` at its own place and the
+execution keeps its id and order (``qa_host_stage_unopened``).
 """
 
 from __future__ import annotations
@@ -23,7 +28,12 @@ _LIVE = "('waiting','reserved')"
 
 
 def cancel_released_reservation(conn: Any, claim: Any) -> None:
-    """Cancel *claim*'s unconsumed reservation; abort an execution it orphans."""
+    """Cancel *claim*'s unconsumed reservation; abort an execution it orphans.
+
+    A wait whose execution's stage is not open yet goes back to ``waiting``.
+    """
+    from yoke_core.domain.qa_host_stage_unopened import execution_stage_unopened
+
     p = _p(conn)
     rows = query_rows(
         conn,
@@ -31,14 +41,25 @@ def cancel_released_reservation(conn: Any, claim: Any) -> None:
         f"WHERE claim_id={p} AND state='reserved'",
         (claim.id,),
     )
-    if not rows:
-        return
-    conn.execute(
-        f"UPDATE qa_test_machine_waits SET state='cancelled',settled_at={p} "
-        f"WHERE claim_id={p} AND state='reserved'",
-        (instant_parameter(conn, utc_now()), claim.id),
-    )
-    executions = {str(r["qa_plan_execution_id"]) for r in rows if r["qa_plan_execution_id"]}
+    now = instant_parameter(conn, utc_now())
+    cancelled = []
+    for row in rows:
+        if execution_stage_unopened(conn, row["qa_plan_execution_id"]):
+            conn.execute(
+                "UPDATE qa_test_machine_waits SET state='waiting',claim_id=NULL "
+                f"WHERE id={p}",
+                (str(row["id"]),),
+            )
+            continue
+        conn.execute(
+            f"UPDATE qa_test_machine_waits SET state='cancelled',settled_at={p} "
+            f"WHERE id={p}",
+            (now, str(row["id"])),
+        )
+        cancelled.append(row)
+    executions = {
+        str(r["qa_plan_execution_id"]) for r in cancelled if r["qa_plan_execution_id"]
+    }
     for execution_id in sorted(executions):
         _abort_orphaned(conn, execution_id, test_machine=str(claim.target.test_machine))
 

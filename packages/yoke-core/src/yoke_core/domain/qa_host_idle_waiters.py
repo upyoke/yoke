@@ -60,10 +60,13 @@ def waiter_away(
 
 
 def serving_line(conn: Any, test_machine: str) -> list[dict[str, Any]]:
-    """The host's line as a release serves it: away set-waiters still waiting
-    on another host keep their place but are passed over."""
+    """The host's line as a release serves it. Two kinds of wait keep their
+    place but are passed over: an away set-waiter still waiting on another
+    host, and an execution whose owning run has not opened its QA stage
+    (``qa_host_stage_unopened``)."""
     from yoke_core.domain.qa_host_idle_hold import idle_hold_limit
     from yoke_core.domain.qa_host_set_turns import awaits_other_hosts
+    from yoke_core.domain.qa_host_stage_unopened import execution_stage_unopened
     from yoke_core.domain.qa_host_turns import host_line
 
     line = host_line(conn, test_machine)
@@ -78,6 +81,7 @@ def serving_line(conn: Any, test_machine: str) -> list[dict[str, Any]]:
             waiter_away(wait, sessions.get(str(wait["session_id"])), now=now, limit=limit)
             and awaits_other_hosts(conn, wait)
         )
+        and not execution_stage_unopened(conn, wait["qa_plan_execution_id"])
     ]
 
 
