@@ -63,6 +63,9 @@ class WindowsTransport(SshTestMachineTransport):
     def _ssh_argv(self, script):
         wrapped = (
             "$ErrorActionPreference='Stop'; "
+            # Progress records reach a redirected stderr as CLIXML and bury
+            # the refusal text callers return as recovery.
+            "$ProgressPreference='SilentlyContinue'; "
             "[Console]::OutputEncoding=[Text.UTF8Encoding]::new($false); "
             "try { " + script + " } catch { [Console]::Error.WriteLine($_); exit 1 }"
         )

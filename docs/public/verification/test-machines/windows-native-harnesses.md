@@ -126,10 +126,12 @@ Exit without submitting a task afterward. The probe requires the actual recorded
 boolean `skipDangerousModePermissionPrompt=true` in that session's Claude config;
 do not write the preference directly or weaken the check to seal a golden.
 Golden capture includes `.claude/settings.json`, so reset restores the acceptance.
-Windows packaged-app containers (`AppData/Local/Packages`) and Claude desktop
+Windows packaged-app containers (`AppData/Local/Packages`), the per-user data
+store service's open database (`AppData/Local/Comms`) and Claude desktop
 data (`AppData/Local/Claude-Data`) remain live, like browser identities and locked
 registry hives; their app settings are not restored from the golden. Copy failures
-remain fatal and retain a private robocopy log under `AppData/Local/YokeQa`.
+remain fatal, name robocopy's first failing files in the refusal, and retain a
+private robocopy log under `AppData/Local/YokeQa`.
 Goldens also retain raw User PATH values, registry types and absence. Reset
 validates that metadata before mirroring the profile and verifies it afterward;
 older goldens without it require recapture rather than guessing a registry type.
