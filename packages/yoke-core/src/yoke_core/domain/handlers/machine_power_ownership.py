@@ -109,7 +109,7 @@ class TestMachineLeaseExecutionHeartbeatResponse(BaseModel):
 
 def handle_lease_execution_heartbeat(request: FunctionCallRequest) -> HandlerOutcome:
     """Refresh the caller's walk that holds the machine's lease, if any."""
-    from yoke_core.domain.test_machine_lease_execution_heartbeat import (
+    from yoke_core.domain.host_lease_walk_heartbeat import (
         heartbeat_lease_execution,
     )
 

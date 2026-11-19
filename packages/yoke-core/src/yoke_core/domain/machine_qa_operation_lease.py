@@ -69,7 +69,7 @@ def operation_mission(
         return None
     if not lease.is_active:
         return None
-    from yoke_core.domain.test_machine_lease_execution_heartbeat import (
+    from yoke_core.domain.host_lease_walk_heartbeat import (
         lease_execution_id,
     )
 
