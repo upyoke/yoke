@@ -194,6 +194,10 @@ def claim_holders(
     )
     from yoke_core.domain.next_actor import session_next_actor
     from yoke_core.domain.session_state import session_presence
+    from yoke_core.domain.qa_host_idle_hold import held_qa_hosts
+
+    # A parked holder of a QA host alarms before upkeep's idle hold frees it.
+    qa_hosts = held_qa_hosts(conn, (str(row["session_id"]) for row in rows))
 
     for row in rows:
         last_activity = parse_stamp(
@@ -222,7 +226,9 @@ def claim_holders(
                     None, row["prefix"], row["project_sequence"]
                 ),
                 mode=mode,
-                state_facts=dict(row),
+                state_facts={
+                    **row, "qa_hosts": qa_hosts.get(str(row["session_id"]), [])
+                },
                 next_actor=session_next_actor(row, presence=session_presence(row)),
                 parked=session_is_parked(mode),
                 last_activity_at=last_activity,

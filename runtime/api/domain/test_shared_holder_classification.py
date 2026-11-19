@@ -16,28 +16,40 @@ NOW = datetime(2026, 11, 6, tzinfo=timezone.utc)
 
 
 @pytest.mark.parametrize(
-    "mode,wait,minutes,expected",
+    "mode,wait,minutes,expected,hosts",
     [
-        ("dash", {}, 10, True),
-        ("dash", {}, 30, False),
-        ("parked", {}, 10, False),
+        ("dash", {}, 10, True, []),
+        ("dash", {}, 30, False, []),
+        ("parked", {}, 10, False, []),
+        # A parked or awaiting holder of a QA host alarms before the idle hold.
+        ("parked", {}, 10, True, ["linux-lab"]),
+        ("parked", {}, 30, False, ["linux-lab"]),
+        (
+            "dash",
+            {"pending_decision": {"actor": "operator", "reason": "choose"}},
+            10,
+            True,
+            ["linux-lab"],
+        ),
         (
             "dash",
             {"pending_decision": {"actor": "operator", "reason": "choose"}},
             10,
             False,
+            [],
         ),
         (
             "dash",
             {"dependency_wait": {"actor": "another_item", "reason": "blocked"}},
             10,
             False,
+            [],
         ),
-        ("dash", {"ci_wait": {"actor": "ci_or_deploy", "reason": "checks"}}, 10, False),
+        ("dash", {"ci_wait": {"actor": "ci_or_deploy", "reason": "checks"}}, 10, False, []),
     ],
 )
 def test_report_and_alarm_share_intent_actor_and_idle_setting(
-    mode, wait, minutes, expected
+    mode, wait, minutes, expected, hosts
 ):
     stamp = NOW - timedelta(minutes=21)
     holder = ClaimHolder(
@@ -49,7 +61,7 @@ def test_report_and_alarm_share_intent_actor_and_idle_setting(
         stamp,
         1260,
         quiet_reason="waiting for direction",
-        state_facts=wait,
+        state_facts={**wait, "qa_hosts": hosts},
     )
     [holder] = with_session_state((holder,), now=NOW, idle_after_seconds=60 * minutes)
     model = holder.session_state
@@ -69,6 +81,9 @@ def test_report_and_alarm_share_intent_actor_and_idle_setting(
     lines = idle_holder_alarms(FleetSnapshot(NOW, "seat", sessions=rows), DeltaState())
     assert session_needs_idle_alarm(model) is expected
     assert bool(lines) is expected
+    assert model["custody"]["qa_hosts"] == hosts
+    if hosts and expected:
+        assert "qa_hosts=linux-lab" in lines[0]
     if wait:
         assert model["intent"]["state"] == "awaiting"
         assert model["intent"]["reason"] == next(iter(wait.values()))["reason"]

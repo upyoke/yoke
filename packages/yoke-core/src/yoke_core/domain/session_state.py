@@ -136,6 +136,7 @@ def session_state(
             },
             "custody": {
                 "holds": list(holds),
+                "qa_hosts": list(row.get("qa_hosts") or []),
                 "holds_work_claim": row.get("holds_work_claim"),
                 "reclaimable": reclaim.is_reclaimable if reclaim else None,
                 "reason": reclaim.reason if reclaim else "custody_facts_unavailable",
@@ -147,10 +148,18 @@ def session_state(
 
 
 def session_needs_idle_alarm(state: Mapping[str, Any]) -> bool:
-    """Only undeclared silence with held work that this session must drive."""
+    """Undeclared silence with held work that this session must drive, or
+    any silence while holding a QA host, parked or not.
+
+    A parked holder of a host blocks every walk queued behind it until
+    upkeep's idle hold (``qa_host_idle_hold``) returns the host, so it alarms
+    before that limit. ``qa_hosts`` is absent from older servers' states.
+    """
+    if state["activity"] != "silent" or not state["custody"]["holds"]:
+        return False
+    if state["custody"].get("qa_hosts"):
+        return True
     return (
-        state["activity"] == "silent"
-        and bool(state["custody"]["holds"])
-        and state["intent"]["state"] == "none"
+        state["intent"]["state"] == "none"
         and state["next_actor"]["actor"] == "this_session"
     )

@@ -185,6 +185,9 @@ def idle_holder_alarms(current: FleetSnapshot, state: DeltaState) -> list[str]:
         )
         if dependents:
             line += f" dependents={','.join(dependents)}"
+        hosts = holder_state(row, current.taken_at)["custody"].get("qa_hosts")
+        if hosts:
+            line += f" qa_hosts={','.join(hosts)}"
         lines.extend(
             _raise_repeating(
                 state, key, line, current.taken_at, IDLE_HOLDER_REPEAT_MINUTES
