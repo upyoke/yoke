@@ -61,8 +61,10 @@ def back_up(inventory: Inventory, emit: Callable[[str], None]) -> None:
 
 def _export(env: str, output: Path, prefix: str, stamp: str) -> str:
     staged = _unused(output / f"{prefix}-universe-{stamp}.tar")
+    # The export's progress names the staged path; only the published one is shown.
     stdout = steps.command(
-        ["--env", env, "universe", "export", "--out", str(staged), "--json"]
+        ["--env", env, "universe", "export", "--out", str(staged), "--json"],
+        forward_stderr=False,
     )
     try:
         report = json.loads(stdout)

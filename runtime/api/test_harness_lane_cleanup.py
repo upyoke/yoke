@@ -261,3 +261,31 @@ def test_shared_json_config_symlink_is_preserved(configs):
     row = next(row for row in result["files"] if row["harness"] == "claude-code")
     assert Path(row["backup"]).parent == physical.parent
     assert json.dumps(str(lane))[1:-1] in Path(row["backup"]).read_text(encoding="utf-8")
+
+
+def test_json_edit_records_a_left_lock_sidecar_and_revert_removes_it(
+    tmp_path, monkeypatch
+):
+    from yoke_contracts import harness_settings_ledger, harness_settings_revert
+    from yoke_contracts.harness_lane_config_edit import edit_json
+
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
+    config = tmp_path / ".claude.json"
+    config.write_text(json.dumps({"projects": {"/retired": {}, "/live": {}}}))
+    lock_path = tmp_path.resolve() / "..claude.json.yoke.lock"
+    original_unlink = Path.unlink
+
+    def keep_lock(self, *args, **kwargs):
+        if self.name == lock_path.name:
+            raise PermissionError("simulated unremovable lock")
+        return original_unlink(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", keep_lock)
+    edit_json(config, lambda key: key == "/retired", dry_run=False, keep_backup=False)
+    monkeypatch.setattr(Path, "unlink", original_unlink)
+    assert lock_path.exists()
+    assert harness_settings_ledger.read() == [
+        harness_settings_ledger.created_file_entry(lock_path)
+    ]
+    harness_settings_revert.revert_recorded()
+    assert not lock_path.exists()

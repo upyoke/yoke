@@ -10,8 +10,6 @@ dispatch through until the described server is running. These resolve after
 
 from __future__ import annotations
 
-from yoke_cli.self_host import native_windows
-
 import argparse
 import ipaddress
 import json
@@ -27,9 +25,9 @@ from yoke_cli.commands.self_host_teardown import (
     TOOL_SHAPED_USAGE as _TEARDOWN_USAGE,
 )
 from yoke_cli.commands._helpers import parse_or_usage_error, usage_error
-from yoke_cli.self_host import bundle, env_file
 from yoke_cli.self_host.init_output import print_summary as _print_summary
-from yoke_cli.self_host import prerequisites, upgrade, runtime
+from yoke_cli.self_host import bundle, env_file, native_windows
+from yoke_cli.self_host import prerequisites, runtime, upgrade
 
 AdapterFn = Callable[[List[str]], int]
 
@@ -292,6 +290,8 @@ def self_host_upgrade(args: List[str]) -> int:
     except upgrade.SelfHostUpgradeError as exc:
         _print_upgrade_error(exc)
         return 1
+    for warning in report.get("warnings", ()):
+        print(f"warning: {warning}", file=sys.stderr)
     if parsed.json_mode:
         print(json.dumps(report, indent=2, sort_keys=True))
     else:

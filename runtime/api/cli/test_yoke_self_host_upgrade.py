@@ -155,6 +155,7 @@ def test_plan_is_read_only_and_names_every_step(
         f"replace YOKE_SERVER_IMAGE with {selected_release.image}",
         "run docker compose pull core",
         "restart through the private host secret handoff",
+        f"remove the previous server image {plan.previous_image} once healthy",
     )
     assert (initialized_bundle / ".env").read_bytes() == before
 

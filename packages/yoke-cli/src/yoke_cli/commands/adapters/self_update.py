@@ -41,7 +41,7 @@ def update(args: List[str]) -> int:
             "install nothing; prove the installed CLI's exact build (its full "
             "source commit must match the release manifest; the release's "
             "wheel sha256 values are listed), then report the active server's "
-            "engine and the channel's latest release, with behind: cli|server|none"
+            "engine and the channel's latest release, with behind: cli|server|cli and server|none"
         ),
     )
     parser.add_argument(

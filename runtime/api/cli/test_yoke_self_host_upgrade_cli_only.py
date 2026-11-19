@@ -70,6 +70,7 @@ def test_steps_list_only_the_cli_install_when_the_pin_matches(
             f"replace YOKE_SERVER_IMAGE with {selected_release.image}",
             "run docker compose pull core",
             "restart through the private host secret handoff",
+            f"remove the previous server image {previous} once healthy",
         )
 
 

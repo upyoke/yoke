@@ -62,6 +62,21 @@ def test_reinstall_and_uninstall_preserve_unrelated_bytes_and_symlinks(tmp_path)
 
 
 @POSIX_SHELL
+def test_uninstall_deletes_files_yoke_created_and_keeps_user_files(tmp_path):
+    env = environment(tmp_path)
+    files = list(shell_setup_files(env))
+    user_file, created = files[0], files[1:]
+    user_file.parent.mkdir(parents=True, exist_ok=True)
+    user_file.write_bytes(b"export USER_SETTING=yes\n")
+    assert created and all(not file.exists() for file in created)
+    doctor.update_shell(env=env)
+    assert all(file.is_file() for file in files)
+    remove_shell_path(env=env)
+    assert user_file.read_bytes() == b"export USER_SETTING=yes\n"
+    assert [file for file in created if file.exists()] == []
+
+
+@POSIX_SHELL
 @pytest.mark.parametrize("shell", ("zsh", "bash", "fish"))
 def test_supported_shell_contexts_resolve_without_duplicate_path(tmp_path, shell):
     executable = shutil.which(shell)

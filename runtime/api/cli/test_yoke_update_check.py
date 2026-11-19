@@ -113,6 +113,28 @@ def test_team_server_behind_names_the_server_admin(install):
     report = update_check.run_check()
     assert (report["behind"], report["destination"]) == ("server", "server")
     assert "server admin" in report["next_step"]
+    assert "self-host upgrade" not in report["next_step"]
+
+
+def test_behind_names_both_sides_when_both_are_older():
+    old, new = "0.2.0.202611191355", "0.2.0.202611191529"
+    assert update_check._behind(old, old, new) == "cli and server"
+    assert update_check._behind(old, new, new) == "cli"
+    assert update_check._behind(new, old, new) == "server"
+    assert update_check._behind(new, new, new) == "none"
+
+
+@pytest.mark.parametrize("server", [OLDER, LATEST])
+def test_team_server_with_older_cli_names_the_self_host_pair_upgrade(install, server):
+    install(cli=OLDER, api_url=TEAM_URL, server=server)
+    report = update_check.run_check()
+    both = server == OLDER
+    assert report["behind"] == ("cli and server" if both else "cli")
+    assert report["next_step"] == (
+        "Run `yoke self-host upgrade --channel stable` on the machine that hosts "
+        "the server; it updates this CLI and the server together. Otherwise run "
+        "`yoke update` and ask the server admin to upgrade the team server."
+    )
 
 
 def test_local_universe_reads_its_own_engine(install):
@@ -120,8 +142,11 @@ def test_local_universe_reads_its_own_engine(install):
     report = update_check.run_check()
     assert report["destination"] == "local"
     assert report["server_engine_version"] == OLDER
-    assert report["behind"] == "cli"
-    assert "local server together" in report["next_step"]
+    # The local server is this CLI's own engine, so both sides are behind.
+    assert report["behind"] == "cli and server"
+    assert report["next_step"] == (
+        "Run `yoke update`; it updates this CLI and the local server together."
+    )
 
 
 def test_unreadable_server_version_refuses_with_its_reason(install):

@@ -174,7 +174,7 @@ def mutate(
                 return _mutate_locked(target, planner)
         finally:
             if created_lock and lock_path.exists():
-                _record_lock_sidecar(lock_path)
+                record_lock_sidecar(lock_path)
     except Timeout as exc:
         raise CodexHookTrustStoreError(
             compose_refusal(
@@ -194,7 +194,8 @@ def mutate(
         ) from exc
 
 
-def _record_lock_sidecar(lock_path: Path) -> None:
+def record_lock_sidecar(lock_path: Path) -> None:
+    """Record a lock sidecar Yoke created so ``yoke uninstall`` removes it."""
     # Imported here: the ledger reads machine config this module never needs.
     from yoke_contracts import harness_settings_ledger as ledger
 
