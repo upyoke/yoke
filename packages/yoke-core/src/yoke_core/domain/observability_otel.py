@@ -17,7 +17,12 @@ sink stays ``instrumented_no_exporter`` (spans created and dropped).
 from __future__ import annotations
 
 import os
+import uuid
 from typing import Any, Mapping, Optional
+
+#: This process's metric identity. Uvicorn starts each API worker as a fresh
+#: interpreter, so each one draws its own.
+PROCESS_INSTANCE_ID = uuid.uuid4().hex
 
 
 DEFAULT_SERVICE_NAME = "yoke-api"
@@ -73,6 +78,9 @@ def configure_otel(
         {
             "service.name": service_name(source),
             "deployment.environment": environment_name(source),
+            # One series per server process: API workers export the same
+            # service, and identical identities collide in cumulative metrics.
+            "service.instance.id": PROCESS_INSTANCE_ID,
         }
     )
     try:

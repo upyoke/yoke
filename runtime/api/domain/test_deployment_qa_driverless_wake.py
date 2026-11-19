@@ -7,6 +7,8 @@ it", and nothing sent it until someone re-drove the run.
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 from runtime.api.fixtures.actor_roles import seed_project_role
 from runtime.api.fixtures.deployment_run_driver_fixture import release_seeded_driver
 from runtime.api.fixtures.deployment_scoped_qa_run_fixture import (
@@ -137,6 +139,13 @@ def test_upkeep_runs_the_wake_and_survives_its_failure(monkeypatch, caplog) -> N
     ran: list[str] = []
 
     class _Conn:
+        def execute(self, *_args):
+            # The upkeep lock is free: try-lock answers true.
+            return SimpleNamespace(fetchone=lambda: (True,))
+
+        def commit(self):
+            pass
+
         def rollback(self):
             ran.append("rollback")
 

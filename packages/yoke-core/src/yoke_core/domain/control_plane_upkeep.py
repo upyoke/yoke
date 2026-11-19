@@ -30,6 +30,7 @@ each member's wake state.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from datetime import datetime
 from typing import Any
@@ -82,6 +83,40 @@ def observe_pending_github_work(
     return result
 
 
+#: Every API worker process runs the upkeep thread; one pass at a time
+#: does the work. Each step is safe to repeat, so this only stops a second
+#: worker from repeating the same queries and GitHub reads in the same tick.
+UPKEEP_LOCK_KEY = int.from_bytes(
+    hashlib.sha256(b"control-plane-upkeep").digest()[:8], "big", signed=True
+)
+
+
+def _sole_runner(conn: Any) -> bool:
+    """Take the upkeep lock for this connection's session, or report it busy.
+
+    :func:`_release` ends it when the pass ends, so the lock never depends
+    on how the connection layer recycles the session.
+    """
+    from yoke_core.domain import db_backend
+
+    if not db_backend.connection_is_postgres(conn):
+        return True
+    row = conn.execute(
+        "SELECT pg_try_advisory_lock(%s)", (UPKEEP_LOCK_KEY,)
+    ).fetchone()
+    conn.commit()
+    return bool(row and row[0])
+
+
+def _release(conn: Any) -> None:
+    # A failed step already rolled back, so the session can run the unlock.
+    try:
+        conn.execute("SELECT pg_advisory_unlock(%s)", (UPKEEP_LOCK_KEY,))
+        conn.commit()
+    except Exception:  # noqa: BLE001 - a closed session releases it too
+        _LOG.warning("control-plane upkeep lock release failed", exc_info=True)
+
+
 def run_control_plane_upkeep() -> None:
     """Run each upkeep step once on a fresh connection; never raises.
 
@@ -95,7 +130,11 @@ def run_control_plane_upkeep() -> None:
     except Exception:  # noqa: BLE001 - the next run connects again
         _LOG.warning("control-plane upkeep could not connect", exc_info=True)
         return
+    locked = False
     try:
+        if not _sole_runner(conn):
+            return
+        locked = True
         for name, step in (
             ("pending GitHub observation", observe_pending_github_work),
             ("QA settlement follow-up replay", replay_settlement_followups),
@@ -112,7 +151,13 @@ def run_control_plane_upkeep() -> None:
                 except Exception:  # noqa: BLE001 - the warning above is the report
                     pass
     finally:
+        if locked:
+            _release(conn)
         conn.close()
 
 
-__all__ = ["observe_pending_github_work", "run_control_plane_upkeep"]
+__all__ = [
+    "UPKEEP_LOCK_KEY",
+    "observe_pending_github_work",
+    "run_control_plane_upkeep",
+]
