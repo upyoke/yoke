@@ -13,10 +13,14 @@ from runtime.api.domain.ssh_mac_full_reset_test_support import (
     require_zsh as _require_zsh,
 )
 from yoke_contracts.ssh_mac_full_reset_contract import (
-    COMPOSE_PROJECT_LABEL,
     RESET_PHASES,
-    SELF_HOST_COMPOSE_PROJECT,
     YOKE_ABSENT_RELATIVE_DIRECTORIES,
+)
+from yoke_contracts.ssh_mac_full_reset_self_host_contract import (
+    COMPOSE_PROJECT_LABEL,
+    SELF_HOST_COMPOSE_PROJECT,
+    RESET_SELF_HOST_KIND_DOCKER_UNREACHABLE,
+    RESET_SELF_HOST_STATE_PREFIX,
 )
 from yoke_harness.ssh_mac_full_reset_receipt import unrestored_detail
 from yoke_harness.ssh_mac_full_reset_script import FULL_RESET_SCRIPT
@@ -28,6 +32,10 @@ FAKE_RUNTIME = """#!/bin/zsh
 state="$FAKE_RUNTIME_STATE"
 print -r -- "$@" >> "$state/argv.log"
 subject="${@[-1]}"
+if [[ -n "${FAKE_RUNTIME_DOWN:-}" ]]; then
+  print -u2 -r -- "Cannot connect to the Docker daemon. Is the docker daemon running?"
+  exit 1
+fi
 case "$1 $2" in
   "ps -aq") /bin/cat "$state/containers" 2>/dev/null || true ;;
   "volume ls") /bin/cat "$state/volumes" 2>/dev/null || true ;;
@@ -66,6 +74,7 @@ def _run(
     *,
     state: Path | None = None,
     keeps_containers: bool = False,
+    daemon_down: bool = False,
 ) -> subprocess.CompletedProcess:
     binary = _require_zsh()
     env = {"PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "HOME": str(state or Path("/tmp"))}
@@ -73,6 +82,8 @@ def _run(
         env["FAKE_RUNTIME_STATE"] = str(state)
     if keeps_containers:
         env["FAKE_RUNTIME_KEEPS_CONTAINERS"] = "1"
+    if daemon_down:
+        env["FAKE_RUNTIME_DOWN"] = "1"
     return subprocess.run(
         [binary, "-f"],
         input="\n".join(lines),
@@ -83,19 +94,31 @@ def _run(
     )
 
 
-def _teardown_lines(
-    client: Path, *, anchor: str = "no-such-application"
-) -> tuple[str, ...]:
+def _self_host_lines(client: Path, *, anchor: str) -> tuple[str, ...]:
     return (
         _function_program(),
+        f"self_host_state_prefix={shlex.quote(RESET_SELF_HOST_STATE_PREFIX)}",
+        "self_host_kind_docker_unreachable="
+        + shlex.quote(RESET_SELF_HOST_KIND_DOCKER_UNREACHABLE),
         f"container_runtime_paths=({shlex.quote(str(client))})",
         f"compose_project_label={shlex.quote(COMPOSE_PROJECT_LABEL)}",
         f"self_host_compose_project={shlex.quote(SELF_HOST_COMPOSE_PROJECT)}",
         f"container_runtime_anchor={shlex.quote(anchor)}",
         "container_runtime_stop_timeout=1",
+        'failure_detail=""',
+    )
+
+
+def _teardown_lines(
+    client: Path, *, anchor: str = "no-such-application"
+) -> tuple[str, ...]:
+    return (
+        *_self_host_lines(client, anchor=anchor),
         "stop_self_host_stack || print -r -- TEARDOWN_FAILED",
         'print -r -- "REMOVED $self_host_containers_removed '
         '$self_host_volumes_removed $self_host_images_removed"',
+        'print -r -- "REACHABLE $self_host_stack_reachable"',
+        'print -r -- "DETAIL $failure_detail"',
     )
 
 
@@ -150,6 +173,60 @@ def test_teardown_is_a_clean_pass_on_a_host_with_no_container_runtime(
     # rather than a skip: the end state the phase exists to reach is already met.
     assert "TEARDOWN_FAILED" not in result.stdout, result.stdout + result.stderr
     assert "REMOVED 0 0 0" in result.stdout
+    assert "REACHABLE 0" in result.stdout
+
+
+@pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")
+def test_teardown_refuses_naming_the_client_when_its_daemon_cannot_list(
+    tmp_path: Path,
+) -> None:
+    client, state = _fake_runtime(tmp_path, containers=("core",))
+
+    result = _run(_teardown_lines(client), state=state, daemon_down=True)
+
+    # An unlistable daemon returns the same empty lists as an empty one, so a
+    # pass here would report a clean host the reset never saw.
+    assert "TEARDOWN_FAILED" in result.stdout, result.stdout + result.stderr
+    assert "REACHABLE 0" in result.stdout
+    assert (
+        f"DETAIL {RESET_SELF_HOST_STATE_PREFIX}"
+        f"{RESET_SELF_HOST_KIND_DOCKER_UNREACHABLE} {client}"
+    ) in result.stdout
+    assert "Cannot connect to the Docker daemon" in result.stderr
+    assert not (state / "removed-containers").exists()
+
+
+@pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")
+def test_teardown_reports_a_reachable_empty_daemon(tmp_path: Path) -> None:
+    client, state = _fake_runtime(tmp_path, containers=())
+
+    result = _run(_teardown_lines(client), state=state)
+
+    assert "TEARDOWN_FAILED" not in result.stdout, result.stdout + result.stderr
+    assert "REMOVED 0 0 0" in result.stdout
+    assert "REACHABLE 1" in result.stdout
+
+
+@pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")
+@pytest.mark.parametrize(("stopped", "passes"), [("0", False), ("1", True)])
+def test_verify_excuses_only_a_daemon_this_reset_quit(
+    tmp_path: Path, stopped: str, passes: bool
+) -> None:
+    client, state = _fake_runtime(tmp_path, containers=())
+    lines = (
+        *_self_host_lines(client, anchor="no-such-application"),
+        f"self_host_runtime_stopped={stopped}",
+        "self_host_stack_is_absent || print -r -- VERIFY_FAILED",
+        'print -r -- "DETAIL $failure_detail"',
+    )
+
+    result = _run(lines, state=state, daemon_down=True)
+
+    # The stop phase lists the stack empty before it quits the application, so
+    # only that quit explains a silent daemon at verify; anything else refuses.
+    assert ("VERIFY_FAILED" not in result.stdout) is passes, result.stdout
+    if not passes:
+        assert RESET_SELF_HOST_KIND_DOCKER_UNREACHABLE in result.stdout
 
 
 @pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")

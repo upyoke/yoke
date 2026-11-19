@@ -258,6 +258,8 @@ relay_unloaded_count=0
 self_host_containers_removed=0
 self_host_volumes_removed=0
 self_host_images_removed=0
+self_host_stack_reachable=0
+self_host_runtime_stopped=0
 failure_detail=""
 failure_excerpts=""
 trap finish EXIT
@@ -286,6 +288,7 @@ print -r -- "$relay_unloaded_prefix$relay_unloaded_count"
 print -r -- "$self_host_containers_prefix$self_host_containers_removed"
 print -r -- "$self_host_volumes_prefix$self_host_volumes_removed"
 print -r -- "$self_host_images_prefix$self_host_images_removed"
+print -r -- "$self_host_reachable_prefix$self_host_stack_reachable"
 print -r -- "$reset_process_reaped_prefix$reap_target_count"
 print -r -- "$full_reset_marker"
 reset_step="$reset_phase_complete"

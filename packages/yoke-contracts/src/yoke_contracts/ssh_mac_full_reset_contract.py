@@ -27,7 +27,6 @@ from yoke_contracts.machine_config.relay_instance import (
     RELAY_LABEL_PREFIX,
     RELAY_BASE_LABEL,
 )
-from yoke_contracts.self_host_paths import default_bundle_dir
 
 
 FULL_RESET_MARKER = "YOKE_MAC_WIPE_OK"
@@ -109,28 +108,6 @@ RESET_REAP_MARKER_SUFFIX = ".exit"
 RESET_REAP_ONBOARD_ANCHOR = "setup --post-install"
 RESET_PROCESS_REAPED_PREFIX = "YOKE_RESET_PROCESS_TABLE_REAPED_"
 RESET_RESTORED_ENTRIES_PREFIX = "YOKE_RESET_RESTORED_ENTRIES_"
-
-# Container runtime the self-host bundle drives. The reset resolves the client
-# from these absolute locations rather than from a login PATH, because the
-# program runs with a deliberately clean PATH and a runtime it cannot see is a
-# runtime whose containers it would silently leave running.
-CONTAINER_RUNTIME_PATHS = (
-    "/usr/local/bin/docker",
-    "/opt/homebrew/bin/docker",
-)
-# The desktop application owning the runtime's data. It is stopped before the
-# clear because a live backend keeps writing into the very home directory the
-# restore is replacing, which turns a clean restore into a race.
-CONTAINER_RUNTIME_PROCESS_ANCHOR = "/Applications/Docker.app"
-CONTAINER_RUNTIME_STOP_TIMEOUT_SECONDS = 30
-# Compose labels every object it creates with the project name it derives from
-# the bundle directory. Selecting by that label removes the server's own
-# containers and volumes while leaving a user's identically imaged ones alone.
-COMPOSE_PROJECT_LABEL = "com.docker.compose.project"
-SELF_HOST_COMPOSE_PROJECT = default_bundle_dir().name
-RESET_SELF_HOST_CONTAINERS_PREFIX = "YOKE_RESET_SELF_HOST_CONTAINERS_REMOVED_"
-RESET_SELF_HOST_VOLUMES_PREFIX = "YOKE_RESET_SELF_HOST_VOLUMES_REMOVED_"
-RESET_SELF_HOST_IMAGES_PREFIX = "YOKE_RESET_SELF_HOST_IMAGES_REMOVED_"
 
 # launchd holds a loaded job in its own registry, which no home restore can
 # reach: booting the machine relay out is the only way to stop it. A relay left

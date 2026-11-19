@@ -31,6 +31,8 @@ from yoke_contracts.ssh_mac_full_reset_contract import (
     RESET_ABSENT_RECOVERY,
     RESET_RESTORE_ERROR_PREFIX,
     RESET_RESTORE_UNRESTORED_PREFIX,
+)
+from yoke_contracts.ssh_mac_full_reset_self_host_contract import (
     SELF_HOST_COMPOSE_PROJECT,
 )
 from yoke_contracts.ssh_mac_preserved_state import PRESERVED_HOME_ENTRIES
@@ -286,7 +288,7 @@ def test_reset_reports_what_the_self_host_teardown_freed() -> None:
         "containers_removed": 2,
         "volumes_removed": 1,
         "images_removed": 2,
-        "stack_reachable": False,
+        "stack_reachable": True,
     }
 
 
