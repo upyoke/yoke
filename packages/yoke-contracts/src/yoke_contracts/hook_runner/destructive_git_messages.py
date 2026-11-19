@@ -48,6 +48,10 @@ SHAPES = {
         "rm -rf .worktrees/<path>",
         "Use `git worktree remove <path>` after verifying clean status, ignored files, and active claims.",
     ),
+    "rm_rf_in_lane": (
+        "rm -rf <path inside a lane>",
+        "Commit, move or stash the listed files first; ignored files under the path do not block.",
+    ),
     "stash_drop": (
         "git stash drop",
         "Preserve the patch with `git stash show -p <stash>` "

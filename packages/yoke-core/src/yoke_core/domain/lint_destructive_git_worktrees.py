@@ -49,33 +49,59 @@ def resolve_rm_targets(raw_targets: Iterable[str], cwd: str) -> list[str]:
     return candidates
 
 
-def rm_worktree_targets(resolved_targets: Iterable[str]) -> list[str]:
-    """Narrow already-resolved ``rm`` targets to ones that are themselves a
-    worktree path (or the shared ``.worktrees`` directory holding several).
+def _lane_root_of(path: str) -> tuple[str, bool] | None:
+    """Return ``(lane_root, is_lane_or_above)`` for a path under ``.worktrees``.
 
-    Scoped to literal ``.worktrees`` mentions because this feeds
-    :func:`worktree_status_threats`, which asks "is THIS path itself a dirty
-    worktree" — a question that only makes sense against the worktree's own
-    root, not an arbitrary ancestor. The distinct question — does a target
-    hold ANOTHER lane nested inside it, wherever that target lives — is
-    location-blind and is checked separately against every resolved target
-    via ``claimed_worktree_threats``, which already compares containment in
-    both directions.
+    The innermost ``.worktrees`` segment decides: the directory itself or a
+    direct child of it (a lane root) is ``(path, True)``; anything deeper is
+    ``(<.worktrees>/<lane>, False)``, a path inside that lane. Paths naming
+    no ``.worktrees`` segment return ``None``.
     """
-    out: list[str] = []
+    parts = Path(path).parts
+    if ".worktrees" not in parts:
+        return None
+    idx = len(parts) - 1 - parts[::-1].index(".worktrees")
+    if len(parts) - idx <= 2:
+        return path, True
+    return str(Path(*parts[: idx + 2])), False
+
+
+def rm_worktree_targets(
+    resolved_targets: Iterable[str],
+) -> tuple[list[str], list[tuple[str, str]]]:
+    """Split already-resolved ``rm`` targets into lane roots and in-lane paths.
+
+    Returns ``(lane_roots, in_lane)``. ``lane_roots`` holds every target that
+    is itself a lane root (``.worktrees/<lane>``); a target that is the shared
+    ``.worktrees`` directory expands to each lane in it. ``in_lane`` holds
+    ``(lane_root, target)`` for targets strictly inside a lane, which
+    :func:`in_lane_status_threats` scopes to the target alone.
+
+    Scoped to literal ``.worktrees`` mentions because both feed git-status
+    questions against a lane's own root. The distinct question — does a
+    target hold ANOTHER lane nested inside it, wherever that target lives —
+    is location-blind and is checked separately against every resolved
+    target via ``claimed_worktree_threats``.
+    """
+    lane_roots: list[str] = []
+    in_lane: list[tuple[str, str]] = []
     for path in resolved_targets:
-        if not _path_mentions_worktrees(path):
+        located = _lane_root_of(path)
+        if located is None:
             continue
-        if os.path.basename(path) == ".worktrees" and os.path.isdir(path):
+        lane_root, is_lane_or_above = located
+        if not is_lane_or_above:
+            in_lane.append((lane_root, path))
+        elif os.path.basename(path) == ".worktrees" and os.path.isdir(path):
             try:
                 for entry in os.scandir(path):
                     if entry.is_dir():
-                        out.append(entry.path)
+                        lane_roots.append(entry.path)
             except OSError:
-                out.append(path)
+                lane_roots.append(path)
         else:
-            out.append(path)
-    return out
+            lane_roots.append(path)
+    return lane_roots, in_lane
 
 
 def worktree_status_threats(worktree: str, git_runner: Any) -> list[str]:
@@ -97,6 +123,32 @@ def worktree_status_threats(worktree: str, git_runner: Any) -> list[str]:
             threats.extend(_ignored_status_threats(worktree, rel))
         else:
             threats.append(f"{worktree}/{rel}")
+    return threats
+
+
+def in_lane_status_threats(lane_root: str, target: str, git_runner: Any) -> list[str]:
+    """Uncommitted work under *target*, a path strictly inside *lane_root*.
+
+    Tracked edits and untracked unignored files are threats, each named
+    ``<lane_root>/<rel>``. Ignored files (caches, build output) are not:
+    deleting them inside a lane loses nothing git would keep.
+    """
+    r = git_runner(
+        lane_root,
+        "status",
+        "--porcelain",
+        "--untracked-files=all",
+        "--",
+        target,
+    )
+    if not r or r.returncode != 0:
+        return []
+    threats: list[str] = []
+    for line in r.stdout.splitlines():
+        if len(line) < 4:
+            continue
+        rel = line[3:].split(" -> ")[-1]
+        threats.append(f"{lane_root}/{rel}")
     return threats
 
 
@@ -147,9 +199,9 @@ def claimed_worktree_threats(targets: Iterable[str]) -> list[str]:
             session_id = row["session_id"] if hasattr(row, "keys") else row[0]
             for claim in claimed_worktrees(conn, session_id=str(session_id)):
                 for target in targets:
-                    if _path_inside(claim.worktree_path, target) or _path_inside(
-                        target, claim.worktree_path
-                    ):
+                    # A target inside a lane deletes part of it, not the
+                    # lane; only the lane itself or an ancestor counts.
+                    if _path_inside(claim.worktree_path, target):
                         label = (
                             f"{claim.worktree_path} active claim "
                             f"session={session_id} item={claim.item_id}"
