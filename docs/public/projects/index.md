@@ -19,6 +19,12 @@ Run `yoke setup` to configure your machine connection first. These commands
 use the default machine config; `--config PATH` explicitly selects another.
 A missing connection refuses and names the setup recovery.
 
+Creating, importing or onboarding a new project needs org role `owner` or
+`admin`. An `operator` or `viewer` is refused with a message that names their
+role and asks an org owner or admin to create the project or change the role
+with `yoke actors role set --member EMAIL --role admin`. The refusal is about
+the person's role; machine tokens carry no separate project rights.
+
 From onboard or standalone:
 
 ```bash
