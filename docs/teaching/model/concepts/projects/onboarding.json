@@ -1,6 +1,6 @@
 {
  "id": "onboarding",
- "title": "Onboarding: plan dashes and hand off",
+ "title": "Onboarding: plan dashes and enter steering",
  "status": "observed",
  "surface_refs": ["packets-help", "project-orientation", "resume-context", "setup-agent", "setup-tui", "skills-roles"],
  "commands": ["yoke onboard checklist", "yoke onboard checklist init", "yoke onboard project", "yoke onboard checklist get", "yoke github open-work list"],
@@ -9,5 +9,5 @@
  "sources": ["docs/public/start/terminal-onboarding.md", ".agents/skills/yoke/onboard/SKILL.md", ".agents/skills/yoke/onboard/strategy-conversation.md", ".agents/skills/yoke/onboard/first-work.md", "packages/yoke-core/src/yoke_core/domain/project_onboarding_configuration.py"],
  "page": "projects",
  "position": 2,
- "text": "/yoke onboard surveys existing work, helps the operator write goals and a high-level plan ready for parallel dashes as strategy docs through /yoke strategize (CURRENT-PLAN, a named initiative, or several), and configures only what those first dashes need. A plan is never final: once it is ready enough, the operator approves starting the first wave. Onboarding files no items; on that approval it hands off to /yoke steer naming those docs, which takes a seat per doc, vets and presents each dash for approval, assigns its done test, flow and QA plan when filing with --strategy-doc, and staffs the first wave. Project activation remains an item reaching done."
+ "text": "/yoke onboard surveys existing work, helps the operator write goals and a high-level plan ready for parallel dashes as strategy docs through /yoke strategize (CURRENT-PLAN, a named initiative, or several), and configures only what those first dashes need. A plan is never final: once it is defined enough to staff the first wave, onboarding enters the main-session flow. Onboarding files no items; it takes steering seats with /yoke steer naming those docs, which takes a seat per doc, vets and files each dash itself, asks only key decisions as decision requests, assigns its done test, flow and QA plan when filing with --strategy-doc, and staffs the first wave. Project activation remains an item reaching done."
 }

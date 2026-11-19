@@ -168,10 +168,10 @@ ROW_SPECS = (
                      LAYER_CAPABILITY, "yoke onboard",
                      "Declare the project's governed migration model, or "
                      "record that it has no governed database."),
-    ChecklistRowSpec("work-seeding", "17h", "Steering handoff",
+    ChecklistRowSpec("work-seeding", "17h", "Enter steering",
                      LAYER_AGENTIC, "yoke onboard",
-                     "Once the operator approves the first wave, hand the plan "
-                     "strategy docs to /yoke steer, which files and staffs it."),
+                     "Once the plan is defined enough for the first wave, take "
+                     "steering seats with /yoke steer, which files and staffs it."),
     ChecklistRowSpec("verification", "18", "Verification", LAYER_VERIFICATION,
                      "CLI + yoke onboard",
                      "Run status, auth, command, render, and doctor checks."),

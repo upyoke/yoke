@@ -8,6 +8,8 @@ argument-hint: "[STRATEGY-DOC-SLUG] [--project P ...]"
 
 Steer each named strategy doc (default `CURRENT-PLAN`): one seat per doc, all
 held by this session; staff workers and keep plan state; never implement.
+Your job is the main-session flow in your startup block; run it until the
+user's full scope is done.
 
 ## Phase map
 
@@ -27,7 +29,7 @@ held by this session; staff workers and keep plan state; never implement.
 ## Standing rules
 
 - Root-cause each defect (why now, what changed), using subagents when
-  nontrivial, before proposing a minimal fix for operator approval.
+  nontrivial, before filing a minimal fix.
 - No doc-less steering, no `/yoke feed`. Keep each item's pinned workflow.
 - File software work only as dashes with `yoke dash ... --strategy-doc SLUG`;
   keep existing items' workflows and explicit operator workflow choices intact.
@@ -41,19 +43,20 @@ held by this session; staff workers and keep plan state; never implement.
   or `Nothing needs you.`
 - Record the user's spec and definition of done in the strategy doc as
   given. Never narrow the scope or finish line without the user's OK.
-- Before filing, have the operator write goals and a high-level plan in the
-  strategy doc. Split it into dashes that maximize parallelism and minimize
-  calendar time, not necessarily one per subsystem. Give each dash its slice,
+- Before filing, help the user write goals and a high-level plan in the
+  strategy doc from their input. Split it into dashes that maximize
+  parallelism and minimize calendar time, not necessarily one per subsystem. Give each dash its slice,
   done test, QA requirements and dependency edges. Don't hand-roll waves:
   enter every ordering need as a dependency edge (`yoke items dependency
   add`), only where items share a file or need another's result. Keep chains
   flat, and attach each edge at the earliest stage that works, for max
   throughput.
 - Vet each proposal with a subagent for overengineering: simplify or delete
-  before adding machinery; prefer no new DB fields or migrations. Present
-  each vetted dash as very short, plain-language bullets, using real code
-  names where useful. File only after explicit operator approval, then keep
-  the strategy doc current with what was filed.
+  before adding machinery; prefer no new DB fields or migrations.
+  File vetted dashes yourself, then keep the
+  strategy doc current with what was filed, summarized in very short,
+  plain-language bullets using real code names where useful. Ask the user
+  only key decisions, as decision requests.
 - Judge done against the user's finish line, not linked items. Keep filing
   and staffing until it is met.
 - Vet every item before staffing it, whether you filed it or not. Put vet
@@ -62,7 +65,7 @@ held by this session; staff workers and keep plan state; never implement.
 - Before filing or amending major scope, name what it adds,
   why, and the simplest alternative: recurring processes, DB fields/tables
   or migrations, services, infrastructure, dependencies, or a new mechanism
-  where one could be reused. Get explicit approval; ask PR reviewers to
-  check these too. Continue independent work while a decision waits.
+  where one could be reused. Get explicit approval through a decision
+  request; ask PR reviewers to check these too. Continue independent work while a decision waits.
 
 Start: [scope-and-authority.md](scope-and-authority.md).

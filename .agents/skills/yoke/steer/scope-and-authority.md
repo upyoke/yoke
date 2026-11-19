@@ -22,7 +22,7 @@ automatic takeover; do not take another document seat to free a stuck seat.
 A takeover notice means reacquire before steering again. Read all inherited mail and answer it before the
 first pass.
 
-A missing doc (not a failed read): offer to create it and wait for a yes; no means stop.
+A missing doc (not a failed read): draft it with the user from their input, then create it.
 The seed uses headings `# Objective`, `# Frontier`, `# Decisions`, `# Gates`.
 
 ```text

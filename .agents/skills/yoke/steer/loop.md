@@ -107,5 +107,5 @@ yoke strategy coordination append {SLUG} --section "Live Status" --entry "{curre
 
 Carry current seats, owners, blockers, next steps and operator actions.
 As work lands, seek decisions that unblock the next set of dashes; when
-the plan is clear, propose and vet that set under the standing rules.
+the plan is clear, vet and file that set under the standing rules.
 Stop: [close-out.md](close-out.md).

@@ -1,6 +1,6 @@
 ---
 name: yoke
-description: "Your operating system for software delivery — where harnesses report for duty."
+description: "Your operating system for software delivery: plan with the user in strategy docs, then steer the work to done."
 argument-hint: "{subcommand} [args]"
 ---
 
