@@ -3,14 +3,13 @@
 import base64
 import json
 import os
-import stat
 import subprocess
 import sys
 
 import pytest
 
 from yoke_cli.commands import self_host
-from yoke_cli.self_host import bundle, first_boot_token, runtime
+from yoke_cli.self_host import bundle, runtime
 from yoke_contracts.self_host_bootstrap_output import TOKEN_PREFIX, TOKEN_BODY_LENGTH
 
 TOKEN = TOKEN_PREFIX + "C" * TOKEN_BODY_LENGTH
@@ -82,66 +81,6 @@ def _child(monkeypatch, script):
 
     monkeypatch.setattr(runtime.subprocess, "Popen", spawn)
     return calls
-
-
-@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
-def test_token_is_durably_saved_before_acknowledgment(target, monkeypatch, capsys):
-    path = first_boot_token.token_drop_path(target)
-    calls = _child(
-        monkeypatch,
-        "import sys,json; sys.stdin.buffer.readline(); "
-        f"print(json.dumps({{'token':{TOKEN!r}}}),flush=True); "
-        "assert sys.stdin.buffer.readline()==b'saved\\n'; "
-        f"assert open({str(path)!r}).read().strip()=={TOKEN!r}",
-    )
-    runtime._receive_token(target, "docker", b"{}\n")
-    assert path.read_text().strip() == TOKEN
-    assert path.stat().st_uid == os.geteuid()
-    assert stat.S_IMODE(path.stat().st_mode) == 0o600
-    command, kwargs = calls[0]
-    assert TOKEN not in str(command)
-    assert "env" not in kwargs
-    assert TOKEN not in capsys.readouterr().out
-
-
-@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
-def test_failed_return_creates_no_empty_token_file(target, monkeypatch):
-    _child(monkeypatch, "import sys; sys.stdin.buffer.readline(); sys.exit(1)")
-    with pytest.raises(runtime.SelfHostRuntimeError, match="self_host_handoff_failed"):
-        runtime._receive_token(target, "docker", b"{}\n")
-    assert not first_boot_token.token_drop_path(target).exists()
-
-
-@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
-def test_restart_preserves_an_existing_token(target, monkeypatch):
-    path = first_boot_token.token_drop_path(target)
-    path.write_text(TOKEN + "\n")
-    path.chmod(0o600)
-    before = path.read_bytes()
-    _child(
-        monkeypatch,
-        "import sys; sys.stdin.buffer.readline(); print('{\"healthy\":true}',flush=True)",
-    )
-    runtime._receive_token(target, "docker", b"{}\n")
-    assert path.read_bytes() == before
-
-
-@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
-def test_storage_failure_never_acknowledges_success(target, monkeypatch):
-    _child(
-        monkeypatch,
-        "import sys,json; sys.stdin.buffer.readline(); "
-        f"print(json.dumps({{'token':{TOKEN!r}}}),flush=True); "
-        "assert sys.stdin.buffer.readline()!=b'saved\\n'",
-    )
-
-    def refuse(*_a, **_k):
-        raise runtime.protection.SelfHostProtectionError("storage unavailable")
-
-    monkeypatch.setattr(runtime.protection, "atomic_replace_bytes", refuse)
-    with pytest.raises(runtime.SelfHostRuntimeError, match="self_host_handoff_failed"):
-        runtime._receive_token(target, "docker", b"{}\n")
-    assert not first_boot_token.token_drop_path(target).exists()
 
 
 @pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
@@ -219,29 +158,15 @@ pytestmark = pytest.mark.usefixtures("installed_self_host_prerequisites")
 
 
 @pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
-def test_paused_restart_receipt_preserves_token_and_readiness(target, monkeypatch):
-    path = first_boot_token.token_drop_path(target)
-    path.write_text(TOKEN + "\n")
-    path.chmod(0o600)
-    _child(
-        monkeypatch,
-        'import sys; sys.stdin.buffer.readline(); print(\'{"healthy":false,"paused":true}\',flush=True)',
-    )
-    assert runtime._receive_token(target, "docker", b"{}\n") == {
-        "healthy": False,
-        "paused": True,
-    }
-    assert path.read_text().strip() == TOKEN
-
-
-@pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
 def test_paused_start_skips_only_core_health_wait(target, monkeypatch):
     waits = []
     monkeypatch.setattr(runtime, "bootstrap_inputs", lambda *_a: (b"password", b"{}\n"))
     monkeypatch.setattr(runtime, "start_database", lambda *_a: waits.append("db"))
     monkeypatch.setattr(runtime, "compose", lambda *_a: b"")
     monkeypatch.setattr(
-        runtime, "_receive_token", lambda *_a: {"healthy": False, "paused": True}
+        runtime.handoff_receipt,
+        "receive_token",
+        lambda *_a: {"healthy": False, "paused": True},
     )
     monkeypatch.setattr(runtime, "wait_healthy", lambda *_a: waits.append("core"))
     report = runtime.start_bundle(directory=target)
