@@ -10,6 +10,7 @@ from yoke_cli.config import aws_admin_capability
 from yoke_cli.config import machine_config
 from yoke_cli.config import local_universe_setup
 from yoke_cli.config import onboard_machine_github
+from yoke_cli.config import onboard_machine_reuse
 from yoke_cli.config import onboard_project
 from yoke_cli.config import project_clone_resume
 from yoke_cli.config import project_installed_layer
@@ -65,6 +66,7 @@ def detect(
             ),
         ),
         **onboard_machine_setup.directory_readiness(cfg_path),
+        **onboard_machine_reuse.detect(cfg_path=cfg_path, env_name=env_name),
         # The hosting credential lands on disk during the wizard's Hosting
         # step, before Review, so its presence — not the answer given — is what
         # the review reports.

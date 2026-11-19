@@ -98,3 +98,15 @@ def stub_onboard_hook_resident(monkeypatch):
     from yoke_cli.config import onboard_hook_resident
 
     monkeypatch.setattr(onboard_hook_resident, "restart_resident", lambda: None)
+
+
+@pytest.fixture(autouse=True)
+def stub_onboard_relay_status(monkeypatch):
+    """Generic onboarding tests must not run the real relay installer's status."""
+    from yoke_cli.config import onboard_machine_reuse
+
+    monkeypatch.setattr(
+        onboard_machine_reuse,
+        "relay_satisfied",
+        lambda *, cfg_path, env_name: False,
+    )
