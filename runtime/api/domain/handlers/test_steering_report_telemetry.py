@@ -4,6 +4,7 @@ Latency acceptance measures full builds only, so the composed, skipped and
 questions-only replies must be distinguishable in ``YokeFunctionCalled``.
 """
 
+import sys
 from unittest.mock import patch
 
 from runtime.api.domain.handlers.test_steering_report import (
@@ -48,6 +49,10 @@ def test_composed_skipped_and_question_replies_are_labeled(test_db, monkeypatch)
     assert skipped.telemetry["steering_report"] == "composition_skipped"
 
 
+#: One Windows thread CPU clock tick (15.625ms), rounded up to whole ms.
+WINDOWS_THREAD_CPU_TICK_MS = 16
+
+
 def _ms(telemetry, key):
     suffix = "" if key == "statements" else "_ms"
     value = telemetry[f"steering_report_{key}{suffix}"]
@@ -61,8 +66,13 @@ def test_full_and_deliver_builds_carry_phase_timings(test_db, monkeypatch):
     assert full.telemetry["steering_report_build"] == "full"
     assert full.telemetry["steering_report_deliver"] == "false"
     assert _ms(full.telemetry, "statements") > 0
-    for phase in ("connect", "claim", "compose", "render", "cpu", "db"):
+    for phase in ("connect", "claim", "compose", "render", "db"):
         assert _ms(full.telemetry, phase) <= _ms(full.telemetry, "wall"), phase
+    # Thread CPU is a different clock from wall time. Windows advances it in
+    # scheduler ticks of about 15.6ms (Python still reports 100ns resolution),
+    # so a short build can show one tick of CPU over its wall time there.
+    cpu_tick = WINDOWS_THREAD_CPU_TICK_MS if sys.platform == "win32" else 0
+    assert _ms(full.telemetry, "cpu") <= _ms(full.telemetry, "wall") + cpu_tick
     assert "steering_report_record_ms" not in full.telemetry
     deliver = handle_get(_payload_request({"deliver": True}))
     assert deliver.telemetry["steering_report"] == "composed"
