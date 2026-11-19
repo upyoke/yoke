@@ -173,7 +173,7 @@ CLAIMS_TABLES: dict[str, dict] = {
             "session's own harness arms it with "
             "(session_tool_call_projections.last_completed_tool_select "
             "projects the name; that module names the tool). "
-            agent_type names the subagent that made a child call (NULL for the parent's own); "
+            "agent_type names the subagent that made a child call (NULL for the parent's own); "
             "session_tool_call_projections reads open calls from parent rows only. "
             "Closing a row is idempotent: the activity bump and the "
             "completed-work markers fire only on the transition, so a "
