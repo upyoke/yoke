@@ -3,7 +3,7 @@
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.deployment_run_membership_removals import membership_removals, parse_membership_removals
 from yoke_core.domain.schema_common import _column_exists
-from yoke_core.domain.deployment_run_member_set_aside import SET_ASIDE_REASON
+from yoke_core.domain.deployment_run_member_set_aside import SET_ASIDE_REASONS
 from yoke_core.domain.deployment_run_qa_transfer import transfer_qa_on, qa_ownership_write
 
 
@@ -19,15 +19,15 @@ def adopt_set_aside_qa(conn, run_id, item_ids):
         "WHERE new.id=%s AND old.id<>new.id "
         "AND old.created_at<=new.created_at AND EXISTS ("
         "SELECT 1 FROM jsonb_array_elements(COALESCE(old.membership_removals,'[]')::jsonb) entry "
-        "WHERE entry->>'reason'=%s AND (entry->>'item_id')::bigint=ANY(%s)) "
+        "WHERE entry->>'reason'=ANY(%s) AND (entry->>'item_id')::bigint=ANY(%s)) "
         "ORDER BY old.created_at,old.id",
-        (run_id, SET_ASIDE_REASON, sorted(ids)),
+        (run_id, sorted(SET_ASIDE_REASONS), sorted(ids)),
     )
     with qa_ownership_write(conn):
         for row in predecessors:
             old_id = str(row[0])
             moving = {int(entry["item_id"]) for entry in parse_membership_removals(row[1], old_id)
-                      if entry["reason"] == SET_ASIDE_REASON and int(entry["item_id"]) in ids}
+                      if entry["reason"] in SET_ASIDE_REASONS and int(entry["item_id"]) in ids}
             if moving:
                 transfer_qa_on(conn, old_id=old_id, new_id=run_id,
                                moving=moving, include_run_qa=False)
@@ -44,7 +44,7 @@ def preserved_qa_selector(conn, run_id):
         if facts is not None else membership_removals(conn, run_id)
     )
     members = {int(e["item_id"]) for e in removals
-               if e["reason"] == SET_ASIDE_REASON}
+               if e["reason"] in SET_ASIDE_REASONS}
     groups = {g.group_id for g in unattached_open_groups(conn, run_id)} if members else set()
 
     def preserved(row):
