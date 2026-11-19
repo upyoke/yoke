@@ -3,7 +3,10 @@
 The probe passes on any signed-in tab (Chat, Code or Cowork), reports the
 first-run and Sign In screens as signed out, and names a window it cannot
 classify as an unrecognized layout rather than telling the operator to sign in.
-It only launches and quits the app; it never clicks or types.
+It only launches and quits the app; it never clicks or types. An `open` that
+fails and an app that will not quit afterwards each exit with their own code:
+a quit held open by a sheet means a previous session left the app running, not
+that the app needs reinstalling.
 """
 
 from __future__ import annotations
@@ -59,7 +62,9 @@ func isSignedOutScreen(_ text: Set<String>) -> Bool {
 
 let signedIn: Int32 = 0
 let signedOut: Int32 = 10
+let openFailed: Int32 = 11
 let layoutUnrecognized: Int32 = 14
+let quitBlocked: Int32 = 15
 
 /// Classify one window frame; nil means no known layout yet, so keep looking.
 /// A tab's sidebar markers prove its layout; the account footer or the mode
@@ -156,7 +161,7 @@ func recognized(_ rows: [VNRecognizedTextObservation]) -> Set<String> {
 
 func observe() -> Int32 {
     guard FileManager.default.fileExists(atPath: appPath) else { return 12 }
-    guard run("/usr/bin/open", ["-a", appPath]) else { return 11 }
+    guard run("/usr/bin/open", ["-a", appPath]) else { return openFailed }
     let deadline = ProcessInfo.processInfo.systemUptime + 35
     var observedWindow = false
     while ProcessInfo.processInfo.systemUptime < deadline {
@@ -183,7 +188,7 @@ if let app = claude() {
     while stillRunning() && ProcessInfo.processInfo.systemUptime < deadline {
         RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.2))
     }
-    if stillRunning() { exit(11) }
+    if stillRunning() { exit(quitBlocked) }
 }
 exit(outcome)
 """
@@ -207,9 +212,11 @@ with tempfile.TemporaryDirectory(prefix='yoke-claude-desktop-') as workspace:
         sys.exit(EXIT['probe_launch_failed'])
     cause = {{
         10: 'probe_check_unmet',
+        11: 'probe_app_open_failed',
         12: 'probe_executable_missing',
         13: 'probe_request_timed_out',
         14: 'probe_layout_unrecognized',
+        15: 'probe_app_quit_blocked',
     }}
     sys.exit(0 if probe.returncode == 0 else EXIT[cause.get(probe.returncode, 'probe_launch_failed')])
 """

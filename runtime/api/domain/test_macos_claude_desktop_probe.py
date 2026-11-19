@@ -84,8 +84,11 @@ def test_sealed_swift_program_type_checks(tmp_path):
     [
         (0, None),
         (10, "probe_check_unmet"),
+        (11, "probe_app_open_failed"),
+        (12, "probe_executable_missing"),
         (13, "probe_request_timed_out"),
         (14, "probe_layout_unrecognized"),
+        (15, "probe_app_quit_blocked"),
         (99, "probe_launch_failed"),
     ],
 )
@@ -112,3 +115,25 @@ def test_unrecognized_layout_never_tells_the_operator_to_sign_in():
     )
     assert signed_out["cause"] == "probe_check_unmet"
     assert "Chat, Code or Cowork" in signed_out["recovery"]
+
+
+def test_an_app_left_open_points_at_reset_not_reinstall():
+    blocked = standard_probe_failure(
+        "Claude desktop signed in", PROBE_EXIT_CODES["probe_app_quit_blocked"]
+    )
+    assert blocked["cause"] == "probe_app_quit_blocked"
+    assert "previous session left the app open" in blocked["recovery"]
+    assert "`yoke test-machine reset`" in blocked["recovery"]
+    assert "needs no reinstall" in blocked["recovery"]
+    assert "Repair the executable" not in blocked["recovery"]
+    missing = standard_probe_failure(
+        "Claude desktop signed in", PROBE_EXIT_CODES["probe_executable_missing"]
+    )
+    assert missing["cause"] == "probe_executable_missing"
+    assert "Install" in missing["recovery"]
+
+
+def test_the_sealed_program_names_open_and_quit_failures_apart():
+    assert "else { return openFailed }" in _SWIFT
+    assert "if stillRunning() { exit(quitBlocked) }" in _SWIFT
+    assert "exit(11)" not in _SWIFT
