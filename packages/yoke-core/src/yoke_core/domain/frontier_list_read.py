@@ -8,7 +8,7 @@ the Waiting graph (:mod:`frontier_dependency_edges`). Polling emits no events.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain import db_helpers
@@ -20,6 +20,7 @@ from yoke_core.domain.dependency_cycles_read import BLOCKING_GATE_POINTS
 from yoke_core.domain.frontier_blocked_rows import (
     FRONTIER_BLOCKED_FIELDS as _BLOCKED_FIELDS,
     blocked_row,
+    redact_next_actors,
 )
 from yoke_core.domain.frontier_dependency_edges import (
     FRONTIER_CYCLE_FIELDS,
@@ -27,7 +28,7 @@ from yoke_core.domain.frontier_dependency_edges import (
     frontier_dependency_graph,
 )
 from yoke_core.domain.item_ref_resolution import internal_ids_for_refs
-from yoke_core.domain.project_identity import placeholder
+from yoke_core.domain.project_identity import placeholder, resolve_project
 from yoke_core.domain.scheduler import compute_schedule
 from yoke_core.domain.scheduler_types import (
     ClaimState,
@@ -132,23 +133,46 @@ def _item_route_facts(
     return facts
 
 
+def _visible_scope(
+    conn: Any, project: Optional[str], visible: Optional[Set[int]]
+) -> List[int]:
+    """The compute scope, cut to ``visible`` when the caller is an actor.
+
+    A named project the actor cannot see is refused exactly like an unknown
+    one, without listing the registry the actor cannot read.
+    """
+    if visible is not None and project:
+        if resolve_project(
+            conn, project, required=False, visible_project_ids=visible
+        ) is None:
+            raise ValueError(
+                f"Unknown project {project!r}. Run `yoke projects list` to see "
+                "the projects you can read."
+            )
+    scope = resolve_session_project_scope(
+        conn, override=[project] if project else None
+    )
+    return scope if visible is None else [pid for pid in scope if pid in visible]
+
+
 def list_frontier(
     *,
     project: Optional[str] = None,
     wip_cap: Optional[int] = None,
+    visible_project_ids: Optional[Set[int]] = None,
 ) -> Dict[str, Any]:
     """Project the frontier for one project or every registered project.
 
     ``project`` omitted resolves to the all-projects default (the same
     scope rule charge uses). Unknown projects raise ``ValueError``
-    naming the registered set.
+    naming the registered set. ``visible_project_ids`` is the actor's
+    readable set (``None`` for local and unscoped calls): the scope is cut
+    to it, and nothing about an item outside it is named.
     """
+    visible = visible_project_ids
     conn = db_helpers.connect()
     try:
-        scope = resolve_session_project_scope(
-            conn,
-            override=[project] if project else None,
-        )
+        scope = _visible_scope(conn, project, visible)
         schedule_kwargs: Dict[str, Any] = {"emit_events": False}
         if wip_cap is not None:
             schedule_kwargs["wip_cap"] = int(wip_cap)
@@ -201,14 +225,14 @@ def list_frontier(
                     if key not in own:
                         blocked_specs.append((step, detail, False))
 
-        blocking_ids = internal_ids_for_refs(
-            conn,
-            (
-                detail.blocking_item
-                for _step, detail, _holds in blocked_specs
-                if detail is not None and detail.blocking_item
-            ),
-        )
+        blocking_refs = {
+            detail.blocking_item
+            for _step, detail, _holds in blocked_specs
+            if detail is not None and detail.blocking_item
+        }
+        # A step's own reasons can name blockers no row carries as an edge.
+        blocking_refs.update(r for s in schedule.blocked_steps for r in s.blocked_by)
+        blocking_ids = internal_ids_for_refs(conn, blocking_refs)
         route_facts = _item_route_facts(
             conn,
             set(tracked_steps) | set(blocking_ids.values()),
@@ -216,6 +240,13 @@ def list_frontier(
         public_refs = {
             item_id: str(route_facts[item_id]["public_ref"])
             for item_id in tracked_steps
+        }
+        hidden_refs = {
+            ref
+            for ref, item_id in blocking_ids.items()
+            if visible is not None
+            and item_id in route_facts
+            and route_facts[item_id]["project_id"] not in visible
         }
         conduct_eligible_ids = {step.item_id for step in schedule.conduct_eligible}
         ready_rows: List[Dict[str, Any]] = []
@@ -266,6 +297,7 @@ def list_frontier(
                     route_facts[step.item_id],
                     blocking_route,
                     holds_pickup=holds_pickup,
+                    hidden_refs=hidden_refs,
                 )
             )
 
@@ -275,6 +307,7 @@ def list_frontier(
         by_ref = {public_refs[iid]: state for iid, state in projection.items()}
         for row in [*ready_rows, *blocked_rows]:
             row.update(by_ref.get(str(row.get("public_ref") or row.get("item_id")), {}))
+        redact_next_actors(conn, [*ready_rows, *blocked_rows], visible)
         return {
             "fields": {
                 "ready": list(FRONTIER_READY_FIELDS),
@@ -285,7 +318,9 @@ def list_frontier(
             "diagnostics": schedule.diagnostics,
             "ready_rows": ready_rows,
             "blocked_rows": blocked_rows,
-            **frontier_dependency_graph(conn, scope, gate_blocks=gate_blocks),
+            **frontier_dependency_graph(
+                conn, scope, gate_blocks=gate_blocks, visible_project_ids=visible
+            ),
             "frozen_count": len(schedule.frozen_steps),
             "wip_cap": schedule.wip_cap,
             "wip_active": schedule.wip_active,
