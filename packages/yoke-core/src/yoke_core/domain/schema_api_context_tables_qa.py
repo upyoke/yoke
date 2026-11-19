@@ -84,6 +84,7 @@ QA_TABLES: dict[str, dict] = {
             ("wake_path", "TEXT"),
             ("wake_evidence", "TEXT"),
             ("covered_item_ids", "TEXT"),
+            ("supersession_corrects_baseline", "BOOLEAN"),
             ("created_at", "TIMESTAMPTZ"),
         ],
         "notes": (

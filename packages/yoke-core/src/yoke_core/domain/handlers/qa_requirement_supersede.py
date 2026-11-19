@@ -19,6 +19,8 @@ class QaRequirementSupersedeRequest(BaseModel):
     source: str = "agent"
     declare_replacement: bool = False
     reconcile: bool = False
+    #: The superseded case declared the wrong host baseline (operator only).
+    corrects_baseline: bool = False
 
 
 class QaRequirementSupersedeResponse(BaseModel):
@@ -27,6 +29,7 @@ class QaRequirementSupersedeResponse(BaseModel):
     superseded_at: Optional[str] = None
     supersession_rationale: Optional[str] = None
     supersession_source: Optional[str] = None
+    supersession_corrects_baseline: bool = False
     replacement_requirement_id: Optional[int] = None
     deployment_run_id: Optional[str] = None
     deployment_stage: Optional[str] = None
@@ -84,6 +87,12 @@ def handle_qa_requirement_supersede(
     conn = connect()
     try:
         try:
+            if body.corrects_baseline and body.declare_replacement:
+                return _error(
+                    "payload_invalid",
+                    "--corrects-baseline supersedes with a case that already passed; "
+                    "it cannot declare a pending replacement",
+                )
             if body.reconcile:
                 if body.declare_replacement or body.source != "operator":
                     return _error(
@@ -143,6 +152,7 @@ def handle_qa_requirement_supersede(
                 rationale=body.rationale,
                 source=body.source,
                 reconcile=body.reconcile,
+                corrects_baseline=body.corrects_baseline,
             )
             if body.reconcile:
                 try:

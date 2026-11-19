@@ -122,6 +122,18 @@ admissions skip superseded source and admit corrected one; source is never
 rewritten. Control plane may record an authorized target it cannot execute
 (prod recording stage); execution alone checks runtime observation authority.
 
+Host baseline is part of the scope, so a replacement at another baseline is
+refused, and `qa.requirement.update` refuses a starting-state change once a
+copy ran (`starting_state_case_executed`). When the declared baseline itself
+was the defect (a case that runs Yoke on its host declared `fresh-host`), an
+operator corrects it with `--corrects-baseline --source operator`: record the
+corrected case at the right baseline, give it the proof above, then supersede
+the broken copy and retire its source the same way. Every other scope field
+must still match, both rows must name different baselines, and the broken row
+keeps its baseline as history with `supersession_corrects_baseline` set, which
+every later reader of the link honors. Later releases admit the corrected
+baseline.
+
 A live execution keeps the roster it froze. When its owning session runs the
 plan again after a supersession, replacement or new requirement changed that
 roster, an execution that has run no case is aborted with

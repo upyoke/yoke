@@ -149,9 +149,8 @@ _REQUIREMENT_COLUMNS = (
     ("method_config", "TEXT"),
     ("execution_target_json", "TEXT"),
     ("execution_target_digest", "TEXT"),
-    # A frozen case discharged by a corrected one records the link, the
-    # rationale and when it was drawn, so the broken row survives as
-    # history instead of being edited away or waived.
+    # A frozen case discharged by a corrected one records the link, why and
+    # when, so the broken row survives as history instead of being waived.
     ("superseded_by_requirement_id", "INTEGER REFERENCES qa_requirements(id)"),
     ("superseded_at", "TIMESTAMPTZ"),
     ("supersession_rationale", "TEXT"),
@@ -172,6 +171,7 @@ _REQUIREMENT_COLUMNS = (
     ("wake_path", "TEXT"),  # see yoke_contracts.qa_case_wake_path
     ("wake_evidence", "TEXT"),
     ("covered_item_ids", "TEXT"),  # members a closed item-qa plan group answered
+    ("supersession_corrects_baseline", "BOOLEAN"),  # operator's baseline fix
 )
 
 _PLAN_COLUMNS = (
