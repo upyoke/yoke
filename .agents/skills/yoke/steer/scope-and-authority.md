@@ -23,7 +23,7 @@ A takeover notice means reacquire before steering again. Read all inherited mail
 first pass.
 
 A missing doc (not a failed read): offer to create it and wait for a yes; no means stop.
-The seed uses headings `# Objective`, `# Frontier`, `# Decisions`, `# Gates`.
+The seed uses headings `# Objective`, `# Done when`, `# Frontier`, `# Decisions`, `# Gates`.
 
 ```text
 yoke strategy doc create {SLUG} --summary "Document purpose" --state draft --stdin --project {_project} < SEED_FILE

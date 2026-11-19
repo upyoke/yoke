@@ -106,6 +106,10 @@ yoke strategy coordination append {SLUG} --section "Live Status" --entry "{curre
 ```
 
 Carry current seats, owners, blockers, next steps and operator actions.
+Judge landed work against the doc's `# Done when`, not against closed items
+or the workers' own suites. Name what is still missing (gaps, integration,
+broader testing), then file, staff and evaluate it until every point is met.
+A final integration or test dash is one option, not a rule.
 As work lands, seek decisions that unblock the next set of dashes; when
 the plan is clear, propose and vet that set under the standing rules.
 Stop: [close-out.md](close-out.md).
