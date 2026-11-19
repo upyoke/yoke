@@ -1,0 +1,10 @@
+{
+ "id": "lane-delete-scope",
+ "title": "Refuse a recursive delete of a lane, the shared .worktrees directory or an ancestor while it holds uncommitted or ignored files or an active claim; inside a lane, refuse only for tracked edits and untracked unignored files under the target, so ignored caches delete freely.",
+ "status": "observed",
+ "form": "Rule",
+ "verification": "Candidate regression tests run the engine guard against real lanes: ignored .pytest_cache and __pycache__ deletes beside an untracked root file, an in-lane directory with a tracked edit, an untracked unignored file, a lane root, and an ancestor of a claimed lane; no deployed proof yet.",
+ "topics": ["context/hooks"],
+ "sources": ["packages/yoke-core/src/yoke_core/domain/lint_destructive_git_worktrees.py", "runtime/api/domain/test_lint_destructive_git_worktrees.py"],
+ "position": 11
+}

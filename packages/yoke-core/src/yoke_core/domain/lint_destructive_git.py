@@ -131,10 +131,10 @@ def evaluate_payload(
         resolved_targets = worktree_checks.resolve_rm_targets(targets, cwd)
         if not resolved_targets:
             continue
-        worktree_targets = worktree_checks.rm_worktree_targets(resolved_targets)
+        lane_roots, in_lane = worktree_checks.rm_worktree_targets(resolved_targets)
         threatened = [
             threat
-            for target in worktree_targets
+            for target in lane_roots
             for threat in worktree_checks.worktree_status_threats(target, _git)
         ]
         # Location-blind: a target can hold another item's live lane nested
@@ -143,10 +143,20 @@ def evaluate_payload(
         # unrelated parent under /tmp, a symlink alias), so this checks
         # every resolved target, not just the ones that look worktree-named.
         threatened.extend(_claimed_worktree_threats(resolved_targets))
+        shape = "rm_rf_worktree"
+        if not threatened:
+            shape = "rm_rf_in_lane"
+            threatened = [
+                threat
+                for lane_root, target in in_lane
+                for threat in worktree_checks.in_lane_status_threats(
+                    lane_root, target, _git
+                )
+            ]
         if not threatened:
             continue
         reason = messages.format_reason(
-            "rm_rf_worktree",
+            shape,
             threatened,
             suppression_seen,
             config_note=_config_note(cwd),
