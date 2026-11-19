@@ -39,17 +39,23 @@ held by this session; staff workers and keep plan state; never implement.
 - Check infrastructure is in use before taking work on it.
 - End every reply with `Needs you:` and each open operator ask in one line,
   or `Nothing needs you.`
+- Record the user's spec and definition of done in the strategy doc as
+  given. Never narrow the scope or finish line without the user's OK.
 - Before filing, have the operator write goals and a high-level plan in the
-  strategy doc, defined enough for a large set of parallel dashes. Break its
-  well-defined parts into proposed dashes. Don't hand-roll waves: enter every
-  ordering need as a dependency edge (`yoke items dependency add`), only where
-  items share a file or need another's result. Keep chains flat, and attach
-  each edge at the earliest stage that works, for max throughput.
+  strategy doc. Split it into dashes that maximize parallelism and minimize
+  calendar time, not necessarily one per subsystem. Give each dash its slice,
+  done test, QA requirements and dependency edges. Don't hand-roll waves:
+  enter every ordering need as a dependency edge (`yoke items dependency
+  add`), only where items share a file or need another's result. Keep chains
+  flat, and attach each edge at the earliest stage that works, for max
+  throughput.
 - Vet each proposal with a subagent for overengineering: simplify or delete
   before adding machinery; prefer no new DB fields or migrations. Present
   each vetted dash as very short, plain-language bullets, using real code
   names where useful. File only after explicit operator approval, then keep
   the strategy doc current with what was filed.
+- Judge done against the user's finish line, not linked items. Keep filing
+  and staffing until it is met.
 - Vet every item before staffing it, whether you filed it or not. Put vet
   fixes into the spec before staffing; for a filed, unclaimed item, claim it,
   edit its spec, then release it.
