@@ -4,5 +4,5 @@
  "status": "observed",
  "page": "projects",
  "position": 2,
- "note": "The onboarding profile is a free-form non-empty JSON object; example keys and choices are illustrative. The verification-binding skill reads an existing scope through qa plan get before setting it."
+ "note": "The onboarding profile is a free-form non-empty JSON object; example keys and choices are illustrative. The verification-binding skill reads an existing scope through qa plan get before setting it. With no ci_workflow_file it runs the quick argv once on this host before binding; a missing runner means a self-provisioning argv or an install instruction, and the row evidence reports the probe result beside argv verification."
 }
