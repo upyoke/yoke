@@ -220,3 +220,40 @@ def test_a_missing_shim_refuses_by_name():
     assert "(Get-Command yoke.cmd -ErrorAction SilentlyContinue).Source" in script
     assert yoke_python.SHIM_UNREADABLE + ": " in script
     assert "exit 70" in script
+
+
+def test_the_windows_recipe_stages_files_before_opening_the_console(monkeypatch):
+    from yoke_contracts.test_machine_types import HostActionResult
+    from yoke_core.domain import native_windows_terminal_recipe as recipe
+
+    uploads, removed = [], []
+    monkeypatch.setattr(
+        recipe,
+        "get_ssh_windows_host_operations",
+        lambda: SimpleNamespace(WindowsTerminal=lambda control: "terminal"),
+    )
+    monkeypatch.setattr(
+        recipe, "_interactive", lambda *args: HostActionResult(True, {"steps": []})
+    )
+    source = __file__
+    control = SimpleNamespace(
+        secret_values=(),
+        _pending_terminal_size=(120, 40),
+        _upload_bytes=lambda path, content: uploads.append(path) or True,
+        check_connection=lambda: HostActionResult(True, {"host": "lab"}),
+        run_command=lambda argv: removed.append(argv[-1])
+        or subprocess.CompletedProcess(argv, 0, "", ""),
+    )
+    remote = r"C:\Users\qa\AppData\Local\YokeQa\case.txt"
+    result = recipe.execute_recipe(
+        control,
+        entry_surface="yoke setup",
+        required_completion="done",
+        config={
+            "execution_mode": "terminal",
+            "stage_files": [{"remote_path": remote, "source_path": source}],
+        },
+    )
+    assert result.ok
+    assert uploads == [remote] and removed == [remote]
+    assert result.evidence["staged_files"][0]["remote_path"] == remote

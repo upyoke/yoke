@@ -26,11 +26,18 @@ def desktop_script(control, script, *, timeout=60, hidden=False):
     # calls exit. Its child owns the exit code; only stdout/stderr are returned.
     child = root + ".command.ps1"
     arguments = '-NoLogo -NoProfile -WindowStyle ' + ('Hidden' if hidden else 'Normal') + ' -File "' + source + '"'
+    # Windows PowerShell 5.1 wraps each native stderr line in an ErrorRecord;
+    # under 'Stop' the first one would abort a command that succeeded, so the
+    # child runs under 'Continue' and its streams are split by record type.
     wrapper = f"""$ErrorActionPreference='Stop'
 try {{
-  & powershell.exe -NoLogo -NoProfile -File {quote(child)} 1> {quote(root + ".out")} 2> {quote(root + ".err")}
+  $ErrorActionPreference='Continue'
+  $lines = @(& powershell.exe -NoLogo -NoProfile -File {quote(child)} 2>&1)
   $code=$LASTEXITCODE
-  @{{exit_code=$code;stdout=[IO.File]::ReadAllText({quote(root + ".out")});stderr=[IO.File]::ReadAllText({quote(root + ".err")})}} |
+  $ErrorActionPreference='Stop'
+  $out = ($lines | Where-Object {{ $_ -isnot [Management.Automation.ErrorRecord] }} | ForEach-Object {{ "$_`n" }}) -join ''
+  $err = ($lines | Where-Object {{ $_ -is [Management.Automation.ErrorRecord] }} | ForEach-Object {{ "$($_.Exception.Message)`n" }}) -join ''
+  @{{exit_code=$code;stdout=$out;stderr=$err}} |
     ConvertTo-Json -Compress | Set-Content -Encoding UTF8 {quote(receipt)}
 }} catch {{ @{{exit_code=1;stdout='';stderr="$_"}} | ConvertTo-Json -Compress | Set-Content -Encoding UTF8 {quote(receipt)} }}
 """
@@ -96,7 +103,7 @@ try {{
                     "Remove-YokeTask " + quote(name),
                     "$t=Get-YokeTask " + quote(name) + ";if($t -and ($t.Definition.Actions.Count -ne 1 -or $t.Definition.Actions.Item(1).Path -ne 'powershell.exe' -or $t.Definition.Actions.Item(1).Arguments -ne " + quote(arguments) + ")){throw 'Desktop task action changed; preserve'};Remove-YokeTask " + quote(name),
                 )
-                cleanup = control._run(removal + f"\nif(Get-YokeTask {quote(name)}){{throw 'Owned task cleanup incomplete'}}\nRemove-Item -LiteralPath {','.join(quote(root + s) for s in ('.ps1', '.command.ps1', '.json', '.out', '.err'))} -Force -ErrorAction SilentlyContinue; foreach($p in @({','.join(quote(root + s) for s in ('.ps1', '.command.ps1', '.json', '.out', '.err'))})){{if(Test-Path -LiteralPath $p){{throw 'Owned desktop cleanup incomplete'}}}}")
+                cleanup = control._run(removal + f"\nif(Get-YokeTask {quote(name)}){{throw 'Owned task cleanup incomplete'}}\nRemove-Item -LiteralPath {','.join(quote(root + s) for s in ('.ps1', '.command.ps1', '.json'))} -Force -ErrorAction SilentlyContinue; foreach($p in @({','.join(quote(root + s) for s in ('.ps1', '.command.ps1', '.json'))})){{if(Test-Path -LiteralPath $p){{throw 'Owned desktop cleanup incomplete'}}}}")
             if diagnostics["cleanup"] != "preserved_ambiguous_upload":
                 diagnostics["cleanup"] = "verified_absent" if cleanup.returncode == 0 else "unverified"
                 require_task_result(control, cleanup, phase="desktop_task_cleanup")

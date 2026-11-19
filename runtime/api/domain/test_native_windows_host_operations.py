@@ -104,6 +104,25 @@ def test_desktop_task_uses_interactive_user_and_is_cleaned(hidden):
     assert uploads[0][1] == "exit 7"
 
 
+def test_desktop_child_stderr_cannot_abort_a_successful_command():
+    uploads = []
+    control = SimpleNamespace(
+        home=r"C:\Users\qa",
+        upload_remote_text=lambda path, text: uploads.append((path, text)),
+        read_remote_text=lambda path: json.dumps(
+            {"exit_code": 0, "stdout": "{}\n", "stderr": "Waiting by design\n"}
+        ),
+    )
+    control._run = lambda script, **kwargs: completed()
+    desktop_script(control, "yoke qa browser setup", timeout=1)
+    wrapper = uploads[1][1]
+    call, rest = wrapper.split("& powershell.exe", 1)
+    # PowerShell 5.1 raises on a native stderr line under 'Stop'.
+    assert call.rstrip().endswith("$ErrorActionPreference='Continue'\n  $lines = @(")
+    assert " 2>&1)" in rest.splitlines()[0] and " 2> " not in wrapper
+    assert "[Management.Automation.ErrorRecord]" in rest
+
+
 def test_journal_requires_a_lease_before_any_write():
     with pytest.raises(RuntimeError, match="windows_journal_lease_required"):
         journal_operation(SimpleNamespace(), "capture")
