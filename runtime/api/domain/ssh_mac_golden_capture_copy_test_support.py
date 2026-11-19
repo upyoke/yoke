@@ -43,7 +43,7 @@ from yoke_harness.ssh_mac_golden_capture_receipt import (
 from yoke_harness.ssh_mac_golden_capture_script import render_golden_capture_script
 
 
-def _run_capture(home: Path, destination: Path, tmp_path: Path):
+def _run_capture(home: Path, destination: Path, tmp_path: Path, *, check_residue=False):
     script = render_golden_capture_script(
         resolve_full_reset_path_contract(
             resolve_path_state_contract(target="posix",
@@ -59,8 +59,10 @@ def _run_capture(home: Path, destination: Path, tmp_path: Path):
         "validate_home() { return 0; }\n"
         "assert_full_disk_access() { return 0; }\n"
         "assert_home_ownership() { return 0; }\n"
-        "assert_no_yoke_residue() { return 0; }\n"
-        f"TMPDIR={shlex.quote(str(tmp_path))}\n" + boundary,
+        "yoke_absent_temp_files=()\n"
+        + ("" if check_residue else "assert_no_yoke_residue() { return 0; }\n")
+        + f"TMPDIR={shlex.quote(str(tmp_path))}\n"
+        + boundary,
         1,
     )
     return subprocess.run(

@@ -14,6 +14,11 @@ from yoke_contracts.ssh_mac_full_reset_path_state import (
     canonical_posix_path_state_contract,
 )
 from yoke_contracts.ssh_mac_preserved_state import PRESERVED_HOME_ENTRIES
+from yoke_contracts.harness_global_skill import (
+    GLOBAL_SKILL_NAME,
+    HARNESS_GLOBAL_SKILLS,
+    SHARED_SKILLS_DIR,
+)
 
 from dataclasses import dataclass
 from pathlib import PurePosixPath
@@ -81,6 +86,12 @@ YOKE_ABSENT_RELATIVE_DIRECTORIES = (
     "Library/Caches/uv",
     "Library/Application Support/uv",
     "Library/Application Support/yoke",
+    f"{SHARED_SKILLS_DIR}/{GLOBAL_SKILL_NAME}",
+    *(
+        f"{skill.user_skills_dir.removeprefix('~/')}/{GLOBAL_SKILL_NAME}"
+        for skill in HARNESS_GLOBAL_SKILLS.values()
+        if skill.placement == "link"
+    ),
 )
 YOKE_ABSENT_TEMP_FILES = (INSTALLER_TEMP_PATH,)
 # Closed failure detail for a declared-absent temp path the clear or verify
@@ -89,9 +100,11 @@ YOKE_ABSENT_TEMP_FILES = (INSTALLER_TEMP_PATH,)
 RESET_ABSENT_PATH_PREFIX = "YOKE_RESET_ABSENT_"
 RESET_ABSENT_KIND_LEFTOVER = "leftover"
 RESET_ABSENT_KIND_LIVE_PROCESS = "live_process"
+RESET_ABSENT_KIND_GOLDEN_RESIDUE = "golden_residue"
 RESET_ABSENT_KINDS = (
     RESET_ABSENT_KIND_LEFTOVER,
     RESET_ABSENT_KIND_LIVE_PROCESS,
+    RESET_ABSENT_KIND_GOLDEN_RESIDUE,
 )
 RESET_ABSENT_RECOVERY = {
     RESET_ABSENT_KIND_LEFTOVER: (
@@ -101,6 +114,10 @@ RESET_ABSENT_RECOVERY = {
     RESET_ABSENT_KIND_LIVE_PROCESS: (
         "Stop the live installer process holding {path}, then retry the "
         "Test Machine reset."
+    ),
+    RESET_ABSENT_KIND_GOLDEN_RESIDUE: (
+        "The golden contains Yoke residue at {path}. Capture and register a "
+        "clean replacement, then retry the Test Machine reset."
     ),
 }
 RESET_REAP_MARKER_ANCHOR = "/tmp/yoke-qa-"
@@ -292,6 +309,7 @@ __all__ = [
     "RELAY_UNLOAD_TIMEOUT_SECONDS",
     "RESET_ABSENT_KIND_LEFTOVER",
     "RESET_ABSENT_KIND_LIVE_PROCESS",
+    "RESET_ABSENT_KIND_GOLDEN_RESIDUE",
     "RESET_ABSENT_KINDS",
     "RESET_ABSENT_PATH_PREFIX",
     "RESET_ABSENT_RECOVERY",

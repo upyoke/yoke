@@ -27,12 +27,49 @@ from yoke_harness.ssh_mac_golden_capture_contract import (
     CAPTURE_COPY_STDERR_PREFIX,
     CAPTURE_FAILURE_PREFIX,
     CAPTURE_PHASES,
+    CAPTURE_REFUSAL_KIND_RESIDUE,
 )
 from yoke_harness.ssh_mac_golden_capture_receipt import (
     capture_failure_outcome,
     closed_capture_outcomes,
 )
 from yoke_harness.ssh_mac_golden_capture_script import render_golden_capture_script
+
+
+@pytest.mark.macos_only(reason="runs the generated macOS capture program")
+@pytest.mark.parametrize(
+    ("relative_path", "dangling"),
+    [
+        (".agents/skills/yoke-global", False),
+        (".claude/skills/yoke-global", True),
+    ],
+)
+def test_capture_refuses_the_installed_global_skill(
+    tmp_path, relative_path, dangling
+):
+    home = tmp_path / "home"
+    skill = home / relative_path
+    skill.parent.mkdir(parents=True)
+    if dangling:
+        skill.symlink_to(home / ".agents/skills/yoke-global")
+    else:
+        skill.mkdir()
+    other_skill = skill.parent / "user-skill"
+    other_skill.mkdir()
+    (other_skill / "SKILL.md").write_text("unrelated skill")
+    destination = tmp_path / "golden"
+
+    result = _run_capture(home, destination, tmp_path, check_residue=True)
+
+    assert result.returncode != 0
+    failure = capture_failure_outcome(result.stdout)
+    assert failure is not None
+    phase, detail = failure
+    assert phase == "assert_no_yoke_residue"
+    assert detail["reason"] == CAPTURE_REFUSAL_KIND_RESIDUE
+    assert detail["path"] == str(skill)
+    assert not destination.exists()
+    assert (other_skill / "SKILL.md").read_text() == "unrelated skill"
 
 
 @pytest.mark.macos_only(reason='uses macOS tar metadata and ditto')
@@ -42,6 +79,14 @@ def test_probe_created_socket_and_fifo_are_omitted_and_captured_state_restores(
     home = tmp_path / "home"
     nested = home / ".cursor/projects/tmp"
     nested.mkdir(parents=True)
+    user_skill_paths = (
+        ".agents/skills/user-skill/SKILL.md",
+        ".claude/skills/user-skill/SKILL.md",
+    )
+    for relative_path in user_skill_paths:
+        skill = home / relative_path
+        skill.parent.mkdir(parents=True)
+        skill.write_text("unrelated skill")
     (home / "regular.sock").write_text("ordinary user state")
     odd_file = home / "name with\nnewline 東京"
     odd_file.write_text("preserve names and contents")
@@ -63,12 +108,12 @@ def test_probe_created_socket_and_fifo_are_omitted_and_captured_state_restores(
         cwd=nested,
         check=True,
     )
-    result = _run_capture(home, destination, tmp_path)
+    result = _run_capture(home, destination, tmp_path, check_residue=True)
 
     assert result.returncode == 0, (result.stdout, result.stderr)
     receipt = closed_capture_outcomes(result.stdout)
     assert receipt is not None
-    assert receipt["captured_entries"] == 4
+    assert receipt["captured_entries"] == 6
     assert not (destination / ".cursor/projects/tmp/worker.sock").exists()
     assert not (destination / ".cursor/projects/tmp/worker.pipe").exists()
     manifest = Path(str(destination) + ".manifest").read_text()
@@ -86,6 +131,8 @@ def test_probe_created_socket_and_fifo_are_omitted_and_captured_state_restores(
         )
         assert result.returncode == 0 and not result.stderr
     assert (restored / "regular.sock").read_text() == "ordinary user state"
+    for relative_path in user_skill_paths:
+        assert (restored / relative_path).read_text() == "unrelated skill"
     restored_odd = restored / odd_file.name
     assert restored_odd.read_text() == odd_file.read_text()
     assert restored_odd.stat().st_mode & 0o777 == 0o640
