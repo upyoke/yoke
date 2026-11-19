@@ -76,3 +76,42 @@ def test_stale_nonce_is_ignored_before_current_complete_receipt(monkeypatch):
     monkeypatch.setattr("yoke_harness.native_windows.journal.time.sleep", lambda n: None)
     assert journal_operation(control, "restore")["token"] == request["token"]
     assert count[0] == 2
+
+
+def _bound_control(monkeypatch, calls):
+    control = object.__new__(SshNativeWindowsHostOperations)
+
+    def journal(control, action):
+        calls.append(action)
+        return {"features": ROWS} if action == "restore" else {}
+
+    monkeypatch.setattr("yoke_harness.ssh_native_windows_host_operations.journal_operation", journal)
+    control.bind_qa_lease("current")
+    return control
+
+
+def test_fixture_capture_keeps_the_current_lease_feature_proof(monkeypatch):
+    from yoke_core.domain.native_windows_fixture import NativeWindowsFixture
+
+    calls = []
+    control = _bound_control(monkeypatch, calls)
+    NativeWindowsFixture(control)
+    assert calls == ["restore", "restore", "capture"]
+    assert control.native_features == feature_states(ROWS)
+    assert control._feature_lease_id == "current"
+
+
+def test_failed_restore_after_capture_still_clears_the_proof(monkeypatch):
+    calls = []
+    control = _bound_control(monkeypatch, calls)
+    control.journal_settings("capture")
+
+    def fail(*args):
+        raise RuntimeError("restore failed")
+
+    monkeypatch.setattr("yoke_harness.ssh_native_windows_host_operations.journal_operation", fail)
+    with pytest.raises(RuntimeError, match="restore failed"):
+        control.journal_settings("restore")
+    assert control.native_features is None
+    with pytest.raises(HostControlLocalError, match="No current-lease"):
+        control.check_connection()
