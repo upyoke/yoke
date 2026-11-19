@@ -285,3 +285,47 @@ def test_onboarding_reset_clears_only_dismissals(test_db):
 )
 def test_issuer_label_names_the_provider(issuer, label):
     assert issuer_label(issuer) == label
+
+
+def _new_human(conn, name):
+    row = conn.execute(
+        "INSERT INTO actors (kind, name, created_at) VALUES ('human', %s, %s) "
+        "RETURNING id",
+        (name, iso8601_now()),
+    ).fetchone()
+    conn.commit()
+    return int(row[0])
+
+
+def test_project_create_orgs_is_empty_for_a_project_role_only(test_db):
+    actor = _new_human(test_db, "project-only")
+    project_id = int(test_db.execute("SELECT id FROM projects LIMIT 1").fetchone()[0])
+    test_db.execute(
+        "INSERT INTO actor_project_roles (actor_id, project_id, role_id, granted_at) "
+        "SELECT %s, %s, id, %s FROM roles WHERE name = 'operator' LIMIT 1",
+        (actor, project_id, iso8601_now()),
+    )
+    test_db.commit()
+
+    profile = _get(actor)
+
+    assert profile["roles"]["org"] == []
+    assert profile["roles"]["projects"]
+    assert profile["project_create_orgs"] == []
+
+
+def test_project_create_orgs_names_the_org_an_owner_holds(test_db):
+    actor = _new_human(test_db, "org-owner")
+    org_id, slug, name = test_db.execute(
+        "SELECT id, slug, name FROM organizations ORDER BY id LIMIT 1"
+    ).fetchone()
+    test_db.execute(
+        "INSERT INTO actor_org_roles (actor_id, org_id, role_id, granted_at) "
+        "SELECT %s, %s, id, %s FROM roles WHERE name = 'owner' LIMIT 1",
+        (actor, int(org_id), iso8601_now()),
+    )
+    test_db.commit()
+
+    assert _get(actor)["project_create_orgs"] == [
+        {"slug": slug, "name": name, "default": True}
+    ]

@@ -72,6 +72,10 @@ class PreflightProbes:
 
     repo_availability: Callable[[str, str, str, str], str] | None = None
     token_ok: Callable[[str, str], bool] | None = None
+    # Answers "may this person create a project in <org>?" (None = the
+    # server's default org). True/False is the server's answer; None means
+    # unknown (an older server or a failed read), and Apply's refusal stands.
+    project_create_allowed: Callable[[str | None], bool | None] | None = None
 
 
 @dataclass(frozen=True)
@@ -109,6 +113,7 @@ def preflight(
         problems.append(project_git_prerequisite.missing_git_message())
 
     problems.extend(_folder_problems(result, mode))
+    problems.extend(_project_create_problems(result, mode, probes))
     net_problems, net_notes = _network_findings(result, probes)
     problems.extend(net_problems)
     return PreflightResult(problems=problems, notes=[*_folder_notes(result), *net_notes])
@@ -140,6 +145,30 @@ def _folder_problems(result: _ResultLike, mode: str) -> list[str]:
     else:
         error = validation.validate_create_target_folder(str(checkout))
     return [error] if error else []
+
+
+def _project_create_problems(
+    result: _ResultLike, mode: str, probes: PreflightProbes
+) -> list[str]:
+    """Block Apply when it would call ``projects.create`` the person may not.
+
+    Every project mode without a resolved existing project registers a new one:
+    create-new, an unregistered existing folder, and a clone or import.
+    """
+    if mode == onboard_project.PROJECT_MODE_EDIT_YOKE_SOURCE:
+        return []
+    if getattr(result, "existing_project_id", None) is not None:
+        return []
+    if probes.project_create_allowed is None:
+        return []
+    org = getattr(result, "project_org", None) or None
+    if probes.project_create_allowed(org) is not False:
+        return []
+    where = org or "this Yoke server's org"
+    return [
+        f"You lack project.create on {where}. Ask a Yoke admin for an org role "
+        "that grants it, or choose an existing project."
+    ]
 
 
 def _folder_notes(result: _ResultLike) -> list[str]:

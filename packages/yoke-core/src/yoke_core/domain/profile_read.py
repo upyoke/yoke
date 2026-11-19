@@ -85,6 +85,40 @@ def read_roles(conn: Any, actor_id: int) -> Dict[str, List[Dict[str, Any]]]:
     }
 
 
+def read_project_create_orgs(conn: Any, actor_id: int) -> List[Dict[str, Any]]:
+    """The orgs where the actor may create a project, by the server's own check.
+
+    Each entry names the org by slug (the ref ``projects.create`` accepts) and
+    display name. ``default`` marks the identity-card org that
+    ``projects.create`` targets when its payload names no org, so a client can
+    answer "may I create here?" before it writes anything.
+    """
+    from yoke_core.domain.actor_permission_checks import org_permission_decision
+    from yoke_core.domain.actor_permissions import PERM_PROJECT_CREATE
+
+    rows = conn.execute(
+        "SELECT id, slug, name FROM organizations ORDER BY id"
+    ).fetchall()
+    default_id = int(rows[0][0]) if rows else None
+    allowed: List[Dict[str, Any]] = []
+    for row in rows:
+        decision = org_permission_decision(
+            conn,
+            actor_id=actor_id,
+            org_id=int(row[0]),
+            permission_key=PERM_PROJECT_CREATE,
+        )
+        if decision.allowed:
+            allowed.append(
+                {
+                    "slug": row[1],
+                    "name": row[2] or row[1],
+                    "default": int(row[0]) == default_id,
+                }
+            )
+    return allowed
+
+
 def read_tokens(conn: Any, actor_id: int) -> List[Dict[str, Any]]:
     """The actor's live tokens, newest first; a machine token names its machine."""
     rows = conn.execute(
@@ -135,6 +169,7 @@ __all__ = [
     "read_actor",
     "read_identity",
     "read_preferences",
+    "read_project_create_orgs",
     "read_roles",
     "read_tokens",
 ]

@@ -1,0 +1,9 @@
+{
+ "id": "project-create-rights",
+ "title": "Review blocks a new project the signed-in person cannot create: it names the missing project.create org right and the fix (an org role that grants it, or an existing project) before Apply writes any folder.",
+ "status": "observed",
+ "form": "Teach",
+ "topics": ["installation/entry/interactive-terminal-setup", "installation/entry/agent-assisted-setup", "identity/roles"],
+ "verification": "Source reads profile.get project_create_orgs on the selected hosted connection; a local universe, an older server or a failed read leaves Apply's own refusal. Unit and agent-shell tests cover the block; the windows-native-lab walk as a project-role-only person remains owed.",
+ "sources": ["packages/yoke-cli/src/yoke_cli/config/onboard_preflight.py", "packages/yoke-cli/src/yoke_cli/config/onboard_project_create_permission.py", "packages/yoke-core/src/yoke_core/domain/profile_read.py", "runtime/api/cli/test_setup_agent_project_create_permission.py", "runtime/api/cli/test_yoke_operations_cli_onboard_preflight.py"]
+}

@@ -211,3 +211,94 @@ def test_missing_git_is_flagged(tmp_path: Path, monkeypatch) -> None:
     )
     problems = onboard_preflight.preflight_problems(result)
     assert any("git is required" in p for p in problems)
+
+
+_CREATE_DENIED = (
+    "You lack project.create on this Yoke server's org. Ask a Yoke admin for an "
+    "org role that grants it, or choose an existing project."
+)
+
+
+def _create_probes(answer):
+    return onboard_preflight.PreflightProbes(project_create_allowed=lambda _org: answer)
+
+
+def test_create_without_project_create_rights_blocks_review(tmp_path: Path) -> None:
+    result = _Result(
+        project_mode=onboard_project.PROJECT_MODE_CREATE_REPO,
+        project_checkout=str(tmp_path / "fresh"),
+    )
+
+    problems = onboard_preflight.preflight_problems(
+        result, probes=_create_probes(False)
+    )
+
+    assert problems == [_CREATE_DENIED]
+    assert not (tmp_path / "fresh").exists()
+
+
+def test_project_create_allowed_unknown_or_machine_only_is_clear(
+    tmp_path: Path,
+) -> None:
+    create = _Result(
+        project_mode=onboard_project.PROJECT_MODE_CREATE_REPO,
+        project_checkout=str(tmp_path / "fresh"),
+    )
+    for answer in (True, None):
+        assert onboard_preflight.preflight_problems(
+            create, probes=_create_probes(answer)
+        ) == []
+    assert onboard_preflight.preflight_problems(
+        _Result(), probes=_create_probes(False)
+    ) == []
+
+
+def test_project_create_check_names_the_chosen_org_and_skips_existing(
+    tmp_path: Path,
+) -> None:
+    asked: list[str | None] = []
+    probes = onboard_preflight.PreflightProbes(
+        project_create_allowed=lambda org: asked.append(org) or False
+    )
+    clone = _Result(
+        project_mode=onboard_project.PROJECT_MODE_CLONE_REMOTE,
+        project_remote_url="https://github.com/acme/widgets.git",
+        project_checkout=str(tmp_path / "clone"),
+    )
+    clone.project_org = "acme"  # type: ignore[attr-defined]
+    problems = onboard_preflight.preflight_problems(clone, probes=probes)
+    assert asked == ["acme"]
+    assert problems == [_CREATE_DENIED.replace("this Yoke server's org", "acme")]
+
+    clone.existing_project_id = 7  # type: ignore[attr-defined]
+    assert onboard_preflight.preflight_problems(clone, probes=probes) == []
+    assert asked == ["acme"]
+
+
+def test_profile_answer_reads_project_create_orgs() -> None:
+    from yoke_cli.config.onboard_project_create_permission import (
+        allowed_from_profile,
+    )
+
+    orgs = [{"slug": "acme", "name": "Acme", "default": True}]
+    ok = {"success": True, "result": {"project_create_orgs": orgs}}
+    assert allowed_from_profile(ok, None) is True
+    assert allowed_from_profile(ok, "acme") is True
+    assert allowed_from_profile(ok, "other") is False
+    denied = {"success": True, "result": {"project_create_orgs": []}}
+    assert allowed_from_profile(denied, None) is False
+    older_server = {"success": True, "result": {"roles": {}}}
+    assert allowed_from_profile(older_server, None) is None
+    assert allowed_from_profile({"success": False}, None) is None
+
+
+def test_local_universe_skips_the_project_create_probe() -> None:
+    from types import SimpleNamespace
+
+    from yoke_contracts.onboard_destinations import DESTINATION_LOCAL
+    from yoke_cli.config.onboard_project_create_permission import probe_for
+
+    local = SimpleNamespace(destination=DESTINATION_LOCAL, api_url="http://x")
+    hosted = SimpleNamespace(destination="hosted", api_url="https://x")
+    assert probe_for(local, lambda: "token") is None
+    assert probe_for(hosted, lambda: None)(None) is None
