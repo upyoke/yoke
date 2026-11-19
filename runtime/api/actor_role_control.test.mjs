@@ -15,11 +15,11 @@ function render(callerRole, targetRole) {
 test("admins see owner grants read-only and cannot choose owner for a teammate", () => {
   assert.equal(render("admin", "owner").disabled, true);
   const select = render("admin", "operator");
-  assert.deepEqual(allNodes(select).filter((node) => node.tagName === "OPTION").map((node) => node.value), ["admin", "operator", "viewer"]);
+  assert.deepEqual(allNodes(select).filter((node) => node.tagName === "OPTION").map((node) => node.value), ["admin", "operator", "viewer", "none"]);
 });
 
 test("owners can choose all four human roles and edit owner grants", () => {
   const select = render("owner", "owner");
   assert.equal(select.disabled, false);
-  assert.deepEqual(allNodes(select).filter((node) => node.tagName === "OPTION").map((node) => node.value), roles);
+  assert.deepEqual(allNodes(select).filter((node) => node.tagName === "OPTION").map((node) => node.value), [...roles, "none"]);
 });
