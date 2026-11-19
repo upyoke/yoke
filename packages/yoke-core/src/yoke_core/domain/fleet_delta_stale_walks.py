@@ -22,12 +22,28 @@ from yoke_core.domain.fleet_delta_alarms import (
     _clear,
     _raise_once,
     identifier,
-    idle_holder_rows,
+    idle_holder_candidates,
 )
 from yoke_core.domain.fleet_delta_snapshot import FleetSnapshot, SessionRow, WalkRow
 from yoke_core.domain.qa_plan_execution_silence_notice import SILENT_WALK_WARN_SECONDS
 
 _FOLDED = "stale-walk-folded"
+
+
+def idle_holder_rows(current: FleetSnapshot) -> list[SessionRow]:
+    """Idle-holder candidates with no landing or dependency wait: those that alarm.
+
+    Both detectors read it: idle-holder raises these rows, and a stale walk
+    whose owner is one of them folds into that line.
+    """
+    return [
+        row
+        for row in idle_holder_candidates(current)
+        if not any(
+            ref in current.landing_waits or ref in row.dependency_waits
+            for ref in row.claimed_items
+        )
+    ]
 
 
 def stale_walks(row: SessionRow, now: datetime) -> list[tuple[WalkRow, int]]:
@@ -97,4 +113,9 @@ def stale_walk_alarms(current: FleetSnapshot, state: DeltaState) -> list[str]:
     return lines + _clear(state, live, "stale-walk")
 
 
-__all__ = ["stale_walk_alarms", "stale_walk_suffix", "stale_walks"]
+__all__ = [
+    "idle_holder_rows",
+    "stale_walk_alarms",
+    "stale_walk_suffix",
+    "stale_walks",
+]

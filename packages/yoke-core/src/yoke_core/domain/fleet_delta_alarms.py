@@ -164,21 +164,12 @@ def idle_holder_candidates(current: FleetSnapshot) -> list[SessionRow]:
     ]
 
 
-def idle_holder_rows(current: FleetSnapshot) -> list[SessionRow]:
-    """Candidates with no landing or dependency wait: the ones that alarm."""
-    return [
-        row
-        for row in idle_holder_candidates(current)
-        if not any(
-            ref in current.landing_waits or ref in row.dependency_waits
-            for ref in row.claimed_items
-        )
-    ]
-
-
 def idle_holder_alarms(current: FleetSnapshot, state: DeltaState) -> list[str]:
     """Alarm only on silent holders with no declared or external wait."""
-    from yoke_core.domain.fleet_delta_stale_walks import stale_walk_suffix
+    from yoke_core.domain.fleet_delta_stale_walks import (
+        idle_holder_rows,
+        stale_walk_suffix,
+    )
 
     lines: list[str] = []
     live: set[str] = set()
@@ -350,7 +341,6 @@ __all__ = [
     "address_recipe",
     "identifier",
     "idle_holder_alarms",
-    "idle_holder_rows",
     "inbox_lines",
     "minutes_since",
     "starved_envelope_alarms",
