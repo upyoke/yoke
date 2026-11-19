@@ -12,7 +12,8 @@ error in this helper is safe.
 A denial may carry its own recovery clause after the scope, when the server
 knows what would actually fix it — a machine-local universe whose operator
 holds no org role is the worked case, and there "contact your administrator"
-is advice to contact yourself. That clause replaces the generic closing
+is advice to contact yourself; an org member refused for their role is the
+other, and there the clause names the role and who can change it. That clause replaces the generic closing
 sentence rather than being dropped, so the operator still reads the terse
 denial as one friendly sentence AND gets the command that repairs it.
 """
@@ -89,9 +90,13 @@ def friendly_permission_error(message: str) -> str:
     """Rewrite a permission-denied message; return others unchanged.
 
     ``actor 37 lacks 'project.create' on org 1`` becomes
-    ``Your API token lacks project.create rights for org 1. Contact your Yoke
+    ``You lack project.create rights for org 1. Contact your Yoke
     administrator.`` and the name-bearing variant names the org/project instead
-    of the id. A message that does not match the denial shape is returned as-is.
+    of the id. A denial is about the person's role, never their token: machine
+    tokens carry no scopes. A server recovery clause (the org role the person
+    holds and the roles that allow it, or the local grant repair) replaces the
+    generic closing line. A message that does not match the denial shape is
+    returned as-is.
     """
     match = _DENY_RE.search(message.strip())
     if not match:
@@ -101,7 +106,7 @@ def friendly_permission_error(message: str) -> str:
         function_id = generic.group("function")
         permission = _FUNCTION_PERMISSION_HINTS.get(function_id, function_id)
         return (
-            f"Your API token lacks {permission} rights. "
+            f"You lack {permission} rights. "
             "Contact your Yoke administrator."
         )
     target = _scope_target(match.group("scope"))
@@ -110,7 +115,7 @@ def friendly_permission_error(message: str) -> str:
     perm = match.group("perm")
     recovery = (match.group("recovery") or "").strip()
     closing = recovery if recovery else "Contact your Yoke administrator."
-    return f"Your API token lacks {perm} rights for {target}. {closing}"
+    return f"You lack {perm} rights for {target}. {closing}"
 
 
 __all__ = ["friendly_permission_error", "friendly_publish_error"]

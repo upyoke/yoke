@@ -89,9 +89,9 @@ local, self-hosted, and Hosted beta (upyoke.com) alike:
 
 | Human role at org or project scope | What it allows |
 |---|---|
-| `owner` | Full administration, including protected owner changes. |
-| `admin` | Full administration except changing owners. |
-| `operator` | Normal Yoke work across every project in the org. |
+| `owner` | Full administration, including protected owner changes and creating or importing projects. |
+| `admin` | Full administration except changing owners; creates and imports projects. |
+| `operator` | Normal Yoke work across every project in the org. Cannot create or import projects. |
 | `viewer` | Read items and events. |
 
 An org owner or admin changes a person's role from the role control in the Team

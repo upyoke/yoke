@@ -23,7 +23,7 @@ def test_id_only_org_denial_is_friendlified() -> None:
     raw = "actor 37 lacks 'project.create' on org 1"
     friendly = friendly_permission_error(raw)
     assert friendly == (
-        "Your API token lacks project.create rights for org 1. "
+        "You lack project.create rights for org 1. "
         "Contact your Yoke administrator."
     )
 
@@ -32,7 +32,7 @@ def test_name_bearing_org_denial_uses_the_name() -> None:
     raw = "actor 37 lacks 'project.create' on org 'Acme Inc' (id 1)"
     friendly = friendly_permission_error(raw)
     assert friendly == (
-        "Your API token lacks project.create rights for Acme Inc. "
+        "You lack project.create rights for Acme Inc. "
         "Contact your Yoke administrator."
     )
 
@@ -41,7 +41,7 @@ def test_id_only_project_denial_is_friendlified() -> None:
     raw = "actor 5 lacks 'items.write' on project 9"
     friendly = friendly_permission_error(raw)
     assert friendly == (
-        "Your API token lacks items.write rights for project 9. "
+        "You lack items.write rights for project 9. "
         "Contact your Yoke administrator."
     )
 
@@ -50,7 +50,7 @@ def test_name_bearing_project_denial_uses_the_name() -> None:
     raw = "actor 5 lacks 'items.write' on project 'My App' (myapp, id 9)"
     friendly = friendly_permission_error(raw)
     assert friendly == (
-        "Your API token lacks items.write rights for My App. "
+        "You lack items.write rights for My App. "
         "Contact your Yoke administrator."
     )
 
@@ -60,7 +60,7 @@ def test_double_quoted_permission_is_handled() -> None:
     # both quote styles so the match never depends on the repr quote choice.
     raw = 'actor 1 lacks "org.admin" on org 2'
     friendly = friendly_permission_error(raw)
-    assert "lacks org.admin rights for org 2" in friendly
+    assert "You lack org.admin rights for org 2" in friendly
 
 
 def test_non_permission_error_is_unchanged() -> None:
@@ -81,7 +81,7 @@ def test_wrapped_denial_inside_a_longer_message_is_friendlified() -> None:
     raw = "projects.create failed: actor 37 lacks 'project.create' on org 1"
     friendly = friendly_permission_error(raw)
     assert friendly == (
-        "Your API token lacks project.create rights for org 1. "
+        "You lack project.create rights for org 1. "
         "Contact your Yoke administrator."
     )
 
@@ -90,7 +90,7 @@ def test_generic_dispatch_permission_denial_names_permission_path() -> None:
     raw = "projects.create failed: permission denied for org acme"
     friendly = friendly_permission_error(raw)
     assert friendly == (
-        "Your API token lacks project.create rights. Contact your Yoke administrator."
+        "You lack project.create rights. Contact your Yoke administrator."
     )
 
 
@@ -123,7 +123,7 @@ def test_denial_carrying_a_recovery_clause_closes_with_it() -> None:
     )
     friendly = friendly_permission_error(raw)
     assert friendly == (
-        "Your API token lacks claims.acquire rights for Yoke. This universe's "
+        "You lack claims.acquire rights for Yoke. This universe's "
         "operating actor holds no org admin role, so every mutation its "
         "sessions attempt is denied. Repair: `yoke doctor run --quick --fix`, "
         "which grants exactly that role on this universe's own org."
@@ -135,6 +135,20 @@ def test_id_only_scope_with_a_recovery_clause_still_resolves_the_scope() -> None
     raw = "actor 2 lacks 'items.write' on project 9. Do the thing that fixes it."
     friendly = friendly_permission_error(raw)
     assert friendly == (
-        "Your API token lacks items.write rights for project 9. "
+        "You lack items.write rights for project 9. "
         "Do the thing that fixes it."
     )
+
+
+def test_org_role_denial_passes_the_role_recovery_through() -> None:
+    """An org operator refused project.create reads their role, not a token."""
+    recovery = (
+        "Dana Lee holds org role operator; creating a project needs org role "
+        "owner or admin. Ask an org owner or admin to do it for you, or to "
+        "change your role with `yoke actors role set --member EMAIL --role admin`."
+    )
+    raw = f"actor 37 lacks 'project.create' on org 'Acme Inc' (id 1). {recovery}"
+    friendly = friendly_permission_error(raw)
+    assert friendly == f"You lack project.create rights for Acme Inc. {recovery}"
+    assert "token" not in friendly.lower()
+    assert "Contact your Yoke administrator" not in friendly
