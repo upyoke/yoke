@@ -126,6 +126,7 @@ def test_success_counters_follow_final_validation_regardless_of_host_load(tmp_pa
         "self_host_containers_removed": 0,
         "self_host_volumes_removed": 0,
         "self_host_images_removed": 0,
+        "self_host_stack_reachable": 0,
         "reaped_processes": 0,
     }
     adapted = _adapt(result)

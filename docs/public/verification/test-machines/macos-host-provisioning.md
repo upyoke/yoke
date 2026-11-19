@@ -240,7 +240,9 @@ Keep `COLIMA_HOME`, `LIMA_HOME` and `COLIMA_CACHE_HOME`
 under a shared folder in `~/.zshenv`, and put `/usr/local/bin` on PATH (Intel)
 or `/opt/homebrew/bin` (Apple silicon). Keep the shared folder owner-only
 and outside golden retention directories. Colima stops across a reset or reboot.
-Each Docker case starts it again. Prove Docker once, then stop the fixture VM:
+Each Docker case starts it again. A reset starts a stopped Colima itself to
+remove leftover self-host containers and volumes, then stops it; it refuses
+`docker_unreachable` when the daemon still cannot list them. Prove Docker once, then stop the fixture VM:
 
 ```text
 colima start --vm-type vz  # Apple silicon
@@ -258,7 +260,8 @@ The Remote Login controller is `/usr/libexec/sshd-keygen-wrapper`.
 |---|---|---|
 | Automation | Remote Login controller | System Events, Terminal |
 | Automation | Terminal.app | System Events |
-| Device Control and Data Access (Accessibility on older macOS) | Remote Login controller and Terminal.app | — |
+| Device Control and Data Access (Accessibility on older macOS) | Remote Login controller | — |
+| Device Control and Data Access (Accessibility on older macOS) | Terminal.app | — |
 | Screen & System Audio Recording (Screen Recording on older macOS) | Terminal.app and, when macOS attributes remote capture to it, the Remote Login controller | — |
 
 SSH `osascript` Terminal control uses the Remote Login controller.
@@ -274,8 +277,11 @@ command to the Remote Login controller. Keep Terminal enabled for local
 capture. On the dedicated test Mac, add `/usr/libexec/sshd-keygen-wrapper`
 under **Screen & System Audio Recording** if TCC names it for the failed
 capture. Then rerun `bridge-diagnose` and verify that it captures window content.
-GUI-session commands (`--gui-session`)
-need Terminal → System Events. Safari
+Before sealing a fresh golden, separately enable **Terminal.app** under
+**Device Control and Data Access** on the unlocked test desktop. Add it with
+**+** if absent, approve its prompt, and verify GUI input and readback.
+
+GUI-session commands (`--gui-session`) also need Terminal → System Events. Safari
 needs no grant: browser approval runs in the operator identity's Chromium
 through the installed Yoke, not AppleScript. A checked Automation box alone does not prove consent: macOS can
 still hold an unanswered prompt. At the host console, open Terminal and run:

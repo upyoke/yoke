@@ -21,11 +21,15 @@ from yoke_contracts.ssh_mac_full_reset_contract import (
     golden_baseline_clears_home,
     resolve_full_reset_path_contract,
 )
+from yoke_contracts.ssh_mac_full_reset_self_host_contract import (
+    RESET_SELF_HOST_STATE_PREFIX,
+)
 from yoke_harness.ssh_mac_full_reset_receipt import (
     absent_path_detail,
     closed_outcomes,
     failure_outcome,
     relay_service_detail,
+    self_host_detail,
     success_evidence,
     unrestored_detail,
 )
@@ -285,6 +289,11 @@ def execute_full_test_machine_reset(
             # could not unload rather than clearing under a service that would
             # rewrite the home it just emptied.
             failure_evidence["relay_service_state"] = relay_service_detail(detail)
+        elif detail is not None and detail.startswith(RESET_SELF_HOST_STATE_PREFIX):
+            # Stop or verify could not list the stack. Its counts would read
+            # zero either way, so the reset names the client instead of
+            # reporting a clean host it never saw.
+            failure_evidence["self_host_state"] = self_host_detail(detail)
         elif detail is not None:
             reap_parts = detail.split()
             failure_evidence["process_state"] = {

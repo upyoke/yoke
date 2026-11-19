@@ -192,6 +192,8 @@ def self_host_init(args: List[str]) -> int:
                 report["paused"] = True
     except (bundle.SelfHostBundleError, runtime.SelfHostRuntimeError) as exc:
         print(f"error: {exc}", file=sys.stderr)
+        for line in getattr(exc, "detail_lines", ()):
+            print(f"  {line}", file=sys.stderr)
         return 1
     if parsed.listen is None and not parsed.protect_existing:
         report["listen_hint"] = (

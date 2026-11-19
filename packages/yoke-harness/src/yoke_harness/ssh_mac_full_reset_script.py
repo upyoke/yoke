@@ -14,10 +14,6 @@ from yoke_contracts.ssh_mac_preserved_state import (
     render_preserved_state_contract,
 )
 from yoke_contracts.ssh_mac_full_reset_contract import (
-    COMPOSE_PROJECT_LABEL,
-    CONTAINER_RUNTIME_PATHS,
-    CONTAINER_RUNTIME_PROCESS_ANCHOR,
-    CONTAINER_RUNTIME_STOP_TIMEOUT_SECONDS,
     FULL_DISK_ACCESS_PROBE_PATH,
     FULL_RESET_MARKER,
     FullResetPathContract,
@@ -42,19 +38,31 @@ from yoke_contracts.ssh_mac_full_reset_contract import (
     RESET_RELAY_UNLOADED_PREFIX,
     RESET_RESTORED_ENTRIES_PREFIX,
     RESET_RESTORE_UNRESTORED_PREFIX,
-    RESET_SELF_HOST_CONTAINERS_PREFIX,
-    RESET_SELF_HOST_IMAGES_PREFIX,
-    RESET_SELF_HOST_VOLUMES_PREFIX,
     RESET_RESTORE_ERROR_PREFIX,
     RESTORE_ERROR_EXCERPT_CHAR_CAP,
     RESTORE_ERROR_EXCERPT_LINES,
     RESTORE_REPORT_ENTRY_CAP,
-    SELF_HOST_COMPOSE_PROJECT,
     SIMULATOR_DEVICE_SET_SUFFIX,
     YOKE_ABSENT_RELATIVE_DIRECTORIES,
     YOKE_ABSENT_TEMP_FILES,
     YOKE_STATE_DIR_NAME,
     canonical_full_reset_path_contract,
+)
+from yoke_contracts.ssh_mac_full_reset_self_host_contract import (
+    COMPOSE_PROJECT_LABEL,
+    CONTAINER_RUNTIME_PATHS,
+    CONTAINER_RUNTIME_PROCESS_ANCHOR,
+    CONTAINER_RUNTIME_STARTER_PATHS,
+    CONTAINER_RUNTIME_START_TIMEOUT_SECONDS,
+    CONTAINER_RUNTIME_STOP_TIMEOUT_SECONDS,
+    RESET_SELF_HOST_CONTAINERS_PREFIX,
+    RESET_SELF_HOST_IMAGES_PREFIX,
+    RESET_SELF_HOST_KIND_DOCKER_UNREACHABLE,
+    RESET_SELF_HOST_KIND_RUNTIME_STOP_FAILED,
+    RESET_SELF_HOST_REACHABLE_PREFIX,
+    RESET_SELF_HOST_STATE_PREFIX,
+    RESET_SELF_HOST_VOLUMES_PREFIX,
+    SELF_HOST_COMPOSE_PROJECT,
 )
 
 
@@ -260,12 +268,23 @@ def render_full_reset_script(contract: FullResetPathContract) -> str:
             + shlex.quote(RESET_SELF_HOST_CONTAINERS_PREFIX),
             "self_host_volumes_prefix=" + shlex.quote(RESET_SELF_HOST_VOLUMES_PREFIX),
             "self_host_images_prefix=" + shlex.quote(RESET_SELF_HOST_IMAGES_PREFIX),
+            "self_host_reachable_prefix="
+            + shlex.quote(RESET_SELF_HOST_REACHABLE_PREFIX),
+            "self_host_state_prefix=" + shlex.quote(RESET_SELF_HOST_STATE_PREFIX),
+            "self_host_kind_docker_unreachable="
+            + shlex.quote(RESET_SELF_HOST_KIND_DOCKER_UNREACHABLE),
+            "self_host_kind_runtime_stop_failed="
+            + shlex.quote(RESET_SELF_HOST_KIND_RUNTIME_STOP_FAILED),
             f"compose_project_label={shlex.quote(COMPOSE_PROJECT_LABEL)}",
             "self_host_compose_project=" + shlex.quote(SELF_HOST_COMPOSE_PROJECT),
             "container_runtime_anchor=" + shlex.quote(CONTAINER_RUNTIME_PROCESS_ANCHOR),
             "container_runtime_stop_timeout="
             + str(CONTAINER_RUNTIME_STOP_TIMEOUT_SECONDS),
             f"container_runtime_paths={_array(CONTAINER_RUNTIME_PATHS)}",
+            "container_runtime_starter_paths="
+            + _array(CONTAINER_RUNTIME_STARTER_PATHS),
+            "container_runtime_start_timeout="
+            + str(CONTAINER_RUNTIME_START_TIMEOUT_SECONDS),
             f"launchctl_path={shlex.quote(LAUNCHCTL_PATH)}",
             f"relay_label={shlex.quote(RELAY_SERVICE_LABEL)}",
             f"relay_label_prefix={shlex.quote(RELAY_SERVICE_LABEL_PREFIX)}",

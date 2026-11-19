@@ -149,7 +149,9 @@ def execute_upgrade(plan: UpgradePlan) -> dict[str, Any]:
             directory=plan.directory, executable=plan.docker_executable
         )
     except (runtime.SelfHostRuntimeError, bundle.SelfHostBundleError) as exc:
-        raise _compose_error(plan, "self-host-handoff", str(exc)) from exc
+        error = _compose_error(plan, "self-host-handoff", str(exc))
+        error.detail_lines = (*getattr(exc, "detail_lines", ()), *error.detail_lines)
+        raise error from exc
     return {
         **receipt,
         "server": "restarted",

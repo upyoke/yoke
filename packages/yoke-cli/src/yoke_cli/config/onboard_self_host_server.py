@@ -120,7 +120,7 @@ def provision(
         raise SelfHostSetupError(
             "self-host-handoff",
             str(exc),
-            (*preparation_guidance(), *recovery_commands(setup)),
+            (*exc.detail_lines, *preparation_guidance(), *recovery_commands(setup)),
         ) from exc
     setup.raw_token = _wait_for_first_boot_token(
         setup,

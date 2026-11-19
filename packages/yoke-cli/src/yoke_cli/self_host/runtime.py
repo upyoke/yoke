@@ -6,20 +6,18 @@ import base64
 import json
 import os
 from pathlib import Path
-import select
 import stat
 import subprocess
 import threading
 import uuid
 
-from yoke_cli.self_host import bundle, first_boot_token, protection
+from yoke_cli.self_host import bundle, handoff_receipt
 from yoke_cli.self_host.diagnostics import import_failure_details
+from yoke_cli.self_host.runtime_errors import SelfHostRuntimeError, refuse as _refuse
 from yoke_contracts.designed_wait import announce_designed_wait
-from yoke_contracts.self_host_bootstrap_output import is_api_token
 from yoke_contracts.self_host_handoff import (
     CORE_SECRETS,
     DB_PASSWORD_INGRESS,
-    HANDOFF_ACK,
     HANDOFF_CLIENT_MODULE,
     HANDOFF_TIMEOUT_SECONDS,
 )
@@ -27,22 +25,6 @@ from yoke_contracts import terminal_detached_process
 
 #: How long ``docker compose up --wait`` may take for one service to be healthy.
 HEALTH_WAIT_SECONDS = 120
-
-
-class SelfHostRuntimeError(RuntimeError):
-    """The bootstrap refused without exposing credentials."""
-
-    def __init__(self, message: str, detail_lines=()) -> None:
-        super().__init__(message)
-        self.detail_lines = tuple(detail_lines)
-
-
-def _refuse(reason: str, directory: Path) -> SelfHostRuntimeError:
-    return SelfHostRuntimeError(
-        f"{reason}: self-host bootstrap did not complete; inspect the captured "
-        f"details and `docker compose logs core db` in {directory}, repair the "
-        "named cause, then retry the original self-host command"
-    )
 
 
 def read_secret(path: Path, *, max_bytes: int = 1 << 16) -> bytes:
@@ -171,72 +153,10 @@ def start_bundle(*, directory: str | Path, executable: str = "docker") -> dict:
     password, header = bootstrap_inputs(target, executable)
     start_database(target, executable, password)
     compose(target, executable, ("up", "--no-deps", "-d", "--force-recreate", "core"))
-    state = _receive_token(target, executable, header)
+    state = handoff_receipt.receive_token(target, executable, header)
     if not state.get("paused"):
         wait_healthy(target, executable, "core")
     return {"ok": True, "directory": str(target), **state}
-
-
-def _receive_token(directory: Path, executable: str, header: bytes) -> dict:
-    command = (
-        executable,
-        "compose",
-        "exec",
-        "-T",
-        "--user",
-        "0",
-        "core",
-        "python",
-        "-m",
-        HANDOFF_CLIENT_MODULE,
-    )
-    process = None
-    try:
-        process = terminal_detached_process.popen(
-            command,
-            cwd=directory,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-        process.stdin.write(header)
-        process.stdin.flush()
-        if not select.select([process.stdout], [], [], HANDOFF_TIMEOUT_SECONDS)[0]:
-            raise _refuse("self_host_handoff_timeout", directory)
-        result = json.loads(process.stdout.readline(1024))
-        token = result.get("token")
-        if token is not None:
-            if not isinstance(token, str) or not is_api_token(token):
-                raise _refuse("self_host_handoff_token_invalid", directory)
-            target = first_boot_token.token_drop_path(directory)
-            if target.exists():
-                first_boot_token.require_token_drop(directory)
-            protection.atomic_replace_bytes(target, (token + "\n").encode(), mode=0o600)
-            process.stdin.write(HANDOFF_ACK)
-            process.stdin.flush()
-        elif result not in ({"healthy": False, "paused": True}, {"healthy": True}):
-            raise _refuse("self_host_handoff_receipt_invalid", directory)
-        process.communicate(timeout=HANDOFF_TIMEOUT_SECONDS)
-        if process.returncode:
-            raise _refuse("self_host_handoff_failed", directory)
-        return (
-            {"healthy": False, "paused": True}
-            if result.get("paused") is True
-            else {"healthy": True}
-        )
-    except (
-        OSError,
-        ValueError,
-        subprocess.TimeoutExpired,
-        protection.SelfHostProtectionError,
-        first_boot_token.FirstBootTokenError,
-        AttributeError,
-    ):
-        raise _refuse("self_host_handoff_failed", directory) from None
-    finally:
-        if process is not None and process.poll() is None:
-            process.kill()
-            process.communicate()
 
 
 def import_universe(directory: Path, *, archive=None, recover: bool = False) -> bytes:
