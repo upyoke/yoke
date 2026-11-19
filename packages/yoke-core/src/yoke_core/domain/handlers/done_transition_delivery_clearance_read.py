@@ -82,7 +82,9 @@ def resolve_clearance(
     if not flow:
         project_id = _item_project_id(conn, item_id)
         if project_id is None:
-            raise LookupError(f"item {item_id} has no project row to resolve")
+            raise LookupError(
+                "the target item has no project row to resolve its delivery default"
+            )
         if workflow_id:
             flow = project_delivery_default(
                 conn, project_id=project_id, workflow_id=workflow_id
