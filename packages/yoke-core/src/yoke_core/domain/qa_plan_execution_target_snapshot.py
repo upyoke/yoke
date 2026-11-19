@@ -56,17 +56,19 @@ def execution_target_for_roster(
         for row, target, digest in zip(roster, targets, digests)
         if not isinstance(target, dict) or not digest
     ]
-    if not targets or missing:
-        ids = (
-            ", ".join(
-                str(row.get("requirement_id") or row.get("id") or "?")
-                for row in missing
-            )
-            or "<none>"
+    if not roster:
+        raise QaPlanExecutionStateError(
+            "qa_plan_roster_empty: the QA roster is empty, so there is no case "
+            "to run. Read the item's cases with `yoke qa requirement list "
+            "--item ITEM`."
+        )
+    if missing:
+        ids = ", ".join(
+            str(row.get("requirement_id") or row.get("id") or "?") for row in missing
         )
         raise QaPlanExecutionStateError(
             "materialized QA roster lacks an execution target"
-            + (f" for requirement {ids}" if missing else "")
+            + f" for requirement {ids}"
             + ". A draft requirement may omit the target until it is bound. "
             "Bind a registered project environment with the terminal CLI "
             "`yoke qa requirement update --requirement-id <id> --field "
