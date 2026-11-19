@@ -76,6 +76,7 @@ Read [envelope and authority](index.md) first. `none` means no dispatcher work-c
 | `test_machine.get` | `none` |
 | `test_machine.golden_capture` | `none` |
 | `test_machine.lease_acquire` | Acquires the universe host lease for the calling session without joining the queue. |
+| `test_machine.lease_execution_heartbeat` | The host lease holder refreshes its own walk that holds that lease; anything else is a no-op. |
 | `test_machine.list` | `none` |
 | `test_machine.mission.access` | `qa_subject` |
 | `test_machine.mission.ready` | `qa_subject` |

@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from yoke_core.domain import host_lease_walk_heartbeat as walk_lease
 from yoke_core.domain import machine_qa_operation_lease as operations
 from yoke_core.domain import qa_plan_command_case as commands
 from yoke_core.domain.machine_qa_case_machine import normalize_config_machine
@@ -40,7 +41,8 @@ def owned_plan(monkeypatch):
         id=8, is_active=True, reason="", target=SimpleNamespace(test_machine="linux-lab")
     )
     monkeypatch.setattr(operations, "get_claim", lambda *_: lease)
-    monkeypatch.setattr(operations, "_table_exists", lambda *_: True)
+    monkeypatch.setattr(walk_lease, "_table_exists", lambda *_: True)
+    monkeypatch.setattr(walk_lease, "marker", lambda *_: "%s")
     monkeypatch.setattr(operations, "lock_plan_execution", lambda *_: execution)
     conn = SimpleNamespace(
         execute=lambda *_: SimpleNamespace(fetchone=lambda: {"id": execution["id"]})

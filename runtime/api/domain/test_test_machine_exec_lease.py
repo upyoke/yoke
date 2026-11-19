@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import subprocess
+from datetime import timedelta
 from contextlib import nullcontext
 from pathlib import Path
 from types import SimpleNamespace
@@ -10,7 +11,18 @@ from typing import Any
 
 import pytest
 
+from runtime.api.domain.agent_mission_host_access_test_support import (
+    DRIVER,
+    mission as mission,
+)
+from runtime.api.domain.agent_mission_qa_test_support import ACTOR
 from runtime.api.domain.machine_qa_session_seed import seed_qa_session
+from yoke_contracts.timestamps import utc_now
+from yoke_core.domain.handlers.machine_power_ownership import (
+    handle_lease_execution_heartbeat,
+)
+from yoke_core.domain.qa_plan_execution_authority import PLAN_EXECUTION_STALE_SECONDS
+from yoke_core.domain.qa_plan_execution_lifecycle import reap_stale_plan_executions
 from yoke_cli.transport.settled_response import settle_response
 from yoke_contracts.api.function_call import (
     ActorContext,
@@ -36,8 +48,11 @@ SETTINGS = {
 class FakeCloudMachine:
     """A cloud machine that starts stopped and stays running after release."""
 
-    def __init__(self, lease: dict[str, Any] | None = None) -> None:
+    def __init__(
+        self, lease: dict[str, Any] | None = None, name: str = "linux-lab"
+    ) -> None:
         self.lease = lease
+        self.name = name
         self.running = False
         self.events: list[str] = []
 
@@ -47,12 +62,12 @@ class FakeCloudMachine:
         result: dict[str, Any] = {}
         if name == "test_machine.get":
             result = {
-                "test_machine": "linux-lab",
-                "settings": SETTINGS,
+                "test_machine": self.name,
+                "settings": {**SETTINGS, "resource_name": self.name},
                 "active_lease": self.lease,
             }
         elif name == "test_machine.lease_acquire":
-            assert kw["payload"]["test_machine"] == "linux-lab"
+            assert kw["payload"]["test_machine"] == self.name
             self.lease = {"session_id": kw["actor"].session_id}
             result = {"claim_id": 41}
         elif name == "claims.coordination_claim.release":
@@ -76,14 +91,15 @@ class FakeCloudMachine:
 
 @pytest.fixture
 def machine(monkeypatch, tmp_path):
-    def install(lease: dict[str, Any] | None = None) -> FakeCloudMachine:
-        fake = FakeCloudMachine(lease)
+    def install(
+        lease: dict[str, Any] | None = None,
+        name: str = "linux-lab",
+        actor: Any = SimpleNamespace(session_id="mine"),
+        host: type[FakeCloudMachine] = FakeCloudMachine,
+    ) -> FakeCloudMachine:
+        fake = host(lease, name)
         monkeypatch.setattr(adapter, "ensure_handlers_loaded", lambda: None)
-        monkeypatch.setattr(
-            adapter,
-            "build_actor",
-            lambda session_id=None: SimpleNamespace(session_id="mine"),
-        )
+        monkeypatch.setattr(adapter, "build_actor", lambda session_id=None: actor)
         monkeypatch.setattr(adapter.machine_config, "yoke_home", lambda: Path(tmp_path))
         monkeypatch.setattr(adapter, "call_dispatcher", fake.dispatch)
         monkeypatch.setattr(custody, "call_dispatcher", fake.dispatch)
@@ -96,10 +112,8 @@ def machine(monkeypatch, tmp_path):
     return install
 
 
-def _exec(*argv: str) -> int:
-    return adapter.test_machine_exec(
-        ["--test-machine", "linux-lab", "--", *argv]
-    )
+def _exec(*argv: str, name: str = "linux-lab") -> int:
+    return adapter.test_machine_exec(["--test-machine", name, "--", *argv])
 
 
 def test_exec_on_a_stopped_unleased_machine_leases_powers_on_runs_and_releases(
@@ -151,7 +165,13 @@ def test_exec_borrows_the_callers_own_lease_and_leaves_it_held(machine) -> None:
 
     assert _exec("true") == 0
 
-    assert fake.events == ["test_machine.get", "power_on", "ran"]
+    assert fake.events == [
+        "test_machine.get",
+        "test_machine.lease_execution_heartbeat",
+        "power_on",
+        "ran",
+        "test_machine.lease_execution_heartbeat",
+    ]
     assert fake.lease == {"session_id": "mine"}
 
 
@@ -216,3 +236,92 @@ def test_release_frees_cloud_host_without_power_data_or_provider_calls(
     assert active_claim(test_db, target) is None
     assert response.model_dump() == expected.model_dump()
     assert settle_response(response).model_dump() == expected.model_dump()
+
+
+class WalkHost(FakeCloudMachine):
+    """The walk's retained host: heartbeat calls reach the real server handler."""
+
+    def dispatch(self, **kw: Any) -> FunctionCallResponse:
+        if kw["function_id"] != "test_machine.lease_execution_heartbeat":
+            return super().dispatch(**kw)
+        self.events.append(kw["function_id"])
+        outcome = handle_lease_execution_heartbeat(
+            FunctionCallRequest(
+                function=kw["function_id"],
+                actor=kw["actor"],
+                target=kw["target"],
+                payload=kw["payload"],
+            )
+        )
+        assert outcome.primary_success, outcome.error
+        return FunctionCallResponse(
+            success=True, function=kw["function_id"], version="v1",
+            result=outcome.result_payload,
+        )
+
+
+@pytest.fixture
+def walk(test_db, mission, machine, monkeypatch):
+    """Exec on the caller's walking mission host, reaching the real handler."""
+    _, execution = mission
+    test_db.commit()
+
+    def install(lease: dict[str, Any] | None) -> FakeCloudMachine:
+        return machine(lease, name=DRIVER, actor=ACTOR, host=WalkHost)
+
+    return execution, install
+
+
+def _walk_row(conn, execution_id: str) -> tuple[str, Any]:
+    row = conn.execute(
+        "SELECT state, heartbeat_at FROM qa_plan_executions WHERE id=%s",
+        (execution_id,),
+    ).fetchone()
+    return str(row[0]), row[1]
+
+
+def _backdate(conn, execution_id: str) -> Any:
+    conn.execute(
+        "UPDATE qa_plan_executions SET heartbeat_at=%s WHERE id=%s",
+        (utc_now() - timedelta(seconds=PLAN_EXECUTION_STALE_SECONDS + 60), execution_id),
+    )
+    conn.commit()
+    return _walk_row(conn, execution_id)[1]
+
+
+def test_exec_borrowing_a_walks_lease_keeps_that_walk_alive(test_db, walk) -> None:
+    execution, install = walk
+    assert _walk_row(test_db, execution["id"])[0] == "walking"
+    stale = _backdate(test_db, execution["id"])
+
+    host = install({"session_id": ACTOR.session_id})
+    assert _exec("true", name=DRIVER) == 0
+
+    state, beat = _walk_row(test_db, execution["id"])
+    assert state == "walking" and beat > stale
+    assert host.events.count("test_machine.lease_execution_heartbeat") == 2
+    reap_stale_plan_executions(test_db)
+    assert _walk_row(test_db, execution["id"])[0] == "walking"
+
+
+@pytest.mark.parametrize("change", ["acquired", "waiting", "completed", "other-session"])
+def test_exec_outside_the_callers_walk_heartbeats_nothing(test_db, walk, change) -> None:
+    execution, install = walk
+    if change in {"waiting", "completed"}:
+        test_db.execute(
+            "UPDATE qa_plan_executions SET state=%s WHERE id=%s", (change, execution["id"])
+        )
+    if change == "other-session":
+        test_db.execute(
+            "UPDATE qa_plan_executions SET session_id='another-session' WHERE id=%s",
+            (execution["id"],),
+        )
+    before = _backdate(test_db, execution["id"])
+    host = install(None if change == "acquired" else {"session_id": ACTOR.session_id})
+
+    assert _exec("true", name=DRIVER) == 0
+
+    assert _walk_row(test_db, execution["id"])[1] == before
+    assert ("test_machine.lease_execution_heartbeat" in host.events) is (
+        change != "acquired"
+    )

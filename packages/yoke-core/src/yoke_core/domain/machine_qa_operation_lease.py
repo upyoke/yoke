@@ -29,9 +29,7 @@ from yoke_core.domain.qa_plan_execution_store import (
 )
 from yoke_core.domain.qa_host_set_turns import reserved_wait
 from yoke_core.domain.qa_host_turns import HOST_TURN_REASON
-from yoke_core.domain.qa_plan_host_leases import HOST_SET_REASON
 from yoke_core.domain.qa_plan_execution_lifecycle import heartbeat_plan_execution
-from yoke_core.domain.schema_common import _table_exists
 
 
 def operation_caller_project(conn: Any, session_id: str) -> str:
@@ -69,17 +67,16 @@ def operation_mission(
     except CoordinationClaimNotFoundError:
         # The submission validator owns the diagnosed missing-lease refusal.
         return None
-    if not lease.is_active or not _table_exists(conn, "qa_plan_executions"):
+    if not lease.is_active:
         return None
-    p = marker(conn)
-    companion = (lease.reason or "").removeprefix(HOST_SET_REASON)
-    row = conn.execute(
-        f"SELECT id FROM qa_plan_executions WHERE test_machine_lease_id={p} OR id={p}",
-        (lease.id, companion),
-    ).fetchone()
-    if row is None:
+    from yoke_core.domain.host_lease_walk_heartbeat import (
+        lease_execution_id,
+    )
+
+    execution_id = lease_execution_id(conn, lease)
+    if execution_id is None:
         return None
-    execution = lock_plan_execution(conn, str(row["id"]))
+    execution = lock_plan_execution(conn, execution_id)
     from yoke_core.domain.qa_plan_abort_reset import require_abort_reset
 
     if require_abort_reset(
