@@ -29,7 +29,9 @@ CONTAINER_RUNTIME_STOP_TIMEOUT_SECONDS = 30
 # ends with `colima stop` and the runtime stops across every reset. Its VM disk
 # lives outside the restored home and keeps whatever the last walk left, so the
 # reset starts it to list that stack, and stops it again once verify has seen
-# it, leaving the runtime as it found it.
+# it, leaving the runtime as it found it. Colima also names the daemon socket
+# (`colima status --json`), which the client needs when the restored home
+# carries no Colima docker context and it falls back to /var/run/docker.sock.
 CONTAINER_RUNTIME_STARTER_PATHS = (
     "/usr/local/bin/colima",
     "/opt/homebrew/bin/colima",

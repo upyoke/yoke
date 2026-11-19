@@ -55,8 +55,29 @@ def test_a_stopped_runtime_is_started_listed_cleaned_and_stopped_again(
     # The leftovers lived in the stopped VM; only starting it could see them.
     assert "REMOVED 1 1 1" in result.stdout
     assert "REACHABLE 1" in result.stdout
-    assert _starter_calls(state) == ["start", "stop"]
+    assert _starter_calls(state) == ["status", "start", "status", "stop"]
     assert (state / "down").exists()
+
+
+@pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")
+def test_a_running_colima_the_client_cannot_find_is_reached_by_its_socket(
+    tmp_path: Path,
+) -> None:
+    client, state = fake_runtime(tmp_path, containers=("core",))
+    starter = fake_starter(tmp_path)
+    # Colima is up, but the client targets /var/run/docker.sock because the
+    # restored home carries no Colima docker context: test-mac-studio's case.
+    (state / "needs-socket").touch()
+
+    result = run(_reset_lines(client, starter), state=state)
+
+    assert "TEARDOWN_FAILED" not in result.stdout, result.stdout + result.stderr
+    assert "RESTORE_FAILED" not in result.stdout, result.stdout + result.stderr
+    assert "REMOVED 1 1 1" in result.stdout
+    assert "REACHABLE 1" in result.stdout
+    # Already running, so the reset neither starts nor stops it.
+    assert _starter_calls(state) == ["status", "status"]
+    assert not (state / "down").exists()
 
 
 @pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")

@@ -25,7 +25,10 @@ FAKE_RUNTIME = """#!/bin/zsh
 state="$FAKE_RUNTIME_STATE"
 print -r -- "$@" >> "$state/argv.log"
 subject="${@[-1]}"
-if [[ -e "$state/down" ]]; then
+# needs-socket stands in for a host whose client defaults to
+# /var/run/docker.sock: only the socket Colima names reaches the daemon.
+if [[ -e "$state/down" || ( -e "$state/needs-socket" &&
+  "${DOCKER_HOST:-}" != "unix://$state/docker.sock" ) ]]; then
   print -u2 -r -- "Cannot connect to the Docker daemon. Is the docker daemon running?"
   exit 1
 fi
@@ -57,7 +60,16 @@ state="$FAKE_RUNTIME_STATE"
 print -r -- "$1" >> "$state/starter.log"
 [[ ! -e "$state/$1-fails" ]] || exit 1
 case "$1" in
-  start) /bin/rm -f -- "$state/down" ;;
+  status)
+    [[ ! -e "$state/down" ]] || exit 1
+    if [[ "${2:-}" == --json ]]; then
+      print -r -- '{"runtime":"docker","docker_socket":"unix://'"$state"'/docker.sock"}'
+    fi
+    ;;
+  start)
+    [[ -e "$state/down" ]] || { print -u2 -- "already running, ignoring"; exit 0; }
+    /bin/rm -f -- "$state/down"
+    ;;
   stop) : > "$state/down" ;;
   *) exit 1 ;;
 esac
