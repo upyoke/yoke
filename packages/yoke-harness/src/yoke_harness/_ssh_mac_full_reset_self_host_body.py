@@ -11,8 +11,8 @@ containers, volumes, and images while the daemon can still name them, and it
 stops the runtime application so the clear can replace the data directory
 instead of racing a live writer. A host with no container runtime reaches the
 same end state by having nothing to do, which is a clean pass, not a skip.
-A stopped Colima is started so its stack can be listed, then stopped again
-once verify has seen it. A runtime client whose daemon still cannot list the
+A client that cannot list is pointed at the socket Colima names, starting a
+stopped Colima first and stopping it again once verify has seen the stack. A runtime client whose daemon still cannot list the
 stack is refused, because an unlistable daemon and an empty one look alike.
 """
 
@@ -67,7 +67,7 @@ container_runtime_starter_path() {
   return 1
 }
 
-# One bounded runtime control call (colima start or stop). Its progress goes
+# One bounded runtime control call (colima status, start or stop). Its progress goes
 # to stderr so stdout stays the closed receipt, and its own directory leads
 # PATH because Colima drives the Lima binaries installed beside it.
 run_container_runtime_control() {
@@ -87,12 +87,24 @@ run_container_runtime_control() {
   wait "$pid"
 }
 
-start_stopped_container_runtime() {
-  local starter
+# Connects the client to Colima's own daemon. The client alone may target the
+# default /var/run/docker.sock: the docker context Colima selects lives in the
+# home a previous restore replaced. Colima names its socket, so the reset asks
+# it, starting the runtime first only when it is stopped. Only a runtime this
+# reset started is recorded, so a running one is never stopped afterwards.
+connect_container_runtime() {
+  local starter runtime_status
   starter=$(container_runtime_starter_path) || return 1
-  run_container_runtime_control "$container_runtime_start_timeout" \
-    "$starter" start || return 1
-  self_host_runtime_started="$starter"
+  if ! run_container_runtime_control "$container_runtime_stop_timeout" \
+    "$starter" status; then
+    run_container_runtime_control "$container_runtime_start_timeout" \
+      "$starter" start || return 1
+    self_host_runtime_started="$starter"
+  fi
+  runtime_status=$(PATH="${starter:h}:$PATH" "$starter" status --json) ||
+    return 1
+  [[ "$runtime_status" =~ '"docker_socket":"(unix://[^"]+)"' ]] || return 1
+  export DOCKER_HOST="${match[1]}"
 }
 
 # Leaves the runtime as the reset found it: one this reset started is stopped
@@ -149,7 +161,7 @@ stop_self_host_stack() {
   self_host_runtime_started=""
   runtime=$(container_runtime_path) || return 0
   if ! containers=$(self_host_container_ids "$runtime"); then
-    start_stopped_container_runtime || docker_unreachable "$runtime" || return 1
+    connect_container_runtime || docker_unreachable "$runtime" || return 1
     containers=$(self_host_container_ids "$runtime") ||
       docker_unreachable "$runtime" || return 1
   fi
