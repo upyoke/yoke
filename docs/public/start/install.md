@@ -195,16 +195,14 @@ record it refuses; select one with `yoke settings set distribution --origin URL
 --channel NAME`. `--channel NAME` selects and saves another channel;
 `--version VERSION` installs that exact release. `yoke update --check [--json]`
 installs nothing: it proves the installed build, then reports the active
-server's engine and the channel's latest, with `behind: cli|server|cli and server|none`
-and the next step. The proof reads the full source commit the installed CLI wheel
-was built from (`source_commit`) and lists that release's published wheel
-sha256 values (`wheels`); it refuses with `installed_build_mismatch` and the
-exact reinstall command when the commit differs from the release manifest's.
-`yoke --version` prints only the version. On the
-local universe `yoke update` updates the CLI and local server together; a team
-server's admin upgrades it, and on the machine that hosts a self-host server
-`yoke self-host upgrade --channel NAME` moves the CLI and server together;
-hosted servers update with each hosted release.
+server's engine, the channel's latest, `behind` (`cli`, `server`, `cli and
+server` or `none`) and the next step. It reads the installed wheel's full
+`source_commit` and lists the release's wheel sha256 values (`wheels`); a commit
+that differs from the release manifest's refuses `installed_build_mismatch` with
+the reinstall command. `yoke --version` prints only the version. `yoke update`
+moves the CLI and local universe together; on a self-host server's machine
+`yoke self-host upgrade` moves CLI and server together, else its admin upgrades
+it; hosted servers update with each hosted release.
 
 Install, reinstall and upgrade check that the hook evaluator answers, then stop
 it (`yoke hook resident verify`); setup or the first hook starts it again. On
