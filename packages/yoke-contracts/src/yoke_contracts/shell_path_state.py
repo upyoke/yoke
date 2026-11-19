@@ -293,7 +293,10 @@ def write_shell_path(*, env: Mapping[str, str]) -> list[str]:
 
 
 def remove_shell_path(*, env: Mapping[str, str] | None = None) -> list[str]:
-    """Remove owned blocks in every supported file, preserving other bytes."""
+    """Remove owned blocks in every supported file, preserving other bytes.
+
+    A file left with zero bytes is deleted instead of kept empty.
+    """
     if sys.platform == "win32":
         # uv owns the shared bin entry. Removing it would break uv and uvx.
         return []
@@ -308,7 +311,12 @@ def remove_shell_path(*, env: Mapping[str, str] | None = None) -> list[str]:
             original = path.read_bytes().decode("utf-8")
             text = _without_owned_path(original)
             if text != original:
-                _write_path_file(path, text)
+                # A file that held only the Yoke block was created by Yoke;
+                # a user's symlinked file keeps its link.
+                if text or path.is_symlink():
+                    _write_path_file(path, text)
+                else:
+                    path.unlink()
                 changed.append(str(path))
         except (OSError, UnicodeError) as exc:
             raise OSError(

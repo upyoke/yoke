@@ -6,7 +6,6 @@ import json
 import os
 import stat
 import tempfile
-from contextlib import nullcontext
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -18,6 +17,7 @@ from yoke_contracts.codex_hook_trust_toml import (
     hook_path,
     mutate,
     read_config,
+    record_lock_sidecar,
 )
 
 
@@ -76,28 +76,42 @@ def edit_codex(path: Path, selected, *, dry_run: bool, keep_backup: bool) -> dic
 def edit_json(path: Path, selected, *, dry_run: bool, keep_backup: bool) -> dict:
     path = path.resolve()
     lock = path.with_name(f".{path.name}.yoke.lock")
-    with nullcontext() if dry_run else FileLock(str(lock), timeout=10, mode=0o600):
-        before = path.read_bytes()
-        text = before.decode("utf-8")
-        document = json.loads(text)
-        if not isinstance(document, dict) or not isinstance(
-            document.get("projects", {}), dict
-        ):
-            raise ValueError(
-                "harness_lane_config_malformed: expected a projects object"
+    if dry_run:
+        return _edit_json_locked(path, selected, dry_run=True, keep_backup=False)
+    created_lock = not lock.exists()
+    try:
+        with FileLock(str(lock), timeout=10, mode=0o600):
+            return _edit_json_locked(
+                path, selected, dry_run=False, keep_backup=keep_backup
             )
-        projects = document.get("projects", {})
-        owned = [key for key in projects if selected(key)]
-        for key in owned:
-            del projects[key]
-        body = json.dumps(document, indent=2) + "\n" if owned else text
-        receipt = _receipt(before, body.encode("utf-8"), len(owned))
-        if not owned or dry_run:
-            return receipt
-        if keep_backup:
-            receipt["backup"] = backup(path)
-        _replace(path, before, body)
+    finally:
+        # FileLock may leave its sidecar behind; uninstall then removes it.
+        if created_lock and lock.exists():
+            record_lock_sidecar(lock)
+
+
+def _edit_json_locked(path: Path, selected, *, dry_run: bool, keep_backup: bool):
+    before = path.read_bytes()
+    text = before.decode("utf-8")
+    document = json.loads(text)
+    if not isinstance(document, dict) or not isinstance(
+        document.get("projects", {}), dict
+    ):
+        raise ValueError(
+            "harness_lane_config_malformed: expected a projects object"
+        )
+    projects = document.get("projects", {})
+    owned = [key for key in projects if selected(key)]
+    for key in owned:
+        del projects[key]
+    body = json.dumps(document, indent=2) + "\n" if owned else text
+    receipt = _receipt(before, body.encode("utf-8"), len(owned))
+    if not owned or dry_run:
         return receipt
+    if keep_backup:
+        receipt["backup"] = backup(path)
+    _replace(path, before, body)
+    return receipt
 
 
 def edit_cursor(path: Path, selected, *, dry_run: bool, keep_backup: bool) -> dict:

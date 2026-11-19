@@ -33,8 +33,12 @@ NOT_REMOVED = (
 )
 
 
-def command(args: list[str]) -> str:
-    """Run one CLI step; return its stdout, or raise its named failure."""
+def command(args: list[str], *, forward_stderr: bool = True) -> str:
+    """Run one CLI step; return its stdout, or raise its named failure.
+
+    A failure always carries the child's stderr; ``forward_stderr=False``
+    keeps a successful child's progress lines off the operator's terminal.
+    """
     result = subprocess.run(
         [sys.executable, "-m", "yoke_cli.main", *args],
         stdin=subprocess.DEVNULL,
@@ -52,7 +56,7 @@ def command(args: list[str]) -> str:
             f"uninstall_command_failed: yoke {' '.join(args)} (exit {result.returncode}); "
             f"{detail}. Repair this step and retry uninstall."
         )
-    if result.stderr.strip():
+    if forward_stderr and result.stderr.strip():
         print(redact_api_tokens(result.stderr.strip()), file=sys.stderr)
     if args[:2] == ["self-host", "teardown"]:
         print(redact_api_tokens(result.stdout.strip()))

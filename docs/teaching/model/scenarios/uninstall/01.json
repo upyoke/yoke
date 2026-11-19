@@ -4,12 +4,12 @@
  "status": "draft-copy",
  "audience": "both",
  "when": "Before confirming uninstall",
- "need": "Local universe or self-hosted server data may be the only copy; the warning names which. Backup choice and which project layers to remove are distinct; there is no automatic backup; each backup archive is named for the universe it holds and printed by full path; and any answer other than backup/no-backup cancels with exit 0 and no changes. Explicit unattended choices are required.",
+ "need": "Local universe or self-hosted server data may be the only copy; the warning names which. Backup choice and which project layers to remove are distinct; there is no automatic backup; each backup archive is named for the universe it holds and printed once by its final full path, never by the staged export name; and any answer other than backup/no-backup cancels with exit 0 and no changes. Explicit unattended choices are required.",
  "disclosure": "current cue",
  "surface": "Install -> Uninstall -> command help and first prompts.",
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke uninstall --help", "yoke project uninstall --help"],
  "plan_notes": ["FIRST-USER item 1", "FIRST-USER item 9"],
- "sources": ["docs/public/start/uninstall.md", "packages/yoke-cli/src/yoke_cli/commands/adapters/machine_uninstall.py", "packages/yoke-cli/src/yoke_cli/config/machine_uninstall.py"],
+ "sources": ["docs/public/start/uninstall.md", "packages/yoke-cli/src/yoke_cli/commands/adapters/machine_uninstall.py", "packages/yoke-cli/src/yoke_cli/config/machine_uninstall.py", "packages/yoke-cli/src/yoke_cli/config/machine_uninstall_backup.py"],
  "position": 0
 }

@@ -58,6 +58,7 @@ class UpgradePlan:
             f"replace YOKE_SERVER_IMAGE with {self.target.image}",
             "run docker compose pull core",
             "restart through the private host secret handoff",
+            f"remove the previous server image {self.previous_image} once healthy",
         )
 
 
@@ -120,10 +121,11 @@ def already_current_report(plan: UpgradePlan) -> dict[str, Any] | None:
 
 
 def execute_upgrade(plan: UpgradePlan) -> dict[str, Any]:
-    """Execute a consented plan in CLI → pin → pull → restart order.
+    """Execute a consented plan in CLI → pin → pull → restart → prune order.
 
     A bundle already pinned at the target image keeps its server running:
-    only the CLI is installed.
+    only the CLI is installed. After a healthy restart the replaced image is
+    removed best-effort; a failed removal is a warning, never an error.
     """
     _require_packaged_install()
     installer = _fetch_installer(plan)
@@ -157,6 +159,32 @@ def execute_upgrade(plan: UpgradePlan) -> dict[str, Any]:
         "server": "restarted",
         "healthy": runtime_state["healthy"],
         **({"paused": True} if runtime_state.get("paused") else {}),
+        **_remove_previous_image(plan, healthy=bool(runtime_state["healthy"])),
+    }
+
+
+def _remove_previous_image(plan: UpgradePlan, *, healthy: bool) -> dict[str, Any]:
+    """Best-effort removal of the replaced image; the upgrade already succeeded."""
+    if not healthy:
+        reason = "the restarted server has not reported healthy yet; kept for rollback"
+    else:
+        command = (plan.docker_executable, "image", "rm", plan.previous_image)
+        try:
+            completed = _run_capture(command, timeout=COMPOSE_TIMEOUT_SECONDS)
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            reason = _diagnostic(str(exc))
+        else:
+            if completed.returncode == 0:
+                return {"previous_image_removed": True}
+            reason = _completed_diagnostic(completed)
+    manual = f"docker image rm {shlex.quote(plan.previous_image)}"
+    return {
+        "previous_image_removed": False,
+        "previous_image_removal_error": reason,
+        "warnings": [
+            f"previous server image {plan.previous_image} was not removed: "
+            f"{reason}. Remove it with `{manual}`."
+        ],
     }
 
 

@@ -7,8 +7,10 @@ the answer also says who can bring them current:
 
 - ``local``: the embedded local universe runs this machine's own engine;
   ``yoke update`` updates the CLI and the local server together.
-- ``server``: a self-hosted team server; ``yoke update`` updates only this
-  CLI, and the server admin upgrades the server.
+- ``server``: a self-hosted team server; ``yoke self-host upgrade`` on the
+  machine that hosts it updates the CLI and server together, while
+  ``yoke update`` updates only this CLI and the server admin upgrades the
+  server.
 - ``hosted``: upyoke.com; releases deploy to hosted servers, so the engine
   arrives with the hosted release.
 
@@ -48,15 +50,27 @@ from yoke_contracts.machine_config.schema_transport import TRANSPORT_HTTPS
 
 BEHIND_CLI = "cli"
 BEHIND_SERVER = "server"
+BEHIND_BOTH = "cli and server"
 BEHIND_NONE = "none"
+
+_SELF_HOST_PAIR_STEP = (
+    "Run `yoke self-host upgrade --channel {channel}` on the machine that hosts "
+    "the server; it updates this CLI and the server together. Otherwise run "
+    "`yoke update` and ask the server admin to upgrade the team server."
+)
 
 _NEXT_STEP = {
     (BEHIND_CLI, DESTINATION_LOCAL): (
         "Run `yoke update`; it updates this CLI and the local server together."
     ),
-    (BEHIND_CLI, DESTINATION_SERVER): (
-        "Run `yoke update` for this CLI, then ask the server admin to upgrade "
-        "the team server if it is behind too."
+    (BEHIND_CLI, DESTINATION_SERVER): _SELF_HOST_PAIR_STEP,
+    (BEHIND_BOTH, DESTINATION_SERVER): _SELF_HOST_PAIR_STEP,
+    (BEHIND_BOTH, DESTINATION_LOCAL): (
+        "Run `yoke update`; it updates this CLI and the local server together."
+    ),
+    (BEHIND_BOTH, DESTINATION_HOSTED): (
+        "Run `yoke update` for this CLI; the hosted server updates with each "
+        "hosted release."
     ),
     (BEHIND_CLI, DESTINATION_HOSTED): (
         "Run `yoke update` for this CLI; the hosted server updates with each "
@@ -113,7 +127,9 @@ def run_check(*, channel: str | None = None) -> dict[str, Any]:
         "destination": destination,
         "server_engine_version": server_version,
         "behind": behind,
-        "next_step": _NEXT_STEP.get((behind, destination), ""),
+        "next_step": _NEXT_STEP.get((behind, destination), "").format(
+            channel=target.channel
+        ),
     }
 
 
@@ -150,9 +166,13 @@ def _server_engine(cli_version: str) -> tuple[str, str, str]:
 
 
 def _behind(cli_version: str, server_version: str, latest: str) -> str:
-    if _older(cli_version, latest):
+    cli_behind = _older(cli_version, latest)
+    server_behind = _older(server_version, latest)
+    if cli_behind and server_behind:
+        return BEHIND_BOTH
+    if cli_behind:
         return BEHIND_CLI
-    if _older(server_version, latest):
+    if server_behind:
         return BEHIND_SERVER
     return BEHIND_NONE
 
@@ -161,4 +181,4 @@ def _older(version: str, latest: str) -> bool:
     return compare_engine_versions(version, latest) == -1
 
 
-__all__ = ["BEHIND_CLI", "BEHIND_NONE", "BEHIND_SERVER", "run_check"]
+__all__ = ["BEHIND_BOTH", "BEHIND_CLI", "BEHIND_NONE", "BEHIND_SERVER", "run_check"]

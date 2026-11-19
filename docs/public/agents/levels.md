@@ -70,7 +70,7 @@ no native effort/speed suffix. Invalid rows name their field and correction.
   level changes with `yoke models level-proposal`; the operator approves
   before the proposed document is applied, with `yoke settings unset levels` when it equals the
   shipped defaults and `yoke settings set levels` otherwise. `yoke update --check` says whether
-  the CLI or the server is behind the channel's latest release.
+  the CLI, the server or both are behind the channel's latest release.
 - **Project override** — a project may carry its own levels in its
   `session-routing` capability, set only through the CLI. The document holds
   exactly one key, `levels`:
