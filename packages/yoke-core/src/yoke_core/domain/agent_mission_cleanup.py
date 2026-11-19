@@ -119,6 +119,70 @@ def _original_host(conn: Any, run_id: int) -> str:
     return str(test_machine)
 
 
+def _unsettled(execution: dict | None) -> str:
+    """What a rolled-back walk-end left in place."""
+    if execution is None:
+        return "Nothing settled: the walk-end rolled back before reading its execution."
+    lease = execution.get("test_machine_lease_id")
+    held = (
+        "no cleanup lease is held"
+        if lease is None
+        else f"cleanup lease {lease} is still held"
+    )
+    return (
+        f"Nothing settled: {held} and execution {execution['id']} is still "
+        f"{execution['state']}."
+    )
+
+
+def _store_restore(
+    conn: Any, request: Any, parsed: Any, execution: dict, run_id: int
+) -> HandlerOutcome | None:
+    """Record the restore receipt in the caller's locked transaction."""
+    from yoke_core.domain.machine_qa_outcomes import _failure
+    from yoke_core.domain.machine_qa_submission_artifacts import (
+        ensure_secret_free_result,
+    )
+    from yoke_core.domain.qa_artifact_recording import record_qa_artifact
+    from yoke_contracts.refusal_recovery import compose_refusal
+
+    try:
+        ensure_secret_free_result(parsed.restore)
+    except ValueError as exc:
+        cause, fix = str(exc), "remove that field from the restore receipt"
+    else:
+        artifact_request = request.model_copy(
+            update={
+                "function": "qa.artifact.add",
+                "target": TargetRef(
+                    kind="qa_requirement", qa_requirement_id=parsed.requirement_id
+                ),
+                "payload": {
+                    "run_id": run_id,
+                    "artifact_type": "starting_state_restore",
+                    "filename": "starting-state-restore.json",
+                    "content_type": "application/json",
+                    "content_base64": base64.b64encode(
+                        json.dumps(parsed.restore, sort_keys=True).encode()
+                    ).decode(),
+                },
+            }
+        )
+        stored = record_qa_artifact(conn, artifact_request, locked_execution=execution)
+        if stored.primary_success:
+            return None
+        cause = f"{stored.error.code}: {stored.error.message}"
+        fix = "fix the named artifact storage cause"
+    return _failure(
+        "mission_restore_evidence_failed",
+        compose_refusal(
+            f"mission_restore_evidence_failed: {cause}. {_unsettled(execution)}",
+            recovery=f"{fix}, then rerun the same yoke qa mission walk-end; it "
+            "records the restore, releases the lease and settles the execution",
+        ),
+    )
+
+
 def _finish(
     conn: Any, request: Any, parsed: Any, execution: dict, run_id: int
 ) -> HandlerOutcome | None:
@@ -135,52 +199,16 @@ def _finish(
         raise ValueError(
             "mission_cleanup_owner_required: cleanup lease belongs to another session"
         )
-    from yoke_core.domain.db_savepoint import SavepointLostError
-
-    outcome = None
-    try:
-        if parsed.restore is not None:
-            from yoke_core.domain.qa_artifact_recording import handle_qa_artifact_add
-            from yoke_core.domain.machine_qa_submission_artifacts import (
-                ensure_secret_free_result,
-            )
-
-            ensure_secret_free_result(parsed.restore)
-            artifact_request = request.model_copy(
-                update={
-                    "function": "qa.artifact.add",
-                    "target": TargetRef(
-                        kind="qa_requirement", qa_requirement_id=parsed.requirement_id
-                    ),
-                    "payload": {
-                        "run_id": run_id,
-                        "artifact_type": "starting_state_restore",
-                        "filename": "starting-state-restore.json",
-                        "content_type": "application/json",
-                        "content_base64": base64.b64encode(
-                            json.dumps(parsed.restore, sort_keys=True).encode()
-                        ).decode(),
-                    },
-                }
-            )
-            outcome = handle_qa_artifact_add(artifact_request)
-    except SavepointLostError:
-        raise
-    except Exception:
-        from yoke_core.domain.machine_qa_outcomes import _failure
-
-        outcome = _failure(
-            "mission_restore_evidence_failed",
-            "Restore evidence could not be stored; inspect artifact storage and "
-            "run yoke test-machine reset before using this machine again",
-        )
+    if parsed.restore is not None:
+        refusal = _store_restore(conn, request, parsed, execution, run_id)
+        if refusal is not None:
+            conn.rollback()
+            return refusal
     from yoke_core.domain.machine_reset_debt import record_reset_owed
     from yoke_core.domain.qa_plan_execution_abort_state import case_restore_proven
 
     _, case, _ = _mission(conn, execution, parsed.requirement_id)
-    if not case_restore_proven(case, parsed.restore or {}) or (
-        outcome is not None and not outcome.primary_success
-    ):
+    if not case_restore_proven(case, parsed.restore or {}):
         record_reset_owed(
             conn, case=case, test_machine=lease.target.test_machine, lease_id=lease.id
         )
@@ -215,7 +243,7 @@ def _finish(
             ),
         )
     conn.commit()
-    return outcome if outcome is not None and not outcome.primary_success else None
+    return None
 
 
 def handle_cleanup(request: Any, parsed: Any) -> HandlerOutcome | None:
@@ -230,10 +258,13 @@ def handle_cleanup(request: Any, parsed: Any) -> HandlerOutcome | None:
     )
     from yoke_core.domain.machine_qa_plan_protocol import plan_case_contract_arguments
     from yoke_core.domain.qa_plan_execution_store import lock_plan_execution, marker
+    from yoke_core.domain.qa_plan_lock import QaPlanBusy
 
     conn = connect()
+    before = None
     try:
         execution = lock_plan_execution(conn, parsed.execution_id)
+        before = dict(execution)
         if not cleanup_execution(conn, execution):
             if parsed.cleanup == "finish":
                 raise ValueError(
@@ -308,7 +339,11 @@ def handle_cleanup(request: Any, parsed: Any) -> HandlerOutcome | None:
         conn.rollback()
         return _failure(
             "agent_mission_cleanup_failed",
-            f"{exc}; retry the same walk-end after resolving the named blocker",
+            f"{exc}; {_unsettled(before)} Retry the same walk-end after "
+            "resolving the named blocker",
         )
+    except QaPlanBusy as exc:
+        conn.rollback()  # Busy is a retryable lock answer, never a restore failure.
+        raise QaPlanBusy(f"{exc} {_unsettled(before)}") from None
     finally:
         conn.close()

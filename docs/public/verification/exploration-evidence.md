@@ -110,7 +110,7 @@ Genuine member removal keeps a walk's Test Machine: the
 execution stays under a recorded abort and holds its lease, so no other QA gets
 that host before teardown. Its original session runs `walk-end` on the held
 lease; finishing it releases the host and settles the execution aborted with
-`deployment-member-removed`, even after local failure. `walk-start` and
+`deployment-member-removed`, even after local failure on the host. `walk-start` and
 `host-command` are refused with `mission_member_removed`, and no other abort
 releases that lease (`qa_abort_walk_end_required`). When that session has
 ended, the refusal names
@@ -125,6 +125,15 @@ steering abort returns `stop_request`, and the owner's own abort refuses with
 reply then carries a `mission_walk_stopped` notice naming the cleanup still
 owed. The walker finishes cleanup and runs `walk-end`, which releases the host
 and settles the execution aborted with the abort's reason.
+
+`walk-end` stores the restore receipt, releases the lease and settles the
+execution in one transaction. It owes a reset only when the receipt does not
+prove the baseline. If the receipt cannot be stored (a storage failure or a
+secret in the receipt), it refuses with `mission_restore_evidence_failed`,
+names the cause, commits nothing and keeps the lease; fix the cause and rerun
+the same `walk-end`. A `qa_plan_busy` refusal is a lock wait, not a restore
+failure: rerun the same `walk-end`. Every refusal states the lease and
+execution state it left in place.
 
 A release takeover preserves the execution, evidence and custody under its new
 owner; it does not request removal cleanup. Inherited QA also survives successor

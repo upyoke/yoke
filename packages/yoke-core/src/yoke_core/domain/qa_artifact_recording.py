@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from yoke_core.domain.agent_mission_restore import commit_mission_handback
+from yoke_core.domain.agent_mission_restore import hand_back_mission_walk
 from yoke_core.domain.qa_run_supersession import superseded_run_outcome
 
 import base64
@@ -41,55 +41,6 @@ def _decode_inline_bytes(raw: object, filename: object) -> tuple[bytes, str]:
     return content, safe_segment(filename)
 
 
-def _local_handle_refusal(
-    conn,
-    *,
-    req_id: int,
-    run_id: int,
-    handle: dict[str, Any],
-) -> Optional[str]:
-    """Name why a local handle cannot be ingested by this control plane."""
-
-    from yoke_core.domain.project_checkout_locations import (
-        checkout_for_project_id,
-    )
-    from yoke_core.domain.qa_artifact_handle import is_present
-    from yoke_core.domain.qa_artifact_owner import requirement_storage_owner
-    from yoke_core.domain.qa_artifacts import (
-        case_artifact_subject,
-        is_server_evidence_path,
-    )
-
-    if handle.get("backend") != "local":
-        return None
-    req_row = requirement_storage_owner(conn, int(req_id))
-    recipe = (
-        "Send the bytes instead so they persist in project artifact storage: "
-        f"yoke qa artifact add --requirement-id {int(req_id)} --run-id "
-        f"{int(run_id)} --artifact-type TYPE --content-file PATH"
-    )
-    if not is_server_evidence_path(
-        str(handle["path"]),
-        str(req_row["project"]),
-        case_artifact_subject(req_row),
-        int(run_id),
-        checkout=checkout_for_project_id(int(req_row["project_id"])),
-    ):
-        return (
-            f"artifact_handle names {handle['path']!r}, which this control "
-            "plane cannot read. Recording a path on a client or test host "
-            f"would outlive its own bytes. {recipe}"
-        )
-    if not is_present(handle):
-        return (
-            f"artifact_handle names {handle['path']!r}, which is inside this "
-            "control plane's evidence storage but holds no bytes: a transfer "
-            "that never arrived would be recorded as readable evidence. "
-            f"{recipe}"
-        )
-    return None
-
-
 def _store_inline_bytes(
     conn,
     *,
@@ -117,8 +68,29 @@ def _store_inline_bytes(
 
 
 def handle_qa_artifact_add(request: FunctionCallRequest) -> HandlerOutcome:
+    """Record one artifact on its own connection and commit only a success."""
+    from yoke_core.domain.db_helpers import connect
+
+    conn = connect()
+    try:
+        outcome = record_qa_artifact(conn, request)
+        if outcome.primary_success:
+            conn.commit()
+        return outcome
+    finally:
+        conn.close()
+
+
+def record_qa_artifact(
+    conn: Any, request: FunctionCallRequest, *, locked_execution: dict | None = None
+) -> HandlerOutcome:
+    """Record one artifact in the caller's transaction; never commits.
+
+    A refusal leaves the caller's transaction for the caller to roll back.
+    ``locked_execution`` is an execution the caller already holds FOR UPDATE;
+    the walk hand-back reuses it rather than locking it a second time.
+    """
     from yoke_core.domain.db_helpers import (
-        connect,
         instant_parameter,
         utc_now,
         query_one,
@@ -128,6 +100,7 @@ def handle_qa_artifact_add(request: FunctionCallRequest) -> HandlerOutcome:
         parse_handle,
         serialize_handle,
     )
+    from yoke_core.domain.qa_artifact_local_handle import local_handle_refusal
     from yoke_core.domain.qa_artifact_ops import (
         BARE_PATH_GUIDANCE,
         QaArtifactLimitError,
@@ -206,136 +179,137 @@ def handle_qa_artifact_add(request: FunctionCallRequest) -> HandlerOutcome:
                 f"{exc}. {BARE_PATH_GUIDANCE}",
                 jsonpath="$.payload.artifact_handle",
             )
-    conn = connect()
     try:
+        stored_requirement_id = ensure_artifact_capacity(conn, run_id)
+    except QaArtifactLimitError as exc:
+        return _error("policy_violation", str(exc))
+    if stored_requirement_id is None:
+        return _error("not_found", f"run {run_id} not found")
+    if stored_requirement_id != int(req_id):
+        return _error(
+            "target_invalid",
+            f"run {run_id} belongs to requirement "
+            f"{stored_requirement_id}, not {req_id}",
+        )
+    if settled := superseded_run_outcome(conn, run_id, req_id):
+        return settled
+    if parsed_handle is not None:
         try:
-            stored_requirement_id = ensure_artifact_capacity(conn, run_id)
-        except QaArtifactLimitError as exc:
-            return _error("policy_violation", str(exc))
-        if stored_requirement_id is None:
-            return _error("not_found", f"run {run_id} not found")
-        if stored_requirement_id != int(req_id):
-            return _error(
-                "target_invalid",
-                f"run {run_id} belongs to requirement "
-                f"{stored_requirement_id}, not {req_id}",
+            refusal = local_handle_refusal(
+                conn,
+                req_id=int(req_id),
+                run_id=int(run_id),
+                handle=parsed_handle,
             )
-        if settled := superseded_run_outcome(conn, run_id, req_id):
-            return settled
-        if parsed_handle is not None:
+        except LookupError as exc:
+            return _error("not_found", str(exc))
+        except ValueError as exc:
+            return _error("target_invalid", str(exc))
+        if refusal is not None:
+            return _error(
+                "payload_invalid",
+                refusal,
+                jsonpath="$.payload.artifact_handle",
+            )
+        if parsed_handle.get("backend") == "s3":
+            from yoke_core.domain.qa_artifact_storage import (
+                ArtifactStorageError,
+                validate_s3_handle_owner,
+            )
+
             try:
-                refusal = _local_handle_refusal(
+                validate_s3_handle_owner(
                     conn,
-                    req_id=int(req_id),
+                    requirement_id=int(req_id),
                     run_id=int(run_id),
                     handle=parsed_handle,
                 )
-            except LookupError as exc:
-                return _error("not_found", str(exc))
-            except ValueError as exc:
-                return _error("target_invalid", str(exc))
-            if refusal is not None:
-                return _error(
-                    "payload_invalid",
-                    refusal,
-                    jsonpath="$.payload.artifact_handle",
-                )
-            if parsed_handle.get("backend") == "s3":
-                from yoke_core.domain.qa_artifact_storage import (
-                    ArtifactStorageError,
-                    validate_s3_handle_owner,
-                )
-
-                try:
-                    validate_s3_handle_owner(
-                        conn,
-                        requirement_id=int(req_id),
-                        run_id=int(run_id),
-                        handle=parsed_handle,
-                    )
-                except ArtifactStorageError as exc:
-                    return _error(exc.code, str(exc))
-            if parsed_handle.get("backend") == "local":
-                from yoke_core.domain.qa_artifact_storage import (
-                    ArtifactStorageError,
-                    store_artifact_file,
-                )
-
-                try:
-                    stored_handle = store_artifact_file(
-                        conn,
-                        requirement_id=int(req_id),
-                        run_id=int(run_id),
-                        path=str(parsed_handle["path"]),
-                        filename=Path(str(parsed_handle["path"])).name,
-                        content_type=(
-                            str(parsed_handle.get("content_type") or content_type)
-                            if parsed_handle.get("content_type") or content_type
-                            else None
-                        ),
-                    )
-                    handle_text = serialize_handle(stored_handle)
-                except ArtifactStorageError as exc:
-                    return _error(exc.code, str(exc))
-                except ValueError as exc:
-                    return _error("payload_invalid", str(exc))
-        if has_inline:
-            from yoke_core.domain.qa_artifact_storage import ArtifactStorageError
+            except ArtifactStorageError as exc:
+                return _error(exc.code, str(exc))
+        if parsed_handle.get("backend") == "local":
+            from yoke_core.domain.qa_artifact_storage import (
+                ArtifactStorageError,
+                store_artifact_file,
+            )
 
             try:
-                handle_text = _store_inline_bytes(
+                stored_handle = store_artifact_file(
                     conn,
-                    req_id=int(req_id),
+                    requirement_id=int(req_id),
                     run_id=int(run_id),
-                    content=inline_content or b"",
-                    filename=inline_filename or "",
-                    content_type=content_type
-                    if isinstance(content_type, str)
-                    else None,
+                    path=str(parsed_handle["path"]),
+                    filename=Path(str(parsed_handle["path"])).name,
+                    content_type=(
+                        str(parsed_handle.get("content_type") or content_type)
+                        if parsed_handle.get("content_type") or content_type
+                        else None
+                    ),
                 )
-            except LookupError as exc:
-                return _error("not_found", str(exc))
+                handle_text = serialize_handle(stored_handle)
             except ArtifactStorageError as exc:
                 return _error(exc.code, str(exc))
             except ValueError as exc:
-                return _error("target_invalid", str(exc))
-        if artifact_type == "starting_state_restore":
-            from yoke_core.domain.machine_restore_debt import record_restore_artifact
+                return _error("payload_invalid", str(exc))
+    if has_inline:
+        from yoke_core.domain.qa_artifact_storage import ArtifactStorageError
 
-            record_restore_artifact(
-                conn, int(req_id), run_id, inline_content, request.actor
+        try:
+            handle_text = _store_inline_bytes(
+                conn,
+                req_id=int(req_id),
+                run_id=int(run_id),
+                content=inline_content or b"",
+                filename=inline_filename or "",
+                content_type=content_type
+                if isinstance(content_type, str)
+                else None,
             )
-        # ensure_artifact_capacity holds FOR UPDATE on this qa_runs row
-        # until commit, so a retry racing a still-running writer waits,
-        # then sees the inserted handle. No extra unique index.
-        existing = query_one(
-            conn,
-            "SELECT id FROM qa_artifacts "
-            f"WHERE qa_run_id = {_p(conn)} AND artifact_handle = {_p(conn)}",
-            (int(run_id), handle_text),
+        except LookupError as exc:
+            return _error("not_found", str(exc))
+        except ArtifactStorageError as exc:
+            return _error(exc.code, str(exc))
+        except ValueError as exc:
+            return _error("target_invalid", str(exc))
+    if artifact_type == "starting_state_restore":
+        from yoke_core.domain.machine_restore_debt import record_restore_artifact
+
+        record_restore_artifact(
+            conn, int(req_id), run_id, inline_content, request.actor
         )
-        if existing is not None:
-            artifact_id = int(existing["id"])
-        else:
-            cur = conn.execute(
-                "INSERT INTO qa_artifacts "
-                "(qa_run_id, artifact_type, content_type, artifact_handle, "
-                "metadata, created_at) "
-                f"VALUES ({_p(conn)}, {_p(conn)}, {_p(conn)}, {_p(conn)}, "
-                f"{_p(conn)}, {_p(conn)}) RETURNING id",
-                (
-                    int(run_id),
-                    artifact_type,
-                    content_type,
-                    handle_text,
-                    metadata,
-                    instant_parameter(conn, utc_now()),
-                ),
-            )
-            artifact_id = int(cur.fetchone()[0])
-        commit_mission_handback(conn, artifact_type=artifact_type, run_id=run_id)
-    finally:
-        conn.close()
+    # ensure_artifact_capacity holds FOR UPDATE on this qa_runs row
+    # until commit, so a retry racing a still-running writer waits,
+    # then sees the inserted handle. No extra unique index.
+    existing = query_one(
+        conn,
+        "SELECT id FROM qa_artifacts "
+        f"WHERE qa_run_id = {_p(conn)} AND artifact_handle = {_p(conn)}",
+        (int(run_id), handle_text),
+    )
+    if existing is not None:
+        artifact_id = int(existing["id"])
+    else:
+        cur = conn.execute(
+            "INSERT INTO qa_artifacts "
+            "(qa_run_id, artifact_type, content_type, artifact_handle, "
+            "metadata, created_at) "
+            f"VALUES ({_p(conn)}, {_p(conn)}, {_p(conn)}, {_p(conn)}, "
+            f"{_p(conn)}, {_p(conn)}) RETURNING id",
+            (
+                int(run_id),
+                artifact_type,
+                content_type,
+                handle_text,
+                metadata,
+                instant_parameter(conn, utc_now()),
+            ),
+        )
+        artifact_id = int(cur.fetchone()[0])
+    hand_back_mission_walk(
+        conn,
+        artifact_type=artifact_type,
+        run_id=run_id,
+        locked_execution=locked_execution,
+    )
     return HandlerOutcome(
         result_payload={"qa_artifact_id": artifact_id},
         primary_success=True,
@@ -346,4 +320,5 @@ __all__ = [
     "QaArtifactAddRequest",
     "QaArtifactAddResponse",
     "handle_qa_artifact_add",
+    "record_qa_artifact",
 ]
