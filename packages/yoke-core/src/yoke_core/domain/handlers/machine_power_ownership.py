@@ -17,6 +17,7 @@ from yoke_core.domain.handlers.machine_qa import _failure, _invalid
 from yoke_core.domain.machine_qa_capability import host_claim_target
 from yoke_core.domain.qa_host_holdover import DIRECT_OPERATION_REASON
 from yoke_core.domain.qa_host_turns import lock_host_turn
+from yoke_core.domain.qa_plan_execution_store import QaPlanExecutionStateError
 
 
 class TestMachinePowerRequest(BaseModel):
@@ -101,7 +102,64 @@ def handle_lease(request: FunctionCallRequest) -> HandlerOutcome:
     return HandlerOutcome(primary_success=True, result_payload={"claim_id": claim.id})
 
 
+class TestMachineLeaseExecutionHeartbeatResponse(BaseModel):
+    test_machine: str
+    execution_id: str | None
+
+
+def handle_lease_execution_heartbeat(request: FunctionCallRequest) -> HandlerOutcome:
+    """Refresh the caller's walk that holds the machine's lease, if any."""
+    from yoke_core.domain.test_machine_lease_execution_heartbeat import (
+        heartbeat_lease_execution,
+    )
+
+    try:
+        parsed = TestMachinePowerRequest.model_validate(request.payload)
+        name = validate_test_machine_resource_name(parsed.test_machine)
+    except ValidationError as exc:
+        return _invalid(exc)
+    except ValueError as exc:
+        return _failure("test_machine_invalid", str(exc))
+    conn = db_helpers.connect()
+    try:
+        execution_id = heartbeat_lease_execution(
+            conn,
+            name,
+            actor_id=request.actor.actor_id,
+            session_id=request.actor.session_id,
+        )
+        conn.commit()
+    except QaPlanExecutionStateError as exc:
+        conn.rollback()
+        return _failure(
+            "test_machine_walk_heartbeat_refused",
+            f"the walk holding {name} cannot heartbeat: {exc}. Read it with "
+            "yoke qa plan status and resume or end it before it goes stale",
+        )
+    finally:
+        conn.close()
+    return HandlerOutcome(
+        primary_success=True,
+        result_payload={"test_machine": name, "execution_id": execution_id},
+    )
+
+
 def register(registry) -> None:
+    registry.register(
+        "test_machine.lease_execution_heartbeat",
+        handle_lease_execution_heartbeat,
+        TestMachinePowerRequest,
+        TestMachineLeaseExecutionHeartbeatResponse,
+        stability="stable",
+        minimum_serving_version="next-release",
+        owner_module=__name__,
+        target_kinds=["global"],
+        side_effects=["qa_plan_execution_write", "coordination_claim_heartbeat"],
+        emitted_event_names=["LeaseHeartbeated"],
+        guardrails=["current_test_machine_lease", "actor_session_bound"],
+        adapter_status="internal",
+        claim_required_kind=None,
+    )
     registry.register(
         "test_machine.lease_acquire",
         handle_lease,

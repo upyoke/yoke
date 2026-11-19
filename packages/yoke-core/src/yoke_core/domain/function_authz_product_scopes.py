@@ -259,6 +259,7 @@ PRODUCT_AUTHZ_BY_ID = {
     "test_machine.verify": AuthzSpec(ORG, PERM_ORG_ADMIN),
     "test_machine.screenshot": AuthzSpec(ORG, PERM_ORG_ADMIN),
     "test_machine.lease_acquire": AuthzSpec(ACTOR_SESSION, None),
+    "test_machine.lease_execution_heartbeat": AuthzSpec(ACTOR_SESSION, None),
     "test_machine.power_started": AuthzSpec(ACTOR_SESSION, None),
     "test_machine.power_stopped": AuthzSpec(ACTOR_SESSION, None),
     "test_machine.reset": AuthzSpec(ORG, PERM_ORG_ADMIN),

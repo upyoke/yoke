@@ -148,6 +148,7 @@ FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
     "test_machine.operation.begin": "next-release",
     "test_machine.operation.submit": "next-release",
     "test_machine.lease_acquire": "next-release",
+    "test_machine.lease_execution_heartbeat": "next-release",
     "test_machine.power_started": "next-release",
     "test_machine.power_stopped": "next-release",
     "test_machine.reset": "next-release",

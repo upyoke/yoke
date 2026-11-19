@@ -1,7 +1,9 @@
 """Hold a host command's lease before starting its cloud machine.
 
 Desktop access, browser sign-in and ``yoke test-machine exec`` share this one
-lease-then-power-on path; cloud machines stay running after release. A release
+lease-then-power-on path; cloud machines stay running after release. A borrow
+of the session's own lease is walk activity when the session's walk holds it,
+so it heartbeats that walk before and after the command. A release
 onto an empty line leaves this session a short hold-over of the host, which the
 command names on stderr; the session's next acquire of the host takes it.
 """
@@ -69,6 +71,9 @@ def desktop_lease(
                 {"test_machine": test_machine},
                 actor,
             )["claim_id"]
+    borrowed = not operator_access and claim_id is None
+    if borrowed:
+        _heartbeat_walk(test_machine, actor)
     try:
         try:
             if not operator_access:
@@ -79,6 +84,8 @@ def desktop_lease(
             code, message, recovery = host_control_failure(exc, phase="lease_power_on")
             raise RuntimeError(f"{code}: {message}. {recovery}") from exc
         yield
+        if borrowed:
+            _heartbeat_walk(test_machine, actor)
     finally:
         if claim_id is not None:
             _call(
@@ -87,6 +94,33 @@ def desktop_lease(
                 actor,
             )
             _report_holdover(test_machine, actor)
+
+
+def _heartbeat_walk(test_machine, actor):
+    """Keep the caller's walk alive while this command borrows its host lease.
+
+    The server finds the walk from the lease and does nothing outside one.
+    A server that predates the function, or a walk that cannot heartbeat,
+    is named on stderr; the command still runs, as it did before.
+    """
+    response = call_dispatcher(
+        function_id="test_machine.lease_execution_heartbeat",
+        target=TargetRef(kind="global"),
+        payload={"test_machine": test_machine},
+        actor=actor,
+    )
+    if response.success:
+        return
+    error = response.error
+    print(
+        f"warning: walk heartbeat on {test_machine} not recorded: {error.code}: "
+        f"{error.message}. "
+        + (
+            error.recovery_hint
+            or "Run yoke qa mission host-command under the walk to keep it alive."
+        ),
+        file=sys.stderr,
+    )
 
 
 def holdover_lapsed(lease):

@@ -53,7 +53,10 @@ def test_lease_survives_power_and_desktop_and_only_owned_hold_releases(
     except RuntimeError:
         assert failure
     expected = ["power"] + ([] if failure == "power" else ["desktop"])
-    if not borrowed:
+    if borrowed:  # Only a borrow heartbeats the walk, before and after the command.
+        beat = "test_machine.lease_execution_heartbeat"
+        expected = [beat, *expected, *([] if failure else [beat])]
+    else:
         expected = [
             "test_machine.lease_acquire",
             *expected,
@@ -124,6 +127,27 @@ def test_foreign_holder_refuses_without_power(monkeypatch):
             detail={"active_lease": {"id": 12, "session_id": "other"}},
         ):
             pytest.fail("desktop opened")
+
+
+def test_a_walk_heartbeat_the_server_lacks_is_named_and_the_command_runs(
+    monkeypatch, capsys
+):
+    error = SimpleNamespace(code="function_version_skew", message="server is older",
+                            recovery_hint="Use the older command form.")
+    monkeypatch.setattr(custody, "call_dispatcher",
+                        lambda **kw: SimpleNamespace(success=False, error=error))
+    monkeypatch.setattr(cloud_machine_power, "power_on", lambda *a: None)
+    ran = []
+    with custody.desktop_lease(
+        project="acme", test_machine="lab", settings={}, reason="test-machine exec",
+        actor=SimpleNamespace(session_id="own"),
+        detail={"active_lease": {"id": 12, "session_id": "own"}},
+    ):
+        ran.append("exec")
+    assert ran == ["exec"]
+    assert capsys.readouterr().err.count(
+        "warning: walk heartbeat on lab not recorded: function_version_skew"
+    ) == 2
 
 
 def test_steering_assistance_leaves_foreign_lease_unchanged(monkeypatch):
