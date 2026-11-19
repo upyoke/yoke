@@ -43,6 +43,7 @@ from yoke_core.domain.qa_plan_execution_roster_change import (
     retire_unstarted_changed_roster,
 )
 from yoke_core.domain.qa_stage_execution_holders import admit_stage_roster
+from yoke_core.domain.qa_deployment_requirement_identity_schema import shared_group_id
 from yoke_core.domain.workflow_item_binding_lock import (
     lock_item_workflow_bindings,
     rollback_workflow_binding_write_errors,
@@ -186,7 +187,8 @@ def begin_plan_execution(
         session_id=session_id,
     )
     existing_id = live_plan_execution_id(
-        conn, **subject_key, execution_target_digest=prepared.execution_target_digest
+        conn, **subject_key, execution_target_digest=prepared.execution_target_digest,
+        group_id=shared_group_id(prepared.execution_target),
     )
 
     def continuation_source():

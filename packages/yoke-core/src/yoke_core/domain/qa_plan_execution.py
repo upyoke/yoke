@@ -212,7 +212,7 @@ def execute_plan(
             adopted=adopted_execution is not None,
             rebegin=(
                 begin_call
-                if adopted_execution is None and not resume_execution_id
+                if adopted_execution is None and not continue_mission
                 else None
             ),
         )

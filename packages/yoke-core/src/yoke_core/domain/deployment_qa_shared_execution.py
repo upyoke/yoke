@@ -52,7 +52,11 @@ def _group_begin(conn, begin, kwargs):
         begin_inputs,
     )
 
+    from yoke_core.domain.deployment_qa_plan_group_rebind import refresh_open_groups
+
     run_id, stage = str(kwargs["deployment_run_id"]), str(kwargs["deployment_stage"])
+    # A group moved by takeover, or whose run redeployed, follows the current build.
+    refresh_open_groups(conn, run_id, stage)
     for _attempt in range(RUN_READ_ATTEMPTS):
         inputs = begin_inputs(conn, run_id, stage)
         try:

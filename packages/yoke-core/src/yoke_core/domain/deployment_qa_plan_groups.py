@@ -81,7 +81,8 @@ def run_groups(
     rows = query_rows(
         conn,
         "SELECT id,deployment_run_id,deployment_stage,plan_id,execution_target_json,"
-        "execution_target_digest,covered_item_ids,retracted_at FROM qa_requirements "
+        "execution_target_digest,covered_item_ids,retracted_at,"
+        "superseded_by_requirement_id FROM qa_requirements "
         "WHERE deployment_run_id=ANY(%s) AND deployment_member_item_id IS NULL "
         f"AND plan_id IS NOT NULL{filters} ORDER BY id",
         tuple(params),
@@ -106,6 +107,13 @@ def run_groups(
             },
         )
         group["ids"].append(int(row["id"]))
+        if row["superseded_by_requirement_id"] is None and not group.get("live"):
+            # A rebind moves live rows only; a superseded row keeps its old target.
+            group.update(
+                live=True,
+                digest=str(row["execution_target_digest"]),
+                target=dict(_json(row["execution_target_json"])),
+            )
         covered = _json(row["covered_item_ids"])
         if covered is not None:
             group["covered"] = tuple(sorted(int(value) for value in covered))

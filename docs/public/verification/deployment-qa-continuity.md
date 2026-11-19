@@ -45,8 +45,15 @@ not establish a lineage. Existing live requirements rebind in place to the curre
 records its previous target. A pass recorded before or after takeover carries
 when its destination matches. While the successor's item QA still has to credit
 the pass, the gate identifies it as carried and says to wait without re-running.
-A changed destination still needs a pass. Shared plan groups retain
-their group ID and frozen target; separate groups remain separate subjects.
+A changed destination still needs a pass. An open shared plan group keeps
+its group ID, plan, pinned cases and case IDs, and follows its owning run the
+same way: once that run holds a ready receipt the group's target does not
+record (a takeover moved it, or its run redeployed), stage dispatch or the next
+`yoke qa plan run --deployment-run-id RUN --stage item-qa --plan P` rebinds
+every live group case to the current target, keeping `starting_run_id` and the
+previous target in `rebound_from_target_json`. Same-destination passes carry;
+a group whose walk has begun keeps its target. Separate groups remain separate
+subjects.
 Successor stage dispatch also materializes members whose live private cases
 still name another run, even when those members already have requirements.
 Retracted, superseded and shared-group cases do not trigger this refresh;
@@ -56,8 +63,11 @@ provenance and never gate a write. Their timestamps and observation windows
 do not restart when a requirement follows the successor target. An execution
 that has run, leased and recorded nothing yet, such as one waiting for its
 Test Machine turn, takes the successor's current roster and target when its
-owner's `yoke qa plan run` begins it again; it keeps its execution ID,
-`execution_order` and host-line place.
+owner's `yoke qa plan run` begins it again or the host-turn wake resumes it
+with `--resume-execution-id`; it keeps its execution ID, `execution_order` and
+host-line place. This holds for member executions and plan-group walks. A
+pause in any phase but the pre-case check-in, or a captured first case, means
+a case may have acted, so that execution keeps its target.
 
 A failed successor retains inherited QA for retry or another takeover. Explicit
 cancellation and genuine member removal retain their cleanup rules. An early QA
