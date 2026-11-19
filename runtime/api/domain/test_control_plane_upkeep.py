@@ -111,7 +111,13 @@ def test_upkeep_runs_both_steps_on_one_connection_and_closes_it(monkeypatch) -> 
     from yoke_core.domain import db_helpers
 
     closed: list[bool] = []
-    conn = SimpleNamespace(close=lambda: closed.append(True))
+    conn = SimpleNamespace(
+        close=lambda: closed.append(True),
+        # The upkeep lock is free: try-lock answers true, unlock is a no-op.
+        execute=lambda *_a: SimpleNamespace(fetchone=lambda: (True,)),
+        commit=lambda: None,
+        rollback=lambda: None,
+    )
     monkeypatch.setattr(db_helpers, "connect", lambda: conn)
     ran: list[tuple[str, object]] = []
     monkeypatch.setattr(

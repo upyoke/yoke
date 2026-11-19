@@ -17,6 +17,7 @@ sink stays ``instrumented_no_exporter`` (spans created and dropped).
 from __future__ import annotations
 
 import os
+import socket
 from typing import Any, Mapping, Optional
 
 
@@ -73,6 +74,9 @@ def configure_otel(
         {
             "service.name": service_name(source),
             "deployment.environment": environment_name(source),
+            # One series per server process: API workers export the same
+            # service, and identical identities collide in cumulative metrics.
+            "service.instance.id": f"{socket.gethostname()}-{os.getpid()}",
         }
     )
     try:

@@ -145,3 +145,30 @@ unpaired timing records refuse; empty overviews cannot dilute the populated
 overview p95. Passing requires populated p95 below five seconds and no failed
 overview, including read deadlines. This is controller log evidence and needs
 the hosting project's AWS log-read access.
+
+## Running more than one API worker
+
+`YOKE_API_WORKERS` (default 1) sets how many uvicorn worker processes serve
+the API. The parent process does boot work once: the startup lock, schema
+convergence and permission seeding. Then each worker imports the app and runs
+its own lifespan. Every side effect a worker could repeat is guarded in
+Postgres (claimed rows, row locks, advisory locks, unique indexes), and no
+request waits on an in-process wakeup. The relay long-poll polls the database.
+Only one worker runs each control-plane upkeep pass at a time
+(`UPKEEP_LOCK_KEY` session advisory lock). Each process exports metrics under
+its own `service.instance.id`, so sum per-process series such as
+`yoke.api.process.cpu.percent`.
+
+These remain per process:
+- Read caches: the steering schedule (15s), carried work (30s), OIDC
+  discovery and similar. A client whose requests alternate between workers
+  can briefly see an older answer after a newer one.
+- The health snapshot and the GitHub App attestation. Each worker attests
+  once at startup, so after one worker's failed attestation, `/v1/health` can
+  differ by worker until that worker restarts.
+- The debug-capture record cap, which applies to each worker separately.
+- The connection reuse pool and threadpool, so peak Postgres connections
+  scale with the worker count. Size `max_connections` for it.
+
+Each worker adds about 100 MB of resident memory at import, before its working
+set.
