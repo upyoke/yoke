@@ -63,8 +63,9 @@ port and one inbound firewall rule, `YokeWslDesktopTailnet`, admitting that
 port only on the `Tailscale` interface. The proxy binds only while that
 address exists, and Windows starts IP Helper before Tailscale at boot, so the
 wrapper also registers the SYSTEM startup task `YokeWslDesktopTailnet`. The task
-waits for the Tailscale address and restarts IP Helper if the proxy is not
-listening there. Its output names the `tailnet_listener`; `--verify` proves the
+waits for the Tailscale address and, if the proxy is not listening there,
+deletes and re-adds the proxy rule so IP Helper binds it. It never restarts IP
+Helper: Tailscale depends on that service, so a restart drops the address. Its output names the `tailnet_listener`; `--verify` proves the
 proxy, the rule, the task and a connection. If a connection fails after a
 reboot, run `Start-ScheduledTask YokeWslDesktopTailnet` as administrator.
 Run it from the Windows administrator's SSH session so `netsh`,

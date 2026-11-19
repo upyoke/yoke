@@ -4,7 +4,8 @@ xrdp listens on WSL loopback, which Windows localhost forwarding carries to
 127.0.0.1 on the host. A port proxy on the host's Tailscale address forwards
 to it, and one firewall rule admits that port only on the Tailscale interface.
 The proxy binds only while that address exists, and Windows starts IP Helper
-before Tailscale at boot, so a SYSTEM startup task rebinds it once Tailscale is up.
+before Tailscale at boot, so a SYSTEM startup task re-adds the proxy rule once
+Tailscale is up, which makes IP Helper bind it.
 """
 
 from __future__ import annotations
@@ -160,16 +161,20 @@ def prove_windows_localhost(port: int) -> None:
 
 
 TAILNET_RULE = "YokeWslDesktopTailnet"
-# Runs at every boot: wait for the Tailscale address, then restart IP Helper
-# so the port proxy binds to it if it is not already listening there.
+# Runs at every boot: wait for the Tailscale address, then re-add the proxy
+# rule so IP Helper binds it. Never restart IP Helper: Tailscale depends on it,
+# so a restart drops the very address the proxy needs and churns networking.
 REBIND_SCRIPT = r"""$port={port}
 function Listening($ip){{ @(Get-NetTCPConnection -State Listen -LocalAddress $ip -LocalPort $port -ErrorAction SilentlyContinue).Count -gt 0 }}
 for($i=0;$i -lt 120;$i++){{
  $a=@(Get-NetIPAddress -InterfaceAlias Tailscale -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object {{$_.IPAddress -like '100.*'}})
  if($a.Count -eq 1){{
-  if(Listening $a[0].IPAddress){{exit 0}}
-  Restart-Service iphlpsvc -Force; Start-Sleep 5
-  if(Listening $a[0].IPAddress){{exit 0}}
+  $ip=$a[0].IPAddress
+  if(Listening $ip){{exit 0}}
+  netsh interface portproxy delete v4tov4 listenaddress=$ip listenport=$port | Out-Null
+  netsh interface portproxy add v4tov4 listenaddress=$ip listenport=$port connectaddress=127.0.0.1 connectport=$port | Out-Null
+  Start-Sleep 2
+  if(Listening $ip){{exit 0}}
  }}
  Start-Sleep 5
 }}
@@ -208,7 +213,7 @@ $rule=Get-NetFirewallRule -Name {rule} -ErrorAction SilentlyContinue
 $interfaces=@($rule | Get-NetFirewallInterfaceFilter | ForEach-Object InterfaceAlias)
 if(!$rule -or $rule.Enabled -ne 'True' -or $interfaces.Count -ne 1 -or $interfaces[0] -ne 'Tailscale'){{throw 'windows_wsl_tailnet_firewall_not_proved: rule {rule} must admit the port only on the Tailscale interface; rerun Pack provisioning'}}
 $client=[Net.Sockets.TcpClient]::new()
-try{{ if(-not $client.ConnectAsync($ip,$port).Wait(5000) -or -not $client.Connected){{throw "windows_wsl_tailnet_unreachable: $ip`:$port did not accept; run Start-ScheduledTask {rule} as administrator, then inspect the IP Helper service and the port proxy"}} }} finally {{ $client.Dispose() }}
+try{{ if(-not $client.ConnectAsync($ip,$port).Wait(5000) -or -not $client.Connected){{throw "windows_wsl_tailnet_unreachable: $ip`:$port did not accept; run Start-ScheduledTask {rule} as administrator, then inspect the port proxy and its Tailscale address"}} }} finally {{ $client.Dispose() }}
 Write-Output $ip
 """
 
