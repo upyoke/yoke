@@ -26,3 +26,14 @@ def test_onboard_router_reaches_every_step_file():
     for path in ONBOARD_DIR.glob("*.md"):
         if path.name != "SKILL.md":
             assert path.name in linked, f"{path.name} is unreachable from onboard"
+
+
+def test_verification_binding_probes_quick_argv_on_local_hosts():
+    """Without CI the suite runs here, so onboarding runs the argv before binding."""
+    text = " ".join(_read(ONBOARD_DIR / "verification-binding.md").split())
+    probe = text.index("Run `{quick_argv}` once")
+    assert "No `ci_workflow_file`" in text
+    assert probe < text.index("yoke qa registered-command set")
+    assert "uv run --with pytest" in text
+    assert "No tests collected passes" in text
+    assert "`argv verification`" in text and "probe result" in text
