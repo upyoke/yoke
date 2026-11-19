@@ -256,6 +256,32 @@ def test_linux_doctor_reports_unsupervised_without_systemd(monkeypatch, tmp_path
     assert "not supervised" in rec.results[0].detail
 
 
+_TASK = dict(supported=True, task_present=True, task_current=True, enabled=True, loaded=True,
+             reason="", task_name="Yoke Relay")
+
+
+@pytest.mark.parametrize("change, expected, named", [
+    ({}, "PASS", "relay"), ({"task_present": False}, "FAIL", "Yoke Relay is missing"),
+    ({"task_current": False}, "FAIL", "current contract"),
+    ({"enabled": False, "loaded": False}, "FAIL", "task is disabled"),
+    ({"loaded": False}, "FAIL", "task is not running"),
+    ({"supported": False, "reason": "schtasks unavailable"}, "N/A", "schtasks unavailable"),
+])
+def test_windows_doctor_reads_the_task_scheduler_relay(
+    monkeypatch, tmp_path, change, expected, named
+):
+    _bind_instance(monkeypatch, tmp_path)
+    monkeypatch.setattr(relay_hc.sys, "platform", "win32")
+    status = SimpleNamespace(**{**_TASK, **change})
+    monkeypatch.setattr(relay_hc, "relay_task_status", lambda **kw: status)
+    monkeypatch.setattr(relay_hc, "_machine_id", lambda: "machine")
+    monkeypatch.setattr(relay_hc, "_recent_relay", lambda *a: ("relay", "now"))
+    monkeypatch.setattr(relay_hc, "_missing_credential_reference", lambda **kw: "")
+    rec = RecordCollector()
+    relay_hc.hc_session_relay(None, DoctorArgs(), rec)
+    assert rec.results[0].result == expected and named in rec.results[0].detail
+
+
 class _FakeClock:
     def __init__(self) -> None:
         self.now = 0.0
