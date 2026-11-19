@@ -154,7 +154,8 @@ def qa_browser_step(args: List[str]) -> int:
     parser.add_argument(
         "--keep-open",
         action="store_true",
-        help="Return check_id for the next step; omit on the last step to delete the copy.",
+        help="Return check_id for the next step, even when this step is refused; "
+        "omit on the last step to delete the copy.",
     )
     parser.add_argument(
         "--check-id",
@@ -203,15 +204,23 @@ def qa_browser_step(args: List[str]) -> int:
             if daemon_error:
                 print(f"browser daemon unavailable: {daemon_error}", file=sys.stderr)
                 return 2
-            page_id = browser_client.ensure_page(
-                parsed.page or browser_client.EXPLORATORY_PAGE_ID
-            )
-            result = browser_client.execute_step(
-                step,
-                parsed.base_url,
-                output_dir=parsed.output_dir,
-                page_id=page_id,
-            )
+            try:
+                page_id = browser_client.ensure_page(
+                    parsed.page or browser_client.EXPLORATORY_PAGE_ID
+                )
+                result = browser_client.execute_step(
+                    step,
+                    parsed.base_url,
+                    output_dir=parsed.output_dir,
+                    page_id=page_id,
+                )
+            except RuntimeError as exc:
+                if not parsed.keep_open:
+                    raise
+                # A refusal leaves the page as it stands. A kept check keeps
+                # it, so the caller can inspect it before any repair.
+                print(f"yoke qa browser step: {exc}", file=sys.stderr)
+                result = {"success": False, "error": str(exc)}
             if parsed.keep_open:
                 result["check_id"] = check.check_id
     except (RuntimeError, BrowserIdentityError) as exc:

@@ -245,6 +245,8 @@ For an interactive step sequence, `qa browser setup --json` returns a
 `check_id`. Pass `--check-id ID --keep-open` on intermediate `qa browser step`
 calls, then omit `--keep-open` on the final call to close and delete the copy.
 A first step with `--keep-open` can also start the sequence and return its id.
+A refused `--keep-open` step, such as `page_unresponsive`, exits 1 but keeps the
+check and its page: its JSON carries the error and the same `check_id`.
 Pass the same `--project` on every call. A call with `--check-id` and no
 `--identity` uses the identity that check recorded; naming a different one
 refuses with `browser_check_identity_mismatch`.
