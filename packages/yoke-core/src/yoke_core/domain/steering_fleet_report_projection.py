@@ -130,6 +130,7 @@ def _landed_dict(entry: LandedItem, *, idle_after_seconds: int) -> dict[str, Any
         "stranded": entry.stranded,
         "delivery_gate": entry.delivery_gate.state,
         "awaiting_release": entry.awaiting_release,
+        "relanding_owed": entry.relanding_owed,
         # Empty when the row needs nothing: the item's gate waits only on its
         # next release, or a live holder owns its own close-out. A quiet
         # holder is not that owner; the recovery names a wake and the
