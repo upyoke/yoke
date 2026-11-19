@@ -54,7 +54,15 @@ def _owned_case(
     if expected_runner is not None and case.get("runner_id") != expected_runner:
         raise ValueError(f"the ordered plan case is not a {expected_runner} case")
     _assert_current_snapshot(conn, case)
-    if replay and parsed.ordinal >= int(execution["cursor_ordinal"]):
+    from yoke_core.domain.qa_plan_execution_reentry import admitted_case
+
+    # Only an admitted case owes its whole host set; before admission the
+    # cursor still holds the previous case's custody.
+    if (
+        replay
+        and parsed.ordinal >= int(execution["cursor_ordinal"])
+        and admitted_case(execution) == parsed.ordinal
+    ):
         from yoke_core.domain.qa_plan_host_leases import require_case_host_leases
 
         require_case_host_leases(conn, execution, case)

@@ -38,6 +38,8 @@ from yoke_core.domain.machine_qa_capability import replace_test_machine_settings
 from yoke_core.domain.machine_qa_execution_protocol import MachineQaProtocolLeaseHeld
 from yoke_core.domain.qa_host_set_turns import record_host_wait, require_host_set_turn
 from yoke_core.domain.qa_host_turn_release import HOST_TURN_RELEASED_REASON
+from yoke_core.domain.qa_plan_execution_lifecycle import heartbeat_plan_execution
+from yoke_core.domain.qa_plan_execution_reentry import pause_execution, resume_execution
 from yoke_core.domain.qa_plan_execution_state import (
     advance_plan_execution,
     lock_plan_execution,
@@ -175,35 +177,63 @@ def _seed_solo_then_matrix(conn, tmp_path, monkeypatch):
     )
 
 
-def test_single_host_baseline_holds_only_its_host_then_the_set_case_takes_all(
-    test_db, tmp_path, monkeypatch
-):
-    _seed_solo_then_matrix(test_db, tmp_path, monkeypatch)
-    seed_qa_session(test_db, SESSION, messageable=True)
-    execution = _begin(test_db, deployment_member_item_id=None)
+def _solo_case_done(conn, tmp_path, monkeypatch):
+    """Run plan 19679's solo case and advance the cursor to the set case."""
+    _seed_solo_then_matrix(conn, tmp_path, monkeypatch)
+    seed_qa_session(conn, SESSION, messageable=True)
+    execution = _begin(conn, deployment_member_item_id=None)
     assert len(execution["roster"]) == 2
     response = _case_begin(execution)
     assert response.primary_success, response.error
     assert response.result_payload["state"] == "ready"
-    current = lock_plan_execution(test_db, execution["id"])
+    current = lock_plan_execution(conn, execution["id"])
     # The solo baseline does not take the matrix case's companion host.
-    assert active_claim(test_db, _target(MACHINES[1])) is None
-    assert not execution_host_leases(test_db, current)
+    assert active_claim(conn, _target(MACHINES[1])) is None
+    assert not execution_host_leases(conn, current)
     case = current["roster"][0]
     advance_plan_execution(
-        test_db,
+        conn,
         current,
         ordinal=0,
         requirement_id=case["requirement_id"],
         result={"requirement_id": case["requirement_id"], "case_outcome": "pass"},
     )
-    current = lock_plan_execution(test_db, execution["id"])
+    return lock_plan_execution(conn, execution["id"])
+
+
+@pytest.mark.parametrize("lost", MACHINES)
+def test_single_host_baseline_holds_only_its_host_then_the_set_case_takes_all(
+    test_db, tmp_path, monkeypatch, lost
+):
+    current = _solo_case_done(test_db, tmp_path, monkeypatch)
+    # A check-in before the set case is admitted owes only the solo lease.
+    heartbeat_plan_execution(test_db, current)
+    current = lock_plan_execution(test_db, current["id"])
     response = _case_begin(current, ordinal=1)
     assert response.primary_success, response.error
     assert response.result_payload["state"] == "ready"
-    current = lock_plan_execution(test_db, execution["id"])
+    current = lock_plan_execution(test_db, current["id"])
     leases = execution_host_leases(test_db, current)
     assert [claim.target.test_machine for claim in leases] == list(MACHINES)
+    heartbeat_plan_execution(test_db, current)
+    # Once admitted, losing any one host of the set ends the case's custody.
+    release(test_db, active_claim(test_db, _target(lost)).id, "taken")
+    with pytest.raises(ValueError, match="test_machine_set_lease_lost"):
+        heartbeat_plan_execution(test_db, lock_plan_execution(test_db, current["id"]))
+
+
+def test_resume_before_set_case_admission_keeps_cursor_and_primary_lease(
+    test_db, tmp_path, monkeypatch
+):
+    current = _solo_case_done(test_db, tmp_path, monkeypatch)
+    lease_id = current["test_machine_lease_id"]
+    assert lease_id is not None
+    pause_execution(test_db, current, phase="checkin", cursor=1, request_id="r1", attempts=0)
+    resume_execution(test_db, lock_plan_execution(test_db, current["id"]))
+    current = lock_plan_execution(test_db, current["id"])
+    assert (current["state"], current["cursor_ordinal"]) == ("active", 1)
+    assert current["test_machine_lease_id"] == lease_id
+    assert active_claim(test_db, _target(MACHINES[0])).id == lease_id
 
 
 def test_moving_between_hosts_keeps_the_first_place(test_db, monkeypatch):

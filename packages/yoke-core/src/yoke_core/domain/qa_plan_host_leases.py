@@ -69,10 +69,7 @@ def require_case_host_leases(
         return
     from yoke_core.domain.machine_qa_execution_protocol import _validate_lease_owner
 
-    leases = {
-        str(claim.target.test_machine): claim
-        for claim in execution_host_leases(conn, execution)
-    }
+    leases = held_host_leases(conn, execution)
     if not set(names).issubset(leases):
         raise ValueError(
             "test_machine_set_lease_lost: this case no longer holds every declared "
@@ -84,7 +81,7 @@ def require_case_host_leases(
             project=str(case["project"]),
             session_id=str(execution["session_id"]),
             actor_id=execution.get("actor_id"),
-            lease_id=leases[name].id,
+            lease_id=leases[name],
             allow_released=False,
         )
 
@@ -298,11 +295,21 @@ def case_host_set(
 
 def held_hosts(conn: Any, execution: dict[str, Any]) -> set[str]:
     """Hosts the execution holds: its primary lease and its companions."""
-    hosts = {str(claim.target.test_machine) for claim in execution_host_leases(conn, execution)}
+    return set(held_host_leases(conn, execution))
+
+
+def held_host_leases(conn: Any, execution: dict[str, Any]) -> dict[str, int]:
+    """Each active held host's lease id: the primary and its companions."""
+    leases = {
+        str(claim.target.test_machine): claim.id
+        for claim in execution_host_leases(conn, execution)
+    }
     lease_id = execution.get("test_machine_lease_id")
     if lease_id is not None:
-        hosts.add(str(get_claim(conn, int(lease_id)).target.test_machine))
-    return hosts
+        primary = get_claim(conn, int(lease_id))
+        if primary.is_active:
+            leases[str(primary.target.test_machine)] = int(lease_id)
+    return leases
 
 
 def release_hosts_outside(
