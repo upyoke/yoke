@@ -107,6 +107,7 @@ class WizardFlow(
         if not getattr(self, "_preserve_project_fields_once", False):
             steps.reset_project_fields(self.result)
         self._preserve_project_fields_once = False
+        self._redirected_from_create = False
         self.result.project_mode = mode
         if mode == onboard_project.PROJECT_MODE_MACHINE_ONLY:
             self._goto_hosting()
@@ -160,6 +161,11 @@ class WizardFlow(
         )
 
     def _after_checkout(self: _Shell, value: str) -> None:
+        # A Back detour to the folder prompt keeps the earlier redirect; undo it
+        # so a new path entered there is created, not adopted.
+        if getattr(self, "_redirected_from_create", False):
+            self._redirected_from_create = False
+            self.result.project_mode = onboard_project.PROJECT_MODE_CREATE_REPO
         mode = self.result.project_mode
         steps.reset_project_fields(self.result)
         self.result.project_mode = mode
@@ -174,6 +180,7 @@ class WizardFlow(
             and not self._run_facts.names_folder(APPLY_NEW_FOLDER, value)
         ):
             self.result.project_mode = onboard_project.PROJECT_MODE_LOCAL_CHECKOUT
+            self._redirected_from_create = True
             self._carry_detail_lines([
                 "That folder already exists.",
                 f"Yoke will set up {value} as an existing project "

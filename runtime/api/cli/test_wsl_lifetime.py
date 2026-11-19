@@ -143,7 +143,7 @@ def test_version_refusal_never_reads_or_writes_profile(monkeypatch, version, rea
     if reason == "wsl_lifetime_version_unsupported":
         logs = []
         assert not lifetime.setup(emit=logs.append)
-        assert "Warning:" in logs[0] and "wsl --update" in logs[0]
+        assert "Warning:" in logs[0] and logs[0].count("wsl --update") == 1
     else:
         with pytest.raises(RuntimeError, match=reason + ".*wsl --update"):
             lifetime.setup()
@@ -220,4 +220,23 @@ def test_setup_warns_and_skips_when_windows_interop_is_missing(monkeypatch):
     logs = []
     assert not lifetime.setup(emit=logs.append)
     assert "Warning: wsl_windows_interop_unavailable" in logs[0]
-    assert "wsl --update" in logs[0]
+    assert logs[0].count("rerun yoke wsl setup") == 1
+    assert "wsl --update" not in logs[0]
+
+
+def test_setup_names_one_restart_recovery_when_wsl_exe_fails(monkeypatch):
+    monkeypatch.setattr(lifetime, "_windows_command", lambda name: name)
+    monkeypatch.setattr(
+        lifetime.subprocess,
+        "run",
+        lambda command, **kw: subprocess.CompletedProcess(
+            command, 1, b"", b"Wsl/Service/0x8007274c: vsock accept timed out"
+        ),
+    )
+    monkeypatch.setattr(lifetime, "_config_path", lambda: pytest.fail("wsl failed"))
+    logs = []
+    assert not lifetime.setup(emit=logs.append)
+    assert logs[0].startswith("Warning: wsl_windows_command_failed: wsl.exe exited 1")
+    assert logs[0].count("rerun yoke wsl setup") == 1
+    assert "`wsl --shutdown`" in logs[0]
+    assert logs[0].count("wsl --update") == 1

@@ -3,25 +3,77 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
-from yoke_cli.config import harness_posture_install
-from yoke_contracts.harness_machine_hooks import (
-    MACHINE_HOOKS_PLAN_ACTION,
-    machine_hooks_plan_steps,
-)
+from yoke_cli.config import harness_posture_install, onboard_project, onboard_report
+from yoke_cli.config.onboard_wizard_plan_review import classify_plan
+from yoke_contracts.harness_machine_hooks import MACHINE_HOOKS_PLAN_ACTION
 
 
 def _home(tmp_path):
     return tmp_path / "harness-home"  # the conftest-isolated home
 
 
-def test_plan_lists_one_step_per_installed_harness(tmp_path):
+def _plan() -> dict:
+    return onboard_report.build_plan(
+        Path("/home/.yoke/config.json"),
+        "prod",
+        "https://api.test",
+        {"kind": "token_file", "path": "/home/.yoke/secrets/prod.token"},
+        {"kind": "token_file", "path": "/home/.yoke/secrets/prod.token"},
+        "quick",
+        project_mode=onboard_project.PROJECT_MODE_MACHINE_ONLY,
+        project_inputs={},
+        machine_github={"choice": "skip"},
+    )
+
+
+def _hook_targets(plan: dict) -> list[str]:
+    return [
+        step["target"]
+        for step in plan["steps"]
+        if step["action"] == MACHINE_HOOKS_PLAN_ACTION
+    ]
+
+
+def _change_count(plan: dict) -> int:
+    return sum(len(lines) for lines in classify_plan({"plan": plan}).values())
+
+
+def test_plan_lists_one_step_per_harness_missing_its_hooks(tmp_path):
     (_home(tmp_path) / ".claude").mkdir(parents=True)
     (_home(tmp_path) / ".codex").mkdir(parents=True)
-    assert machine_hooks_plan_steps() == [
-        {"action": MACHINE_HOOKS_PLAN_ACTION, "target": "~/.claude/settings.json"},
-        {"action": MACHINE_HOOKS_PLAN_ACTION, "target": "~/.codex/hooks.json"},
+    assert _hook_targets(_plan()) == [
+        "~/.claude/settings.json",
+        "~/.codex/hooks.json",
     ]
+
+
+def test_plan_omits_harnesses_whose_hooks_are_installed(tmp_path):
+    (_home(tmp_path) / ".claude").mkdir(parents=True)
+    (_home(tmp_path) / ".cursor").mkdir(parents=True)
+    before = _plan()
+    assert len(_hook_targets(before)) == 2
+
+    harness_posture_install.apply_reported()
+
+    after = _plan()
+    assert _hook_targets(after) == []
+    assert _change_count(after) == _change_count(before) - 2
+
+
+def test_plan_still_lists_a_stale_harness(tmp_path):
+    (_home(tmp_path) / ".claude").mkdir(parents=True)
+    (_home(tmp_path) / ".cursor").mkdir(parents=True)
+    harness_posture_install.apply_reported()
+    cursor = _home(tmp_path) / ".cursor" / "hooks.json"
+    document = json.loads(cursor.read_text())
+    for entries in document["hooks"].values():
+        for entry in entries:
+            entry["command"] = entry["command"] + " --stale"
+    cursor.write_text(json.dumps(document))
+
+    assert _hook_targets(_plan()) == ["~/.cursor/hooks.json"]
 
 
 def test_apply_installs_and_reports_each_harness(tmp_path):

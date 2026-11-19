@@ -44,9 +44,8 @@ with systemd enabled. To open a URL in the Windows browser, Yoke tries
 interop/PATH when both are unavailable. Verify the local UI
 through Windows localhost forwarding before changing WSL networking modes.
 Install and onboard Apply disable WSL2 idle shutdown through the Windows user
-profile `.wslconfig` (WSL 2.5.4 or newer). Older WSL or unavailable Windows
-interop warns without blocking completion; run `wsl --update` from Windows
-and retry `yoke wsl setup`. Preview does not write WSL configuration.
+profile `.wslconfig` (WSL 2.5.4 or newer). If WSL is older, interop is off or
+`wsl.exe` fails, it warns, names one fix and continues. Preview writes no WSL config.
 Follow the printed `wsl --shutdown`
 restart step when setup changes it; afterward terminals can close while the
 relay and background work continue. After a deliberate distro shutdown, run
