@@ -240,9 +240,17 @@ def test_gui_command_uses_native_windows_desktop_task(monkeypatch, tmp_path):
     from yoke_harness import machine_gui_command as gui
     from yoke_harness.native_windows import desktop
 
+    from yoke_contracts.machine_config import capability_secret_store
+    from yoke_harness.native_windows import transport
+
     calls=[]
+    key = tmp_path / 'ssh_private_key'
+    key.write_text('key')
+    facts = {'os':'Windows','admin':False,'home':r'C:\Users\qa','shell':'powershell.exe',
+             'edition':'Windows 11 Pro','build':'26100','user':r'host\qa'}
     monkeypatch.setenv('SSH_AUTH_SOCK','test-agent')
-    monkeypatch.setattr(gui._GuiSshControl,'_run',lambda *args,**kwargs:subprocess.CompletedProcess([],0,r'C:\Users\qa',''))
+    monkeypatch.setattr(capability_secret_store,'test_machine_secret_path',lambda name,k:key)
+    monkeypatch.setattr(transport.WindowsTransport,'_host_facts',lambda self:setattr(self,'windows_facts',facts) or facts)
     monkeypatch.setattr(desktop,'desktop_script',lambda control,script,**kwargs:calls.append(script) or subprocess.CompletedProcess([],0,'native',''))
     result = gui.run_gui_command(settings={**SETTINGS,'os':'windows'},argv=['yoke.cmd'],yoke_home=tmp_path)
     assert result.stdout == 'native'
