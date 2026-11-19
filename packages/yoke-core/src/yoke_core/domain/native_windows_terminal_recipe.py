@@ -26,9 +26,20 @@ def execute_recipe(
     progress_callback=None,
     allowed_operator_urls=(),
 ):
-    staged, extra_secrets = stage_recipe_files(control, config)
+    staged_ok, staged, extra_secrets = stage_recipe_files(
+        config["stage_files"], upload_bytes=control._upload_bytes
+    )
     secrets = (*control.secret_values, *extra_secrets)
     try:
+        if not staged_ok:
+            return HostActionResult(
+                False,
+                {
+                    "staged_files": staged,
+                    "recovery": "Repair the declared source and remote owner-only path.",
+                },
+                "terminal_stage_file_failed",
+            )
         if config["execution_mode"] == "ssh-command":
             result = run_command_recipe(
                 control._run,
