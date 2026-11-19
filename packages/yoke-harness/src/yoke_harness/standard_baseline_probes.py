@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import shlex
 from pathlib import Path
@@ -19,6 +20,8 @@ from yoke_harness.ssh_mac_host_session_state import (
     SCREEN_SAVER_DISABLE_COMMAND,
     SCREEN_SAVER_READ_COMMAND,
 )
+from typing import Any, Callable
+
 from yoke_contracts.test_machine_types import HostActionResult
 
 CHECKLIST = ".yoke/docs/verification/test-machines/host-provisioning.md"
@@ -32,7 +35,7 @@ RECOVERIES = {
     "Codex real request": "Sign in Codex with codex login in the test user's session.",
     "Cursor real request": "Sign in Cursor with agent login in the test user's session.",
     "Claude bypass accepted": "Have the operator accept Claude's one-time bypass prompt in the test user's session.",
-    "Claude desktop signed in": "Open Claude for Mac in the test user's GUI session. Complete onboarding if prompted, verify the signed-in account in Chat or Code, then quit Claude.",
+    "Claude desktop signed in": "Open Claude for Mac in the test user's GUI session. Complete onboarding if prompted, verify the signed-in account in Chat, Code or Cowork, then quit Claude.",
     "macOS login keychain readable": "Use GUI Terminal to unlock/re-key the login keychain after a password change and sign in Claude again; the keychain stays live through resets.",
     "macOS screen saver disabled": f"As the GUI test user run {SCREEN_SAVER_DISABLE_COMMAND} before capture; save a new golden and prove the reset roundtrip.",
     "Linux desktop input available": "Provision xdotool as a baseline package before capture, not as a QA package; capture a new golden and prove the fresh-host reset roundtrip.",
@@ -212,6 +215,77 @@ sys.exit(0 if not desktop or shutil.which('xdotool') else EXIT['probe_check_unme
     return probes
 
 
+def _extras(supplied: Any, standard: list[dict]) -> list[dict]:
+    """Keep operator-added probes, with their argv and expectation, as declared."""
+    names = {probe["name"] for probe in standard}
+    return [
+        dict(
+            name=p.name,
+            argv=list(p.argv),
+            **(
+                {"expect_output_contains": p.expect_output_contains}
+                if p.expect_output_contains
+                else {}
+            ),
+        )
+        for p in supplied
+        if p.name not in names
+    ]
+
+
+def _digest(probes: list[dict]) -> str:
+    canonical = json.dumps(probes, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def current_standard_document(os_name: str, document: str) -> tuple[str, dict]:
+    """Swap a golden's sealed standard probes for the controller's current ones.
+
+    A golden keeps the standard programs of the controller that captured it, so
+    a detector fixed later would never reach that golden. Reset runs today's
+    standard set, keeps the sealed extra probes, and names both digests.
+    Raises ValueError when either document is not a valid probe document.
+    """
+    from yoke_harness.ssh_mac_baseline_probes import parse_baseline_probes
+
+    sealed = parse_baseline_probes(document)
+    current = standard_probes(os_name)
+    names = {probe["name"] for probe in current}
+    sealed_standard = [p for p in sealed if p.name in names]
+    # Capture resolved the host interpreter (Windows seals its python.exe path).
+    for probe in current if sealed_standard else ():
+        probe["argv"][0] = sealed_standard[0].argv[0]
+    sealed_sha = _digest([{"name": p.name, "argv": list(p.argv)} for p in sealed_standard])
+    current_sha = _digest([{"name": p["name"], "argv": p["argv"]} for p in current])
+    digests = {
+        "sealed_sha256": sealed_sha,
+        "current_sha256": current_sha,
+        "refreshed": sealed_sha != current_sha,
+    }
+    if sealed_sha == current_sha:
+        return document, digests
+    refreshed = json.dumps({"probes": [*current, *_extras(sealed, current)]})
+    parse_baseline_probes(refreshed)
+    return refreshed, digests
+
+
+def prove_current_standard(
+    os_name: str, document: str, prove: Callable[[str], HostActionResult]
+) -> HostActionResult:
+    """Prove a sealed document with the current standard probes in place."""
+    try:
+        document, digests = current_standard_document(os_name, document)
+    except ValueError:
+        # The prover refuses an invalid document with its own named recovery.
+        return prove(document)
+    proven = prove(document)
+    return HostActionResult(
+        proven.ok,
+        {**proven.evidence, "standard_probes": digests},
+        proven.error_code,
+    )
+
+
 def capture_probes_document(
     os_name: str, document: str | None
 ) -> tuple[str | None, HostActionResult | None]:
@@ -243,19 +317,7 @@ def capture_probes_document(
         )
     # Names cannot certify a check: always run/seal canonical standard programs.
     # Additional operator checks retain their argv and output expectations.
-    extras = [
-        dict(
-            name=p.name,
-            argv=list(p.argv),
-            **(
-                {"expect_output_contains": p.expect_output_contains}
-                if p.expect_output_contains
-                else {}
-            ),
-        )
-        for p in supplied
-        if p.name not in {p["name"] for p in standard}
-    ]
+    extras = _extras(supplied, standard)
     selected = json.dumps({"probes": [*standard, *extras]})
     try:
         parse_baseline_probes(selected)

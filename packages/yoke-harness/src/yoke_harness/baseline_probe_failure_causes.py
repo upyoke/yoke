@@ -63,6 +63,17 @@ CHECK_UNMET = ProbeFailureCause(
     "new golden, then retry.",
 )
 
+LAYOUT_UNRECOGNIZED = ProbeFailureCause(
+    "probe_layout_unrecognized",
+    "the app window opened but showed neither a signed-in Chat, Code or Cowork "
+    "layout nor the first-run or Sign In screen",
+    "Do not sign in again or recapture the golden. Open Claude for Mac in the "
+    "test user's GUI session: if it is signed in on Chat, Code or Cowork, the "
+    "probe does not know this app version's layout, so report it as a Yoke "
+    "defect with the app version; if a dialog covers the window, dismiss it, "
+    "quit Claude and retry.",
+)
+
 # The one code-to-cause table. Codes avoid 1 and 2, which Python itself uses
 # for an uncaught exception and a usage error.
 PROBE_FAILURE_CAUSES: dict[int, ProbeFailureCause] = {
@@ -72,6 +83,7 @@ PROBE_FAILURE_CAUSES: dict[int, ProbeFailureCause] = {
     13: HARNESS_EXIT_NONZERO,
     14: REPLY_UNANSWERED,
     15: CHECK_UNMET,
+    22: LAYOUT_UNRECOGNIZED,
 }
 # Sealed exit codes carry native diagnoses; receipts retain the execution category.
 PROBE_EXIT_CODES: dict[str, int] = {
@@ -216,6 +228,7 @@ __all__ = [
     "EXECUTABLE_MISSING",
     "HARNESS_EXIT_NONZERO",
     "LAUNCH_FAILED",
+    "LAYOUT_UNRECOGNIZED",
     "PROBE_EXIT_CODES",
     "PROBE_FAILURE_CAUSES",
     "REJECTION_RECORD_MISSING",

@@ -27,8 +27,11 @@ requires account/workspace permission. [Cursor auth](https://cursor.com/docs/cli
 is separate from app presence. A login-status line or credential file is
 insufficient: every harness must answer a real request without tool calls.
 Open Claude for Mac as the test user, finish its first-run prompts, sign in,
-and quit it normally. The Mac golden probe opens the native app, checks for
-authenticated Chat or Code controls, and quits it. It leaves screen text and
+and quit it normally. The Mac golden probe opens the native app, passes on a
+signed-in Chat, Code or Cowork tab, and quits it; it never clicks or types.
+The first-run and Sign In screens fail `probe_check_unmet` (sign in again).
+Any other window fails `probe_layout_unrecognized`: do not sign in again or
+recapture; report the app version as a Yoke defect. It leaves screen text and
 images on the fixture only for the duration of the check. For other
 desktop surfaces, verify Codex in the ChatGPT app and Cursor independently
 after the golden reset.
@@ -163,7 +166,9 @@ Read their `--help`. Verify reaches both baselines and ends `shell-preconfigured
 with the current Yoke launcher installed. Reset reaches one baseline;
 `fresh-host` returns the clean signed-in home, not a blank user. The operation
 retains live SSH, privacy and harness-login state, stops owned services/writers,
-clears product residue, restores content/modes and runs sealed probes. It quits
+clears product residue, restores content/modes and runs sealed probes, with
+the controller's current standard probes in place of older sealed ones (sealed
+extra probes still run; evidence `standard_probes` names both digests). It quits
 Terminal, killing it and its window processes if a sheet blocks the quit.
 After restore it relaunches Terminal without saved windows to avoid probe stalls.
 The restore merges each captured directory into place with `ditto`, so a macOS

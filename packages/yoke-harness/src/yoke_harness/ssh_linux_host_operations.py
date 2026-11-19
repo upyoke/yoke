@@ -184,7 +184,11 @@ class SshLinuxHostOperations(
                 },
                 "baseline_probes_not_declared",
             )
-        return prove_linux_probes(self, document)
+        from yoke_harness.standard_baseline_probes import prove_current_standard
+
+        return prove_current_standard(
+            self.os, document, lambda current: prove_linux_probes(self, current)
+        )
 
     def upload_remote_text(self, path: str, content: str) -> None:
         result = self._upload(path, content.encode("utf-8"))
