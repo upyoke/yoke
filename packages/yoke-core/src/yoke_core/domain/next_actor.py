@@ -18,6 +18,8 @@ REASON_SENTENCES = {
     "ci_run_in_progress": "Waiting for CI to finish.",
     "release_run_in_progress": "Waiting for the release to finish.",
     "landing_in_progress": "Waiting for the merge queue to land this item.",
+    "qa_host_turn_waiting": "Waiting for a Test Machine turn; its release wakes this session.",
+    "qa_host_turn_reserved": "A Test Machine turn is reserved; its wake message resumes this session.",
     "item_terminal": "This item has finished.",
     "item_on_hold": "This item is on hold.",
     "ready_without_holder": "A session can pick up this item.",
@@ -36,12 +38,20 @@ def reason_sentence(reason):
     return reason
 
 
-def action(actor: str, reason: str, since: Any = None, **details: Any) -> dict:
+def action(
+    actor: str,
+    reason: str,
+    since: Any = None,
+    *,
+    sentence: str | None = None,
+    **details: Any,
+) -> dict:
+    """A fact that knows more than its reason code composes its own sentence."""
     return temporal_wire(
         dict(
             actor=actor,
             reason=reason,
-            sentence=reason_sentence(reason),
+            sentence=sentence or reason_sentence(reason),
             since=since,
             **details,
         )
@@ -60,6 +70,7 @@ def session_next_actor(row: Mapping[str, Any], *, presence: str) -> dict:
         "ci_wait",
         "deployment_wait",
         "landing_wait",
+        "host_turn_wait",
     ):
         if row.get(key):
             return dict(row[key])

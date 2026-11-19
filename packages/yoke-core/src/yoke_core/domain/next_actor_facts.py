@@ -1,4 +1,4 @@
-"""Page-wide durable decision, dependency, deployment, landing and CI facts."""
+"""Page-wide durable decision, dependency, deployment, landing, CI and host-turn facts."""
 
 from __future__ import annotations
 
@@ -213,6 +213,10 @@ def next_actor_facts(
                     row["open_attempt_enqueued_at"] or row["merge_queue_enqueued_at"],
                     pr_number=row["pr_number"],
                 )
+    from yoke_core.domain.next_actor_host_turns import host_turn_waits
+
+    for sid, wait in host_turn_waits(conn, sessions, _rows).items():
+        by_session[sid]["host_turn_wait"] = wait
     from yoke_core.domain.session_control_health_facts import gating_blockers
 
     for iid, blocker in gating_blockers(conn, items).items():

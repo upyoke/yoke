@@ -27,7 +27,8 @@ The wire field `session_state` contains `status`, `active_at`, `reason`, `presen
 `custody`, and `next_actor`. Intent includes `state`, `reason` and `awaiting_who`;
 custody includes `holds`, `holds_work_claim`, `reclaimable` and `reason`;
 next actor includes `actor`, `reason` and `since`. A pending decision names its active human audience; an unsatisfied dependency names
-another item; a running CI or release names CI or deployment. Otherwise a live
+another item; a running CI or release names CI or deployment; a Test Machine wait
+names the item holding the host and the session's place in line. Otherwise a live
 session can continue, and unclaimed ready work needs parent or steering direction.
 A parked session keeps its quiet reason and needs direction unless a durable wait
 names another actor. Ended sessions and terminal items have nobody left to act.
