@@ -241,8 +241,8 @@ test("the harness module answers per machine, never for the universe", async (t)
   assert.equal(byClass(harness, "activation-project").length, 0);
   // The unlocked third module carries its next-action copy.
   assert.ok(textOf(cards[2]).includes(
-    "In your harness: existing work → strategy + CURRENT-PLAN → " +
-    "/yoke steer files the first item → that item done.",
+    "In your harness: existing work → strategy docs → approve first wave → " +
+    "/yoke steer files and staffs it → first item done.",
   ));
   mounted.unmount();
 });

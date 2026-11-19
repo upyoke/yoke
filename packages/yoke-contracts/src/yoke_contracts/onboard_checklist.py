@@ -170,7 +170,8 @@ ROW_SPECS = (
                      "record that it has no governed database."),
     ChecklistRowSpec("work-seeding", "17h", "Steering handoff",
                      LAYER_AGENTIC, "yoke onboard",
-                     "Hand CURRENT-PLAN to /yoke steer, which files and routes the first work."),
+                     "Once the operator approves the first wave, hand the plan "
+                     "strategy docs to /yoke steer, which files and staffs it."),
     ChecklistRowSpec("verification", "18", "Verification", LAYER_VERIFICATION,
                      "CLI + yoke onboard",
                      "Run status, auth, command, render, and doctor checks."),

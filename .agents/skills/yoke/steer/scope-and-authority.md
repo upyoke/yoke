@@ -1,6 +1,7 @@
 # Steer — resolve the document and take the paired seat
 
 The slug is the operator's, else `CURRENT-PLAN`; never ask. Repeat per project.
+Several slugs: run this file once per slug; distinct doc seats coexist.
 
 ```text
 yoke projects checkout-context --field slug

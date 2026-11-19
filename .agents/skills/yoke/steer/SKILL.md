@@ -6,8 +6,8 @@ argument-hint: "[STRATEGY-DOC-SLUG] [--project P ...]"
 
 # /yoke steer [STRATEGY-DOC-SLUG] [--project P ...]
 
-Steer one claimed strategy doc per project (default `CURRENT-PLAN`), staff
-workers and keep plan state; never implement.
+Steer each named strategy doc (default `CURRENT-PLAN`): one seat per doc, all
+held by this session; staff workers and keep plan state; never implement.
 
 ## Phase map
 

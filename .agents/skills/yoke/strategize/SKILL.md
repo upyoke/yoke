@@ -17,5 +17,8 @@ yoke claims work acquire --process STRATEGIZE --project <project>
 yoke claims work release --process STRATEGIZE --project <project> --reason "strategize abort"
 ```
 
+A named initiative doc the operator adds goes through the same approve and
+write steps as the five above.
+
 Phase map, in order: [refresh](refresh.md), [research](research.md),
 [approve](approve.md), [finalize](finalize.md).
