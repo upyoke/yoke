@@ -55,6 +55,20 @@ def test_helper_timeout_names_recovery(monkeypatch):
     assert "server.log" in result.stderr
 
 
+def test_missing_dll_hint_names_vc_runtime_first(monkeypatch):
+    monkeypatch.setattr(
+        postgres_cluster_process.terminal_detached_process,
+        "run",
+        lambda argv, **kw: subprocess.CompletedProcess(argv, 0xC0000135),
+    )
+    stderr = postgres_cluster_process._run(["initdb"]).stderr
+    assert "embedded_postgres_load_failed" in stderr
+    runtime = stderr.index("Visual C++ runtime (vcruntime140.dll)")
+    step = stderr.index("winget install --id Microsoft.VCRedist.2015+.x64 -e")
+    assert runtime < step < stderr.index("owner access")
+    assert "yoke local-postgres start" in stderr
+
+
 def test_windows_archive_directories_use_owner_private_creation(monkeypatch, tmp_path):
     import tarfile
     from pathlib import Path

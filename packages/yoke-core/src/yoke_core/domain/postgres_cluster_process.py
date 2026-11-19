@@ -66,8 +66,11 @@ def _run(argv, *, env: dict | None = None, **kw) -> subprocess.CompletedProcess:
     if result.returncode == 0xC0000135:
         result.stderr += (
             "embedded_postgres_load_failed: Windows loader status 0xC0000135 "
-            "means a PostgreSQL runtime DLL is missing or inaccessible. Check "
-            "owner access to the engine bin directory and bundled DLLs; repair "
-            "the downloaded engine installation, then retry `yoke local-postgres start`."
+            "means a PostgreSQL runtime DLL is missing or inaccessible. Most "
+            "often the Microsoft Visual C++ runtime (vcruntime140.dll) is not "
+            "installed: run `winget install --id Microsoft.VCRedist.2015+.x64 -e`. "
+            "If it is installed, check owner access to the engine bin directory "
+            "and bundled DLLs and repair the downloaded engine installation. "
+            "Then retry `yoke local-postgres start`."
         )
     return result
