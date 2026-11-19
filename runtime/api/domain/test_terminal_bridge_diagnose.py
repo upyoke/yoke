@@ -223,7 +223,7 @@ def test_window_launch_failure_retains_osascript_cause(monkeypatch, diagnose):
     class LaunchFailureMac(FakeMac):
         def __call__(self, command, **kwargs):
             script = kwargs.get("input_text") or ""
-            if "set targetTab" in script and "terminal-app-ready" in script:
+            if "set targetTab" in script and "received-%s" in script:
                 return subprocess.CompletedProcess(
                     command,
                     1,
@@ -248,6 +248,29 @@ def test_window_launch_failure_retains_osascript_cause(monkeypatch, diagnose):
     assert (
         evidence["osascript_stderr"] == "execution error: Terminal got an error (-600)"
     )
+
+
+def test_bridge_waits_for_the_printed_ready_line(monkeypatch):
+    banner = ssh_mac_terminal_bridge_check.READY_BANNER
+    command = ssh_mac_terminal_bridge_check.driven_window_command()
+    assert banner not in command
+
+    transcript = iter((f"% printf '{banner}\\n'\n", f"  {banner}  \r\n"))
+    reads = []
+
+    def read_transcript(_run, *, window_id):
+        reads.append(next(transcript))
+        return reads[-1]
+
+    monkeypatch.setattr(
+        ssh_mac_terminal_bridge_check, "capture_terminal_app_transcript", read_transcript
+    )
+    monkeypatch.setattr(ssh_mac_terminal_bridge_check.time, "sleep", lambda _: None)
+
+    assert ssh_mac_terminal_bridge_check.wait_for_transcript(
+        None, window_id=441, expected=banner, timeout_seconds=1
+    )
+    assert len(reads) == 2
 
 
 def test_a_window_that_never_becomes_frontmost_names_what_held_focus(

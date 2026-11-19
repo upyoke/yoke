@@ -79,7 +79,7 @@ def probe_driven_window(report: BridgeDiagnosisReport, run: RunRemote) -> None:
     )
     launch = open_terminal_app_window(
         run,
-        command=driven_window_command(identity),
+        command=driven_window_command(),
         bounds=layout.target,
     )
     window_id = launch.window_id
