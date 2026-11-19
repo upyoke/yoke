@@ -16,6 +16,16 @@ Use the verified private tailnet address, retain certificate validation, and
 keep test-account credentials in private custody. Do not save credentials or
 accept an unexpected certificate warning as part of unattended setup.
 
+For a person viewing the lab, also install FreeRDP's visible SDL client on the
+operator workstation (macOS: `brew install freerdp`; Linux: the distribution's
+`freerdp-sdl` package). `yoke test-machine desktop-access --view` and
+`yoke browser authorize --test-machine` open the native desktop in it and feed
+the password on stdin; Windows App stays the Computer Use path above. Without
+it they refuse `desktop_rdp_client_missing`. The lab needs nothing more: its
+RDP listener, Remote Desktop Users membership and `YokeQa-ReturnToConsole`
+task come from provisioning, and Yoke pins the direct route's certificate on
+first use.
+
 Require a controllable app window before starting VM setup. A
 successful TCP connection or client process alone does not prove an interactive
 desktop, successful authentication or completion of Windows first-run choices.
