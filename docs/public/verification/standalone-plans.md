@@ -115,13 +115,17 @@ The control plane records QA against environments the plan project owns or
 is authorized to use through a same-organization hosted-runtime bridge.
 Execution rechecks the frozen environment's registered identity; cross-org
 targets refuse. A declared `qa.identity_path` is read from the owning
-environment by ID, using its registered origin. Begin and result writes
-observe the full served SHA. Results store `served_build_sha` and
+environment by ID, using its registered origin. Begin, owner resume and
+result writes observe the full served SHA; heartbeats and host operations
+recheck only the target's authorization. Results store `served_build_sha` and
 `served_build_status`; environments without a path record `no_declared_path`.
 An unreadable answer refuses as `served_build_unobservable`; a changed build
 refuses as `served_build_changed`, naming both SHAs. Rerun the case in a new
-execution after restoring the target. Deployment and project targets retain
-their own identity proofs.
+execution after restoring the target. An execution whose every case runs on a
+Test Machine keeps walking across a redeploy: its owner resumes it without a
+build check, and each result records `served_build_changed` with the new SHA
+and keeps both SHAs under `served_build_changed` in the run's `raw_result`.
+Deployment and project targets retain their own identity proofs.
 
 
 Item materialization creates one requirement per environment and host baseline,
