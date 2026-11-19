@@ -127,7 +127,7 @@ def test_tailnet_exposure_confines_the_port_to_tailscale(wsl, monkeypatch, verif
     assert "MSFT_TaskBootTrigger" in script and "windows_wsl_tailnet_rebind_not_proved" in script
 
 
-def test_boot_rebind_waits_for_tailscale_then_restarts_ip_helper(wsl):
+def test_boot_rebind_waits_for_tailscale_then_re_adds_the_proxy(wsl):
     import base64
 
     encoded = wsl.rebind_argument(3391).rsplit(" ", 1)[1]
@@ -135,9 +135,14 @@ def test_boot_rebind_waits_for_tailscale_then_restarts_ip_helper(wsl):
     assert script.startswith("$port=3391\n")
     assert "Get-NetIPAddress -InterfaceAlias Tailscale" in script
     assert "-LocalAddress $ip -LocalPort $port" in script
-    assert script.index("if(Listening $a[0].IPAddress){exit 0}") < script.index(
-        "Restart-Service iphlpsvc"
+    rebind = (
+        "netsh interface portproxy add v4tov4 listenaddress=$ip listenport=$port "
+        "connectaddress=127.0.0.1 connectport=$port"
     )
+    assert script.index("if(Listening $ip){exit 0}") < script.index(rebind)
+    # Tailscale depends on IP Helper: restarting either drops the tailnet
+    # address and wedged WSL on windows-lab after a reboot.
+    assert "Restart-Service" not in script and "Stop-Service" not in script
     assert script.rstrip().endswith("exit 1")
 
 
