@@ -195,7 +195,7 @@ def _test_machine_detail(
     )
     from yoke_core.domain.qa_host_holdover import holdover_expires_at, holdover_wait
 
-    held_over = claim is not None and holdover_wait(conn, claim) is not None
+    held_over = holdover_wait(conn, claim) if claim is not None else None
     methods = [
         method
         for method in conn.execute(
@@ -277,7 +277,7 @@ def _test_machine_detail(
                 else format_instant(claim.last_heartbeat),
                 "item": claim_item,
                 # Set while the lease is its session's short hold-over.
-                "holdover_expires_at": format_instant(holdover_expires_at(claim))
+                "holdover_expires_at": format_instant(holdover_expires_at(held_over))
                 if held_over
                 else None,
             }

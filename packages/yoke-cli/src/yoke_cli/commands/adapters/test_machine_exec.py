@@ -39,8 +39,14 @@ def _refuse(code: str, message: str, recovery: str) -> int:
 
 
 def _lease_refusal(detail: dict[str, Any], session_id: str) -> int | None:
+    from yoke_cli.commands.test_machine_desktop_lease import holdover_lapsed
+
     lease = detail.get("active_lease")
-    if not isinstance(lease, dict) or lease.get("session_id") == session_id:
+    if (
+        not isinstance(lease, dict)
+        or lease.get("session_id") == session_id
+        or holdover_lapsed(lease)
+    ):
         return None
     item = lease.get("item") if isinstance(lease.get("item"), dict) else {}
     holder = f"session {lease.get('session_id')}" + (

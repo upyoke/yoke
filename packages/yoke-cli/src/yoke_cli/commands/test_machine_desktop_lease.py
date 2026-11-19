@@ -55,13 +55,14 @@ def desktop_lease(
                 actor,
             )
         lease = detail.get("active_lease")
-        if lease and lease["session_id"] != actor.session_id:
+        if lease and lease["session_id"] != actor.session_id and not holdover_lapsed(lease):
             raise RuntimeError(
                 f"test_machine_leased: test machine {test_machine} is leased by session "
                 f"{lease['session_id']}. Wait for its lease to release or ask its holder to finish."
             )
         # Taking our own hold-over consumes it, so this command's release
         # renews it instead of letting it lapse mid-command.
+        # A lapsed hold-over of another session is released by the acquire.
         if not lease or lease.get("holdover_expires_at"):
             claim_id = _call(
                 "test_machine.lease_acquire",
@@ -86,6 +87,14 @@ def desktop_lease(
                 actor,
             )
             _report_holdover(test_machine, actor)
+
+
+def holdover_lapsed(lease):
+    """True when *lease* is a hold-over past its expiry (any acquire releases it)."""
+    from yoke_contracts.timestamps import parse_instant, utc_now
+
+    expires = (lease or {}).get("holdover_expires_at")
+    return bool(expires) and parse_instant(expires) <= utc_now()
 
 
 def _report_holdover(test_machine, actor):

@@ -51,12 +51,17 @@ def _preflight(conn, session_id):
     return lease
 
 
-def _lapse(conn, claim_id):
+def _age(conn, claim_id, seconds=121):
     conn.execute(
-        "UPDATE work_claims SET last_heartbeat=now() - interval '121 seconds' WHERE id=%s",
-        (claim_id,),
+        "UPDATE qa_test_machine_waits SET queued_at=queued_at - make_interval(secs => %s) "
+        "WHERE claim_id=%s AND state='reserved'",
+        (seconds, claim_id),
     )
     conn.commit()
+
+
+def _lapse(conn, claim_id):
+    _age(conn, claim_id)
 
 
 def _waits(conn, session_id):
@@ -115,6 +120,61 @@ def test_after_the_ttl_another_session_acquires(test_db, monkeypatch):
     assert lease.session_id == "walker"
     assert session_holdovers(test_db, "preflighter") == []
     assert [state for state, _ in _waits(test_db, "preflighter")] == ["cancelled"]
+
+
+def test_session_heartbeats_never_extend_a_holdover(test_db, monkeypatch):
+    seed_qa_session(test_db, "preflighter", "walker")
+    _notices(monkeypatch)
+    _preflight(test_db, "preflighter")
+    holdover = active_claim(test_db, TARGET)
+    _lapse(test_db, holdover.id)
+    # Every tool call of the session stamps all of its live claims.
+    test_db.execute(
+        "UPDATE work_claims SET last_heartbeat=now() WHERE session_id='preflighter'"
+    )
+    test_db.commit()
+
+    assert acquire(test_db, TARGET, "walker", reason=CASE_RUN).session_id == "walker"
+
+
+def test_polling_preflights_cannot_starve_a_queued_waiter(test_db, monkeypatch):
+    seed_qa_session(test_db, "preflighter", "walker")
+    _notices(monkeypatch)
+    _preflight(test_db, "preflighter")
+    first = session_holdovers(test_db, "preflighter")[0]
+    _execution_wait(test_db, "walker")
+
+    _age(test_db, first["claim_id"], 100)
+    _preflight(test_db, "preflighter")
+    renewed = session_holdovers(test_db, "preflighter")[0]
+    assert renewed["claim_id"] != first["claim_id"]
+    assert renewed["expires_at"] < first["expires_at"]
+
+    # A preflight that lapses the first hold-over's 120s while running serves
+    # the waiter on release instead of renewing.
+    lease = acquire(test_db, TARGET, "preflighter", reason=DIRECT_OPERATION_REASON)
+    assert lease.id == renewed["claim_id"]
+    test_db.execute(
+        "UPDATE qa_test_machine_waits SET queued_at=queued_at - interval '21 seconds' "
+        "WHERE claim_id=%s",
+        (lease.id,),
+    )
+    release(test_db, lease.id, "finished: test-machine exec")
+    assert session_holdovers(test_db, "preflighter") == []
+    assert active_claim(test_db, TARGET).session_id == "walker"
+
+
+def test_an_acquire_after_the_first_start_lapses_serves_the_waiter(test_db, monkeypatch):
+    seed_qa_session(test_db, "preflighter", "walker")
+    _notices(monkeypatch)
+    _preflight(test_db, "preflighter")
+    _execution_wait(test_db, "walker")
+    _preflight(test_db, "preflighter")
+    _lapse(test_db, active_claim(test_db, TARGET).id)
+
+    with pytest.raises(CoordinationClaimHeldError):
+        acquire(test_db, TARGET, "preflighter", reason=DIRECT_OPERATION_REASON)
+    assert active_claim(test_db, TARGET).session_id == "walker"
 
 
 def test_upkeep_releases_a_lapsed_holdover_to_the_queued_waiter(test_db, monkeypatch):

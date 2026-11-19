@@ -18,10 +18,12 @@ only on an empty line, so a session already queued keeps its turn, or when it
 consumed the session's hold-over, which every waiter queued behind; an aborted
 execution leaves one whatever the line holds, because its turn was already
 earned ahead of every waiter. The hold-over reason carries the host-turn prefix,
-so taking it never serves the line first. A hold-over lasts :data:`HOLDOVER_TTL` from the
-claim's ``last_heartbeat``, which it stamps at its start and nothing heartbeats
-afterwards. Any acquire on the host, or control-plane upkeep, releases an
-expired one, and that release serves the line.
+so taking it never serves the line first. A hold-over lasts :data:`HOLDOVER_TTL`
+from its wait's ``queued_at``; claim heartbeats never extend it, since every tool
+call of the session stamps all its claims. A renewal while another session waits
+keeps the first hold-over's start, so a session polling with direct operations
+cannot starve the line. Any acquire on the host, or control-plane upkeep,
+releases an expired one, and that release serves the line.
 """
 
 from __future__ import annotations
@@ -45,9 +47,9 @@ DIRECT_OPERATION_REASON = "test-machine direct operation"
 OWNER_ABORT = "owner_abort"
 
 
-def holdover_expires_at(claim: Any) -> datetime:
-    """When the hold-over *claim* lapses."""
-    return parse_instant(claim.last_heartbeat or claim.claimed_at) + HOLDOVER_TTL
+def holdover_expires_at(wait: Any) -> datetime:
+    """When the hold-over *wait* lapses."""
+    return parse_instant(wait["queued_at"]) + HOLDOVER_TTL
 
 
 def holdover_wait(conn: Any, claim: Any) -> dict[str, Any] | None:
@@ -66,12 +68,13 @@ def holdover_view(conn: Any, test_machine: str, session_id: str) -> dict[str, An
     from yoke_core.domain.machine_qa_capability import host_claim_target
 
     claim = active_claim(conn, host_claim_target(test_machine))
-    if claim is None or claim.session_id != session_id or holdover_wait(conn, claim) is None:
+    wait = holdover_wait(conn, claim) if claim is not None else None
+    if wait is None or claim.session_id != session_id:
         return None
     return {
         "claim_id": claim.id,
         "test_machine": test_machine,
-        "expires_at": format_instant(holdover_expires_at(claim)),
+        "expires_at": format_instant(holdover_expires_at(wait)),
     }
 
 
@@ -95,17 +98,16 @@ def _session_live(conn: Any, session_id: str) -> bool:
     return row is not None and row["ended_at"] is None
 
 
-def _hold(conn: Any, claim_id: int, *, test_machine: str, session_id: str, actor_id: Any) -> None:
-    """Keep live claim *claim_id* for *session_id* as a fresh hold-over."""
+def _hold(
+    conn: Any, claim_id: int, *, test_machine: str, session_id: str, actor_id: Any,
+    start: datetime | None = None,
+) -> None:
+    """Keep live claim *claim_id* for *session_id* as a hold-over from *start*."""
     from yoke_core.domain.claim_chain_state import record_claim_reason
 
-    p, now = _p(conn), utc_now()
-    expires = format_instant(now + HOLDOVER_TTL)
+    p, start = _p(conn), start or utc_now()
+    expires = format_instant(start + HOLDOVER_TTL)
     record_claim_reason(conn, claim_id=claim_id, reason=HOLDOVER_REASON)
-    conn.execute(
-        f"UPDATE work_claims SET last_heartbeat={p} WHERE id={p}",
-        (instant_parameter(conn, now), claim_id),
-    )
     conn.execute(
         "INSERT INTO qa_test_machine_waits(id,test_machine,session_id,actor_id,queued_at,"
         "state,claim_id,resume_command,rationale) "
@@ -115,7 +117,7 @@ def _hold(conn: Any, claim_id: int, *, test_machine: str, session_id: str, actor
             test_machine,
             session_id,
             int(actor_id),
-            instant_parameter(conn, now),
+            instant_parameter(conn, start),
             claim_id,
             "this session's next acquire of the host: yoke qa case run, "
             "yoke qa plan run, or yoke test-machine exec",
@@ -124,15 +126,16 @@ def _hold(conn: Any, claim_id: int, *, test_machine: str, session_id: str, actor
     )
 
 
-def _renews_holdover(conn: Any, claim: Any) -> bool:
-    """*claim* was taken by consuming this session's hold-over."""
-    return query_one(
+def _consumed_holdover_start(conn: Any, claim: Any) -> datetime | None:
+    """When the hold-over *claim* was taken by consuming began, if it was one."""
+    row = query_one(
         conn,
-        "SELECT id FROM qa_test_machine_waits WHERE claim_id="
+        "SELECT queued_at FROM qa_test_machine_waits WHERE claim_id="
         f"{_p(conn)} AND state='granted' AND qa_plan_execution_id IS NULL "
-        f"AND rationale LIKE {_p(conn)}",
+        f"AND rationale LIKE {_p(conn)} ORDER BY queued_at LIMIT 1",
         (claim.id, _RATIONALE + "%"),
-    ) is not None
+    )
+    return parse_instant(row["queued_at"]) if row is not None else None
 
 
 def hold_over_direct_operation(conn: Any, claim: Any) -> bool:
@@ -146,14 +149,20 @@ def hold_over_direct_operation(conn: Any, claim: Any) -> bool:
         claim.reason != DIRECT_OPERATION_REASON
         or claim.actor_id is None
         or active_claim(conn, claim.target) is not None
-        or (host_line(conn, test_machine) and not _renews_holdover(conn, claim))
         or not _session_live(conn, claim.session_id)
     ):
         return False
+    start = None
+    if host_line(conn, test_machine):
+        # Waiters queued behind the hold-over this lease consumed; it keeps
+        # that hold-over's start, and a lapsed one serves the line.
+        start = _consumed_holdover_start(conn, claim)
+        if start is None or utc_now() >= start + HOLDOVER_TTL:
+            return False
     held = acquire(conn, claim.target, claim.session_id, reason=HOLDOVER_REASON, commit=False)
     _hold(
         conn, held.id, test_machine=test_machine,
-        session_id=claim.session_id, actor_id=claim.actor_id,
+        session_id=claim.session_id, actor_id=claim.actor_id, start=start,
     )
     return True
 
@@ -218,7 +227,8 @@ def expire_holdover(conn: Any, claim: Any, *, now: datetime | None = None) -> bo
     """Release *claim* when it is a lapsed hold-over; the release serves the line."""
     from yoke_core.domain.coordination_claims import release
 
-    if holdover_wait(conn, claim) is None or (now or utc_now()) < holdover_expires_at(claim):
+    wait = holdover_wait(conn, claim)
+    if wait is None or (now or utc_now()) < holdover_expires_at(wait):
         return False
     release(conn, claim.id, HOLDOVER_EXPIRED_REASON, commit=False)
     return True
