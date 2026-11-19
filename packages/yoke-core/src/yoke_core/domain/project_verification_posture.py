@@ -21,18 +21,11 @@ from typing import Any
 from yoke_contracts.verification_posture import (
     POSTURE_ATTESTED_NO_TESTS,
     POSTURE_UNDECIDED,
+    REGISTERED_COMMAND_PLAN_PREFIX,
     VERIFICATION_POSTURE_FAMILY,
 )
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_one, query_rows
-
-#: Slug prefix of the QA plans that carry a project's registered verification
-#: command, one per scope. It lives here rather than beside the registration
-#: that builds those slugs because registration imports this module for its
-#: refusal, so the dependency only runs one way. Registration and the boot-time
-#: convergence both read it from here, so a rename cannot leave the retirement
-#: matching plans that are no longer created.
-REGISTERED_COMMAND_PLAN_PREFIX = "registered-command-"
 
 
 class VerificationPostureError(ValueError):
@@ -237,7 +230,6 @@ def clear_no_tests(
 
 
 __all__ = [
-    "REGISTERED_COMMAND_PLAN_PREFIX",
     "VerificationPostureError",
     "attest_no_tests",
     "attestation_reason",

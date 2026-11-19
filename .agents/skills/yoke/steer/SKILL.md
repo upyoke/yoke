@@ -31,6 +31,9 @@ workers and keep plan state; never implement.
 - No doc-less steering, no `/yoke feed`. Keep each item's pinned workflow.
 - File software work only as dashes with `yoke dash ... --strategy-doc SLUG`;
   keep existing items' workflows and explicit operator workflow choices intact.
+  A dash with no `--verification-plan` is verified by the project's
+  `registered-command-quick` plan when one is registered; name another plan
+  with `--verification-plan ID_OR_SLUG`, or `--verification-method none` for none.
 - Workers merge; only the steerer creates deployment runs.
 - Confirm a run carried a commit before calling it live.
 - Check infrastructure is in use before taking work on it.

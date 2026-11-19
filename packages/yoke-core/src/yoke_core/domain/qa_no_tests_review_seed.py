@@ -28,8 +28,8 @@ from yoke_core.domain.db_helpers import (
     query_scalar,
 )
 from yoke_core.domain.qa_events import emit_qa_requirement_event
+from yoke_contracts.verification_posture import REGISTERED_COMMAND_PLAN_PREFIX
 from yoke_core.domain.project_verification_posture import (
-    REGISTERED_COMMAND_PLAN_PREFIX,
     attestation_reason,
     attests_no_tests,
 )

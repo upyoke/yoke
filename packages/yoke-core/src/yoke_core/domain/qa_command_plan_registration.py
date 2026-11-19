@@ -8,10 +8,8 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_one
 from yoke_core.domain.project_checkout_locations import checkout_for_project_id
 from yoke_core.domain.project_identity import row_value
-from yoke_core.domain.project_verification_posture import (
-    REGISTERED_COMMAND_PLAN_PREFIX,
-    require_no_attestation,
-)
+from yoke_contracts.verification_posture import REGISTERED_COMMAND_PLAN_PREFIX
+from yoke_core.domain.project_verification_posture import require_no_attestation
 from yoke_core.domain.qa_command_argv_presence import require_argv_present
 from yoke_core.domain.qa_command_invocation import (
     canonicalize_registered_command,
@@ -22,7 +20,9 @@ from yoke_core.domain.qa_command_scope_routing import (
     default_workflow,
     workflow_for_scope,
 )
-from yoke_core.domain.qa_plan_attachments import set_project_default
+from yoke_core.domain.qa_plan_attachments import (
+    PROJECT_DEFAULT_QA_POLICIES, set_project_default,
+)
 from yoke_core.domain.qa_plan_management import create_plan, replace_plan_cases
 from yoke_core.domain.qa_project_execution_target import (
     CI_COMMAND_METHOD_ID,
@@ -186,25 +186,37 @@ def _plan_for_scope(
     return plan_id
 
 
-def _workflow_stages(conn: Any) -> dict[str, set[str]]:
+def _workflow_stages(
+    conn: Any, *, reads_project_defaults: bool = False
+) -> dict[str, set[str]]:
     return {
         str(row["id"]): {
             str(stage["id"])
             for stage in row["definition"].get("stages", [])
         }
         for row in list_current_workflows(conn)
+        if not reads_project_defaults
+        or str(row["definition"].get("policies", {}).get("qa") or "")
+        in PROJECT_DEFAULT_QA_POLICIES
     }
 
 
-def policy_transitions(conn: Any, policy: dict[str, Any]) -> dict[str, str]:
-    """Map each workflow to the stage this scope's plan attaches at."""
+def policy_transitions(
+    conn: Any, policy: dict[str, Any], *, reads_project_defaults: bool = False
+) -> dict[str, str]:
+    """Map each workflow to the stage this scope's plan attaches at.
+
+    ``reads_project_defaults`` keeps the workflows whose QA policy reads the
+    project default rows; a Dash files the quick plan as its posture instead.
+    """
     preferred = policy["preferred_transition"]
     if preferred is None:
         return {}
     fallback = policy["fallback_transition"]
+    stages = _workflow_stages(conn, reads_project_defaults=reads_project_defaults)
     return {
         workflow_id: str(preferred if preferred in stage_ids else fallback)
-        for workflow_id, stage_ids in _workflow_stages(conn).items()
+        for workflow_id, stage_ids in stages.items()
         if (preferred if preferred in stage_ids else fallback) in stage_ids
     }
 
@@ -220,9 +232,7 @@ def ensure_registered_command_plan(
     requires_base_url: bool | None = None,
     refuse_unreachable_ci: bool = True,
 ) -> dict:
-    """Converge one registered scope onto its plan and workflow defaults.
-
-    """
+    """Converge one registered scope onto its plan and workflow defaults."""
     if scope not in COMMAND_SCOPE_POLICIES:
         raise ValueError(f"unsupported registered command scope {scope!r}")
     require_no_attestation(
@@ -286,7 +296,7 @@ def ensure_registered_command_plan(
         requires_base_url=target_mode == RUNTIME_BASE_URL_TARGET_MODE,
     )
     qa_phase = str(policy["qa_phase"])
-    transitions = policy_transitions(conn, policy)
+    transitions = policy_transitions(conn, policy, reads_project_defaults=True)
     marker = _p(conn)
     conn.execute(
         f"DELETE FROM qa_plan_project_defaults WHERE plan_id={marker}",

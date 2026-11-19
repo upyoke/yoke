@@ -22,9 +22,7 @@ from yoke_core.domain.qa_command_invocation import (
     canonicalize_registered_command,
     rewrite_retired_watch_pytest_commands,
 )
-from yoke_core.domain.project_verification_posture import (
-    REGISTERED_COMMAND_PLAN_PREFIX,
-)
+from yoke_contracts.verification_posture import REGISTERED_COMMAND_PLAN_PREFIX
 from yoke_core.domain.qa_command_plan_registration import (
     CI_COMMAND_METHOD_ID,
     COMMAND_SCOPE_POLICIES,
@@ -173,7 +171,9 @@ def converge_registered_command_plans(conn: Any) -> list[dict]:
                 (int(row["plan_id"]),),
             )
         }
-        desired_transitions = set(policy_transitions(conn, policy).items())
+        desired_transitions = set(
+            policy_transitions(conn, policy, reads_project_defaults=True).items()
+        )
         if (
             str(row["method_id"]) == desired_method
             and current_workflow == ci_workflow

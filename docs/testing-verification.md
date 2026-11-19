@@ -98,7 +98,7 @@ be attached or materialized. v1 accepts only the `all-pass` policy, including
 case-level overrides, and project-local methods can only be used by plans in
 that same project. Case waiver stays case-scoped, and the transition
 consumes the union of all materialized outcomes. Where QA policy is optional item attachment, attach and materialize accept only the selection in
-`workflow_posture.verification`; set it on an item that has none with `yoke workflows item-posture amend PREFIX-N --verification-plan ID_OR_SLUG --reason TEXT` (`--help` carries the per-key decision tree).
+`workflow_posture.verification`. A Dash filed without `--verification-plan` or `--verification-method` takes the project's active `registered-command-quick` plan as that selection (`--verification-method none` files with none); set it on an item that has none with `yoke workflows item-posture amend PREFIX-N --verification-plan ID_OR_SLUG --reason TEXT` (`--help` carries the per-key decision tree).
 
 A plan edit writes the plan alone and reports `requirements_behind_plan` — the
 already-materialized rows it did not reach. Bringing those current is one
