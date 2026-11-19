@@ -1,5 +1,7 @@
 {
-  "actors": "Change people's org and project roles and turn actors on or off.",
+  "actors": "Change people's roles and turn actors on or off.",
+  "actors project": "Give a person a role on one project, or take it away.",
+  "actors project role": "Give a person a role on one project, or take it away.",
   "actors project-role": "Give a person a role on one project, or take it away.",
   "actors project-role remove": "Remove a person's role on one project.",
   "actors project-role set": "Set a person's only role on one project.",
