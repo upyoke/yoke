@@ -143,6 +143,13 @@ def open_url(
                     method=executable,
                     reason="; ".join(attempts),
                 )
+            if (
+                executable == "powershell.exe"
+                and completed.returncode == _POWERSHELL_NO_DESKTOP_EXIT
+            ):
+                return BrowserOpenResult(
+                    opened=False, reason=_WINDOWS_SESSION_ZERO_REASON
+                )
             attempts.append(
                 f"{executable} exited {completed.returncode}: "
                 + ((completed.stderr or "").strip() or "no output")
@@ -170,7 +177,20 @@ _WSL_URL_VARIABLE = "YOKE_OPEN_URL"
 # ``Start-Process`` exits 0 only when Windows accepted the URL, so its exit
 # status is an honest answer to whether the browser opened. The URL travels
 # in the environment (forwarded by ``WSLENV``) so Windows quoting never sees it.
-_POWERSHELL_START_URL = f"Start-Process $env:{_WSL_URL_VARIABLE}"
+# Windows OpenSSH runs its sessions in session 0, which has no desktop, and
+# ``wsl.exe`` does not forward ``SSH_CONNECTION``: a browser started there
+# runs where nobody sees it while ``Start-Process`` still exits 0. The command
+# refuses session 0 first with its own exit status.
+_POWERSHELL_NO_DESKTOP_EXIT = 3
+_POWERSHELL_START_URL = (
+    "if ([System.Diagnostics.Process]::GetCurrentProcess().SessionId -eq 0) "
+    f"{{ exit {_POWERSHELL_NO_DESKTOP_EXIT} }}; "
+    f"Start-Process $env:{_WSL_URL_VARIABLE}"
+)
+_WINDOWS_SESSION_ZERO_REASON = (
+    "browser_display_unavailable: powershell.exe runs in Windows session 0 "
+    "(an ssh session), which has no desktop"
+)
 
 
 def _wsl_launch(

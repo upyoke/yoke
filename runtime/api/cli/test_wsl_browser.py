@@ -5,6 +5,7 @@ import subprocess
 
 import pytest
 
+from yoke_cli.config import browser_admission
 from yoke_cli.config import hosted_machine_browser as browser
 
 URL = "http://localhost:8060/?token=a&other=b"
@@ -49,12 +50,12 @@ def test_powershell_receives_the_url_only_through_the_environment(wsl_path):
         opened=True, method="powershell.exe", reason="wslview unavailable on PATH"
     )
     argv = Path(f"{script}.argv").read_text().splitlines()
-    assert argv == [
-        "-NoProfile",
-        "-NonInteractive",
-        "-Command",
-        "Start-Process $env:YOKE_OPEN_URL",
-    ]
+    assert argv[:3] == ["-NoProfile", "-NonInteractive", "-Command"]
+    assert argv[3] == (
+        "if ([System.Diagnostics.Process]::GetCurrentProcess().SessionId -eq 0) "
+        "{ exit 3 }; Start-Process $env:YOKE_OPEN_URL"
+    )
+    assert len(argv) == 4
     assert all(URL not in arg for arg in argv)
     assert Path(f"{script}.env").read_text().splitlines() == [URL, "A/p:YOKE_OPEN_URL"]
 
@@ -126,3 +127,21 @@ def test_wsl_over_ssh_opens_nothing(wsl_path):
         opened=False, reason="browser_display_unavailable"
     )
     assert not Path(f"{script}.argv").exists()
+
+
+@POSIX_FAKE
+def test_powershell_in_windows_session_zero_names_no_display(wsl_path, monkeypatch):
+    """OpenSSH into WSL forwards no SSH_CONNECTION; session 0 still refuses."""
+    _fake_powershell(wsl_path, 3)
+    result = browser.open_url(
+        URL, platform="linux", environ={"WSL_DISTRO_NAME": "Ubuntu"}
+    )
+    assert not result.opened
+    assert result.reason.startswith("browser_display_unavailable: ")
+    assert "session 0" in result.reason
+    monkeypatch.setattr(browser_admission, "_resolve_session_id", lambda: None)
+    monkeypatch.setattr(browser_admission, "nearest_harness_family", lambda: None)
+    admitted = browser_admission.open_private_url(
+        URL, opener=lambda _url: result
+    )
+    assert admitted.reason == "browser_display_unavailable"

@@ -217,3 +217,81 @@ def test_host_command_result_does_not_echo_sensitive_argv(capsys) -> None:
     assert "top-secret" not in captured.out
     assert "top-secret" not in captured.err
     assert execute.call_args.kwargs["argv"] == command
+
+
+@pytest.mark.parametrize(
+    ("error", "shown", "hidden"),
+    [
+        (
+            RuntimeError("windows_admin_staging_prepare_failed"),
+            "RuntimeError: windows_admin_staging_prepare_failed",
+            None,
+        ),
+        (RuntimeError("ssh --token top-secret failed"), "(RuntimeError)", "top-secret"),
+    ],
+)
+def test_host_command_failure_names_a_safe_reason_code(capsys, error, shown, hidden):
+    response = SimpleNamespace(
+        success=True, error=None, result={"execution": {"operation": "plan_case"}}
+    )
+    with (
+        mock.patch(
+            "yoke_core.domain.qa_composed_dispatch.call_qa_function",
+            return_value=response,
+        ),
+        mock.patch(
+            "yoke_core.domain.machine_qa_host_control.register_test_machine_host_control",
+        ),
+        mock.patch(
+            "yoke_core.domain.machine_qa_local_execution."
+            "execute_agent_mission_host_command",
+            side_effect=error,
+        ),
+    ):
+        code = agent_mission_host_command_cli.run(
+            ["--item", "YOK-42", "--execution-id", "exec-1",
+             "--requirement-id", "9", "--", "echo", "hi"]
+        )
+
+    err = capsys.readouterr().err
+    assert code == 2
+    assert shown in err
+    if hidden:
+        assert hidden not in err
+
+
+def test_host_command_failure_names_host_control_code_and_recovery(capsys):
+    from yoke_contracts.machine_qa_failures import HostControlLocalError
+
+    response = SimpleNamespace(
+        success=True, error=None, result={"execution": {"operation": "plan_case"}}
+    )
+    error = HostControlLocalError(
+        code="windows_console_not_ready",
+        phase="gui_session",
+        detail="no interactive Windows session",
+        recovery_hint="log on the dedicated desktop, then retry",
+    )
+    with (
+        mock.patch(
+            "yoke_core.domain.qa_composed_dispatch.call_qa_function",
+            return_value=response,
+        ),
+        mock.patch(
+            "yoke_core.domain.machine_qa_host_control.register_test_machine_host_control",
+        ),
+        mock.patch(
+            "yoke_core.domain.machine_qa_local_execution."
+            "execute_agent_mission_host_command",
+            side_effect=error,
+        ),
+    ):
+        code = agent_mission_host_command_cli.run(
+            ["--item", "YOK-42", "--execution-id", "exec-1",
+             "--requirement-id", "9", "--gui-session", "--", "echo", "hi"]
+        )
+
+    err = capsys.readouterr().err
+    assert code == 2
+    assert "windows_console_not_ready" in err
+    assert "recovery: log on the dedicated desktop, then retry" in err

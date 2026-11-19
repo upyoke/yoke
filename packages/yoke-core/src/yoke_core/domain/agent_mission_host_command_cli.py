@@ -7,6 +7,7 @@ from yoke_contracts.process_ancestry import process_basename
 
 import argparse
 import json
+import re
 import sys
 from typing import Optional
 
@@ -19,6 +20,30 @@ _APPROVAL_WAITING_COMMANDS = frozenset({"setup", "connect", "onboard"})
 _YOKE_EXECUTABLES = frozenset({"yoke", "{yoke_bin}"})
 # Agent mode prints its next question as JSON and returns instead of waiting.
 _NON_WAITING_FLAGS = ("--agent", "--answer")
+
+
+_REASON_CODE = re.compile(r"[a-z][a-z0-9_]*")
+
+
+def _named_failure(exc: Exception) -> str:
+    """Name a failure's code and recovery without echoing an untrusted body.
+
+    Host-control errors carry bounded, secret-redacted detail; a bare reason
+    code (``windows_admin_staging_prepare_failed``) is safe to print. Any
+    other exception text may hold command arguments, so only its type shows.
+    """
+    from yoke_contracts.machine_qa_failures import HostControlLocalError
+
+    kind = type(exc).__name__
+    if isinstance(exc, HostControlLocalError):
+        return (
+            f"local execution failed ({kind}: {exc.code}): {exc}; "
+            f"recovery: {exc.recovery_hint}"
+        )
+    text = str(exc).strip()
+    if _REASON_CODE.fullmatch(text):
+        return f"local execution failed ({kind}: {text})"
+    return f"local execution failed ({kind})"
 
 
 def approval_wait_warning(command: list[str], timeout_seconds: int) -> str | None:
@@ -192,10 +217,7 @@ def run(args: list[str]) -> int:
             timeout_seconds=parsed.timeout_seconds,
         )
     except Exception as exc:
-        print(
-            f"{PROG}: local execution failed ({type(exc).__name__})",
-            file=sys.stderr,
-        )
+        print(f"{PROG}: {_named_failure(exc)}", file=sys.stderr)
         return 2
     payload = {
         "execution_id": parsed.execution_id,
