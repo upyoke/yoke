@@ -126,6 +126,70 @@ def test_step_sequence_routes_private_state_until_final_call(
     assert not copy.parent.exists()
 
 
+def test_refused_kept_step_keeps_the_check_and_its_page(tmp_path, monkeypatch, capsys):
+    import os
+    from yoke_cli.commands.qa_browser import qa_browser_step
+    from yoke_harness import browser_client, browser_check_profile
+
+    monkeypatch.setattr(
+        browser_check_profile.machine_config, "yoke_home", lambda: tmp_path
+    )
+    monkeypatch.setattr(
+        browser_check_profile,
+        "resolve_authorized_profile",
+        lambda *a, **k: (None, "clean"),
+    )
+    monkeypatch.setattr(browser_client, "_browser_dir", lambda: tmp_path / "runtime")
+    stopped = []
+
+    def start(*, profile_dir):
+        state_path = browser_client._state_file_path(profile_dir)
+        state_path.parent.mkdir(parents=True, exist_ok=True)
+        state_path.write_text(
+            json.dumps({"pid": os.getpid(), "profileDir": profile_dir})
+        )
+        return {"status": "started"}
+
+    monkeypatch.setattr(browser_client, "daemon_start", start)
+    monkeypatch.setattr(
+        browser_client, "daemon_stop", lambda **kw: stopped.append(kw["profile_dir"])
+    )
+    refusal = (
+        "browser_daemon_http_error: daemon request failed: HTTP 400: "
+        "page_unresponsive: the page did not answer a script within 5s "
+        "(url=http://127.0.0.1:8799/blocker.html)"
+    )
+
+    def refuse(name):
+        raise RuntimeError(refusal)
+
+    monkeypatch.setattr(browser_client, "ensure_page", refuse)
+    args = [
+        "--project",
+        "fixture",
+        "--base-url",
+        "http://127.0.0.1:8799",
+        "--step-json",
+        "{}",
+    ]
+    assert qa_browser_step([*args, "--keep-open"]) == 1
+    captured = capsys.readouterr()
+    result = json.loads(captured.out)
+    assert result["success"] is False
+    assert "page_unresponsive" in result["error"]
+    assert "page_unresponsive" in captured.err
+    check_id = result["check_id"]
+    assert qa_browser_step([*args, "--check-id", check_id, "--keep-open"]) == 1
+    assert json.loads(capsys.readouterr().out)["check_id"] == check_id
+    assert stopped == []
+    # Without --keep-open a refusal still ends the check by name.
+    assert qa_browser_step([*args, "--check-id", check_id]) == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "page_unresponsive" in captured.err
+    assert len(stopped) == 1
+
+
 @pytest.mark.parametrize("operation", ["step", "screenshot", "stop"])
 def test_invalid_identity_names_recovery_without_traceback(operation, capsys):
     from yoke_cli.commands.qa_browser import qa_browser_step, qa_browser_screenshot

@@ -40,6 +40,8 @@ blocked answers no script, so the read stops after 5 seconds and the request
 refuses with `page_unresponsive`, naming the page URL. The page stays open
 and nothing replaces it. Treat it like any other uncertain outcome: inspect
 the page and retained evidence, and never replay a submit blindly.
+A refused `qa browser step --keep-open` exits 1 but keeps its check and page:
+its JSON carries the error and the same `check_id` for the next step.
 
 A missing creating-state capture or exact submit-to-next-screen measurement
 stays unknown when retained evidence cannot establish it. Keep the original
