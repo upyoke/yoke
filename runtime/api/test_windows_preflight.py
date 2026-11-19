@@ -25,6 +25,7 @@ def facts(**overrides):
         "elevated": False,
         "git": "git.exe",
         "ssh": "ssh.exe",
+        "vc_runtime": "C:/Windows/System32/vcruntime140.dll",
         "storage": [
             {"path": "C:/Users/José Smith/.yoke", "kind": "local", "filesystem": "NTFS"}
         ],
@@ -37,9 +38,11 @@ def facts(**overrides):
     }
 
 
-def row(code, **overrides):
+def row(code, local=False, **overrides):
     return next(
-        r for r in verdicts(facts(**overrides)) if r["code"] == "windows_" + code
+        r
+        for r in verdicts(facts(**overrides), local=local)
+        if r["code"] == "windows_" + code
     )
 
 
@@ -161,6 +164,21 @@ def test_reserved_and_colliding_files_and_branches():
 def test_missing_tools_name_install_step(tool):
     result = row(tool, **{tool: None})
     assert result["severity"] == "warning" and "Install step" in result["hint"]
+
+
+def test_present_vc_runtime_proceeds():
+    result = row("vc_runtime", local=True)
+    assert result["severity"] == "info" and "vcruntime140.dll" in result["message"]
+
+
+@pytest.mark.parametrize("local,severity", [(True, "error"), (False, "warning")])
+def test_missing_vc_runtime_names_winget_step(local, severity):
+    result = row("vc_runtime", local=local, vc_runtime=None)
+    assert result["severity"] == severity
+    assert "Visual C++ runtime (vcruntime140.dll) not found" in result["message"]
+    assert result["hint"] == (
+        "Install step: winget install --id Microsoft.VCRedist.2015+.x64 -e"
+    )
 
 
 def test_wsl_install_keeps_identity_separate():

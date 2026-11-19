@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
+from yoke_contracts import onboard_destinations
 from yoke_contracts.windows_preflight import verdicts
 from yoke_contracts.windows_preflight_facts import collect_facts
 
@@ -21,6 +23,19 @@ NATIVE_GUIDANCE = (
 )
 
 
+def _local_selected(parsed) -> bool:
+    """Whether the flags or override already choose the machine-local universe."""
+    try:
+        destination, _ = onboard_destinations.resolve_choice(
+            local_flag=bool(getattr(parsed, "destination_local", False)),
+            connect_url=getattr(parsed, "connect_url", None),
+            override_value=os.environ.get(onboard_destinations.DESTINATION_OVERRIDE),
+        )
+    except ValueError:
+        return False  # destination resolution names this refusal after the gate
+    return destination == onboard_destinations.DESTINATION_LOCAL
+
+
 def check_setup(parsed) -> bool:
     from yoke_cli.config import machine_config
 
@@ -28,7 +43,7 @@ def check_setup(parsed) -> bool:
         home=machine_config.config_path(parsed.config_path).parent,
         repo=getattr(parsed, "project_checkout", None) or Path.cwd(),
     )
-    rows = verdicts(facts)
+    rows = verdicts(facts, local=_local_selected(parsed))
     for row in rows:
         print(
             f"{row['severity']} ({row['code']}): {row['message']} {row.get('hint', '')}".rstrip(),

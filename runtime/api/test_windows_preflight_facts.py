@@ -157,6 +157,22 @@ def test_policy_userdata_keeps_unicode_file_and_event_identity(monkeypatch):
     assert "Company executable rule" in blocks[0]["evidence"]
 
 
+@pytest.mark.parametrize("present", [True, False])
+def test_vc_runtime_fact_reads_system32(monkeypatch, present):
+    seen = []
+
+    def isfile(path):
+        seen.append(path)
+        return present
+
+    monkeypatch.setattr(collector.os.path, "isfile", isfile)
+    expected = ntpath.join("D:\\Win", "System32", "vcruntime140.dll")
+    assert collector._vc_runtime({"SystemRoot": "D:\\Win"}) == (
+        expected if present else None
+    )
+    assert seen == [expected]
+
+
 def test_windows_collection_is_read_only_and_reports_real_probe_results(
     monkeypatch, tmp_path
 ):
@@ -209,6 +225,7 @@ def test_windows_collection_is_read_only_and_reports_real_probe_results(
 
     monkeypatch.setattr(collector, "_run", run)
     monkeypatch.setattr(collector, "_policy_blocks", lambda errors: [])
+    monkeypatch.setattr(collector, "_vc_runtime", lambda env: "vcruntime140.dll")
 
     def head(request, timeout):
         assert request.get_method() == "HEAD" and timeout == 2
@@ -220,6 +237,7 @@ def test_windows_collection_is_read_only_and_reports_real_probe_results(
     result = collector.collect_facts(home=tmp_path / "absent", repo=tmp_path)
     assert result["build"] == 26100 and result["store_blocked"]
     assert result["wsl_yoke"] and result["desktop"] and result["browser"]
+    assert result["vc_runtime"] == "vcruntime140.dll"
     assert result["blocked_hosts"] == ["registry.npmjs.org (URLError)"]
     assert not (tmp_path / "absent").exists()
     assert any("--running" in argv for argv in calls)

@@ -164,6 +164,13 @@ def _policy_blocks(errors: list[str]) -> list[dict[str, str]]:
     return blocks
 
 
+def _vc_runtime(env) -> str | None:
+    """The MSVC runtime DLL the embedded Postgres engine loads, when present."""
+    system32 = ntpath.join(env.get("SystemRoot") or r"C:\Windows", "System32")
+    dll = ntpath.join(system32, "vcruntime140.dll")
+    return dll if os.path.isfile(dll) else None
+
+
 def collect_facts(
     *, home: str | Path | None = None, repo: str | Path | None = None
 ) -> dict:
@@ -288,6 +295,7 @@ def collect_facts(
         "colliding_names": collisions,
         "git": git,
         "ssh": shutil.which("ssh"),
+        "vc_runtime": _vc_runtime(env),
         "wsl_yoke": wsl_yoke,
         "desktop": env.get("SESSIONNAME", "").lower() not in ("", "services")
         and not env.get("SSH_CONNECTION"),

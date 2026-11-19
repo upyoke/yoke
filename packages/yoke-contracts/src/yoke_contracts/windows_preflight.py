@@ -17,8 +17,12 @@ def issue(severity: str, code: str, message: str, hint: str = "") -> dict[str, s
     return result
 
 
-def verdicts(facts: Mapping[str, Any]) -> list[dict[str, str]]:
-    """Return named proceed (info), notice (warning), or refuse (error) rows."""
+def verdicts(facts: Mapping[str, Any], *, local: bool = False) -> list[dict[str, str]]:
+    """Return named proceed (info), notice (warning), or refuse (error) rows.
+
+    ``local`` marks setup of the machine-local universe, whose embedded
+    Postgres cannot start without the MSVC runtime.
+    """
     if facts.get("system") != "Windows":
         return []
     rows = []
@@ -119,14 +123,31 @@ def verdicts(facts: Mapping[str, Any]) -> list[dict[str, str]]:
             f"Case-colliding names: {', '.join(names)}.",
             "Rename the colliding files or branches before native setup.",
         )
-    for tool, command in (
-        ("git", "winget install --id Git.Git -e"),
-        ("ssh", "Ask IT to enable the Windows OpenSSH Client optional feature."),
+    for tool, command, missing, severity in (
+        (
+            "git",
+            "winget install --id Git.Git -e",
+            "not found; repository/SSH operations are unavailable",
+            "warning",
+        ),
+        (
+            "ssh",
+            "Ask IT to enable the Windows OpenSSH Client optional feature.",
+            "not found; repository/SSH operations are unavailable",
+            "warning",
+        ),
+        (
+            "vc_runtime",
+            "winget install --id Microsoft.VCRedist.2015+.x64 -e",
+            "Microsoft Visual C++ runtime (vcruntime140.dll) not found; "
+            "the local Yoke universe's embedded Postgres cannot start",
+            "error" if local else "warning",
+        ),
     ):
         add(
-            "info" if facts.get(tool) else "warning",
+            "info" if facts.get(tool) else severity,
             tool,
-            f"{tool}: {facts.get(tool) or 'not found; repository/SSH operations are unavailable'}.",
+            f"{tool}: {facts.get(tool) or missing}.",
             f"Install step: {command}",
         )
     if facts.get("wsl_yoke"):
