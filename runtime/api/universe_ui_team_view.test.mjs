@@ -235,9 +235,9 @@ test("the actual app accepts the name fact for create/reissue/revoke, rereads an
   mounted.unmount();
 });
 
-for (const mode of ["hosted", "self-host"]) test(`the actual ${mode} app creates email invites and revokes their producer identifier`, async () => {
+for (const mode of ["hosted", "self-host"]) test(`the actual ${mode} app revokes email invites by invite_id`, async () => {
   let sent = false, status = "pending", codeState = "pending";
-  const email = { ...(mode === "hosted" ? { id: 8, invited_by_user_id: 2 } : { invite_id: 8, invited_by_actor_id: 2 }),
+  const email = { invite_id: 8, ...(mode === "hosted" ? { id: 91, invited_by_user_id: 2 } : { invited_by_actor_id: 2 }),
     email: "a@example.test", role: "viewer", created_at: inviteRow.created_at, invited_by_name: "Authoritative inviter" };
   const { root, reads, mounted } = await mountTeam(() => ok(adminRoster), mode, (request) => {
     if (request.function === "teammate_invites.list") return ok({ invite_form: "email", sign_in_method: mode === "hosted" ? "yoke_account" : "company_sign_in", invites: [{ ...inviteRow, state: codeState }] });
@@ -266,6 +266,19 @@ for (const mode of ["hosted", "self-host"]) test(`the actual ${mode} app creates
   await click(button(root, "Revoke…")); await click(button(root, "Revoke invite"));
   assert.deepEqual(reads.requests.filter((request) => request.function === "teammate_invites.revoke").map((request) => request.payload), [{ invite_id: inviteRow.invite_id }]);
   assert.match(nodes(root, "TR").find((row) => row.children[0]?.textContent.startsWith(inviteRow.name)).textContent, /revoked/);
+  mounted.unmount();
+});
+
+test("hosted Team reports a missing invite_id without sending a revoke", async () => {
+  const { root, reads, mounted } = await mountTeam(() => ok(adminRoster), "hosted", (request) => {
+    if (request.function === "teammate_invites.list") return ok({ invite_form: "email", sign_in_method: "yoke_account", invites: [] });
+    assert.equal(request.function, "identity.invite.list");
+    return ok({ invites: [{ id: 91, email: "a@example.test", status: "pending", created_at: inviteRow.created_at }] });
+  });
+  await click(button(root, "Revoke…"));
+  await click(button(root, "Revoke invite"));
+  assert.match(root.textContent, /identity\.invite\.list is missing invite_id.*invite_response_shape_invalid/);
+  assert.ok(!reads.requests.some((request) => request.function === "identity.invite.revoke"));
   mounted.unmount();
 });
 

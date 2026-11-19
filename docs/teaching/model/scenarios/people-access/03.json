@@ -7,8 +7,8 @@
  "need": "An org owner or admin opens Team and chooses Invite. The server selects Name/code or Email/company sign-in/Yoke account. Send a code privately; it works once for 24 hours. The teammate runs yoke connect and chooses Enter invite code. Local mode offers a team-server reachability guide instead. Only an owner may invite another owner; org roles carry to every project in the org.",
  "disclosure": "current cue",
  "surface": "Team Invite form, one-time result and Invites history; public mode table.",
- "gap": "Actual changed hosted Team consumer and production journey proof remain pending, including the project-only grant journey of scenario 05.",
- "review": "Source tests cover mode facts, local refusal, older servers and company sign-in configuration recovery.",
+ "gap": "Deployed journey proof remains pending, including the project-only grant journey of scenario 05.",
+ "review": "Source tests cover mode facts, local refusal, older servers, company sign-in configuration recovery and hosted Team revocation by invite_id.",
  "plan_notes": ["FIRST-USER item 33", "FIRST-USER item 27"],
  "sources": ["docs/public/projects/actors-members-billing.md", "docs/public/projects/teammate-invitations.md", "runtime/api/universe_ui_team_view.test.mjs", "docs/public/cli/machine-authorization.md", "runtime/api/domain/test_teammate_invite_forms.py", "runtime/api/domain/test_teammate_invite_functions.py"],
  "position": 2

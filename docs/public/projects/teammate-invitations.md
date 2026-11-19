@@ -83,6 +83,7 @@ machines instead of revoking their completed invitation.
 | `oidc_misconfigured` | Ask the server operator to correct company sign-in settings. No invitation is created. |
 | `function_version_skew` | This server predates this command. Connect with an explicit token (`yoke connect <server> --token-stdin`), or ask the server operator to upgrade. |
 | `invite_reissue_email` | Revoke the email reference, then invite the email again. |
+| `invite_response_shape_invalid` | Update Yoke or report the hosted response. The error names the function and field. If it followed `yoke invite`, check the invite list before retrying. |
 | `result_unavailable` | The code cannot be shown again. List the reference and reissue it. |
 | `invite_code_invalid` / `invite_expired` / `invite_revoked` | Ask the inviter for a new code; never substitute another kind of code. |
 | `invite_consumed` | Manage the person's machines; this invitation was already used. |
