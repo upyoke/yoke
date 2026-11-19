@@ -12,8 +12,9 @@ exact commit the run delivered for that project. It carries the pin as
 (``--version`` / ``YOKE_VERSION``) through the bound installer origin.
 
 QA tests whatever is deployed, so after a release takeover the moved target
-keeps its frozen snapshot and digest, but every view handed to a walker
-names the release the *current* owning run pins (``current_release_target``).
+keeps its frozen snapshot and digest, but every view handed to a walker or
+controller names the lineage and pinned release the *current* owning run
+delivered (``current_release_target``).
 """
 
 from __future__ import annotations
@@ -197,38 +198,49 @@ def pinned_release_endpoints(
 
 
 def current_release_target(conn: Any, run_id: Any, target: Any) -> Any:
-    """*target* with the release its current owning run pins, read at use time.
+    """*target* naming the build its current owning run serves, read at use time.
 
     A target frozen by the same run is already current and is returned as
-    is; a target moved by takeover is returned as a copy whose
-    ``endpoints.release_version`` is read at the current run's delivered
-    commit once that run has a ready deploy receipt. The stored snapshot and
-    its digest are never rewritten.
+    is. A target moved by takeover is returned as a copy naming what a fresh
+    begin by the owner would freeze once the owner has a ready deploy receipt
+    for the target's ``source_stage``: the owner's ``deployment.release_lineage``
+    and, for a pinned target, the ``endpoints.release_version`` read at the
+    owner's delivered commit. Before that receipt the destination still serves
+    the frozen build, so the target stays. The stored snapshot and its digest
+    are never rewritten; recorded results stay bound to the target they proved.
     """
     if not isinstance(target, dict) or not run_id:
         return target
+    deployment = target.get("deployment")
     endpoints = target.get("endpoints")
-    frozen_run = str((target.get("deployment") or {}).get("run_id") or "")
-    if (
-        not isinstance(endpoints, dict)
-        or RELEASE_VERSION_KEY not in endpoints
-        or frozen_run in ("", str(run_id))
-    ):
+    if not isinstance(deployment, dict) or not isinstance(endpoints, dict):
+        return target
+    frozen_run = str(deployment.get("run_id") or "")
+    if frozen_run in ("", str(run_id)):
+        return target
+    from yoke_core.domain.deployment_qa_takeover_identity import inherited_target
+
+    if not inherited_target(conn, str(run_id), target):
         return target
     from yoke_core.domain.deployment_qa_target_reads import _latest_ready_receipt_id
 
     source_stage = str((target.get("observation") or {}).get("source_stage") or "")
     if _latest_ready_receipt_id(conn, run_id=str(run_id), source_stage=source_stage) is None:
-        # The current run has not deployed yet: the frozen release is still
+        # The current run has not deployed yet: the frozen build is still
         # what the destination serves.
         return target
-    project_id = int((target.get("project") or {}).get("id") or 0)
-    return {
+    from yoke_core.domain.deployment_run_lineage_rebind import lineage_of
+
+    current = {
         **target,
-        "endpoints": pinned_release_endpoints(
-            conn, str(run_id), project_id, dict(endpoints)
-        ),
+        "deployment": {**deployment, "release_lineage": lineage_of(conn, str(run_id))},
     }
+    if RELEASE_VERSION_KEY in endpoints:
+        project_id = int((target.get("project") or {}).get("id") or 0)
+        current["endpoints"] = pinned_release_endpoints(
+            conn, str(run_id), project_id, dict(endpoints)
+        )
+    return current
 
 
 def _current_case(conn: Any, run_id: str, case: Mapping) -> Mapping:
