@@ -16,6 +16,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 import uuid
 
 import httpx
@@ -33,7 +34,7 @@ from yoke_core.domain.machine_qa_admission_state import expectation_failures
 pytestmark = pytest.mark.posix_only(reason="admission server runs the POSIX fixture admission shell using Unix launcher paths")
 
 HOST = "yoke_core.domain.machine_qa_admission_host"
-LOCK = Path("/tmp/yoke-machine-qa-admission-test.lock")
+LOCK = Path(tempfile.gettempdir()) / "yoke-machine-qa-admission-test.lock"
 
 
 def _clean_env(**extra: str) -> dict[str, str]:

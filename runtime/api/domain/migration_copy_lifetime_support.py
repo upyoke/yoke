@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pytest
 
+from yoke_contracts.machine_config.directories import shortest_temp_directory
 from yoke_core.domain import db_backend, postgres_cluster
 from runtime.api.domain.migration_fleet_preflight_extension_restore_test_support import (
     _server_bin_dir,
@@ -73,7 +74,7 @@ def copy_cluster():
     assert bin_dir is not None, (
         f"copy lifetime proof requires initdb; searched {searched}"
     )
-    with tempfile.TemporaryDirectory(prefix="yoke-copy-lock-", dir="/tmp") as scratch:
+    with tempfile.TemporaryDirectory(prefix="yoke-copy-lock-", dir=shortest_temp_directory()) as scratch:
         spec = postgres_cluster.ClusterSpec(
             Path(scratch),
             "copyfixture",
