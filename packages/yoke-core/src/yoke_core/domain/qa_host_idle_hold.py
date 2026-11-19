@@ -110,7 +110,11 @@ def held_qa_hosts_csv(value: Any) -> list[str]:
     return sorted(part for part in str(value or "").split(",") if part)
 
 
-def _held_rows(conn: Any) -> list[dict[str, Any]]:
+def held_rows(conn: Any) -> list[dict[str, Any]]:
+    """Every consumed host lease with its holder's activity facts."""
+    from yoke_core.domain.schema_work_claim_sql import scope_text_sql
+
+    machine = scope_text_sql(conn, "wc.scope", "test_machine")
     operation = (
         "(SELECT MAX(r.performed_at) FROM test_machine_operation_receipts r "
         "WHERE r.lease_id=wc.id)"
@@ -119,7 +123,8 @@ def _held_rows(conn: Any) -> list[dict[str, Any]]:
     )
     return query_rows(
         conn,
-        "SELECT wc.id, wc.session_id, wc.claimed_at, hs.session_id AS live_row, "
+        f"SELECT wc.id, wc.session_id, wc.claimed_at, {machine} AS test_machine, "
+        "hs.session_id AS live_row, "
         "hs.mode, hs.last_tool_call_at, hs.native_process_gone_at, hs.ended_at, "
         f"hs.terminated_at, {operation} AS host_operation_at "
         "FROM work_claims wc "
@@ -229,7 +234,7 @@ def release_idle_host_holds(conn: Any, *, now: datetime | None = None) -> list[i
     current, limit = now or utc_now(), idle_hold_limit()
     due = [
         row
-        for row in _held_rows(conn)
+        for row in held_rows(conn)
         if holder_away(row) and current - idle_since(row) >= limit
     ]
     conn.commit()
@@ -241,7 +246,7 @@ def release_idle_host_holds(conn: Any, *, now: datetime | None = None) -> list[i
         # Every host this pass releases, locked in name order like record_host_wait.
         for name in sorted({machine, *(str(r["test_machine"]) for r in waiting)}):
             lock_host_turn(conn, _target(name))
-        fresh = [r for r in _held_rows(conn) if int(r["id"]) == claim.id]
+        fresh = [r for r in held_rows(conn) if int(r["id"]) == claim.id]
         held = active_claim(conn, claim.target)
         if not fresh or held is None or held.id != claim.id:
             conn.rollback()
@@ -282,6 +287,7 @@ __all__ = [
     "held_qa_hosts",
     "held_qa_hosts_csv",
     "held_qa_hosts_sql",
+    "held_rows",
     "holder_away",
     "idle_hold_limit",
     "idle_since",

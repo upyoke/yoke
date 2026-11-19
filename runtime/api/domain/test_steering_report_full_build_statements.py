@@ -28,7 +28,8 @@ SECOND_PROJECT = 2
 #: the pin. Higher means a reader went back to per-row work. The failed
 #: scheduled-prune read adds two universe-wide statements, cached per build.
 #: Each next-actor facts read adds one Test Machine wait read for its page.
-FULL_BUILD_STATEMENTS = 153
+#: The Test Machine findings add one held-lease read for idle host holds.
+FULL_BUILD_STATEMENTS = 154
 
 
 def _seed(conn):
