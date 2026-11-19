@@ -180,7 +180,7 @@ class TestItemsCreateHandler:
 
 
 class TestItemsCreateEndToEnd:
-    def test_plan_posture_records_choice_without_item_attachment(
+    def test_plan_posture_attaches_the_filed_plan_at_review(
         self,
         tmp_db,
         monkeypatch,  # noqa: F811
@@ -248,7 +248,11 @@ class TestItemsCreateEndToEnd:
         finally:
             conn.close()
 
-        assert attachment is None
+        assert tuple(attachment) == (
+            plan["id"],
+            "reviewing-implementation",
+            "verification",
+        )
         assert json.loads(_item_field(tmp_db, item_id, "workflow_posture"))[
             "verification"
         ] == {
