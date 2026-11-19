@@ -83,26 +83,37 @@ def blocked_key(base: str, blockers: tuple[str, ...]) -> str:
     return f"{base}{BLOCKED_SEPARATOR}{','.join(sorted(blockers))}"
 
 
-def blocker_set_announced(conn: Any, *, base: str, blockers: tuple[str, ...]) -> bool:
-    """Whether one notice under ``base`` already named every one of ``blockers``.
+def blocker_set_announced(
+    conn: Any, *, prefix: str, blockers: tuple[str, ...]
+) -> bool:
+    """Whether one notice under ``prefix`` already named every one of ``blockers``.
 
-    The owner was told each of them, and a blocker that cleared since is
-    reported by its own notice (:mod:`dependency_satisfied_notice`), so a
-    set that adds no blocker wakes nobody.
+    ``prefix`` spans every run's notice for one member, so a new or takeover
+    run re-announces nothing its owner was already told. The owner was told
+    each of them, and a blocker that cleared since is reported by its own
+    notice (:mod:`dependency_satisfied_notice`), so a set that adds no
+    blocker wakes nobody. An empty set is announced by any earlier notice
+    that named no blocker.
     """
-    if not blockers or not _table_exists(conn, "session_messages"):
+    if not _table_exists(conn, "session_messages"):
         return False
-    prefix = f"{base}{BLOCKED_SEPARATOR}"
     rows = conn.execute(
         "SELECT idempotency_key FROM session_messages WHERE idempotency_key LIKE %s",
         (prefix + "%",),
     ).fetchall()
     wanted = set(blockers)
-    return any(
-        wanted <= set(str(row[0])[len(prefix):].split(","))
-        for row in rows
-        if str(row[0]).startswith(prefix)
-    )
+    for row in rows:
+        key = str(row[0])
+        if not key.startswith(prefix):
+            continue
+        _run, separator, announced = key[len(prefix):].partition(BLOCKED_SEPARATOR)
+        if not separator:
+            if not wanted:
+                return True
+            continue
+        if wanted and wanted <= set(announced.split(",")):
+            return True
+    return False
 
 
 __all__ = [

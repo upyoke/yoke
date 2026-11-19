@@ -5,6 +5,8 @@ another target's plan credit. Its owner's notice names both and never calls
 the delivery satisfied. The notice is keyed on blocker identities, so a
 blocker whose status moves sends nothing, a blocker that clears sends
 nothing (its own dependency notice reports it), and a new blocker sends one.
+A set is announced once per member across every run, so a new or takeover
+run repeats nothing the owner was already told.
 """
 
 from __future__ import annotations
@@ -29,7 +31,11 @@ from runtime.api.domain.status_transition_preflight_test_support import (
     _isolate_status_effects,
 )
 from runtime.api.fixtures.backlog_inserts import insert_item
-from yoke_core.domain import deployment_qa_plan_credit, member_close_out_blockers
+from yoke_core.domain import (
+    deployment_qa_plan_credit,
+    member_close_out_blockers,
+    no_obligation_member_close_out,
+)
 from yoke_core.domain import deployment_qa_member_acceptance_notice as notice
 from yoke_core.domain.no_obligation_member_close_out import (
     close_out_satisfied_delivery_member,
@@ -39,6 +45,7 @@ MEMBER = 9841
 FIRST_BLOCKER = 9842
 SECOND_BLOCKER = 9843
 RUN_ID = "run-blocker-set-notice"
+TAKEOVER_RUN_ID = "run-blocker-set-takeover"
 STAGE_WAIT = "Awaiting stage plan happy-path-checks-wsl QA credit on deployment run run-s."
 
 
@@ -68,11 +75,11 @@ def _member_owing_stage_credit(conn: Any, monkeypatch) -> None:
     )
 
 
-def _notify(conn: Any) -> str:
+def _notify(conn: Any, run_id: str = RUN_ID) -> str:
     member = {"item_id": MEMBER, "project_id": 1, "public_ref": f"YOK-{MEMBER}"}
     return notice._close_or_notify(
         conn,
-        run_id=RUN_ID,
+        run_id=run_id,
         item_id=MEMBER,
         route=(member, True),
         now=notice.parse_instant(notice.utc_now()),
@@ -80,7 +87,7 @@ def _notify(conn: Any) -> str:
 
 
 def _notices(conn: Any) -> list[tuple[str, str]]:
-    prefix = notice.item_qa_accepted_idempotency_key(MEMBER, RUN_ID)
+    prefix = notice.item_qa_accepted_item_prefix(MEMBER)
     rows = conn.execute(
         "SELECT idempotency_key,body FROM session_messages "
         "WHERE idempotency_key LIKE %s ORDER BY created_at",
@@ -146,3 +153,44 @@ def test_a_cleared_blocker_sends_nothing_and_a_new_one_sends_once(
     _set_status(test_db, FIRST_BLOCKER, "done")
     assert _notify(test_db) == ""
     assert len(_notices(test_db)) == 2
+
+
+def test_a_takeover_run_announces_only_a_set_that_adds_a_blocker(
+    test_db: Any, monkeypatch
+) -> None:
+    _member_owing_stage_credit(test_db, monkeypatch)
+    _run(test_db, TAKEOVER_RUN_ID, flow=COMPLETION_FLOW, members=(MEMBER,))
+    _settled_member_requirement(
+        test_db, item_id=MEMBER, run_id=TAKEOVER_RUN_ID, resolution="pass"
+    )
+    _notify(test_db)
+
+    assert _notify(test_db, TAKEOVER_RUN_ID) == ""
+    assert len(_notices(test_db)) == 1
+
+    _depend(test_db, SECOND_BLOCKER)
+    _notify(test_db, TAKEOVER_RUN_ID)
+    notices = _notices(test_db)
+    assert len(notices) == 2
+    assert notices[1][0] == notice.item_qa_accepted_idempotency_key(
+        MEMBER,
+        TAKEOVER_RUN_ID,
+        (f"closure:YOK-{FIRST_BLOCKER}", f"closure:YOK-{SECOND_BLOCKER}", "plan:7@stage"),
+    )
+
+    _set_status(test_db, FIRST_BLOCKER, "done")
+    assert _notify(test_db, TAKEOVER_RUN_ID) == ""
+    assert _notify(test_db) == ""
+    assert len(_notices(test_db)) == 2
+
+    monkeypatch.setattr(
+        no_obligation_member_close_out,
+        "close_out_satisfied_delivery_member",
+        lambda *_a, **_k: None,
+    )
+    _notify(test_db)
+    assert _notices(test_db)[-1][0] == notice.item_qa_accepted_idempotency_key(
+        MEMBER, RUN_ID
+    )
+    assert _notify(test_db, TAKEOVER_RUN_ID) == ""
+    assert len(_notices(test_db)) == 3
