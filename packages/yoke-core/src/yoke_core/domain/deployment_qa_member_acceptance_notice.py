@@ -60,15 +60,20 @@ MEMBER_CLOSE_OUT_BUDGET_SECONDS = 5.0
 _SEND_SAVEPOINT = "_yoke_item_qa_accepted_notice"
 
 
+def item_qa_accepted_item_prefix(item_id: int) -> str:
+    """Every run's acceptance notice for one member starts with this."""
+    return f"{ITEM_QA_ACCEPTED_KEY_PREFIX}{item_id}:"
+
+
 def item_qa_accepted_idempotency_key(
     item_id: int, run_id: str, blockers: tuple[str, ...] = ()
 ) -> str:
-    """One notice per member, accepting run, and distinct blocker set.
+    """One notice per member and distinct blocker set, sent by one run.
 
     ``blockers`` are stable identities (:mod:`member_close_out_blockers`),
     never refusal prose, so a blocker's status change wakes nobody.
     """
-    return blocked_key(f"{ITEM_QA_ACCEPTED_KEY_PREFIX}{item_id}:{run_id}", blockers)
+    return blocked_key(f"{item_qa_accepted_item_prefix(item_id)}{run_id}", blockers)
 
 
 def item_qa_accepted_message(
@@ -296,8 +301,8 @@ def _close_or_notify(
         blockers = tuple(closed.blockers)
     if recorded_no_obligation(conn, int(item_id)) and not (close_out_failure or pending_credit):
         return ""
-    base = item_qa_accepted_idempotency_key(int(member["item_id"]), str(run_id))
-    if blocker_set_announced(conn, base=base, blockers=blockers):
+    prefix = item_qa_accepted_item_prefix(int(member["item_id"]))
+    if blocker_set_announced(conn, prefix=prefix, blockers=blockers):
         return ""
     stamp = now
     try:
@@ -313,7 +318,9 @@ def _close_or_notify(
                     close_out_failure=close_out_failure,
                     pending_credit=pending_credit,
                 ),
-                idempotency_key=blocked_key(base, blockers),
+                idempotency_key=item_qa_accepted_idempotency_key(
+                    int(member["item_id"]), str(run_id), blockers
+                ),
                 now=stamp,
             )
     except SavepointLostError:
@@ -330,6 +337,7 @@ def _close_or_notify(
 __all__ = [
     "ITEM_QA_ACCEPTED_KEY_PREFIX",
     "item_qa_accepted_idempotency_key",
+    "item_qa_accepted_item_prefix",
     "item_qa_accepted_message",
     "notify_item_qa_accepted",
     "notify_items_qa_accepted",
