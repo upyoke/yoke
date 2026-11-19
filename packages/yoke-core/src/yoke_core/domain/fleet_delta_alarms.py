@@ -124,11 +124,19 @@ def _clear(state: DeltaState, live_keys: set[str], kind: str) -> list[str]:
 
 
 def _holding_sessions(current: FleetSnapshot) -> Iterable[SessionRow]:
-    """Live sessions, parked or not, holding at least one item claim."""
+    """Live sessions, parked or not, holding an item claim or a QA host.
+
+    The roster is open sessions only; the steering report's Test Machine
+    rows alarm on a host an ended session still holds.
+    """
     return [
         row
         for _, row in sorted(current.sessions.items())
-        if row.lifecycle == "live" and row.claimed_items
+        if row.lifecycle == "live"
+        and (
+            row.claimed_items
+            or (row.session_state.get("custody") or {}).get("qa_hosts")
+        )
     ]
 
 
@@ -178,7 +186,7 @@ def idle_holder_alarms(current: FleetSnapshot, state: DeltaState) -> list[str]:
         line = (
             f"{LINE_PREFIX} ALARM idle-holder "
             f"session={identifier(row.session_id)} "
-            f"items={','.join(row.claimed_items)} idle={idle}m "
+            f"items={','.join(row.claimed_items) or 'none'} idle={idle}m "
             f"mode={row.mode or 'none'} reason={reason} "
             f"delivery={row.message_delivery!r} surface={row.executor_surface} "
             f"reach={address_recipe(row.session_id, current)!r}"

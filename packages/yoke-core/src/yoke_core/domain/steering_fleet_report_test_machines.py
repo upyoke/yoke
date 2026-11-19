@@ -7,9 +7,20 @@ from yoke_core.domain.schema_common import _table_exists
 
 
 class ResetDebt(NamedTuple):
+    """A Test Machine finding: a reset owed, or a host an away session holds.
+
+    An idle hold names the parked, exited or ended holder and when upkeep
+    returns the host to the line (``qa_host_idle_hold``); its recovery is the
+    steering release, so the report alarms before that limit.
+    """
+
     test_machine: str
     recovery: str | None
     execution_id: str | None
+    idle_session: str | None = None
+    idle_state: str | None = None
+    idle_since: str | None = None
+    returns_at: str | None = None
 
 
 def _holding_execution(conn: Any, test_machine: str) -> str | None:
@@ -64,12 +75,43 @@ def test_machine_lines(rows: tuple[tuple[str, str], ...]) -> list[str]:
     return ["Test Machines: " + "; ".join(f"{name} (OS: {os})" for name, os in rows)]
 
 
+def _idle_holds(conn: Any, names: set[str]) -> list[ResetDebt]:
+    """Consumed host leases whose holder is parked, exited or ended."""
+    from yoke_contracts.timestamps import format_instant
+    from yoke_core.domain import qa_host_idle_hold as idle
+
+    if not _table_exists(conn, "qa_test_machine_waits"):
+        return []
+    limit, holds = idle.idle_hold_limit(), []
+    for row in idle.held_rows(conn):
+        away = idle.holder_away(row)
+        machine = str(row["test_machine"])
+        if not away or machine not in names:
+            continue
+        since = idle.idle_since(row)
+        holds.append(
+            ResetDebt(
+                machine,
+                f"yoke coordination-claim release --key QA_HOST:{machine} "
+                f"--claim-id {row['id']} --holder-session-id {row['session_id']} "
+                '--reason "<why>"',
+                None,
+                idle_session=str(row["session_id"]),
+                idle_state=away,
+                idle_since=format_instant(since),
+                returns_at=format_instant(since + limit),
+            )
+        )
+    return holds
+
+
 def read_reset_debts(conn, project_id) -> tuple[ResetDebt, ...]:
     from yoke_core.domain.machine_reset_debt import reset_command, reset_owed
 
     if not _table_exists(conn, "test_machine_operation_receipts"):
         return ()
-    debts = []
+    names = {name for name, _ in read_test_machines(conn, project_id)}
+    debts = _idle_holds(conn, names)
     for name, _ in read_test_machines(conn, project_id):
         if (baseline := reset_owed(conn, name)) is None:
             continue
@@ -86,7 +128,11 @@ def read_reset_debts(conn, project_id) -> tuple[ResetDebt, ...]:
 
 def reset_debt_lines(rows):
     return [
-        f"Test Machine {row.test_machine}: reset owed after {row.execution_id}"
+        f"Test Machine {row.test_machine}: ALARM held by {row.idle_state} session "
+        f"{row.idle_session}, silent since {row.idle_since}; upkeep returns it to "
+        f"the line at {row.returns_at}, or release it now: `{row.recovery}`"
+        if row.idle_session
+        else f"Test Machine {row.test_machine}: reset owed after {row.execution_id}"
         if row.execution_id
         else f"Test Machine {row.test_machine}: machine_needs_repair; run `{row.recovery}`"
         for row in rows
