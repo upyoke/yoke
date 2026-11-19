@@ -208,8 +208,9 @@ def test_delivered_marker_fingerprints_exact_emitted_body(
     payload = {
         "transcript_path": str(transcript),
         "session_id": "s-1",
-        "conversation_id": "s-1",
         "workspace_roots": ["/repo"],
+        # Only Cursor payloads carry a conversation id.
+        **({"conversation_id": "s-1"} if cursor else {}),
     }
     monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(payload)))
     resume = "merged resume body\n"
@@ -299,10 +300,11 @@ def test_orientation_lands_once_and_returns_after_compaction(
     transcript.touch()
     base = {
         "session_id": "s-life",
-        "conversation_id": "s-life",
         "cwd": str(project),
         "workspace_roots": [str(project)],
         "transcript_path": str(transcript),
+        # Only Cursor payloads carry a conversation id.
+        **({"conversation_id": "s-life"} if cursor else {}),
     }
     seen = []
     for event, extra, _oriented in _LIFECYCLES[executor]:
