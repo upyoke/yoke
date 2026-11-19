@@ -1438,20 +1438,7 @@ class Installer(InstallerVerification, InstallerResolution):
         self._product_boundary_audit(expected_version=version, yoke_bin=yoke_bin)
         self._repair_credential_helper(yoke_bin)
         self._record_distribution(yoke_bin)
-        # Prove the installed evaluator, then stop it: an install leaves no
-        # resident running; setup or the first hook starts one.
-        argv = [yoke_bin, "hook", "resident", "verify"]
-        resident = self.capture_runner(argv)
-        if resident.returncode:
-            raise InstallError(
-                "hook_evaluator_readiness_failed: the installed evaluator did not "
-                "pass its readiness check. "
-                + _bounded_diagnostic(
-                    (resident.stdout or "") + "\n" + (resident.stderr or ""),
-                    DIAGNOSTIC_MAX_CHARS,
-                )
-                + "; run yoke hook resident verify, then retry the installer."
-            )
+        self._prove_hook_evaluator(yoke_bin)
         self._restart_running_dashboard(yoke_bin)
         if sys.platform != "win32":
             try:
@@ -1481,6 +1468,28 @@ class Installer(InstallerVerification, InstallerResolution):
                     raise InstallError(
                         "setup_incomplete: run yoke setup in a new terminal, then retry."
                     )
+
+    def _prove_hook_evaluator(self, yoke_bin: str) -> None:
+        """Prove the installed evaluator, then stop it, so no resident outlives the install.
+
+        The release being installed owns its readiness proof. A release that
+        predates ``verify`` (an update to an older version) names only
+        ``restart`` and ``stop``; its own ``restart`` is its proof.
+        """
+        action = "verify"
+        resident = self.capture_runner([yoke_bin, "hook", "resident", action])
+        output = (resident.stdout or "") + "\n" + (resident.stderr or "")
+        if resident.returncode and "invalid choice: 'verify'" in output:
+            action = "restart"
+            resident = self.capture_runner([yoke_bin, "hook", "resident", action])
+            output = (resident.stdout or "") + "\n" + (resident.stderr or "")
+        if resident.returncode:
+            raise InstallError(
+                "hook_evaluator_readiness_failed: the installed evaluator did not "
+                "pass its readiness check. "
+                + _bounded_diagnostic(output, DIAGNOSTIC_MAX_CHARS)
+                + f"; run yoke hook resident {action}, then retry the installer."
+            )
 
 
 if __name__ == "__main__":

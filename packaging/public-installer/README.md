@@ -16,7 +16,9 @@ version, decides the on-disk layout. That module verifies the candidate and
 atomically publishes the stable launcher. Its `main` takes exactly
 `root generation bin_dir version`; installers already in use depend on that
 interface, so keep it unchanged. Serving a release before the matching installer
-is therefore harmless. Before activation, `helper_sources` runs uv with
+is therefore harmless. The readiness step likewise asks the installed release:
+`yoke hook resident verify`, or that release's own `restart` when it predates
+`verify` (an update to an older version). Before activation, `helper_sources` runs uv with
 umask `022`, checks every credential-helper source with the candidate's own
 bundle guard, and on group- or other-writable files cleans only the
 `yoke-cli` and `yoke-contracts` cache entries and reinstalls once. Commands lease their selected environment before
