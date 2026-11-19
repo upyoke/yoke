@@ -115,7 +115,7 @@ $copyLog=Join-Path $logRoot ('profile-copy-'+[Guid]::NewGuid().ToString('N')+'.l
 $copyExit=$LASTEXITCODE
 if($copyExit -ge 8){{
  # Name the failing files here: the log stays on the host, out of the caller's reach.
- $copyErrors=@(Select-String -LiteralPath $copyLog -Pattern 'ERROR \d+ \(0x' -Context 0,1 | Select-Object -First 8 | ForEach-Object {{($_.Line.Trim()+' '+(($_.Context.PostContext -join ' ').Trim())).Trim()}})
+ $copyErrors=@(Select-String -LiteralPath $copyLog -Pattern 'ERROR \\d+ \\(0x' -Context 0,1 | Select-Object -First 8 | ForEach-Object {{($_.Line.Trim()+' '+(($_.Context.PostContext -join ' ').Trim())).Trim()}})
  throw ('windows_profile_copy_failed: robocopy exit '+$copyExit+'; '+($copyErrors -join ' | ')+'; inspect private log '+$copyLog+'; preserve the golden and repair the named copy failure before retrying')
 }}
 Remove-Item -LiteralPath $copyLog -Force
