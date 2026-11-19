@@ -53,6 +53,16 @@ def parse_timestamp(value: Any) -> datetime | None:
 
 
 @dataclass(frozen=True)
+class WalkRow:
+    """A heartbeat-governed QA walk the session owns (``silent_walks``)."""
+
+    execution_id: str
+    item: str
+    test_machine: str
+    heartbeat_at: datetime | None
+
+
+@dataclass(frozen=True)
 class SessionRow:
     """A roster row reduced to the fields change detection reads."""
 
@@ -72,6 +82,8 @@ class SessionRow:
     message_delivery: str = DELIVERY_UNKNOWN
     in_flight: bool = False
     session_state: dict[str, Any] = field(default_factory=dict)
+    #: Absent on an older server, which then raises no stale-walk alarm.
+    walks: tuple[WalkRow, ...] = ()
 
     @property
     def work_activity_at(self) -> datetime | None:
@@ -197,6 +209,16 @@ def session_rows(result: Mapping[str, Any]) -> dict[str, SessionRow]:
             dependency_waits=tuple(ref for ref, _, waiting in claims if waiting),
             quiet_reason=str(raw.get("quiet_reason") or ""),
             message_delivery=str(raw.get("message_delivery") or DELIVERY_UNKNOWN),
+            walks=tuple(
+                WalkRow(
+                    execution_id=str(walk.get("execution_id") or ""),
+                    item=str(walk.get("item") or "none"),
+                    test_machine=str(walk.get("test_machine") or "none"),
+                    heartbeat_at=parse_timestamp(walk.get("heartbeat_at")),
+                )
+                for walk in raw.get("silent_walks") or []
+                if isinstance(walk, Mapping) and walk.get("execution_id")
+            ),
         )
     return rows
 
@@ -312,6 +334,7 @@ __all__ = [
     "SESSIONS_FUNCTION",
     "SESSIONS_PAYLOAD",
     "SessionRow",
+    "WalkRow",
     "deadlock_rows",
     "envelope_rows",
     "item_rows",
