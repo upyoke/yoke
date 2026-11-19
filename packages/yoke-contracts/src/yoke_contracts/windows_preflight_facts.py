@@ -54,6 +54,21 @@ def _registry(root, key: str, name: str, errors: list[str], default=None):
         return default
 
 
+def _wsl_registered(errors: list[str]) -> bool:
+    """Whether any WSL distribution is registered; the wsl.exe stub alone is not WSL."""
+    import winreg
+
+    key = r"Software\Microsoft\Windows\CurrentVersion\Lxss"
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key) as opened:
+            return winreg.QueryInfoKey(opened)[0] > 0
+    except FileNotFoundError:
+        return False
+    except OSError as exc:
+        errors.append(f"registry {key}: {type(exc).__name__}; probing wsl.exe anyway")
+        return True
+
+
 def _storage(path: str, environ, errors: list[str]) -> dict:
     resolved = os.path.realpath(path)
     if resolved.startswith("\\\\?\\UNC\\"):
@@ -241,7 +256,7 @@ def collect_facts(
             blocked.append(f"{host} ({type(exc).__name__})")
     # Never start a distribution or mount its filesystem during preflight.
     wsl_yoke = False
-    if shutil.which("wsl.exe"):
+    if shutil.which("wsl.exe") and _wsl_registered(errors):
         distributions = _run(["wsl.exe", "--list", "--running", "--quiet"], errors)
         for distro in distributions.splitlines():
             if distro.strip():

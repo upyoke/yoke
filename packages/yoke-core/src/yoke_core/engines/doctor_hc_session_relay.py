@@ -28,6 +28,7 @@ from yoke_core.engines.doctor_applicability import NOT_APPLICABLE
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 from yoke_core.domain.relay_launchd_status import relay_launchd_status
 from yoke_core.domain.relay_systemd_status import relay_systemd_status
+from yoke_core.tools.session_relay_task_scheduler import relay_task_status
 
 
 SLUG = "session-relay"
@@ -155,12 +156,12 @@ def hc_session_relay(
     rec: RecordCollector,
 ) -> None:
     """HC-session-relay: machine relay is installed and recently authenticated."""
-    if sys.platform not in {"darwin", "linux"}:
+    if sys.platform not in {"darwin", "linux", "win32"}:
         rec.record(
             SLUG,
             TITLE,
             NOT_APPLICABLE,
-            "relay supervision requires macOS launchd or Linux systemd",
+            "relay supervision requires macOS launchd, Linux systemd or Windows Task Scheduler",
         )
         return
     try:
@@ -186,6 +187,22 @@ def hc_session_relay(
             problems.append("systemd user unit is not active")
         if service.reason:
             problems.append(service.reason)
+    elif sys.platform == "win32":
+        task = relay_task_status(instance=instance)
+        if not task.supported:
+            rec.record(SLUG, TITLE, NOT_APPLICABLE, task.reason)
+            return
+        if not task.task_present:
+            problems.append(f"Task Scheduler task {task.task_name} is missing")
+        else:
+            if not task.task_current:
+                problems.append("task does not match this relay's current contract")
+            if not task.enabled:
+                problems.append("task is disabled")
+            if not task.loaded:
+                problems.append("task is not running")
+        if task.reason:
+            problems.append(task.reason)
     else:
         service = relay_launchd_status(instance=instance)
         if not service.plist_present:

@@ -174,21 +174,27 @@ def test_vc_runtime_fact_reads_system32(monkeypatch, present):
     assert seen == [expected]
 
 
-@pytest.mark.parametrize(
-    "build,product,edition",
-    [
-        ("26200", "Windows 10 Enterprise", "Windows 11 Enterprise"),
-        ("19045", "Windows 10 Pro", "Windows 10 Pro"),
-    ],
-)
-def test_windows_collection_is_read_only_and_reports_real_probe_results(
-    monkeypatch, tmp_path, build, product, edition
-):
-    monkeypatch.setitem(
-        sys.modules,
-        "winreg",
-        SimpleNamespace(HKEY_LOCAL_MACHINE=1, HKEY_CURRENT_USER=2),
-    )
+class _Lxss:
+    """A fake winreg whose Lxss key holds ``distributions`` subkeys, or is absent."""
+
+    HKEY_LOCAL_MACHINE, HKEY_CURRENT_USER = 1, 2
+
+    def __init__(self, distributions):
+        self.distributions = distributions
+
+    def OpenKey(self, root, key):
+        assert root == self.HKEY_CURRENT_USER and key.endswith("\\Lxss")
+        if self.distributions is None:
+            raise FileNotFoundError(key)
+        return nullcontext(self)
+
+    def QueryInfoKey(self, opened):
+        return (self.distributions, 0, 0)
+
+
+def _windows_host(monkeypatch, *, build="26200", product="Windows 11 Pro", lxss=1):
+    """Stub a Windows host's facts; returns the list every probe argv lands in."""
+    monkeypatch.setitem(sys.modules, "winreg", _Lxss(lxss))
     values = {
         "CurrentBuildNumber": build,
         "ProductName": product,
@@ -242,6 +248,20 @@ def test_windows_collection_is_read_only_and_reports_real_probe_results(
         return nullcontext()
 
     monkeypatch.setattr(collector.urllib.request, "urlopen", head)
+    return calls
+
+
+@pytest.mark.parametrize(
+    "build,product,edition",
+    [
+        ("26200", "Windows 10 Enterprise", "Windows 11 Enterprise"),
+        ("19045", "Windows 10 Pro", "Windows 10 Pro"),
+    ],
+)
+def test_windows_collection_is_read_only_and_reports_real_probe_results(
+    monkeypatch, tmp_path, build, product, edition
+):
+    calls = _windows_host(monkeypatch, build=build, product=product)
     result = collector.collect_facts(home=tmp_path / "absent", repo=tmp_path)
     assert result["build"] == int(build) and result["store_blocked"]
     assert result["edition"] == edition
@@ -256,3 +276,17 @@ def test_windows_collection_is_read_only_and_reports_real_probe_results(
     assert not (tmp_path / "absent").exists()
     assert any("--running" in argv for argv in calls)
     assert not any("--install" in argv for argv in calls)
+    assert any("Stopped WSL distributions" in e for e in result["probe_errors"])
+
+
+@pytest.mark.parametrize("lxss", [None, 0])
+def test_wsl_stub_without_a_registered_distribution_is_not_probed(
+    monkeypatch, tmp_path, lxss
+):
+    """Windows 11's wsl.exe stub exits non-zero with no WSL: that is absence, not a failed probe."""
+    calls = _windows_host(monkeypatch, lxss=lxss)
+    result = collector.collect_facts(home=tmp_path / "absent", repo=tmp_path)
+    assert not any(argv[0] == "wsl.exe" for argv in calls)
+    assert not any("wsl" in e.lower() for e in result["probe_errors"])
+    assert not result["wsl_yoke"]
+    assert not any(r["code"] == "probe_incomplete" for r in verdicts(result))
