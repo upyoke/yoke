@@ -103,3 +103,67 @@ def test_transferred_case_keeps_definition_and_target_checks(monkeypatch):
     lineage[0] = False
     with pytest.raises(ValueError, match="snapshot changed"):
         assert_current_snapshot(object(), stored)
+
+
+def _rebound(monkeypatch, *, live_start="original"):
+    """A walk frozen on ``original`` whose requirement the successor rebound."""
+    stored = {
+        **_case(plan_id=431),
+        "deployment_run_id": "original",
+        "execution_target": {"deployment": {"run_id": "original"}},
+        "execution_target_digest": "frozen",
+        "instructions": "Keep this definition",
+    }
+    current = {
+        **stored,
+        "deployment_run_id": "successor",
+        "execution_target": {
+            "deployment": {"run_id": "successor", "starting_run_id": live_start}
+        },
+        "execution_target_digest": "rebound",
+    }
+    monkeypatch.setattr(
+        "yoke_core.domain.qa_plan_case_currency.require_current_requirement",
+        lambda *args: None,
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.qa_case_execution_context.get_case_execution_context",
+        lambda *args, **kwargs: dict(current),
+    )
+    row = {"case_position": 1, "baseline_position": 1}
+    monkeypatch.setattr("yoke_core.domain.db_helpers.query_one", lambda *args: row)
+    monkeypatch.setattr(
+        "yoke_core.domain.deployment_qa_takeover_identity.inherited_target",
+        lambda conn, run_id, target: run_id == "successor",
+    )
+    return stored, current, row
+
+
+def test_rebound_requirement_is_proved_against_its_frozen_target(monkeypatch):
+    from yoke_core.domain.machine_qa_plan_case_snapshot import assert_current_snapshot
+
+    stored, _current, _row = _rebound(monkeypatch)
+    assert_current_snapshot(object(), stored)
+
+
+@pytest.mark.parametrize("drift", ["instructions", "positions"])
+def test_rebound_requirement_with_a_changed_definition_still_refuses(
+    monkeypatch, drift
+):
+    from yoke_core.domain.machine_qa_plan_case_snapshot import assert_current_snapshot
+
+    stored, current, row = _rebound(monkeypatch)
+    if drift == "instructions":
+        current["instructions"] = "Changed definition"
+    else:
+        row["case_position"] = 2
+    with pytest.raises(ValueError, match="snapshot changed"):
+        assert_current_snapshot(object(), stored)
+
+
+def test_rebound_requirement_from_another_starting_run_still_refuses(monkeypatch):
+    from yoke_core.domain.machine_qa_plan_case_snapshot import assert_current_snapshot
+
+    stored, _current, _row = _rebound(monkeypatch, live_start="elsewhere")
+    with pytest.raises(ValueError, match="snapshot changed"):
+        assert_current_snapshot(object(), stored)

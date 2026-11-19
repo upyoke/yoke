@@ -20,7 +20,9 @@ An open walk is never told to wait or restart. Its owner gets no takeover
 notice, and the successor's item QA stage does not wake it with `yoke qa plan
 run` while the walk is live on that stage and its owning session has not
 ended. The carried walk keeps going on its own execution and may pass on the
-newer build. Once the owner ends or the walk settles, the next QA check wakes
+newer build. When the successor rebinds the walk's requirement, its host
+commands and walk-end still run against the frozen case; a change to the
+case's instructions, positions or starting run still refuses. Once the owner ends or the walk settles, the next QA check wakes
 the member as usual.
 
 For manual-only QA, takeover notices tell a holder without a scheduled wake to
