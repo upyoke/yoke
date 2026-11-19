@@ -70,10 +70,32 @@ def test_product_local_help_commands_do_not_import_source_authority(
     assert "yoke project " in pages[0]["stdout"]
 
 
-def test_db_read_dispatch_fails_closed_at_existing_local_boundary(
+def test_db_read_on_unset_up_machine_refuses_without_authority_import(
     tmp_path: Path,
 ) -> None:
     run = _run_product_cli(tmp_path, ["db", "read", "SELECT 1", "--json"])
+
+    assert run.returncode == 1
+    response = json.loads(run.stdout)
+    assert response["function"] == "db.read.run"
+    assert response["error"]["code"] == "machine_not_set_up"
+    assert response["error"]["recovery_hint"] == "Run `yoke setup`."
+    assert run.boundary["forbidden_loaded"] == []
+    assert run.boundary["caught"] is None
+
+
+def test_db_read_dispatch_fails_closed_at_existing_local_boundary(
+    tmp_path: Path,
+) -> None:
+    run = _run_product_cli(
+        tmp_path,
+        ["db", "read", "SELECT 1", "--json"],
+        config_payload={
+            "schema_version": 1,
+            "active_env": "local",
+            "connections": {"local": {"transport": "local-postgres"}},
+        },
+    )
 
     assert run.returncode == 1
     response = json.loads(run.stdout)
