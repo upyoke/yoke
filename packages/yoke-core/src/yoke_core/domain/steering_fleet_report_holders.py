@@ -80,6 +80,7 @@ class ClaimHolder:
     #: The item's queued PR landed and the holder has not acted since the
     #: landing notice, so its silence is not yet idleness.
     landing_notice_pending: bool = False
+    next_recheck_at: datetime | None = None  # earliest pending timed wake
     next_actor: dict = field(default_factory=dict)
     state_facts: dict = field(default_factory=dict, repr=False)
     session_state: dict = field(default_factory=dict)
@@ -198,6 +199,9 @@ def claim_holders(
     from yoke_core.domain.next_actor import session_next_actor
     from yoke_core.domain.session_state import session_presence
     from yoke_core.domain.qa_host_idle_hold import held_qa_hosts_csv
+    from yoke_core.domain.session_scheduled_wake import next_session_wakes
+
+    rechecks = next_session_wakes(conn, processes, now=parse_stamp(now))
 
     for row in rows:
         last_activity = parse_stamp(
@@ -243,6 +247,7 @@ def claim_holders(
                     row.get("executor_surface"), row.get("executor_version")
                 ),
                 landing_notice_pending=landing_notice_pending(row),
+                next_recheck_at=rechecks.get(str(row["session_id"])),
             )
         )
     return tuple(holders)

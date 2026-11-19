@@ -23,6 +23,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
+from datetime import datetime
 from hashlib import sha256
 from typing import Any
 
@@ -37,6 +38,7 @@ from yoke_core.domain.qa_plan_execution_store import marker
 from yoke_core.domain.deployment_qa_manual_notice import (
     withdraw_obsolete_manual_notices,
 )
+from yoke_core.domain.session_scheduled_wake import next_session_wakes, recheck_label
 from yoke_core.domain.session_staleness import activity_liveness
 from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 
@@ -69,7 +71,15 @@ class ManualWakeRequirement:
     case_key: str
     wake_evidence: str
     owner_session_id: str = ""
-    owner_state: str = ""
+    owner_liveness: str = ""
+    owner_mode: str = ""
+    #: The owner's earliest pending scheduled recheck, when it holds one.
+    next_recheck_at: datetime | None = None
+
+    @property
+    def owner_state(self) -> str:
+        mode = f"mode {self.owner_mode}" if self.owner_mode else ""
+        return ", ".join(part for part in (self.owner_liveness, mode) if part)
 
     def run_command(self) -> str:
         """The member's stage run, exactly as an automatic stage wake names it."""
@@ -109,10 +119,16 @@ class ManualWakeRequirement:
             "current state."
         )
 
-    def owner(self) -> str:
+    def owner(self, *, now: datetime | None = None) -> str:
+        """A parked owner with a pending recheck is waiting, not abandoned."""
         if not self.owner_session_id:
             return NO_OWNER
-        return f"session {self.owner_session_id} ({self.owner_state})"
+        session = f"session {self.owner_session_id}"
+        if self.next_recheck_at is None:
+            return f"{session} ({self.owner_state}) — no recheck scheduled"
+        label = recheck_label(self.next_recheck_at, now=now or utc_now())
+        mode = f"mode {self.owner_mode}, " if self.owner_mode else ""
+        return f"{session} ({mode}next recheck {label})"
 
 
 def _open_rows(
@@ -170,7 +186,7 @@ def _presented_open_rows(conn: Any, runs: tuple[str, ...]) -> list[tuple[Any, ..
     return presentation_read(conn, ("qa_manual_open_rows", runs), read)
 
 
-def _owners(conn: Any, item_ids: list[int]) -> dict[int, tuple[str, str]]:
+def _owners(conn: Any, item_ids: list[int]) -> dict[int, tuple[str, str, str]]:
     """Each item's live claim holder and its liveness, read in one statement."""
     if not item_ids:
         return {}
@@ -185,18 +201,14 @@ def _owners(conn: Any, item_ids: list[int]) -> dict[int, tuple[str, str]]:
         "ORDER BY CASE WHEN hs.ended_at IS NULL THEN 0 ELSE 1 END, wc.id DESC",
         tuple(item_ids),
     ).fetchall()
-    owners: dict[int, tuple[str, str]] = {}
+    owners: dict[int, tuple[str, str, str]] = {}
     keys = ("ended_at", "terminated_at", "last_heartbeat", "last_tool_call_at")
     for row in rows:
         values = tuple(row)
         if int(values[0]) in owners:
             continue
         liveness = activity_liveness(dict(zip(keys, values[2:6])))
-        mode = str(values[6] or "")
-        owners[int(values[0])] = (
-            str(values[1]),
-            f"{liveness}, mode {mode}" if mode else liveness,
-        )
+        owners[int(values[0])] = (str(values[1]), liveness, str(values[6] or ""))
     return owners
 
 
@@ -217,12 +229,18 @@ def manual_wake_requirements(
     rows = _open_rows(conn, run_id=run_id, stage_name=stage_name, item_ids=members)
     held = sorted({int(tuple(row)[1]) for row in rows})
     owners = _owners(conn, held)
+    # Skipped when nobody owns a row, so an unowned run pays no extra read.
+    rechecks = (
+        next_session_wakes(conn, (o[0] for o in owners.values()), now=utc_now())
+        if owners
+        else {}
+    )
     member_ref = render_item_ref_lookup(conn, held)
     entries = []
     for row in rows:
         requirement_id, member, case_key, evidence = tuple(row)
         member = int(member)
-        session_id, state = owners.get(member, ("", ""))
+        session_id, liveness, mode = owners.get(member, ("", "", ""))
         entries.append(
             ManualWakeRequirement(
                 run_id=run_id,
@@ -234,7 +252,9 @@ def manual_wake_requirements(
                 case_key=str(case_key),
                 wake_evidence=str(evidence),
                 owner_session_id=session_id,
-                owner_state=state,
+                owner_liveness=liveness,
+                owner_mode=mode,
+                next_recheck_at=rechecks.get(session_id),
             )
         )
     return tuple(entries)

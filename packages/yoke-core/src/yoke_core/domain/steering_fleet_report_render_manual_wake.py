@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from yoke_contracts.timestamps import format_instant
 from yoke_core.domain.deployment_qa_manual_wake import ManualWakeRequirement
 from yoke_core.domain.steering_fleet_report_deployment_runs import (
     DeploymentRunProgress,
@@ -50,6 +51,9 @@ def manual_wake_dict(entry: ManualWakeRequirement) -> dict[str, Any]:
         "wake_evidence": entry.wake_evidence,
         "owner_session_id": entry.owner_session_id,
         "owner_state": entry.owner_state,
+        "next_recheck_at": format_instant(entry.next_recheck_at)
+        if entry.next_recheck_at
+        else None,
         "run_command": entry.run_command(),
     }
 
