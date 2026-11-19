@@ -30,10 +30,9 @@ def _slots(conn: Any, values: Sequence[Any]) -> str:
 
 def host_turn_waits(conn: Any, sessions: Sequence[str], rows: Rows) -> dict[str, dict]:
     """Return ``{session_id: host_turn_wait action}`` for live waits."""
-    if not sessions or not all(
-        _table_exists(conn, name)
-        for name in (QA_TEST_MACHINE_WAIT_TABLE, "harness_sessions", "work_claims")
-    ):
+    # One read when nobody waits; the line, holder and item reads follow
+    # only for a page that has a live wait.
+    if not sessions or not _table_exists(conn, QA_TEST_MACHINE_WAIT_TABLE):
         return {}
     states = LIVE_TEST_MACHINE_WAIT_STATES
     waits = rows(

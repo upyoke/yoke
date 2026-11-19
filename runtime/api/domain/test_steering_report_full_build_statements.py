@@ -27,7 +27,8 @@ SECOND_PROJECT = 2
 #: Statements one full build issues for this fleet. Lower is welcome: update
 #: the pin. Higher means a reader went back to per-row work. The failed
 #: scheduled-prune read adds two universe-wide statements, cached per build.
-FULL_BUILD_STATEMENTS = 150
+#: Each next-actor facts read adds one Test Machine wait read for its page.
+FULL_BUILD_STATEMENTS = 153
 
 
 def _seed(conn):
@@ -51,8 +52,12 @@ def _add_holders(conn, start, stop):
         project = 1 if index % 2 == 0 else SECOND_PROJECT
         item_id = 8000 + index
         insert_item(
-            conn, id=item_id, project_id=project, project_sequence=item_id,
-            workflow_id="dash", status="implementing",
+            conn,
+            id=item_id,
+            project_id=project,
+            project_sequence=item_id,
+            workflow_id="dash",
+            status="implementing",
         )
         session = f"holder-{index:03d}"
         seed_session(conn, session, project_id=project, last_tool_call_at=LONG_AGO)
