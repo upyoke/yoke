@@ -48,6 +48,8 @@ def test_reset_records_removed_links_and_refusal_reaches_recovery():
             self.result = result
 
         def _run(self, script, timeout=60):
+            if "Get-YokeProfileProcesses).Count" in script:
+                return subprocess.CompletedProcess([], 0, "", "")
             return self.result
 
     ok = baseline.profile_operation(
@@ -209,3 +211,43 @@ try {
     assert result.returncode == 0, result.stderr
     assert "PROFILE_PROCESS_STOPPED" in result.stdout
     assert "held.exe" in result.stdout
+
+
+def test_reset_ends_desktop_session_processes_before_mirroring(monkeypatch):
+    from yoke_harness.native_windows import profile_processes
+
+    exe = HOME + r"\AppData\Roaming\uv\tools\yoke-cli\Scripts\python.exe"
+    calls = []
+
+    class _Control:
+        home = HOME
+
+        def _run(self, script, timeout=60):
+            calls.append("list" if "Get-YokeProfileProcesses).Count" in script else "reset")
+            code = 3 if calls[-1] == "list" else 0
+            return subprocess.CompletedProcess([], code, "", "")
+
+    def desktop(control, script, *, timeout=60, hidden=False):
+        calls.append("desktop")
+        assert "taskkill" in script and hidden
+        return subprocess.CompletedProcess(
+            [], 0, "YOKE_RESET_PROCESSES_STOPPED " + json.dumps([exe]), "",
+        )
+
+    monkeypatch.setattr("yoke_harness.native_windows.desktop.desktop_script", desktop)
+    result = baseline.profile_operation(_Control(), "reset", GOLDEN)
+    assert calls == ["list", "desktop", "reset"]
+    assert result.ok and result.evidence["profile_processes_stopped"] == [exe]
+
+    def stuck(control, script, *, timeout=60, hidden=False):
+        return subprocess.CompletedProcess(
+            [], 1, "", "windows_reset_profile_process_running: processes ... kept their files open",
+        )
+
+    monkeypatch.setattr("yoke_harness.native_windows.desktop.desktop_script", stuck)
+    calls.clear()
+    refused = baseline.profile_operation(_Control(), "reset", GOLDEN)
+    assert calls == ["list"]
+    assert refused.error_code == "windows_reset_profile_process_running"
+    assert "kept their files open" in refused.evidence["recovery"]
+    assert profile_processes is not None

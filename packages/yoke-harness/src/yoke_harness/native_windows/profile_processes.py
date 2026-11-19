@@ -13,7 +13,7 @@ from yoke_harness.native_windows.transport import quote
 
 STOPPED_MARKER = "YOKE_RESET_PROCESSES_STOPPED "
 
-_STOP = r"""function Get-YokeProfileProcesses {
+_LIST = r"""function Get-YokeProfileProcesses {
  foreach($proc in @(Get-Process -ErrorAction SilentlyContinue)){
   try {$exe=$proc.Path} catch {$exe=$null}
   if(!$exe -or !$exe.StartsWith($profileRoot+'\',[StringComparison]::OrdinalIgnoreCase)){continue}
@@ -22,8 +22,13 @@ _STOP = r"""function Get-YokeProfileProcesses {
   [pscustomobject]@{id=$proc.Id;path=$exe}
  }
 }
-$stopped=@(Get-YokeProfileProcesses)
-foreach($proc in $stopped){& taskkill.exe /PID $proc.id /T /F 2>&1 | Out-Null}
+"""
+
+_STOP = r"""$stopped=@(Get-YokeProfileProcesses)
+# A process belongs to the logon that started it; SSH cannot end the desktop
+# session's, so the reset first runs this script there too. taskkill's own
+# refusal is not the verdict: the exit check below is.
+foreach($proc in $stopped){cmd /c "taskkill /PID $($proc.id) /T /F >nul 2>&1"}
 $deadline=[DateTime]::UtcNow.AddSeconds(20)
 do {
  $alive=@($stopped | Where-Object {Get-Process -Id $_.id -ErrorAction SilentlyContinue})
@@ -36,10 +41,41 @@ Write-Output ('YOKE_RESET_PROCESSES_STOPPED '+(ConvertTo-Json -Compress -InputOb
 """
 
 
+def _preamble(home, preserved):
+    skipped = ",".join(quote(str(PureWindowsPath(home) / p)) for p in preserved)
+    return f"$stopPreserved=@({skipped})\n" + _LIST
+
+
 def profile_process_stop_script(home, preserved):
     """Run before the golden-to-profile mirror, with $profileRoot set."""
-    skipped = ",".join(quote(str(PureWindowsPath(home) / p)) for p in preserved)
-    return f"$stopPreserved=@({skipped})\n" + _STOP
+    return _preamble(home, preserved) + _STOP
+
+
+def stop_desktop_profile_processes(control, preserved):
+    """End profile processes from the signed-in session that owns them.
+
+    Returns ``(refusal, stopped)``: the refusal text, or None when nothing ran
+    from the profile or all of it ended, and the executables stopped. The
+    reset script's own stop then verifies every session again.
+    """
+    from yoke_harness.native_windows.desktop import desktop_script
+
+    home = f"$profileRoot={quote(control.home)}\n"
+    listed = control._run(
+        home + _preamble(control.home, preserved)
+        + "if(@(Get-YokeProfileProcesses).Count){exit 3}; exit 0"
+    )
+    if listed.returncode == 0:
+        return None, []
+    if listed.returncode != 3:
+        return listed.stderr or "windows_reset_profile_process_listing_failed: rerun yoke test-machine reset", []
+    stopped = desktop_script(
+        control, home + profile_process_stop_script(control.home, preserved),
+        timeout=60, hidden=True,
+    )
+    if stopped.returncode:
+        return stopped.stderr or stopped.stdout or "windows_reset_profile_process_running: the desktop stop failed without output; unlock the auto-logged-on test session and rerun yoke test-machine reset", []
+    return None, stopped_processes(stopped.stdout)
 
 
 def stopped_processes(stdout):

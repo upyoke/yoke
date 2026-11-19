@@ -135,7 +135,7 @@ validates that metadata before mirroring the profile and verifies it afterward;
 older goldens without it require recapture rather than guessing a registry type.
 Before mirroring, reset stops processes whose executable lives in the resettable
 profile (such as the installed Yoke tool's Python), because robocopy cannot purge
-open files; one that will not exit refuses `windows_reset_profile_process_running`.
+open files. Processes the signed-in session owns are ended from that session; one that will not exit refuses `windows_reset_profile_process_running`.
 Stopped executables are recorded as `profile_processes_stopped`.
 Robocopy never copies or purges links, so after the mirror reset removes each
 profile link the golden lacks (Windows' own System-marked profile junctions stay)

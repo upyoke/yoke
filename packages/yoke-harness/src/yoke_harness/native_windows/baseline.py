@@ -11,7 +11,7 @@ from yoke_harness.native_windows.mission import (
     WINDOWS_MISSION_SCRATCH_DIRECTORY, windows_stale_scratch_script,
 )
 from yoke_harness.native_windows.profile_processes import (
-    profile_process_stop_script, stopped_processes,
+    profile_process_stop_script, stop_desktop_profile_processes, stopped_processes,
 )
 from yoke_harness.native_windows.profile_links import (
     link_sweep_record, stale_link_sweep_script,
@@ -177,6 +177,17 @@ foreach($task in $state.tasks){Restore-YokeTask $task}
 def profile_operation(control, operation, path):
     try:
         script = profile_script(control, operation, path)
+        desktop_stopped = []
+        if operation == "reset":
+            refused, desktop_stopped = stop_desktop_profile_processes(
+                control, PRESERVED_DIRECTORIES
+            )
+            if refused:
+                return HostActionResult(
+                    False,
+                    {"operation": operation, "golden_baseline_path": path, "recovery": refused},
+                    "windows_reset_profile_process_running",
+                )
         result = control._run(script, timeout=600)
     except ValueError as exc:
         return HostActionResult(
@@ -193,7 +204,8 @@ def profile_operation(control, operation, path):
             **(
                 {
                     **link_sweep_record(result.stdout),
-                    "profile_processes_stopped": stopped_processes(result.stdout),
+                    "profile_processes_stopped": desktop_stopped
+                    + stopped_processes(result.stdout),
                 }
                 if operation == "reset"
                 else {}
