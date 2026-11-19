@@ -72,6 +72,13 @@ def test_landed_item_proves_a_removed_pull_request_merged():
     )
 
 
+def test_relanding_items_old_landing_does_not_prove_its_open_pull_request_merged():
+    before = report(in_flight=[HOLDER])
+    landed = {"public_ref": REF, "relanding_owed": True}
+    line = removed(before, report(holders=[], in_flight=[], landed_open=[landed]))[0]
+    assert "pull request merged" not in line
+
+
 @pytest.mark.parametrize(
     "section",
     [

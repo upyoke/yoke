@@ -150,8 +150,11 @@ def _reason(
         # This section is the complete live-run set, filtered by terminal status.
         return "run finished (no longer live)"
     landings = _item_rows(scope, "landings", row.subject)
-    if any(landing.get("merged") is True for landing in landings) or _item_rows(
-        scope, "landed_open", row.subject
+    # A landed row whose item owes a re-landing carries an earlier merge, not
+    # the current pull request's outcome.
+    if any(landing.get("merged") is True for landing in landings) or any(
+        landed.get("relanding_owed") is not True
+        for landed in _item_rows(scope, "landed_open", row.subject)
     ):
         return "pull request merged"
     if any(landing.get("closed") is True for landing in landings):
