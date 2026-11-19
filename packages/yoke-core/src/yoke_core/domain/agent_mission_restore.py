@@ -54,8 +54,8 @@ def hand_back_mission_walk(
     """Move a walk whose restores are all recorded to review; never commits.
 
     ``locked_execution`` is an execution the caller already holds FOR UPDATE
-    on this connection. It is reused as held: locking it again from another
-    connection would wait on the caller's own lock and time out.
+    on this connection and settles itself (walk-end). It is neither locked
+    again, which would wait on the caller's own lock, nor moved here.
     """
     from yoke_core.domain.sql_json import json_get
     from yoke_core.domain.qa_plan_execution_store import lock_plan_execution
@@ -73,11 +73,9 @@ def hand_back_mission_walk(
     ).fetchall()
     held_id = str(locked_execution["id"]) if locked_execution else None
     for row in rows:
-        execution = (
-            locked_execution
-            if str(row[0]) == held_id
-            else lock_plan_execution(conn, str(row[0]))
-        )
+        if str(row[0]) == held_id:
+            continue
+        execution = lock_plan_execution(conn, str(row[0]))
         if execution["state"] == "walking" and mission_restores_recorded(
             conn, execution
         ):

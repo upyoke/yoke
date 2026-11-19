@@ -57,11 +57,14 @@ def test_walk_end_records_proven_restore_on_its_own_locked_connection(
     assert finished.primary_success, finished.error
     assert elapsed < 2
     run_id = request.payload["run_id"]
-    assert test_db.execute(
-        "SELECT count(*) FROM qa_artifacts WHERE qa_run_id=%s "
-        "AND artifact_type='starting_state_restore'",
-        (run_id,),
-    ).fetchone()[0] == 1
+    assert (
+        test_db.execute(
+            "SELECT count(*) FROM qa_artifacts WHERE qa_run_id=%s "
+            "AND artifact_type='starting_state_restore'",
+            (run_id,),
+        ).fetchone()[0]
+        == 1
+    )
     assert reset_owed(test_db, original["settings"]["resource_name"]) is None
     assert not get_claim(test_db, original["lease_id"]).is_active
     execution = select_plan_execution(

@@ -125,9 +125,9 @@ def _unsettled(execution: dict | None) -> str:
         return "Nothing settled: the walk-end rolled back before reading its execution."
     lease = execution.get("test_machine_lease_id")
     held = (
-        f"cleanup lease {lease} is still held"
-        if lease is not None
-        else "no cleanup lease is held"
+        "no cleanup lease is held"
+        if lease is None
+        else f"cleanup lease {lease} is still held"
     )
     return (
         f"Nothing settled: {held} and execution {execution['id']} is still "
@@ -144,6 +144,7 @@ def _store_restore(
         ensure_secret_free_result,
     )
     from yoke_core.domain.qa_artifact_recording import record_qa_artifact
+    from yoke_contracts.refusal_recovery import compose_refusal
 
     try:
         ensure_secret_free_result(parsed.restore)
@@ -167,18 +168,18 @@ def _store_restore(
                 },
             }
         )
-        stored = record_qa_artifact(
-            conn, artifact_request, locked_execution=execution
-        )
+        stored = record_qa_artifact(conn, artifact_request, locked_execution=execution)
         if stored.primary_success:
             return None
         cause = f"{stored.error.code}: {stored.error.message}"
         fix = "fix the named artifact storage cause"
     return _failure(
         "mission_restore_evidence_failed",
-        f"mission_restore_evidence_failed: {cause}. {_unsettled(execution)} "
-        f"Recovery: {fix}, then rerun the same yoke qa mission walk-end; it "
-        "records the restore, releases the lease and settles the execution.",
+        compose_refusal(
+            f"mission_restore_evidence_failed: {cause}. {_unsettled(execution)}",
+            recovery=f"{fix}, then rerun the same yoke qa mission walk-end; it "
+            "records the restore, releases the lease and settles the execution",
+        ),
     )
 
 
