@@ -66,42 +66,36 @@ def desktop_sessions(*, active_only=True):
             continue
     return sessions
 
+
+def _loginctl(*args):
+    return subprocess.run(
+        ["loginctl", *args, "--no-pager"], capture_output=True, text=True, timeout=10
+    )
+
+
+def _listed_session_ids():
+    listed = _loginctl("list-sessions", "--no-legend")
+    if listed.returncode:
+        raise RuntimeError("linux_desktop_state_unknown: " + listed.stderr + RECOVERY)
+    return [line.split()[0] for line in listed.stdout.splitlines() if line.split()]
+
+
 def graphical_sessions():
     if not Path("/run/systemd/system").is_dir():
         return []
-    listed = subprocess.run(
-        ["loginctl", "list-sessions", "--no-legend", "--no-pager"],
-        capture_output=True,
-        text=True,
-        timeout=10,
-    )
-    if listed.returncode:
-        raise RuntimeError("linux_desktop_state_unknown: " + listed.stderr + RECOVERY)
     sessions = []
-    for line in listed.stdout.splitlines():
-        fields = line.split()
-        if not fields:
-            continue
-        result = subprocess.run(
-            [
-                "loginctl",
-                "show-session",
-                fields[0],
-                "--no-pager",
-                "-p",
-                "Type",
-                "-p",
-                "User",
-                "-p",
-                "State",
-                "-p",
-                "Class",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=10,
+    for session_id in _listed_session_ids():
+        result = _loginctl(
+            "show-session",
+            session_id,
+            *("-p", "Type", "-p", "User", "-p", "State", "-p", "Class"),
         )
         if result.returncode:
+            # A session that logged out between list and show is gone, not unknown.
+            if re.search(r"No session '[^']*' known", result.stderr) and (
+                session_id not in _listed_session_ids()
+            ):
+                continue
             raise RuntimeError(
                 "linux_desktop_state_unknown: " + result.stderr + RECOVERY
             )
@@ -114,7 +108,7 @@ def graphical_sessions():
             and properties.get("Class") == "user"
             and properties.get("User") == str(posix_uid())
         ):
-            sessions.append({"id": fields[0], **properties})
+            sessions.append({"id": session_id, **properties})
     return sessions
 
 
@@ -327,13 +321,9 @@ def stop_desktop():
         except ProcessLookupError:
             pass
     for row in graphical_sessions():
-        result = subprocess.run(
-            ["loginctl", "terminate-session", row["id"]],
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-        if result.returncode:
+        result = _loginctl("terminate-session", row["id"])
+        # A session that ended on its own before terminate is already stopped.
+        if result.returncode and row["id"] in _listed_session_ids():
             raise RuntimeError("linux_desktop_stop_failed: " + result.stderr + RECOVERY)
     deadline = time.monotonic() + DESKTOP_READY_TIMEOUT_SECONDS
     while desktop_sessions(active_only=False) or graphical_sessions():
