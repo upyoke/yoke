@@ -26,48 +26,66 @@ def grant_actor_project_role(
     project_id: int,
     role_name: str,
     granted_by_actor_id: int | None = None,
+    commit: bool = True,
 ) -> None:
-    """Grant ``role_name`` to ``actor_id`` in ``project_id`` idempotently."""
+    """Grant ``role_name`` to ``actor_id`` in ``project_id``; commit unless told not to.
+
+    A person holds one role per project, so a person's grant replaces any
+    other role they hold there; a system actor's project roles accumulate.
+    """
     from yoke_core.domain.actor_owner_protection import require_owner_change_allowed
     from yoke_core.domain.actor_role import require_human_org_role
+    from yoke_core.domain.db_savepoint import savepoint
 
     catalog = _catalog()
     p = catalog._p(conn)
     person = conn.execute(
         f"SELECT kind FROM actors WHERE id = {p}", (actor_id,)
     ).fetchone()
-    if person and person[0] == "human":
+    human = bool(person and person[0] == "human")
+    if human:
         require_human_org_role(role_name)
+    already_owner = conn.execute(
+        "SELECT 1 FROM actor_project_roles ar JOIN roles r ON r.id=ar.role_id "
+        f"WHERE ar.actor_id={p} AND ar.project_id={p} AND r.name='owner'",
+        (actor_id, project_id),
+    ).fetchone()
     require_owner_change_allowed(
         conn,
         granted_by_actor_id,
         actor_id,
         ("project", project_id),
-        "owner"
-        if role_name == "owner"
-        or conn.execute(
-            "SELECT 1 FROM actor_project_roles ar JOIN roles r ON r.id=ar.role_id "
-            f"WHERE ar.actor_id={p} AND ar.project_id={p} AND r.name='owner'",
-            (actor_id, project_id),
-        ).fetchone()
-        else role_name,
+        role_name if human or not already_owner else "owner",
     )
     role_id = catalog.role_id_by_name(conn, role_name)
-    p = catalog._p(conn)
-    conn.execute(
-        "INSERT INTO actor_project_roles "
-        "(actor_id, project_id, role_id, granted_at, granted_by_actor_id) "
-        f"VALUES ({p}, {p}, {p}, {p}, {p}) "
-        "ON CONFLICT(actor_id, project_id, role_id) DO NOTHING",
-        (
-            actor_id,
-            project_id,
-            role_id,
-            instant_parameter(conn, utc_now()),
-            granted_by_actor_id,
-        ),
-    )
-    conn.commit()
+    if (
+        not commit
+        and not catalog.db_backend.connection_is_postgres(conn)
+        and not conn.in_transaction
+    ):
+        conn.execute("BEGIN")
+    with savepoint(conn, "actor_project_grant", owns=commit):
+        if human:
+            conn.execute(
+                "DELETE FROM actor_project_roles "
+                f"WHERE actor_id = {p} AND project_id = {p} AND role_id <> {p}",
+                (actor_id, project_id, role_id),
+            )
+        conn.execute(
+            "INSERT INTO actor_project_roles "
+            "(actor_id, project_id, role_id, granted_at, granted_by_actor_id) "
+            f"VALUES ({p}, {p}, {p}, {p}, {p}) "
+            "ON CONFLICT(actor_id, project_id, role_id) DO NOTHING",
+            (
+                actor_id,
+                project_id,
+                role_id,
+                instant_parameter(conn, utc_now()),
+                granted_by_actor_id,
+            ),
+        )
+    if commit:
+        conn.commit()
 
 
 def revoke_actor_project_role(
@@ -77,6 +95,7 @@ def revoke_actor_project_role(
     project_id: int,
     role_name: str,
     caller_actor_id: int,
+    commit: bool = True,
 ) -> bool:
     """Remove one project role grant, returning whether a row existed.
 
@@ -100,7 +119,8 @@ def revoke_actor_project_role(
         f"WHERE actor_id = {p} AND project_id = {p} AND role_id = {p}",
         (actor_id, project_id, role_id),
     )
-    conn.commit()
+    if commit:
+        conn.commit()
     return bool(cursor.rowcount)
 
 

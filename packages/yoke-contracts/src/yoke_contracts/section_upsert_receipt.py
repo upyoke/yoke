@@ -1,7 +1,7 @@
 """Refuse an unacknowledged field-targeted section write on older servers."""
 
 from yoke_contracts.api.function_call import FunctionCallResponse, FunctionError
-from yoke_contracts.function_serving_floors import (
+from yoke_contracts.function_argument_floors import (
     FUNCTION_ARGUMENT_MINIMUM_SERVING_VERSIONS,
 )
 

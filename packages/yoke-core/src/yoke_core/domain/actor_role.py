@@ -1,8 +1,9 @@
 """A person's one org role, owned by the engine.
 
-Every human actor holds exactly one org role in the universe's organization.
-This module is the single place that defines which roles a person may hold
-and how a person's role is replaced. The Actors page, invites, and the
+A person holds at most one org role in the universe's organization; one with
+none reaches only the projects granted to them directly. This module is the
+single place that defines which roles a person may hold and how a person's
+org role is replaced or removed. The Actors page, invites, and the
 ``actors.role.set`` function read its sets, and every org grant to a person
 (``actor_permissions.grant_actor_org_role``) goes through its replace rule.
 """
@@ -222,6 +223,37 @@ def record_org_grant(
     )
 
 
+def lock_person(conn: Any, actor_id: int) -> int:
+    """Lock the org and the person's row for a role change; return the org id.
+
+    The organization and actor rows are locked before any last-owner check,
+    the same order ``set_actor_enabled`` takes, so a concurrent disable or
+    demotion cannot strand the org without an owner. The caller owns the
+    transaction.
+    """
+    p = _p(conn)
+    lock = " FOR UPDATE" if db_backend.connection_is_postgres(conn) else ""
+    conn.execute(f"SELECT id FROM organizations ORDER BY id{lock}").fetchall()
+    try:
+        org_id = resolve_control_plane_org_id(conn)
+    except PermissionDenied as exc:
+        raise ActorRoleRefused("org_ambiguous", str(exc)) from exc
+    row = conn.execute(
+        f"SELECT kind FROM actors WHERE id = {p}{lock}", (actor_id,)
+    ).fetchone()
+    if row is None:
+        raise ActorRoleRefused(
+            "actor_not_found", f"actor {actor_id} does not exist; refresh Team"
+        )
+    if row[0] != "human":
+        raise ActorRoleRefused(
+            "actor_not_human",
+            f"actor {actor_id} is a system actor; its roles come from the "
+            "credential that provisioned it, not from a person's role",
+        )
+    return org_id
+
+
 def set_actor_org_role(
     conn: Any,
     *,
@@ -230,34 +262,10 @@ def set_actor_org_role(
     caller_actor_id: int,
     now: datetime | str,
 ) -> ActorRoleChange:
-    """Set a person's one org role in a single locked transaction.
-
-    The organization and actor rows are locked before the last-owner check,
-    the same order ``set_actor_enabled`` takes, so a concurrent disable or
-    demotion cannot strand the org without an owner.
-    """
+    """Set a person's one org role in a single locked transaction."""
     require_human_org_role(role)
-    p = _p(conn)
-    lock = " FOR UPDATE" if db_backend.connection_is_postgres(conn) else ""
     try:
-        conn.execute(f"SELECT id FROM organizations ORDER BY id{lock}").fetchall()
-        try:
-            org_id = resolve_control_plane_org_id(conn)
-        except PermissionDenied as exc:
-            raise ActorRoleRefused("org_ambiguous", str(exc)) from exc
-        row = conn.execute(
-            f"SELECT kind FROM actors WHERE id = {p}{lock}", (actor_id,)
-        ).fetchone()
-        if row is None:
-            raise ActorRoleRefused(
-                "actor_not_found", f"actor {actor_id} does not exist; refresh Actors"
-            )
-        if row[0] != "human":
-            raise ActorRoleRefused(
-                "actor_not_human",
-                f"actor {actor_id} is a system actor; its roles come from the "
-                "credential that provisioned it, not from a person's org role",
-            )
+        org_id = lock_person(conn, actor_id)
         previous = replace_person_role(
             conn,
             actor_id=actor_id,
@@ -268,6 +276,35 @@ def set_actor_org_role(
         )
         conn.commit()
         return ActorRoleChange(actor_id, role, previous, changed=previous != [role])
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def remove_actor_org_role(
+    conn: Any, *, actor_id: int, caller_actor_id: int
+) -> list[str]:
+    """Remove a person's org role in one locked transaction; return what it held.
+
+    The person keeps only their project roles. Removing nothing succeeds;
+    owner protection and the last-owner rule refuse as for a role change.
+    """
+    from yoke_core.domain.actor_owner_protection import require_owner_change_allowed
+
+    try:
+        org_id = lock_person(conn, actor_id)
+        previous = org_roles_of(conn, actor_id, org_id)
+        if previous:
+            require_owner_change_allowed(
+                conn, caller_actor_id, actor_id, ("org", org_id), None
+            )
+            p = _p(conn)
+            conn.execute(
+                f"DELETE FROM actor_org_roles WHERE actor_id = {p} AND org_id = {p}",
+                (actor_id, org_id),
+            )
+        conn.commit()
+        return previous
     except Exception:
         conn.rollback()
         raise

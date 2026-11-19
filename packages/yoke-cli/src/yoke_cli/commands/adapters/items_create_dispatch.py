@@ -7,7 +7,7 @@ from yoke_cli.commands.adapters.item_flow_output import render_item_instruction_
 from yoke_cli.transport.human_values import write_human
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
 from yoke_contracts.api.function_call import FunctionError, TargetRef
-from yoke_contracts.function_serving_floors import declared_argument_floors
+from yoke_contracts.function_argument_floors import declared_argument_floors
 
 
 def _spec_floor_refusal(response, *, preview: bool = True):

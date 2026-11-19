@@ -240,6 +240,15 @@ MACHINE_SUBCOMMAND_REGISTRY = {
 
 ACTORS_SUBCOMMAND_REGISTRY = {
     ("actors", "role", "set"): ("actors.role.set", actors.actors_role_set),
+    ("actors", "role", "remove"): ("actors.role.remove", actors.actors_role_remove),
+    ("actors", "project-role", "set"): (
+        "actors.project_role.set",
+        actors.actors_project_role_set,
+    ),
+    ("actors", "project-role", "remove"): (
+        "actors.project_role.remove",
+        actors.actors_project_role_remove,
+    ),
     ("actors", "state", "set"): ("actors.state.set", actors.actors_state_set),
 }
 

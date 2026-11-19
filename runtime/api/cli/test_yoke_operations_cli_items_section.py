@@ -311,7 +311,7 @@ class TestFieldTargetedSectionDispatch:
 
     def test_missing_echo_retains_committed_result_and_names_recovery(self):
         from yoke_cli.commands.adapters.items_section_upsert import verify_field_receipt
-        from yoke_contracts.function_serving_floors import declared_argument_floors
+        from yoke_contracts.function_argument_floors import declared_argument_floors
 
         response = _stub_dispatch_ok(
             FunctionCallRequest(

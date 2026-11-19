@@ -6,7 +6,7 @@ import pytest
 from yoke_cli.commands.adapters import deployment_run_create as adapter
 from yoke_cli.commands.adapters import deployment_run_create_set as release_set
 from yoke_contracts.api.function_call import FunctionCallResponse, FunctionError
-from yoke_contracts.function_serving_floors import declared_argument_floors
+from yoke_contracts.function_argument_floors import declared_argument_floors
 
 SHA = "a" * 40
 

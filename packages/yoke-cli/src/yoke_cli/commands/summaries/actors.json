@@ -1,6 +1,10 @@
 {
-  "actors": "Change people's org roles and turn actors on or off.",
-  "actors role": "Change a person's org role.",
+  "actors": "Change people's org and project roles and turn actors on or off.",
+  "actors project-role": "Give a person a role on one project, or take it away.",
+  "actors project-role remove": "Remove a person's role on one project.",
+  "actors project-role set": "Set a person's only role on one project.",
+  "actors role": "Change or remove a person's org role.",
+  "actors role remove": "Remove a person's org role; they keep only project roles.",
   "actors role set": "Set a person's org role: owner, admin, operator or viewer.",
   "actors state": "Turn an actor on or off.",
   "actors state set": "Enable or disable an actor and its keys."
