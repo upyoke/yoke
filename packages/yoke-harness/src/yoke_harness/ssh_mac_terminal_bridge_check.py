@@ -96,20 +96,24 @@ def wait_for_transcript(
     expected: str,
     timeout_seconds: float,
 ) -> bool:
-    """Wait for *expected* to appear in one window's visible contents."""
+    """Wait for the probe to print *expected* as its own transcript line."""
     deadline = time.monotonic() + max(0.0, timeout_seconds)
     while True:
-        if expected in capture_terminal_app_transcript(run, window_id=window_id):
+        transcript = capture_terminal_app_transcript(run, window_id=window_id)
+        if any(line.strip() == expected for line in transcript.splitlines()):
             return True
         if time.monotonic() >= deadline:
             return False
         time.sleep(BRIDGE_POLL_SECONDS)
 
 
-def driven_window_command(identity: str) -> str:
+def driven_window_command() -> str:
     """Return the shell one-liner the driven window runs while under test."""
+    prefix, suffix = READY_BANNER.rsplit("-", 1)
+    # Terminal echoes the launch command before the shell starts the probe.
+    # Emit the marker without spelling it out in that echoed command.
     return (
-        f"printf '{READY_BANNER}\\n'; "
+        f"printf '%s-%s\\n' {shlex.quote(prefix)} {shlex.quote(suffix)}; "
         "IFS= read -r value; printf 'received-%s\\n' \"$value\"; sleep 15"
     )
 
@@ -152,7 +156,7 @@ def verify_terminal_app_control(
     layout = window_layout(frame)
     launch = open_terminal_app_window(
         run,
-        command=driven_window_command(identity),
+        command=driven_window_command(),
         bounds=layout.target,
     )
     window_id = launch.window_id
