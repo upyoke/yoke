@@ -2,10 +2,10 @@
  "id": "qa-binding",
  "title": "QA binding",
  "status": "observed",
- "summary": "Plan selection records the choice and creates no attachment. Explicit attachments name their phase and workflow transition: verification at review, post_deploy at release. Only matching phase obligations enforce each boundary. Post-deploy attachment needs no posture selection.",
+ "summary": "A plan chosen when the item is filed (the project default or --verification-plan) is attached at review by the create itself; a refused attach fails the create. A plan selected later by amend records the choice and creates no attachment. Explicit attachments name their phase and workflow transition: verification at review, post_deploy at release. Only matching phase obligations enforce each boundary. Post-deploy attachment needs no posture selection.",
  "commands": ["yoke workflows item-posture amend", "yoke qa item-plan attach"],
  "functions": ["workflows.item_posture.amend", "qa.item_plan.attach"],
- "sources": ["packages/yoke-core/src/yoke_core/domain/item_posture_bindings.py", ".agents/skills/yoke/dash/verify.md", "runtime/api/domain/test_item_posture_amend.py"],
+ "sources": ["packages/yoke-core/src/yoke_core/domain/item_posture_bindings.py", "packages/yoke-core/src/yoke_core/domain/item_posture_plan_attach.py", ".agents/skills/yoke/dash/verify.md", "runtime/api/domain/test_item_posture_amend.py"],
  "page": "posture",
  "position": 3
 }

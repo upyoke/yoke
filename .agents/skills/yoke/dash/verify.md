@@ -4,7 +4,7 @@ A post-deploy case names where its evidence lives: Command for controller eviden
 
 Commit, then re-survey the actual touched files before each SHA-bound case; any tree change reruns the affected cases.
 
-Review plan: a dash filed without one already selects the project's `registered-command-quick` plan (`yoke workflows item get ITEM --json` shows it under `workflow_posture.verification`); skip the amend then. Otherwise select one, attach it, then run its cases.
+Review plan: a plan chosen at filing (the project's `registered-command-quick` default, or `--verification-plan`) is already attached at `reviewing-implementation` (`yoke workflows item get ITEM --json` shows it under `workflow_posture.verification`); go straight to `yoke qa plan materialize`. Otherwise select one with an amend, attach it by hand, then run its cases.
 
 ```text
 yoke workflows item-posture amend ITEM --verification-plan ID_OR_SLUG --reason TEXT

@@ -59,7 +59,7 @@ def _requirement_request(item_id: int) -> FunctionCallRequest:
     )
 
 
-def test_plan_posture_records_choice_before_explicit_review_attachment(
+def test_plan_posture_is_attached_at_create_and_materializes(
     tmp_db,  # noqa: F811
     monkeypatch,
 ) -> None:
@@ -67,10 +67,7 @@ def test_plan_posture_records_choice_before_explicit_review_attachment(
         create_qa_catalog_tables,
         seed_builtin_qa_methods,
     )
-    from yoke_core.domain.qa_plan_attachments import (
-        attach_plan_to_item,
-        materialize_for_item,
-    )
+    from yoke_core.domain.qa_plan_attachments import materialize_for_item
     from yoke_core.domain.qa_plan_management import create_plan, replace_plan_cases
 
     conn = _conn(tmp_db)
@@ -117,15 +114,8 @@ def test_plan_posture_records_choice_before_explicit_review_attachment(
             "SELECT COUNT(*) FROM qa_requirements WHERE item_id=%s",
             (item_id,),
         ).fetchone()[0]
-        assert attachment is None
-        assert check_verification_gate(GateTarget(item_id=item_id), tmp_db).passed
-        attach_plan_to_item(
-            conn,
-            item_id=item_id,
-            plan_id=plan["id"],
-            transition_id="reviewing-implementation",
-            qa_phase="verification",
-        )
+        assert tuple(attachment) == (plan["id"], "reviewing-implementation")
+        assert not check_verification_gate(GateTarget(item_id=item_id), tmp_db).passed
         materialized = materialize_for_item(
             conn,
             item_id=item_id,
