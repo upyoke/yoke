@@ -37,9 +37,7 @@ yoke qa registered-command set --project <p> --scope quick --command "<argv>"
 ```
 
 This converges the `registered-command-quick` plan, case, runner, and default
-gate attachments. Workflows that read project testing defaults attach it at
-their review stage; a Dash filed without `--verification-plan` selects it as
-its verification (`--verification-method none` files a Dash with none). Any shell argv works, including Maven, PHPUnit, `xcodebuild`,
+gate attachments. Any shell argv works, including Maven, PHPUnit, `xcodebuild`,
 `docker compose run --rm tests`, or pytest. Use a reliable documented slice
 for `quick`; add `--scope full` only for a genuinely broader command.
 
