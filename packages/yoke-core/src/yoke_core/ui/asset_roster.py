@@ -140,6 +140,7 @@ ASSET_CONTENT_TYPES: Dict[str, str] = {
     "actor_invite_form.js": "text/javascript; charset=utf-8",
     "actor_roster_sort.js": "text/javascript; charset=utf-8",
     "actor_role_control.js": "text/javascript; charset=utf-8",
+    "actor_project_access_control.js": "text/javascript; charset=utf-8",
     "universe_views_profile.js": "text/javascript; charset=utf-8",
     "universe_views_profile_tokens.js": "text/javascript; charset=utf-8",
     "universe_actor_menu.js": "text/javascript; charset=utf-8",

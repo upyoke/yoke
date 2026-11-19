@@ -176,7 +176,7 @@ test("an org admin changes a person's one org role and the roster reloads", asyn
   await renderTeamView(context, main);
   const select = roleSelect(main);
   assert.equal(select.value, "operator");
-  assert.deepEqual(select.children.map((option) => option.value), PERSON_ROLES);
+  assert.deepEqual(select.children.map((option) => option.value), [...PERSON_ROLES, "none"]);
   select.value = "admin";
   select.dispatchEvent(new Event("change"));
   await settle();

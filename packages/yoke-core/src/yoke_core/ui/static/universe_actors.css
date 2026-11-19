@@ -101,6 +101,16 @@
   white-space: nowrap;
 }
 
+/* An admin's project access controls: change, remove, or add a project. */
+.universe-app-root .actors-access .item-button { padding: 1px 6px; }
+.universe-app-root .actors-project-add {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+}
+
 .universe-app-root .actors-role {
   padding: 1px 6px;
   border-radius: var(--yoke-radius);
