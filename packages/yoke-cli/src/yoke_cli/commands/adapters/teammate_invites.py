@@ -14,6 +14,7 @@ from yoke_cli.commands.adapters.admission_floor_recovery import admission_floor_
 from yoke_cli.config.local_reachability import LOCAL_REACHABILITY_NOTICE
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher, emit_response
 from yoke_contracts.api.function_call import FunctionError, TargetRef
+from yoke_contracts.refusal_recovery import compose_refusal
 
 INVITE_USAGE = "yoke invite PERSON [--role ROLE] [--json] [--session-id S]"
 LIST_USAGE = "yoke invites list [--include-used] [--json] [--session-id S]"
@@ -112,6 +113,24 @@ def _fact(parsed, *, include_used=False):
     return response
 
 
+def _invalid_invite_response(response, field):
+    return _refusal(
+        response,
+        "invite_response_shape_invalid",
+        compose_refusal(
+            f"{response.function} returned an invitation response without a valid {field!r} field",
+            recovery="Update Yoke or report the hosted response",
+        ),
+    )
+
+
+def _missing_email_invite_field(row, *fields):
+    return next(
+        (field for field in fields if not isinstance(row, dict) or field not in row),
+        None,
+    )
+
+
 def _created(response, stdout, stderr):
     result = response.result
     if "code" not in result:
@@ -161,10 +180,17 @@ def invite(args):
     payload = {"email" if form == "email" else "name": person}
     if parsed.role is not None:
         payload["role"] = parsed.role
+    if form == "email":
+        response = _read(parsed, "identity.invite.create", payload)
+        if response.success:
+            missing = _missing_email_invite_field(response.result, "invite_id", "email")
+            if missing:
+                response = _invalid_invite_response(response, missing)
+        return emit_response(
+            response, json_mode=parsed.json_mode, human_writer=_created
+        )
     return dispatch_and_emit(
-        function_id="identity.invite.create"
-        if form == "email"
-        else "teammate_invites.create",
+        function_id="teammate_invites.create",
         target=TargetRef(kind="global"),
         payload=payload,
         session_id=parsed.session_id,
@@ -199,6 +225,17 @@ def invites_list(args):
         email = _read(parsed, "identity.invite.list", {})
         if not email.success:
             return emit_response(email, json_mode=parsed.json_mode)
+        email_rows = (email.result or {}).get("invites")
+        if not isinstance(email_rows, list):
+            return emit_response(
+                _invalid_invite_response(email, "invites"), json_mode=parsed.json_mode
+            )
+        for row in email_rows:
+            missing = _missing_email_invite_field(row, "invite_id", "email", "status")
+            if missing:
+                return emit_response(
+                    _invalid_invite_response(email, missing), json_mode=parsed.json_mode
+                )
         rows += [
             dict(
                 row,
@@ -207,7 +244,7 @@ def invites_list(args):
                 name=row["email"],
                 state=row["status"],
             )
-            for row in email.result["invites"]
+            for row in email_rows
         ]
     rows = [
         dict(

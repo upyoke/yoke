@@ -44,8 +44,11 @@ def answers(transport, monkeypatch):
     transport.form, transport.method = "name", "invite_code"
     transport.rows = [ROW]
     transport.email_rows = [
-        dict(invite_id=1, email="ana@example.com", role=None, status="pending")
+        dict(
+            id=91, invite_id=1, email="ana@example.com", role="member", status="pending"
+        )
     ]
+    transport.email_create = transport.email_rows[0].copy()
     transport.refusal, transport.hints = None, []
     real_call = commands.call_dispatcher
 
@@ -74,7 +77,7 @@ def answers(transport, monkeypatch):
         elif request.function == "identity.invite.list":
             result = {"invites": transport.email_rows}
         elif request.function == "identity.invite.create":
-            result = {**transport.email_rows[0], **request.payload}
+            result = transport.email_create
         elif request.function.endswith("revoke"):
             result = {"status": "revoked"}
         else:
@@ -132,7 +135,40 @@ def test_create_uses_server_form_and_carries_hint(answers, capsys, method, json_
         ):
             assert text in output
     else:
-        assert "email-1" in output and "sign in" in output
+        assert "Invited ana@example.com (email-1)" in output and "sign in" in output
+
+
+@pytest.mark.parametrize("json_mode", [False, True])
+@pytest.mark.parametrize(
+    "adapter,args,function,field",
+    [
+        (commands.invites_list, [], "identity.invite.list", "invite_id"),
+        (commands.invites_list, [], "identity.invite.list", "email"),
+        (commands.invites_list, [], "identity.invite.list", "status"),
+        (commands.invite, ["ana@example.com"], "identity.invite.create", "invite_id"),
+        (commands.invite, ["ana@example.com"], "identity.invite.create", "email"),
+    ],
+)
+def test_malformed_hosted_email_response_refuses(
+    answers, capsys, json_mode, adapter, args, function, field
+):
+    answers.form, answers.method = "email", "yoke_account"
+    row = answers.email_create if adapter is commands.invite else answers.email_rows[0]
+    row.pop(field)
+    flags = ["--json"] if json_mode else []
+    assert adapter([*args, *flags]) == 1
+    output = capsys.readouterr()
+    if json_mode:
+        response = json.loads(output.out)
+        assert response["success"] is False and response["result"] is None
+        assert response["error"]["code"] == "invite_response_shape_invalid"
+        message = response["error"]["message"]
+    else:
+        assert not output.out
+        assert "invite_response_shape_invalid" in output.err
+        message = output.err
+    assert function in message and f"'{field}'" in message
+    assert "Update Yoke or report the hosted response" in message
 
 
 @pytest.mark.parametrize(
@@ -154,7 +190,7 @@ def test_shape_refusals_do_not_write(answers, capsys, form, method, person, erro
 
 @pytest.mark.parametrize("include_used", [False, True])
 def test_list_merges_refs_and_states_without_secrets(answers, capsys, include_used):
-    answers.form = "email"
+    answers.form, answers.method = "email", "yoke_account"
     states = ["pending", "expired", "revoked", "consumed"]
     answers.rows = [
         dict(ROW, state=s, ref=f"code-{n}") for n, s in enumerate(states, 1)
@@ -176,7 +212,8 @@ def test_list_merges_refs_and_states_without_secrets(answers, capsys, include_us
     ]
     assert answers.calls[0].payload == {"include_used": True}
     assert commands.invites_list(flags) == 0
-    assert "Kind" in capsys.readouterr().out and len(answers.hints) == 4
+    assert "email-1\tana@example.com\temail" in capsys.readouterr().out
+    assert len(answers.hints) == 4
 
 
 @pytest.mark.parametrize(

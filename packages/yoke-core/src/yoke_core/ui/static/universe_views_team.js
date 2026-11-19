@@ -161,8 +161,11 @@ export function renderTeamView(context, main, _scope, _detail, chrome = {}) {
   const changeInvite = async (row, action) => {
     if (formOpen) return { envelope: { error: { message: "Finish or cancel the open invite form first." } } };
     const email = row.kind === "email";
-    const inviteId = email && hosted ? row.id : row.invite_id;
-    const response = await read(`${email ? "identity.invite" : "teammate_invites"}.${action}`, { invite_id: inviteId });
+    if (email && row.invite_id == null) return { envelope: { error: {
+      code: "invite_response_shape_invalid",
+      message: "identity.invite.list is missing invite_id (minimum serving version next-release). Update Yoke or report the hosted response.",
+    } } };
+    const response = await read(`${email ? "identity.invite" : "teammate_invites"}.${action}`, { invite_id: row.invite_id });
     if (!active()) return response;
     if (success(response)) {
       if (action === "reissue") renderInviteResult(context, slot, response.envelope.result, { onDone: done });
