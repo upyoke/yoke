@@ -216,7 +216,7 @@ def test_onboard_create_project_permission_denied_is_friendly(
     assert rc == 1
     captured = capsys.readouterr()
     assert captured.out == ""
-    assert "Your API token lacks project.create rights." in captured.err
+    assert "You lack project.create rights." in captured.err
     assert "Contact your Yoke administrator." in captured.err
     assert "permission denied for org acme" not in captured.err
     assert "failed step:" in captured.err

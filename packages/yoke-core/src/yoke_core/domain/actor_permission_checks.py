@@ -282,14 +282,21 @@ def require_org_permission(
         permission_key=permission_key,
     )
     if not decision.allowed:
-        raise PermissionDenied(
-            _with_repair(
-                conn,
-                actor_id,
-                f"actor {actor_id} lacks {permission_key!r} on "
-                f"org {_org_scope_label(conn, org_id)}",
-            )
+        from yoke_core.domain.actor_org_role_recovery import (
+            org_role_recovery_detail,
         )
+
+        denial = (
+            f"actor {actor_id} lacks {permission_key!r} on "
+            f"org {_org_scope_label(conn, org_id)}"
+        )
+        repaired = _with_repair(conn, actor_id, denial)
+        if repaired == denial:
+            recovery = org_role_recovery_detail(
+                conn, actor_id=actor_id, org_id=org_id, permission_key=permission_key
+            )
+            repaired = f"{denial}. {recovery}" if recovery else denial
+        raise PermissionDenied(repaired)
     return decision
 
 

@@ -27,7 +27,7 @@ from runtime.api.cli.onboard_wizard_test_helpers import make_app, stub_path_doct
         ),
         (
             "actor 37 lacks 'project.create' on org 'Acme' (id 1)",
-            "Your API token lacks project.create rights for Acme. Contact your Yoke administrator.",
+            "You lack project.create rights for Acme. Contact your Yoke administrator.",
             "Change answers",
         ),
         (

@@ -38,7 +38,7 @@ A connected machine runs its relay and available harnesses under the configured 
 
 ### Roles and billing boundaries
 
-Organization administrators manage access. Operators perform normal project work, and viewers have read access according to their role. Project grants can add project-specific authority. Machine-only roles serve particular automation functions and are not ordinary people roles.
+Organization owners and administrators manage access and create projects. Operators perform normal project work but cannot create projects, and viewers have read access according to their role. Project grants can add project-specific authority. Machine-only roles serve particular automation functions and are not ordinary people roles.
 
 Disabling an actor blocks access and revokes their API keys. Enabling that actor later does not restore the revoked keys; affected machines must reconnect. Yoke protects the last active organization administrator from being removed accidentally.
 
