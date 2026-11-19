@@ -95,6 +95,19 @@ foreach($root in @($source,$target)){{
   }}
  }}
 }}
+# /MIR purges target links its source lacks, and goldens hold none (/XJ), so
+# exclude Windows' own System-marked profile compatibility junctions.
+$walk=New-Object System.Collections.Generic.Stack[string]; $walk.Push($target)
+while($walk.Count){{
+ $dir=$walk.Pop(); try {{$entries=@([IO.DirectoryInfo]::new($dir).GetFileSystemInfos())}} catch {{continue}}
+ foreach($entry in $entries){{
+  if($exclude -contains $entry.FullName){{continue}}
+  $attributes=$entry.Attributes
+  if($attributes -band [IO.FileAttributes]::ReparsePoint){{
+   if(($attributes -band [IO.FileAttributes]::System) -and ($attributes -band [IO.FileAttributes]::Directory)){{$exclude+=$entry.FullName}}
+  }} elseif($attributes -band [IO.FileAttributes]::Directory){{$walk.Push($entry.FullName)}}
+ }}
+}}
 $logRoot=Join-Path $env:LOCALAPPDATA 'YokeQa'
 New-Item -ItemType Directory -Path $logRoot -Force | Out-Null
 $copyLog=Join-Path $logRoot ('profile-copy-'+[Guid]::NewGuid().ToString('N')+'.log')
@@ -102,7 +115,7 @@ $copyLog=Join-Path $logRoot ('profile-copy-'+[Guid]::NewGuid().ToString('N')+'.l
 $copyExit=$LASTEXITCODE
 if($copyExit -ge 8){{
  # Name the failing files here: the log stays on the host, out of the caller's reach.
- $copyErrors=@(Select-String -LiteralPath $copyLog -Pattern 'ERROR \d+ \(0x' -Context 0,1 | Select-Object -First 8 | ForEach-Object {{($_.Line.Trim()+' '+(($_.Context.PostContext -join ' ').Trim())).Trim()}})
+ $copyErrors=@(Select-String -LiteralPath $copyLog -Pattern 'ERROR \\d+ \\(0x' -Context 0,1 | Select-Object -First 8 | ForEach-Object {{($_.Line.Trim()+' '+(($_.Context.PostContext -join ' ').Trim())).Trim()}})
  throw ('windows_profile_copy_failed: robocopy exit '+$copyExit+'; '+($copyErrors -join ' | ')+'; inspect private log '+$copyLog+'; preserve the golden and repair the named copy failure before retrying')
 }}
 Remove-Item -LiteralPath $copyLog -Force

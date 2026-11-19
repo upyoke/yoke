@@ -139,9 +139,10 @@ Before mirroring, reset stops processes whose executable lives in the resettable
 profile (such as the installed Yoke tool's Python), because robocopy cannot purge
 open files. Processes the signed-in session owns are ended from that session; one that will not exit refuses `windows_reset_profile_process_running`.
 Stopped executables are recorded as `profile_processes_stopped`.
-Robocopy never copies or purges links, so after the mirror reset removes each
-profile link the golden lacks (Windows' own System-marked profile junctions stay)
-and records them as `stale_links_removed`. It then proves no uv-managed Python the
+Goldens hold no links (`/XJ`) and `/MIR` purges profile links the golden lacks,
+so the mirror excludes Windows' own System-marked profile compatibility
+junctions (`My Music`, `Application Data` and similar). After the mirror, reset
+removes any other leftover link and records it as `stale_links_removed`. It then proves no uv-managed Python the
 golden lacks remains under `AppData/Roaming/uv/python`, refusing with
 `windows_reset_uv_state_left` and the path otherwise. A failed shell-preconfigured
 console install keeps the last 40 lines of its stdout and stderr in `recovery`.

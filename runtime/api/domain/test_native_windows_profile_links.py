@@ -108,10 +108,26 @@ Write-Output 'DANGLING_UV_JUNCTION_CLEARED'
 """)
     assert result.returncode == 0, result.stderr
     assert "DANGLING_UV_JUNCTION_CLEARED" in result.stdout
+
+
+@pytest.mark.windows_only(reason="requires Windows junctions")
+def test_sweep_removes_and_records_a_link_the_golden_lacks(tmp_path):
+    home, golden = str(tmp_path / "profile"), str(tmp_path / "golden")
+    sweep = stale_link_sweep_script(home, PRESERVED_DIRECTORIES)
+    result = _run_powershell(tmp_path, f"$homeRoot={quote(home)}; $goldenRoot={quote(golden)}\n" + r"""
+New-Item -ItemType Directory -Path $goldenRoot,(Join-Path $homeRoot 'tools\real') -Force|Out-Null
+[IO.File]::WriteAllText((Join-Path $homeRoot 'tools\real\keep.txt'),'TARGET')
+cmd /c mklink /J (Join-Path $homeRoot 'tools\stale') (Join-Path $homeRoot 'tools\real')|Out-Null
+$source=$goldenRoot; $target=$homeRoot
+""" + sweep + r"""
+if(Test-Path -LiteralPath (Join-Path $homeRoot 'tools\stale')){throw 'stale link survived'}
+if([IO.File]::ReadAllText((Join-Path $homeRoot 'tools\real\keep.txt')) -cne 'TARGET'){throw 'sweep followed the link'}
+Write-Output 'STALE_LINK_SWEPT'
+""")
+    assert result.returncode == 0, result.stderr
+    assert "STALE_LINK_SWEPT" in result.stdout
     [line] = [x for x in result.stdout.splitlines() if x.startswith("YOKE_RESET_LINKS_REMOVED ")]
-    assert link_sweep_record(line)["stale_links_removed"] == [
-        home + r"\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none"
-    ]
+    assert link_sweep_record(line)["stale_links_removed"] == [home + r"\tools\stale"]
 
 
 @pytest.mark.windows_only(reason="requires Windows file attributes")
@@ -259,3 +275,11 @@ def test_mirror_excludes_the_live_windows_data_store_and_names_copy_errors():
     assert quote(GOLDEN + r"\profile\AppData\Local\Comms") in mirror
     assert "Select-String -LiteralPath $copyLog -Pattern 'ERROR" in mirror
     assert "($copyErrors -join ' | ')" in mirror
+
+
+def test_mirror_keeps_windows_profile_compatibility_junctions():
+    mirror = profile_copy_script(SimpleNamespace(home=HOME), GOLDEN)
+    walk, robocopy = mirror.index("$walk.Push($target)"), mirror.index("robocopy.exe")
+    assert walk < robocopy
+    assert "[IO.FileAttributes]::System) -and" in mirror
+    assert "$exclude+=$entry.FullName" in mirror

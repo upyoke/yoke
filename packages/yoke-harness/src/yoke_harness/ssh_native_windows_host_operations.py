@@ -1,6 +1,5 @@
 """Native Windows 11 QA over OpenSSH, PowerShell and an interactive desktop."""
 
-from contextlib import contextmanager
 import json
 
 from yoke_contracts.test_machine_types import HostActionResult
@@ -24,23 +23,16 @@ class SshNativeWindowsHostOperations(WindowsMissionOperations, WindowsTransport)
         self.journal_settings("restore")
 
     def journal_settings(self, action):
+        # Only a restore proves this lease's Windows features. A capture saves
+        # settings and changes neither, so the current proof stays valid.
+        if action != "restore":
+            return journal_operation(self, action)
         self.native_features = None
         self._feature_lease_id = None
         receipt = journal_operation(self, action)
-        if action == "restore":
-            self.native_features = feature_states(receipt.get("features"))
-            self._feature_lease_id = str(self.qa_lease_id)
+        self.native_features = feature_states(receipt.get("features"))
+        self._feature_lease_id = str(self.qa_lease_id)
         return receipt
-
-    @contextmanager
-    def machine_settings_guard(self):
-        # Recovery belongs to the next serial lease before any new mutation.
-        self.journal_settings("restore")
-        self.journal_settings("capture")
-        try:
-            yield
-        finally:
-            self.journal_settings("restore")
 
     def check_connection(self):
         if not getattr(self, "native_features", None) or getattr(self, "_feature_lease_id", None) != str(getattr(self, "qa_lease_id", None)):

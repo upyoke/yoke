@@ -1,8 +1,10 @@
 """Remove links a profile reset strands, and prove uv kept no managed Python.
 
-Robocopy's /XJ never copies or purges a link, so a mirror keeps a link the
-golden lacks while purging the directory it points to. uv's minor-version
-Python junction is one: left dangling, the next install fails with uv exit 2.
+The mirror purges most links the golden lacks, but not one it cannot delete,
+and it leaves the directories open files kept alive. The sweep removes the
+links left over, and the uv proof refuses a reset that leaves uv's managed
+Python behind, which would fail the next install with uv exit 2. Windows' own
+System-marked compatibility junctions are excluded from the mirror and stay.
 """
 
 import json
