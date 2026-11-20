@@ -90,15 +90,34 @@ def _bound_control(monkeypatch, calls):
     return control
 
 
-def test_fixture_capture_keeps_the_current_lease_feature_proof(monkeypatch):
+@pytest.mark.parametrize("mutations", [[], ["tools"], ["applocker", "long_paths", "certificates"]])
+def test_only_declared_mutation_captures_and_restores(monkeypatch, mutations):
     from yoke_core.domain.native_windows_fixture import NativeWindowsFixture
 
     calls = []
     control = _bound_control(monkeypatch, calls)
-    NativeWindowsFixture(control)
-    assert calls == ["restore", "restore", "capture"]
+    setup = [{"id": "machine.windows-settings-journal", "parameters": {"mutations": mutations}}] if mutations else []
+    fixture = NativeWindowsFixture(control)
+    assert fixture.execute_setup_operations(setup).ok
+    assert calls == (["restore", "restore", "capture"] if mutations else ["restore"])
     assert control.native_features == feature_states(ROWS)
     assert control._feature_lease_id == "current"
+    assert fixture.close().ok
+    assert fixture.close().ok
+    assert calls == (["restore", "restore", "capture", "restore"] if mutations else ["restore"])
+
+
+@pytest.mark.parametrize("mutations", [[], ["user_path"], ["tools", "tools"], "tools"])
+def test_journal_declaration_validation_precedes_remote_work(mutations):
+    from yoke_core.domain.machine_qa_fixture_validation import MachineQaFixtureOperationError
+    from yoke_core.domain.native_windows_fixture import NativeWindowsFixture
+
+    fixture = NativeWindowsFixture(SimpleNamespace())
+    with pytest.raises(MachineQaFixtureOperationError, match="mutations must name distinct entries"):
+        fixture.execute_setup_operations([
+            {"id": "machine.windows-settings-journal", "parameters": {"mutations": mutations}}
+        ])
+    assert fixture.close().ok
 
 
 def test_failed_restore_after_capture_still_clears_the_proof(monkeypatch):

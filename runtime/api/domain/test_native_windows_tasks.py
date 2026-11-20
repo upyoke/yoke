@@ -57,3 +57,74 @@ def test_offset_timeout_preserves_bound_and_carries_phase_and_target_evidence(mo
     assert "YOKE_CHUNK_PHASE:written" in note
     assert '"target_length": 7' in note
     assert '"target_sha256"' in note
+
+
+def test_journal_program_uses_one_multiset_identity_and_rechecks_uninstall():
+    from yoke_harness.native_windows.journal import PROGRAM
+
+    tool_key = PROGRAM.split("function Tool-Key", 1)[1].split("function Json-Key", 1)[0]
+    assert all(field in tool_key for field in (".Name", ".Version", ".ProviderName"))
+    assert "$counts[$identity]++" in PROGRAM
+    assert "$counts[$identity]--" in PROGRAM
+    assert 'Restore-Tools @($state.tools) @(Tools) $attempts' in PROGRAM
+    assert PROGRAM.count('${function:Tool-Key}') == 3
+    uninstall = PROGRAM.split("| Uninstall-Package", 1)[1].split("catch", 1)[0]
+    assert "Where-Object {(Tool-Key $_) -ceq $identity}" in uninstall
+    assert "'ineffective'" in uninstall
+    assert "windows_tool_uninstall_ineffective" in PROGRAM
+
+
+def test_failed_restore_details_reach_refusal_and_fixture_cleanup():
+    import json
+    from subprocess import CompletedProcess
+
+    from yoke_core.domain.machine_qa_fixture_lifecycle import _operation_outcomes
+    from yoke_core.domain.native_windows_fixture import NativeWindowsFixture
+
+    request = {}
+    saved = {"Name": "Example", "Version": "1.0", "ProviderName": "msi"}
+    current = saved | {"ProviderName": "Programs"}
+    duplicate = current | {"Name": "private-token"}
+    change = {
+        "tools": {
+            "saved_only": [saved],
+            "current_only": [current, current, duplicate],
+        }
+    }
+    attempts = [
+        {"action": "uninstall", "status": "ineffective", "exit_code": None, "tool": current},
+        {"action": "reinstall", "status": "failed", "exit_code": 1603, "tool": saved},
+    ]
+    control = SimpleNamespace(
+        qa_lease_id="lease",
+        secret_values=("private-token",),
+        upload_remote_text=lambda path, value: request.update(json.loads(value)),
+        _run=lambda command: CompletedProcess([], 0, "", ""),
+        read_remote_text=lambda path: json.dumps(
+            request | {
+                "ok": False,
+                "reason": "windows_tool_uninstall_ineffective: the package remains installed",
+                "recovery": "Repair as Administrator and retry",
+                "differences": change,
+                "attempts": attempts,
+            }
+        ),
+    )
+    with pytest.raises(HostControlLocalError) as exc:
+        journal_operation(control, "restore")
+    assert "windows_tool_uninstall_ineffective" in str(exc.value)
+    assert 'tools.saved_only: {"Name": "Example"' in str(exc.value)
+    assert sum('tools.current_only:' in line for line in exc.value.diagnostics) == 3
+    assert '"ProviderName": "msi"' in str(exc.value)
+    assert '"ProviderName": "Programs"' in str(exc.value)
+    assert '"status": "ineffective"' in str(exc.value)
+    assert '"exit_code": 1603' in str(exc.value)
+    assert "private-token" not in str(exc.value)
+    assert "[REDACTED]" in str(exc.value)
+
+    control.journal_settings = lambda action: journal_operation(control, action)
+    fixture = NativeWindowsFixture(control)
+    fixture.journal_captured = True
+    outcome = _operation_outcomes(fixture.close(), control.secret_values)[0]
+    assert outcome["outcome"] == "failed"
+    assert outcome["diagnostics"] == list(exc.value.diagnostics)

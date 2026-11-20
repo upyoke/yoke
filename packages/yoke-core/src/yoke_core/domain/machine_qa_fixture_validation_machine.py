@@ -36,6 +36,9 @@ from yoke_core.domain.machine_qa_fixture_validation_constants import (
 )
 
 
+from yoke_core.domain.machine_qa_recipe_contracts import WINDOWS_SETTINGS_JOURNAL
+
+
 _RELEASE_CHANNEL_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
 
 
@@ -313,8 +316,22 @@ def _yoke_api(parameters: Mapping[str, Any]) -> dict[str, Any]:
     return dict(variant.parameters)
 
 
+def _windows_settings_journal(parameters: Mapping[str, Any]) -> dict[str, Any]:
+    allowed = ("applocker", "long_paths", "certificates", "tools")
+    mutations = parameters.get("mutations")
+    if (
+        set(parameters) != {"mutations"}
+        or not isinstance(mutations, list) or not mutations
+        or any(value not in allowed for value in mutations)
+        or len(set(mutations)) != len(mutations)
+    ):
+        raise operation_error(WINDOWS_SETTINGS_JOURNAL, f"mutations must name distinct entries from {allowed}")
+    return {"mutations": mutations}
+
+
 MACHINE_SETUP_VALIDATORS: dict[str, Validator] = {
     "fixture.yoke-api-start": _yoke_api,
+    WINDOWS_SETTINGS_JOURNAL: _windows_settings_journal,
     "installer-campaign.workspace-reset": _workspace_reset,
     "installer.current-release-prepare": _current_release,
     "installer.product-state-reset": _product_state,

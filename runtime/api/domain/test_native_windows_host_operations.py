@@ -139,6 +139,7 @@ def test_interrupted_journal_recovers_before_capture_and_cleanup_retries():
             raise RuntimeError("restore failed; repair original settings and retry")
 
     fixture = NativeWindowsFixture(SimpleNamespace(journal_settings=journal))
+    assert fixture.execute_setup_operations([{"id": "machine.windows-settings-journal", "parameters": {"mutations": ["tools"]}}]).ok
     assert calls == ["restore", "capture"]
     fail[0] = True
     assert not fixture.close().ok

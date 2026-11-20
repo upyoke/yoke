@@ -7,6 +7,8 @@ from uuid import uuid4
 from yoke_contracts.designed_wait import announce_designed_wait
 from yoke_contracts.machine_qa_failures import HostControlLocalError
 
+from yoke_harness.native_windows.journal_inventory import INVENTORY
+from yoke_harness.native_windows.journal_rebaseline import REBASELINE
 from yoke_harness.native_windows.tasks import require_task_result, start_fixed_task
 from yoke_harness.native_windows.receipts import RECEIPT, PUBLISH
 
@@ -16,13 +18,15 @@ TASK = "YokeQaMachineSettings"
 # Provision this fixed program as Administrator. The test user can request
 # capture/restore, but cannot replace the administrator program or its journal.
 PROGRAM = r"""
+param([switch]$InspectTools,[string]$AcceptToolsFingerprint='',[string]$ApprovalReason='')
 $ErrorActionPreference='Stop'
 $root='C:\ProgramData\YokeQa'
-$request=Get-Content -Raw "$root\requests\request.json" | ConvertFrom-Json
 $journal="$root\private\journal.json"
 $receipt='RECEIPT_PATH'
 RECEIPT_PUBLISH
-function Tools {
+JOURNAL_INVENTORY
+JOURNAL_REBASELINE
+function Machine-Packages {
  # Correlate both HKLM uninstall views with the installed Programs/MSI packages.
  # The test user's tools belong to the profile golden.
  $machine=@(Get-ItemProperty -Path @(
@@ -33,7 +37,10 @@ function Tools {
    Where-Object {
     $name=$_.Name; $version=$_.Version
     $machine | Where-Object {$_.DisplayName -eq $name -and $_.DisplayVersion -eq $version} | Select-Object -First 1
-   } | Select-Object Name,Version,ProviderName | Sort-Object Name,Version,ProviderName)
+   })
+}
+function Tools {
+ @(Machine-Packages | Select-Object Name,Version,ProviderName | Sort-Object Name,Version,ProviderName)
 }
 function Certificates {
  @(Get-ChildItem Cert:\LocalMachine -Recurse | Where-Object Thumbprint |
@@ -48,8 +55,39 @@ function LongPaths {
 function State {
  @{policy=(Get-AppLockerPolicy -Local -Xml);long_paths=(LongPaths);certificates=@(Certificates);tools=@(Tools)}
 }
-function Same($a,$b) { (ConvertTo-Json -InputObject $a -Depth 20 -Compress) -ceq (ConvertTo-Json -InputObject $b -Depth 20 -Compress) }
+function State-Difference($state,$actual) {
+ $diff=[ordered]@{}
+ if((Json-Key $state.policy) -cne (Json-Key $actual.policy)){
+  $policy=Difference @(Policy-Entries $state.policy) @(Policy-Entries $actual.policy) ${function:Json-Key}
+  if(!(Has-Difference $policy)){
+   $policy=Difference @([pscustomobject]@{sha256=(Text-Hash $state.policy)}) @([pscustomobject]@{sha256=(Text-Hash $actual.policy)}) ${function:Json-Key}
+  }
+  $diff.policy=$policy
+ }
+ foreach($field in @('long_paths','certificates')){
+  $delta=Difference @($state.$field) @($actual.$field) ${function:Json-Key}
+  if(Has-Difference $delta){$diff[$field]=$delta}
+ }
+ $tools=Difference @($state.tools) @($actual.tools) ${function:Tool-Key}
+ if(Has-Difference $tools){$diff.tools=$tools}
+ $diff
+}
+$attempts=[Collections.Generic.List[object]]::new()
+$diff=[ordered]@{}
+$state=$null
+$request=$null
+$lock=$null
 try {
+ $adminMode=$InspectTools -or $AcceptToolsFingerprint -or $ApprovalReason
+ if($adminMode){
+  # Direct elevated invocation only. No action or argument comes from the shared request.
+  Assert-YokeRecoveryObject (Split-Path -Parent $journal) $true
+ }else{
+  $request=Get-Content -Raw "$root\requests\request.json" | ConvertFrom-Json
+ }
+ try {$lock=[IO.File]::Open("$root\private\journal.lock",'OpenOrCreate','ReadWrite','None')}
+ catch {throw 'windows_journal_lock_unavailable: finish the active recovery or repair the private journal lock and retry'}
+ if($adminMode){Update-ToolBaseline;return}
  if($request.action -notin @('capture','restore')){throw 'windows_journal_action_invalid: use capture or restore'}
  if($request.lease -notmatch '^[A-Za-z0-9-]+$'){throw 'windows_journal_lease_invalid: acquire a QA lease'}
  if($request.action -eq 'capture'){
@@ -81,24 +119,13 @@ try {
     Import-Certificate -FilePath ("$root\private\certificates\"+$cert.thumbprint+'.cer') -CertStoreLocation $cert.path | Out-Null
    }
   }
-  foreach($tool in (Tools)){
-   if(!($state.tools | Where-Object {$_.Name -eq $tool.Name -and $_.Version -eq $tool.Version})){
-    Get-Package -Name $tool.Name -RequiredVersion $tool.Version -ProviderName $tool.ProviderName | Uninstall-Package -Force | Out-Null
-   }
+  Restore-Tools @($state.tools) @(Tools) $attempts
+  $diff=State-Difference $state (State)
+  if($attempts.status -contains 'ineffective'){
+   throw 'windows_tool_uninstall_ineffective: the package remains installed; inspect attempts and repair it as Administrator'
   }
-  # Provision an owner-only installer cache for tools a policy case may remove.
-  foreach($tool in $state.tools){
-   if(!((Tools) | Where-Object {$_.Name -eq $tool.Name -and $_.Version -eq $tool.Version})){
-    $catalog=Get-Content -Raw "$root\private\tool-installers.json" | ConvertFrom-Json
-    $installer=$catalog | Where-Object {$_.name -eq $tool.Name -and $_.version -eq $tool.Version} | Select-Object -First 1
-    if(!$installer -or (Get-FileHash -LiteralPath $installer.path).Hash -ne $installer.sha256){throw 'windows_tool_restore_unavailable: provision a hash-verified cached installer for the removed tool and retry restore'}
-    $process=Start-Process -FilePath $installer.path -ArgumentList $installer.arguments -Wait -PassThru
-    if($process.ExitCode -notin @(0,3010)){throw 'windows_tool_restore_failed: repair the cached installer and retry restore'}
-   }
-  }
-  $actual=State
-  foreach($field in @('policy','long_paths','certificates','tools')){
-   if(!(Same $state.$field $actual.$field)){throw "windows_journal_restore_unverified: $field differs; repair it as administrator and retry restore"}
+  if($diff.Count){
+   throw 'windows_journal_restore_unverified: machine settings still differ; inspect the inventory and repair as Administrator'
   }
   Remove-Item -LiteralPath $journal
  }
@@ -111,11 +138,65 @@ try {
  }
  Publish-YokeReceipt $result
 } catch {
- Publish-YokeReceipt @{token=$request.token;ok=$false;action=$request.action;lease=$request.lease;reason="$_";
-   recovery='Restore the saved machine settings as administrator and rerun the fixed recovery task before releasing or reusing the machine.'}
+ if($adminMode -or !$request){throw}
+ $reason=$_.Exception.Message
+ if($reason -notmatch '^windows_[a-z_]+:'){
+  $reason='windows_journal_operation_failed: inspect the protected task and repair the named journal action as Administrator'
+ }
+ if($state -and $request.action -eq 'restore'){
+  if(!$diff.Count){
+   try {$diff=State-Difference $state (State)}catch{
+    $reason+='; the current machine inventory could not be read'
+   }
+  }
+  @{lease=$request.lease;saved_lease=$saved.lease;reason=$reason;differences=$diff;attempts=@($attempts.ToArray())} |
+   ConvertTo-Json -Depth 10 | Set-Content -LiteralPath "$root\private\last-restore-diff.json" -Encoding UTF8
+ }
+ $safeAttempts=@($attempts | Select-Object -First 12 | ForEach-Object {
+  @{action=$_.action;tool=(Public-Row $_.tool);status=$_.status;exit_code=$_.exit_code}
+ })
+ Publish-YokeReceipt @{token=$request.token;ok=$false;action=$request.action;lease=$request.lease;reason=$reason;
+   differences=(Public-Diff $diff);attempts=$safeAttempts;attempt_count=$attempts.Count;
+   recovery='Inspect the differing rows and attempts. Repair the settings or approve verified tool drift as Administrator, then retry the serial lease.'}
  exit 1
+} finally {
+ if($lock){$lock.Dispose()}
 }
-""".replace("RECEIPT_PATH", RECEIPT).replace("RECEIPT_PUBLISH", PUBLISH)
+"""
+PROGRAM = (
+    PROGRAM.replace("RECEIPT_PATH", RECEIPT)
+    .replace("RECEIPT_PUBLISH", PUBLISH)
+    .replace("JOURNAL_INVENTORY", INVENTORY)
+    .replace("JOURNAL_REBASELINE", REBASELINE)
+)
+
+
+
+def _receipt_diagnostics(receipt):
+    differences = receipt.get("differences")
+    if isinstance(differences, dict):
+        for field in ("tools", "policy", "long_paths", "certificates"):
+            diff = differences.get(field)
+            if not isinstance(diff, dict):
+                continue
+            for side in ("saved_only", "current_only"):
+                rows = diff.get(side)
+                if not isinstance(rows, list):
+                    continue
+                for row in rows[:6]:
+                    if isinstance(row, dict):
+                        yield f"{field}.{side}: {json.dumps(row, ensure_ascii=False)}"
+                count = diff.get(f"{side}_count")
+                if type(count) is int and count > min(len(rows), 6):
+                    yield f"{field}.{side}: {count} total; see the private last-restore-diff.json for all rows"
+    attempts = receipt.get("attempts")
+    if isinstance(attempts, list):
+        for attempt in attempts[:12]:
+            if isinstance(attempt, dict):
+                yield f"tool attempt: {json.dumps(attempt, ensure_ascii=False)}"
+        count = receipt.get("attempt_count")
+        if type(count) is int and count > min(len(attempts), 12):
+            yield f"tool attempts: {count} total; see the private last-restore-diff.json for all attempts"
 
 
 def journal_operation(control, action):
@@ -171,6 +252,7 @@ def journal_operation(control, action):
                         detail=str(receipt.get("reason")),
                         recovery_hint=str(receipt.get("recovery")),
                         secrets=getattr(control, "secret_values", ()),
+                        diagnostics=tuple(_receipt_diagnostics(receipt)),
                     )
                 return receipt
         time.sleep(0.2)

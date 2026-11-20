@@ -302,21 +302,6 @@ untrusted owners and verifies exact protected ACLs; it never takes ownership.
 
 ## Settings journal and interrupted-case recovery
 
-SYSTEM task `YokeQaMachineSettings` accepts only capture/restore with a QA lease
-identifier. Its program/journal in `C:\ProgramData\YokeQa\private` are writable
-only by Administrators/SYSTEM; the standard user can start it and write
-`C:\ProgramData\YokeQa\requests`, never replace the program or its protected
-receipts. Before mutations
-it records AppLocker policy, `LongPathsEnabled` presence/value, machine
-certificate inventory and machine-scope Programs/MSI tools. Public certificates
-export privately. Restore per-user tools with the test user's profile golden.
-
-Before baseline-tool removal, the administrator supplies its versioned installer
-in the private recovery cache and `tool-installers.json`. Private-key certificate
-removal requires a project-approved recovery procedure. Failed restore retains
-the journal and reports its reason; it never becomes a passing case.
-
-Cleanup restores policy, registry, certificates and tools and compares every
-inventory. The next serial lease restores an interrupted journal before capture;
-keep the machine unavailable until verified. Never use VM snapshots, delete the
-journal, pass a policy failure or recapture a dirty machine.
+Read `tools.saved_only` and `tools.current_only` in the failed restore receipt.
+Follow [settings journal recovery](windows-native-settings-journal.md) to repair
+the drift or accept a verified vendor update as Administrator.

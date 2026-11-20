@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-from yoke_contracts.api_urls import DISTRIBUTION_PROD_URL
-
 from collections.abc import Mapping
 from typing import Any
 
+from yoke_contracts.api_urls import DISTRIBUTION_PROD_URL
 from yoke_core.domain.machine_qa_action_readiness_contract import (
     normalize_action_readiness,
     registered_terminal_post_check,
@@ -16,7 +15,7 @@ from yoke_core.domain.machine_qa_operator_gate_contract import (
     normalize_operator_gate,
 )
 
-
+WINDOWS_SETTINGS_JOURNAL = "machine.windows-settings-journal"
 REGISTERED_SETUP_OPERATION_IDS = frozenset(
     {
         "fixture.apply-resume-report-prepare",
@@ -38,6 +37,7 @@ REGISTERED_SETUP_OPERATION_IDS = frozenset(
         "machine.yoke-connection-restore",
         "machine.yoke-connections-prepare",
         "terminal.size-prepare",
+        WINDOWS_SETTINGS_JOURNAL,
     }
 )
 REGISTERED_POST_STATE_ASSERTION_IDS = frozenset(
@@ -338,9 +338,9 @@ def validate_terminal_recipe(
         "step_delay": float(step_delay),
     }
 
-
 __all__ = [
     "MachineQaRecipeError",
+    "WINDOWS_SETTINGS_JOURNAL",
     "REGISTERED_POST_STATE_ASSERTION_IDS",
     "REGISTERED_STAGE_URLS",
     "REGISTERED_SETUP_OPERATION_IDS",
