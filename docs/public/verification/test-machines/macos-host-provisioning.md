@@ -100,6 +100,7 @@ host outside the tailnet uses `desktop_route=ssh-forward`. Set
 `operating_notes` to record the model, architecture, OS version, console and
 routing constraints. Keep credentials out of these notes. Register relay
 capacity under a separate identity with its own home.
+Set and maintain [capability tags](host-provisioning.md#register-capability-tags) before verifying.
 
 On every QA execution workstation, import the Test Machine's SSH private key:
 

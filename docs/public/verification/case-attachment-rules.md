@@ -11,7 +11,11 @@ Declare a Machine case's starting state and read its subject, execution and evid
 Test Machine cases (`host_control` and exploratory missions declaring a host)
 declare starting state. A hostless mission explores on the controller and
 declares no host starting state. Authoring, `qa.requirement.add`, and
-materialization refuse missing state. `yoke qa plan get` shows each choice:
+materialization refuse missing state. Select a host type with `method_config.os`
+and optional `capability_tags`. A named `test_machine` needs a specific dependency
+in `test_machine_reason`. For requirements that replace a prior attempt, host
+selection starts fresh. Resuming an execution preserves its host affinity.
+`yoke qa plan get` shows each starting-state choice:
 
 - `host_baselines: ["fresh-host"]` (or `shell-preconfigured`, or both): the
   runner resets to each named baseline; one requirement row per baseline. [Temporary cleanup](test-machine-desktop.md) preserves baseline/home/live scratch and reports freed space.
@@ -23,7 +27,8 @@ materialization refuse missing state. `yoke qa plan get` shows each choice:
   may inherit only at the chain's tail, on the same driver, in an isolated
   execution; [Machine partitions](deployment-plan-execution.md#machine-partitions)
   explains host custody and the standalone plan boundary.
-A Command with `method_config.test_machine` follows the same rule. A new
+A Command that calls a specific Test Machine names it in `method_config.test_machine`
+and states the dependency in `test_machine_reason`. It follows the same rule. A new
 chain resets before its first case. Choose `shell-preconfigured` when it runs
 Yoke on the host, verifies browser identities, uninstalls, or upgrades.
 `yoke qa case run` takes a host turn for a direct Command. Run inheriting

@@ -26,7 +26,12 @@ A Test Machine capability owns its settings, credentials, QA leases and
 operation receipts. Capacity registration owns agent-launch capacity and relay
 identity independently, even when both records name one physical host.
 The `os` field selects macOS Terminal.app, Linux tmux/XFCE, or Windows OpenSSH
-with the dedicated account's default non-root WSL2 user.
+with the dedicated account's default non-root WSL2 user. Set optional
+comma-separated `capability_tags` with `yoke test-machine settings-replace`.
+Follow the [registration and re-verification steps](../public/verification/test-machines/host-provisioning.md#register-capability-tags).
+Cases select a verified, healthy host by `method_config.os` and the full
+`method_config.capability_tags` array. Replacement cases select afresh.
+Continuations retain the host from their own execution history.
 
 The registered commands are discoverable through `yoke test-machine --help`;
 each operation's `--help` owns its arguments and output contract. Verify,
@@ -48,7 +53,8 @@ mission operations update the last receipt; identical retries reuse evidence.
 Golden-capture contracts bind their destination and omit the baseline pointers
 they update, so recording a capture does not invalidate its submission retry.
 
-A local Command case that drives a host declares `method_config.test_machine`.
+A local Command case that drives a specific host declares `method_config.test_machine`
+with the dependency in `test_machine_reason`.
 The plan acquires that machine through the existing host line before running
 the command, heartbeats the plan during execution, and retains custody until
 the plan settles. The command runs locally; this declaration grants host

@@ -273,6 +273,7 @@ Register after the standard user works, with native `os=windows` separate from
 WSL. Use an absolute golden path outside the profile and no credentials in settings.
 Register provider/resource ID through the installed power contract. Prove start,
 unchanged MagicDNS host and continued operation after lease release.
+Set and maintain [capability tags](host-provisioning.md#register-capability-tags) before verifying.
 
 ```text
 yoke test-machine settings-replace --power-project P --test-machine NAME --settings-file SETTINGS.json --new

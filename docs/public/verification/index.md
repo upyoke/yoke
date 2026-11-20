@@ -247,15 +247,13 @@ with the missing dependencies and a repair step. Agent-time setup uses the same
 function through `yoke qa browser setup`. Screenshot captures use the platform
 temporary directory unless an output directory is supplied.
 
-Scoped release QA can require several Test Machines. Use `yoke watch qa-plan --
---item ITEM --stage STAGE --project P` without a host
-pin. The command gives each machine its own ordered execution and FIFO lease,
-then credits all results to the same member. After a host wait or independent
-review, repeat that command to continue. Every required host must pass before
-member acceptance. A case needing several hosts at once declares
-`method_config.test_machines` beside its driving `test_machine`; its plan
-execution holds the complete set through the case and review. See
-[case attachment](case-attachment.md).
+Scoped release QA uses `yoke watch qa-plan -- --item ITEM --stage STAGE --project P`.
+Set `method_config.os` and any required `capability_tags` to use a verified,
+healthy match. A named driver needs `test_machine_reason`. A simultaneous case
+also lists its full `method_config.test_machines` set. Resume retains the
+execution's host affinity. A replacement selects afresh. Every required case
+must pass before member acceptance. See [case attachment](case-attachment.md)
+and [host selection](test-machine-desktop.md).
 
 ## Item QA on releases
 

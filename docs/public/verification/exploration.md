@@ -37,9 +37,9 @@ capture `--run-id` its commands use.
 
 ## Authoring Shape
 
-Write territory and an observable outcome; split by machine so separate host
-queues run in parallel. Order a small cross-machine mission after the
-single-machine missions; declare its host set below.
+Write territory and an observable outcome. Split platform coverage by OS
+and use required capability tags for portable missions. Order a small
+cross-machine mission after single-host missions and declare its host set.
 
 Ask only for actions a real user takes; browser actions must come from the
 [action reference](browser-scenarios.md#action-reference), with the full list in
@@ -276,8 +276,7 @@ their declared driver and full host set. For single-host cases, the scheduler
 recovers each platform's original host from the execution's recorded leases and runs,
 including its continuation source. A platform not used before selects a fresh
 eligible host; a global pin cannot represent a roster using several hosts.
-Correction-ready commands also omit the pin; scheduling recovers each corrected
-case's failed attempt host from its requirement replacement history.
+A replacement starts fresh from its own OS, tags or explicit host name.
 
 A continuation records new runs over the same roster without resetting hosts.
 Its latest runs supersede the swept `error`; the prior runs retain their

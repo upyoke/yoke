@@ -203,7 +203,9 @@ def test_machine_settings_replace(args: List[str]) -> int:
     parser.add_argument(
         "--settings-file",
         required=True,
-        help="JSON file holding the new machine settings.",
+        help="JSON file holding the new machine settings, including os and optional "
+        "capability_tags as comma-separated text such as arch:x64,codex-desktop-signed-in. "
+        "Update tags when capabilities change, then run verify before automatic QA.",
     )
     base = parser.add_mutually_exclusive_group(required=True)
     base.add_argument(

@@ -118,6 +118,8 @@ credentials are independent. No password/key bytes enter argv, logs, source,
 artifacts or control-plane settings. A host leased by another session is a
 wait, not permission to disturb it.
 
+Set and maintain [capability tags](host-provisioning.md#register-capability-tags) before verifying.
+
 ## 3. WSL2 Ubuntu and systemd
 
 Follow [Microsoft's WSL installation](https://learn.microsoft.com/en-us/windows/wsl/install)

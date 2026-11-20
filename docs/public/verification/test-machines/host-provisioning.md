@@ -29,6 +29,22 @@ unverified label; code-reviewed contracts do not substitute for live proof.
 - [Native Windows lab machine](windows-native-host-provisioning.md)
 - [Native Windows browser identities](windows-browser-identities.md)
 
+## Register capability tags
+
+Record the host's `os` and optional `capability_tags` in its non-secret settings
+JSON. Tags are comma-separated text, for example
+`"capability_tags": "arch:x64,codex-desktop-signed-in"`. Add tags only after
+proving the capability under the test user. Add or remove a sign-in tag when
+the desktop app signs in or out. Update hardware or tool tags when they change.
+
+Register with `yoke test-machine settings-replace --test-machine NAME
+--settings-file FILE --new`. To change an existing host, read `yoke test-machine
+get --test-machine NAME --json`, copy its complete settings into the file, and
+replace `--new` with `--base SETTINGS_TOKEN` using the as-read token. Run
+`yoke test-machine verify --test-machine NAME` after saving. Automatic QA
+matches `method_config.os` and every tag in the case's `method_config.capability_tags`
+array, then selects a verified, healthy host.
+
 ## Network access
 
 Install Tailscale on every Test Machine, Macs included, join the operator tailnet,

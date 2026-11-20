@@ -87,6 +87,9 @@ alone do not prove readiness. Follow [native browser identities](windows-browser
 
 ## Sign in and prove each installed surface
 
+Update [capability tags](host-provisioning.md#register-capability-tags)
+after proving each advertised desktop sign-in or signing it out.
+
 Use the standard `yokeqa` Windows desktop, not an administrator or controller
 profile. In **Start > All**, open the installed **Claude**, **Cursor** and
 OpenAI desktop app; confirm the actual package identity and displayed app name

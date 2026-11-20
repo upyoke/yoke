@@ -102,7 +102,9 @@ The installer exploration example is owned by core Yoke and feeds the saved
 [Windows/WSL2](windows-host-provisioning.md) each provide the complete ordered
 procedure and its audit. [Browser identities](browser-identities.md) links to
 the live identity procedure for each OS. Test Machines have universe-wide QA leases; capacity
-registrations own launches and relays, independently.
+registrations own launches and relays, independently. Record
+[capability tags](host-provisioning.md#register-capability-tags) when registering
+or verifying a host. Cases use OS plus required tags to select a ready host.
 
 Local browser captures do not take a Test Machine lease. Every browser profile
 has its own daemon, state file, log and OS-assigned port, so different projects
