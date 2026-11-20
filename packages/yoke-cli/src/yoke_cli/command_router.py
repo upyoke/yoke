@@ -237,6 +237,12 @@ def route_command(argv: List[str]) -> int:
     if argv[0] in ("-V", "--version", "version"):
         return _emit_version()
 
+    if argv == ["doctor"]:
+        from yoke_harness.codex_session_posture import ambient_codex_session_id
+
+        if ambient_codex_session_id():
+            argv = ["doctor", "run", "--quick"]
+
     group_help_printed = False
     if argv[-1] in ("-h", "--help", "help"):
         from yoke_cli.commands.command_tree import command_routes

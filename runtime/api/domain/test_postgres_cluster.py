@@ -131,7 +131,7 @@ def test_initdb_recovers_partial_nonempty_data_dir(monkeypatch, tmp_path):
 
     monkeypatch.setattr(postgres_cluster, "_run", fake_run)
 
-    assert postgres_cluster.initdb_if_needed(spec) == 0
+    assert postgres_cluster.initdb_if_needed(spec) is None
     assert calls == [
         [
             f"initdb{EXE}",
@@ -156,7 +156,7 @@ def test_initdb_noop_when_cluster_exists(monkeypatch, tmp_path):
         lambda argv, **kw: pytest.fail("initdb must not run on a live data dir"),
     )
 
-    assert postgres_cluster.initdb_if_needed(spec) == 0
+    assert postgres_cluster.initdb_if_needed(spec) is None
 
 
 def test_server_options_render_socket_only_plus_settings(tmp_path):
@@ -210,7 +210,7 @@ def test_ensure_started_skips_start_when_ready(monkeypatch, tmp_path):
     monkeypatch.setattr(
         postgres_cluster,
         "initdb_if_needed",
-        lambda s: calls.append("initdb") or 0,
+        lambda s: calls.append("initdb"),
     )
     monkeypatch.setattr(postgres_cluster, "is_ready", lambda s: True)
     monkeypatch.setattr(

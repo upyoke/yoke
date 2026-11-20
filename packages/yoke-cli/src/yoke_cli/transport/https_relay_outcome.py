@@ -36,7 +36,6 @@ from yoke_contracts.api.function_call import (
     FunctionCallResponse,
     FunctionError,
 )
-from yoke_contracts.harness_sandbox_recovery import sandbox_recovery
 
 # Canonical definition lives in relay_telemetry (the lower-level module this
 # one already imports); re-exported here so existing importers of this
@@ -168,6 +167,8 @@ def transport_error_response(
     if certificate is not None:
         hint = certificate[1]
     elif is_sandbox_denial(error):
+        from yoke_harness.harness_sandbox_recovery import sandbox_recovery
+
         recovery = sandbox_recovery()
         hint = (
             f"{_SANDBOX_HINT} If the sandbox caused this denial: {recovery}"

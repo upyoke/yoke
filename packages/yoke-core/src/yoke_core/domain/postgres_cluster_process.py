@@ -87,10 +87,14 @@ class StartFailure:
 
     tool: str
     returncode: int
+    output: str = ""
 
     def describe(self, log_file: Path) -> str:
         """Name ``server.log`` only when the server got far enough to write it."""
         status = f"{self.tool} exited 0x{self.returncode & 0xFFFFFFFF:08X}"
         detail = f"; see {log_file}" if log_file.is_file() else ""
-        hint = f" {LOADER_HINT}" if self.returncode == LOADER_STATUS else ""
-        return f"embedded Postgres failed to start: {status}{detail}.{hint}"
+        output = self.output.strip()
+        if self.returncode == LOADER_STATUS and LOADER_HINT not in output:
+            output = f"{output} {LOADER_HINT}".strip()
+        message = f"embedded Postgres failed to start: {status}{detail}."
+        return f"{message} {output}" if output else message

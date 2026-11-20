@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import subprocess
+
 import pytest
 
 from yoke_core.domain import local_universe
@@ -45,8 +47,9 @@ def test_pg_ctl_failure_names_server_log_once_it_exists(monkeypatch, tmp_path):
 
 def test_cluster_start_reports_which_tool_failed(monkeypatch, tmp_path):
     spec = local_universe.cluster_spec(root=tmp_path / "universe")
-    monkeypatch.setattr(postgres_cluster, "initdb_if_needed", lambda _spec: LOADER)
-    assert postgres_cluster.start_failure(spec) == StartFailure("initdb", LOADER)
+    failure = StartFailure("initdb", LOADER)
+    monkeypatch.setattr(postgres_cluster, "initdb_if_needed", lambda _spec: failure)
+    assert postgres_cluster.start_failure(spec) == failure
     assert postgres_cluster.ensure_started(spec) == LOADER
 
 
@@ -71,3 +74,18 @@ def test_apply_report_carries_the_loader_hint(monkeypatch, tmp_path):
     assert "initdb exited 0xC0000135" in str(raised.value)
     assert "embedded_postgres_load_failed" in str(raised.value)
     assert "server.log" not in str(raised.value)
+
+
+def test_pg_ctl_start_failure_preserves_the_denial_without_printing_it(monkeypatch, tmp_path, capsys):
+    spec = local_universe.cluster_spec(root=tmp_path / "universe")
+    denial = 'pg_ctl: could not open log file "server.log": Operation not permitted'
+    monkeypatch.setattr(postgres_cluster, "initdb_if_needed", lambda _spec: None)
+    monkeypatch.setattr(postgres_cluster, "is_ready", lambda _spec: False)
+    monkeypatch.setattr(
+        postgres_cluster, "start_server",
+        lambda _spec: subprocess.CompletedProcess(["pg_ctl"], 1, "", denial),
+    )
+    _fail_with(monkeypatch, tmp_path, postgres_cluster.start_failure(spec))
+    with pytest.raises(local_universe.LocalUniverseError, match="Operation not permitted"):
+        local_universe.start()
+    assert capsys.readouterr().err == ""

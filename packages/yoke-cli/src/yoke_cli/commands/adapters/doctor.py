@@ -47,7 +47,7 @@ from yoke_cli.commands.adapters.doctor_output import (
 )
 from yoke_cli.transport.dispatcher import call_dispatcher
 from yoke_cli.transport.https import resolve_https_connection, TransportError
-from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.api.function_call import FunctionCallResponse, FunctionError, TargetRef
 from yoke_contracts.doctor_budget import CHUNK_BUDGET_S
 
 
@@ -165,7 +165,7 @@ def doctor_run(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, DOCTOR_RUN_USAGE)
     if parsed is None:
         return 2
-    failure = connection_failure()
+    failure = _active_codex_posture_failure(parsed) or connection_failure()
     if failure is not None:
         return emit_doctor_response(
             failure, json_mode=parsed.json_mode, report_file=parsed.file
@@ -208,6 +208,32 @@ def doctor_run(args: List[str]) -> int:
             json_mode=parsed.json_mode,
             report_file=parsed.file,
         )
+
+
+def _active_codex_posture_failure(
+    parsed: argparse.Namespace,
+) -> FunctionCallResponse | None:
+    # The named repair must remain reachable when saved defaults need fixing.
+    if parsed.fix and parsed.only == "harness-setup":
+        return None
+    from yoke_harness.codex_session_posture import (
+        ambient_codex_session_id,
+        codex_session_posture,
+    )
+    from yoke_harness.hooks.identity_codex_runtime import _codex_resolve_entrypoint
+
+    session_id = ambient_codex_session_id()
+    if not session_id or _codex_resolve_entrypoint(session_id) == "codex-vscode":
+        return None
+    command = "yoke doctor run --session" if parsed.session else None
+    code, detail = codex_session_posture(session_id, command=command)
+    # The ordinary session check owns missing or unverifiable evidence.
+    if code != "HARNESS_POSTURE_RESTRICTED":
+        return None
+    return FunctionCallResponse(
+        success=False, function="doctor.run.run", version="v1", request_id="",
+        error=FunctionError(code=code, message=detail),
+    )
 
 
 def _requested_only(parsed: argparse.Namespace) -> str | None:

@@ -43,7 +43,7 @@ def test_testcluster_accepts_windows_initdb_exe(monkeypatch, tmp_path):
     monkeypatch.setattr(pg_testcluster, "_spec", lambda: spec)
     monkeypatch.setattr(pg_testcluster, "_is_ready", lambda: False)
     monkeypatch.setattr(pg_testcluster.postgres_cluster, "data_dir_major_mismatch", lambda _spec: None)
-    monkeypatch.setattr(pg_testcluster.postgres_cluster, "initdb_if_needed", lambda _spec: 0)
+    monkeypatch.setattr(pg_testcluster.postgres_cluster, "initdb_if_needed", lambda _spec: None)
     monkeypatch.setattr(pg_testcluster.postgres_cluster, "ensure_started", lambda _spec: 0)
     assert pg_testcluster.ensure_started() == 0
 

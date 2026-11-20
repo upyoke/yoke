@@ -8,7 +8,7 @@ import pytest
 
 from yoke_cli import command_router as router
 from yoke_cli.config import connection_selection
-from yoke_contracts import harness_sandbox_recovery
+from yoke_harness import harness_sandbox_recovery
 
 
 @pytest.fixture

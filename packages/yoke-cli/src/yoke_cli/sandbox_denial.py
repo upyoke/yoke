@@ -20,7 +20,12 @@ from typing import Any, Callable, List, Optional, Sequence
 # Substrings an OS-level refusal carries once it surfaces as a connection or
 # write failure. Deliberately narrow: a permission error is the signal, and a
 # wider net would relabel ordinary authentication failures as sandbox ones.
-DENIAL_MARKERS = ("operation not permitted", "permission denied")
+DENIAL_MARKERS = (
+    "operation not permitted",
+    "permission denied",
+    "access is denied",
+    "forbidden by its access permissions",
+)
 
 
 def _operation(argv: Sequence[str]) -> str:
@@ -33,11 +38,21 @@ def diagnose(exc: BaseException, argv: Sequence[str]) -> Optional[str]:
     """Return the refusal text for a harness denial, or ``None`` otherwise."""
     try:
         detail = str(exc)
-        if not any(marker in detail.lower() for marker in DENIAL_MARKERS):
-            return None
+        from yoke_contracts.https_retry_policy import is_sandbox_denial
+
+        cause = exc
+        while not (
+            is_sandbox_denial(cause)
+            or any(marker in str(cause).lower() for marker in DENIAL_MARKERS)
+        ):
+            cause = cause.__cause__
+            if cause is None:
+                return None
+        if cause is not exc:
+            detail = f"{detail}: {cause}"
         # Loaded only for a real denial: the hook entrypoint runs through
         # this wrapper on every tool call and must not pay for it.
-        from yoke_contracts.harness_sandbox_recovery import sandbox_recovery
+        from yoke_harness.harness_sandbox_recovery import sandbox_recovery
 
         recovery = sandbox_recovery()
         if not recovery:
