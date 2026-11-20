@@ -16,14 +16,23 @@ from yoke_cli.project_install import checkout_gate, owned_cleanup
 from yoke_cli.project_install.files import ProjectInstallError
 
 
-def settle(root: Path, config_path, *, remove: bool) -> list[str]:
-    """Remove clean lanes when *remove*; otherwise refuse while any lane exists."""
+def settle(root: Path, config_path, *, remove: bool, check: bool = False) -> dict:
+    """Remove clean lanes when *remove*; otherwise refuse while any lane exists.
+
+    *check* runs every refusal and removes nothing. The report names each
+    removed lane and the branch it leaves behind in the checkout.
+    """
+    report: dict = {"removed": [], "branches_kept": []}
     if not checkout_gate.is_git_checkout(root):
-        return []  # Lanes are Git worktrees; a plain folder has none.
+        return report  # Lanes are Git worktrees; a plain folder has none.
     lanes_dir = owned_cleanup.lanes_dir(root, machine_config.load_config(config_path))
-    lanes = [lane for lane in _linked_worktrees(root) if lane.is_relative_to(lanes_dir)]
+    lanes = {
+        lane: branch
+        for lane, branch in _linked_worktrees(root).items()
+        if lane.is_relative_to(lanes_dir)
+    }
     if not lanes:
-        return []
+        return report
     named = ", ".join(str(lane) for lane in lanes)
     if not remove:
         raise ProjectInstallError(
@@ -40,6 +49,8 @@ def settle(root: Path, config_path, *, remove: bool) -> list[str]:
             + " hold uncommitted changes, so nothing was uninstalled. Commit or "
             "discard them in each lane (its branch keeps the commits), then retry."
         )
+    if check:
+        return report
     for lane in lanes:
         removed = checkout_gate.run_git(root, "worktree", "remove", str(lane))
         if removed.returncode != 0:
@@ -51,10 +62,24 @@ def settle(root: Path, config_path, *, remove: bool) -> list[str]:
             )
     if lanes_dir.is_dir() and not any(lanes_dir.iterdir()):
         lanes_dir.rmdir()
-    return [str(lane) for lane in lanes]
+    report["removed"] = [str(lane) for lane in lanes]
+    report["branches_kept"] = [branch for branch in lanes.values() if branch]
+    return report
 
 
-def _linked_worktrees(root: Path) -> list[Path]:
+def kept_branches_warning(root: Path, branches: list[str]) -> list[str]:
+    """Name the lane branches left in the checkout and how to delete them."""
+    if not branches:
+        return []
+    return [
+        f"project_uninstall_lane_branches_kept: {', '.join(branches)} stay in "
+        f"{root} with their commits; delete each you no longer need with "
+        f"`git -C {root} branch -D <branch>`."
+    ]
+
+
+def _linked_worktrees(root: Path) -> dict[Path, str]:
+    """Each linked worktree and its branch name (empty when detached)."""
     listed = checkout_gate.run_git(root, "worktree", "list", "--porcelain", "-z")
     if listed.returncode != 0:
         detail = listed.stderr.strip() or "git worktree list failed"
@@ -62,9 +87,13 @@ def _linked_worktrees(root: Path) -> list[Path]:
             f"project_uninstall_worktrees_unread: {detail}. Repair git in {root}, "
             "then retry project uninstall."
         )
-    members = [
-        Path(line[9:]).resolve()
-        for line in listed.stdout.split("\0")
-        if line.startswith("worktree ")
-    ]
-    return [member for member in members if member != root.resolve()]
+    members: dict[Path, str] = {}
+    current = None
+    for field in listed.stdout.split("\0"):
+        if field.startswith("worktree "):
+            current = Path(field[9:]).resolve()
+            members[current] = ""
+        elif field.startswith("branch ") and current is not None:
+            members[current] = field[7:].removeprefix("refs/heads/")
+    members.pop(root.resolve(), None)
+    return members

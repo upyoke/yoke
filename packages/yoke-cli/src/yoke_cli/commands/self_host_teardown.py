@@ -189,7 +189,7 @@ def _print_teardown_summary(report: Dict[str, object], *, kept: bool) -> None:
             print(f"connection credential removed: {env}")
         print(f"active connection now: {active}")
     elif kept:
-        print("connection: kept, as --keep-connection asked")
+        print("connection: kept; this run changed no machine connection")
     else:
         print("connection: unchanged; no machine connection reached this server")
     for left in report.get("connections_left") or []:

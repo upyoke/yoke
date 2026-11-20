@@ -65,7 +65,10 @@ On macOS, systemd Linux and Windows, uninstall checks saved relay services
 removed. It proves their machine-home ownership and verifies that the services
 have stopped. An unreadable service or failed stop
 retains recovery files.
-Independent cleanup continues after a failure; the machine home and CLI stay
+Before any step, uninstall runs each selected project's `yoke project uninstall
+--check`; a refusal there stops it with nothing removed. Independent cleanup
+continues after a later failure, but a failed project step keeps the local
+Postgres and self-host server its retry asks, and the machine home and CLI stay
 available when cleanup needs recovery. Fix the reported problem and retry.
 Source-checkout CLI installs refuse; retire those through your source-dev workflow.
 
@@ -86,8 +89,9 @@ startup file Yoke created, and each folder it made for one (such as
 keeps, and is deleted once only Yoke's lines are left; a file that existed
 before keeps its bytes, even when empty. Folders the relay made for its systemd
 unit go with the harness settings once empty. Uninstall removes each selected
-project's clean Yoke lane worktrees (their branches stay) and refuses before
-changing anything while a lane holds uncommitted work. It leaves uv, user-owned
+project's clean Yoke lane worktrees, names the branches they leave with the
+command that deletes them, and refuses before changing anything while a lane
+holds uncommitted work. It leaves uv, user-owned
 PATH entries, each project's `.yoke/strategy` documents and the GitHub App,
 names each one, and prints uv's own removal commands for when nothing else uses
 uv; remove the App in GitHub settings if desired. Push the removal commits made in the
@@ -110,7 +114,8 @@ that onboarding or install wrote is installer-owned; one made by
 to delete before you rerun. Shared roots, Git worktrees outside the lanes
 directory and unproven registration are preserved with named reasons. A Yoke
 lane worktree of an open item refuses with `project_uninstall_open_lanes` before
-anything changes; `--remove-lanes` removes clean lanes first. The default-branch
+anything changes; `--remove-lanes` removes clean lanes first, and `--check` runs
+every such refusal and changes nothing. The default-branch
 check asks the connection that registered the checkout, not the active one.
 A checkout registered on one connection only is retired from that connection
 whichever connection is active, so projects from different universes that share
