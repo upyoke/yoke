@@ -8,22 +8,18 @@ so retrying onboarding leaves a satisfied relay running.
 from __future__ import annotations
 
 from dataclasses import dataclass
-import importlib
 from pathlib import Path
 import subprocess
 import sys
 from typing import Any, Callable, Mapping
 
 from yoke_cli.config import onboard_apply_progress, onboard_relay_supervisor
+from yoke_cli.config import onboard_session_relay_wait as relay_wait
 from yoke_cli.config.github_response_safety import terminal_safe_text
 from yoke_cli.config.onboard_apply_report_metadata import sanitize_text
 from yoke_contracts import terminal_detached_process
 
 
-RELAY_INSTALL_TIMEOUT_SECONDS = 300
-#: Reading status inspects the user service and shakes hands with the plane.
-RELAY_STATUS_TIMEOUT_SECONDS = 60
-RELAY_CONNECT_WAIT_SECONDS = 30  # a fresh relay may pin a release and restart
 #: How much of the installer's own output the failure carries, from its tail,
 #: where the diagnosis lands.
 RELAY_DETAIL_MAX_CHARS = 1200
@@ -56,10 +52,11 @@ class OnboardSessionRelayError(RuntimeError):
 
 @dataclass(frozen=True)
 class RelayInstallOutcome:
-    """What the relay step did: nothing, because it was already satisfied."""
+    """What the relay step did, and whether its heartbeat arrived in time."""
 
     installed: bool
     reused: bool
+    connected: bool = False
 
 
 def is_supported(
@@ -183,7 +180,7 @@ def is_satisfied(
             "status",
             config_path=config_path,
             environment=environment,
-            timeout=RELAY_STATUS_TIMEOUT_SECONDS,
+            timeout=relay_wait.RELAY_STATUS_TIMEOUT_SECONDS,
             runner=runner,
         )
     except (OSError, subprocess.SubprocessError):
@@ -199,24 +196,28 @@ def install(
     runner: Callable[
         ..., subprocess.CompletedProcess[str]
     ] = terminal_detached_process.run,
-    wait_for_connection: Callable[[float], bool] | None = None,
+    wait_for_connection: relay_wait.WaitForConnection | None = None,
 ) -> RelayInstallOutcome:
+    """Converge the relay, then wait for its heartbeat on either path."""
     if not is_supported(local_destination=local_destination):
         return RelayInstallOutcome(installed=False, reused=False)
+    wait = wait_for_connection or relay_wait.wait_for_connection
     if is_satisfied(config_path=config_path, environment=environment, runner=runner):
-        return RelayInstallOutcome(installed=True, reused=True)
+        connected = wait(relay_wait.RELAY_CONNECT_WAIT_SECONDS)
+        return RelayInstallOutcome(installed=True, reused=True, connected=connected)
+    relay_wait.announce_install()
     try:
         completed = _run(
             "install",
             config_path=config_path,
             environment=environment,
-            timeout=RELAY_INSTALL_TIMEOUT_SECONDS,
+            timeout=relay_wait.RELAY_INSTALL_TIMEOUT_SECONDS,
             runner=runner,
         )
     except subprocess.TimeoutExpired as exc:
         raise OnboardSessionRelayError(
             "the machine relay installer did not finish within "
-            f"{RELAY_INSTALL_TIMEOUT_SECONDS} seconds; "
+            f"{relay_wait.RELAY_INSTALL_TIMEOUT_SECONDS} seconds; "
             f"{_recovery(environment)}"
         ) from exc
     except (OSError, subprocess.SubprocessError) as exc:
@@ -230,13 +231,8 @@ def install(
             f"exit {completed.returncode}): "
             f"{installer_detail(completed)}. {_recovery(environment)}"
         )
-    (wait_for_connection or _wait_for_connection)(RELAY_CONNECT_WAIT_SECONDS)
-    return RelayInstallOutcome(installed=True, reused=False)
-
-
-def _wait_for_connection(timeout_seconds: float) -> bool:
-    check = importlib.import_module("yoke_core.engines.doctor_hc_session_relay")
-    return check.wait_for_connected_relay(timeout_seconds)
+    connected = wait(relay_wait.RELAY_CONNECT_WAIT_SECONDS)
+    return RelayInstallOutcome(installed=True, reused=False, connected=connected)
 
 
 def installer_detail(completed: subprocess.CompletedProcess[str]) -> str:
@@ -258,8 +254,8 @@ def installer_detail(completed: subprocess.CompletedProcess[str]) -> str:
 def _recovery(environment: str | None) -> str:
     scope = f" --env {environment}" if environment else ""
     return (
-        f"run `yoke{scope} relay status` for the recorded reason, then "
-        f"`yoke{scope} relay install` to retry it"
+        f"run `{relay_wait.status_command(environment)}` for the recorded "
+        f"reason, then `yoke{scope} relay install` to retry it"
     )
 
 
@@ -291,6 +287,7 @@ def apply(
         installed=outcome.installed,
         local_destination=local_destination,
         reused=outcome.reused,
+        connected=outcome.connected,
         config_path=config_path,
         environment=environment,
     )
@@ -304,6 +301,7 @@ def report_fragment(
     environment: str,
     local_destination: bool = False,
     reused: bool = False,
+    connected: bool = False,
 ) -> dict[str, Any]:
     return {
         "planned": planned,
@@ -313,6 +311,8 @@ def report_fragment(
         ),
         "local_build": local_destination,
         "reused": reused,
+        "connected": connected,
+        "environment": environment,
     }
 
 
@@ -330,10 +330,8 @@ def report_complete_lines(fragment: Any) -> tuple[str, ...]:
 __all__ = [
     "OnboardSessionRelayError",
     "RELAY_DETAIL_MAX_CHARS",
-    "RELAY_INSTALL_TIMEOUT_SECONDS",
     "RELAY_LOCAL_BUILD_STEP",
     "RELAY_SERVED_RELEASE_STEP",
-    "RELAY_STATUS_TIMEOUT_SECONDS",
     "RelayInstallOutcome",
     "apply",
     "install",

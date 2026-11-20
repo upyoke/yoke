@@ -46,11 +46,11 @@ RELAY_DYNAMIC_AUTHORITY_IMPORTS = {
         "sweep finished lanes from the checkouts the active connection's relay maps",
     ),
     (
-        "packages/yoke-cli/src/yoke_cli/config/onboard_session_relay.py",
+        "packages/yoke-cli/src/yoke_cli/config/onboard_session_relay_wait.py",
         "yoke_core.engines.doctor_hc_session_relay",
     ): (
         "client_local_diagnostics",
-        "setup waits for a fresh relay's first heartbeat with the relay check's own read",
+        "setup waits for the relay's first heartbeat with the relay check's own read",
     ),
 }
 

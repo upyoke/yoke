@@ -129,11 +129,12 @@ def wait_for_connected_relay(
 ) -> bool:
     """Wait until this machine's relay reports connected; True once it does.
 
-    Setup calls this right after a fresh install, because starting the relay
-    can pin a release and restart before its first heartbeat. A read that
-    fails is retried until the deadline. False leaves the verdict to
-    ``hc_session_relay``, which never waits and reports the FAIL with its
-    repair.
+    Setup calls this after converging the relay, fresh or already satisfied,
+    because starting the relay can pin a release and restart before its
+    first heartbeat. A read that fails is retried until the deadline. On
+    False setup reports the heartbeat as pending with the `relay status`
+    step; ``hc_session_relay`` itself never waits and reports the FAIL with
+    its repair.
     """
     machine_id = _machine_id()
     if not machine_id:

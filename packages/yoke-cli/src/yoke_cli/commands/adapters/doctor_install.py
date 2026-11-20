@@ -75,28 +75,26 @@ def _setup_readiness(report: dict, kwargs: dict) -> dict:
         from yoke_cli.config.setup_agent_answering import _inside
 
         if not _inside(Path.cwd(), Path(checkout).expanduser()):
-            deferred = expected & set(session_slugs())
-            expected -= deferred
-            session_rows = [
-                row for row in rows
-                if str(row.get("hc") or "").removeprefix("HC-") in deferred
-            ]
-            rows = [row for row in rows if row not in session_rows]
-            result["results"] = rows
-            compose = importlib.import_module("yoke_core.engines.doctor_https_compose")
-            result.update(compose.recount(rows))
-            if result.get("exit_code") == 1 and any(
-                row.get("severity") not in {"PASS", "N/A"} for row in session_rows
-            ) and all(_install_row_ready(row) for row in rows):
-                result["exit_code"] = 0
-            result["pending"] = [{
+            rows = _defer(result, rows, expected, {
                 "detail": "new project session verification pending",
-                "checks": sorted(deferred),
+                "checks": sorted(expected & set(session_slugs())),
                 "next_action": (
                     f"Open a new chat in {checkout} and run `yoke doctor run --session`."
                 ),
-            }]
-    observed = {str(row.get("hc") or "").removeprefix("HC-") for row in rows}
+            })
+    relay = report.get("session_relay") or {}
+    if relay.get("installed") and relay.get("connected") is False:
+        from yoke_cli.config import onboard_session_relay_wait as relay_wait
+
+        if any(
+            _slug(row) == relay_wait.RELAY_HEALTH_CHECK and not _install_row_ready(row)
+            for row in rows
+        ):
+            rows = _defer(
+                result, rows, expected,
+                relay_wait.pending_heartbeat(relay.get("environment")),
+            )
+    observed = {_slug(row) for row in rows}
     if expected - observed and not result.get("error"):
         result["error"] = {
             "code": "INSTALL_DOCTOR_INCOMPLETE",
@@ -113,6 +111,30 @@ def _setup_readiness(report: dict, kwargs: dict) -> dict:
         "Resolve each failed check's next step, then rerun `yoke doctor run --install --project P`."
     )
     return result
+
+
+def _slug(row: dict) -> str:
+    return str(row.get("hc") or "").removeprefix("HC-")
+
+
+def _defer(result: dict, rows: list, expected: set, pending: dict) -> list:
+    """Move *pending*'s checks out of the verdict and into ``result["pending"]``.
+
+    A doctor exit of 1 that only those checks caused becomes 0.
+    """
+    deferred = set(pending["checks"])
+    expected -= deferred
+    held = [row for row in rows if _slug(row) in deferred]
+    rows = [row for row in rows if _slug(row) not in deferred]
+    result["results"] = rows
+    compose = importlib.import_module("yoke_core.engines.doctor_https_compose")
+    result.update(compose.recount(rows))
+    if result.get("exit_code") == 1 and any(
+        row.get("severity") not in {"PASS", "N/A"} for row in held
+    ) and all(_install_row_ready(row) for row in rows):
+        result["exit_code"] = 0
+    result.setdefault("pending", []).append(pending)
+    return rows
 
 
 def _install_row_ready(row: dict) -> bool:
