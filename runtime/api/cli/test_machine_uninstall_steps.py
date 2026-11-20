@@ -53,10 +53,11 @@ def machine(tmp_path, monkeypatch):
 
 def test_complete_cleanup_removes_home_and_hands_off_cli(machine, tmp_path):
     value, calls, handoff = machine
+    machine_id = "fbb54e97-e976-4abf-bd0d-3b50442b0f96"
+    value.config.write_text(json.dumps({"machine_id": machine_id}))
     output = []
     assert steps.remove(value, value.projects, output.append) == 0
     assert not value.home.exists()
-    # Each selected project is preflighted, changing nothing, before any step.
     assert calls[0][:3] == ["project", "uninstall", str(value.projects[0])]
     assert "--check" in calls[0]
     assert calls[1] == ["--env", "remote", "relay", "uninstall"]
@@ -69,7 +70,8 @@ def test_complete_cleanup_removes_home_and_hands_off_cli(machine, tmp_path):
     assert handoff == ["armed"]
     assert "handed off" in output[-4]
     assert str(tmp_path / "uv-tools" / "yoke-cli-releases") in output[-4]
-    assert output[-2:] == [steps.NOT_REMOVED, steps.UV_REMOVAL]
+    assert output[-2].startswith(steps.NOT_REMOVED) and output[-1] == steps.UV_REMOVAL
+    assert f"`yoke machine retire {machine_id} --confirm`" in output[-2]
     assert "uv cache clean" in steps.UV_REMOVAL and "uv tool dir" in steps.UV_REMOVAL
 
 
