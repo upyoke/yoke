@@ -50,15 +50,9 @@ def _parse_timestamp(value: Any) -> Optional[datetime]:
     return parse_instant(value) if value is not None else None
 
 
-def _latest_activity(
-    last_heartbeat: Any,
-    last_tool_call_at: Any,
-) -> Tuple[Optional[str], Optional[datetime]]:
+def _latest_activity(*stamps: Any) -> Tuple[Optional[str], Optional[datetime]]:
     """Compare native instants and format the selected public activity stamp."""
-    candidates = [
-        (value, _parse_timestamp(value))
-        for value in (last_heartbeat, last_tool_call_at)
-    ]
+    candidates = [(value, _parse_timestamp(value)) for value in stamps]
     dated = [pair for pair in candidates if pair[1] is not None]
     if not dated:
         return None, None
@@ -132,6 +126,7 @@ def render_session_roster_rows(
         activity_at, _parsed = _latest_activity(
             row.get("last_heartbeat"),
             row.get("last_tool_call_at"),
+            row.get("last_child_tool_call_at"),
         )
         state = session_liveness(row, now=now)
         cause: Optional[str] = None

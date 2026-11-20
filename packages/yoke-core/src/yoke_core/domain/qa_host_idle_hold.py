@@ -141,7 +141,7 @@ def held_rows(conn: Any) -> list[dict[str, Any]]:
         f"SELECT wc.id, wc.session_id, wc.claimed_at, {machine} AS test_machine, "
         "hs.session_id AS live_row, "
         "hs.mode, hs.last_tool_call_at, hs.native_process_gone_at, hs.ended_at, "
-        f"hs.terminated_at, {child_activity_sql(conn, 'hs')} AS last_child_tool_call_at, "
+        "hs.terminated_at, hs.last_child_tool_call_at, "
         f"{operation} AS host_operation_at, {execution_heartbeat} AS execution_heartbeat_at, "
         "hs.turn_posture, hs.turn_posture_at "
         "FROM work_claims wc "
@@ -149,15 +149,6 @@ def held_rows(conn: Any) -> list[dict[str, Any]]:
         f"WHERE {_HELD} ORDER BY wc.id",
         (HOST_SET_REASON,),
     )
-
-
-def child_activity_sql(conn: Any, alias: str) -> str:
-    """*alias*'s subagent-call stamp, or NULL where the column has not converged."""
-    from yoke_core.domain.schema_common import _get_columns
-
-    if "last_child_tool_call_at" in _get_columns(conn, "harness_sessions"):
-        return f"{alias}.last_child_tool_call_at"
-    return "NULL"
 
 
 def holder_away(row: dict[str, Any], *, now: datetime, limit: timedelta) -> str | None:
@@ -320,7 +311,6 @@ def _target(test_machine: str) -> Any:
 
 
 __all__ = [
-    "child_activity_sql",
     "IDLE_HOLD_RELEASED_REASON",
     "IDLE_HOLD_RESERVATION_REASON",
     "IDLE_HOLD_SETTING",

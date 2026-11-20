@@ -33,12 +33,10 @@ def _sessions(conn: Any, session_ids: Iterable[str]) -> dict[str, dict[str, Any]
     ids = sorted({str(value) for value in session_ids})
     if not ids:
         return {}
-    from yoke_core.domain.qa_host_idle_hold import child_activity_sql
-
     rows = query_rows(
         conn,
         "SELECT session_id, session_id AS live_row, mode, last_tool_call_at, "
-        f"{child_activity_sql(conn, 'harness_sessions')} AS last_child_tool_call_at, "
+        "last_child_tool_call_at, "
         "native_process_gone_at, ended_at, terminated_at, turn_posture, turn_posture_at "
         "FROM harness_sessions "
         f"WHERE session_id IN ({','.join([_p(conn)] * len(ids))})",
