@@ -248,7 +248,10 @@ def test_the_windows_browser_runner_executes_through_the_generated_shim(tmp_path
     shim = tmp_path / "yoke.cmd"
     shim.write_bytes(cli_release_runtime._shims(root, Path(sys.executable), tmp_path)[shim].encode())
     arguments = ["qa", "browser", "step", "--step-json", '{"text":"spaces & 100%"}']
-    script = yoke_python.yoke_python_command([str(shim), *arguments])
+    # First-use module preparation may emit progress on PowerShell's stderr.
+    script = "$ProgressPreference='SilentlyContinue'\n" + yoke_python.yoke_python_command(
+        [str(shim), *arguments]
+    )
     encoded = base64.b64encode(script.encode("utf-16-le")).decode("ascii")
     result = subprocess.run(
         ["powershell.exe", "-NoProfile", "-NonInteractive", "-EncodedCommand", encoded],
