@@ -50,6 +50,8 @@ steps. Pytest writes thread tracebacks to the shard log when a test takes
 longer than five minutes. The pytest step has an 18-minute timeout within
 the 30-minute job budget so the upload step can still save
 `pytest-output-<os>-<shard>` with the streamed log and any JUnit report.
+The first Windows shard also repeats the repo picker and JavaScript contracts
+five times and saves the traceback from a deliberately stalled pytest worker.
 The plan retains modules skipped before import on its collection OS
 so native runners still receive them, with conservative product-wheel fixture
 affinity because their fixture closure cannot be imported on the plan host.
