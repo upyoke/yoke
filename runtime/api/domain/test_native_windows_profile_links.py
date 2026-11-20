@@ -274,16 +274,19 @@ def test_reset_ends_desktop_session_processes_before_mirroring(monkeypatch, rela
     )
 
 
-def test_desktop_stop_failure_refuses_before_mirroring(monkeypatch):
-    control = SimpleNamespace(home=HOME, _run=lambda *a, **k: subprocess.CompletedProcess([], 3, "", ""))
-
+@pytest.mark.parametrize("listing_code, phase", [(1, "listing_failed"), (3, "running")])
+def test_process_stop_failure_refuses_before_mirroring(monkeypatch, listing_code, phase):
+    def listing(script, **kwargs):
+        assert "Get-YokeProfileProcesses).Count" in script
+        return subprocess.CompletedProcess([], listing_code, "", "Access denied ")
     def stuck(control, script, *, timeout=60, hidden=False):
-        return subprocess.CompletedProcess([], 1, "", "Test-user processes kept their files open")
+        assert listing_code == 3
+        return subprocess.CompletedProcess([], 1, "", "Access denied ")
 
     monkeypatch.setattr("yoke_harness.native_windows.desktop.desktop_script", stuck)
-    refused = baseline.profile_operation(control, "reset", GOLDEN)
-    assert refused.error_code == "windows_reset_profile_process_running"
-    assert "kept their files open" in refused.evidence["recovery"]
+    refused = baseline.profile_operation(SimpleNamespace(home=HOME, _run=listing), "reset", GOLDEN)
+    assert refused.error_code == "windows_reset_profile_process_" + phase
+    assert "Access denied." in refused.evidence["recovery"]
 
 
 def test_mirror_excludes_the_live_windows_data_store_and_names_copy_errors():
@@ -305,10 +308,10 @@ def test_mirror_keeps_windows_profile_compatibility_junctions():
 
 
 @pytest.mark.windows_only(reason="requires Windows PowerShell")
-def test_desktop_stop_resolves_only_test_user_app_targets(tmp_path):
-    from yoke_harness.native_windows.profile_processes import (
-        STOPPED_MARKER, TARGETS_MARKER, profile_process_stop_script,
-    )
+def test_desktop_stop_resolves_only_test_user_app_targets(tmp_path, monkeypatch):
+    from yoke_harness.native_windows import profile_processes as processes
+
+    monkeypatch.setattr(processes, "_PROCESS_IDENTITY", "")
 
     result = _run_powershell(tmp_path, rf"""
 $profileRoot={quote(HOME)}
@@ -324,24 +327,21 @@ foreach($path in @($codex,$claude,$preserved,$other)){
  $entries+= [pscustomobject]@{Id=$entries.Count+1;Path=$path;SessionId=1;MainWindowHandle=1;HasExited=$false}
 }
 function Get-Process($Id){if($Id -eq $PID){@{SessionId=1}}else{$entries}}
-function Get-CimInstance($ClassName,$Filter){$Filter}
-function Invoke-CimMethod($InputObject,$MethodName){
- $sid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value
- if($InputObject -eq 'ProcessId=4'){$sid='different user'}
- @{ReturnValue=0;Sid=$sid}
+function Get-YokeOwnedExecutable($processId){
+ if($processId -ne 4){$entries[$processId-1].Path}
 }
 function Get-AppxPackage {@{InstallLocation=$packageRoot;PackageFamilyName='Codex_fixture'}}
 function Get-AppxPackageManifest($Package) {
  [xml]'<Package><Applications><Application Id="App" Executable="app\Codex.exe"/></Applications></Package>'
 }
 function Stop-Process($InputObject,[switch]$Force){$InputObject.HasExited=$true}
-""" + profile_process_stop_script(HOME, PRESERVED_DIRECTORIES, desktop=True) + r"""
+""" + processes.profile_process_stop_script(HOME, PRESERVED_DIRECTORIES, desktop=True) + r"""
 if($entries[2].HasExited -or $entries[3].HasExited){throw 'excluded process stopped'}
 """)
     assert result.returncode == 0, result.stderr
     stopped, targets = (
         json.loads(next(line[len(marker):] for line in result.stdout.splitlines() if line.startswith(marker)))
-        for marker in (STOPPED_MARKER, TARGETS_MARKER)
+        for marker in (processes.STOPPED_MARKER, processes.TARGETS_MARKER)
     )
     assert [app["path"] for app in targets] == stopped
     assert [app["target"] for app in targets] == [
