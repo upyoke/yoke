@@ -21,6 +21,7 @@ from yoke_contracts.api.function_call import (
 )
 from yoke_core.domain.actors import seed_human_actor
 from yoke_core.domain.frontier_blocked_rows import HIDDEN_BLOCKER_WHY
+from yoke_core.domain.frontier_dependency_edges import HIDDEN_BLOCKER_LABEL
 from yoke_core.domain.frontier_list_read import list_frontier
 from yoke_core.domain.function_authz_scope import (
     ACTOR_SESSION,
@@ -62,6 +63,7 @@ def world(test_db):
     insert_item(test_db, id=2, title="visible landing", status="idea")
     insert_item(test_db, id=3, title="visible stranded", status="idea")
     insert_item(test_db, id=4, title="visible pair", status="idea")
+    insert_item(test_db, id=5, title="visible closing", status="implementing")
     for item_id in (11, 12, 13):
         insert_item(
             test_db,
@@ -77,6 +79,7 @@ def world(test_db):
     _depend(test_db, 3, 12)
     _depend(test_db, 12, 4)
     _depend(test_db, 4, 1)
+    _depend(test_db, 5, 11, gate_point="closure")
     yoke = _project_id(test_db, 1)
     hidden = _project_id(test_db, 11)
     assert yoke != hidden
@@ -105,9 +108,27 @@ def test_a_viewer_reads_only_visible_rows_edges_and_cycles(world):
     assert start["why"] == HIDDEN_BLOCKER_WHY
     landing = edges["visible landing", "integration"]
     assert (landing["blocking_item"], landing["why"]) == ("", HIDDEN_BLOCKER_WHY)
-    for edge in result["dependency_edges"]:
-        assert edge["blocking_project_id"] == yoke
-        assert edge["dependent_project_id"] == yoke
+    assert {e["dependent_project_id"] for e in result["dependency_edges"]} == {yoke}
+    shown = [e for e in result["dependency_edges"] if not e["blocking_hidden"]]
+    assert shown and all(e["blocking_project_id"] == yoke for e in shown)
+    # Every visible item waiting on hidden work still draws waiting, each on
+    # its own numbered stand-in that names nothing of the blocker.
+    hidden_edges = [e for e in result["dependency_edges"] if e["blocking_hidden"]]
+    refs = {r["title"]: r["item_id"] for r in rows}
+    assert {(e["dependent_item"], e["gate_point"]) for e in hidden_edges} == {
+        (refs["visible start"], "activation"),
+        (refs["visible landing"], "integration"),
+        (refs["visible stranded"], "activation"),
+        (refs["visible closing"], "closure"),
+    }
+    assert sorted(e["blocking_item"] for e in hidden_edges) == [
+        f"{HIDDEN_BLOCKER_LABEL} {n}" for n in range(1, 5)
+    ]
+    for edge in hidden_edges:
+        assert edge["blocking_title"] == HIDDEN_BLOCKER_WHY
+        assert (edge["rationale"], edge["environment"]) == ("", None)
+        assert edge["blocking_project_id"] is None
+        assert edge["blocking_stage"] is None
     assert result["dependency_cycles"] == []
     served = json.dumps(result, default=str)
     assert SECRET not in served
@@ -120,6 +141,7 @@ def test_local_and_admin_reads_keep_the_whole_graph(world):
 
     result = list_frontier()
 
+    assert not any(e["blocking_hidden"] for e in result["dependency_edges"])
     assert {e["blocking_project_id"] for e in result["dependency_edges"]} >= {
         yoke,
         hidden,

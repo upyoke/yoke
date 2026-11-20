@@ -16,6 +16,7 @@ import re
 from typing import AbstractSet, Any, Dict, List, Optional
 
 from yoke_core.domain.dependency_planning import BlockerDetail
+from yoke_core.domain.frontier_dependency_edges import HIDDEN_BLOCKER_TITLE
 from yoke_core.domain.frontier_landing_wait import landing_wait_reason
 from yoke_core.domain.scheduler_types import GateEvaluation, ScheduledStep
 
@@ -39,7 +40,7 @@ FRONTIER_BLOCKED_FIELDS = (
 )
 
 #: Why a row waits on an item the reader cannot see; it names nothing of it.
-HIDDEN_BLOCKER_WHY = "Waiting on work in a project you cannot see"
+HIDDEN_BLOCKER_WHY = HIDDEN_BLOCKER_TITLE
 
 
 def _names_any(text: str, refs: AbstractSet[str]) -> bool:
