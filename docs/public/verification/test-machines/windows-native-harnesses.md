@@ -144,7 +144,9 @@ validates that metadata before mirroring the profile and verifies it afterward;
 older goldens without it require recapture rather than guessing a registry type.
 Before mirroring, reset stops test-user processes that run from the resettable
 profile or from WindowsApps. Executables in preserved profile directories stay
-running. Desktop processes are stopped from the signed-in session. A process
+running. Reset checks process ownership under the standard test-user account.
+If SSH process discovery fails, check the session named in the refusal before
+retrying. Desktop processes are stopped from the signed-in session. A process
 that will not exit refuses with `windows_reset_profile_process_running`.
 After a successful restore, reset reopens the stopped desktop apps in that same
 session. The receipt reports `profile_processes_stopped` and

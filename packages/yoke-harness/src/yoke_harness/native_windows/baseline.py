@@ -211,7 +211,7 @@ def profile_operation(control, operation, path):
                 return HostActionResult(
                     False,
                     {"operation": operation, "golden_baseline_path": path, "recovery": refused},
-                    "windows_reset_profile_process_running",
+                    refused.split(":", 1)[0],
                 )
         result = control._run(script, timeout=600)
     except ValueError as exc:

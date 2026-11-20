@@ -10,20 +10,56 @@ STOPPED_MARKER = "YOKE_RESET_PROCESSES_STOPPED "
 TARGETS_MARKER = "YOKE_RESET_DESKTOP_TARGETS "
 RELAUNCHED_MARKER = "YOKE_RESET_DESKTOP_RELAUNCHED "
 
-_LIST = r"""$windowsApps=Join-Path $env:ProgramFiles 'WindowsApps'
+# The SSH test user has no WMI namespace grant. Limited process handles can
+# read the owner's token and image without elevation or reading process memory.
+_PROCESS_IDENTITY = r"""Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+using System.Security.Principal;
+using System.Text;
+
+public static class YokeResetProcess {
+ [DllImport("kernel32.dll")] static extern IntPtr OpenProcess(uint access, bool inherit, int pid);
+ [DllImport("advapi32.dll")] static extern bool OpenProcessToken(IntPtr process, uint access, out IntPtr token);
+ [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr handle);
+ [DllImport("kernel32.dll", CharSet=CharSet.Unicode)]
+ static extern bool QueryFullProcessImageName(IntPtr process, int flags, StringBuilder name, ref int size);
+
+ public static string OwnedImage(int pid, string owner) {
+  IntPtr process=OpenProcess(0x1000, false, pid); // PROCESS_QUERY_LIMITED_INFORMATION
+  if(process==IntPtr.Zero) return null;
+  IntPtr token=IntPtr.Zero;
+  try {
+   if(!OpenProcessToken(process, 8, out token)) return null; // TOKEN_QUERY
+   using(var identity=new WindowsIdentity(token)) {
+    if(identity.User.Value!=owner) return null;
+   }
+   var path=new StringBuilder(32768);
+   int size=path.Capacity;
+   return QueryFullProcessImageName(process, 0, path, ref size) ? path.ToString() : null;
+  } finally {
+   if(token!=IntPtr.Zero) CloseHandle(token);
+   CloseHandle(process);
+  }
+ }
+}
+'@
 $testSid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+function Get-YokeOwnedExecutable($processId){
+ [YokeResetProcess]::OwnedImage($processId, $testSid)
+}
+if(!(Get-YokeOwnedExecutable $PID)){throw 'Cannot verify ownership of the reset process'}
+"""
+
+_LIST = r"""$windowsApps=Join-Path $env:ProgramFiles 'WindowsApps'
 $stopSession=(Get-Process -Id $PID).SessionId
 function Get-YokeProfileProcesses {
- foreach($proc in @(Get-Process -ErrorAction SilentlyContinue)){
-  try {$exe=$proc.Path} catch {$exe=$null}
+ foreach($proc in @(Get-Process -ErrorAction Stop)){
+  $exe=Get-YokeOwnedExecutable $proc.Id
   if(!$exe){continue}
   $packaged=$exe.StartsWith($windowsApps+'\',[StringComparison]::OrdinalIgnoreCase)
   if(!$packaged -and !$exe.StartsWith($profileRoot+'\',[StringComparison]::OrdinalIgnoreCase)){continue}
   if(@($stopPreserved | Where-Object {$exe.StartsWith($_+'\',[StringComparison]::OrdinalIgnoreCase)}).Count){continue}
-  $instance=Get-CimInstance Win32_Process -Filter "ProcessId=$($proc.Id)" -ErrorAction Stop
-  if(!$instance){continue}
-  $owner=Invoke-CimMethod -InputObject $instance -MethodName GetOwnerSid -ErrorAction SilentlyContinue
-  if($owner.ReturnValue -ne 0 -or $owner.Sid -ne $testSid){continue}
   [pscustomobject]@{process=$proc;path=$exe;packaged=$packaged}
  }
 }
@@ -35,7 +71,7 @@ if(@($stopped | Where-Object packaged).Count){
  try {$packages=@(Get-AppxPackage -ErrorAction Stop)} catch {$packageFailure=$_.Exception.Message}
 }
 $targets=@(foreach($entry in $stopped){
- $visible=$entry.process.MainWindowHandle -ne [IntPtr]::Zero
+ try {$visible=$entry.process.MainWindowHandle -ne [IntPtr]::Zero} catch {$visible=$false}
  if(!$entry.packaged){
   if($visible){@{target=$entry.path;path=$entry.path}}
   continue
@@ -72,7 +108,12 @@ foreach($entry in $stopped){
 }
 $deadline=[DateTime]::UtcNow.AddSeconds(20)
 do {
- $alive=@($stopped | Where-Object {!$_.process.HasExited})
+ $alive=@($stopped | Where-Object {
+  $entry=$_
+  try {!$entry.process.HasExited} catch {
+   (Get-YokeOwnedExecutable $entry.process.Id) -eq $entry.path
+  }
+ })
  if(!$alive.Count){break}; Start-Sleep -Milliseconds 250
 } while([DateTime]::UtcNow -lt $deadline)
 """
@@ -122,7 +163,7 @@ _RELAUNCH_RESULT = r"""function Write-YokeRelaunchResult($target,$failure){
 
 def _preamble(home, preserved):
     skipped = ",".join(quote(str(PureWindowsPath(home) / p)) for p in preserved)
-    return f"$stopPreserved=@({skipped})\n" + _LIST
+    return f"$stopPreserved=@({skipped})\n" + _PROCESS_IDENTITY + _LIST
 
 
 def profile_process_stop_script(home, preserved, *, desktop=False):
@@ -150,13 +191,23 @@ def stop_desktop_profile_processes(control, preserved):
     if listed.returncode == 0:
         return None, [], []
     if listed.returncode != 3:
-        return listed.stderr or "windows_reset_profile_process_listing_failed: rerun yoke test-machine reset", [], []
+        detail = (listed.stderr or listed.stdout or f"exit {listed.returncode}").strip()
+        return (
+            f"windows_reset_profile_process_listing_failed: SSH process discovery failed: {detail}. "
+            "Verify the standard test-user SSH session and rerun yoke test-machine reset",
+            [], [],
+        )
     stopped = desktop_script(
         control, home + profile_process_stop_script(control.home, preserved, desktop=True),
         timeout=60, hidden=True,
     )
     if stopped.returncode:
-        return stopped.stderr or stopped.stdout or "windows_reset_profile_process_running: the desktop stop failed without output; unlock the auto-logged-on test session and rerun yoke test-machine reset", [], []
+        detail = (stopped.stderr or stopped.stdout or f"exit {stopped.returncode}").strip()
+        return (
+            f"windows_reset_profile_process_running: Desktop process stop failed: {detail}. "
+            "Inspect the signed-in standard-user desktop and rerun yoke test-machine reset",
+            [], [],
+        )
     targets = next(_records(stopped.stdout, TARGETS_MARKER), [])
     return None, stopped_processes(stopped.stdout), targets
 
