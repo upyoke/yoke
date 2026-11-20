@@ -18,6 +18,7 @@ from yoke_core.domain.machine_qa_fixture_machine_operations import (
 from yoke_core.domain.machine_qa_fixture_repository_operations import (
     MachineQaFixtureRepositoryOperations,
 )
+from yoke_core.domain.machine_qa_recipe_contracts import WINDOWS_SETTINGS_JOURNAL
 from yoke_core.domain.machine_qa_fixture_runtime import (
     MachineQaFixtureRuntime,
     RemoteCommandResult,
@@ -61,6 +62,12 @@ class MachineQaFixtureOperationRunner(
         if not self._accepting:
             raise MachineQaFixtureOperationError("fixture runner is already closing")
         normalized = validate_setup_operations(operations)
+        if any(operation_id == WINDOWS_SETTINGS_JOURNAL for operation_id, _ in normalized):
+            reason = "windows_settings_journal_requires_native_host: select a native Windows Test Machine"
+            return HostActionResult(
+                False, {"operations": [failed_row(WINDOWS_SETTINGS_JOURNAL, RemoteFixtureFailure(reason))]},
+                "windows_settings_journal_requires_native_host",
+            )
         return self._execute_batch(normalized, self._setup_handlers())
 
     def execute_post_state_assertions(

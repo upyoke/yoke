@@ -10,6 +10,7 @@ from typing import Any
 
 from yoke_contracts.machine_qa_failures import (
     HostControlLocalError,
+    MACHINE_QA_DIAGNOSTIC_ROWS_LIMIT,
     bounded_machine_qa_diagnostic,
     host_control_failure,
 )
@@ -44,23 +45,30 @@ def _empty_result(*, ok: bool, error_code: str | None = None) -> HostActionResul
 
 def _operation_outcomes(
     result: HostActionResult, secrets: Sequence[str]
-) -> list[dict[str, str]]:
+) -> list[dict[str, Any]]:
     """Project runner evidence to operation ids, outcomes and failure reasons."""
     raw = result.evidence.get("operations")
     if not isinstance(raw, list):
         return []
-    outcomes: list[dict[str, str]] = []
+    outcomes: list[dict[str, Any]] = []
     for row in raw:
         if not isinstance(row, Mapping):
             continue
         operation_id = str(row.get("id") or "")
         outcome = str(row.get("outcome") or "")
         if operation_id and outcome in {"passed", "failed"}:
-            projected = {"id": operation_id, "outcome": outcome}
+            projected: dict[str, Any] = {"id": operation_id, "outcome": outcome}
             if outcome == "failed" and row.get("reason"):
                 projected["reason"] = bounded_machine_qa_diagnostic(
                     row["reason"], secrets
                 )
+            diagnostics = row.get("diagnostics")
+            if outcome == "failed" and isinstance(diagnostics, list) and diagnostics:
+                projected["diagnostics"] = [
+                    bounded_machine_qa_diagnostic(line, secrets)
+                    for line in diagnostics[:MACHINE_QA_DIAGNOSTIC_ROWS_LIMIT]
+                    if isinstance(line, str)
+                ]
             outcomes.append(projected)
     return outcomes
 
