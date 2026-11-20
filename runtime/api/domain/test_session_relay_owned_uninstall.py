@@ -262,7 +262,8 @@ def scheduled(tmp_path):
         if argv[0] == "whoami":
             content = f'"MACHINE\\user","{sid}"\n'
         elif argv[0] == "powershell.exe":
-            content = "4\n"
+            ended = {change[3] for change in changes if change[1] == "/End"}
+            content = "3\n" if any(f"'{label}'" in argv[-1] for label in ended) else "4\n"
         elif argv[1:4] == ["/Query", "/FO", "CSV"]:
             content = "".join(f'"\\{label}","N/A","Running"\n' for label in documents)
         elif argv[1] == "/Query":
