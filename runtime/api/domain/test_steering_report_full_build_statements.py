@@ -30,7 +30,8 @@ SECOND_PROJECT = 2
 #: Each next-actor facts read adds one Test Machine wait read for its page.
 #: The Test Machine findings add one held-lease read for idle host holds.
 #: Suite outcomes add one dispatch-intent read per held project.
-FULL_BUILD_STATEMENTS = 156
+#: The one Test Machine queue adds one universe-wide queue read.
+FULL_BUILD_STATEMENTS = 157
 
 
 def _seed(conn):
