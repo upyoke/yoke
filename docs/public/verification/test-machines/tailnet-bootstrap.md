@@ -53,38 +53,23 @@ for example, `linux-lab`, and hand the displayed sign-in URL to the operator.
 A headless join may wait for approval; inspect `tailscale status --json` rather
 than treating an unapproved device as joined.
 
-## Join native Windows through Azure SYSTEM
+## Join Windows from the test desktop
 
-The registered SSH user, such as `yokeqa`, is standard and cannot install the
-machine service. On the controller, save this PowerShell as `join-tailnet.ps1`:
+Follow the [normal-user installation rule](index.md#install-as-the-test-user).
+If the host is new, create the standard account and establish a private
+desktop first. For native Windows, follow the
+[bootstrap desktop route](windows-native-harnesses.md#first-tailscale-login-and-bootstrap-desktop).
 
-```powershell
-$ErrorActionPreference = 'Stop'
-$msi = Join-Path $env:TEMP 'tailscale-setup.msi'
-Invoke-WebRequest 'https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi' -OutFile $msi
-$install = Start-Process msiexec.exe -ArgumentList @('/i', $msi, '/qn', '/norestart', 'TS_UNATTENDEDMODE=always') -Wait -PassThru
-if ($install.ExitCode -notin @(0, 3010)) { throw "Tailscale MSI exit $($install.ExitCode)" }
-$ts = 'C:\Program Files\Tailscale\tailscale.exe'
-& $ts up --unattended --timeout=20s
-$status = & $ts status --json | ConvertFrom-Json
-$status.AuthURL
-$status.BackendState
-$status.Self.DNSName
-```
+Download the [Tailscale Windows installer](https://tailscale.com/download/windows)
+in the standard user's Windows desktop session and accept its normal UAC
+prompt for the machine service. Start Tailscale from that desktop and give the
+operator the sign-in prompt for the intended tailnet and lab device. Install
+Tailscale on the Windows side of a WSL fixture.
 
-Run that file through the Azure VM agent, which executes it as SYSTEM:
-
-```sh
-az vm run-command invoke -g GROUP -n VM --command-id RunPowerShellScript --scripts @join-tailnet.ps1
-```
-
-The bounded `up` can time out while sign-in awaits approval. Read `AuthURL`
-from the JSON status and hand that link to the operator; do not loop installs
-or claim readiness from the MSI exit alone. After approval, use another bounded
-Run Command to read `tailscale status --json` and confirm it is connected.
-Install Windows Tailscale on Windows only, never inside WSL. A Windows/WSL
-host with an administrator desktop can use the same MSI and elevated
-`tailscale up --unattended` flow locally; preserve the standard test account.
+After sign-in, enable unattended operation and verify the service survives a
+logout and reboot. The
+[native Windows recovery guide](windows-native-provisioning-recovery.md#unattended-selection-before-registration)
+describes the SYSTEM-context check for the already-installed service.
 
 ## Operator approval and registration
 

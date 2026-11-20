@@ -72,8 +72,9 @@ desktop session:
 
 - **Claude Desktop:** Ben opens [Claude's download page](https://claude.com/download)
   in the test user's browser, downloads the Windows installer and runs it.
-- **OpenAI desktop app with Codex:** open the [Microsoft Store link from OpenAI's Windows guide](https://help.openai.com/en/articles/9982051-using-the-chatgpt-windows-app)
-  and install as the test user. Select **Codex** after signing in.
+- **OpenAI desktop app with Codex:** start from the [ChatGPT desktop download](https://chatgpt.com/download/)
+  and follow the Windows install as the test user. Select **Codex** after
+  signing in.
 - **Cursor:** choose the Windows **User** installer for the host architecture
   from [Cursor's download page](https://cursor.com/download). Run it as the
   test user.
