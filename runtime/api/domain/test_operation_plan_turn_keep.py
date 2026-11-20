@@ -7,11 +7,18 @@ its submit released the host to the next waiter 4ms later (feedback 97614).
 
 from __future__ import annotations
 
+import json
 from types import SimpleNamespace
 
 import pytest
 
+from runtime.api.domain.machine_qa_host_test_support import configure_test_machine
 from runtime.api.domain.machine_qa_session_seed import seed_qa_session
+from runtime.api.domain.machine_qa_test_support import FakeHostControl
+from runtime.api.domain.machine_operation_test_support import (
+    MACHINE as CONFIGURED_MACHINE,
+)
+from runtime.api.domain.machine_screenshot_test_support import screenshot_result
 from runtime.api.domain.qa_host_turns_test_support import (
     MACHINE,
     _execution_wait,
@@ -25,8 +32,22 @@ from yoke_contracts.api.function_call import (
 from yoke_core.domain import machine_qa_execution_protocol as protocol
 from yoke_core.domain import machine_qa_operation_lease as operations
 from yoke_core.domain import qa_plan_abort_reset
-from yoke_core.domain.coordination_claims import acquire, active_claim, get_claim, release
+from yoke_core.domain.coordination_claims import (
+    acquire,
+    active_claim,
+    get_claim,
+    release,
+)
 from yoke_core.domain.handlers.machine_qa_execution_abort import _release
+from yoke_core.domain.handlers.machine_qa_operation import (
+    handle_operation_begin,
+    handle_operation_submit,
+)
+from yoke_core.domain.host_control_runner import (
+    clear_host_control_factory,
+    register_host_control_factory,
+)
+from yoke_core.domain.machine_qa_local_execution import execute_host_operation_contract
 from yoke_core.domain.qa_host_holdover import DIRECT_OPERATION_REASON, HOLDOVER_REASON
 from yoke_core.domain.qa_host_turns import HOST_TURN_REASON
 from yoke_core.domain.work_claim_targets import make_qa_admission_target
@@ -71,17 +92,18 @@ def _waits(conn, session_id):
     ]
 
 
-def _reserved_plan_turn(conn, monkeypatch):
+def _reserved_plan_turn(conn, monkeypatch, *, machine=MACHINE):
     """Holder's plan execution is reserved the host; another plan waits behind."""
     seed_qa_session(conn, "owner", "holder", "behind")
     _notices(monkeypatch)
-    first = acquire(conn, TARGET, "owner")
-    execution = _execution_wait(conn, "holder")
+    target = make_qa_admission_target(machine)
+    first = acquire(conn, target, "owner")
+    execution = _execution_wait(conn, "holder", machine)
     release(conn, first.id, "complete")
-    turn = active_claim(conn, TARGET)
+    turn = active_claim(conn, target)
     assert turn.session_id == "holder"
     assert turn.reason.startswith(HOST_TURN_REASON)
-    behind = _execution_wait(conn, "behind")
+    behind = _execution_wait(conn, "behind", machine)
     return turn, execution, behind
 
 
@@ -175,3 +197,111 @@ def test_reset_on_a_holdover_still_consumes_and_releases_it(
 
     assert released is True
     assert not get_claim(test_db, holdover.id).is_active
+
+
+def _operation_request(function, payload):
+    return FunctionCallRequest(
+        function=f"test_machine.operation.{function}",
+        actor=HOLDER,
+        target=TargetRef(kind="global"),
+        payload={"project": "yoke", **payload},
+    )
+
+
+@pytest.mark.parametrize(
+    ("operation", "table"),
+    [
+        ("reset", "test_machine_operation_receipts"),
+        ("verify", "test_machine_verifications"),
+        ("screenshot", "test_machine_operation_receipts"),
+    ],
+)
+def test_changed_result_replaces_receipt_on_reserved_plan_turn(
+    test_db, tmp_path, monkeypatch, operation, table
+):
+    configure_test_machine(test_db, tmp_path, monkeypatch)
+    turn, execution, behind = _reserved_plan_turn(
+        test_db, monkeypatch, machine=CONFIGURED_MACHINE
+    )
+
+    def begin():
+        begun = handle_operation_begin(
+            _operation_request(
+                "begin", {"test_machine": CONFIGURED_MACHINE, "operation": operation}
+            )
+        )
+        assert begun.primary_success, begun.error
+        contract = begun.result_payload["execution"]
+        assert contract["lease_id"] == turn.id
+        return contract
+
+    def submit(payload):
+        result = handle_operation_submit(_operation_request("submit", payload))
+        assert result.primary_success, result.error
+        _assert_turn_kept(test_db, turn, execution, behind)
+        return result.result_payload
+
+    uploads = []
+
+    def store(conn, *, filename, **kwargs):
+        uploads.append(filename)
+        return {
+            "backend": "local",
+            "path": str(tmp_path / filename),
+            "content_type": "image/png",
+        }
+
+    monkeypatch.setattr(
+        "yoke_core.domain.machine_qa_screenshot_artifact.store_owned_artifact_bytes",
+        store,
+    )
+
+    def rows():
+        result = test_db.execute(
+            f"SELECT xmin, * FROM {table} WHERE test_machine_id="
+            "(SELECT id FROM test_machines WHERE name=%s)",
+            (CONFIGURED_MACHINE,),
+        ).fetchall()
+        return [dict(row) for row in result]
+
+    first = begin()
+    failed_check = {
+        "reset": first["baselines"],
+        "verify": first["checks"],
+        "screenshot": ["screenshot"],
+    }[operation][0]
+    failed = submit(
+        {
+            "operation": operation,
+            "lease_id": turn.id,
+            "contract_digest": first["contract_digest"],
+            "status": "error",
+            "error_code": "host_operation_failed",
+            "checks": [{"name": failed_check, "ok": False}],
+        }
+    )
+    assert failed["status"] == "error"
+    [failed_row] = rows()
+    assert failed_row["status"] == "error"
+
+    second = begin()
+    assert second["contract_digest"] == first["contract_digest"]
+    control = FakeHostControl()
+    control.capture_screenshot = screenshot_result
+    register_host_control_factory(lambda _: control)
+    try:
+        payload = execute_host_operation_contract(second).payload
+    finally:
+        clear_host_control_factory()
+    accepted = submit(payload)
+    assert accepted["status"] == "verified"
+    [accepted_row] = rows()
+    assert accepted_row["status"] == "verified"
+    assert submit(payload) == accepted
+    assert rows() == [accepted_row]
+    if operation == "verify":
+        assert not json.loads(accepted_row["receipt_json"]).get(
+            "host_control_submission_history"
+        )
+    if operation == "screenshot":
+        assert uploads == [f"desktop-{accepted['checks'][0]['sha256']}.png"]

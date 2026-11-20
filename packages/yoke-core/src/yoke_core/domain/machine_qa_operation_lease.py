@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from yoke_contracts.qa_case_starting_state import needs_test_machine
 
-from copy import deepcopy
 from typing import Any
 
 from yoke_core.domain.coordination_claims import (
@@ -161,7 +160,7 @@ def begin_operation_execution(
             "machine case must begin before it refreshes that host's golden. "
             "Rerun the QA plan"
         )
-    if mission is None and _holds_plan_turn(conn, lease, actor):
+    if mission is None and holds_plan_turn(conn, lease, actor):
         # Consuming the reservation would release the plan's turn on submit.
         lease, candidate = _validate_lease_owner(
             conn,
@@ -204,9 +203,9 @@ def begin_operation_execution(
     return contract
 
 
-def _holds_plan_turn(conn: Any, lease: Any, actor: Any) -> bool:
+def holds_plan_turn(conn: Any, lease: Any, actor: Any) -> bool:
     """Whether *lease* is the caller's unconsumed reserved turn for a plan."""
-    if lease is None or lease.session_id != actor.session_id:
+    if lease is None or not lease.is_active or lease.session_id != actor.session_id:
         return False
     if not (lease.reason or "").startswith(HOST_TURN_REASON):
         return False
@@ -233,33 +232,39 @@ def finish_operation_execution(
     return False
 
 
-def repeated_mission_receipt(parsed: Any, recorded: Any, mission: Any) -> Any:
-    """Identical retries adopt evidence; a later walk operation replaces it."""
-    if mission is None or recorded is None:
-        return recorded
-    from yoke_core.domain.qa_plan_execution_abort_state import abort_request
-    from yoke_contracts.timestamps import parse_instant
-
-    request = abort_request(mission)
-    if (
-        request
-        and request.get("requested_at")
-        and (
-            parse_instant(recorded["performed_at"])
-            <= parse_instant(request["requested_at"])
-        )
-    ):
+def operation_replay_receipt(
+    parsed: Any, recorded: Any, *, mission: Any, borrowed_turn: bool
+) -> Any:
+    """Replay matching results and allow new evidence on a retained plan lease."""
+    if recorded is None:
         return None
-    checks = deepcopy(parsed.checks)
+    if mission is not None:
+        from yoke_core.domain.qa_plan_execution_abort_state import abort_request
+        from yoke_contracts.timestamps import parse_instant
+
+        request = abort_request(mission)
+        if (
+            request
+            and request.get("requested_at")
+            and (
+                parse_instant(recorded["performed_at"])
+                <= parse_instant(request["requested_at"])
+            )
+        ):
+            return None
+    checks = parsed.checks
     if parsed.operation == "screenshot":
         from yoke_core.domain.machine_qa_screenshot_artifact import (
-            replay_screenshot,
+            replay_screenshot_checks,
         )
 
-        replay_screenshot(parsed, recorded)
-    matches = all(
-        recorded[key] == getattr(parsed, key)
-        for key in ("status", "checks", "error_code")
-    )
-    parsed.checks = checks
-    return recorded if matches else None
+        checks = replay_screenshot_checks(checks, recorded["checks"])
+    if (
+        recorded["status"] == parsed.status
+        and recorded["checks"] == checks
+        and recorded["error_code"] == parsed.error_code
+    ):
+        return recorded
+    if mission is not None or borrowed_turn:
+        return None
+    raise ValueError("replayed result differs from the recorded receipt")

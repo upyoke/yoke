@@ -51,7 +51,17 @@ def record_test_machine_verification(
         if isinstance(entry, Mapping)
     ]
     previous_identity = previous_receipt.get(HOST_CONTROL_SUBMISSION_RECEIPT_KEY)
-    if previous is not None and isinstance(previous_identity, Mapping):
+    identity = (
+        host_control_submission_receipt(lease_id, contract_digest)
+        if lease_id is not None
+        else None
+    )
+    # A retry on a borrowed turn replaces the receipt for the same identity.
+    if (
+        previous is not None
+        and isinstance(previous_identity, Mapping)
+        and previous_identity != identity
+    ):
         history.append(
             {
                 HOST_CONTROL_SUBMISSION_RECEIPT_KEY: dict(previous_identity),
