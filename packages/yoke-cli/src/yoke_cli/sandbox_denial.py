@@ -15,6 +15,7 @@ than assumed, so the recovery named is the one that applies.
 from __future__ import annotations
 
 import sys
+from contextvars import ContextVar
 from typing import Any, Callable, List, Optional, Sequence
 
 # Substrings an OS-level refusal carries once it surfaces as a connection or
@@ -26,6 +27,25 @@ DENIAL_MARKERS = (
     "access is denied",
     "forbidden by its access permissions",
 )
+
+
+_client_recovery: ContextVar[Callable[[], str | None] | None] = ContextVar(
+    "client_sandbox_recovery", default=None
+)
+
+
+def sandbox_recovery() -> str | None:
+    """Return a machine-local hint only for a command running on its client."""
+    provider = _client_recovery.get()
+    return provider() if provider is not None else None
+
+
+def _local_recovery() -> str | None:
+    # Import only for a real denial. Hook evaluation uses this wrapper on
+    # every tool call and must not pay to load the posture reader up front.
+    from yoke_harness.harness_sandbox_recovery import sandbox_recovery
+
+    return sandbox_recovery()
 
 
 def _operation(argv: Sequence[str]) -> str:
@@ -50,11 +70,7 @@ def diagnose(exc: BaseException, argv: Sequence[str]) -> Optional[str]:
                 return None
         if cause is not exc:
             detail = f"{detail}: {cause}"
-        # Loaded only for a real denial: the hook entrypoint runs through
-        # this wrapper on every tool call and must not pay for it.
-        from yoke_harness.harness_sandbox_recovery import sandbox_recovery
-
-        recovery = sandbox_recovery()
+        recovery = _local_recovery()
         if not recovery:
             return None
         return f"yoke: {_operation(argv)} was refused: {detail.strip()}\n{recovery}"
@@ -68,6 +84,7 @@ def run(
     argv: Sequence[str],
 ) -> Any:
     """Run *adapter*, re-raising anything that is not a harness denial."""
+    token = _client_recovery.set(_local_recovery)
     try:
         return adapter(remaining)
     except Exception as exc:  # noqa: BLE001 — re-raised unless it is a denial
@@ -76,6 +93,8 @@ def run(
             raise
         print(message, file=sys.stderr)
         return 1
+    finally:
+        _client_recovery.reset(token)
 
 
-__all__ = ["DENIAL_MARKERS", "diagnose", "run"]
+__all__ = ["DENIAL_MARKERS", "diagnose", "run", "sandbox_recovery"]

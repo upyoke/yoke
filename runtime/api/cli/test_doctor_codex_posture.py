@@ -112,3 +112,26 @@ def test_local_start_failure_reaches_the_sandbox_diagnosis(codex_turn, monkeypat
     message = capsys.readouterr().err
     assert message.count(denial) == 1
     assert "Full Access" in message
+
+
+def test_https_recovery_reads_posture_only_in_client_command(codex_turn):
+    from yoke_cli.transport.https_relay_outcome import transport_error_response
+    from yoke_contracts.api.function_call import ActorContext, FunctionCallRequest, TargetRef
+
+    codex_turn()
+    request = FunctionCallRequest(
+        function="sessions.identity",
+        request_id=SESSION,
+        actor=ActorContext(session_id=SESSION),
+        target=TargetRef(kind="global"),
+    )
+
+    def refusal(_args):
+        return transport_error_response(
+            request, "https://example.test", "could not connect",
+            error=PermissionError(1, "Operation not permitted"),
+        ).error.recovery_hint
+
+    assert "Full Access" not in refusal([])
+    assert "Full Access" in sandbox_denial.run(refusal, [], ["sessions", "identity"])
+    assert "Full Access" not in refusal([])

@@ -27,6 +27,7 @@ from yoke_cli.transport.https_response_policy import (
     redact_text,
     safe_excerpt,
 )
+from yoke_cli.sandbox_denial import sandbox_recovery
 from yoke_contracts.https_retry_policy import (
     connection_refusal_is_conclusive,
     is_sandbox_denial,
@@ -167,8 +168,6 @@ def transport_error_response(
     if certificate is not None:
         hint = certificate[1]
     elif is_sandbox_denial(error):
-        from yoke_harness.harness_sandbox_recovery import sandbox_recovery
-
         recovery = sandbox_recovery()
         hint = (
             f"{_SANDBOX_HINT} If the sandbox caused this denial: {recovery}"
