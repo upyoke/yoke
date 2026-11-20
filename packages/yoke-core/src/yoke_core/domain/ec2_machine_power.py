@@ -27,6 +27,10 @@ class Ec2MachinePower:
     def read_command(self):
         return f"yoke aws exec --project {self.project} -- ec2 describe-instances --instance-ids {self.instance_id}"
 
+    @property
+    def stop_command(self) -> str:
+        return f"yoke aws exec --project {self.project} -- ec2 stop-instances --instance-ids {self.instance_id}"
+
     def start(self):
         return ensure_instance_running(
             self.runner, self.instance_id, self.env, self.emit

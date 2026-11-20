@@ -247,11 +247,17 @@ def power_on(
 
 
 class CloudMachinePower(Protocol):
-    """Start a leased VM and describe how to inspect its state."""
+    """Manage a leased VM and provide commands for operator recovery."""
 
-    read_command: str
+    @property
+    def read_command(self) -> str: ...
+
+    @property
+    def stop_command(self) -> str: ...
 
     def start(self) -> str: ...
+
+    def stop(self) -> None: ...
 
 
 @contextmanager

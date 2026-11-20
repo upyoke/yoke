@@ -155,6 +155,11 @@ FUNCTION_ARGUMENT_MINIMUM_SERVING_VERSIONS: dict[str, dict[str, ArgumentFloor]] 
         function_id: {"test_machine": _TEST_MACHINE_FLOOR}
         for function_id in TEST_MACHINE_ARGUMENT_FUNCTIONS
     },
+    "test_machine.lease_acquire": {
+        "purpose": ArgumentFloor(
+            "next-release", "upgrade the serving Yoke release before retrying the idle stop"
+        ),
+    },
     "session_control.launch.preview": {
         "level": ArgumentFloor(
             "next-release", "an exact selection with --surface S [--model M]"
