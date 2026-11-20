@@ -48,9 +48,12 @@ def _configure_clone_flow(monkeypatch):
 async def _to_clone_outcome(app, pilot) -> None:
     await connect_github_app(app, pilot)
     await pick_mode(pilot, onboard_project.PROJECT_MODE_CLONE_REMOTE)
+    await wait_for_view(pilot, "project.clone_visibility", "SelectionList")
     await pilot.press("enter")  # visibility: Public (default) -> paste-URL input
+    await wait_for_view(pilot, "project.clone_url", "Input")
     await type_text(pilot, "git@github.com:acme/widgets.git")  # remote url
     await pilot.press("enter")  # remote -> clone-folder input (default ~/code/widgets)
+    await wait_for_view(pilot, "project.clone_folder", "Input")
     await pilot.press("enter")  # accept default folder -> clone-outcome screen
     await wait_for_view(pilot, "project.clone_outcome", "SelectionList")
 
