@@ -183,10 +183,12 @@ def run(
             return _usage(prepared.error)
         onboard_machine_setup.prepare(machine_config.config_path(parsed.config_path))
         selected_mode = "advanced" if parsed.advanced else "quick"
+        wizard_defaults = onboard_interactive.wizard_defaults(
+            parsed, prepared.env_name, selected_mode, prepared.destination
+        )
+        wizard_defaults.project_public_item_prefix = parsed.project_public_item_prefix
         setup = _agent_setup()(
-            defaults=onboard_interactive.wizard_defaults(
-                parsed, prepared.env_name, selected_mode, prepared.destination
-            ),
+            defaults=wizard_defaults,
             apply_report=onboard_interactive.report_runner(
                 parsed, onboard_apply.apply_with_durable_report, install_health=True
             ),
