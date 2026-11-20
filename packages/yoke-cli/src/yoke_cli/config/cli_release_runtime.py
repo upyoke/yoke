@@ -144,6 +144,10 @@ def _replace(path: Path, content: str, *, executable: bool = False) -> None:
     finally:
         Path(temporary).unlink(missing_ok=True)
 
+def operator_launcher_path(bin_dir: Path) -> Path:
+    return bin_dir / ("yoke.cmd" if WINDOWS else "yoke")
+
+
 def _shims(root: Path, python: Path, bin_dir: Path) -> dict[Path, str]:
     launcher = root / "launcher"
     if WINDOWS and any(mark in f"{python}{launcher}" for mark in '%"'):
@@ -152,7 +156,8 @@ def _shims(root: Path, python: Path, bin_dir: Path) -> dict[Path, str]:
     shims = {bin_dir / "yoke": f'{run} "$@"\n'}
     shims[root / "python"] = f'{run} --python "$@"\n'
     if WINDOWS:
-        shims[bin_dir / "yoke.cmd"] = f'@"{python}" "{launcher}" %*\r\n'
+        # Read exit before Python runs, in case uninstall removes the batch file.
+        shims[operator_launcher_path(bin_dir)] = f'@"{python}" "{launcher}" %* & exit /b\r\n'
     return shims
 
 def _remove_tree(path: Path) -> None:

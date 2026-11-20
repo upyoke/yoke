@@ -123,7 +123,7 @@ def test_windows_layout_uses_scripts_python_and_cmd_shim(tmp_path, monkeypatch):
     python, root = Path("C:/Python/python.exe"), tmp_path / "root"
     shims = runtime._shims(root, python, tmp_path / "bin")
     assert shims[tmp_path / "bin/yoke.cmd"] == (
-        f'@"{python}" "{root / "launcher"}" %*\r\n'
+        f'@"{python}" "{root / "launcher"}" %* & exit /b\r\n'
     )
     # Git Bash runs the extensionless shim; Git runs helpers through sh too.
     assert shims[tmp_path / "bin/yoke"].startswith("#!/bin/sh\nexec ")

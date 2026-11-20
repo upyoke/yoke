@@ -26,7 +26,7 @@ from yoke_contracts.timestamps import iso8601_now
 from yoke_contracts.machine_config import runtime as machine_config
 from yoke_contracts.machine_config.schema_projects import mapped_checkouts
 
-from yoke_cli.config import project_update, self_update
+from yoke_cli.config import cli_release_runtime, project_update, self_update
 from yoke_cli import operating_layer_drift
 from yoke_contracts.shell_path_state import tool_bin_dir
 from yoke_contracts.machine_config.relay_instance import strip_relay_owned_python_state
@@ -53,7 +53,7 @@ def follow_release(
     reports that version as its own.
     """
     target = release.strip()
-    yoke = executable or Path(tool_bin_dir()) / "yoke"
+    yoke = executable or cli_release_runtime.operator_launcher_path(Path(tool_bin_dir()))
     record: dict[str, Any] = {"release": target, "cli": str(yoke), "at": iso8601_now()}
     if not yoke.is_file():
         return _finish(record, state_dir, "no_installed_cli")
