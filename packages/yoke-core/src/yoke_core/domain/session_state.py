@@ -17,6 +17,7 @@ from yoke_contracts.session_queue_posture import (
 )
 from yoke_contracts.timestamps import as_utc, parse_instant, temporal_wire, utc_now
 from yoke_core.domain.next_actor import session_next_actor, reason_sentence
+from yoke_core.domain.session_process_presence import activity_supersedes_process_death
 from yoke_core.domain.session_tool_call_liveness import open_call_predates_park
 from yoke_core.domain.session_reclaim_progress import (
     open_tool_call_is_live,
@@ -25,7 +26,7 @@ from yoke_core.domain.session_reclaim_progress import (
 
 
 def session_presence(row: Mapping[str, Any]) -> str:
-    """End stamps win; only a later tool call supersedes a process death."""
+    """End stamps win; newer native activity supersedes a process death."""
     if row.get("ended_at") or row.get("terminated_at"):
         return "ended"
     gone = (
@@ -33,12 +34,9 @@ def session_presence(row: Mapping[str, Any]) -> str:
         if row.get("native_process_gone_at")
         else None
     )
-    tool = (
-        parse_instant(row["last_tool_call_at"])
-        if row.get("last_tool_call_at")
-        else None
-    )
-    return "gone" if gone is not None and (tool is None or tool <= gone) else "present"
+    if gone is not None and not activity_supersedes_process_death(row, gone):
+        return "gone"
+    return "present"
 
 
 def _open_call_start(row: Mapping[str, Any]) -> datetime | None:

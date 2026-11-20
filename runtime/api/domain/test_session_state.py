@@ -76,6 +76,18 @@ def test_heartbeat_and_episode_cannot_hide_death_but_later_tool_can():
     assert current_native_process_observation(facts, include_expected_exit=True) is None
 
 
+@pytest.mark.parametrize(
+    "posture,offset,expected",
+    [("running", 2, "present"), ("waiting", 2, "gone"), ("running", 0, "gone"),
+     ("running", -1, "gone")],
+)
+def test_presence_counts_only_running_turns_after_death(posture, offset, expected):
+    death = NOW - timedelta(hours=2)
+    facts = row(native_process_gone_at=death, last_tool_call_at=None,
+                turn_posture=posture, turn_posture_at=death + timedelta(hours=offset))
+    assert session_state(facts, now=NOW)["presence"] == expected
+
+
 def test_tool_idle_threshold_is_project_owned_and_ignores_heartbeat():
     facts = row(last_tool_call_at=NOW - timedelta(minutes=10))
     assert session_state(facts, now=NOW)["activity"] == "working"

@@ -119,6 +119,26 @@ def test_returning_waiter_is_served_again_at_its_place(test_db, monkeypatch):
     assert [r[1] for r in _waits(test_db, away)] == ["waiting", "reserved"]
 
 
+def test_a_woken_set_waiter_keeps_its_reservation_before_a_tool_completes(
+    test_db, monkeypatch,
+):
+    _notices(monkeypatch)
+    seed_qa_session(test_db, "holder-a", "waiter")
+    acquire(test_db, _target(A), "holder-a")
+    execution_id = _set_waiter(test_db, "waiter")
+    death = utc_now() - timedelta(hours=2)
+    test_db.execute(
+        "UPDATE harness_sessions SET mode='wait', last_tool_call_at=%s, "
+        "native_process_gone_at=%s, turn_posture='running', turn_posture_at=%s "
+        "WHERE session_id='waiter'",
+        (death, death, utc_now()),
+    )
+    test_db.commit()
+    assert hand_off_idle_waiter_reservations(test_db) == []
+    assert active_claim(test_db, _target(B)).session_id == "waiter"
+    assert [r[1] for r in _waits(test_db, execution_id)] == ["waiting", "reserved"]
+
+
 def test_a_live_parked_set_waiter_keeps_its_reservation(test_db, monkeypatch):
     _notices(monkeypatch)
     seed_qa_session(test_db, "holder-a", "waiter")

@@ -50,6 +50,7 @@ from yoke_core.domain.session_message_types import (
 from yoke_contracts.timestamps import as_utc
 from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.session_mode import session_is_parked
+from yoke_core.domain.session_process_presence import activity_supersedes_process_death
 from yoke_core.domain.session_relay_evidence import merge_redacted_evidence
 from yoke_core.domain.session_relay_storage import marker
 from yoke_core.domain.session_relay_types import SessionRelayError
@@ -288,15 +289,7 @@ def current_native_process_observation(
     observed = parse_timestamp(row.get(NATIVE_PROCESS_GONE_AT_COLUMN))
     if observed is None:
         return None
-    activity = [
-        parsed
-        for field in ("last_tool_call_at",)
-        if (parsed := parse_timestamp(row.get(field))) is not None
-    ]
-    # Equal instants can be the report and the episode that just died;
-    # only strictly later activity, including one microsecond, proves a
-    # replacement process or subsequent tool call.
-    if activity and max(activity) > observed:
+    if activity_supersedes_process_death(row, observed):
         return None
     evidence = _decoded_evidence(row.get(NATIVE_PROCESS_GONE_EVIDENCE_COLUMN))
     declared_wait = (

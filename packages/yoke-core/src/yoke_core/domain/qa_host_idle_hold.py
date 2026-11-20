@@ -9,7 +9,7 @@ its other hosts, until someone released them by hand.
 
 Control-plane upkeep now ends that hold. A held (consumed) ``QA_HOST:<machine>``
 lease whose session is parked, process-exited or ended, and has made no tool
-call and no recorded host operation on that lease for the machine setting
+call, host operation or other activity below for the machine setting
 :data:`IDLE_HOLD_SETTING`, is released through the manual release path
 (``qa_host_manual_release``): the reset the next holder owes is recorded and the
 owning walk is aborted with a reason naming the ``yoke qa plan run`` that starts
@@ -18,16 +18,12 @@ on that host returns to ``waiting`` at the execution's own place and its claim i
 released, so each of those hosts serves its line. Each release reserves the host
 for its line's oldest waiter and wakes that session.
 
-A subagent's tool calls count as the holder's activity: a parent that parks or
-exits while its subagent walks the host is working, so the newest of the
-parent's own call, its subagent's call (``last_child_tool_call_at``,
-``session_child_activity``) and the lease's host operations sets the idle clock,
-and child activity inside the limit keeps the holder from reading as away.
-
-Claim heartbeats never measure idleness here: watcher pulses refresh them while
-a parked session does nothing on the host. An away set-waiter's own unconsumed
-reservations go to the next waiter instead (``qa_host_idle_waiters``);
-hold-overs keep their own expiry (``qa_host_holdover``).
+The idle clock includes the holder's and its subagent's tool calls, operations
+on the lease, and the holding QA execution's custody-checked heartbeat.
+Recent subagent activity or an execution heartbeat keeps the holder from
+reading as away. Watcher-refreshed claim heartbeats do not measure idleness.
+Away set-waiters return reservations separately (``qa_host_idle_waiters``).
+Hold-overs keep their own expiry (``qa_host_holdover``).
 """
 
 from __future__ import annotations
@@ -116,8 +112,18 @@ def held_qa_hosts_csv(value: Any) -> list[str]:
     return sorted(part for part in str(value or "").split(",") if part)
 
 
+def _live_executions_holding_lease(lease_id: str, reason: str, prefix: str) -> str:
+    from yoke_core.domain.qa_plan_execution_schema import LIVE_PLAN_EXECUTION_SQL
+
+    return (
+        f"state IN ({LIVE_PLAN_EXECUTION_SQL}) AND "
+        f"(test_machine_lease_id={lease_id} OR {reason}={prefix} || CAST(id AS TEXT))"
+    )
+
+
 def held_rows(conn: Any) -> list[dict[str, Any]]:
-    """Every consumed host lease with its holder's activity facts."""
+    """Every consumed lease and its activity in a universe with host waits."""
+    from yoke_core.domain.qa_plan_host_leases import HOST_SET_REASON
     from yoke_core.domain.schema_work_claim_sql import scope_text_sql
 
     machine = scope_text_sql(conn, "wc.scope", "test_machine")
@@ -127,16 +133,21 @@ def held_rows(conn: Any) -> list[dict[str, Any]]:
         if _table_exists(conn, "test_machine_operation_receipts")
         else "NULL"
     )
+    # The host wait schema already references qa_plan_executions.
+    holding = _live_executions_holding_lease("wc.id", "wc.reason", _p(conn))
+    execution_heartbeat = f"(SELECT MAX(heartbeat_at) FROM qa_plan_executions WHERE {holding})"
     return query_rows(
         conn,
         f"SELECT wc.id, wc.session_id, wc.claimed_at, {machine} AS test_machine, "
         "hs.session_id AS live_row, "
         "hs.mode, hs.last_tool_call_at, hs.native_process_gone_at, hs.ended_at, "
         f"hs.terminated_at, {child_activity_sql(conn, 'hs')} AS last_child_tool_call_at, "
-        f"{operation} AS host_operation_at "
+        f"{operation} AS host_operation_at, {execution_heartbeat} AS execution_heartbeat_at, "
+        "hs.turn_posture, hs.turn_posture_at "
         "FROM work_claims wc "
         "LEFT JOIN harness_sessions hs ON hs.session_id=wc.session_id "
         f"WHERE {_HELD} ORDER BY wc.id",
+        (HOST_SET_REASON,),
     )
 
 
@@ -152,17 +163,17 @@ def child_activity_sql(conn: Any, alias: str) -> str:
 def holder_away(row: dict[str, Any], *, now: datetime, limit: timedelta) -> str | None:
     """Why the holder cannot use its host now: parked, exited, or ended.
 
-    A holder whose subagent made a tool call within *limit* of *now* is
-    working, whatever its own posture, so it is not away.
+    Recent subagent activity or a live execution heartbeat establishes work.
     """
     from yoke_core.domain.session_mode import session_is_parked
     from yoke_core.domain.session_state import session_presence
 
     if row.get("live_row") is None:
         return "ended"
-    child = row.get("last_child_tool_call_at")
-    if child is not None and now - parse_instant(child) < limit:
-        return None
+    for field in ("last_child_tool_call_at", "execution_heartbeat_at"):
+        stamp = row.get(field)
+        if stamp is not None and now - parse_instant(stamp) < limit:
+            return None
     presence = session_presence(row)
     if presence != "present":
         return "exited" if presence == "gone" else "ended"
@@ -170,12 +181,12 @@ def holder_away(row: dict[str, Any], *, now: datetime, limit: timedelta) -> str 
 
 
 def idle_since(row: dict[str, Any]) -> datetime:
-    """The holder's or its subagent's last tool call, or a host operation on this lease."""
+    """Latest activity on the lease or by its holder, starting at acquisition."""
     stamps = (
         row.get(k)
         for k in (
             "claimed_at", "last_tool_call_at", "last_child_tool_call_at",
-            "host_operation_at",
+            "host_operation_at", "execution_heartbeat_at",
         )
     )
     return max(parse_instant(stamp) for stamp in stamps if stamp is not None)
@@ -228,25 +239,22 @@ def return_waiting_set_reservations(conn: Any, test_machine: str) -> list[int]:
 
 def _release_reason(conn: Any, claim: Any, row: dict, away: str, limit: timedelta) -> str:
     from yoke_core.domain.qa_host_turn_release import rerun_command
-    from yoke_core.domain.qa_plan_execution_schema import LIVE_PLAN_EXECUTION_SQL
     from yoke_core.domain.qa_plan_host_leases import HOST_SET_REASON
 
     reason = (
         f"{IDLE_HOLD_RELEASED_REASON}: QA host {claim.target.test_machine} lease "
         f"{claim.id} was held by {away} session {claim.session_id} with no tool "
-        f"call, subagent call or host operation since "
+        f"call, subagent call, host operation or execution heartbeat since "
         f"{format_instant(idle_since(row))}, past "
         f"the {int(limit.total_seconds() // 60)}-minute {IDLE_HOLD_SETTING} "
         "limit; the reset the next holder owes is recorded"
     )
-    companion = str(claim.reason or "")
-    companion = companion[len(HOST_SET_REASON):] if companion.startswith(HOST_SET_REASON) else ""
+    p = _p(conn)
+    holding = _live_executions_holding_lease(p, p, p)
     executions = query_rows(
         conn,
-        f"SELECT * FROM qa_plan_executions WHERE state IN ({LIVE_PLAN_EXECUTION_SQL}) "
-        f"AND (test_machine_lease_id={_p(conn)} OR CAST(id AS TEXT)={_p(conn)}) "
-        "ORDER BY id LIMIT 1",
-        (claim.id, companion),
+        f"SELECT * FROM qa_plan_executions WHERE {holding} ORDER BY id LIMIT 1",
+        (claim.id, claim.reason or "", HOST_SET_REASON),
     )
     if executions:
         reason += f"; start the walk again with `{rerun_command(conn, executions[0])}`"

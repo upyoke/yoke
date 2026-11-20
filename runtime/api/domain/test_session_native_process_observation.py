@@ -1,13 +1,9 @@
 # ruff: noqa: F811
 """What accounts for a dead process, and what still reads as one.
 
-A machine keeps its record of a dead native until the control plane ends the
-session, so a session held open by its claims is reported again on every
-poll. These cases pin the two things that must not follow from a repeat: one
-old exit reading as a fresh death, and a session that has demonstrably
-resumed still reading as gone. They also pin the one shape a declared wait
-may account for -- a native that exited normally -- and the two it may not, a
-crash and an exit nobody measured.
+A machine can report the same old exit after a session has resumed.
+A declared wait accounts for a normal exit. Crashes and unmeasured exits
+remain visible until newer native activity supersedes them.
 """
 
 from __future__ import annotations
@@ -234,15 +230,19 @@ def test_a_later_process_dying_is_stamped_when_it_was_seen(conn):
     assert observation["observed_at"] == POLLED_AGAIN_TEXT
 
 
-def test_activity_at_the_moment_of_the_death_does_not_supersede_it():
-    """Equal instants tie; only strictly later activity is proof."""
-    assert current_native_process_observation(
-        _row(last_tool_call_at=FIRST_SEEN_TEXT)
-    ) == {
-        "state": "gone",
-        "observed_at": FIRST_SEEN_TEXT,
-        "evidence": DEAD_PROCESS,
-    }
+@pytest.mark.parametrize("posture,stamp,gone", [
+    (None, None, True), ("running", RESUMED_AT, False), ("waiting", RESUMED_AT, True),
+    ("running", FIRST_SEEN_TEXT, True), ("running", BEFORE_THE_DEATH, True),
+])
+def test_only_activity_strictly_after_death_supersedes_it(posture, stamp, gone):
+    observation = current_native_process_observation(
+        _row(last_tool_call_at=FIRST_SEEN_TEXT if posture is None else None,
+             turn_posture=posture, turn_posture_at=stamp)
+    )
+    assert observation == (
+        {"state": "gone", "observed_at": FIRST_SEEN_TEXT, "evidence": DEAD_PROCESS}
+        if gone else None
+    )
 
 
 def test_a_normal_exit_under_a_parked_session_reads_as_the_wait():

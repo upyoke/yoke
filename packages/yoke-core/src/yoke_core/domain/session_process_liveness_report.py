@@ -83,7 +83,7 @@ PROCESS_VERIFIED_DEAD_REASON = "process_verified_dead"
 _SESSION_COLUMNS = (
     "session_id, project_id, org_id, actor_id, machine_id, executor, mode, last_heartbeat, "
     "last_tool_call_at, episode_started_at, ended_at, terminated_at, "
-    "native_process_gone_at, native_process_gone_evidence"
+    "native_process_gone_at, native_process_gone_evidence, turn_posture, turn_posture_at"
 )
 
 

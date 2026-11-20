@@ -52,6 +52,41 @@ def _snapshot(*rows: SessionRow, at: datetime = NOW, **overrides) -> FleetSnapsh
     )
 
 
+def test_test_machine_report_clears_the_exit_alarm_when_its_holder_resumes(
+    test_db, tmp_path, monkeypatch,
+):
+    from runtime.api.domain.machine_qa_host_test_support import (
+        TEST_MACHINE_SETTINGS,
+        configure_test_machine,
+    )
+    from runtime.api.domain.machine_qa_session_seed import seed_qa_session
+    from yoke_contracts.timestamps import utc_now
+    from yoke_core.domain.coordination_claims import acquire
+    from yoke_core.domain.steering_fleet_report_test_machines import (
+        read_reset_debts,
+        reset_debt_lines,
+    )
+    from yoke_core.domain.work_claim_targets import make_qa_admission_target
+
+    configure_test_machine(test_db, tmp_path, monkeypatch)
+    seed_qa_session(test_db, "resumed")
+    now = utc_now()
+    death = now - timedelta(hours=2)
+    target = make_qa_admission_target(TEST_MACHINE_SETTINGS["resource_name"])
+    acquire(test_db, target, "resumed", now=death)
+    test_db.execute(
+        "UPDATE harness_sessions SET mode='wait', last_tool_call_at=%s, "
+        "native_process_gone_at=%s WHERE session_id='resumed'", (death, death),
+    )
+    [line] = reset_debt_lines(read_reset_debts(test_db, 1))
+    assert "ALARM held by exited session" in line
+    test_db.execute(
+        "UPDATE harness_sessions SET turn_posture='running', turn_posture_at=%s "
+        "WHERE session_id='resumed'", (now,),
+    )
+    assert reset_debt_lines(read_reset_debts(test_db, 1)) == []
+
+
 def test_idle_holder_fires_past_threshold_and_holds_inside_the_cadence() -> None:
     state = DeltaState()
     first = idle_holder_alarms(_snapshot(_session("a")), state)
