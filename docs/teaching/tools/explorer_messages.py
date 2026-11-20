@@ -266,7 +266,7 @@ def add_replies(add):
                                fields.get('message') or 'Message contains values supplied at runtime.',
                                path, row, 'reply', 'Error code')
     path = REPO / 'packages/yoke-cli/src/yoke_cli/config/setup_agent_response.py'
-    node = add('setup-replies', 'question · browser · done · failed · refused',
+    node = add('setup-replies', 'question · browser · done · finished_with_problems · failed · refused',
                'branch:shared-setup', 'Agent setup returns one of these states in each JSON reply.')
     node.update(document='../../../' + path.relative_to(REPO).as_posix(), source_only=True,
                 form=('reply', 'Setup reply states', 'yoke setup --agent'))

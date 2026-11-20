@@ -3,8 +3,8 @@
 The first harness session on a machine must not pay the evaluator's cold
 start inside its hook timeout, so every setup restarts the resident and
 proves it answers a dry evaluation before any session opens. A failure is
-reported on the Apply summary with its recovery rather than failing the
-apply: the rest of the machine is set up either way.
+reported with its recovery on the Apply summary and in agent setup's
+readiness outcome. The other setup changes remain applied.
 """
 
 from __future__ import annotations

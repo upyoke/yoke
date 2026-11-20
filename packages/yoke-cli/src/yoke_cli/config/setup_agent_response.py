@@ -2,7 +2,8 @@
 
 stdout carries exactly these lines, one object each; human progress and
 designed-wait notices go to stderr. ``state`` is ``question``, ``browser``,
-``done``, ``failed`` or ``refused``; the exit status follows the last line.
+``done``, ``finished_with_problems``, ``failed`` or ``refused``; the exit
+status follows the last line.
 """
 
 from __future__ import annotations
@@ -22,12 +23,14 @@ VERSION = 1
 STATE_QUESTION = "question"
 STATE_BROWSER = "browser"
 STATE_DONE = "done"
+STATE_FINISHED_WITH_PROBLEMS = "finished_with_problems"
 STATE_FAILED = "failed"
 STATE_REFUSED = "refused"
 EXIT_CODES = {
     STATE_QUESTION: 0,
     STATE_BROWSER: 0,
     STATE_DONE: 0,
+    STATE_FINISHED_WITH_PROBLEMS: 1,
     STATE_FAILED: 1,
     STATE_REFUSED: 2,
 }
@@ -222,6 +225,7 @@ __all__ = [
     "STATE_BROWSER",
     "STATE_DONE",
     "STATE_FAILED",
+    "STATE_FINISHED_WITH_PROBLEMS",
     "STATE_QUESTION",
     "STATE_REFUSED",
     "answer_command",

@@ -298,7 +298,7 @@ class AgentSetup(AgentShell, *SETUP_FLOWS):
 
     def _finish_done(self) -> None:
         answers.discard()
-        self._final = responses.response(responses.STATE_DONE, **self._done_fields())
+        self._final = self._apply_completion()
 
     def _finish_stopped(self) -> None:
         if not self._exited:

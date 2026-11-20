@@ -32,8 +32,9 @@ person and answers it with a command.
    that is theirs to make.
 4. Run the line's `answer_command` with the chosen value, for example
    `yoke setup --agent --answer project.mode=machine-only`.
-5. Repeat until `state` is `done`, then show the person `detail`,
-   `install_health` in full and the `next` steps in order.
+5. Repeat until setup gives its final result. Show the person `detail` and
+   `install_health` in full. For `finished_with_problems`, show the failed
+   checks and their recovery before giving the `next` steps in order.
 
 Setup first asks `project.mode` (where the code lives), before sign-in and
 GitHub connection, and saves that answer. The chosen create, existing-folder
@@ -133,7 +134,11 @@ and names the saved waiting `key`. Rerun without changed flags to see that
 question. `--yes` answers the review question with `apply`, and
 `--machine-github disabled` or `connect` answers `github.machine`.
 
-Answering `review.confirm` with `apply` writes the setup and returns `done`.
+Answering `review.confirm` with `apply` writes the setup. A ready installation
+returns `done`. If install readiness fails or the hook evaluator fails to
+start, setup leaves the changes applied and returns `finished_with_problems`.
+Follow `recovery` and the failed checks' next steps before proceeding. For
+an evaluator start failure, `hook_evaluator` gives the cause and recovery.
 A failed Apply returns `state` `failed` with `reason` `setup_apply_failed`, the
 run report path and the failure question; show the person the cause, then
 answer it (`resume`, when offered, continues the same run). Answering a cancel
@@ -143,8 +148,8 @@ choice returns `done` with `"cancelled": true` and deletes the saved answers.
 ## Exit codes, refusals and failures
 
 Exit 0 means the last line is `question`, `browser` or `done`; 1 means
-`failed`; 2 means `refused`. Every refusal and failure carries `reason` and
-`recovery`. A refusal saves no answer. Answer refusals repeat the question
+`failed` or `finished_with_problems`; 2 means `refused`. Every refusal and
+failure carries `reason` and `recovery`. A refusal saves no answer. Answer refusals repeat the question
 setup waits at now, which can be an earlier one when machine state changed,
 and that question's printed `answer_command` is the next answer accepted.
 If setup already requested a browser approval before a later answer refusal,
@@ -163,6 +168,7 @@ collect it.
 | `setup_tui_requires_terminal` | run in a terminal, or use `--agent` |
 | `setup_step_failed` (failed) | fix the named cause, then run `yoke setup --agent` |
 | `setup_apply_failed` (failed) | answer the failure question shown with it |
+| `setup_readiness_failed` (finished with problems) | follow the failed checks’ recovery before proceeding |
 
 ## Optional issue mirroring
 

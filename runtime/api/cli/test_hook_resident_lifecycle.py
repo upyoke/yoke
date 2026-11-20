@@ -232,6 +232,36 @@ def test_nonzero_health_refuses_readiness(monkeypatch, tmp_path):
 
 
 @pytest.mark.windows
+@pytest.mark.parametrize(
+    "error", [FileNotFoundError(), BrokenPipeError(), OSError("pipe busy"), EOFError()]
+)
+def test_restart_retries_a_pipe_that_is_not_ready(monkeypatch, tmp_path, error):
+    monkeypatch.setattr(client.machine_config, "cache_dir", lambda: tmp_path)
+    monkeypatch.setattr(lifecycle, "stop_resident", Mock())
+    monkeypatch.setattr(client, "_start_resident", Mock())
+    monkeypatch.setattr(client, "uses_named_pipe", lambda: True)
+    clock = Mock(side_effect=[0, 0, 59.9, 59.95])
+    monkeypatch.setattr(lifecycle.time, "monotonic", clock)
+    monkeypatch.setattr(lifecycle.time, "sleep", Mock())
+    peer = Mock()
+    attempt = Mock(side_effect=[error, peer])
+    monkeypatch.setattr(client, "connect_pipe", attempt)
+    monkeypatch.setattr(
+        client,
+        "_exchange",
+        Mock(return_value={"status": "ok", "stdout": "", "stderr": "", "exit_code": 0}),
+    )
+
+    lifecycle._restart_locked(client.resident_paths())
+
+    assert [call.args[1] for call in attempt.call_args_list] == [
+        lifecycle._START_SECONDS,
+        lifecycle._START_SECONDS,
+    ]
+    peer.close.assert_called_once()
+
+
+@pytest.mark.windows
 def test_start_timeout_names_log_and_recovery(monkeypatch, tmp_path):
     monkeypatch.setattr(client.machine_config, "cache_dir", lambda: tmp_path)
     monkeypatch.setattr(lifecycle, "stop_resident", lambda paths, **_: None)
