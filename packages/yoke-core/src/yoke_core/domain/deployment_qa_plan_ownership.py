@@ -35,11 +35,8 @@ def plan_owners(conn: Any, run_id: str) -> dict[int, int | None]:
     A sole attacher a closed group in the run's lineage already answered keeps
     that group's credit, so the plan stays with the driver and owes it nothing.
     """
-    from yoke_core.domain.deployment_qa_plan_groups import (
-        attached_plans,
-        lineage_coverage,
-        run_groups,
-    )
+    from yoke_core.domain.deployment_qa_plan_group_coverage import lineage_coverage
+    from yoke_core.domain.deployment_qa_plan_groups import attached_plans, run_groups
     from yoke_core.domain.deployment_qa_presentation_reads import presentation_read
 
     def read():
