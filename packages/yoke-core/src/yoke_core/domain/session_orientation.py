@@ -155,6 +155,7 @@ def render_orientation(payload: dict[str, Any], root: Path) -> str:
             session_id, root, required_lines=payload.get(REQUIRED_LINES_KEY, [])
         )
     lines: list[str] = _advisory_lines(root)
+    advisory_bytes = len("\n".join(lines).encode()) + 1 if lines else 0
     lines.extend(
         [
             ORIENTATION_HEADING,
@@ -177,7 +178,9 @@ def render_orientation(payload: dict[str, Any], root: Path) -> str:
     # Queue branches and commit subjects are unbounded. Drop optional Git
     # context before it can crowd the authority/trust instructions out of
     # the smallest harness channel; the checkout identity remains intact.
-    budget = min(1200, min(INLINE_CONTEXT_BYTES.values()))
+    # Machine advisories ride on top of the 1200-byte compact budget, so a
+    # Windows interpreter note never costs a real root its Git lines.
+    budget = min(1200 + advisory_bytes, min(INLINE_CONTEXT_BYTES.values()))
     from yoke_core.domain.session_orientation_setup import render_with_setup
 
     return render_with_setup(

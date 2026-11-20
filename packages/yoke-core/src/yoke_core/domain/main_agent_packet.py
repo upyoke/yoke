@@ -47,16 +47,12 @@ MESSAGE_TRUST_LINE = (
 MAIN_SESSION_FLOW = "\n".join(
     (
         "Main-session flow (corral the user into it):",
-        "- Help the user define strategy docs: CURRENT-PLAN, plus one per "
-        "major separate initiative.",
-        "- Define enough to staff the first wave; take steering seats "
-        "(`/yoke steer`).",
-        "- Vet, file and staff the work; orchestrate QA and delivery.",
-        "- Handle live in-flight coordination and questions.",
-        "- Keep strategy docs updated and cold-start ready; keep defining and "
-        "filing the next dashes.",
-        "- When necessary, file decision requests and ask the user.",
-        "- Continue steering until the full scope is done.",
+        "- Define strategy docs with the user: CURRENT-PLAN plus one per major "
+        "initiative.",
+        "- Staff the first wave; take steering seats (`/yoke steer`).",
+        "- Vet, file and staff work; orchestrate QA, delivery and live questions.",
+        "- Keep strategy docs cold-start ready; keep filing the next dashes.",
+        "- File decision requests for the user; steer until the scope is done.",
     )
 )
 
