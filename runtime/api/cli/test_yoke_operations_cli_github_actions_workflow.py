@@ -291,3 +291,54 @@ def test_jobs_count_relays_attempt_and_prints_count() -> None:
         "attempt": 3,
         "project": "platform",
     }
+
+
+@pytest.mark.parametrize("revision", ["HEAD", "short", "unknown"])
+def test_dispatch_resolves_sha_before_post(monkeypatch, tmp_path, revision):
+    import subprocess
+
+    monkeypatch.chdir(tmp_path)
+    subprocess.run(["git", "init", "-q"], check=True)
+    subprocess.run(
+        ["git", "-c", "user.email=test@example.com", "-c", "user.name=Tester",
+         "commit", "--allow-empty", "-qm", "candidate"],
+        check=True,
+    )
+    commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+    requested = commit[:10] if revision == "short" else revision
+    rc, out, err = _run(
+        "github-actions", "workflow", "dispatch", "owner/repo", "yoke-suite.yml",
+        "--input", f"sha={requested}", "--request-id", "suite-check",
+        "--correlation-input", "yoke_dispatch_id", "--project", "example",
+        result={"run_id": 42},
+    )
+    if revision == "unknown":
+        assert rc == 2
+        assert "fetch the commit" in err
+        assert requested in err
+        assert not _CAPTURED_REQUESTS
+    else:
+        assert rc == 0
+        assert out == "42\n"
+        assert _CAPTURED_REQUESTS[-1].payload["inputs"] == {"sha": commit}
+
+
+def test_dispatch_wait_returns_exact_run_outcome(monkeypatch):
+    from unittest.mock import Mock
+
+    from yoke_cli.commands.adapters import github_actions_run_wait
+
+    wait = Mock(return_value=1)
+    monkeypatch.setattr(github_actions_run_wait, "wait_for_run_completion", wait)
+    rc, _, err = _run(
+        "github-actions", "workflow", "dispatch", "owner/repo", "yoke-suite.yml",
+        "--request-id", "suite-check", "--correlation-input", "yoke_dispatch_id",
+        "--project", "example", "--wait", "600", "--json",
+        result={"run_id": 42},
+    )
+    assert rc == 1
+    assert "run 42" in err
+    wait.assert_called_once_with(
+        {"repo": "owner/repo", "run_id": "42", "project": "example"},
+        session_id=None, json_mode=True, timeout_sec=600,
+    )

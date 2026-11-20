@@ -334,6 +334,7 @@ def report_dict(report: FleetReport) -> dict[str, Any]:
                     row.to_dict() for row in report.settlement_followups
                 ],
                 "failed_prunes": [row.to_dict() for row in report.failed_prunes],
+                "suite_runs": [dict(row.__dict__) for row in report.suite_runs],
                 "waiting_chains": [c.to_dict() for c in report.waiting_chains],
             }
         ),

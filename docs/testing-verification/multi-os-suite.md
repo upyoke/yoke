@@ -15,11 +15,21 @@ commit:
 
 ```text
 yoke github-actions workflow dispatch upyoke/yoke yoke-suite.yml --ref main \
-  --input sha=<commit> --request-id <stable id> \
-  --correlation-input yoke_dispatch_id --project yoke
+  --input sha=0123456789abcdef0123456789abcdef01234567 --request-id <stable-id> \
+  --correlation-input yoke_dispatch_id --project yoke --wait 5400
 ```
 
-An empty `sha` tests the dispatched ref. When a lane changes
+Replace the example SHA with the commit you want to test. The CLI expands a
+local commit-ish to its full SHA before sending it. For direct GitHub
+dispatches, the plan resolves an abbreviated SHA from fetched repository
+history. An empty `sha` tests the dispatched ref. The plan writes the full
+tested commit to the GitHub run summary.
+
+`--wait` reports the exact run's conclusion. If the wait times out, use
+`yoke github-actions wait-run upyoke/yoke <run-id> --project yoke` with the
+printed run ID. The steering report checks the last ten recorded suite
+dispatches from the previous day, and lists failed or unreadable runs with
+their run IDs and requested commits. When a lane changes
 `yoke-suite.yml`, dispatch on the published lane branch so Actions also
 uses that branch's workflow definition.
 
