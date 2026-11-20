@@ -27,6 +27,7 @@ windows-cd8f2b78528fc9aa0a01,yoke onboard checklist init,cli,hosted-client,must-
 windows-3bc486fbc2906a4dcb81,yoke project-structure architecture-health get,cli,self-hosted-client,must-pass,,
 windows-937efd48c8a142be6dc1,yoke projects capability-settings get,cli,local,must-pass,,
 windows-794ff4c1c87f7edeaa01,yoke qa artifact read,cli,local,must-pass,,
+windows-01fdca59c1116bc1eec1,yoke qa mission desktop,cli,self-hosted-client,must-pass,,
 windows-f497a22b4bc6ab927441,yoke qa plan cases replace,cli,local,must-pass,,
 windows-78ba39af5c560ef437c1,yoke qa plan retire,cli,self-hosted-client,must-pass,,
 windows-4d9dbac41432cf892501,yoke qa project-default unset,cli,hosted-client,must-pass,,
