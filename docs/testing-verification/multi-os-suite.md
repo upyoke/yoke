@@ -46,8 +46,11 @@ A Linux `plan` job collects the suite once and publishes the same file groups
 container runtime on these runners: `yoke_core.tools.ci_suite_postgres start`
 fetches the product's own pinned Postgres engine, starts the disposable test
 cluster under the runner's temp directory and exports `YOKE_PG_DSN` to later
-steps. Each shard uploads `pytest-output-<os>-<shard>` with its log and JUnit
-report. The plan retains modules skipped before import on its collection OS
+steps. Pytest writes thread tracebacks to the shard log when a test takes
+longer than five minutes. The pytest step has an 18-minute timeout within
+the 30-minute job budget so the upload step can still save
+`pytest-output-<os>-<shard>` with the streamed log and any JUnit report.
+The plan retains modules skipped before import on its collection OS
 so native runners still receive them, with conservative product-wheel fixture
 affinity because their fixture closure cannot be imported on the plan host.
 Coverage manifests name these collection skips explicitly; each test and each

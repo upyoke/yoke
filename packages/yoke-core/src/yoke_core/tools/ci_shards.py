@@ -118,8 +118,7 @@ def pytest_command(group: int, extra: Sequence[str] = ()) -> list[str]:
 def _run_shard(group: int, extra: Sequence[str] = ()) -> int:
     """Run one shard, mirroring output to the uploaded log, and return its code.
 
-    The log is written as the run proceeds rather than after it, so a shard
-    killed mid-run still uploads what it had reached.
+    Flush each line so a step timeout preserves the log up to termination.
     """
     if group < 1 or group > SHARD_COUNT:
         raise SystemExit(f"shard {group} is outside 1..{SHARD_COUNT}")
@@ -149,6 +148,7 @@ def _run_shard(group: int, extra: Sequence[str] = ()) -> int:
             sys.stdout.write(line)
             sys.stdout.flush()
             log.write(line)
+            log.flush()
     return process.wait()
 
 

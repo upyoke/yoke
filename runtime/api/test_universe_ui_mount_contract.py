@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -37,7 +38,7 @@ def _run_javascript_tests(test_modules: list[Path]) -> None:
         cwd=Path(__file__).resolve().parents[2],
         text=True,
         capture_output=True,
-        timeout=30,
+        timeout=120 if sys.platform == "win32" else 30,
         check=False,
     )
     assert completed.returncode == 0, (
