@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from yoke_contracts.github_app_installation_permissions import GITHUB_ACTIONS_READ_PERMISSION_LEVELS
+from yoke_core.domain.steering_report_handler_timing import time_dependency
 from yoke_core.domain import gh_rest_transport, json_helper
 from yoke_core.domain.project_github_auth import (
     ProjectGithubAuthError,
@@ -32,6 +33,7 @@ class SuiteRunFinding:
 
 
 @suppress_installation_token_receipts()
+@time_dependency("suite_run_reads")
 def suite_run_findings(
     conn: Any, *, project_id: int, now: datetime
 ) -> tuple[SuiteRunFinding, ...]:

@@ -146,6 +146,27 @@ overview p95. Passing requires populated p95 below five seconds and no failed
 overview, including read deadlines. This is controller log evidence and needs
 the hosting project's AWS log-read access.
 
+## Steering report composition timing
+
+For `steering.report.get`, read the `context.handler` fields on
+`YokeFunctionCalled`. Use composed replies with `steering_report_build=headline`
+and `steering_report_deliver=true` for watcher comparisons. Match seat scope and
+compare the same report shape during and outside recorded Production releases.
+Skipped and questions-only replies lack composition timings.
+
+The `steering_report_compose_` prefix groups composition CPU, measured SQL
+execution and an estimated non-SQL wait (wall time minus thread CPU and SQL
+wall time, floored at zero). SQL wall time can include thread CPU, so the
+remainder is approximate. Each observed dependency adds a `_calls` count and
+`_ms` elapsed total. GitHub GraphQL and REST counts describe transport attempts,
+including failures and retries. Token requests and retry waits are separate.
+Landing reads, suite-run reads, deployment progress, source lookup and lineage
+containment are inclusive measurements. Their elapsed totals can overlap SQL
+and GitHub time, and should never be added together. Dependency fields contain
+no request arguments, repository names or report data. Once
+`steering_report_compose_cpu_ms` is present, an omitted dependency had no
+observed calls in that composition. Its absence on older records means unknown.
+
 ## Running more than one API worker
 
 `YOKE_API_WORKERS` (default 1) sets how many uvicorn worker processes serve

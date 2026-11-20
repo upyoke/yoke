@@ -6,6 +6,7 @@ statement count does not grow with its runs, members or requirements.
 
 from __future__ import annotations
 
+from yoke_core.domain.steering_report_handler_timing import time_dependency
 from yoke_core.domain.steering_fleet_report_detectors import parse_stamp
 
 from datetime import datetime
@@ -94,6 +95,7 @@ def _stage_lines(
 
 
 @composition_operation
+@time_dependency("deployment_progress")
 def run_progress(
     conn: Any,
     *,

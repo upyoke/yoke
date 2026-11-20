@@ -5,7 +5,8 @@ measured from outside it hides which part dominates: the database answers a
 statement in a fraction of a millisecond and a build issues a few hundred, yet
 served builds take seconds. These timings split one request into its phases,
 count its statements and the time spent inside them, and give the thread's own
-CPU, so ``wall - cpu - db`` names the time spent waiting for neither.
+CPU. Composition additionally records the observed dependency calls and an
+estimate of wait outside measured SQL.
 
 Telemetry only: the values ride on the call event's handler context and no
 code reads them back.
@@ -13,11 +14,44 @@ code reads them back.
 
 from __future__ import annotations
 
+from collections import Counter
 from contextlib import contextmanager
+from contextvars import ContextVar
+from functools import wraps
 from time import perf_counter, thread_time
 from typing import Any, Dict, Iterator
 
 PREFIX = "steering_report_"
+_COMPOSITION: ContextVar["HandlerTiming | None"] = ContextVar(
+    "steering_report_composition", default=None
+)
+
+
+@contextmanager
+def dependency_span(name: str) -> Iterator[None]:
+    """Accumulate elapsed time and calls only within the composing request."""
+    timing = _COMPOSITION.get()
+    if timing is None:
+        yield
+        return
+    started = perf_counter()
+    try:
+        yield
+    finally:
+        timing.dependency_seconds[name] += perf_counter() - started
+        timing.dependency_calls[name] += 1
+
+
+def time_dependency(name: str):
+    def decorate(function):
+        @wraps(function)
+        def run(*args, **kwargs):
+            with dependency_span(name):
+                return function(*args, **kwargs)
+
+        return run
+
+    return decorate
 
 
 class _CountedConnection:
@@ -48,6 +82,10 @@ class HandlerTiming:
         self.phases: Dict[str, float] = {}
         self.statements = 0
         self.db_seconds = 0.0
+        self.compose_cpu_seconds = 0.0
+        self.compose_db_seconds = 0.0
+        self.dependency_calls: Counter[str] = Counter()
+        self.dependency_seconds: Counter[str] = Counter()
 
     def counted(self, conn: Any) -> Any:
         return _CountedConnection(conn, self)
@@ -59,6 +97,19 @@ class HandlerTiming:
             yield
         finally:
             self.phases[name] = self.phases.get(name, 0.0) + perf_counter() - started
+
+    @contextmanager
+    def composition(self) -> Iterator[None]:
+        cpu = thread_time()
+        db = self.db_seconds
+        token = _COMPOSITION.set(self)
+        try:
+            with self.phase("compose"):
+                yield
+        finally:
+            _COMPOSITION.reset(token)
+            self.compose_cpu_seconds += thread_time() - cpu
+            self.compose_db_seconds += self.db_seconds - db
 
     def telemetry(self, *, build: str, deliver: bool) -> Dict[str, str]:
         """Flat string values for the call event's handler context.
@@ -81,7 +132,17 @@ class HandlerTiming:
         }
         for name, seconds in self.phases.items():
             values[f"{PREFIX}{name}_ms"] = ms(seconds)
+        if "compose" in self.phases:
+            values[f"{PREFIX}compose_cpu_ms"] = ms(self.compose_cpu_seconds)
+            values[f"{PREFIX}compose_db_ms"] = ms(self.compose_db_seconds)
+            values[f"{PREFIX}compose_non_db_wait_ms"] = ms(max(
+                0.0,
+                self.phases["compose"] - self.compose_cpu_seconds - self.compose_db_seconds,
+            ))
+        for name, count in self.dependency_calls.items():
+            values[f"{PREFIX}compose_{name}_calls"] = str(count)
+            values[f"{PREFIX}compose_{name}_ms"] = ms(self.dependency_seconds[name])
         return values
 
 
-__all__ = ["HandlerTiming"]
+__all__ = ["HandlerTiming", "dependency_span", "time_dependency"]

@@ -23,6 +23,7 @@ from typing import Any, Mapping, Optional, Tuple
 
 from yoke_contracts.response_deadline_open import ResponseOpenDeadlineError
 from yoke_core.domain import gh_retry, github_response_safety
+from yoke_core.domain.steering_report_handler_timing import dependency_span
 from yoke_core.domain.gh_rest_transport_fakes import (
     FAKE_DIR_ENV as _FAKE_DIR_ENV,
     load_fake_response as _load_fake_response,
@@ -80,8 +81,7 @@ GITHUB_API_BASE = DEFAULT_GITHUB_API_URL
 GITHUB_APP_API_URL_ENV = github_api_urls.GITHUB_APP_API_URL_ENV
 
 
-# Module-level default; tests monkeypatch this attribute to inject a fake
-# urlopen without rebuilding HTTPS.
+# Tests inject a fake opener here.
 urlopen = urllib.request.urlopen
 
 # Module-level sleep alias so tests can monkeypatch without binding through
@@ -119,6 +119,7 @@ def _request_with_retry(
 
     last_exc: Optional[RestTransportError] = None
     attempt_limit = max(1, max_attempts or gh_retry.MAX_RETRIES)
+    dependency = "github_graphql" if req.path == "/graphql" else "github_rest"
     replay_safe = _request_replay_is_safe(
         method=req.method,
         replay_safe=req.replay_safe,
@@ -129,13 +130,10 @@ def _request_with_retry(
                 operation_deadline,
                 clock=github_response_safety.monotonic,
             )
-            response = _issue_once(
-                req,
-                token=token,
-                deadline=operation_deadline,
-                replay_safe=replay_safe,
-            )
-            return response
+            with dependency_span(dependency):
+                return _issue_once(
+                    req, token=token, deadline=operation_deadline, replay_safe=replay_safe
+                )
         except GitHubRestOperationDeadlineError as exc:
             raise deadline_cut_error(exc, last_exc) from None
         except RestTransportError as exc:
@@ -154,16 +152,14 @@ def _request_with_retry(
             file=sys.stderr,
         )
         try:
-            wait_before_retry(
-                operation_deadline,
-                wait,
-                clock=github_response_safety.monotonic,
-                sleeper=sleep,
-            )
+            with dependency_span("github_retry_wait"):
+                wait_before_retry(
+                    operation_deadline, wait, clock=github_response_safety.monotonic,
+                    sleeper=sleep,
+                )
         except GitHubRestOperationDeadlineError as exc:
             raise deadline_cut_error(exc, last_exc) from None
 
-    # Defensive — loop exits via return or raise.
     if last_exc is not None:
         raise last_exc
     raise RestTransportError("rest transport retry loop exited without result")

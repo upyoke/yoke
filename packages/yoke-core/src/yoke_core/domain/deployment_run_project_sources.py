@@ -19,6 +19,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from typing import Any, Mapping
+from yoke_core.domain.steering_report_handler_timing import time_dependency
 from yoke_core.domain.time_parse import parse_timestamp_utc
 
 from yoke_core.domain.deployment_run_bound_sources import (
@@ -153,6 +154,7 @@ def proposed_run_source_facts(conn: Any, run_id: str, bound_sources: str):
         invalidate_run_source_facts(conn, run_id)
 
 
+@time_dependency("lineage_source")
 def run_source_sha(conn: Any, run_id: str, project_id: int) -> str:
     """The commit this run pinned for a project, with operation-local sharing."""
     run = run_source_facts(conn, run_id)

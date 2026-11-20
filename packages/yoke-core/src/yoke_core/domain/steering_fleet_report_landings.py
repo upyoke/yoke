@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping, Optional, Sequence
 
 from yoke_contracts.public_ref import format_item_ref
+from yoke_core.domain.steering_report_handler_timing import time_dependency
 from yoke_core.domain import db_backend
 from yoke_core.domain.workflow_status_queries import exclude_terminal_items
 from yoke_core.domain.merge_queue_readiness import (
@@ -74,6 +75,7 @@ def _candidates(conn: Any, *, project_id: int) -> list[dict[str, Any]]:
     return [row_dict(row) for row in rows]
 
 
+@time_dependency("landing_reads")
 def landing_readbacks(
     conn: Any,
     *,
