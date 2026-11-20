@@ -1,6 +1,6 @@
 """Lease-authorized writes to Test Machine power ownership."""
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, ValidationError
 
@@ -69,13 +69,17 @@ def handle_power(request: FunctionCallRequest) -> HandlerOutcome:
     )
 
 
+class TestMachineLeaseRequest(TestMachinePowerRequest):
+    purpose: Literal["idle-stop"] | None = None
+
+
 class TestMachineLeaseResponse(BaseModel):
     claim_id: int
 
 
 def handle_lease(request: FunctionCallRequest) -> HandlerOutcome:
     try:
-        parsed = TestMachinePowerRequest.model_validate(request.payload)
+        parsed = TestMachineLeaseRequest.model_validate(request.payload)
         target = host_claim_target(parsed.test_machine)
     except ValidationError as exc:
         return _invalid(exc)
@@ -91,9 +95,8 @@ def handle_lease(request: FunctionCallRequest) -> HandlerOutcome:
                 "test_machine_not_found",
                 f"{target.test_machine} is unregistered; run yoke test-machine list",
             )
-        claim = acquire(
-            conn, target, request.actor.session_id, reason=DIRECT_OPERATION_REASON
-        )
+        reason = "test-machine idle stop" if parsed.purpose else DIRECT_OPERATION_REASON
+        claim = acquire(conn, target, request.actor.session_id, reason=reason)
     except CoordinationClaimHeldError as exc:
         code = "claim_stale_holder" if isinstance(exc, CoordinationClaimStaleHolderError) else "claim_held"
         return _failure(code, str(exc))
@@ -163,7 +166,7 @@ def register(registry) -> None:
     registry.register(
         "test_machine.lease_acquire",
         handle_lease,
-        TestMachinePowerRequest,
+        TestMachineLeaseRequest,
         TestMachineLeaseResponse,
         stability="stable",
         minimum_serving_version="next-release",

@@ -9,10 +9,13 @@ import pytest
 from runtime.api.domain.deploy_remote_test_support import FakeRunner
 from runtime.api.domain.machine_qa_session_seed import seed_qa_session
 from runtime.api.domain.qa_host_turns_test_support import MACHINE, _execution_wait, _notices
+from yoke_contracts.api.function_call import ActorContext, FunctionCallRequest, TargetRef
 from yoke_core.domain import cloud_machine_power, machine_idle_stop
 from yoke_core.domain.coordination_claims import acquire, active_claim, release
 from yoke_core.domain.deploy_remote import CommandResult
+from yoke_core.domain.handlers.machine_power_ownership import handle_lease
 from yoke_core.domain.machine_idle_notice import collect_released_hosts
+from yoke_core.domain.qa_host_holdover import HOLDOVER_REASON, session_holdovers
 from yoke_core.domain.work_claim_targets import make_qa_admission_target
 
 
@@ -77,6 +80,37 @@ def test_queue_handoff_preserves_marker_and_never_notifies_stop(test_db, monkeyp
     assert not hosts
     assert active_claim(test_db, target).session_id == "next"
     assert test_db.execute("SELECT yoke_started_at FROM test_machines WHERE name=%s", (MACHINE,)).fetchone()[0]
+
+
+def test_releasing_an_idle_stop_lease_does_not_restore_a_holdover(test_db):
+    seed_qa_session(test_db, "owner")
+    test_db.execute(
+        "INSERT INTO test_machines(name,settings,created_at) VALUES(%s,'{}',now())",
+        (MACHINE,),
+    )
+    test_db.commit()
+    target = make_qa_admission_target(MACHINE)
+    request = FunctionCallRequest(
+        function="test_machine.lease_acquire",
+        actor=ActorContext(actor_id="1", session_id="owner"),
+        target=TargetRef(kind="global"),
+        payload={"test_machine": MACHINE},
+    )
+    direct = handle_lease(request)
+    assert direct.primary_success, direct.error
+    release(test_db, direct.result_payload["claim_id"], "test-machine exec complete")
+    holdover = active_claim(test_db, target)
+    assert holdover.reason == HOLDOVER_REASON
+
+    idle_stop = handle_lease(
+        request.model_copy(update={"payload": {"test_machine": MACHINE, "purpose": "idle-stop"}})
+    )
+    assert idle_stop.primary_success, idle_stop.error
+    assert idle_stop.result_payload["claim_id"] == holdover.id
+    release(test_db, holdover.id, "cloud Test Machine stop settled")
+
+    assert active_claim(test_db, target) is None
+    assert session_holdovers(test_db, "owner") == []
 
 
 @pytest.mark.parametrize("marker, confirmed", [(False, False), (True, False), (True, True)])
@@ -149,6 +183,9 @@ def test_client_rechecks_marker_under_lease_and_clears_only_on_confirmed_stop(
         [{"power_project": project, "test_machine": MACHINE}],
         runner=runner,
         emit=notices.append,
+    )
+    assert steps[0] == (
+        "test_machine.lease_acquire", {"test_machine": MACHINE, "purpose": "idle-stop"}
     )
     expected = ["test_machine.lease_acquire", "test_machine.get"]
     if marker and provider == "azure":

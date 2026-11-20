@@ -43,7 +43,9 @@ def _stop_if_running(
 
 def _hold_free_host(name: str) -> int | None:
     """Take the host's own lease if no one holds it; never join its line."""
-    response = power._dispatch("test_machine.lease_acquire", {"test_machine": name})
+    response = power._dispatch(
+        "test_machine.lease_acquire", {"test_machine": name, "purpose": "idle-stop"}
+    )
     if response.success:
         return int(response.result["claim_id"])
     error = response.error
