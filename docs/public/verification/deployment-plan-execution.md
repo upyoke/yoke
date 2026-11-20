@@ -133,37 +133,31 @@ preparation.
 
 ## Shared host turns and starting state
 
-An occupied or unhealthy Test Machine is a wait, never a FAIL. If your host
-is busy, let the plan runner queue you, then park; you are woken when it is
-your turn. When a host its case needs is leased, or its newest health fact
-is a failed verification, plan acquisition keeps its cursor open and its
-session joins the host's waiting line (`qa_test_machine_waits`), the same
-FIFO line a refused manual `yoke claims coordination-claim acquire --key QA_HOST:<machine>`
-joins. The runner prints `Queued for QA host <machine>, position N of M` with
-the park command; write no host hold of your own. A session keeps its place
-from its first wait and across retries; a rerun of an aborted walk
-that held the host takes its place. A plan execution keeps its first wait's
-place on every host, waits on each host of a set and keeps its reservations; a
-partial set's reservation passes to an older waiter, so sets cannot deadlock.
-It is woken once its last host is reserved. Every release of the host — including
-`yoke claims work release --claim-id N` — reserves it for the oldest live
-waiter and sends that session the exact resume command; stopped owners use the
-same harness-neutral wake route as other control-plane notices. An unhealthy
-host is never reserved: it stays free for the operator's
-`yoke test-machine verify` or `yoke test-machine golden-capture`, and that
-operation's successful release wakes the first waiter. A plan case whose host
-SSH cannot reach (`ssh_unavailable`: connect timeout, refusal, no route or a
-rejected key) records that failed verification itself and queues the same way
-instead of recording an error verdict. Leases start and stop cloud hosts;
-start others (or repair SSH), then run `yoke test-machine verify`. Reset and
-diagnosis receipts do not change health. Ending the session or settling the
-execution cancels its waits; releasing an unused reservation cancels that wait,
-passes the turn on, and aborts the execution if no live wait remains.
+When a Test Machine is leased or unhealthy, the plan
+keeps its cursor open and joins the same FIFO line (`qa_test_machine_waits`)
+as a refused `yoke claims coordination-claim acquire --key QA_HOST:<machine>`.
+The runner prints `Queued for QA host <machine>, position N of M` and the
+park command. Let the runner queue you, then park until it wakes you.
+The first wait sets the plan's place across hosts and retries, including a
+rerun of an aborted walk that held the host. A plan waits on every host in
+its set and keeps its reservations. A partial set passes a reservation to
+an older waiter to avoid deadlock. The plan wakes after its last reservation.
+Releasing a healthy host, including with `yoke claims work release --claim-id N`,
+reserves it for the oldest live waiter and sends that session the resume command.
+Stopped sessions use the same wake route as other control-plane notices.
+An unhealthy host stays free for `yoke test-machine verify` or
+`yoke test-machine golden-capture`. A successful release wakes the first waiter.
+If SSH times out, refuses the connection, has no route, or rejects the key
+(`ssh_unavailable`), the case records failed verification and queues.
+Leases start and stop cloud hosts. Start other hosts or repair SSH,
+then run `yoke test-machine verify`. Verification determines health alongside
+successful golden captures. Ending the session or settling the plan cancels
+its waits. Releasing an unused reservation passes the turn on and aborts
+the execution if no live wait remains.
 
-If you run a Test Machine operation on a turn reserved for your plan, the
-operation borrows the turn. You can retry a failed reset or verification and
-the new result becomes the current receipt. Re-submitting the same result
-returns the existing receipt. Your plan still has its reserved turn.
+A Test Machine operation borrows the turn reserved for your plan. On retry,
+a changed result becomes the current receipt and an identical submission
+returns the existing receipt. The plan keeps its reserved turn.
 
 Removing a release member ends its QA execution and releases its hosts when
 every mission already recorded its walk-end restore. Otherwise the removed
