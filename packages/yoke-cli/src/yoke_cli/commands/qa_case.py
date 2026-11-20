@@ -230,6 +230,7 @@ def run_execution_module(
     child_env = dict(os.environ) if session_id else None
     if child_env is not None:
         child_env["YOKE_SESSION_ID"] = session_id
+    popen_kwargs = {"start_new_session": True}
     process = subprocess.Popen(
         [
             sys.executable,
@@ -237,8 +238,8 @@ def run_execution_module(
             module,
             *child_args,
         ],
-        start_new_session=True,
         env=utf8_python_child_env(child_env),
+        **popen_kwargs,
     )
     try:
         return process.wait()

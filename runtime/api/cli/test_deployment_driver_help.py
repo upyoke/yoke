@@ -68,9 +68,11 @@ def test_deployment_run_execute_help_does_not_require_admin_env() -> None:
 
 
 def test_deployment_run_execute_calls_pipeline_with_selected_admin_env() -> None:
-    with patch(
-        "yoke_cli.commands.deployment_execute.subprocess.run",
-    ) as pipeline:
+    child_env = {"PYTHONIOENCODING": "utf-8"}
+    with (
+        patch("yoke_cli.commands.deployment_execute.utf8_python_child_env", return_value=child_env),
+        patch("yoke_cli.commands.deployment_execute.subprocess.run") as pipeline,
+    ):
         pipeline.return_value.returncode = 0
         rc, _out, err = _run_capture(
             _stub_ok,
@@ -91,5 +93,6 @@ def test_deployment_run_execute_calls_pipeline_with_selected_admin_env() -> None
             "run-20260616-009",
             "--fresh",
         ],
+        env=child_env,
         check=False,
     )
