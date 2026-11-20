@@ -70,7 +70,8 @@ Setup always writes `approval_policy = "never"` and
 Unrelated configuration stays in place.
 
 `HC-harness-unattended-posture` reports the standing posture for every
-harness on the machine from saved configuration. Repair setup facets with
+harness on the machine from saved configuration. Codex Desktop threads choose
+their own mode even when the saved config is unattended. Repair setup facets with
 `yoke doctor run --only harness-setup --fix`.
 
 The session check verifies native transcript identity and the newest turn's
@@ -79,18 +80,22 @@ Only `never` plus `danger-full-access` passes. Saved settings and earlier turns
 cannot prove the active mode. Automatic review does not meet Yoke's
 unrestricted-permissions requirement.
 
-A restricted mode reports `HARNESS_POSTURE_RESTRICTED`: select **Full Access**
-in this chat's permissions control and rerun `yoke doctor run --session` in
-a new turn. Managed organization requirements take precedence; ask your
-administrator if the mode is unavailable. See OpenAI's
-[permission documentation](https://learn.chatgpt.com/docs/sandboxing/auto-review).
+Inside Codex Desktop or CLI, `yoke doctor` runs the quick checks and looks for
+a restricted turn before it tries to connect to the control plane. A restricted
+turn reports `HARNESS_POSTURE_RESTRICTED`. Select **Full Access** in this thread's
+permissions control and rerun the command in a new turn. Leave the saved
+`writable_roots` and `network_access` settings as they are. When Doctor also finds
+restricted saved settings, it names `yoke doctor run --only harness-setup --fix`
+to run from a terminal outside the thread. Managed organization requirements
+take precedence. Ask your administrator if Full Access is unavailable.
+See OpenAI's [permission documentation](https://learn.chatgpt.com/docs/sandboxing/auto-review).
 Missing, unreadable or out-of-window native evidence fails: rerun in a new turn
 after it is saved, then start a new chat if necessary.
 `codex-vscode` reports `HARNESS_POSTURE_CONFIRM_REQUIRED` as a WARN:
 confirm Full Access is selected in this Codex VS Code chat before onboarding.
 
-If a `yoke` command is refused with `Operation not permitted`, the CLI diagnoses
-the harness sandbox denial and names the repair; follow that recovery.
+If the OS denies starting or connecting to Postgres, Yoke reports the OS
+reason and uses the active harness and turn to name the recovery.
 
 Setup, project install/refresh and lane preparation use the same reconcile.
 The relay runs it when a harness home appears, covering registered checkouts

@@ -90,7 +90,9 @@ def _converge_local_universe() -> None:
             emit=lambda line: print(line, file=sys.stderr),
         )
     except engine_upgrade_convergence.LocalUniverseConvergenceError as exc:
-        print(f"yoke: {exc}", file=sys.stderr)
+        from yoke_cli.sandbox_denial import diagnose
+
+        print(diagnose(exc, sys.argv[1:]) or f"yoke: {exc}", file=sys.stderr)
         raise SystemExit(1) from exc
 
 

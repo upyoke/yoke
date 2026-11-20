@@ -29,7 +29,7 @@ from yoke_contracts.harness_posture_read import posture_findings
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
 SLUG = "harness-unattended-posture"
-TITLE = "Every installed harness runs yoke without approval prompts"
+TITLE = "Saved permission settings for installed harnesses"
 
 
 def inspect_unattended_posture(harness_id: str, *, installed: bool) -> tuple[str, str]:
@@ -96,7 +96,12 @@ def hc_harness_unattended_posture(
         SLUG,
         TITLE,
         "PASS",
-        f"{', '.join(unattended)} run yoke unattended"
+        f"{', '.join(unattended)} have unattended permissions in saved settings"
+        + (
+            ". Codex Desktop threads choose their own mode"
+            if CODEX_FAMILY in unattended
+            else ""
+        )
         + (f"; not installed here: {len(absent)}" if absent else ""),
     )
 

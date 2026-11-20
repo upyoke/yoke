@@ -247,7 +247,9 @@ def test_claude_gets_no_sandbox_recovery(monkeypatch) -> None:
 
     monkeypatch.setattr(identity, "nearest_harness_family", lambda: "claude-code")
     assert posture.running_harness_family() == "claude-code"
-    assert posture.sandbox_recovery() is None
+    from yoke_harness.harness_sandbox_recovery import sandbox_recovery
+
+    assert sandbox_recovery() is None
 
 
 def test_running_family_falls_back_to_one_stamped_harness(monkeypatch) -> None:
@@ -259,7 +261,9 @@ def test_running_family_falls_back_to_one_stamped_harness(monkeypatch) -> None:
     monkeypatch.delenv("CLAUDE_CODE_SESSION_ID", raising=False)
     monkeypatch.setenv("CODEX_SESSION_ID", "a-codex-session")
     assert posture.running_harness_family() == "codex"
-    assert "codex session" in (posture.sandbox_recovery() or "")
+    from yoke_harness.harness_sandbox_recovery import sandbox_recovery
+
+    assert "Codex session" in (sandbox_recovery() or "")
 
 
 def test_running_family_refuses_to_guess_between_two_stamps(monkeypatch) -> None:
@@ -271,7 +275,9 @@ def test_running_family_refuses_to_guess_between_two_stamps(monkeypatch) -> None
     monkeypatch.setenv("CODEX_SESSION_ID", "a-codex-session")
     monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "a-claude-session")
     assert posture.running_harness_family() is None
-    assert posture.sandbox_recovery() is None
+    from yoke_harness.harness_sandbox_recovery import sandbox_recovery
+
+    assert sandbox_recovery() is None
 
 
 def test_posture_state_reports_each_outcome(tmp_path: Path, monkeypatch) -> None:

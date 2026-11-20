@@ -163,6 +163,11 @@ owned by the package serving its assets. Missing or inconsistent metadata leaves
 the build unverified; restart advice never certifies an unidentified package.
 A stopped local dashboard reports N/A.
 
+In a Codex thread, `yoke doctor` runs the quick checks. Doctor checks the
+active Codex CLI or Desktop turn before connecting to the control plane.
+A restricted turn stops with `HARNESS_POSTURE_RESTRICTED` and names the
+permission control to use before retrying.
+
 Outside an agent session, ordinary Doctor runs (including `--quick`) report
 session hook registration, harness sign-in and unattended posture as N/A with
 `session_required`. The health receipt shown by `yoke status` retains these

@@ -159,7 +159,12 @@ def certificate_validation_error(
 
 def is_sandbox_denial(error: BaseException | None) -> bool:
     """Whether the OS refused the connect on policy rather than on reachability."""
-    return _unwrapped_errno(error) in (errno.EPERM, errno.EACCES)
+    candidate = error.reason if isinstance(error, urllib.error.URLError) else error
+    if not isinstance(candidate, OSError) or isinstance(candidate, ssl.SSLError):
+        return False
+    return candidate.errno in (errno.EPERM, errno.EACCES) or getattr(
+        candidate, "winerror", None
+    ) in (5, 10013)  # ERROR_ACCESS_DENIED, WSAEACCES
 
 
 def _unwrapped_errno(error: BaseException | None) -> int | None:

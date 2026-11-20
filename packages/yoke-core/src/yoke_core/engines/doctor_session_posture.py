@@ -8,14 +8,13 @@ from yoke_contracts.harness_unattended_posture import (
     CLAUDE_FAMILY,
     POSTURE_RECOVERY,
     claude_settings_path,
-    codex_posture_problems,
     read_posture_config,
 )
 from yoke_contracts.session_control.launch_permission_bypass import (
     CLAUDE_SETTINGS_PERMISSION_MODE_KEY,
 )
 from yoke_contracts.refusal_recovery import compose_refusal
-from yoke_harness.codex_session_posture import read_codex_session_posture
+from yoke_harness.codex_session_posture import codex_session_posture
 from yoke_harness.hooks.session_permission_mode import read_permission_mode
 from yoke_core.engines.doctor_hc_harness_unattended_posture import (
     inspect_unattended_posture,
@@ -36,22 +35,12 @@ def session_posture(
         )
         return "WARN", f"HARNESS_POSTURE_CONFIRM_REQUIRED: {confirm}."
     if harness_id == "codex" and surface_id in ("codex-cli", "codex-desktop"):
-        facts, reason = read_codex_session_posture(session_id)
-        if facts is None:
-            return "FAIL", compose_refusal(
-                f"HARNESS_POSTURE_UNVERIFIED: {reason}",
-                recovery="rerun in a new turn after it is saved; if it persists, start a new chat and rerun `yoke doctor run --session`",
-            )
-        problems = codex_posture_problems(facts)
-        if problems:
-            return "FAIL", compose_refusal(
-                "HARNESS_POSTURE_RESTRICTED: " + "; ".join(problems),
-                recovery="select Full Access in this chat's permissions control, then rerun `yoke doctor run --session` in a new turn; if organization policy prevents Full Access, ask your administrator",
-            )
-        return (
-            "PASS",
-            f"{surface_id} records never and danger-full-access for this turn.",
+        code, detail = codex_session_posture(
+            session_id, command="yoke doctor run --session"
         )
+        if code:
+            return "FAIL", f"{code}: {detail}"
+        return "PASS", f"{surface_id} {detail}"
     if harness_id == "claude-code" and surface_id in (
         "claude-cli",
         "claude-desktop",

@@ -177,11 +177,11 @@ def log_tail(spec: ClusterSpec, max_lines: int = 80) -> str:
     return "\n".join(lines[-max_lines:]) + "\n"
 
 
-def initdb_if_needed(spec: ClusterSpec) -> int:
+def initdb_if_needed(spec: ClusterSpec) -> StartFailure | None:
     """Initialize the data directory once; recover a partial init."""
     data_dir = spec.data_dir
     if (data_dir / "PG_VERSION").exists():
-        return 0
+        return None
     if data_dir.exists():
         remove_tree(data_dir)
     res = _run(
@@ -197,8 +197,8 @@ def initdb_if_needed(spec: ClusterSpec) -> int:
         ]
     )
     if res.returncode != 0:
-        sys.stderr.write(res.stdout + res.stderr)
-    return res.returncode
+        return StartFailure("initdb", res.returncode, res.stdout + res.stderr)
+    return None
 
 
 def data_dir_major_mismatch(spec: ClusterSpec) -> Optional[str]:
@@ -253,7 +253,12 @@ def start_server(spec: ClusterSpec) -> subprocess.CompletedProcess:
 def ensure_started(spec: ClusterSpec) -> int:
     """Idempotently bring the cluster up; return the failing exit code or 0."""
     failure = start_failure(spec)
-    return failure.returncode if failure else 0
+    if failure is None:
+        return 0
+    print(failure.describe(spec.log_file), file=sys.stderr)
+    if failure.tool == "pg_ctl":
+        sys.stderr.write(log_tail(spec))
+    return failure.returncode
 
 
 def start_failure(spec: ClusterSpec) -> Optional[StartFailure]:
@@ -264,15 +269,12 @@ def start_failure(spec: ClusterSpec) -> Optional[StartFailure]:
     else:
         create_private_directory(spec.root)
     _ensure_private_socket_dir(spec.sock_dir)
-    rc = initdb_if_needed(spec)
-    if rc != 0:
-        return StartFailure("initdb", rc)
+    if failure := initdb_if_needed(spec):
+        return failure
     if not is_ready(spec):
         res = start_server(spec)
         if res.returncode != 0:
-            sys.stderr.write(res.stdout + res.stderr)
-            sys.stderr.write(log_tail(spec))
-            return StartFailure("pg_ctl", res.returncode)
+            return StartFailure("pg_ctl", res.returncode, res.stdout + res.stderr)
     return None
 
 
@@ -296,7 +298,7 @@ def _ensure_private_socket_dir(path: Path) -> None:
             os.close(fd)
     except OSError as exc:
         raise PostgresClusterError(
-            f"Postgres socket path is not a private directory: {path}; "
+            f"Postgres socket path is not a private directory: {path}: {exc}. "
             "choose an owner-only directory and retry local Postgres startup."
         ) from exc
 

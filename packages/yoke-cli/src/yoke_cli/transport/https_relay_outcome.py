@@ -27,6 +27,7 @@ from yoke_cli.transport.https_response_policy import (
     redact_text,
     safe_excerpt,
 )
+from yoke_cli.sandbox_denial import sandbox_recovery
 from yoke_contracts.https_retry_policy import (
     connection_refusal_is_conclusive,
     is_sandbox_denial,
@@ -36,7 +37,6 @@ from yoke_contracts.api.function_call import (
     FunctionCallResponse,
     FunctionError,
 )
-from yoke_contracts.harness_sandbox_recovery import sandbox_recovery
 
 # Canonical definition lives in relay_telemetry (the lower-level module this
 # one already imports); re-exported here so existing importers of this

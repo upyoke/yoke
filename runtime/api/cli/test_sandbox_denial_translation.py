@@ -10,7 +10,7 @@ from __future__ import annotations
 import pytest
 
 from yoke_cli import sandbox_denial
-from yoke_contracts import harness_sandbox_recovery
+from yoke_harness import harness_sandbox_recovery
 
 
 def _fail(_remaining):

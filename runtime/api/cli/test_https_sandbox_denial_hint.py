@@ -87,3 +87,12 @@ def test_unknown_reachability_does_not_infer_sandbox_cause(
     assert "Retrying is the repair" in hint
     assert "sandbox" not in hint
     assert "RECOVERY LINE." not in hint
+
+
+@pytest.mark.parametrize("winerror", [5, 10013])
+def test_windows_policy_refusal_is_conclusive(winerror: int) -> None:
+    error = OSError(0, "localized OS denial")
+    error.winerror = winerror
+    wrapped = urllib.error.URLError(error)
+    assert is_sandbox_denial(wrapped)
+    assert connection_refusal_is_conclusive(API_URL, wrapped)
