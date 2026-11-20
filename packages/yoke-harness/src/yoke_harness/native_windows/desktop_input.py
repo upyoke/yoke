@@ -16,7 +16,7 @@ from yoke_harness.native_windows.transport import quote
 _ASSEMBLIES = "UIAutomationClient,UIAutomationTypes,WindowsBase"
 _DISPATCH = r"""
 $request = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(REQUEST)) | ConvertFrom-Json
-function Element($r) { $t=@{}; foreach($k in 'name','automation_id','control_type'){ if($r.element.$k){ $t[$k]=[string]$r.element.$k } }; $t }
+function Element($r) { $t=@{}; foreach($k in 'name','automation_id','control_type','index'){ if($r.element.$k){ $t[$k]=[string]$r.element.$k } }; $t }
 function Target($r) { [QaDesktop]::Resolve([string]$r.window.title,[string]$r.window.process,[string]$r.window.handle,[int]$r.wait_seconds) }
 try {
   $result = switch ($request.action) {

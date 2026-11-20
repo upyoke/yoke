@@ -22,6 +22,16 @@ _SECRET_SHAPES = (
     re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
     re.compile(r"\bxox[abpr]-[A-Za-z0-9-]{10,}"),
 )
+_WINDOW = ("title", "process", "handle")
+_ELEMENT = (*ELEMENT_KEYS, "index")
+_ACTION_OPTIONS = {
+    "windows": (),
+    "focus": _WINDOW,
+    "click": (*_WINDOW, *_ELEMENT, "x", "y", "button", "double"),
+    "type": (*_WINDOW, *_ELEMENT, "text"),
+    "keys": (*_WINDOW, "keys"),
+    "read": (*_WINDOW, *_ELEMENT),
+}
 _KEY_TOKEN = re.compile(r"^[A-Za-z0-9]+(?:\+[A-Za-z0-9]+)*$|^[^\s+]$")
 
 
@@ -63,6 +73,19 @@ def validate_request(raw: Mapping[str, Any]) -> dict[str, Any]:
             f"unknown action {action!r}",
             "Use one of: " + ", ".join(ACTIONS),
         )
+    unused = sorted(
+        key
+        for key, value in raw.items()
+        if key not in ("action", "wait_seconds", *_ACTION_OPTIONS[action])
+        and value not in (None, "", False)
+    )
+    if unused:
+        raise _refuse(
+            "desktop_input_option_unused",
+            f"{action} does not use "
+            + ", ".join("--" + key.replace("_", "-") for key in unused),
+            "Remove those options; to click a point before typing, run `click` first",
+        )
     request: dict[str, Any] = {"action": action}
     wait = int(raw.get("wait_seconds") or 0)
     if not 0 <= wait <= MAX_WAIT_SECONDS:
@@ -94,8 +117,17 @@ def validate_request(raw: Mapping[str, Any]) -> dict[str, Any]:
     element = {
         key: str(raw[key]) for key in ELEMENT_KEYS if raw.get(key) not in (None, "")
     }
+    if raw.get("index") is not None:
+        if not element or int(raw["index"]) < 1:
+            raise _refuse(
+                "desktop_input_index_invalid",
+                "--index needs an element selector and counts from 1",
+                "Pass --index N with --name/--automation-id/--control-type, "
+                "using the order a windows_element_ambiguous refusal listed",
+            )
+        element["index"] = str(int(raw["index"]))
     request["element"] = element
-    if action == "read" and not element:
+    if action == "read" and not set(element) & set(ELEMENT_KEYS):
         raise _refuse(
             "desktop_input_element_required",
             "read needs an element selector",

@@ -182,10 +182,13 @@ public static class QaDesktop {
    Thread.Sleep(500);
   }
   if(found.Count==0) throw Fail("windows_element_not_found","no element matches "+Selector(want)+(near.Count>0?"; partial name matches: "+string.Join(", ",near.ToArray()):"")+"; read the window in a screenshot, correct the selector, or raise --wait-seconds");
-  if(found.Count>1){var rows=new List<string>();foreach(var e in found){if(rows.Count==10) break;rows.Add(e.Current.ControlType.ProgrammaticName.Replace("ControlType.","")+" id="+Quote(e.Current.AutomationId));}throw Fail("windows_element_ambiguous",found.Count+" elements match "+Selector(want)+": "+string.Join(", ",rows.ToArray())+"; add --automation-id or --control-type");}
+  int index=want.ContainsKey("index")?int.Parse((string)want["index"]):0;
+  if(index>found.Count) throw Fail("windows_element_not_found","--index "+index+" exceeds the "+found.Count+" elements matching "+Selector(want)+"; pass --index between 1 and "+found.Count);
+  if(index>0) return found[index-1];
+  if(found.Count>1){var rows=new List<string>();int n=0;foreach(var e in found){if(++n>10) break;var r=e.Current.BoundingRectangle;rows.Add(n+") "+e.Current.ControlType.ProgrammaticName.Replace("ControlType.","")+" id="+Quote(e.Current.AutomationId)+(r.IsEmpty?" offscreen":" at "+(long)r.X+","+(long)r.Y+" "+(long)r.Width+"x"+(long)r.Height));}throw Fail("windows_element_ambiguous",found.Count+" elements match "+Selector(want)+": "+string.Join(", ",rows.ToArray())+"; add --automation-id or --control-type, or pass --index N for the Nth listed match");}
   return found[0];
  }
- static string Selector(Hashtable want){var parts=new List<string>();foreach(DictionaryEntry e in want) parts.Add(e.Key+"="+Quote((string)e.Value));return string.Join(" ",parts.ToArray());}
+ static string Selector(Hashtable want){var parts=new List<string>();foreach(DictionaryEntry e in want) if((string)e.Key!="index") parts.Add(e.Key+"="+Quote((string)e.Value));return string.Join(" ",parts.ToArray());}
  static Hashtable ElementRow(AutomationElement e) {
   var info=e.Current;var r=info.BoundingRectangle;var row=new Hashtable();
   row["name"]=info.Name;row["automation_id"]=info.AutomationId;row["control_type"]=info.ControlType.ProgrammaticName.Replace("ControlType.","");

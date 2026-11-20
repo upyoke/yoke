@@ -80,12 +80,15 @@ def _parser() -> argparse.ArgumentParser:
             "  windows   list top-level windows (handle, title, process, pid, bounds, foreground)\n"
             "  focus     bring the target window to the foreground and verify it\n"
             "  click     click --x/--y (window-relative pixels) or an element selector\n"
-            "  type      type the text piped on stdin with --text-stdin (plain text only)\n"
+            "  type      type the text piped on stdin with --text-stdin into the focused control,\n"
+            "            or into the element a selector names (plain text only)\n"
             "  keys      press chords, e.g. --keys 'ctrl+l', --keys 'enter', --keys 'ctrl+a backspace'\n"
             "  read      print an element's name, value and text\n"
             "Target a window with --title SUBSTRING, --process NAME or --handle HANDLE.\n"
             "Select an element with --name (exact), --automation-id and --control-type\n"
-            "(UI Automation names such as Button, Edit, Document).\n"
+            "(UI Automation names such as Button, Edit, Document); when several match,\n"
+            "the refusal lists them and --index N picks the Nth. An option the action\n"
+            "does not use is refused, never ignored.\n"
             "Results print as one JSON object; typed text is reported only as its length,\n"
             "and secrets or credential-shaped text are refused. A refusal prints its\n"
             "error_code and recovery, and the command exits 1. Launch apps with\n"
@@ -106,9 +109,14 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--name", help="UI Automation element name (exact, any case).")
     parser.add_argument("--automation-id", dest="automation_id")
     parser.add_argument("--control-type", dest="control_type")
+    parser.add_argument(
+        "--index",
+        type=int,
+        help="Pick the Nth match (from 1) when an element selector is ambiguous.",
+    )
     parser.add_argument("--x", type=int, help="Pixels from the window's left edge.")
     parser.add_argument("--y", type=int, help="Pixels from the window's top edge.")
-    parser.add_argument("--button", choices=("left", "right"), default="left")
+    parser.add_argument("--button", choices=("left", "right"), help="Default left.")
     parser.add_argument("--double", action="store_true", help="Double-click.")
     parser.add_argument("--keys", help="Space-separated key chords.")
     parser.add_argument(
@@ -136,9 +144,15 @@ def run(args: list[str]) -> int:
         key: getattr(parsed, key)
         for key in (
             "action", "title", "process", "handle", "name", "automation_id",
-            "control_type", "x", "y", "button", "double", "keys", "wait_seconds",
+            "control_type", "index", "x", "y", "button", "double", "keys", "wait_seconds",
         )
     }
+    if parsed.text_stdin and parsed.action != "type":
+        return _refuse(
+            f"{parsed.action} does not use --text-stdin",
+            "Remove --text-stdin; only `type` reads stdin",
+            "desktop_input_option_unused",
+        )
     if parsed.action == "type":
         if not parsed.text_stdin:
             return _refuse(
