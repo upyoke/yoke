@@ -28,6 +28,7 @@ REJECTION_RECORD_FIELDS = {
     "harness",
     "rejection",
     "event_count",
+    "error_event_count",
     "event_types",
     "final_event",
     "exact_ok_reply",
@@ -69,7 +70,7 @@ class HarnessRequest:
         The reply was otherwise an exact OK with a successful completion, so
         one retry tells a rare tool call from a steady one.
         """
-        return self.name == "Cursor" and self._reply_review(stdout, 0)[0] == [
+        return self.name == "Cursor" and self.review_reply(stdout)[0] == [
             "tool_call_event"
         ]
 
@@ -77,7 +78,7 @@ class HarnessRequest:
         """Keep only the count and last type of complete events before a timeout."""
         if isinstance(stdout, bytes):
             stdout = stdout.decode("utf-8", errors="replace")
-        count, last = 0, None
+        count, errors, last = 0, 0, None
         for line in (stdout or "").splitlines():
             try:
                 event = json.loads(line)
@@ -86,11 +87,13 @@ class HarnessRequest:
             if isinstance(event, dict):
                 count += 1
                 last = _token(event.get("type"))
-        record = self._reply_review("", 0)[1]
+                errors += last == "error"
+        record = self.review_reply("")[1]
         return {
             **record,
             "rejection": "probe_request_timed_out",
             "event_count": count,
+            "error_event_count": errors,
             "event_types": [last] if count else [],
             "harness_exit_code": 0,
         }
@@ -98,25 +101,20 @@ class HarnessRequest:
     def reply_rejection(
         self, stdout: str, *, exit_code: int = 0
     ) -> dict[str, Any] | None:
-        """Accept an exact OK reply, or describe why the stream was rejected.
+        """Describe a rejected stream using sanitized evidence, or return None."""
+        branches, record = self.review_reply(stdout, exit_code=exit_code)
+        return record if branches else None
 
-        Cursor may call read-only tools before that reply. Write, shell, and
-        any other tool call still reject, and ``tool_use`` stays true on the
-        record whenever a tool call was present. A ``tool_call`` event type
-        names its payload kind (``tool_call:shellToolCall``). The record is
-        sanitized: event types, the final event's shape and booleans, never
-        reply text, account output or a transcript.
-        """
-        return self._reply_review(stdout, exit_code)[1]
-
-    def _reply_review(
-        self, stdout: str, exit_code: int
-    ) -> tuple[list[str], dict[str, Any] | None]:
-        """Return every distinct rejection branch, in order, and the record."""
+    def review_reply(
+        self, stdout: str, *, exit_code: int = 0
+    ) -> tuple[list[str], dict[str, Any]]:
+        """Return rejection branches and sanitized evidence, without reply text."""
         lines = [line for line in stdout.splitlines() if line.strip()]
         types: list[str] = []
         branches = [] if lines else ["no_events"]
         answer = None
+        errors = 0
+        codex = self.name == "Codex"
         completed = degraded = tool_use = False
         final: dict[str, Any] | None = None
 
@@ -136,8 +134,14 @@ class HarnessRequest:
                 continue
             kind = event.get("type")
             types.append(_token(kind))
-            if kind in {"error", "turn.failed"}:
-                reject(kind.replace(".", "_") + "_event")
+            if kind == "error":
+                errors += 1
+                if codex:
+                    completed = False
+                else:
+                    reject("error_event")
+            if kind == "turn.failed":
+                reject("turn_failed_event")
             if kind == "tool_call":
                 tool_use = True
                 types[-1] = _tool_call_label(event)
@@ -152,6 +156,8 @@ class HarnessRequest:
                     reject("item_not_a_message")
                 elif kind == "item.completed" and item.get("type") == "agent_message":
                     answer = item.get("text")
+                    if codex:
+                        completed = False
             if kind == "assistant":
                 message = event.get("message")
                 content = (
@@ -164,7 +170,7 @@ class HarnessRequest:
                 elif any(block.get("type") == "tool_use" for block in content):
                     tool_use = True
                     reject("assistant_tool_use")
-            if kind == "result":
+            if kind == "result" and not codex:
                 if event.get("is_error") or event.get("subtype") != "success":
                     reject("result_error")
                 answer = event.get("result")
@@ -181,11 +187,12 @@ class HarnessRequest:
         if exit_code:
             reject("native_exit_nonzero")
         if not branches:
-            return branches, None
+            return branches, {"error_event_count": errors}
         return branches, {
             "harness": self.name,
             "rejection": branches[0],
             "event_count": len(lines),
+            "error_event_count": errors,
             "event_types": types[:REJECTION_EVENT_TYPE_LIMIT],
             "final_event": None
             if final is None
@@ -250,7 +257,7 @@ def read_rejection_record(stdout: str) -> dict[str, Any] | None:
         )
         and all(
             isinstance(record[key], int) and not isinstance(record[key], bool)
-            for key in ("event_count", "harness_exit_code")
+            for key in ("event_count", "error_event_count", "harness_exit_code")
         )
         and isinstance(types, list)
         and len(types) <= REJECTION_EVENT_TYPE_LIMIT

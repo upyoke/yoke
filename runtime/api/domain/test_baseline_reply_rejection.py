@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import json
+import shutil
+import subprocess
+from types import SimpleNamespace
 
 import pytest
 
@@ -13,6 +16,11 @@ from runtime.api.domain.baseline_harness_requests_test_support import (
 )
 from yoke_harness.baseline_harness_requests import harness_request
 from yoke_harness.ssh_linux_baseline import prove_linux_probes
+from yoke_harness.ssh_mac_baseline_probes import (
+    parse_baseline_probes,
+    run_baseline_probes,
+)
+from yoke_harness.standard_baseline_probes import standard_probes
 
 
 @pytest.mark.parametrize("program", ["claude", "codex", "cursor-agent"])
@@ -122,3 +130,53 @@ def test_a_declared_harness_probe_keeps_its_rejection_on_the_failed_row():
     assert row["reply_rejection"]["event_types"] == ["result"]
     assert "`reply_not_exact`" in result.evidence["reason"]
     assert "private-account" not in repr(result.evidence)
+
+
+@pytest.mark.parametrize(
+    "ending,answer,rejection",
+    [
+        ("turn.completed", "OK", None),
+        ("turn.failed", "OK", "turn_failed_event"),
+        (None, "OK", "no_completion_event"),
+        ("turn.completed", "Wrong reply", "reply_not_exact"),
+    ],
+)
+@pytest.mark.parametrize("sealed", [False, True])
+def test_codex_records_stream_errors_and_requires_an_exact_completed_reply(
+    ending, answer, rejection, sealed, monkeypatch, capsys
+):
+    events = [
+        {"type": "error", "message": _SECRET},
+        {"type": "error", "message": _SECRET},
+        {"type": "item.completed", "item": {"type": "agent_message", "text": answer}},
+    ]
+    if ending:
+        events.append({"type": ending})
+    native_result = SimpleNamespace(returncode=0, stdout=_events(*events), stderr="")
+    if sealed:
+        probe = next(
+            p for p in standard_probes("windows") if p["name"] == "Codex real request"
+        )
+        monkeypatch.setattr(shutil, "which", lambda *args, **kwargs: "/bin/codex")
+        monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: native_result)
+        with pytest.raises(SystemExit) as exited:
+            exec(compile(probe["argv"][2], "codex-probe", "exec"), {})
+        result = SimpleNamespace(
+            returncode=exited.value.code, stdout=capsys.readouterr().out, stderr=""
+        )
+    else:
+        probe = {"name": "signed-in Codex", "argv": ["/bin/codex"]}
+        result = native_result
+
+    probes = parse_baseline_probes(json.dumps({"probes": [probe]}))
+    receipt = run_baseline_probes(
+        probes, run_gui_command=lambda *args, **kwargs: result
+    )
+    row = receipt.evidence["probes"][0]
+    assert receipt.ok is (rejection is None)
+    if rejection:
+        assert row["reply_rejection"]["rejection"] == rejection
+        assert row["reply_rejection"]["error_event_count"] == 2
+    else:
+        assert row["error_event_count"] == 2
+    assert _SECRET not in repr(receipt.evidence)
