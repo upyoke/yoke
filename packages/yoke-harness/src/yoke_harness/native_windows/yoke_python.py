@@ -1,6 +1,6 @@
 """Run an installed Yoke command on native Windows without cmd.exe parsing.
 
-The installer's one-line ``yoke.cmd`` shim starts ``@"PYTHON" "LAUNCHER" %*``.
+The installer's one-line ``yoke.cmd`` shim names Python and its launcher.
 Calling it hands every argument to cmd.exe, which reparses quotes, ``&`` and
 ``%`` -- a JSON argument does not survive. This script reads the shim on the
 host and starts that Python and launcher directly with the Windows argv
@@ -13,6 +13,7 @@ from pathlib import PureWindowsPath
 from yoke_harness.native_windows.transport import quote
 
 SHIM_UNREADABLE = "windows_yoke_shim_unreadable"
+_SHIM_PATTERN = r'^@(?:\(goto\) 2>nul & )?"([^"]+)" "([^"]+)" %\*'
 _YOKE_NAMES = frozenset({"yoke", "yoke.cmd"})
 # Commands that show a page: the identity launcher and the managed browser.
 _PAGE_COMMANDS = (("browser", "open"), ("qa", "browser"))
@@ -41,7 +42,7 @@ def yoke_python_command(argv) -> str:
     )
     return f"""{locate}
 $shim=if($shimPath -and (Test-Path -LiteralPath $shimPath)){{[IO.File]::ReadAllText($shimPath)}}else{{''}}
-if($shim -notmatch '^@"([^"]+)" "([^"]+)" %\\*'){{
+if($shim -notmatch {quote(_SHIM_PATTERN)}){{
   [Console]::Error.Write({quote(SHIM_UNREADABLE + ": ")}+"$shimPath"+{quote(" (" + shim + ") is missing or is not the installer's yoke.cmd shim; reinstall Yoke on the test machine, then rerun.")})
   exit 70
 }}
