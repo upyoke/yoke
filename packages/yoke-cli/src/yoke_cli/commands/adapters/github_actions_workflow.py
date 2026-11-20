@@ -16,6 +16,9 @@ from yoke_cli.commands._helpers import (
 from yoke_cli.commands.adapters.github_actions_workflow_parser import (
     PROJECT_HELP as _PROJECT_HELP,
     add_common_args as _add_common,
+    add_dispatch_wait_arg,
+    parse_workflow_inputs,
+    wait_for_dispatched_run,
     add_workflow_args as _add_workflow,
 )
 from yoke_cli.transport import local_github_dispatch as local_github
@@ -35,7 +38,7 @@ from yoke_contracts.github_workflow_dispatch import (
 GITHUB_ACTIONS_TRIGGER_USAGE = (
     "yoke github-actions workflow dispatch <repo-slug> <workflow-file> "
     "[--ref REF] [--input KEY=VALUE] --request-id ID "
-    "--correlation-input yoke_dispatch_id --project P "
+    "--correlation-input yoke_dispatch_id --project P [--wait SECONDS] "
     "[--session-id S] [--json]"
 )
 GITHUB_ACTIONS_TRIGGER_ONCE_USAGE = (
@@ -143,6 +146,7 @@ def github_actions_trigger(args: List[str]) -> int:
         ),
     )
     _add_workflow(parser, dispatch=True)
+    add_dispatch_wait_arg(parser)
     parser.add_argument(
         "--request-id",
         required=True,
@@ -162,12 +166,12 @@ def github_actions_trigger(args: List[str]) -> int:
         return 2
     if not _valid_repo(parsed.repo):
         return usage_error(f"repo must be owner/name, got {parsed.repo!r}")
-    inputs: Dict[str, str] = {}
-    for raw in parsed.inputs:
-        key, separator, value = str(raw).partition("=")
-        if not separator or not key:
-            return usage_error(f"--input must be KEY=VALUE, got {raw!r}")
-        inputs[key] = value
+    try:
+        inputs = parse_workflow_inputs(parsed.inputs)
+    except ValueError as exc:
+        return usage_error(str(exc))
+    if parsed.wait is not None and parsed.wait < 0:
+        return usage_error("--wait needs a non-negative number of seconds")
     response = _call(
         "github_actions.workflow.dispatch",
         {
@@ -183,6 +187,8 @@ def github_actions_trigger(args: List[str]) -> int:
     )
     if not response.success:
         return _emit_operation_error(response, json_mode=parsed.json_mode)
+    if parsed.wait is not None:
+        return wait_for_dispatched_run(parsed, str(response.result.get("run_id") or ""))
     if parsed.json_mode:
         return emit_response(response, json_mode=parsed.json_mode)
     print_workflow_dispatch_run(response.result)
@@ -206,12 +212,10 @@ def github_actions_trigger_once(args: List[str]) -> int:
         return 2
     if not _valid_repo(parsed.repo):
         return usage_error(f"repo must be owner/name, got {parsed.repo!r}")
-    inputs: Dict[str, str] = {}
-    for raw in parsed.inputs:
-        key, separator, value = str(raw).partition("=")
-        if not separator or not key:
-            return usage_error(f"--input must be KEY=VALUE, got {raw!r}")
-        inputs[key] = value
+    try:
+        inputs = parse_workflow_inputs(parsed.inputs)
+    except ValueError as exc:
+        return usage_error(str(exc))
     response = _call(
         "github_actions.workflow.dispatch_once",
         {

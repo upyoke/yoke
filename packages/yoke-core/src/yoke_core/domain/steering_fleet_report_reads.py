@@ -99,6 +99,7 @@ from yoke_core.domain.steering_fleet_report_vendor_errors import (
     vendor_error_sessions,
 )
 from yoke_core.domain import steering_fleet_report_settlement_followups as settlement
+from yoke_core.domain.steering_fleet_report_workflow_runs import SuiteRunFinding, suite_run_findings
 from yoke_core.domain.steering_fleet_report_prune import FailedPrune, failed_prunes
 from yoke_core.domain.steering_fleet_report_waiting_chains import (
     WaitingChain,
@@ -136,6 +137,7 @@ class ProjectFleetFacts:
     deadlocks: tuple[DependencyCycle, ...] = ()
     settlement_followups: tuple[settlement.FailedSettlementFollowup, ...] = ()
     failed_prunes: tuple[FailedPrune, ...] = ()
+    suite_runs: tuple[SuiteRunFinding, ...] = ()
     waiting_chains: tuple[WaitingChain, ...] = ()
 
 
@@ -195,6 +197,7 @@ def read_project_facts(
         ),
         # Retention is universe-wide: one read serves every scope.
         failed_prunes=request.cached(("failed_prunes",), lambda: failed_prunes(conn)),
+        suite_runs=suite_run_findings(conn, project_id=project_id, now=now),
         waiting_chains=waiting_chains(conn, live, project_id),
         deployment_runs=run_progress(conn, project_id=project_id, now=now),
         vendor_errors=vendor_error_sessions(conn, project_id=project_id, now=now),

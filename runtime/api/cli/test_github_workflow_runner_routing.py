@@ -80,3 +80,49 @@ def test_multi_os_suite_remains_an_on_demand_windows_and_macos_matrix():
         ("windows", "windows-2025"),
         ("macos", "macos-latest"),
     }
+
+
+@pytest.mark.posix_only(reason="Exercises the Linux plan step's Bash source")
+def test_multi_os_suite_resolves_sha_before_plan_and_matrix_checkout(tmp_path):
+    import json
+    import os
+    import subprocess
+
+    body = (WORKFLOWS / "yoke-suite.yml").read_text(encoding="utf-8")
+    jobs = parse_document(body)["jobs"]
+    plan = jobs["plan"]
+    assert plan["steps"][0]["with"]["ref"] == "${{ github.sha }}"
+    assert plan["steps"][0]["with"]["fetch-depth"] == 0
+    assert plan["outputs"]["commit"] == "${{ steps.resolve_commit.outputs.commit }}"
+    assert jobs["suite"]["steps"][0]["with"]["ref"] == "${{ needs.plan.outputs.commit }}"
+    resolver = next(step["run"] for step in plan["steps"] if step.get("id") == "resolve_commit")
+
+    def git(*args):
+        return subprocess.check_output(["git", *args], cwd=tmp_path, text=True).strip()
+
+    git("init", "-q")
+    for subject in ("suite target", "dispatch ref"):
+        git("-c", "user.name=Tester", "-c", "user.email=test@example.com",
+            "commit", "--allow-empty", "-qm", subject)
+    commit = git("rev-parse", "HEAD^")
+
+    output = tmp_path / "output"
+    summary = tmp_path / "summary"
+    env = {
+        **os.environ, "SUITE_REVISION": commit[:10],
+        "GITHUB_OUTPUT": str(output), "GITHUB_STEP_SUMMARY": str(summary),
+        "RUNNER_TEMP": str(tmp_path),
+    }
+    subprocess.run(["bash", "-e", "-c", resolver], cwd=tmp_path, env=env, check=True)
+    assert output.read_text() == f"commit={commit}\n"
+    assert git("rev-parse", "HEAD") == commit
+    assert commit in summary.read_text()
+    assert json.loads((tmp_path / "suite-commit.json").read_text()) == {"tested_sha": commit}
+
+    invalid = subprocess.run(
+        ["bash", "-e", "-c", resolver], cwd=tmp_path,
+        env={**env, "SUITE_REVISION": "unknown-sha"}, capture_output=True, text=True,
+    )
+    assert invalid.returncode == 1
+    assert "unknown-sha" in invalid.stderr
+    assert "full commit SHA" in invalid.stderr
