@@ -49,7 +49,7 @@ def test_reset_records_removed_links_and_refusal_reaches_recovery():
 
         def _run(self, script, timeout=60):
             if "Get-YokeProfileProcesses).Count" in script:
-                return subprocess.CompletedProcess([], 0, "", "")
+                return subprocess.CompletedProcess([], 0, "YOKE_RESET_PROCESS_DISCOVERY empty", "")
             return self.result
 
     ok = baseline.profile_operation(
@@ -245,7 +245,7 @@ def test_reset_ends_desktop_session_processes_before_mirroring(monkeypatch, rela
         def _run(self, script, timeout=60):
             listing = "Get-YokeProfileProcesses).Count" in script
             calls.append("list" if listing else "reset")
-            return subprocess.CompletedProcess([], 3 if listing else 0, "", "")
+            return subprocess.CompletedProcess([], 0, "YOKE_RESET_PROCESS_DISCOVERY present" if listing else "", "")
 
     def desktop(control, script, *, timeout=60, hidden=False):
         assert hidden
@@ -274,13 +274,13 @@ def test_reset_ends_desktop_session_processes_before_mirroring(monkeypatch, rela
     )
 
 
-@pytest.mark.parametrize("listing_code, phase", [(1, "listing_failed"), (3, "running")])
-def test_process_stop_failure_refuses_before_mirroring(monkeypatch, listing_code, phase):
+@pytest.mark.parametrize("phase", ["listing_failed", "running"])
+def test_process_stop_failure_refuses_before_mirroring(monkeypatch, phase):
     def listing(script, **kwargs):
         assert "Get-YokeProfileProcesses).Count" in script
-        return subprocess.CompletedProcess([], listing_code, "", "Access denied ")
+        return subprocess.CompletedProcess([], 1, "", "Access denied ") if phase == "listing_failed" else subprocess.CompletedProcess([], 0, "YOKE_RESET_PROCESS_DISCOVERY present", "")
     def stuck(control, script, *, timeout=60, hidden=False):
-        assert listing_code == 3
+        assert phase == "running"
         return subprocess.CompletedProcess([], 1, "", "Access denied ")
 
     monkeypatch.setattr("yoke_harness.native_windows.desktop.desktop_script", stuck)

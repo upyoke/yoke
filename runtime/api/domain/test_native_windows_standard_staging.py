@@ -207,6 +207,37 @@ def test_desktop_upload_failure_keeps_primary_and_records_exact_acquisition(monk
         assert primary.desktop_diagnostics["cleanup"] == "unverified"
 
 
+def test_reset_discovery_refuses_success_without_receipt():
+    from yoke_harness.native_windows.profile_processes import stop_desktop_profile_processes
+
+    c = SimpleNamespace(home=r"C:\Users\qa", _run=lambda _: subprocess.CompletedProcess([], 0, "unexpected", ""))
+    refusal, stopped, targets = stop_desktop_profile_processes(c, ())
+    assert "missing or invalid discovery receipt" in refusal
+    assert stopped == targets == []
+
+
+def verify_staged_profile_discovery(c, executable):
+    from yoke_harness.native_windows.baseline import PRESERVED_DIRECTORIES
+    from yoke_harness.native_windows.profile_processes import (
+        DISCOVERY_MARKER, profile_process_discovery_script,
+    )
+
+    setup = "$fixture=" + transport.quote(executable) + "\n"
+    result = c._run(setup + r"""
+Copy-Item "$env:SystemRoot\System32\PING.EXE" $fixture
+try {
+ $ping=Start-Process -FilePath $fixture -ArgumentList '-n','120','127.0.0.1' -WindowStyle Hidden -PassThru
+""" + profile_process_discovery_script(c.home, PRESERVED_DIRECTORIES) + r"""
+} finally {
+ if($ping){Stop-Process -InputObject $ping -Force -ErrorAction SilentlyContinue}
+ Remove-Item -LiteralPath $fixture -Force
+}
+""")
+    assert result.returncode == 0, (result.stdout, result.stderr)
+    assert DISCOVERY_MARKER + "present" in result.stdout.splitlines()
+    assert result.staging_diagnostics["cleanup"] == "verified_absent"
+
+
 def verify_real_standard_sftp(c):
     """Called by the disposable Windows SSH client matrix with a real standard user."""
     from uuid import uuid4
@@ -219,6 +250,7 @@ def verify_real_standard_sftp(c):
         large = c._run("# public padding\n" * 500 + "Write-Output 'LARGE_SFTP_EXECUTED'")
         assert large.returncode == 0 and "LARGE_SFTP_EXECUTED" in large.stdout
         assert large.staging_diagnostics["cleanup"] == "verified_absent"
+        verify_staged_profile_discovery(c, destination + ".exe")
         with standard_staging.verified_payload(c, b"public fixture") as stage:
             root = stage.diagnostics["path"]
             policy = standard_staging.profile_policy(c.home)

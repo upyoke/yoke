@@ -62,7 +62,7 @@ def test_profile_copy_failure_does_not_report_restored():
 
     def run(script, **kwargs):
         if "Get-YokeProfileProcesses).Count" in script:
-            return completed(returncode=0)  # nothing runs from the profile
+            return completed(returncode=0, stdout="YOKE_RESET_PROCESS_DISCOVERY empty")
         scripts.append(script)
         return completed(returncode=1, stderr="locked profile: close app and retry")
 
