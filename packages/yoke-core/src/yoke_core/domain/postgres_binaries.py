@@ -32,6 +32,7 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from yoke_contracts.embedded_postgres import BINARIES_DIR_NAME, POSTGRES_VERSION
+from yoke_contracts import windows_vc_runtime_install
 from yoke_contracts.machine_config import runtime as machine_runtime
 from yoke_contracts.resilient_fetch import FetchError
 from yoke_contracts.resilient_fetch import FetchResult
@@ -207,9 +208,7 @@ def fetch_binaries(
         raise PostgresBinariesError(
             f"fetched release did not provide bin/{_initdb_name()} under {dest}"
         )
-    from yoke_core.domain import postgres_vc_runtime
-
-    postgres_vc_runtime.ensure_runtime(bin_dir, emit=emit)
+    windows_vc_runtime_install.ensure_runtime(bin_dir, emit=emit)
     emit(f"  [postgres-binaries] installed {version} at {dest}")
     return bin_dir
 

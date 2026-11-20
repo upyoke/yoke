@@ -76,6 +76,9 @@ RUN --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/__init__
     --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/windows_others_unwritable_directory.py,target=/bootstrap/contracts/yoke_contracts/windows_others_unwritable_directory.py \
     --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/platform_fs.py,target=/bootstrap/contracts/yoke_contracts/platform_fs.py \
     --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/resilient_fetch.py,target=/bootstrap/contracts/yoke_contracts/resilient_fetch.py \
+    --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/embedded_postgres.py,target=/bootstrap/contracts/yoke_contracts/embedded_postgres.py \
+    --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/windows_vc_runtime.py,target=/bootstrap/contracts/yoke_contracts/windows_vc_runtime.py \
+    --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/windows_vc_runtime_install.py,target=/bootstrap/contracts/yoke_contracts/windows_vc_runtime_install.py \
     --mount=type=bind,source=packages/yoke-contracts/src/yoke_contracts/terminal_detached_process.py,target=/bootstrap/contracts/yoke_contracts/terminal_detached_process.py \
     --mount=type=bind,source=packages/yoke-core/src/yoke_core/domain/postgres_binaries.py,target=/bootstrap/postgres_binaries.py \
     PYTHONPATH=/bootstrap/contracts YOKE_MACHINE_HOME=/tmp/postgres-bootstrap \

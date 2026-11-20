@@ -11,10 +11,10 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_contracts import windows_vc_runtime as runtime
+from yoke_contracts import windows_vc_runtime_install as installer
 from yoke_core.domain import local_universe
 from yoke_core.domain import postgres_binaries
 from yoke_core.domain import postgres_cluster
-from yoke_core.domain import postgres_vc_runtime as installer
 
 pytestmark = pytest.mark.windows
 

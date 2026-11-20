@@ -7,6 +7,7 @@ They come from Microsoft's pinned redistributable
 (:mod:`yoke_contracts.windows_vc_runtime`): its sha256 is verified, the
 runtime cabinet is unpacked with Windows' inbox ``tar.exe`` (no elevation),
 and each DLL is checked against its pinned sha256 before it lands in ``bin``.
+Contracts-only imports: the image build runs the engine fetch from source.
 """
 
 from __future__ import annotations
@@ -24,14 +25,12 @@ from yoke_contracts.owner_private_path import create_owner_private_directory
 from yoke_contracts.platform_fs import remove_tree
 from yoke_contracts.resilient_fetch import FetchError, fetch_bytes
 
-from yoke_core.domain.postgres_binaries import PostgresBinariesError
-
 _WINDOWS = os.name == "nt"
 _FETCH_TIMEOUT_S = 120
 _TAR_TIMEOUT_S = 120
 
 
-class VcRuntimeError(PostgresBinariesError):
+class VcRuntimeError(RuntimeError):
     """The runtime DLLs could not be installed into the engine ``bin``."""
 
 
