@@ -83,7 +83,8 @@ unrestricted-permissions requirement.
 Inside Codex Desktop or CLI, `yoke doctor` runs the quick checks and looks for
 a restricted turn before it tries to connect to the control plane. A restricted
 turn reports `HARNESS_POSTURE_RESTRICTED`. Select **Full Access** in this thread's
-permissions control and rerun the command in a new turn. When Doctor also finds
+permissions control and rerun the command in a new turn. Leave the saved
+`writable_roots` and `network_access` settings as they are. When Doctor also finds
 restricted saved settings, it names `yoke doctor run --only harness-setup --fix`
 to run from a terminal outside the thread. Managed organization requirements
 take precedence. Ask your administrator if Full Access is unavailable.
