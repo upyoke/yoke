@@ -19,6 +19,7 @@ from pathlib import Path
 
 from yoke_cli.config import machine_uninstall_detached, machine_uninstall_workers
 from yoke_cli.config import machine_config, machine_uninstall_relays
+from yoke_cli.config import machine_uninstall_browsers
 from yoke_cli.config.machine_uninstall_inventory import Inventory, UninstallError
 from yoke_cli.config.machine_config_file import remove_file
 from yoke_contracts import harness_settings_ledger, harness_settings_revert
@@ -143,6 +144,15 @@ def remove(
             counts["done"] += 1
             emit(f"{label}: done")
 
+    # A running Yoke browser keeps its Chromium in the machine home open, so
+    # close them before anything changes, or stop with everything in place.
+    attempt("browsers", lambda: machine_uninstall_browsers.stop(emit))
+    if counts["failed"]:
+        skipped("remaining steps", "a Yoke browser is still running; nothing else changed")
+        emit(
+            f"Uninstall summary: {counts['done']} done, {counts['skipped']} skipped, {counts['failed']} failed."
+        )
+        return 1
     # Remove the supervisor first so it cannot launch another worker during teardown.
     for env in inventory.relay_envs:
         attempt(

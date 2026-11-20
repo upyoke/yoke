@@ -46,6 +46,20 @@ def live_ports(home=None):
     return ports
 
 
+def close(port):
+    """Ask the identity browser on *port* to exit; quiet when it already has."""
+    try:
+        page = DevToolsPage(_get_json(port, "/json/version")["webSocketDebuggerUrl"])
+    except (OSError, KeyError, ValueError):
+        return
+    try:
+        page.call("Browser.close")
+    except OSError:
+        pass  # Chromium may drop the socket before it replies.
+    finally:
+        page.socket.close()
+
+
 def _pages(port):
     return [p for p in _get_json(port, "/json/list") if p.get("type") == "page"]
 

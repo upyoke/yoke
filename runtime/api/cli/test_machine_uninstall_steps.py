@@ -35,6 +35,7 @@ def machine(tmp_path, monkeypatch):
         cancel=lambda: handoff_events.append("cancelled"),
     )
     monkeypatch.setattr(steps, "command", lambda args: calls.append(args))
+    monkeypatch.setattr(steps.machine_uninstall_browsers, "stop", lambda emit: None)
     monkeypatch.setattr(
         steps.machine_uninstall_relays, "remove_saved_services", lambda home: None
     )
@@ -67,6 +68,20 @@ def test_complete_cleanup_removes_home_and_hands_off_cli(machine, tmp_path):
     assert str(tmp_path / "uv-tools" / "yoke-cli-releases") in output[-4]
     assert output[-2:] == [steps.NOT_REMOVED, steps.UV_REMOVAL]
     assert "uv cache clean" in steps.UV_REMOVAL and "uv tool dir" in steps.UV_REMOVAL
+
+
+def test_running_browser_stops_uninstall_before_any_change(machine, monkeypatch):
+    value, calls, handoff = machine
+
+    def still_open(emit):
+        raise UninstallError("uninstall_browser_running: port 9222")
+
+    monkeypatch.setattr(steps.machine_uninstall_browsers, "stop", still_open)
+    output = []
+    assert steps.remove(value, value.projects, output.append) == 1
+    assert calls == [] and not handoff and value.config.is_file()
+    assert output[0].startswith("browsers: failed") and "uninstall_browser_running" in output[0]
+    assert output[-1].startswith("Uninstall summary: 0 done, 1 skipped, 1 failed")
 
 
 def test_evaluator_stop_failure_retains_home_and_cli(machine, monkeypatch):

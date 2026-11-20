@@ -32,7 +32,10 @@ A Git checkout must be on the project's default branch before its layer is
 removed. When the Yoke install that owns a project no longer answers, its layer
 is still removed and committed on the current branch, with a warning to merge
 that commit into the default branch.
-It then removes the relay and its workers, the selected project layers, Yoke's
+It first closes the identity browsers `yoke browser open` started and any
+Browser QA daemons, because their Chromium runs from the machine home; if one
+stays open, uninstall stops before it changes anything else. It then removes
+the relay and its workers, the selected project layers, Yoke's
 GitHub credentials and checkout helpers, its machine-wide hooks and their Codex
 trust, and the folder-trust settings it wrote into
 Claude Code, Codex and Cursor. It restores approval modes replaced during setup
@@ -49,7 +52,8 @@ is not. A harness setting you changed after Yoke
 wrote it is left in place and reported. Docker is only checked when this
 machine runs a self-host install. No further confirmation is required. Finally a detached
 worker removes the immutable CLI releases and launcher after commands release
-their environments, then Yoke's PATH blocks. The command prints the releases
+their environments, then Yoke's PATH blocks, so the log ends with `CLI: done`
+followed by `shell PATH: done`. The command prints the releases
 folder it removes and its result log, in a system temporary folder the worker
 removes once it succeeds. If that removal fails, `yoke` may already be gone, so the log names a command that
 removes the folder without it: `Remove-Item -LiteralPath '\\?\<folder>' -Recurse
