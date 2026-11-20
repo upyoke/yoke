@@ -151,7 +151,7 @@ def begin_case_host_contract(
     )
     if primary and not baseline and primary != driver:
         raise ValueError(
-            f"test_machine_custody_in_use: this case still owns state on {primary!r}; "
+            f"test_machine_constraint_mismatch: active plan lease uses {primary!r}; "
             "finish or abort this execution to restore the host before switching machines"
         )
     if primary == driver and baseline and set(names) < held:
