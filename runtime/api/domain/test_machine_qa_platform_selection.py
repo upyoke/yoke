@@ -262,3 +262,31 @@ def test_native_windows_contract_refuses_a_wsl_screenshot_receipt():
         validate_operation_result(
             receipt, SimpleNamespace(settings={"os": "windows"})
         )
+
+
+def test_wsl_windows_console_screenshot_receipt_passes_its_wsl_contract(monkeypatch):
+    from types import SimpleNamespace
+    from runtime.api.domain.test_windows_test_machine import wsl_console_screenshot
+    from yoke_core.domain.handlers.machine_qa_operation_result import (
+        validate_operation_result,
+    )
+    from yoke_core.domain.machine_qa_submission_artifacts import (
+        MachineQaSubmissionArtifact,
+    )
+    from yoke_harness.test_machine_operations import OPERATION_RUNNERS
+
+    control = SimpleNamespace(capture_screenshot=lambda: wsl_console_screenshot(monkeypatch))
+    checks, error_code = OPERATION_RUNNERS["screenshot"](None, control, None)
+    artifact = MachineQaSubmissionArtifact(**checks[0].pop("capture_artifact"))
+    receipt = SimpleNamespace(
+        operation="screenshot",
+        status="verified" if error_code is None else "error",
+        error_code=error_code,
+        artifacts=[artifact],
+        checks=checks,
+        model_dump=lambda **_: {},
+    )
+    contract = SimpleNamespace(settings={"os": "wsl", "wsl_desktop_session": "windows"})
+    validate_operation_result(receipt, contract)
+    with pytest.raises(ValueError, match="screenshot OS differs"):
+        validate_operation_result(receipt, SimpleNamespace(settings={"os": "windows"}))
