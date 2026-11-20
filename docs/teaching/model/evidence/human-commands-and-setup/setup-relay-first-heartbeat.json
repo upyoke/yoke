@@ -1,9 +1,9 @@
 {
  "id": "setup-relay-first-heartbeat",
- "title": "Setup waits for a fresh relay's first heartbeat",
+ "title": "Setup waits for the relay install and its first heartbeat",
  "status": "observed",
  "scope": "Candidate source and unit tests; no production-install claim",
- "current": "After a fresh relay install (not a reused one), setup polls for up to 30 seconds until this machine's relay reports connected, then runs readiness. A relay that never connects leaves readiness with the unchanged session-relay FAIL and repair. The doctor check itself never waits.",
- "sources": ["packages/yoke-cli/src/yoke_cli/config/onboard_session_relay.py", "packages/yoke-core/src/yoke_core/engines/doctor_hc_session_relay.py", "runtime/api/engines/test_doctor_hc_session_relay.py", "runtime/api/cli/test_onboard_wizard_session_relay.py"],
+ "current": "Setup bounds the relay installer at 900 seconds, enough for a first served-release install on native Windows, and announces it as a designed wait. After the relay converges, fresh or already satisfied, setup polls for up to 90 seconds until this machine's relay reports connected, then runs readiness. A heartbeat that has not arrived moves session-relay out of the readiness verdict into a pending entry naming `yoke relay status`, not a FAIL row; a relay already heard from keeps its doctor row. The doctor check itself never waits.",
+ "sources": ["packages/yoke-cli/src/yoke_cli/config/onboard_session_relay.py", "packages/yoke-cli/src/yoke_cli/config/onboard_session_relay_wait.py", "packages/yoke-cli/src/yoke_cli/commands/adapters/doctor_install.py", "packages/yoke-core/src/yoke_core/engines/doctor_hc_session_relay.py", "runtime/api/engines/test_doctor_hc_session_relay.py", "runtime/api/cli/test_onboard_wizard_session_relay.py", "runtime/api/cli/test_onboard_session_relay_windows.py"],
  "position": 95
 }

@@ -10,6 +10,7 @@ import sys
 import pytest
 
 from yoke_cli.config import onboard_session_relay
+from yoke_cli.config import onboard_session_relay_wait as relay_wait
 from yoke_cli.config.onboard_wizard_apply_steps import apply_success_body
 from yoke_cli.config.onboard_wizard_plan_review import classify_plan
 
@@ -22,6 +23,16 @@ def _result(returncode: int, *, stdout: str = "", stderr: str = ""):
     return subprocess.CompletedProcess(
         args=[], returncode=returncode, stdout=stdout, stderr=stderr
     )
+
+
+def _recording_wait(connected: bool = True):
+    waits: list[float] = []
+
+    def wait(seconds: float) -> bool:
+        waits.append(seconds)
+        return connected
+
+    return wait, waits
 
 
 def _recording_runner(*results):
@@ -143,20 +154,20 @@ def test_apply_bridge_runs_packaged_installer_without_credentials(
 ) -> None:
     monkeypatch.setattr(onboard_session_relay.sys, "platform", "darwin")
     runner, calls = _recording_runner(_result(1), _result(0))
-    waits: list[float] = []
+    wait, waits = _recording_wait()
 
     outcome = onboard_session_relay.install(
         local_destination=local_destination,
         environment="upyoke",
         config_path="/tmp/machine-config.json",
         runner=runner,
-        wait_for_connection=waits.append,
+        wait_for_connection=wait,
     )
 
     assert outcome == onboard_session_relay.RelayInstallOutcome(
-        installed=True, reused=False
+        installed=True, reused=False, connected=True
     )
-    assert waits == [onboard_session_relay.RELAY_CONNECT_WAIT_SECONDS]
+    assert waits == [relay_wait.RELAY_CONNECT_WAIT_SECONDS]
     status_command, install_command = calls
     assert status_command == [
         sys.executable,
@@ -177,20 +188,20 @@ def test_a_satisfied_relay_is_reused_and_never_reinstalled(monkeypatch) -> None:
     """The on-screen retry must not unload the login item it just installed."""
     monkeypatch.setattr(onboard_session_relay.sys, "platform", "darwin")
     runner, calls = _recording_runner(_result(0))
-    waits: list[float] = []
+    wait, waits = _recording_wait()
 
     outcome = onboard_session_relay.install(
         local_destination=False,
         environment="upyoke",
         runner=runner,
-        wait_for_connection=waits.append,
+        wait_for_connection=wait,
     )
 
     assert outcome == onboard_session_relay.RelayInstallOutcome(
-        installed=True, reused=True
+        installed=True, reused=True, connected=True
     )
     assert [command[3] for command in calls] == ["status"]
-    assert waits == []
+    assert waits == [relay_wait.RELAY_CONNECT_WAIT_SECONDS]
 
 
 def test_an_unreadable_status_repairs_rather_than_skipping(monkeypatch) -> None:
@@ -269,7 +280,7 @@ def test_a_timeout_names_the_budget_it_exceeded(monkeypatch) -> None:
         )
 
     message = str(raised.value)
-    assert str(onboard_session_relay.RELAY_INSTALL_TIMEOUT_SECONDS) in message
+    assert str(relay_wait.RELAY_INSTALL_TIMEOUT_SECONDS) in message
     assert "did not finish" in message
 
 
@@ -303,6 +314,8 @@ def test_apply_records_what_the_relay_step_did(monkeypatch) -> None:
         + ".plist",
         "local_build": False,
         "reused": True,
+        "connected": False,
+        "environment": "upyoke",
     }
     assert {status for _action, _target, status in emitted} == {"running", "done"}
 

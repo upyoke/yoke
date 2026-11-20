@@ -33,7 +33,7 @@ def machine(monkeypatch, tmp_path):
     def ambient_wait(_timeout):
         pytest.fail("another active connection must not provide readiness")
 
-    monkeypatch.setattr(relay, "_wait_for_connection", ambient_wait)
+    monkeypatch.setattr(relay.relay_wait, "wait_for_connection", ambient_wait)
     return tmp_path
 
 
