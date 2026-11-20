@@ -36,6 +36,16 @@ def _config(home: Path) -> dict:
     return json.loads((home / "config.json").read_text())
 
 
+@pytest.mark.parametrize("single", [True, False])
+def test_removal_result_names_retained_machine_record(machine_home, single):
+    machine_id = _config(machine_home)["machine_id"]
+    if single:
+        report = writer.remove_connection("retiring")
+    else:
+        report = writer.remove_connections(("retiring", "external"))
+    assert report["machine_record_kept"] == machine_id
+
+
 def _set_credential_path(home: Path, env: str, path: Path) -> dict:
     payload = _config(home)
     payload["connections"][env]["credential_source"]["path"] = str(path)

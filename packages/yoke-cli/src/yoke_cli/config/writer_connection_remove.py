@@ -40,6 +40,11 @@ def remove_connection(
         "project_mappings_removed": result["project_mappings_removed"],
         "active_env": result["active_env"],
         "config": result["config"],
+        **(
+            {"machine_record_kept": result["machine_record_kept"]}
+            if "machine_record_kept" in result
+            else {}
+        ),
     }
 
 
@@ -70,6 +75,7 @@ def remove_connections(
             "at least one connection is required for retirement"
         )
     payload, cfg_path = load_payload(path)
+    machine_id = payload.get(contract.MACHINE_ID_KEY)
     if not cfg_path.is_file():
         raise MachineConfigWriteError(f"machine config is missing: {cfg_path}")
     if not owner_private_path.is_owner_private_file(cfg_path):
@@ -181,6 +187,7 @@ def remove_connections(
         "project_mappings_removed": mappings_removed,
         "active_env": str(payload.get("active_env") or ""),
         "config": str(cfg_path),
+        **({"machine_record_kept": machine_id} if machine_id else {}),
     }
 
 

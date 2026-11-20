@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import json
+
+import pytest
+
 from runtime.api.cli.yoke_operations_cli_config_write_test_support import (
     _assert_auth_token_imported as _assert_auth_token_imported,
     _assert_dsn_imported as _assert_dsn_imported,
@@ -13,6 +17,29 @@ from runtime.api.cli.yoke_operations_cli_config_write_test_support import (
 
 
 from yoke_cli import main as yoke_operations_cli
+
+
+@pytest.mark.parametrize("has_machine_id", [True, False])
+def test_connection_remove_reports_machine_retirement_command(
+    cfg, tmp_path, capsys, has_machine_id,
+) -> None:
+    _seed(cfg, tmp_path, "prod")
+    payload = _payload(cfg)
+    machine_id = payload["machine_id"]
+    if not has_machine_id:
+        payload.pop("machine_id")
+        cfg.write_text(json.dumps(payload))
+    capsys.readouterr()
+
+    assert yoke_operations_cli.main(["connection", "remove", "prod"]) == 0
+
+    out = capsys.readouterr().out
+    if has_machine_id:
+        assert f"machine record: {machine_id} stays registered on prod" in out
+        assert f"`yoke --env prod machine retire {machine_id} --confirm`" in out
+    else:
+        assert "machine record:" not in out
+        assert "machine retire" not in out
 
 
 def test_connection_set_then_env_use_round_trip(cfg, tmp_path, capsys) -> None:

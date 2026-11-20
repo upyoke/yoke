@@ -9,6 +9,7 @@ The env arg is positional on every writer because the CLI's global
 from __future__ import annotations
 
 import argparse
+import shlex
 from typing import List
 
 from yoke_cli.commands._helpers import (
@@ -145,7 +146,9 @@ def connection_remove(args: List[str]) -> int:
             "active authority needs --activate to name the replacement, unless "
             "the alias is this machine's only connection, which simply leaves "
             "it unconfigured. A credential file outside Yoke's machine secrets "
-            "is kept and reported. " + CONFIG_SELECTION_HELP
+            "is kept and reported. The server keeps the machine record. "
+            "Use `yoke machine retire` before removing the connection. "
+            + CONFIG_SELECTION_HELP
         ),
     )
     parser.add_argument("env", help="Connection name to remove.")
@@ -160,13 +163,24 @@ def connection_remove(args: List[str]) -> int:
     if parsed is None:
         return 2
     writer = _writer()
-    return _run(
-        lambda: writer.remove_connection(
+
+    def remove_and_describe() -> dict:
+        result = writer.remove_connection(
             parsed.env,
             activate=parsed.activate,
             path=parsed.config_path,
         )
-    )
+        machine_id = result.pop("machine_record_kept", None)
+        if machine_id:
+            env = shlex.quote(parsed.env.strip())
+            result["machine record"] = (
+                f"{machine_id} stays registered on {env}; retire it with "
+                f"`yoke --env {env} machine retire {machine_id} --confirm` "
+                "before removing the connection, or from another connected machine."
+            )
+        return result
+
+    return _run(remove_and_describe)
 
 
 def auth_set(args: List[str]) -> int:

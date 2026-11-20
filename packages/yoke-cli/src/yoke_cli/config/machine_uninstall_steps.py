@@ -23,6 +23,7 @@ from yoke_cli.config import machine_uninstall_browsers
 from yoke_cli.config.machine_uninstall_inventory import Inventory, UninstallError
 from yoke_cli.config.machine_config_file import remove_file
 from yoke_contracts import harness_settings_ledger, harness_settings_revert
+from yoke_contracts.machine_config.runtime import machine_id as configured_machine_id
 from yoke_contracts.platform_fs import remove_tree
 from yoke_contracts.self_host_bootstrap_output import redact_api_tokens
 from yoke_cli.hook_resident_lifecycle import stop_resident
@@ -125,6 +126,7 @@ def _report_windows_path(emit: Callable[[str], None]) -> None:
 def remove(
     inventory: Inventory, selected: tuple[Path, ...], emit: Callable[[str], None]
 ) -> int:
+    machine_id = configured_machine_id(inventory.config)
     counts = {"done": 0, "skipped": 0, "failed": 0}
 
     def skipped(label: str, reason: str) -> None:
@@ -295,7 +297,14 @@ def remove(
     emit(
         f"Uninstall summary: {counts['done']} done, {counts['skipped']} skipped, {counts['failed']} failed."
     )
-    emit(NOT_REMOVED)
+    retained = NOT_REMOVED
+    if machine_id:
+        retained += (
+            f" Also kept: this machine's record {machine_id} on each server it connected to "
+            f"(retire it with `yoke machine retire {machine_id} --confirm` "
+            "from a connected machine)."
+        )
+    emit(retained)
     emit(UV_REMOVAL)
     return 1 if counts["failed"] else 0
 
