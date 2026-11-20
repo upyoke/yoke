@@ -71,6 +71,7 @@ def wizard_defaults(
         apply=parsed.apply,
         post_install=parsed.post_install,
         machine_github=parsed.machine_github,
+        project_public_item_prefix=parsed.project_public_item_prefix,
     )
 
 

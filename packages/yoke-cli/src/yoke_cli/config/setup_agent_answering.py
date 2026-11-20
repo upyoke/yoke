@@ -9,6 +9,7 @@ inputs never accept an answer. A rejected answer raises
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -67,8 +68,21 @@ class SetupRefusal(Exception):
 class AnswerFlow:
     """Validate and apply one screen's answers; stage them for the store."""
 
+    def _with_project_prefix_preset(self, view: _View) -> _View:
+        prefix = self._project_prefix_preset
+        if prefix is None or view.prompt.key != "project.details":
+            return view
+        submit = view.on_form
+        assert submit is not None
+        fields = tuple(field for field in view.prompt.fields if field.key != "prefix")
+        return replace(
+            view,
+            prompt=replace(view.prompt, fields=fields),
+            on_form=lambda values: submit({**values, "prefix": prefix.strip().upper()}),
+        )
+
     def _answer_from_sources(self, view: _View) -> bool:
-        """Answer from this command line, then the store, then ``--yes``."""
+        """Answer from this command line, then the store, then setup presets."""
         prompt = view.prompt
         given = self._cli_for(prompt.key)
         if given:
@@ -84,6 +98,8 @@ class AnswerFlow:
         if marker in self._auto_answered or prompt.key in INVOCATION_ONLY_KEYS:
             return self._answer_preset(view)
         stored = self._answers.values_for(prompt.key)
+        if prompt.key == "project.details" and self._project_prefix_preset is not None:
+            stored.pop("project.details.prefix", None)
         if not stored:
             return self._answer_preset(view)
         if prompt.fields and stored == {prompt.key: prompt.selected}:
@@ -98,9 +114,23 @@ class AnswerFlow:
 
     def _answer_preset(self, view: _View) -> bool:
         prompt = view.prompt
-        if prompt.key != REVIEW_KEY or not self._apply_preset:
-            return False
         if prompt.key in self._auto_answered:
+            return False
+        if (
+            prompt.key in {"project.folder", "project.clone_folder"}
+            and self._project_checkout_preset is not None
+        ):
+            self._auto_answered.add(prompt.key)
+            try:
+                self._answer_input(view, {prompt.key: self._project_checkout_preset})
+            except SetupRefusal as exc:
+                raise SetupRefusal(
+                    "setup_project_checkout_invalid",
+                    f"Correct --checkout. {exc.recovery}",
+                    None,
+                ) from exc
+            return True
+        if prompt.key != REVIEW_KEY or not self._apply_preset:
             return False
         if APPLY_CHOICE not in {row.value for row in prompt.choices}:
             return False
