@@ -53,6 +53,12 @@ relay and background work continue. After a deliberate distro shutdown, run
 connection. See [local connection repair](../verification/local-connection-repair.md).
 See [Yoke on Windows (WSL)](windows-wsl.md) for filesystem, systemd, and agent setup.
 
+When running the native Windows test build from PowerShell, `yoke.cmd` can
+lose the inner quotes in inline JSON. Save the JSON with
+`$json | Out-File -Encoding utf8 d.json` and pass `'@d.json'` to
+`--declarations-json`, `--step-json`, or `qa artifact add --metadata`.
+See [Native Windows browser identities](../verification/test-machines/windows-browser-identities.md#supply-declarations-from-powershell).
+
 Local mode on macOS requires **macOS 15.0 or newer** on Apple Silicon and
 Intel. The pinned embedded PostgreSQL 17.11.1 build sets this minimum.
 Before downloading or initializing it, Yoke refuses older systems with

@@ -15,6 +15,7 @@ import sys
 from typing import List
 
 from yoke_cli.commands._helpers import parse_or_usage_error, usage_error
+from yoke_cli.commands.json_input import JSON_INPUT_HELP, load_json_input
 from yoke_cli.config.project_selection import required_project_context
 from yoke_contracts.browser_identity import BrowserIdentityError
 from yoke_contracts.browser_step_schema import declared_schema_help
@@ -138,7 +139,10 @@ def qa_browser_step(args: List[str]) -> int:
         "--base-url", required=True, metavar="URL", help="Base URL for the step."
     )
     parser.add_argument(
-        "--step-json", required=True, metavar="JSON", help="One step as a JSON object."
+        "--step-json",
+        required=True,
+        metavar="JSON",
+        help=f"One step as a JSON object. {JSON_INPUT_HELP}",
     )
     parser.add_argument(
         "--output-dir", metavar="PATH", help="Folder for files the step writes."
@@ -172,8 +176,8 @@ def qa_browser_step(args: List[str]) -> int:
         )
         return 2
     try:
-        step = json.loads(parsed.step_json)
-    except json.JSONDecodeError as exc:
+        step = load_json_input(parsed.step_json, "--step-json")
+    except ValueError as exc:
         print(f"yoke qa browser step: invalid step JSON: {exc}", file=sys.stderr)
         return 2
     if not isinstance(step, dict):
