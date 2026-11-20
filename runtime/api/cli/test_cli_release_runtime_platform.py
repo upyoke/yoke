@@ -124,7 +124,7 @@ def test_windows_layout_uses_scripts_python_and_cmd_shim(tmp_path, monkeypatch):
     python, root = Path("C:/Python/python.exe"), tmp_path / "root"
     shims = runtime._shims(root, python, tmp_path / "bin")
     assert shims[tmp_path / "bin/yoke.cmd"] == (
-        f'@"{python}" "{root / "launcher"}" %* & call exit /b %%ERRORLEVEL%%\r\n'
+        f'@(goto) 2>nul & "{python}" "{root / "launcher"}" %*\r\n'
     )
     # Git Bash runs the extensionless shim; Git runs helpers through sh too.
     assert shims[tmp_path / "bin/yoke"].startswith("#!/bin/sh\nexec ")
@@ -153,6 +153,42 @@ def test_cmd_shim_exits_with_the_command_code_and_keeps_arguments(tmp_path, code
     caller = tmp_path / "caller.cmd"  # %ERRORLEVEL% as a batch caller reads it
     caller.write_bytes(f'@call "{bin_dir / "yoke.cmd"}" {code} >nul\r\n@exit /b %ERRORLEVEL%\r\n'.encode())
     assert subprocess.run([str(caller)]).returncode == code
+
+
+@pytest.mark.windows
+@pytest.mark.windows_only(reason="cmd.exe must finish after the batch file is deleted")
+@pytest.mark.parametrize("entry", ["yoke.cmd", "caller.cmd"])
+@pytest.mark.parametrize("code", [0, 7])
+def test_cmd_shim_can_disappear_while_the_command_runs(tmp_path, entry, code):
+    bin_dir = tmp_path / "bin with spaces"
+    bin_dir.mkdir()
+    (bin_dir / "launcher").write_text(
+        "import json, sys\n"
+        "from pathlib import Path\n"
+        "Path(__file__).with_name('yoke.cmd').unlink()\n"
+        "print(json.dumps([str(Path.cwd()), *sys.argv[1:]]))\n"
+        "sys.exit(int(sys.argv[1]))\n"
+    )
+    shim = bin_dir / "yoke.cmd"
+    shim.write_bytes(runtime._shims(bin_dir, Path(sys.executable), bin_dir)[shim].encode())
+    (tmp_path / "caller.cmd").write_bytes(
+        b'@call yoke.cmd %*\r\n@echo caller_after=%ERRORLEVEL%\r\n@exit /b %ERRORLEVEL%\r\n'
+    )
+    env = {**os.environ, "PATH": str(bin_dir) + os.pathsep + os.environ["PATH"]}
+
+    result = subprocess.run(
+        f'cmd.exe /d /c {entry} {code} plain "two words"',
+        cwd=tmp_path, env=env, capture_output=True, text=True, timeout=10,
+    )
+
+    assert result.returncode == code
+    assert result.stderr == ""
+    child, *after = result.stdout.splitlines()
+    cwd, *arguments = json.loads(child)
+    assert Path(cwd) == tmp_path
+    assert arguments == [str(code), "plain", "two words"]
+    assert after == ([f"caller_after={code}"] if entry == "caller.cmd" else [])
+    assert not shim.exists()
 
 
 @pytest.mark.windows
