@@ -266,6 +266,7 @@ def _merge_once(
                 source_sha=commit_sha,
                 target=target,
                 local_merge=local_merge,
+                resume_command=resume_command,
             )
         except Exception as exc:  # noqa: BLE001 - a landed merge outranks it
             if not git.is_ancestor(repo_root, commit_sha, target):
