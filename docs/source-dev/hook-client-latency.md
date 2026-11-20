@@ -23,6 +23,11 @@ answer separates client work from network time; it does not prove the
 Production gap. Exercise concurrent calls and both missing and saved
 transcripts, and preserve which discovery or ancestor selection was mocked.
 
+A one-process fact such as a start token or executable name reads only that
+PID through `platform_process.process_info`. Never snapshot the whole process
+table for it: on a busy machine the snapshot reads every process's command
+line and memory, and in Production it cost about 100ms on every hook.
+
 Claude keeps its per-session ambient anchor walk, including its shared-host
 boundary. Other surfaces without liveness process names skip that walk.
 A failed named lookup also stops there; passing an absent anchor to the

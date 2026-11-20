@@ -97,21 +97,21 @@ def parent_map() -> Dict[int, int]:
 
 
 def process_start_time(pid: int) -> Optional[str]:
-    """Return the live process creation epoch as an opaque identity token."""
-    return next(
-        (str(entry.start_time) for entry in platform_process.process_command_lines()
-         if entry.pid == pid and platform_process.pid_alive(pid, entry.start_time)),
-        None,
-    )
+    """Return the live process creation epoch as an opaque identity token.
+
+    Reads only ``pid``: hooks call this on every tool call, and a full
+    process-table snapshot costs tens of milliseconds per call.
+    """
+    entry = platform_process.process_info(pid)
+    if entry is None or not platform_process.pid_alive(pid, entry.start_time):
+        return None
+    return str(entry.start_time)
 
 
 def process_command_name(pid: int) -> Optional[str]:
-    """Return the live executable title from the shared process layer."""
-    return next(
-        (entry.name for entry in platform_process.process_command_lines()
-         if entry.pid == pid),
-        None,
-    )
+    """Return the live executable title of ``pid`` alone."""
+    entry = platform_process.process_info(pid)
+    return entry.name if entry is not None else None
 
 
 def ancestor_pids(

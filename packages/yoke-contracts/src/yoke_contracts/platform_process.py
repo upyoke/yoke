@@ -104,6 +104,16 @@ def ancestors(pid: int) -> list[ProcessInfo]:
     return result
 
 
+def process_info(pid: int) -> ProcessInfo | None:
+    """Read one process without snapshotting the table; None when exited or denied."""
+    if pid <= 0:
+        return None
+    try:
+        return _info(psutil.Process(pid))
+    except (psutil.NoSuchProcess, psutil.AccessDenied):
+        return None
+
+
 @dataclass
 class GroupHandle:
     pid: int
@@ -299,5 +309,5 @@ def stop_group(handle: GroupHandle, timeout: float) -> bool:
             handle._job = None
 
 
-__all__ = ["ProcessInfo", "GroupHandle", "start_identity", "pid_alive", "process_command_lines",
+__all__ = ["ProcessInfo", "GroupHandle", "start_identity", "pid_alive", "process_command_lines", "process_info",
            "ancestors", "handle_from_pid", "spawn_group", "stop_group", "spawn_group_process", "detach_current_process"]
