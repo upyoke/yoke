@@ -34,15 +34,16 @@ from yoke_core.domain.session_message_store import (
     cancel_message_rows,
 )
 from yoke_core.domain.session_message_types import SessionMessageError, utc_now
+from yoke_core.domain.steering_message_recipients import (
+    acknowledge_steering_recipient,
+)
+
 
 #: Idempotency-key prefixes of the wakes that carry a manual-wake QA recheck.
 RECHECK_WAKE_PREFIXES = (
     "deployment-qa-manual-wait:",
     "deployment-qa-moved:",
     "scheduled-wake:",
-)
-from yoke_core.domain.steering_message_recipients import (
-    acknowledge_steering_recipient,
 )
 
 
@@ -58,14 +59,20 @@ def acknowledge_message(
 
     expire_due_recipients(conn, now=now)
     from yoke_core.domain.session_launch_types import SessionLaunchError
-    from yoke_core.domain.session_launch_late_acceptance import accept_late_acknowledgement
+    from yoke_core.domain.session_launch_late_acceptance import (
+        accept_late_acknowledgement,
+    )
 
     try:
-        accept_late_acknowledgement(conn, message_id=message_id, session_id=session_id, now=now)
+        accept_late_acknowledgement(
+            conn, message_id=message_id, session_id=session_id, now=now
+        )
     except SessionLaunchError as exc:
         conn.rollback()
         raise SessionMessageError(exc.code, str(exc)) from exc
-    _refuse_unscheduled_recheck(conn, message_id=message_id, session_id=session_id, now=now)
+    _refuse_unscheduled_recheck(
+        conn, message_id=message_id, session_id=session_id, now=now
+    )
     acknowledged_at = now
     seated = acknowledge_steering_recipient(
         conn,
