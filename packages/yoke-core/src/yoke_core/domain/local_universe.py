@@ -37,6 +37,7 @@ from yoke_core.domain.local_universe_operating_actor import (
 )
 from yoke_core.domain import postgres_binaries
 from yoke_core.domain import postgres_cluster
+from yoke_core.domain import postgres_vc_runtime
 from yoke_core.domain.postgres_cluster import ClusterSpec
 
 #: Directory under the machine runtime dir holding the universe cluster
@@ -104,11 +105,11 @@ def start(
 ) -> Dict[str, Any]:
     """Idempotently start the embedded cluster; returns a status payload."""
     resolved = _resolve_spec(spec, emit=emit)
-    rc = postgres_cluster.ensure_started(resolved)
-    if rc != 0:
-        raise LocalUniverseError(
-            f"embedded Postgres failed to start (exit {rc}); see {resolved.log_file}"
-        )
+    if resolved.bin_dir is not None:
+        postgres_vc_runtime.ensure_runtime(resolved.bin_dir, emit=emit)
+    failure = postgres_cluster.start_failure(resolved)
+    if failure is not None:
+        raise LocalUniverseError(failure.describe(resolved.log_file))
     ensure_database(resolved)
     return status(resolved)
 

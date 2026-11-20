@@ -34,7 +34,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, Tuple
 
-from yoke_core.domain.postgres_cluster_process import _env, _run, executable
+from yoke_core.domain.postgres_cluster_process import StartFailure, _env, _run, executable
 from yoke_contracts.owner_private_path import create_owner_private_directory
 from yoke_contracts.platform_fs import remove_tree
 
@@ -251,7 +251,13 @@ def start_server(spec: ClusterSpec) -> subprocess.CompletedProcess:
 
 
 def ensure_started(spec: ClusterSpec) -> int:
-    """Idempotently bring the cluster up: initdb if new, start if down."""
+    """Idempotently bring the cluster up; return the failing exit code or 0."""
+    failure = start_failure(spec)
+    return failure.returncode if failure else 0
+
+
+def start_failure(spec: ClusterSpec) -> Optional[StartFailure]:
+    """Initdb if new and start if down; name the tool that failed, if any."""
     create_private_directory(spec.root.parent)
     if _WINDOWS:
         create_owner_private_directory(spec.root)
@@ -260,14 +266,14 @@ def ensure_started(spec: ClusterSpec) -> int:
     _ensure_private_socket_dir(spec.sock_dir)
     rc = initdb_if_needed(spec)
     if rc != 0:
-        return rc
+        return StartFailure("initdb", rc)
     if not is_ready(spec):
         res = start_server(spec)
         if res.returncode != 0:
             sys.stderr.write(res.stdout + res.stderr)
             sys.stderr.write(log_tail(spec))
-            return res.returncode
-    return 0
+            return StartFailure("pg_ctl", res.returncode)
+    return None
 
 
 def _ensure_private_socket_dir(path: Path) -> None:
@@ -331,5 +337,6 @@ __all__ = [
     "ClusterSpec", "PostgresClusterError", "SOCKET_PORT", "binary",
     "data_dir_major_mismatch", "destroy", "dsn", "ensure_started", "executable",
     "initdb_if_needed", "is_ready", "log_tail", "psql", "server_options",
+    "start_failure",
     "socket_dir_for_root", "start_server", "stop",
 ]

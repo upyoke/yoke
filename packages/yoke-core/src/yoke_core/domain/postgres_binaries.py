@@ -7,7 +7,8 @@ else a lazy fetch from the theseus-rs/postgresql-binaries GitHub releases
 (one self-contained tarball per ``<version>-<target>`` with a sha256
 companion asset, verified before unpack).
 
-One Postgres version is pinned here (:data:`POSTGRES_VERSION`); the
+One Postgres version is pinned (:data:`POSTGRES_VERSION`, owned by
+:mod:`yoke_contracts.embedded_postgres`); the
 per-version directory layout means a future version bump fetches
 side-by-side rather than clobbering a running cluster's binaries.
 
@@ -30,11 +31,8 @@ import secrets
 from pathlib import Path
 from typing import Callable, Optional
 
+from yoke_contracts.embedded_postgres import BINARIES_DIR_NAME, POSTGRES_VERSION
 from yoke_contracts.machine_config import runtime as machine_runtime
-
-#: The one pinned embedded-engine Postgres version (theseus-rs release tag:
-#: upstream major.minor plus a build suffix).
-
 from yoke_contracts.resilient_fetch import FetchError
 from yoke_contracts.resilient_fetch import FetchResult
 from yoke_contracts.resilient_fetch import fetch_bytes
@@ -42,16 +40,10 @@ from yoke_contracts.resilient_fetch import fetch_file
 
 _WINDOWS = os.name == "nt"
 
-POSTGRES_VERSION = "17.11.1"
-
 #: LC_BUILD_VERSION minos of the pinned macOS release binaries.
 MINIMUM_MACOS_VERSION = (15, 0)
 
 RELEASE_BASE_URL = "https://github.com/theseus-rs/postgresql-binaries/releases/download"
-
-#: Directory under the machine runtime dir holding fetched engines,
-#: one subdirectory per version.
-BINARIES_DIR_NAME = "postgres"
 
 #: Pins the engine bin directory when a command isolates its machine home;
 #: source isolation sets it to the real machine's fetched engine.
@@ -215,6 +207,9 @@ def fetch_binaries(
         raise PostgresBinariesError(
             f"fetched release did not provide bin/{_initdb_name()} under {dest}"
         )
+    from yoke_core.domain import postgres_vc_runtime
+
+    postgres_vc_runtime.ensure_runtime(bin_dir, emit=emit)
     emit(f"  [postgres-binaries] installed {version} at {dest}")
     return bin_dir
 

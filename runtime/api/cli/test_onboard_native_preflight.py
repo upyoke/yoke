@@ -122,3 +122,56 @@ def test_status_collects_preflight_without_doctor(monkeypatch, tmp_path):
     )
     assert any(r["code"] == "windows_version" for r in result["issues"])
     assert result["native_preflight"]["system"] == "Windows"
+
+
+def test_agent_refusal_carries_an_unsourced_vc_runtime(monkeypatch, capsys):
+    monkeypatch.setattr(
+        preflight,
+        "collect_facts",
+        lambda **kw: _ready_windows(vc_runtime=None, vc_runtime_missing=["msvcp140.dll"]),
+    )
+    parsed = Namespace(config_path=None, destination_local=True, agent=True)
+    assert preflight.check_setup(parsed) is False
+    out = capsys.readouterr().out
+    assert '"state": "refused"' in out and "msvcp140.dll" in out
+
+
+@pytest.mark.parametrize("mode", ["machine-only", "create-repo"])
+def test_review_refuses_answer_chosen_local_without_a_vc_runtime_source(
+    monkeypatch, tmp_path, mode
+):
+    """Local chosen by an answer reaches Review, which re-checks the runtime."""
+    from types import SimpleNamespace
+
+    from yoke_cli.config import onboard_preflight
+    from yoke_contracts import windows_vc_runtime
+    from yoke_contracts.embedded_postgres import engine_bin_dir
+
+    seen = []
+
+    def runtime_source(bin_dir, environ):
+        seen.append(bin_dir)
+        return None, ["msvcp140.dll"]
+
+    monkeypatch.setattr(onboard_preflight.platform, "system", lambda: "Windows")
+    monkeypatch.setattr(windows_vc_runtime, "runtime_source", runtime_source)
+    monkeypatch.setattr(
+        onboard_preflight.project_git_prerequisite, "git_available", lambda: True
+    )
+    result = SimpleNamespace(
+        destination="local",
+        project_mode=mode,
+        project_checkout=None,
+        config_path=str(tmp_path / "config.json"),
+    )
+    probes = onboard_preflight.PreflightProbes(
+        vc_runtime_problem=onboard_preflight.windows_vc_runtime_problem
+    )
+    problems = onboard_preflight.preflight(result, probes=probes).problems
+    assert problems == [windows_vc_runtime.unsourced_problem(["msvcp140.dll"])]
+    assert seen == [engine_bin_dir(tmp_path)]
+    assert onboard_preflight.default_probes().vc_runtime_problem is (
+        onboard_preflight.windows_vc_runtime_problem
+    )
+    result.destination = "hosted"
+    assert onboard_preflight.preflight(result, probes=probes).problems == []

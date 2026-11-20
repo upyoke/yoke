@@ -25,7 +25,8 @@ def facts(**overrides):
         "elevated": False,
         "git": "git.exe",
         "ssh": "ssh.exe",
-        "vc_runtime": "C:/Windows/System32/vcruntime140.dll",
+        "vc_runtime": "present in System32 or the engine bin",
+        "vc_runtime_missing": [],
         "storage": [
             {"path": "C:/Users/José Smith/.yoke", "kind": "local", "filesystem": "NTFS"}
         ],
@@ -168,17 +169,19 @@ def test_missing_tools_name_install_step(tool):
 
 def test_present_vc_runtime_proceeds():
     result = row("vc_runtime", local=True)
-    assert result["severity"] == "info" and "vcruntime140.dll" in result["message"]
+    assert result["severity"] == "info"
+    assert "Visual C++ runtime: present in System32" in result["message"]
 
 
 @pytest.mark.parametrize("local,severity", [(True, "error"), (False, "warning")])
-def test_missing_vc_runtime_names_winget_step(local, severity):
-    result = row("vc_runtime", local=local, vc_runtime=None)
-    assert result["severity"] == severity
-    assert "Visual C++ runtime (vcruntime140.dll) not found" in result["message"]
-    assert result["hint"] == (
-        "Install step: winget install --id Microsoft.VCRedist.2015+.x64 -e"
+def test_unsourced_vc_runtime_names_each_dll_and_the_step(local, severity):
+    result = row(
+        "vc_runtime", local=local, vc_runtime=None, vc_runtime_missing=["msvcp140.dll"]
     )
+    assert result["severity"] == severity
+    assert "Visual C++ runtime (msvcp140.dll) is missing" in result["message"]
+    assert "download.visualstudio.microsoft.com" in result["message"]
+    assert "winget install --id Microsoft.VCRedist.2015+.x64 -e" in result["message"]
 
 
 def test_wsl_install_keeps_identity_separate():

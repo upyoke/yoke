@@ -15,11 +15,15 @@ apply"; a non-empty list is the ordered set of problems to show.
 
 from __future__ import annotations
 
-import os.path
+import os
+import platform
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Protocol
 
+from yoke_contracts import windows_vc_runtime
+from yoke_contracts.embedded_postgres import engine_bin_dir
+from yoke_contracts.onboard_destinations import DESTINATION_LOCAL
 from yoke_contracts.windows_drive_checkout import windows_drive_checkout_warning
 
 from yoke_cli.config import onboard_input_validation as validation
@@ -76,6 +80,9 @@ class PreflightProbes:
     # server's default org). True/False is the server's answer; None means
     # unknown (an older server or a failed read), and Apply's refusal stands.
     project_create_allowed: Callable[[str | None], bool | None] | None = None
+    # Answers "can the local universe's engine load its MSVC runtime?" with
+    # the refusal, or None. Runs for the local destination however chosen.
+    vc_runtime_problem: Callable[[_ResultLike], str | None] | None = None
 
 
 @dataclass(frozen=True)
@@ -103,6 +110,11 @@ def preflight(
     """
     probes = probes or PreflightProbes()
     problems = onboard_credential_replacement.replacement_problems_from_result(result)
+    if (
+        getattr(result, "destination", None) == DESTINATION_LOCAL
+        and probes.vc_runtime_problem is not None
+    ):
+        problems.extend(filter(None, [probes.vc_runtime_problem(result)]))
     mode = getattr(result, "project_mode", None)
     if mode in (None, onboard_project.PROJECT_MODE_MACHINE_ONLY):
         return PreflightResult(problems=problems, notes=[])
@@ -250,7 +262,24 @@ def default_probes() -> PreflightProbes:
             return REPO_AMBIGUOUS_BLOCKING
         return REPO_POPULATED_BLOCKING
 
-    return PreflightProbes(repo_availability=_repo_availability, token_ok=_token_ok)
+    return PreflightProbes(
+        repo_availability=_repo_availability,
+        token_ok=_token_ok,
+        vc_runtime_problem=windows_vc_runtime_problem,
+    )
+
+
+def windows_vc_runtime_problem(result: _ResultLike) -> str | None:
+    """Refuse a native Windows local universe whose MSVC runtime has no source."""
+    if platform.system() != "Windows":
+        return None
+    from yoke_cli.config import machine_config
+
+    home = machine_config.config_path(getattr(result, "config_path", None)).parent
+    source, missing = windows_vc_runtime.runtime_source(
+        engine_bin_dir(home), os.environ
+    )
+    return None if source else windows_vc_runtime.unsourced_problem(missing)
 
 
 __all__ = [
@@ -263,4 +292,5 @@ __all__ = [
     "default_probes",
     "preflight",
     "preflight_problems",
+    "windows_vc_runtime_problem",
 ]

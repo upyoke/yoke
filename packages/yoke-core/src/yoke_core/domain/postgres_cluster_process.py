@@ -5,12 +5,25 @@ from __future__ import annotations
 import os
 import subprocess
 import tempfile
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
 from yoke_contracts import terminal_detached_process
 
 _WINDOWS = os.name == "nt"
+
+#: Windows loader status STATUS_DLL_NOT_FOUND.
+LOADER_STATUS = 0xC0000135
+LOADER_HINT = (
+    "embedded_postgres_load_failed: Windows loader status 0xC0000135 "
+    "means a PostgreSQL runtime DLL is missing or inaccessible. Yoke installs "
+    "the Microsoft Visual C++ runtime (vcruntime140.dll, vcruntime140_1.dll, "
+    "msvcp140.dll) into the engine bin directory before each start; retry "
+    "`yoke local-postgres start` to repair it. If it still fails, check owner "
+    "access to the engine bin directory and bundled DLLs and repair the "
+    "downloaded engine installation."
+)
 
 
 def executable(bin_dir: Optional[Path], name: str) -> str:
@@ -63,14 +76,21 @@ def _run(argv, *, env: dict | None = None, **kw) -> subprocess.CompletedProcess:
         out.seek(0)
         err.seek(0)
         result.stdout, result.stderr = out.read(), err.read()
-    if result.returncode == 0xC0000135:
-        result.stderr += (
-            "embedded_postgres_load_failed: Windows loader status 0xC0000135 "
-            "means a PostgreSQL runtime DLL is missing or inaccessible. Most "
-            "often the Microsoft Visual C++ runtime (vcruntime140.dll) is not "
-            "installed: run `winget install --id Microsoft.VCRedist.2015+.x64 -e`. "
-            "If it is installed, check owner access to the engine bin directory "
-            "and bundled DLLs and repair the downloaded engine installation. "
-            "Then retry `yoke local-postgres start`."
-        )
+    if result.returncode == LOADER_STATUS:
+        result.stderr += LOADER_HINT
     return result
+
+
+@dataclass(frozen=True)
+class StartFailure:
+    """Which tool stopped a cluster start, and with what exit status."""
+
+    tool: str
+    returncode: int
+
+    def describe(self, log_file: Path) -> str:
+        """Name ``server.log`` only when the server got far enough to write it."""
+        status = f"{self.tool} exited 0x{self.returncode & 0xFFFFFFFF:08X}"
+        detail = f"; see {log_file}" if log_file.is_file() else ""
+        hint = f" {LOADER_HINT}" if self.returncode == LOADER_STATUS else ""
+        return f"embedded Postgres failed to start: {status}{detail}.{hint}"
