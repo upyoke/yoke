@@ -262,7 +262,7 @@ before capturing goldens.
 
 ## 4. Settings journal and interrupted-case recovery
 
-Before QA, follow [settings journal and interrupted-case recovery](windows-native-provisioning-recovery.md#settings-journal-and-interrupted-case-recovery).
+Before QA, follow [settings journal and interrupted-case recovery](windows-native-settings-journal.md).
 The SYSTEM task checks recovery at every lease bind. Declare the journal setup
 operation only for cases that change AppLocker, long paths, machine certificates
 or machine-scope tools. Keep the machine unavailable until recovery verifies.
