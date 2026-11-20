@@ -17,6 +17,7 @@ from yoke_contracts.browser_identity import (
     select_declared_identity,
 )
 from yoke_cli import browser_node_toolchain
+from yoke_cli.commands.json_input import JSON_INPUT_HELP, load_json_input
 
 IDENTITY_FLAG_HELP = (
     "Identity whose profile to use (default: the project's default_identity "
@@ -28,8 +29,8 @@ DECLARATIONS_FLAG_HELP = (
     "cannot read them itself (a Test Machine not connected to the project's "
     "control plane). Read it where the project is reachable with `yoke "
     "projects capability-settings get --project P --cap-type browser-control "
-    "--json` and pass result.settings_json verbatim. A project without that "
-    "capability has only `default` and needs no declarations."
+    "--json` and supply result.settings_json. A project without that "
+    f"capability has only `default` and needs no declarations. {JSON_INPUT_HELP}"
 )
 
 
@@ -56,12 +57,16 @@ def resolve_identity_target(
     if declarations_json is None:
         return key, resolve_identity(key, identity)
     try:
-        settings = json.loads(declarations_json)
-    except ValueError as exc:
+        settings = load_json_input(declarations_json, "--declarations-json")
+    except json.JSONDecodeError as exc:
         raise BrowserIdentityError(
             f"browser_identity_declarations_unreadable: --declarations-json is "
             f"not JSON ({exc}). Pass result.settings_json from `yoke projects "
             "capability-settings get --cap-type browser-control --json` verbatim."
+        ) from None
+    except ValueError as exc:
+        raise BrowserIdentityError(
+            f"browser_identity_declarations_unreadable: {exc}"
         ) from None
     if not isinstance(settings, dict):
         raise BrowserIdentityError(

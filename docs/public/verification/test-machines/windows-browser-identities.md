@@ -38,6 +38,23 @@ Ben enters his own password or credential. No automated browser runs while
 authorization owns the profile. Keep cookies and profile contents on the VM,
 outside evidence.
 
+## Supply declarations from PowerShell
+
+If the Windows host cannot read the project's declarations, retrieve
+`result.settings_json` on a connected machine with
+`yoke projects capability-settings get --project P --cap-type browser-control --json`.
+Put the JSON document in `$json` on the Windows host, then run:
+
+```powershell
+$json | Out-File -Encoding utf8 d.json
+yoke browser verify --project P --identity NAME --declarations-json '@d.json'
+```
+
+PowerShell can drop inner quotes from inline JSON when calling `yoke.cmd`.
+Use `@FILE` with local `browser verify` and `browser authorize`. The file can
+include the UTF-8 BOM written by Windows PowerShell 5.1. Quote the whole
+`@FILE` argument in PowerShell, including any spaces in the path.
+
 ## One login for every page
 
 The identity profiles are the machine's only login store. Every browser page

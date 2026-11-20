@@ -36,22 +36,15 @@ Review names the files and permission settings before applying them.
 Prerequisites: a shell and `curl`. The installer installs `uv` automatically
 when it is missing. Yoke supports Python 3.11–3.14. When no supported interpreter is
 available, uv downloads a managed one automatically for the installer and
-`yoke update`, without changing your system Python. On Windows, use WSL2 with Ubuntu and follow the Linux path; native Windows
-execution is unsupported.
-Run installation, onboarding and harness CLIs inside the WSL Linux filesystem
-with systemd enabled. To open a URL in the Windows browser, Yoke tries
-`wslview`, then PowerShell's `Start-Process`. Install `wslu` or enable Windows
-interop/PATH when both are unavailable. Verify the local UI
-through Windows localhost forwarding before changing WSL networking modes.
-Install and onboard Apply disable WSL2 idle shutdown through the Windows user
-profile `.wslconfig` (WSL 2.5.4 or newer). If WSL is older, interop is off or
-`wsl.exe` fails, it warns, names one fix and continues. Preview writes no WSL config.
-Follow the printed `wsl --shutdown`
-restart step when setup changes it; afterward terminals can close while the
-relay and background work continue. After a deliberate distro shutdown, run
-`yoke init --local` to restart its Postgres authority; it preserves your active
-connection. See [local connection repair](../verification/local-connection-repair.md).
-See [Yoke on Windows (WSL)](windows-wsl.md) for filesystem, systemd, and agent setup.
+`yoke update`, without changing your system Python.
+On Windows, follow [Yoke on Windows (WSL)](windows-wsl.md) to install and run
+Yoke and your agent CLIs in Ubuntu on WSL2.
+
+When running the native Windows test build from PowerShell, `yoke.cmd` can
+lose the inner quotes in inline JSON. Save the JSON with
+`$json | Out-File -Encoding utf8 d.json` and pass `'@d.json'` to
+`--declarations-json`, `--step-json`, or `qa artifact add --metadata`.
+See [Native Windows browser identities](../verification/test-machines/windows-browser-identities.md#supply-declarations-from-powershell).
 
 Local mode on macOS requires **macOS 15.0 or newer** on Apple Silicon and
 Intel. The pinned embedded PostgreSQL 17.11.1 build sets this minimum.

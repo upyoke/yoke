@@ -69,8 +69,19 @@ When setup reports a change or systemd needs a restart, save your work, run
 See [Microsoft's systemd guide](https://learn.microsoft.com/windows/wsl/systemd).
 The relay runs only while you are logged in; it is not a Windows service.
 
+After a deliberate distro shutdown, run `yoke init --local` to restart the
+local Postgres authority and preserve your active connection. See
+[local connection repair](../verification/local-connection-repair.md).
+
 `yoke doctor` warns about a checkout under `/mnt/<drive>` and WSL without
 systemd as PID 1.
+
+## Open the Windows browser
+
+Yoke tries `wslview`, then PowerShell's `Start-Process`, to open a URL in
+the Windows browser. If both are unavailable, install `wslu` or enable
+Windows interop and its PATH. Verify the local UI through Windows localhost
+forwarding before changing WSL networking modes.
 
 ## Linux desktop apps through WSLg
 

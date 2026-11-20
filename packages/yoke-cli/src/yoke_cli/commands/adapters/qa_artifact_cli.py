@@ -13,7 +13,9 @@ from yoke_cli.commands._helpers import (
     add_session_arg,
     dispatch_and_emit,
     parse_or_usage_error,
+    usage_error,
 )
+from yoke_cli.commands.json_input import JSON_INPUT_HELP, load_json_input
 from yoke_contracts.api.function_call import TargetRef
 
 
@@ -94,7 +96,10 @@ def qa_artifact_add(args: List[str]) -> int:
         "with --content-file it defaults to that file's name.",
     )
     parser.add_argument(
-        "--metadata", default=None, metavar="JSON", help="Extra metadata as a JSON string."
+        "--metadata",
+        default=None,
+        metavar="JSON",
+        help=f"Extra metadata as JSON. {JSON_INPUT_HELP}",
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -127,10 +132,15 @@ def qa_artifact_add(args: List[str]) -> int:
         payload["content_base64"] = parsed.content_base64
         if parsed.filename is not None:
             payload["filename"] = parsed.filename
-    for key in ("content_type", "metadata"):
-        value = getattr(parsed, key)
-        if value is not None:
-            payload[key] = value
+    if parsed.content_type is not None:
+        payload["content_type"] = parsed.content_type
+    if parsed.metadata is not None:
+        try:
+            payload["metadata"] = load_json_input(
+                parsed.metadata, "--metadata", as_text=True
+            )
+        except ValueError as exc:
+            return usage_error(f"yoke qa artifact add: invalid metadata JSON: {exc}")
     return dispatch_and_emit(
         function_id="qa.artifact.add",
         target=TargetRef(
