@@ -93,6 +93,8 @@ def test_adapter_launches_authority_binding_child_without_secret_arguments(
         seen["kwargs"] = kwargs
         return SimpleNamespace(returncode=7)
 
+    child_env = {"PYTHONIOENCODING": "utf-8"}
+    monkeypatch.setattr(merge_item, "utf8_python_child_env", lambda: child_env)
     monkeypatch.setattr(merge_item.subprocess, "run", fake_run)
 
     assert merge_item.merge_item([_FIXTURE_ITEM_REF, "--skip-status"]) == 7
@@ -103,7 +105,7 @@ def test_adapter_launches_authority_binding_child_without_secret_arguments(
         _FIXTURE_ITEM_REF,
         "--skip-status",
     ]
-    assert seen["kwargs"] == {"check": False}
+    assert seen["kwargs"] == {"check": False, "env": child_env}
 
 
 def test_local_postgres_control_plane_needs_no_authority_substitution(

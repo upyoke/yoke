@@ -4,8 +4,8 @@
  "status": "observed",
  "audience": "both",
  "when": "A harness, pipe or test captures yoke, merge-engine or update-status output on native Windows, where Python writes pipes in the ANSI code page (cp1252).",
- "need": "Every yoke invocation, hooks included, switches stdout and stderr to UTF-8 before writing, so status arrows and non-ASCII paths never raise UnicodeEncodeError; the console code page itself is never changed. A reader that closes the pipe early ends output quietly on every OS: Windows reports that write as EINVAL, POSIX as BrokenPipeError; other stream errors still fail.",
+ "need": "Every yoke invocation, hooks included, switches stdout and stderr to UTF-8 before writing, so status arrows and non-ASCII paths never raise UnicodeEncodeError; the console code page itself is never changed. On Windows, CLI-launched Python modules start with UTF-8 for redirected stdout and stderr, including the merge-item child. A reader that closes the pipe early ends output quietly on every OS: Windows reports that write as EINVAL, POSIX as BrokenPipeError; other stream errors still fail.",
  "surface": "yoke CLI entry point and the engines it runs in-process or as children.",
  "review": "Native terminal capture drives the real entry point under cmd.exe, Windows PowerShell and pwsh with a cp1252-strict stdout; closed-pipe tests cover both OS error shapes. Windows suite runs own platform proof.",
- "sources": ["packages/yoke-contracts/src/yoke_contracts/standard_streams.py", "packages/yoke-cli/src/yoke_cli/main.py", "packages/yoke-cli/src/yoke_cli/config/native_windows_terminal.py", "packages/yoke-cli/src/yoke_cli/cli_output.py", "runtime/api/cli/test_native_windows_terminal.py", "runtime/api/cli/test_cli_broken_pipe.py"]
+ "sources": ["packages/yoke-contracts/src/yoke_contracts/standard_streams.py", "packages/yoke-cli/src/yoke_cli/main.py", "packages/yoke-cli/src/yoke_cli/config/native_windows_terminal.py", "packages/yoke-cli/src/yoke_cli/cli_output.py", "runtime/api/cli/test_native_windows_terminal.py", "runtime/api/cli/test_cli_broken_pipe.py", "runtime/api/cli/test_python_child_streams.py"]
 }

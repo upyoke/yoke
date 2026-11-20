@@ -35,13 +35,15 @@ reported as a leftover that needs a person rather than another sweep.
 
 from __future__ import annotations
 
-from yoke_core.domain.public_item_target import public_item_target
-
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Optional
 
 from yoke_contracts.harness_lane_cleanup import worktree_cleanup_warning
+from yoke_contracts.public_ref import parse_public_item_ref
+from yoke_contracts.refusal_recovery import compose_refusal
+from yoke_core.domain.project_identity_item_ref import item_subject_ref
+from yoke_core.domain.public_item_target import public_item_target
 from yoke_core.engines.branch_landed_evidence import (
     BranchLandedEvidence,
     assess_branch_landed,
@@ -290,9 +292,22 @@ def prune_landed_lane(
     if worktree_path is not None:
         removal = remove_worktree(repo_root, worktree_path)
         if not removal.removed:
-            return (
-                f"lane {branch} preserved: worktree {worktree_path} ({removal.reason})",
-            )
+            reason = f"lane {branch} preserved: worktree {worktree_path} ({removal.reason})"
+            if removal.in_use:
+                ref = item_subject_ref(item_id) if item_id is not None else ""
+                retry = (
+                    f"rerun `yoke merge item {ref}` from the main checkout"
+                    if parse_public_item_ref(ref)[0]
+                    else "let the relay's next lane sweep retry cleanup"
+                )
+                reason = compose_refusal(
+                    reason,
+                    recovery=(
+                        "Close the programs using the lane or move them out of it, "
+                        f"then {retry}"
+                    ),
+                )
+            return (reason,)
         say(f"Pruned merged worktree: {worktree_path}")
         if removal.reason:
             say(f"WARNING: {removal.reason}", err=True)

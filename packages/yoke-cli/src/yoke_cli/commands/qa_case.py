@@ -10,6 +10,7 @@ from typing import List, Tuple
 
 from yoke_cli.commands._helpers import show_delegate_help
 from yoke_cli.transport.dispatcher import build_actor
+from yoke_contracts.standard_streams import utf8_python_child_env
 
 
 QA_MISSION_HOST_COMMAND_MODULE = "yoke_core.domain.agent_mission_host_command_cli"
@@ -226,11 +227,10 @@ def run_execution_module(
     child_args, session_id = _pin_execution_session(list(requested_args))
     if module == QA_MISSION_HOST_COMMAND_MODULE:
         _assert_unmodified_host_command_args(requested_args, child_args)
-    popen_kwargs = {"start_new_session": True}
-    if session_id:
-        child_env = dict(os.environ)
+    child_env = dict(os.environ) if session_id else None
+    if child_env is not None:
         child_env["YOKE_SESSION_ID"] = session_id
-        popen_kwargs["env"] = child_env
+    popen_kwargs = {"start_new_session": True}
     process = subprocess.Popen(
         [
             sys.executable,
@@ -238,6 +238,7 @@ def run_execution_module(
             module,
             *child_args,
         ],
+        env=utf8_python_child_env(child_env),
         **popen_kwargs,
     )
     try:

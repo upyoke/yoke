@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Sequence
 
 from yoke_contracts.install_binding import SOURCE_DEV_RUN_ROOT_ENV
+from yoke_contracts.standard_streams import utf8_python_child_env
 from yoke_core.domain import source_python_environment, verification_tree_binding
 from yoke_core.domain import source_pythonpath as _source_pythonpath
 from yoke_core.tools import source_dev_candidate_binding, source_dev_scanner, source_validation_binding
@@ -155,9 +156,10 @@ def _run_bound(args, root, env) -> int:
         file=sys.stderr,
     )
     args = _source_pythonpath.bound_child_command(args, python=binding.python)
+    child_env = utf8_python_child_env(env) if args[0] == binding.python else env
     try:
         returncode = subprocess.run(
-            args, cwd=str(root), env=env, check=False
+            args, cwd=str(root), env=child_env, check=False
         ).returncode
         if returncode < 0:
             try:

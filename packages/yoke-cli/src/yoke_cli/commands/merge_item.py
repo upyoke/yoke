@@ -6,6 +6,8 @@ import subprocess
 import sys
 from typing import Callable, Dict, List, Tuple
 
+from yoke_contracts.standard_streams import utf8_python_child_env
+
 
 AdapterFn = Callable[[List[str]], int]
 MERGE_ITEM_USAGE = (
@@ -31,6 +33,7 @@ def merge_item(args: List[str]) -> int:
             "yoke_cli.commands.merge_item_local_runtime",
             *args,
         ],
+        env=utf8_python_child_env(),
         check=False,
     )
     return completed.returncode

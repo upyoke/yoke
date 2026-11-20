@@ -27,6 +27,7 @@ from yoke_contracts.direct_database_access import (
 )
 from yoke_contracts.github_auth_transience import TransientGitHubAuthError
 from yoke_contracts.github_origin import GitHubApiEndpoint
+from yoke_contracts.standard_streams import use_utf8_standard_streams
 from yoke_contracts.machine_config.schema import (
     POSTGRES_TRANSPORTS,
     TRANSPORT_HTTPS,
@@ -269,6 +270,7 @@ def run(argv: List[str]) -> int:
 
 
 def main(argv: Optional[List[str]] = None) -> int:
+    use_utf8_standard_streams()
     try:
         return run(list(sys.argv[1:] if argv is None else argv))
     except LocalMergeAuthorityError as exc:

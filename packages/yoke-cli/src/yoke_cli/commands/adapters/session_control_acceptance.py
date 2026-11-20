@@ -12,6 +12,7 @@ from typing import List
 
 from yoke_contracts.install_binding import is_yoke_source_checkout
 from yoke_contracts.session_execution import is_subagent_execution
+from yoke_contracts.standard_streams import utf8_python_child_env
 from yoke_contracts.uv_project import (
     UV_EXECUTABLE,
     project_own_environment,
@@ -151,7 +152,7 @@ def session_control_acceptance_run(args: List[str]) -> int:
         completed = subprocess.run(
             command,
             cwd=str(project_root),
-            env=environment,
+            env=utf8_python_child_env(environment),
             check=False,
         )
     except OSError:

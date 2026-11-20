@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from yoke_contracts.timestamps import format_instant, utc_now
-
-from yoke_core.domain.public_item_target import public_item_target
-
 from typing import Optional, Sequence
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
+from yoke_contracts.timestamps import format_instant, utc_now
+from yoke_core.domain.public_item_target import public_item_target
 from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain.merge_github_authority import classify_merge_authority
 from yoke_core.domain import standalone_item_merge_post_push as post_push
@@ -275,7 +275,10 @@ def _merge_once(
                     already_merged=False,
                     commit_sha=commit_sha,
                     touched_files=observed,
-                    error=f"merge engine raised before the branch landed: {exc}",
+                    error=compose_refusal(
+                        f"merge engine raised before the branch landed: {exc}",
+                        recovery=f"Fix the cause, then rerun {resume_command or 'the same merge command'}",
+                    ),
                 )
             warnings.append(
                 f"merge landed; the engine then raised during cleanup: {exc}"

@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.standard_streams import utf8_python_child_env
 from yoke_cli.commands._helpers import (
     add_json_arg,
     add_session_arg,
@@ -122,6 +123,7 @@ def github_merge_queue_hold(args: List[str]) -> int:
             "yoke_cli.commands.merge_queue_hold_local_runtime",
             *forwarded,
         ],
+        env=utf8_python_child_env(),
         check=False,
     )
     return completed.returncode

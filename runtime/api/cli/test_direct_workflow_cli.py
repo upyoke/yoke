@@ -284,7 +284,7 @@ def test_direct_workflow_registry_and_inventory_are_complete():
 def test_worktree_prepare_delegates_to_engine_module(monkeypatch):
     captured = {}
 
-    def _run(command, *, check):
+    def _run(command, *, check, env):
         captured["command"] = command
         captured["check"] = check
         return type("Completed", (), {"returncode": 7})()
@@ -306,7 +306,7 @@ def test_worktree_prepare_delegates_to_engine_module(monkeypatch):
 def test_worktree_prepare_attaches_checkout_project_to_bare_ref(monkeypatch):
     captured = {}
 
-    def _run(command, *, check):
+    def _run(command, *, check, env):
         captured["command"] = command
         return type("Completed", (), {"returncode": 0})()
 

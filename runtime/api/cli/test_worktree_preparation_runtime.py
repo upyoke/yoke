@@ -35,13 +35,14 @@ def test_registered_routes_use_running_interpreter_and_preserve_exit(
         calls.append((argv, kwargs))
         return SimpleNamespace(returncode=7)
 
+    monkeypatch.setattr(adapter, "utf8_python_child_env", lambda: {"PYTHONIOENCODING": "utf-8"})
     monkeypatch.setattr(adapter.subprocess, "run", run)
     resolved, args = resolve_tool_shaped([*tokens, "--item", "EXAMPLE-8"])
     assert resolved(args) == 7
     assert calls == [
         (
             [sys.executable, "-m", module, *forwarded, "--item", "EXAMPLE-8"],
-            {"check": False},
+            {"check": False, "env": {"PYTHONIOENCODING": "utf-8"}},
         )
     ]
 

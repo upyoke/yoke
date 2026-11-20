@@ -40,6 +40,7 @@ class WorktreeRemoval:
 
     removed: bool
     reason: str = ""
+    in_use: bool = False
 
 
 def removal_deferral() -> str:
@@ -151,6 +152,8 @@ def _remove(repo_root: Path, path: Path) -> WorktreeRemoval:
     try:
         path.rename(tombstone)
     except OSError as exc:
+        if getattr(exc, "winerror", None) == 32:  # ERROR_SHARING_VIOLATION
+            return WorktreeRemoval(False, "the worktree folder is in use", in_use=True)
         return WorktreeRemoval(False, f"worktree rename refused for {path}: {exc}")
     [result] = _finish(repo_root, [tombstone])
     if result.removed:

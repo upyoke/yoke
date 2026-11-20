@@ -27,6 +27,7 @@ from yoke_core.domain.item_worktrees import list_item_worktrees
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.engines import merge_landed_lane_cleanup as lane_cleanup
 from yoke_core.engines import merge_worktree_safe_prune as prune
+from yoke_core.engines.worktree_removal import WorktreeRemoval
 from runtime.api.domain.merge_route_gate_stubs import admit_route_gates
 
 
@@ -166,7 +167,7 @@ def test_failed_removal_or_dirty_lane_does_not_release_row(
         monkeypatch.setattr(
             lane_cleanup,
             "remove_worktree",
-            lambda *_a: SimpleNamespace(removed=False, reason="filesystem busy"),
+            lambda *_a: WorktreeRemoval(removed=False, reason="filesystem busy"),
         )
     for module in (prune, lane_cleanup):
         monkeypatch.setattr(
