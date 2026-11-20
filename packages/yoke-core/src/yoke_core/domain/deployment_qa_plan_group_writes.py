@@ -126,7 +126,8 @@ def ensure_groups(conn: Any, run_id: str, stage_name: str) -> list[int]:
 
     The caller holds the run lock. A plan is owed when a current member
     attaches it and no closed group of it in this run or a run it superseded
-    already answered that member.
+    already answered that member. Members' unrun own copies of a grouped plan
+    are retracted.
     """
     from yoke_core.domain.deployment_qa_execution_target import (
         deployment_qa_execution_target,
@@ -142,6 +143,7 @@ def ensure_groups(conn: Any, run_id: str, stage_name: str) -> list[int]:
     from yoke_core.domain.deployment_qa_plan_ownership import (
         freeze_plan_owners,
         plan_owners,
+        retire_member_copies,
     )
 
     from yoke_core.domain.deployment_qa_plan_group_rebind import rebind_open_groups
@@ -190,6 +192,7 @@ def ensure_groups(conn: Any, run_id: str, stage_name: str) -> list[int]:
             commit=False,
         )
         created.extend(result["created_requirement_ids"])
+    retire_member_copies(conn, run_id)  # a group now answers what they owed
     return created
 
 

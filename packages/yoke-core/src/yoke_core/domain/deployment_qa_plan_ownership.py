@@ -32,7 +32,10 @@ def plan_owners(conn: Any, run_id: str) -> dict[int, int | None]:
     Before entry, previews classify the live attachments without writing.
     Plans first attached after entry are classified once on the next dispatch.
     Existing plan ownership never changes with later attachments or removals.
+    A sole attacher a closed group in the run's lineage already answered keeps
+    that group's credit, so the plan stays with the driver and owes it nothing.
     """
+    from yoke_core.domain.deployment_qa_plan_group_coverage import lineage_coverage
     from yoke_core.domain.deployment_qa_plan_groups import attached_plans, run_groups
     from yoke_core.domain.deployment_qa_presentation_reads import presentation_read
 
@@ -51,21 +54,68 @@ def plan_owners(conn: Any, run_id: str) -> dict[int, int | None]:
             _snapshot(conn, run_id),
             {group.plan_id for group in groups if group.run_id == str(run_id)},
             attached_plans(conn, run_id),
+            lineage_coverage(conn, run_id),
         )
 
     return presentation_read(conn, ("item_qa_plan_owners", str(run_id)), read)
 
 
 def classify_owners(
-    snapshot: Mapping, grouped_plans: set[int], attached: Mapping
+    snapshot: Mapping, grouped_plans: set[int], attached: Mapping, covered: Mapping
 ) -> dict:
-    """Apply pinned ownership first, then classify newly observed plans."""
+    """Apply pinned ownership first, then classify newly observed plans.
+
+    ``covered`` maps each plan to the members its closed lineage groups answered.
+    """
     owners = {int(plan): owner for plan, owner in snapshot.get(OWNERS, {}).items()}
     for plan in grouped_plans:
         owners.setdefault(plan, None)
     for plan, members in attached.items():
-        owners.setdefault(plan, members[0] if len(members) == 1 else None)
+        sole = len(members) == 1 and members[0] not in covered.get(plan, ())
+        owners.setdefault(plan, members[0] if sole else None)
     return owners
+
+
+def retire_member_copies(conn: Any, run_id: str) -> list[int]:
+    """Retract members' never-run own rows of plans a plan group answers.
+
+    A member that was a plan's sole attacher got its own rows; once the plan
+    becomes a group (a second member joined through takeover), those rows
+    would stay owed beside the group and hold the run's settlement. Rows
+    with any recorded run or result stay as evidence. Repeating this after
+    a retry restored the rows retires them again.
+    """
+    from yoke_core.domain.deployment_qa_plan_groups import lineage_run_ids, run_groups
+    from yoke_core.domain.qa_plan_attachment_retract import retract_requirements
+
+    groups: dict[int, str] = {}
+    for group in run_groups(conn, lineage_run_ids(conn, run_id)):
+        if not group.retracted:
+            groups[group.plan_id] = group.group_id
+    owners = plan_owners(conn, run_id)
+    plans = sorted(p for p in groups if p in owners and owners[p] is None)
+    if not plans:
+        return []
+    rows = query_rows(
+        conn,
+        "SELECT q.id,q.plan_id FROM qa_requirements q WHERE q.deployment_run_id=%s "
+        "AND q.plan_id=ANY(%s) AND q.deployment_member_item_id IS NOT NULL "
+        "AND q.retracted_at IS NULL AND NOT EXISTS (SELECT 1 FROM qa_runs r "
+        "WHERE r.qa_requirement_id=q.id) AND NOT EXISTS (SELECT 1 FROM "
+        "qa_plan_execution_results x WHERE x.requirement_id=q.id) ORDER BY q.id",
+        (str(run_id), plans),
+    )
+    by_plan: dict[int, list[int]] = {}
+    for row in rows:
+        by_plan.setdefault(int(row["plan_id"]), []).append(int(row["id"]))
+    for plan, ids in by_plan.items():
+        retract_requirements(
+            conn,
+            ids,
+            reason=f"replaced by plan group {groups[plan]}",
+            source="deployment_run",
+        )
+    return [rid for ids in by_plan.values() for rid in ids]
 
 
 def freeze_plan_owners(conn: Any, run_id: str) -> None:
