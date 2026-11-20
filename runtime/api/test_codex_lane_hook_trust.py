@@ -3,8 +3,8 @@
 Codex keys hook trust by the literal path of the hooks file it loaded, so a
 worktree starts out with none of the checkout's trust and its hooks never
 fire. These tests pin the mirroring contract: trust is copied only onto
-byte-identical hook content, existing config bytes are never rewritten, and
-repeated runs are no-ops.
+hook content that matches after CRLF normalization. Existing config bytes are
+never rewritten, and repeated runs are no-ops.
 """
 
 from __future__ import annotations
@@ -105,13 +105,22 @@ def test_untrusted_worktree_reads_as_a_dead_zone(lanes):
     assert set(result.missing) == set(SUFFIXES)
 
 
-def test_mirroring_grants_the_worktree_the_source_hashes(lanes):
+@pytest.mark.parametrize("lane_newline", [b"\n", b"\r\n"], ids=["lf", "crlf"])
+def test_mirroring_grants_the_worktree_the_source_hashes(lanes, lane_newline):
     source, worktree, config = lanes
+    source_body = json.dumps(HOOKS_DOCUMENT, indent=2).encode("utf-8") + b"\n"
+    (source / ".codex/hooks.json").write_bytes(source_body)
+    (worktree / ".codex/hooks.json").write_bytes(
+        source_body.replace(b"\n", lane_newline)
+    )
 
     result = mirror_hook_trust(str(source), str(worktree), config_path=config)
 
     assert set(result.mirrored) == set(SUFFIXES)
     assert result.hooks_fire is True
+    inspected = inspect_hook_trust(str(source), str(worktree), config_path=config)
+    assert not inspected.blocked_reason
+    assert inspected.hooks_fire
     state = _state(config)
     target_hooks = worktree / ".codex" / "hooks.json"
     for suffix in SUFFIXES:
@@ -157,7 +166,7 @@ def test_differing_hook_content_is_never_granted_trust(tmp_path: Path):
     worktree = _checkout(
         tmp_path / "checkout" / ".worktrees",
         "lane",
-        hooks_body='{"hooks": {}}',
+        hooks_body=HOOKS_BODY.replace(START_COMMAND, START_COMMAND + " changed"),
     )
     config = _config(tmp_path / "config.toml", _trust_for(source))
 

@@ -118,17 +118,18 @@ def hc_worktree_hook_trust(
     for worktree in worktrees:
         result = inspect_hook_trust(str(repo_root), worktree, config_path=config)
         label = Path(worktree).name
-        if result.stale:
-            partial.append(f"{label}: {result.summary()}")
-            continue
         if result.blocked_reason:
-            blocked.append(f"{label}: {result.blocked_reason}")
+            blocked.append(
+                f"{label}: {result.summary()}. {retrust_recovery(worktree, lane=True)}"
+            )
+        elif result.stale:
+            partial.append(f"{label}: {result.summary()}")
         elif result.dead_zone:
             dead.append(f"{label}: none of {len(result.source_trusted)} trusted")
         elif not result.hooks_fire:
             partial.append(f"{label}: {result.summary()}")
 
-    if dead or partial:
+    if dead or partial or blocked:
         rec.record(
             name,
             desc,
@@ -138,9 +139,8 @@ def hc_worktree_hook_trust(
                 + [f"  - {row}" for row in dead + partial]
                 + [f"  - {row}" for row in blocked]
                 + [
-                    "Preparing the lane again mirrors the checkout's trust; "
-                    "hook content that differs from the trusted original "
-                    "needs its own trust decision in Codex.",
+                    "Run `yoke doctor run --only harness-setup --fix` "
+                    "to mirror trust for matching lane hooks.",
                 ]
             ),
         )

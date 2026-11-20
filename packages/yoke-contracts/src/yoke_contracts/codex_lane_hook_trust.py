@@ -14,8 +14,8 @@ Codex thread working inside a worktree fires no hooks at all: no session
 registration, no telemetry, no guardrails. Worktree provisioning closes that
 gap by mirroring trust onto the worktree's path.
 
-Worktree trust is mirrored, never minted: only byte-identical content receives
-a current source hash. Lane setup refreshes trust for the Yoke-authored
+Worktree trust is mirrored, never minted: only content identical after CRLF
+normalization receives a current source hash. Lane setup refreshes trust for the Yoke-authored
 main-checkout file before mirroring it. Content changed only in a lane needs
 the operator's own Codex trust decision.
 """
@@ -88,14 +88,12 @@ class HookTrustResult:
             return self.write_error
         if self.hooks_fire:
             return f"{len(self.source_trusted)} hook entries trusted"
-        parts = []
+        parts = [self.blocked_reason] if self.blocked_reason else []
         if self.missing:
             parts.append(f"{len(self.missing)} untrusted: {', '.join(self.missing)}")
         if self.stale:
             parts.append(f"{len(self.stale)} modified: {', '.join(self.stale)}")
-        if parts:
-            return "; ".join(parts)
-        return self.blocked_reason
+        return "; ".join(parts)
 
 
 def hooks_file_for(checkout: str) -> Path:
@@ -123,9 +121,11 @@ def trust_entries_for(
 
 
 def _same_content(left: Path, right: Path) -> Tuple[bool, str]:
-    """Compare two hooks files byte-for-byte, following symlinks."""
+    """Compare bytes after folding Git's CRLF checkout line endings."""
     try:
-        return left.read_bytes() == right.read_bytes(), ""
+        left_content = left.read_bytes().replace(b"\r\n", b"\n")
+        right_content = right.read_bytes().replace(b"\r\n", b"\n")
+        return left_content == right_content, ""
     except OSError as exc:
         return False, f"{REASON_UNREADABLE_HOOKS}: {exc}"
 
@@ -230,8 +230,7 @@ def mirror_hook_trust(
     """Grant the worktree the trust the source already holds for this content.
 
     Idempotent: entries already present are left untouched, and nothing is
-    written when the worktree's hook content is not byte-identical to the
-    content whose trust is being mirrored.
+    written unless the two hooks files match after CRLF normalization.
     """
     path = config_path or codex_config_path()
     result = inspect_hook_trust(source_checkout, worktree, config_path=path)
