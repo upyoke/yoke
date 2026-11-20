@@ -154,6 +154,20 @@ def isolate_agent_setup(tmp_path: Path, monkeypatch) -> FakeApply:
     return fake
 
 
+def run_checks_inline(monkeypatch, shell: Any) -> None:
+    """Finish each checking step at once, for a shell driven without an app loop."""
+
+    def run(*, work, on_success, on_error, **_kwargs) -> None:
+        try:
+            value = work()
+        except Exception as exc:  # noqa: BLE001 - mirrors the shell's error route
+            on_error(exc)
+            return
+        on_success(value)
+
+    monkeypatch.setattr(shell, "_run_checking", run)
+
+
 def git_checkout(path: Path) -> Path:
     path.mkdir(parents=True)
     subprocess.run(["git", "init", "-q", "-b", "main", str(path)], check=True)

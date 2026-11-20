@@ -112,6 +112,7 @@ def test_explicit_fork_preset_cannot_offer_apply_when_unavailable(topology, monk
     from yoke_cli.config.onboard_wizard_app import OnboardWizardApp
     from yoke_cli.config.setup_agent_shell import AgentSetup
     from yoke_cli.config.setup_agent_answers import AnswerStore
+    from runtime.api.cli.setup_agent_test_support import run_checks_inline
 
     monkeypatch.setattr(machine_config, "github_config", lambda *a: topology)
     topology["installations"][0]["repository_selection"] = "selected"
@@ -128,6 +129,7 @@ def test_explicit_fork_preset_cannot_offer_apply_when_unavailable(topology, monk
     )
     views = []
     shell._goto = views.append
+    run_checks_inline(monkeypatch, shell)
     shell.result.project_remote_url = SOURCE
     shell.result.project_github_repo = "source/widgets"
     shell.result.machine_github_choice = "connect"

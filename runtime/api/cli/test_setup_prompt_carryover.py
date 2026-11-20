@@ -3,7 +3,11 @@
 import pytest
 from textual.widgets import Static
 
-from runtime.api.cli.setup_agent_test_support import git_checkout, isolate_agent_setup
+from runtime.api.cli.setup_agent_test_support import (
+    git_checkout,
+    isolate_agent_setup,
+    run_checks_inline,
+)
 from yoke_cli.config import onboard_project, setup_agent_response
 from yoke_cli.config.onboard_wizard import WizardDefaults
 from yoke_cli.config.onboard_wizard_app import OnboardWizardApp
@@ -24,6 +28,7 @@ def shell(request, tmp_path, monkeypatch):
         init_setup_state(result, defaults=defaults, apply_report=apply)
     # Inspect the common view graph without mounting a terminal or answering it.
     monkeypatch.setattr(result, "_render_current", lambda: None)
+    run_checks_inline(monkeypatch, result)
     result._permission_disclosed = True
     return result
 
