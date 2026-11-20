@@ -9,6 +9,7 @@ from typing import Callable, Dict, List, Tuple
 
 from yoke_cli.commands._helpers import client_project_context
 from yoke_contracts.public_ref import parse_public_item_ref
+from yoke_contracts.standard_streams import utf8_python_child_env
 
 AdapterFn = Callable[[List[str]], int]
 PREPARE_USAGE = (
@@ -41,6 +42,7 @@ def direct_workflow_worktree_prepare(args: List[str]) -> int:
             "yoke_core.domain.direct_workflow_worktree_preflight",
             *forwarded,
         ],
+        env=utf8_python_child_env(),
         check=False,
     )
     return completed.returncode
@@ -62,6 +64,7 @@ def worktree_prepare(args: List[str]) -> int:
         return 0
     return subprocess.run(
         [sys.executable, "-m", "yoke_core.domain.worktree_preflight", *args],
+        env=utf8_python_child_env(),
         check=False,
     ).returncode
 
@@ -78,6 +81,7 @@ def worktree_paths(args: List[str]) -> int:
         return 0
     return subprocess.run(
         [sys.executable, "-m", "yoke_core.domain.worktree", "paths", *args],
+        env=utf8_python_child_env(),
         check=False,
     ).returncode
 

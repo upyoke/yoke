@@ -55,6 +55,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from yoke_contracts.install_binding import is_yoke_source_checkout
+from yoke_contracts.standard_streams import utf8_python_child_env
 from yoke_contracts.uv_project import (
     UV_EXECUTABLE,
     uv_project_root,
@@ -141,7 +142,7 @@ def project_env_imports(wrapper_module: str) -> bool:
     try:
         completed = subprocess.run(
             uv_run_argv(["-c", f"import {wrapper_module}"]),
-            env=project_own_environment(os.environ),
+            env=utf8_python_child_env(project_own_environment(os.environ)),
             capture_output=True,
             timeout=PROBE_TIMEOUT_SECONDS,
             check=False,
@@ -209,7 +210,9 @@ def _run(wrapper_module: str, cli_form: str, args: List[str]) -> int:
         return int(wrapper_main(args))
     try:
         return subprocess.run(
-            argv, env=project_own_environment(os.environ), check=False
+            argv,
+            env=utf8_python_child_env(project_own_environment(os.environ)),
+            check=False,
         ).returncode
     except OSError as exc:
         sys.stderr.write(

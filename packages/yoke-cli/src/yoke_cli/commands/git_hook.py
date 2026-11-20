@@ -39,6 +39,7 @@ from typing import Callable, Dict, List, Tuple
 from yoke_cli.commands.adapters.project_snapshot import project_snapshot_sync
 from yoke_contracts.git_hook_markers import HEAD_RECORDING_SKIP_ENV
 from yoke_contracts.hook_diagnostics import format_hook_diagnostic
+from yoke_contracts.standard_streams import utf8_python_child_env
 from yoke_contracts.project_contract.source_installed_views import (
     refresh_source_installed_views,
 )
@@ -153,9 +154,8 @@ def _refresh_atlas_currency_or_skip() -> None:
                 str(root),
             ],
             cwd=str(root),
-            env=env,
+            env=utf8_python_child_env(env),
             capture_output=True,
-            text=True,
             timeout=180,
             check=False,
         )

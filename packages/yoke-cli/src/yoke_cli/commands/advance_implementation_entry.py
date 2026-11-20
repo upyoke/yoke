@@ -7,6 +7,8 @@ import sys
 from yoke_cli.commands._helpers import show_delegate_help
 from typing import Callable, Dict, List, Tuple
 
+from yoke_contracts.standard_streams import utf8_python_child_env
+
 AdapterFn = Callable[[List[str]], int]
 IMPLEMENTATION_ENTRY_USAGE = (
     "yoke advance implementation-entry --item ITEM "
@@ -29,6 +31,7 @@ def advance_implementation_entry(args: List[str]) -> int:
             "yoke_core.engines.advance_implementation_entry",
             *args,
         ],
+        env=utf8_python_child_env(),
         check=False,
     )
     return completed.returncode

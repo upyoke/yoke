@@ -105,7 +105,7 @@ def _merge(repo: Path) -> sim.StandaloneMergeOutcome:
     recorded = sim.git.git_out(str(repo), "rev-parse", BRANCH)
     return sim.merge_standalone_branch(
         item_id=ITEM_ID, branch=BRANCH, target=TARGET, repo_root=str(repo),
-        project="yoke", commit_sha=recorded,
+        project="yoke", commit_sha=recorded, resume_command=f"yoke merge item {BRANCH}",
     )
 
 
@@ -146,7 +146,8 @@ class TestInterruptedMergeConverges:
         outcome = _merge(repo)
 
         assert not outcome.ok
-        assert "before the branch landed" in outcome.error
+        assert "before the branch landed: preflight refused" in outcome.error
+        assert f"Recovery: Fix the cause, then rerun yoke merge item {BRANCH}" in outcome.error
 
     @pytest.mark.parametrize("false_merge_sha", ["", "commit"])
     def test_an_unlanded_receipt_resumes_the_real_merge_path(

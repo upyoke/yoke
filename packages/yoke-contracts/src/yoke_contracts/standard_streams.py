@@ -9,7 +9,9 @@ console code page itself is never changed.
 
 from __future__ import annotations
 
+import os
 import sys
+from collections.abc import Mapping
 from typing import TextIO
 
 
@@ -19,3 +21,12 @@ def use_utf8_standard_streams(*streams: TextIO) -> None:
         reconfigure = getattr(stream, "reconfigure", None)
         if reconfigure:
             reconfigure(encoding="utf-8", errors="backslashreplace")
+
+
+def utf8_python_child_env(
+    env: Mapping[str, str] | None = None,
+) -> Mapping[str, str] | None:
+    """Make redirected Python stdout and stderr UTF-8 from startup on Windows."""
+    if sys.platform != "win32":
+        return env
+    return {**(os.environ if env is None else env), "PYTHONIOENCODING": "utf-8"}

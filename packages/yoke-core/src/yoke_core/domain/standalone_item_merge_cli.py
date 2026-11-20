@@ -87,7 +87,7 @@ def run(argv: List[str]) -> int:
     evidence_workflow = terminal_transition_is_evidence_gated(workflow_id)
     record_evidence = evidence_workflow and bool(args.result and args.verification)
 
-    if not args.check:
+    if not args.check and status != evidence.CLOSED_OUT_STATUS:
         item, error = refresh_recorded_head(
             item, lambda: _resolve_item(public_ref, args.project)
         )

@@ -6,6 +6,8 @@ import subprocess
 import sys
 from typing import Callable, Dict, List, Tuple
 
+from yoke_contracts.standard_streams import utf8_python_child_env
+
 from yoke_cli.commands.adapters.deployment_execution_authority import (
     execution_connection_error,
 )
@@ -103,6 +105,7 @@ def deployment_runs_execute(args: List[str]) -> int:
             "yoke_core.domain.deploy_pipeline_liveness_cli",
             *args,
         ],
+        env=utf8_python_child_env(),
         check=False,
     )
     return completed.returncode

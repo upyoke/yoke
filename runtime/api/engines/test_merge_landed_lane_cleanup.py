@@ -311,3 +311,40 @@ def test_unmerged_detached_lane_is_preserved_with_the_reason_named(landed_lane):
     assert len(preserved) == 1
     assert "not merged into origin/main" in preserved[0]
     assert landed_lane.worktree.exists()
+
+
+def test_sharing_violation_names_a_merge_retry_that_removes_the_lane(
+    landed_lane, monkeypatch,
+):
+    from pathlib import Path
+    from yoke_core.domain import standalone_item_merge_cli as merge_cli
+    from yoke_core.engines import terminal_lane_cleanup as terminal
+
+    _land_on_main(landed_lane.repo)
+    ref = "ITEM-1"
+    with monkeypatch.context() as locked:
+        def sharing_violation(_path, _destination):
+            exc = OSError("sharing violation")
+            exc.winerror = 32
+            raise exc
+
+        locked.setattr(Path, "rename", sharing_violation)
+        (warning,) = prune_landed_lane(
+            repo_root=str(landed_lane.repo), branch=BRANCH, target="main",
+            item_id=ref, run_git=_run_git, emit=lambda *_a, **_kw: None,
+        )
+    assert landed_lane.worktree.is_dir()
+    assert "the worktree folder is in use" in warning
+    assert (command := f"yoke merge item {ref}") in warning
+
+    item = {
+        "status": "done", "public_ref": ref, "project": {"id": 1},
+        "workflow": {"terminal_stage_ids": ["done"]},
+        "worktrees": [{"branch": BRANCH, "path": str(landed_lane.worktree), "status": "released"}],
+    }
+    monkeypatch.setattr(merge_cli, "_resolve_item", lambda *_a: (item, ""))
+    monkeypatch.setattr(merge_cli, "_session_holds_claim", lambda *_a: "claim released")
+    monkeypatch.setattr(merge_cli.evidence, "recorded", lambda _ref: {})
+    monkeypatch.setattr(terminal, "checkout_for_project_id", lambda _id: landed_lane.repo)
+    assert merge_cli.run(command.split()[3:]) == 0
+    assert not landed_lane.worktree.exists()
