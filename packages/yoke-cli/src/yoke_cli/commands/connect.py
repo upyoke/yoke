@@ -77,8 +77,8 @@ def connect(args: List[str]) -> int:
         default=None,
         metavar="URL",
         help=(
-            "Hosted platform URL for browser sign-in (https://upyoke.com means "
-            "the hosted app), or a self-hosted server "
+            "Hosted platform URL for browser sign-in "
+            f"({HOSTED_PUBLIC_SITE_URLS[0]} means the hosted app), or a self-hosted server "
             "URL: approve the printed code by company sign-in (when configured) "
             "or from your own machine already connected to it, or pass an "
             "explicit API token. Omit it for ordinary production hosted browser "
