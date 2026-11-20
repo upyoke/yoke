@@ -62,6 +62,34 @@ def test_behind_cli_installs_exactly_the_observed_release(
     assert stored["after"] == "0.2.0.202610140941"
 
 
+def test_windows_follow_probes_and_installs_through_cmd_shim(tmp_path, monkeypatch):
+    (tmp_path / "yoke").touch()
+    launcher = tmp_path / "yoke.cmd"
+    launcher.touch()
+    monkeypatch.setattr(follow.cli_release_runtime, "WINDOWS", True)
+    monkeypatch.setattr(follow, "tool_bin_dir", lambda: str(tmp_path))
+    monkeypatch.setattr(self_update, "resolve_target", lambda *, version: version)
+    monkeypatch.setattr(follow, "_refresh_checkouts", lambda *_args: [])
+    version = "old"
+    probes = []
+
+    def run(argv, **_kwargs):
+        probes.append(argv)
+        return subprocess.CompletedProcess(argv, 0, stdout=version + "\n")
+
+    def install(target, executable, *, env):
+        nonlocal version
+        assert executable == str(launcher)
+        version = target
+
+    monkeypatch.setattr(self_update, "install_release", install)
+    record = follow.follow_release("new", tmp_path, run=run)
+
+    assert record["outcome"] == "updated"
+    assert record["cli"] == str(launcher)
+    assert probes == [[str(launcher), "--version"]] * 2
+
+
 def test_probe_and_install_run_outside_the_relay_python(tmp_path, monkeypatch) -> None:
     state_dir = tmp_path / "relay"
     release = state_dir / "releases" / "deadbeef"
