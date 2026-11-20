@@ -95,13 +95,15 @@ uses the edited definition.
 
 ## Retry a failed case after the fix ships
 
-When the successor's QA stage finds an inherited fail whose latest failing
-attempt was created before this run, and the current release contains the
-item's merge, the owner gets one handoff that says to retry. A failure
-created after this run gets the ordinary handoff: classify it and start
+A fail recorded against the predecessor's target stops counting once its case
+rebinds to the successor's target: the case reads as not yet run, no failure
+handoff goes out, and a driver-run plan is captured again at its stage.
+While the case still carries the target the fail answered, an inherited fail
+whose latest failing attempt was created before this run, in a release that
+contains the item's merge, gets one handoff that says to retry. Any other
+fail on the current target gets the ordinary handoff: classify it and start
 rework or record its blocker. Once a successor receipt is ready, run the plan
-again; materialization rebinds the member's open cases automatically, and a
-driver-run plan whose cases already rebound is captured again without this step:
+again; materialization rebinds the member's open cases automatically:
 
 ```text
 yoke qa plan run --item PREFIX-N --stage item-qa --project PROJECT
