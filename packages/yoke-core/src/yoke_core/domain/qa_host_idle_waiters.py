@@ -5,8 +5,8 @@ it waits for the rest (``qa_host_set_turns``). Parking is the normal way to
 wait, but a set-waiter whose session is parked, process-exited or ended and has
 made no tool call for the machine setting ``qa_host_idle_hold_minutes`` is
 *away*: while it still waits on another host, serving it a host only strands
-that host. Such a waiter keeps its place in every line, and is skipped when a
-host is served (:func:`serving_line`), so each host goes to the next waiter.
+that host. Such a waiter keeps its place in the queue, and is skipped when a
+host is served (:func:`serving_waiters`), so each host goes to the next waiter.
 Control-plane upkeep hands the reservations it already holds to the next
 waiter the same way (:func:`hand_off_idle_waiter_reservations`).
 
@@ -62,17 +62,18 @@ def waiter_away(
     return now - parse_instant(last) >= limit
 
 
-def serving_line(conn: Any, test_machine: str) -> list[dict[str, Any]]:
-    """The host's line as a release serves it. Two kinds of wait keep their
-    place but are passed over: an away set-waiter still waiting on another
+def serving_waiters(conn: Any, test_machine: str) -> list[dict[str, Any]]:
+    """The waiters a release of *test_machine* serves, oldest first.
+
+    Two kinds of wait keep their place but are passed over: an away set-waiter still waiting on another
     host, and an execution whose owning run has not opened its QA stage
     (``qa_host_stage_unopened``)."""
     from yoke_core.domain.qa_host_idle_hold import idle_hold_limit
     from yoke_core.domain.qa_host_set_turns import awaits_other_hosts
     from yoke_core.domain.qa_host_stage_unopened import execution_stage_unopened
-    from yoke_core.domain.qa_host_turns import host_line
+    from yoke_core.domain.qa_host_turns import machine_waiters
 
-    line = host_line(conn, test_machine)
+    line = machine_waiters(conn, test_machine)
     if not any(wait["qa_plan_execution_id"] for wait in line):
         return line
     sessions = _sessions(conn, (wait["session_id"] for wait in line))
@@ -95,7 +96,7 @@ def hand_off_idle_waiter_reservations(
 
     Each wait goes back to ``waiting`` at its own place before its claim is
     released, so the release neither cancels it nor aborts its execution and
-    serves the host to the next waiter :func:`serving_line` names.
+    serves the host to the next waiter :func:`serving_waiters` names.
     """
     from yoke_core.domain.coordination_claims import get_claim, release
     from yoke_core.domain.qa_host_idle_hold import (
@@ -157,4 +158,4 @@ def hand_off_idle_waiter_reservations(
     return handed
 
 
-__all__ = ["hand_off_idle_waiter_reservations", "serving_line", "waiter_away"]
+__all__ = ["hand_off_idle_waiter_reservations", "serving_waiters", "waiter_away"]

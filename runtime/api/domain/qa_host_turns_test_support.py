@@ -24,7 +24,7 @@ from yoke_core.domain.coordination_claims import (
 
 from yoke_core.domain.handlers.claims_coordination_claim import handle_acquire
 
-from yoke_core.domain.qa_host_turns import host_line, join_host_line
+from yoke_core.domain.qa_host_turns import machine_waiters, join_host_queue
 
 from yoke_core.domain.work_claim_targets import make_qa_admission_target
 
@@ -56,7 +56,7 @@ def _execution_wait(conn, session_id, test_machine=MACHINE):
         "VALUES(%s,%s,%s,'1',%s,'[]',0,'waiting',now(),now())",
         (execution_id, str(uuid4()), session_id, "a" * 64),
     )
-    join_host_line(
+    join_host_queue(
         conn,
         make_qa_admission_target(test_machine),
         session_id=session_id,

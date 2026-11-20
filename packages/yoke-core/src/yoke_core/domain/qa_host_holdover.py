@@ -3,27 +3,27 @@
 Two releases used to hand a host away from the session that needed it next:
 
 * A direct operation (``yoke test-machine exec``, desktop access, browser
-  sign-in) takes and drops a lease per command and holds no place in line, so
+  sign-in) takes and drops a lease per command and holds no place in the queue, so
   on a free host another session could take it between a preflight's release
   and the preflighting session's ``yoke qa case run``.
 * A session aborting its own stale execution (``served_build_changed`` after a
-  deploy) released the turn that execution held or had reserved, and the line's
+  deploy) released the turn that execution held or had reserved, and the queue's
   next waiter took it before the session's rematerialized execution asked.
 
 Each now leaves a same-session hold-over: the host's claim stays held for the
 session with :data:`HOLDOVER_REASON`, beside a ``reserved`` wait with no
 execution, and the session's next acquire of the host consumes it like any
 reserved turn (``qa_host_turns.reservation_for``). A direct operation leaves one
-only on an empty line, so a session already queued keeps its turn, or when it
+only on an empty queue, so a session already queued keeps its turn, or when it
 consumed the session's hold-over, which every waiter queued behind; an aborted
-execution leaves one whatever the line holds, because its turn was already
+execution leaves one whatever the queue holds, because its turn was already
 earned ahead of every waiter. The hold-over reason carries the host-turn prefix,
-so taking it never serves the line first. A hold-over lasts :data:`HOLDOVER_TTL`
+so taking it never serves the queue first. A hold-over lasts :data:`HOLDOVER_TTL`
 from its wait's ``queued_at``; claim heartbeats never extend it, since every tool
 call of the session stamps all its claims. A renewal while another session waits
 keeps the first hold-over's start, so a session polling with direct operations
-cannot starve the line. Any acquire on the host, or control-plane upkeep,
-releases an expired one, and that release serves the line.
+cannot starve the queue. Any acquire on the host, or control-plane upkeep,
+releases an expired one, and that release serves the queue.
 """
 
 from __future__ import annotations
@@ -121,7 +121,7 @@ def _hold(
             claim_id,
             "this session's next acquire of the host: yoke qa case run, "
             "yoke qa plan run, or yoke test-machine exec",
-            f"{_RATIONALE} until {expires}; then the line is served",
+            f"{_RATIONALE} until {expires}; then the queue is served",
         ),
     )
 
@@ -140,9 +140,9 @@ def _consumed_holdover_start(conn: Any, claim: Any) -> datetime | None:
 
 def hold_over_direct_operation(conn: Any, claim: Any) -> bool:
     """Hold a direct operation's released host for its session, before the
-    line is served; False leaves the release to serve it."""
+    queue is served; False leaves the release to serve it."""
     from yoke_core.domain.coordination_claims import acquire, active_claim
-    from yoke_core.domain.qa_host_turns import host_line
+    from yoke_core.domain.qa_host_turns import machine_waiters
 
     test_machine = str(claim.target.test_machine)
     if (
@@ -153,9 +153,9 @@ def hold_over_direct_operation(conn: Any, claim: Any) -> bool:
     ):
         return False
     start = None
-    if host_line(conn, test_machine):
+    if machine_waiters(conn, test_machine):
         # Waiters queued behind the hold-over this lease consumed; it keeps
-        # that hold-over's start, and a lapsed one serves the line.
+        # that hold-over's start, and a lapsed one serves the queue.
         start = _consumed_holdover_start(conn, claim)
         if start is None or utc_now() >= start + HOLDOVER_TTL:
             return False
@@ -181,7 +181,7 @@ def carry_aborted_execution_hosts(conn: Any, execution: dict[str, Any], *, state
     """Hold every host an execution its live session aborts held or had reserved.
 
     Only the owner's own stop carries: a steering stop, a manual lease release,
-    a turn release or a stale-execution sweep ends custody and serves the line.
+    a turn release or a stale-execution sweep ends custody and serves the queue.
     Run before the execution's waits are cancelled and its leases released: a
     carried reservation leaves the execution, a carried lease drops its
     execution reason, and a carried primary lease leaves ``execution``.
@@ -224,7 +224,7 @@ def carry_aborted_execution_hosts(conn: Any, execution: dict[str, Any], *, state
 
 
 def expire_holdover(conn: Any, claim: Any, *, now: datetime | None = None) -> bool:
-    """Release *claim* when it is a lapsed hold-over; the release serves the line."""
+    """Release *claim* when it is a lapsed hold-over; the release serves the queue."""
     from yoke_core.domain.coordination_claims import release
 
     wait = holdover_wait(conn, claim)

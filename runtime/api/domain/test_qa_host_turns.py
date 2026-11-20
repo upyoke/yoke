@@ -1,4 +1,4 @@
-"""One FIFO Test Machine line serves manual acquires and queued QA executions."""
+"""One FIFO Test Machine queue serves manual acquires and queued QA executions."""
 
 from runtime.api.domain.qa_host_turns_test_support import (
     KEY as KEY,
@@ -25,7 +25,7 @@ from yoke_core.domain.coordination_claims import (
     release,
 )
 from yoke_core.domain.handlers.claims_coordination_claim import handle_acquire
-from yoke_core.domain.qa_host_turns import host_line
+from yoke_core.domain.qa_host_turns import machine_waiters
 from yoke_core.domain.work_claim_targets import make_qa_admission_target
 
 
@@ -60,14 +60,14 @@ def test_manual_and_execution_waiters_share_one_fifo_line(test_db, monkeypatch):
 
     refused = _manual_acquire(test_db, monkeypatch, "manual")
     assert refused.error.code == "claim_held"
-    assert "number 1 of 1 in the QA_HOST:linux-lab waiting line" in (
+    assert "number 1 of 1 in the Test Machine queue" in (
         refused.error.message
     )
     assert f"yoke claims coordination-claim release --claim-id {held.id}" in (
         refused.error.message
     )
     _execution_wait(test_db, "plan")
-    assert [row["session_id"] for row in host_line(test_db, MACHINE)] == [
+    assert [row["session_id"] for row in machine_waiters(test_db, MACHINE)] == [
         "manual",
         "plan",
     ]

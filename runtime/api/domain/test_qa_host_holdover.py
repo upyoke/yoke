@@ -34,7 +34,7 @@ from yoke_core.domain.qa_host_holdover import (
     session_holdovers,
 )
 from yoke_core.domain.qa_host_set_turns import require_host_set_turn
-from yoke_core.domain.qa_host_turns import host_line, join_host_line, reserve_host_turn
+from yoke_core.domain.qa_host_turns import machine_waiters, join_host_queue, reserve_host_turn
 from yoke_core.domain.qa_plan_execution_lifecycle import finish_plan_execution
 from yoke_core.domain.qa_plan_execution_store import lock_plan_execution, roster_digest
 from yoke_core.domain.work_claim_targets import make_qa_admission_target
@@ -102,7 +102,7 @@ def test_preflight_then_case_run_within_ttl_beats_another_sessions_run(
     lease = acquire(test_db, TARGET, "preflighter", reason=CASE_RUN)
     assert lease.id == renewed.id
     assert holdover_wait(test_db, active_claim(test_db, TARGET)) is None
-    assert [row["session_id"] for row in host_line(test_db, MACHINE)] == ["walker"]
+    assert [row["session_id"] for row in machine_waiters(test_db, MACHINE)] == ["walker"]
 
     # The case run's own release is no direct operation: the line is served.
     release(test_db, lease.id, "case complete")
@@ -227,7 +227,7 @@ def _queued_execution(conn, session_id):
         "VALUES(%s,%s,%s,'1',%s,'[]',0,'waiting',now(),now())",
         (execution_id, str(uuid4()), session_id, roster_digest([])),
     )
-    join_host_line(
+    join_host_queue(
         conn, TARGET, session_id=session_id, actor_id=1,
         resume_command="unused for plan executions", execution_id=execution_id,
     )
@@ -259,7 +259,7 @@ def test_owner_abort_carries_its_reserved_turn_to_its_next_execution(
 
     assert active_claim(test_db, TARGET).id == reservation.id
     assert session_holdovers(test_db, "rerunner")[0]["claim_id"] == reservation.id
-    assert [row["session_id"] for row in host_line(test_db, MACHINE)] == ["walker"]
+    assert [row["session_id"] for row in machine_waiters(test_db, MACHINE)] == ["walker"]
     with pytest.raises(CoordinationClaimHeldError):
         acquire(test_db, TARGET, "walker", reason=CASE_RUN)
     test_db.rollback()

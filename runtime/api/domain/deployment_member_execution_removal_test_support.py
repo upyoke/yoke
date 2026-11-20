@@ -47,8 +47,8 @@ from yoke_core.domain.qa_deployment_function_subject import resolve_run_qa_subje
 from yoke_core.domain.qa_execution_request_identity import resolve_execution_request
 
 from yoke_core.domain.qa_host_turns import (
-    host_line,
-    join_host_line,
+    machine_waiters,
+    join_host_queue,
     reserve_host_turn,
 )
 
@@ -91,7 +91,7 @@ def _execution(
         ),
     )
     if state == "waiting":
-        join_host_line(
+        join_host_queue(
             conn,
             make_qa_admission_target("linux-lab"),
             session_id=session,

@@ -35,7 +35,7 @@ from yoke_core.domain.handlers.qa_plan_execution import handle_plan_execution_ab
 from yoke_core.domain.qa_deployment_function_subject import resolve_run_qa_subject
 from yoke_core.domain.qa_execution_request_identity import resolve_execution_request
 from yoke_core.domain.qa_host_turns import (
-    host_line,
+    machine_waiters,
     reserve_host_turn,
 )
 from yoke_core.domain.qa_plan_execution_state import begin_plan_execution
@@ -116,7 +116,7 @@ def test_removal_is_atomic_and_cannot_regrant_another_cursor_of_removed_member(
     remove_member_on(test_db, RUN, REMOVED, reason="blocked QA")
     test_db.commit()
     release(test_db, lease.id, "host free")
-    assert not host_line(test_db, "linux-lab")
+    assert not machine_waiters(test_db, "linux-lab")
     assert active_claim(test_db, target) is None
 
 

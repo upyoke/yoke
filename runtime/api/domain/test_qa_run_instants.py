@@ -143,7 +143,7 @@ def test_missing_heartbeat_is_stale_but_exact_boundary_retains_authority():
 
 def test_host_fifo_orders_equivalent_offsets_by_instant_and_keeps_id_ties(test_db):
     from runtime.api.domain.machine_qa_session_seed import seed_qa_session
-    from yoke_core.domain.qa_host_turns import host_line
+    from yoke_core.domain.qa_host_turns import machine_waiters
 
     seed_qa_session(test_db, "first", "later", "equal")
     for wait_id, session, when in (
@@ -156,4 +156,4 @@ def test_host_fifo_orders_equivalent_offsets_by_instant_and_keeps_id_ties(test_d
             "state,resume_command) VALUES(%s,'linux-lab',%s,1,%s,'waiting','resume')",
             (wait_id, session, when),
         )
-    assert [row["id"] for row in host_line(test_db, "linux-lab")] == ["a", "b", "c"]
+    assert [row["id"] for row in machine_waiters(test_db, "linux-lab")] == ["a", "b", "c"]

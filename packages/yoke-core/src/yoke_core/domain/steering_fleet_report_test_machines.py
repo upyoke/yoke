@@ -27,6 +27,39 @@ class IdleHostHold(NamedTuple):
     returns_at: str
 
 
+class QueuedWalk(NamedTuple):
+    """One waiter in the Test Machine queue; rides with reset debts.
+
+    ``test_machine`` names what it waits for: one machine, ``any of`` the
+    machines that can serve it, or ``all of`` a simultaneous host set.
+    """
+
+    test_machine: str
+    position: int
+    session_id: str
+    execution_id: str | None
+    queued_at: str
+    recovery: None = None
+
+
+def read_queue(conn: Any) -> list[QueuedWalk]:
+    """The one Test Machine queue, oldest waiter first."""
+    from yoke_core.domain.qa_host_queue import queue_entries, waits_for_text
+
+    if not _table_exists(conn, "qa_test_machine_waits"):
+        return []
+    return [
+        QueuedWalk(
+            waits_for_text(entry),
+            int(entry["position"]),
+            str(entry["session_id"]),
+            entry["execution_id"],
+            str(entry["queued_at"]),
+        )
+        for entry in queue_entries(conn)
+    ]
+
+
 def _holding_execution(conn: Any, test_machine: str) -> str | None:
     from yoke_core.domain.coordination_claims import active_claim
     from yoke_core.domain.machine_qa_capability import host_claim_target
@@ -111,7 +144,9 @@ def _idle_holds(conn: Any, names: set[str]) -> list[IdleHostHold]:
     return holds
 
 
-def read_reset_debts(conn, project_id) -> tuple[ResetDebt | IdleHostHold, ...]:
+def read_reset_debts(
+    conn, project_id
+) -> tuple[ResetDebt | IdleHostHold | QueuedWalk, ...]:
     from yoke_core.domain.machine_reset_debt import reset_command, reset_owed
 
     if not _table_exists(conn, "test_machine_operation_receipts"):
@@ -129,14 +164,18 @@ def read_reset_debts(conn, project_id) -> tuple[ResetDebt | IdleHostHold, ...]:
                 execution_id,
             )
         )
-    return tuple(debts)
+    return (*debts, *read_queue(conn))
 
 
 def reset_debt_lines(rows):
     return [
-        f"Test Machine {row.test_machine}: ALARM held by {row.idle_state} session "
+        f"Test Machine queue #{row.position}: session {row.session_id}"
+        + (f" (execution {row.execution_id})" if row.execution_id else "")
+        + f" waits for {row.test_machine} since {row.queued_at}"
+        if isinstance(row, QueuedWalk)
+        else f"Test Machine {row.test_machine}: ALARM held by {row.idle_state} session "
         f"{row.idle_session}, silent since {row.idle_since}; upkeep returns it to "
-        f"the line at {row.returns_at}, or release it now: `{row.recovery}`"
+        f"the queue at {row.returns_at}, or release it now: `{row.recovery}`"
         if isinstance(row, IdleHostHold)
         else f"Test Machine {row.test_machine}: reset owed after {row.execution_id}"
         if row.execution_id

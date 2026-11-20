@@ -123,6 +123,7 @@ def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
                 test_machine=held.test_machine,
                 rationale=f"lease {held.lease.id} held by {held.lease.session_id}",
                 test_machines=held.test_machines,
+                eligible=held.eligible,
             )
             contention = held.contention and held.contention.in_line(
                 waiting["host_wait"]
@@ -138,6 +139,7 @@ def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
                 test_machine=unhealthy.test_machine,
                 rationale=str(unhealthy),
                 test_machines=unhealthy.test_machines,
+                eligible=unhealthy.eligible,
             )
             return HandlerOutcome(primary_success=True, result_payload=waiting)
         from yoke_core.domain.qa_plan_execution_reentry import record_case_admitted

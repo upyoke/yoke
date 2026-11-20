@@ -12,8 +12,12 @@ QA_PLAN_TABLES = {
             ("queued_at", "TIMESTAMPTZ"),
             ("resume_command", "TEXT"),
             ("rationale", "TEXT"),
+            ("need_id", "TEXT"),
         ],
         "notes": (
+            "One queue for every Test Machine. A row names one machine its "
+            "waiter can take; rows sharing need_id are one walk's eligible "
+            "machines, and the first reserved serves it. "
             "Host-turn waits join qa_plan_executions.id through "
             "qa_plan_execution_id; execution_id is not a column here. "
             "An unreachable-host submission leaves a waiting row and releases "

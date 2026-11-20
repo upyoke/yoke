@@ -2,7 +2,7 @@
 
 A shared deployment-stage execution that held a Test Machine stood ahead of
 every session that queued behind it. When it is aborted, the next execution of
-the same run, stage and shared plan joins that host's line at the aborted
+the same run, stage and shared plan joins the queue at the aborted
 walk's place, so the recovery resumes next instead of joining the back. The
 place is the earliest of the walk's granted waits and host leases, read from
 the existing ``qa_test_machine_waits`` and ``work_claims`` records.

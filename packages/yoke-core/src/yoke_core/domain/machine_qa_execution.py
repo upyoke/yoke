@@ -286,7 +286,7 @@ def acquire_machine_qa_lease(
     except CoordinationClaimStaleHolderError as exc:
         raise MachineQaExecutionError(str(exc)) from None
     except TestMachineFleetBusy as exc:
-        held = exc.shortest_line(conn, session_id)
+        held = exc.busy[0]
         raise MachineQaLeaseHeld(
             lease=held.lease,
             test_machine=held.test_machine,

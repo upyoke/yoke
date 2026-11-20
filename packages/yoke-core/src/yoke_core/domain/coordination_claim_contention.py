@@ -47,9 +47,9 @@ class ClaimContention:
     effective_stale_ttl_minutes: int
     holder_stale: bool
     operator_release_command: str
-    #: The refused session's place in a QA_HOST waiting line, once it joined.
-    line_position: int | None = None
-    line_length: int | None = None
+    #: The refused session's place in the Test Machine queue, once it joined.
+    queue_position: int | None = None
+    queue_length: int | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "acquired_at", as_utc(self.acquired_at))
@@ -70,7 +70,7 @@ class ClaimContention:
             f"(stale TTL {self.effective_stale_ttl_minutes}m). Holder's own "
             f"release: `{self.holder_release_command}`. Steering-seat "
             f"operator release: `{self.operator_release_command}`."
-            f"{self._line_sentence}"
+            f"{self._queue_sentence}"
         )
 
     @property
@@ -78,20 +78,21 @@ class ClaimContention:
         return holder_release_command(self.claim_id)
 
     @property
-    def _line_sentence(self) -> str:
-        if self.line_position is None:
+    def _queue_sentence(self) -> str:
+        if self.queue_position is None:
             return ""
         return (
-            f" This session is number {self.line_position} of {self.line_length} "
-            f"in the {self.key} waiting line: the next release reserves the host "
-            "for the oldest live waiter and wakes it with the command that takes "
-            "the turn. Park until then; write no hold of your own."
+            f" This session is number {self.queue_position} of {self.queue_length} "
+            "in the Test Machine queue: the next release of a machine it can use "
+            "reserves that machine for the oldest live waiter it can serve and "
+            "wakes it with the command that takes the turn. Park until then; "
+            "write no hold of your own."
         )
 
     def in_line(self, wait: dict[str, Any]) -> "ClaimContention":
-        """Return this report with the refused session's place in line."""
+        """Return this report with the refused session's place in the queue."""
         return replace(
-            self, line_position=wait["position"], line_length=wait["line_length"]
+            self, queue_position=wait["position"], queue_length=wait["queue_length"]
         )
 
     def claim_evidence(self) -> dict[str, Any]:
@@ -109,8 +110,8 @@ class ClaimContention:
             "wait_message": self.message,
             "holder_release_command": self.holder_release_command,
             "operator_release_command": self.operator_release_command,
-            "line_position": self.line_position,
-            "line_length": self.line_length,
+            "queue_position": self.queue_position,
+            "queue_length": self.queue_length,
         }
 
 

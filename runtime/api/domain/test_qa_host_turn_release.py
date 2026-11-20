@@ -29,7 +29,7 @@ from runtime.api.steering_fleet_test_helpers import (
 from yoke_core.domain.coordination_claims import acquire, active_claim, release
 from yoke_core.domain.deployment_qa_driverless_wake import wake_driverless_qa_waits
 from yoke_core.domain.deployment_qa_stage_wake_state import member_wake_states
-from yoke_core.domain.qa_host_turns import join_host_line, reserve_host_turn
+from yoke_core.domain.qa_host_turns import join_host_queue, reserve_host_turn
 from yoke_core.domain.qa_plan_execution_store import roster_digest
 from yoke_core.domain.work_claim_targets import make_qa_admission_target
 
@@ -46,7 +46,7 @@ def _waiting_member_execution(conn) -> str:
         "VALUES(%s,%s,%s,%s,%s,'1',%s,'[]',0,'waiting',now(),now())",
         (execution_id, RUN_ID, ITEM_QA_STAGE, MEMBER, WORKER_SESSION, roster_digest([])),
     )
-    join_host_line(
+    join_host_queue(
         conn,
         make_qa_admission_target(MACHINE),
         session_id=WORKER_SESSION,
@@ -123,7 +123,7 @@ def test_release_keeps_an_execution_still_queued_on_another_host(
     other = make_qa_admission_target("other-lab")
     seed_session(conn, "someone-else")
     acquire(conn, other, "someone-else")
-    join_host_line(
+    join_host_queue(
         conn,
         other,
         session_id=WORKER_SESSION,

@@ -122,7 +122,7 @@ def handle_acquire(request: FunctionCallRequest) -> HandlerOutcome:
 
 
 def handle_acquire_if_free(request: FunctionCallRequest) -> HandlerOutcome:
-    """Take the claim only when it is free; a refusal never joins a host line."""
+    """Take the claim only when it is free; a refusal never joins the queue."""
     return _acquire(request, join_line=False)
 
 
@@ -170,13 +170,13 @@ def _acquire(request: FunctionCallRequest, *, join_line: bool) -> HandlerOutcome
             if not join_line:
                 return _err(code, str(exc))
             return _err(
-                code, _join_host_line(conn, request, body, identity, target, exc)
+                code, _join_host_queue(conn, request, body, identity, target, exc)
             )
 
     return HandlerOutcome(result_payload={"claim": claim_as_dict(claim)})
 
 
-def _join_host_line(conn: Any, request, body, identity, target, exc) -> str:
+def _join_host_queue(conn: Any, request, body, identity, target, exc) -> str:
     """Queue a refused QA_HOST acquire; the release wakes it to rerun the same command.
 
     The commit also keeps any turn the refused acquire reserved for an
@@ -185,7 +185,7 @@ def _join_host_line(conn: Any, request, body, identity, target, exc) -> str:
     import shlex
 
     from yoke_core.domain.coordination_claims import active_claim
-    from yoke_core.domain.qa_host_turns import join_host_line
+    from yoke_core.domain.qa_host_turns import join_host_queue
 
     held = active_claim(conn, target)
     if not target.test_machine or exc.contention is None or held is None:
@@ -198,7 +198,7 @@ def _join_host_line(conn: Any, request, body, identity, target, exc) -> str:
     )
     if body.reason:
         command += f" --reason {shlex.quote(body.reason)}"
-    wait = join_host_line(
+    wait = join_host_queue(
         conn,
         target,
         session_id=request.actor.session_id,

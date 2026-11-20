@@ -63,10 +63,10 @@ without `!`. Entry decides liveness, not null arming alone.
   **The delivery is still on its way** in four, all of which end in *waiting* and none of which is a failure. *delivery attempt in flight* is an accepted resume that has not settled either way. *queued in the machine wake queue* names each waiting receipt’s position while a connected relay has attempted a wake there within three polls. Without recent progress, overdue receipts remain a finding. *queued for the recipient's next hook* is the ordinary case: no attempt is owed yet, because a hook has run since the send or the plane is still inside one poll of its own window. *recipient turn in flight since a fixed-six UTC instant* is a recipient with a current running call under the [shared call rule](model/reclaim.md) — the envelope lands on that call's own hook. A current call defers automatic wakes past the idle threshold, up to the shared 45-minute ceiling; an older open row no longer excuses silence. Returning from the call delivers through the existing hook. A verified native exit, or a park stamped after the call started, retires an orphaned call, ended sessions retain their supported recovery route, and explicit operator wakes retain their intentional semantics. None of these four borrows desktop *waiting for the operator to wake it* copy: a session that is already firing hooks, or sitting inside a call, is not waiting on a person who has not typed. A row that is open is only the half of that a clock can see; the other half is the state below, which the recipient's own machine reports rather than this one inferring it. These four are reported and never count toward `actionable`, and they are deliberately excluded from the report's fingerprint: every ordinary send passes through one of them, so hashing them would turn routine fleet traffic into changed-report wakes for mail about to land by itself. Reporting any of them as a failure sends the seat after a delivery already under way, and this section formerly dropped waiting states, which left a seat unable to tell an attempt in flight from one that had never been made.
 Named waits take priority over a recorded process exit. An armed landing reads
 `ci_or_deploy / landing_in_progress` until it lands; presence still shows the exit.
-A live Test Machine wait reads `another_item / qa_host_turn_waiting`, naming the
-machine, the item holding it and the waiter's place in line, e.g. "Waiting for the
-test-mac-studio turn held by PREFIX-N (position 1)"; once the turn is reserved it reads
-`this_session / qa_host_turn_reserved`. The host's release wakes the waiter.
+A live Test Machine wait reads `another_item / qa_host_turn_waiting`, naming what
+it waits for and its place in the one queue, e.g. "Waiting for a Test Machine turn
+on test-mac-studio held by PREFIX-N (position 1)"; once reserved it reads
+`this_session / qa_host_turn_reserved`. A host's release wakes the waiter.
 Without a named wait, the next actor is parent or steering.
 Live failed or unarmed PRs still require holder action.
 Holder rows describe delivery rather than infer native liveness:
@@ -237,15 +237,10 @@ with `/yoke idea`, naming the function and its p95.
 
 - [Steering report delivery](steering-report-delivery.md)
 
-## Test-machine reset debt
+## Test Machines
 
-A host with an owed reset and a live QA execution lease reads
-`reset owed after <execution id>`, with no recovery command. This includes
-companion hosts held by a walk. Let that execution finish its cleanup.
-When no live execution holds the host, the report reads `machine_needs_repair`
-and names the reset command and owed baseline. JSON `reset_debts` rows name the
-`test_machine`. Held rows carry `execution_id` and a null `recovery`; unheld rows
-carry the recovery command and a null `execution_id`.
+Reset debts, idle host holds and the one Test Machine queue are read in
+[Steering report delivery](steering-report-delivery.md#test-machines).
 
 ## Questions waiting on you
 

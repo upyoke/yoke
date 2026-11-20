@@ -48,7 +48,7 @@ def test_report_alarms_on_a_host_held_by_an_ended_parked_session(
     assert f"--claim-id {lease.id} --holder-session-id gate-parked" in row.recovery
     [line] = reset_debt_lines((row,))
     assert line.startswith(f"Test Machine {MACHINE}: ALARM held by ended session")
-    assert f"upkeep returns it to the line at {row.returns_at}" in line
+    assert f"upkeep returns it to the queue at {row.returns_at}" in line
 
 
 def test_a_live_holder_keeps_its_host_out_of_the_alarm(test_db, tmp_path, monkeypatch):

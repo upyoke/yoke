@@ -26,7 +26,7 @@ from runtime.api.domain.machine_qa_session_seed import seed_qa_session
 from yoke_core.domain.coordination_claims import acquire, active_claim, release
 from yoke_core.domain.machine_qa_plan_case_execution import _waiting_case
 from yoke_core.domain.qa_host_health import HOST_UNHEALTHY_REASON, host_unhealthy
-from yoke_core.domain.qa_host_turns import host_line
+from yoke_core.domain.qa_host_turns import machine_waiters
 from yoke_core.domain.qa_plan_execution_state import begin_plan_execution
 from yoke_core.domain.work_claim_targets import make_qa_admission_target
 
@@ -122,7 +122,7 @@ def test_unhealthy_host_queues_until_a_golden_capture_heals_it(
         "UPDATE harness_sessions SET ended_at=now() WHERE session_id='ended-waiter'"
     )
     test_db.commit()
-    assert [row["session_id"] for row in host_line(test_db, MACHINE)] == [
+    assert [row["session_id"] for row in machine_waiters(test_db, MACHINE)] == [
         ACTOR.session_id
     ]
 
@@ -161,7 +161,7 @@ def test_waiting_case_teaches_queue_position_and_park() -> None:
             "host_wait": {
                 "test_machine": "linux-lab",
                 "position": 2,
-                "line_length": 3,
+                "queue_length": 3,
                 "rationale": "lease 9 held by holder",
             }
         },
