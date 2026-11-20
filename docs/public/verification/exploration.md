@@ -63,9 +63,8 @@ and a viewport check does not prove real-phone touch behavior.
 ```
 
 For a host mission, omit `test_machine` to select a registered host matching
-the declared case OS. Native-Windows walks declare `os: windows` and pin a
-`test_machine` only when the walk is about that one host. When every matching
-host is busy, the walk queues on the one with the shortest waiting line. Execution
+the declared case OS (native-Windows walks pin one only when about that host,
+and a busy fleet queues the walk on its shortest host line). Execution
 checks `method_config.os` / `platform`, capability requirements and executable
 steps before leasing a host. A declared machine supplies its registered `os`
 when those fields do not choose one. Instructions never choose an OS. Without
