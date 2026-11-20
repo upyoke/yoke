@@ -4,6 +4,7 @@ from typing import Any
 
 from yoke_core.domain.deployment_qa_plan_groups import run_groups
 from yoke_core.domain.deployment_qa_case_failure_kinds import RED_VERDICTS
+from yoke_core.domain.qa_attempt_target_currency import current_target_attempts
 from yoke_core.domain.qa_latest_execution import latest_verdict_executions
 from yoke_core.domain.qa_obligation_settlement import settled_obligation_sql
 
@@ -21,7 +22,8 @@ def pending_stage_plans(conn: Any, stage: dict, run_id: str) -> list[dict]:
     """Return runnable group plans or the run stage's own selected plan.
 
     Manual evidence stays with its owner; a pending review is already captured.
-    A live case's determinate failure needs correction, not another capture.
+    A live case's determinate failure needs correction, not another capture;
+    a failure recorded against a superseded target is unrun and recaptures.
     The target digest distinguishes later groups of the same plan.
     """
     name = str(stage["name"])
@@ -43,7 +45,9 @@ def pending_stage_plans(conn: Any, stage: dict, run_id: str) -> list[dict]:
         ).fetchall()
         if not rows or any(row[1] == "manual" for row in rows):
             continue
-        verdicts = latest_verdict_executions(conn, [row[0] for row in rows])
+        verdicts = current_target_attempts(
+            conn, latest_verdict_executions(conn, [row[0] for row in rows])
+        )
         if any(row["verdict"] in RED_VERDICTS for row in verdicts.values()):
             continue
         review = conn.execute(

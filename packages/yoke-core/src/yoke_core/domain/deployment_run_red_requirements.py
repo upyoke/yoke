@@ -2,7 +2,8 @@
 
 One read answers for a whole set of runs. The latest attempt is the canonical
 newest actual start, and an obligation a waiver, supersession, replacement,
-retraction or triage discharge settled is history rather than red.
+retraction or triage discharge settled is history rather than red. A failure
+recorded against a target the requirement no longer carries is not red.
 """
 
 from __future__ import annotations
@@ -13,6 +14,7 @@ from typing import Any, Iterable, Optional
 from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain import db_backend
 from yoke_core.domain.deployment_qa_case_failure_kinds import RED_VERDICTS
+from yoke_core.domain.qa_attempt_target_currency import stale_target_requirements
 from yoke_core.domain.qa_latest_execution import latest_execution_id_sql
 from yoke_core.domain.qa_obligation_settlement import settled_obligation_sql
 from yoke_core.domain.schema_common import _column_exists, _table_exists
@@ -48,10 +50,10 @@ def red_blocking_requirements(
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     rows = conn.execute(
         f"""SELECT r.id, r.deployment_run_id, r.deployment_member_item_id,
-                   (SELECT qr.verdict FROM qa_runs qr
-                     WHERE qr.id=({latest_execution_id_sql("r.id")})) AS verdict,
+                   qr.id AS latest_run_id, qr.verdict,
                    i.project_id, p.slug, p.public_item_prefix, i.project_sequence
               FROM qa_requirements r
+              LEFT JOIN qa_runs qr ON qr.id=({latest_execution_id_sql("r.id")})
               LEFT JOIN items i ON i.id = r.deployment_member_item_id
               LEFT JOIN projects p ON p.id = i.project_id
              WHERE r.deployment_run_id IN ({", ".join(marker for _ in runs)})
@@ -60,12 +62,17 @@ def red_blocking_requirements(
              ORDER BY r.deployment_run_id, r.id""",
         runs,
     ).fetchall()
+    records = [row_dict(raw) for raw in rows]
+    records = [r for r in records if str(r["verdict"] or "") in RED_VERDICTS]
+    stale = stale_target_requirements(
+        conn,
+        {int(r["id"]): {"id": r["latest_run_id"], "verdict": r["verdict"]} for r in records},
+    )
     grouped: dict[str, list[RedRequirement]] = {}
-    for raw in rows:
-        record = row_dict(raw)
-        verdict = str(record["verdict"] or "")
-        if verdict not in RED_VERDICTS:
+    for record in records:
+        if int(record["id"]) in stale:
             continue
+        verdict = str(record["verdict"])
         item_id = record.get("deployment_member_item_id")
         project_id = record.get("project_id")
         ref = ""

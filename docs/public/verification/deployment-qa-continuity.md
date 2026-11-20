@@ -50,7 +50,11 @@ not establish a lineage. Existing live requirements rebind in place to the curre
 records its previous target. A pass recorded before or after takeover carries
 when its destination matches. While the successor's item QA still has to credit
 the pass, the gate identifies it as carried and says to wait without re-running.
-A changed destination still needs a pass. An open shared plan group keeps
+A changed destination still needs a pass. A fail or other non-pass
+recorded against the previous target does not count against the current one:
+the case reads as not yet run, the steering report does not flag the run for
+it, and the driver captures an automatic plan again when the run reaches that
+stage. An open shared plan group keeps
 its group ID, plan, pinned cases and case IDs, and follows its owning run the
 same way: once that run holds a ready receipt the group's target does not
 record (a takeover moved it, or its run redeployed), stage dispatch or the next
@@ -96,7 +100,8 @@ attempt was created before this run, and the current release contains the
 item's merge, the owner gets one handoff that says to retry. A failure
 created after this run gets the ordinary handoff: classify it and start
 rework or record its blocker. Once a successor receipt is ready, run the plan
-again; materialization rebinds the member's open cases automatically:
+again; materialization rebinds the member's open cases automatically, and a
+driver-run plan whose cases already rebound is captured again without this step:
 
 ```text
 yoke qa plan run --item PREFIX-N --stage item-qa --project PROJECT
