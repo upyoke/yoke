@@ -204,6 +204,28 @@ read; retained PR detail is last observed, never fresh evidence.
 
 Fleet activity, launch, message, landing, decision, and report-delivery clocks remain aware instants internally. Report JSON and full clock labels emit fixed-six UTC or null; brief calendar reset labels remain human display. Delivery interval compare-and-set includes the exact native cutoff, preserving microseconds and offset equivalence. A missing clock is unknown; a malformed supplied clock refuses. Earliest landings and latest decision answers compare instants, preserving identity ties and explicit null order.
 
+## Test Machines
+
+### Reset debt
+
+A host with an owed reset and a live QA execution lease reads
+`reset owed after <execution id>`, with no recovery command. This includes
+companion hosts held by a walk. Let that execution finish its cleanup.
+When no live execution holds the host, the report reads `machine_needs_repair`
+and names the reset command and owed baseline. JSON `reset_debts` rows name the
+`test_machine`. Held rows carry `execution_id` and a null `recovery`; unheld rows
+carry the recovery command and a null `execution_id`.
+
+### The one Test Machine queue
+
+The report lists the one Test Machine queue, oldest waiter first:
+`Test Machine queue #<position>: session <id> (execution <id>) waits for <need>
+since <instant>`. The need is one machine (pinned, resuming on the machine
+holding its state, or a manual claim), `any of` the machines whose OS and
+capability tags match, or `all of` a simultaneous host set. JSON `reset_debts`
+carries each waiter as a row with `position`, `session_id`, `execution_id`,
+`queued_at`, `test_machine` (the need) and a null `recovery`; queue rows are not
+actionable.
 
 ## Related
 

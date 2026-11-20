@@ -64,12 +64,9 @@ without `!`. Entry decides liveness, not null arming alone.
 Named waits take priority over a recorded process exit. An armed landing reads
 `ci_or_deploy / landing_in_progress` until it lands; presence still shows the exit.
 A live Test Machine wait reads `another_item / qa_host_turn_waiting`, naming what
-it waits for, the item holding a single named machine, and the waiter's place in
-the one Test Machine queue, e.g. "Waiting for a Test Machine turn on
-test-mac-studio held by PREFIX-N (position 1)" or "Waiting for a Test Machine turn
-on any of windows-native-lab, windows-native-lab-2 (position 3)"; once a turn is
-reserved it reads `this_session / qa_host_turn_reserved`. A host's release wakes
-the waiter.
+it waits for and its place in the one queue, e.g. "Waiting for a Test Machine turn
+on test-mac-studio held by PREFIX-N (position 1)"; once reserved it reads
+`this_session / qa_host_turn_reserved`. A host's release wakes the waiter.
 Without a named wait, the next actor is parent or steering.
 Live failed or unarmed PRs still require holder action.
 Holder rows describe delivery rather than infer native liveness:
@@ -240,24 +237,10 @@ with `/yoke idea`, naming the function and its p95.
 
 - [Steering report delivery](steering-report-delivery.md)
 
-## Test-machine reset debt
+## Test Machines
 
-A host with an owed reset and a live QA execution lease reads
-`reset owed after <execution id>`, with no recovery command. This includes
-companion hosts held by a walk. Let that execution finish its cleanup.
-When no live execution holds the host, the report reads `machine_needs_repair`
-and names the reset command and owed baseline. JSON `reset_debts` rows name the
-`test_machine`. Held rows carry `execution_id` and a null `recovery`; unheld rows
-carry the recovery command and a null `execution_id`.
-
-The same section lists the one Test Machine queue, oldest waiter first:
-`Test Machine queue #<position>: session <id> (execution <id>) waits for <need>
-since <instant>`. The need is one machine (pinned, resuming on the machine
-holding its state, or a manual claim), `any of` the machines whose OS and
-capability tags match, or `all of` a simultaneous host set. JSON `reset_debts`
-carries each waiter as a row with `position`, `session_id`, `execution_id`,
-`queued_at`, `test_machine` (the need) and a null `recovery`; queue rows are not
-actionable.
+Reset debts, idle host holds and the one Test Machine queue are read in
+[Steering report delivery](steering-report-delivery.md#test-machines).
 
 ## Questions waiting on you
 
