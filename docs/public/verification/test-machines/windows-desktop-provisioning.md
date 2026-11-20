@@ -17,8 +17,10 @@ commands whose windows open on Windows, such as a Windows browser opened by
 apps, browser identities and tmux terminal QA.
 
 Set `wsl_desktop_session=windows` on the test machine to run
-`yoke qa mission host-command --gui-session` in Windows and capture that
-display with mission screenshots or `yoke test-machine screenshot`.
+`yoke qa mission host-command --gui-session` in Windows, drive their windows
+with `yoke qa mission desktop` on native Windows hosts
+([driving desktop apps](windows-native-harnesses.md#driving-desktop-apps)),
+and capture that display with mission screenshots or `yoke test-machine screenshot`.
 Select `xfce` to route those operations to the Linux desktop. Existing
 registrations use XFCE until they declare a selection. Keep `desktop_user`
 and `desktop_port` pointed at XFCE for Linux browser sign-ins.
@@ -94,8 +96,10 @@ task shares Explorer's nonzero console session, can read the unlocked display,
 and can start the default WSL distro. After a reset, repeat verification to
 prove the Windows console survived the Linux home restore.
 
-To recover a locked Windows console, connect to the Windows account over the
-lab's private RDP route and unlock it. Disconnect without signing out, then
+A locked console makes `yoke qa mission desktop` refuse
+`windows_desktop_locked`. To recover a locked Windows console, reboot the
+host so autologon signs the account in, or connect to the Windows account over
+the lab's private RDP route and unlock it. Disconnect without signing out, then
 verify again. If the task fails, inspect its result in Task Scheduler and
 rerun provisioning. For XFCE, continue to authorize the operator identity with
 `yoke browser authorize --test-machine` and prove Chromium renders there.

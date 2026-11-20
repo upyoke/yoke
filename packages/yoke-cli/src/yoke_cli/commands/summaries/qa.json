@@ -35,6 +35,7 @@
   "qa methods get": "Show one QA method.",
   "qa methods list": "List the QA methods a project can use.",
   "qa mission": "Run steps of an exploratory QA walk.",
+  "qa mission desktop": "Click, type and read any app on a Windows QA host.",
   "qa mission host-command": "Run one command on the QA host during a walk.",
   "qa mission host-copy": "Copy one file off the QA host during a walk.",
   "qa mission walk-end": "Finish an exploratory QA walk.",

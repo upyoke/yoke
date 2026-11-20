@@ -10,7 +10,8 @@ when registering or verifying a host, including after a sign-in changes.
 For stored-password setup commands on macOS and Linux, follow [administrator commands](administrator-commands.md).
 
 Agents do every step an agent physically can, including system settings such
-as macOS permission prompts, opening harnesses through the desktop, choosing
+as macOS permission prompts, opening harnesses through the desktop (native
+Windows apps through `yoke qa mission desktop`, with no RDP client), choosing
 permission modes, typing codes into wizards and approving machine-connect or
 device codes in an already signed-in browser or with `yoke machines approve`.
 The operator is needed only to enter their own password or credential, such as
