@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+import base64
 import json
+from pathlib import Path
+import re
 import shlex
 import subprocess
+import sys
 from types import SimpleNamespace
 
 import pytest
 
+from yoke_cli.config import cli_release_runtime
 from yoke_core.domain import machine_qa_operator_browser as operator
 from yoke_core.domain import native_windows_operator_gate as gate
 from yoke_harness import identity_browser_approval as driver
@@ -213,6 +218,44 @@ def test_page_commands_start_in_the_interactive_desktop(monkeypatch, argv, route
         assert "'" + " ".join(argv[1:3]) in ran[0]
     else:
         assert ran == [] and result.stdout == "ssh"
+
+
+def test_the_shim_reader_recognizes_the_installer_and_earlier_formats(tmp_path, monkeypatch):
+    monkeypatch.setattr(cli_release_runtime, "WINDOWS", True)
+    root, python = tmp_path / "Yoke data", tmp_path / "Python install/python.exe"
+    shim = tmp_path / "yoke.cmd"
+    current = cli_release_runtime._shims(root, python, tmp_path)[shim]
+    script = yoke_python.yoke_python_command([YOKE_BIN, "qa", "browser", "setup"])
+    check = re.search(r"if\(\$shim -notmatch '([^']+)'\)", script)
+    assert check
+    pattern = re.compile(check.group(1))
+    legacy = f'@"{python}" "{root / "launcher"}" %*'
+    for contents in (current, legacy, legacy + " & exit /b", legacy + " & call exit /b %%ERRORLEVEL%%"):
+        match = pattern.match(contents)
+        assert match and match.groups() == (str(python), str(root / "launcher"))
+    assert pattern.match('@echo "foreign shim"') is None
+
+
+@pytest.mark.windows
+@pytest.mark.windows_only(reason="PowerShell runs the installed Python launcher")
+def test_the_windows_browser_runner_executes_through_the_generated_shim(tmp_path):
+    root = tmp_path / "Yoke data"
+    root.mkdir()
+    (root / "launcher").write_text(
+        "import json, sys\nprint(json.dumps(sys.argv[1:]))\nsys.exit(7)\n",
+        encoding="utf-8",
+    )
+    shim = tmp_path / "yoke.cmd"
+    shim.write_bytes(cli_release_runtime._shims(root, Path(sys.executable), tmp_path)[shim].encode())
+    arguments = ["qa", "browser", "step", "--step-json", '{"text":"spaces & 100%"}']
+    script = yoke_python.yoke_python_command([str(shim), *arguments])
+    encoded = base64.b64encode(script.encode("utf-16-le")).decode("ascii")
+    result = subprocess.run(
+        ["powershell.exe", "-NoProfile", "-NonInteractive", "-EncodedCommand", encoded],
+        capture_output=True, text=True, timeout=30,
+    )
+    assert result.stderr == ""
+    assert (result.returncode, json.loads(result.stdout)) == (7, arguments)
 
 
 def test_a_missing_shim_refuses_by_name():
