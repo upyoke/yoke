@@ -22,6 +22,7 @@ from yoke_core.domain.deploy_core_container_remote_errors import (
     fail_remote_step as _fail,
 )
 from yoke_core.domain.deploy_core_container_remote_health import (
+    verify_log_metrics_export,
     verify_origin_health,
     wait_container_healthy,
 )
@@ -38,6 +39,7 @@ from yoke_core.domain.deploy_remote import (
 __all__ = [
     "RemoteConvergenceError",
     "prune_superseded_images",
+    "verify_log_metrics_export",
     "verify_origin_health",
     "wait_container_healthy",
 ]
@@ -257,4 +259,5 @@ def remote_step_names() -> List[str]:
         "database secret access",
         "container health",
         "origin health",
+        "log metrics export",
     ]

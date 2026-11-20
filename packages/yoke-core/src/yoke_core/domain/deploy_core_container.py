@@ -42,6 +42,7 @@ from yoke_core.domain.deploy_core_container_remote import (
     ensure_runtime_packages,
     prune_superseded_images,
     verify_runtime_database_secret_access,
+    verify_log_metrics_export,
     verify_origin_health,
     wait_container_healthy,
 )
@@ -242,6 +243,8 @@ def render_service_files(
     ]
     if env.otel_exporter_endpoint:
         env_lines.append(f"OTEL_EXPORTER_OTLP_ENDPOINT={env.otel_exporter_endpoint}")
+    if env.emit_log_metrics:
+        env_lines.append("YOKE_OTEL_LOG_METRICS=1")
     env_lines.extend(github_app_deploy.github_app_env_lines(env))
     return compose_yaml, nginx_site, "\n".join(env_lines) + "\n"
 
@@ -321,6 +324,8 @@ def exec_core_container_deploy(
             raise
         _emit_deploy_event(env, image_ref, request_id)
         emit(f"  [core-deploy] {env.project}/{env.env_name} now running {image_ref}")
+        # Telemetry loss fails the deploy without rolling back a healthy swap.
+        verify_log_metrics_export(runner, env, f"{env.deploy_namespace}-core", emit)
         # Post-health cleanup is fail-visible but does not roll back the
         # healthy container; rerunning the full deployment is idempotent.
         prune_superseded_images(
