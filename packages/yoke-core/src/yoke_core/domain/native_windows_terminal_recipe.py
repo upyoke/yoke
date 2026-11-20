@@ -91,6 +91,42 @@ def execute_recipe(
                 )
 
 
+def _step_deadline(action, deadline):
+    """A step's own ready bound, never past the case's wall-clock bound."""
+    bound = action.get("ready_timeout_seconds")
+    if bound is None:
+        return deadline
+    return min(deadline, time.monotonic() + float(bound))
+
+
+def _stalled(terminal, action, rows, field, code):
+    """Fail with the console as it stood, so the evidence names what was missing."""
+    screen = terminal.transcript()
+    row = {
+        "key": str(action["step"]),
+        "reached": False,
+        "transcript": screen,
+        "missing": [v for v in action.get(field, []) if v not in screen],
+    }
+    try:
+        row.update(terminal.capture_window())
+    except RuntimeError as exc:
+        row["capture_error"] = str(exc)
+    rows.append(row)
+    return HostActionResult(
+        False,
+        {
+            "steps": rows,
+            "transcript": screen,
+            "terminal_backend": "windows-console",
+            "recovery": f"Step {action['step']!r} never showed {row['missing']}; "
+            "read its transcript and screenshot, then correct the case or the "
+            "product.",
+        },
+        code,
+    )
+
+
 def _interactive(
     control, terminal, entry, required, config, progress, secrets, size, operator_urls
 ):
@@ -119,10 +155,13 @@ def _interactive(
                 ):
                     rows[-1].update(terminal.capture_window())
                 continue
-            text = terminal.wait_for(action.get("ready_text", []), deadline, progress)
+            text = terminal.wait_for(
+                action.get("ready_text", []), _step_deadline(action, deadline), progress
+            )
             if text is None:
-                raise RuntimeError(
-                    "windows_terminal_readiness_timeout: inspect the native console and correct its expected readiness text"
+                return _stalled(
+                    terminal, action, rows, "ready_text",
+                    "windows_terminal_readiness_timeout",
                 )
             for key in action["keys"]:
                 if key.startswith("paste_file:"):
@@ -144,8 +183,9 @@ def _interactive(
                 action.get("completion_text", []), deadline, progress
             )
             if text is None:
-                raise RuntimeError(
-                    "windows_terminal_completion_timeout: inspect the unmet completion expectation and rerun"
+                return _stalled(
+                    terminal, action, rows, "completion_text",
+                    "windows_terminal_completion_timeout",
                 )
             row = {
                 "key": str(action["step"]),

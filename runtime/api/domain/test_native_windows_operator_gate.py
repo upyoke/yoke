@@ -257,3 +257,37 @@ def test_the_windows_recipe_stages_files_before_opening_the_console(monkeypatch)
     assert result.ok
     assert uploads == [remote] and removed == [remote]
     assert result.evidence["staged_files"][0]["remote_path"] == remote
+
+
+def test_a_stalled_console_fails_with_its_screen_and_the_missing_text():
+    import time
+
+    from yoke_core.domain import native_windows_terminal_recipe as recipe
+    from yoke_harness.native_windows.terminal import WindowsTerminal
+
+    screen = "Installing Yoke...\nwindows_untrusted_mount_point\n"
+    terminal = SimpleNamespace(
+        launch=lambda entry, size: True,
+        close=lambda: True,
+        transcript=lambda: screen,
+        capture_window=lambda: {"sha256": "console"},
+    )
+    terminal.wait_for = lambda expected, deadline, progress=None: (
+        WindowsTerminal.wait_for(terminal, expected, deadline, progress)
+    )
+    action = {"step": "browser-approval", "ready_text": ["Open:", "Match code:"],
+              "ready_timeout_seconds": 0, "keys": []}
+    config = {"max_wall_seconds": 600, "actions": [action], "step_delay": 0,
+              "capture_checkpoints": [], "expected_text": [], "post_checks": []}
+    started = time.monotonic()
+    result = recipe._interactive(
+        object(), terminal, "irm | iex", "machine-approved", config, None, (), (120, 40), ()
+    )
+    # The step's own bound ends the wait, not the 600-second case bound.
+    assert time.monotonic() - started < 5
+    assert not result.ok
+    assert result.error_code == "windows_terminal_readiness_timeout"
+    stalled = result.evidence["steps"][-1]
+    assert stalled["key"] == "browser-approval" and stalled["transcript"] == screen
+    assert stalled["missing"] == ["Open:", "Match code:"]
+    assert stalled["sha256"] == "console"
