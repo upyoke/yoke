@@ -34,20 +34,27 @@ def validate_screenshot(parsed) -> None:
         raise ValueError("screenshot bytes differ from its receipt digest")
 
 
-def replay_screenshot(parsed, recorded) -> None:
-    """Compare replayed bytes with the accepted receipt without uploading again."""
-    parsed.checks[0].pop("artifact_token", None)
-    if "artifact_handle" in recorded["checks"][0]:
-        parsed.checks[0]["artifact_handle"] = recorded["checks"][0]["artifact_handle"]
+def replay_screenshot_checks(checks, recorded_checks):
+    """Use the issued handle for comparison without changing the submission."""
+    row = dict(checks[0])
+    row.pop("artifact_token", None)
+    if "artifact_handle" in recorded_checks[0]:
+        row["artifact_handle"] = recorded_checks[0]["artifact_handle"]
+    return [row]
 
 
-def store_screenshot(conn, parsed, contract) -> None:
+def store_screenshot(conn, parsed, contract, *, borrowed_turn: bool) -> None:
     """Use the project's normal QA artifact store, then persist only its handle."""
     if parsed.status != "verified":
         return
     artifact = parsed.artifacts[0]
     content, _size = screenshot_png(artifact.content_base64)
     machine = contract.settings["resource_name"]
+    # A borrowed lease can accept a later capture. Keep each image addressable
+    # so replacing the receipt cannot overwrite bytes referenced by an old one.
+    filename = (
+        f"desktop-{parsed.checks[0]['sha256']}.png" if borrowed_turn else "desktop.png"
+    )
     handle = store_owned_artifact_bytes(
         conn,
         owner={
@@ -57,7 +64,7 @@ def store_screenshot(conn, parsed, contract) -> None:
             "artifact_subject": "test-machine-" + machine,
         },
         run_id=contract.lease_id,
-        filename="desktop.png",
+        filename=filename,
         content=content,
         content_type="image/png",
     )

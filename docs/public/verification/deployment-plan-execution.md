@@ -160,6 +160,11 @@ diagnosis receipts do not change health. Ending the session or settling the
 execution cancels its waits; releasing an unused reservation cancels that wait,
 passes the turn on, and aborts the execution if no live wait remains.
 
+If you run a Test Machine operation on a turn reserved for your plan, the
+operation borrows the turn. You can retry a failed reset or verification and
+the new result becomes the current receipt. Re-submitting the same result
+returns the existing receipt. Your plan still has its reserved turn.
+
 Removing a release member ends its QA execution and releases its hosts when
 every mission already recorded its walk-end restore. Otherwise the removed
 mission retains custody for its original owner's walk-end teardown. A deliberate

@@ -53,7 +53,8 @@ from yoke_core.domain.machine_qa_operation_lease import (
     finish_operation_execution,
     operation_mission,
     operation_caller_project,
-    repeated_mission_receipt,
+    holds_plan_turn,
+    operation_replay_receipt,
 )
 
 OperatorOperation = Literal[
@@ -153,7 +154,9 @@ def handle_operation_begin(request: FunctionCallRequest) -> HandlerOutcome:
 
     conn = db_helpers.connect()
     try:
-        project = parsed.project or operation_caller_project(conn, request.actor.session_id)
+        project = parsed.project or operation_caller_project(
+            conn, request.actor.session_id
+        )
         destination, golden_fields = operation_golden_inputs(
             conn,
             project=project,
@@ -242,19 +245,10 @@ def handle_operation_submit(request: FunctionCallRequest) -> HandlerOutcome:
             lease_id=lease.id,
             test_machine=test_machine,
         )
-        recorded = repeated_mission_receipt(parsed, recorded, mission)
-        if recorded is not None:
-            if parsed.operation == "screenshot":
-                from yoke_core.domain.machine_qa_screenshot_artifact import (
-                    replay_screenshot,
-                )
-
-                replay_screenshot(parsed, recorded)
-            if any(
-                recorded[key] != getattr(parsed, key)
-                for key in ("status", "checks", "error_code")
-            ):
-                raise ValueError("replayed result differs from the recorded receipt")
+        borrowed_turn = mission is None and holds_plan_turn(conn, lease, request.actor)
+        recorded = operation_replay_receipt(
+            parsed, recorded, mission=mission, borrowed_turn=borrowed_turn
+        )
         if recorded is None:
             if not lease.is_active:
                 from yoke_core.domain.machine_qa_lease_messages import (
@@ -269,7 +263,9 @@ def handle_operation_submit(request: FunctionCallRequest) -> HandlerOutcome:
                 from yoke_core.domain.qa_artifact_storage import ArtifactStorageError
 
                 try:
-                    store_screenshot(conn, parsed, contract)
+                    store_screenshot(
+                        conn, parsed, contract, borrowed_turn=borrowed_turn
+                    )
                 except ArtifactStorageError as exc:
                     conn.rollback()
                     return _failure(
