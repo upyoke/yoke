@@ -7,6 +7,8 @@ questions-only replies must be distinguishable in ``YokeFunctionCalled``.
 import sys
 from unittest.mock import patch
 
+import pytest
+
 from runtime.api.domain.handlers.test_steering_report import (
     SESSION_ALPHA,
     PROJECT_ALPHA,
@@ -47,6 +49,8 @@ def test_composed_skipped_and_question_replies_are_labeled(test_db, monkeypatch)
     skipped = handle_get(_payload_request({"deliver": True}))
     assert skipped.result_payload["composition_skipped"] is True
     assert skipped.telemetry["steering_report"] == "composition_skipped"
+    for reply in (questions, skipped):
+        assert "steering_report_compose_cpu_ms" not in reply.telemetry
 
 
 #: One Windows thread CPU clock tick (15.625ms), rounded up to whole ms.
@@ -79,9 +83,70 @@ def test_full_and_deliver_builds_carry_phase_timings(test_db, monkeypatch):
     assert deliver.telemetry["steering_report_build"] == "headline"
     assert deliver.telemetry["steering_report_deliver"] == "true"
     assert _ms(deliver.telemetry, "record") <= _ms(deliver.telemetry, "wall")
+    for phase in ("compose_cpu", "compose_db", "compose_non_db_wait"):
+        assert _ms(deliver.telemetry, phase) <= _ms(deliver.telemetry, "compose") + cpu_tick
     # Telemetry never reaches the reply.
     for reply in (full, deliver):
         assert not any(key.startswith("steering_report_") for key in reply.result_payload)
+
+
+def test_delivery_counts_github_attempts_only_inside_compose(test_db, monkeypatch):
+    from yoke_core.domain import gh_rest_transport as github
+    from yoke_core.domain.handlers import steering_report
+    from yoke_core.domain import steering_fleet_report_compose as compose
+    from yoke_core.domain.steering_report_handler_timing import dependency_span
+
+    _held(test_db, monkeypatch)
+    monkeypatch.delenv("YOKE_REST_FAKE_DIR", raising=False)
+    monkeypatch.setattr(github, "urlopen", lambda *_a, **_k: pytest.fail("live HTTP"))
+    monkeypatch.setattr(github, "wait_before_retry", lambda *_a, **_k: None)
+    responses = iter([
+        github.RestNotFoundError("missing"),
+        github.RestServerError("retry", status=503),
+        github.RestResponse(200, {}, {}),
+    ])
+
+    def issue_once(*_args, **_kwargs):
+        result = next(responses)
+        if isinstance(result, Exception):
+            raise result
+        return result
+
+    monkeypatch.setattr(github, "_issue_once", issue_once)
+    original = compose.compose_held_reports
+
+    def compose_with_dependencies(*args, **kwargs):
+        with dependency_span("lineage_contains"):
+            with pytest.raises(github.RestNotFoundError):
+                github.request_with_retry(
+                    github.RestRequest("GET", "/repos/example/private"),
+                    token="fixture-token",
+                )
+        github.request_with_retry(
+            github.RestRequest("POST", "/graphql", replay_safe=True),
+            token="fixture-token",
+        )
+        return original(*args, **kwargs)
+
+    original_render = steering_report._render
+
+    def render_with_dependency(*args, **kwargs):
+        with dependency_span("outside_compose"):
+            return original_render(*args, **kwargs)
+
+    monkeypatch.setattr(compose, "compose_held_reports", compose_with_dependencies)
+    monkeypatch.setattr(steering_report, "_render", render_with_dependency)
+    reply = handle_get(_payload_request({"deliver": True}))
+    assert reply.telemetry["steering_report"] == "composed"
+    for dependency, count in (
+        ("github_rest", "1"), ("github_graphql", "2"),
+        ("github_retry_wait", "1"), ("lineage_contains", "1"),
+    ):
+        assert reply.telemetry[f"steering_report_compose_{dependency}_calls"] == count
+        assert _ms(reply.telemetry, f"compose_{dependency}") <= _ms(reply.telemetry, "compose")
+    assert "example/private" not in repr(reply.telemetry)
+    assert "fixture-token" not in repr(reply.telemetry)
+    assert not any("outside_compose" in key for key in reply.telemetry)
 
 
 def test_call_event_carries_the_handler_label(monkeypatch):
@@ -99,10 +164,15 @@ def test_call_event_carries_the_handler_label(monkeypatch):
     })()
     response = type("Response", (), {"result": {}, "warnings": [], "error": None,
                                      "success": True})()
+    handler = {
+        "steering_report": "composed",
+        "steering_report_compose_github_rest_calls": "2",
+        "steering_report_compose_github_rest_ms": "1200",
+    }
     events.emit_called(
-        request, entry, HandlerOutcome(telemetry={"steering_report": "composed"}),
+        request, entry, HandlerOutcome(telemetry=handler),
         response, 2, "hash", authorization_scope="scope",
         idempotency_payload_checksum="sum", claim_verification={},
     )
     context = emitted["YokeFunctionCalled"].get("context") or {}
-    assert context.get("handler") == {"steering_report": "composed"}
+    assert context.get("handler") == handler

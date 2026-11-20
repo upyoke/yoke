@@ -41,6 +41,7 @@ from dataclasses import dataclass
 from threading import Lock
 from typing import Any, Optional
 
+from yoke_core.domain.steering_report_handler_timing import time_dependency
 from yoke_core.domain.deployment_run_carried_work_source import (
     CarriedWorkSource,
     CarriedWorkSourceUnavailable,
@@ -145,6 +146,7 @@ class CandidateContainment:
             lambda: self._contains(commit_sha),
         )
 
+    @time_dependency("lineage_contains")
     def _contains(self, commit_sha: str) -> ContainmentVerdict:
         merge = str(commit_sha or "").strip()
         if not self._candidate or not merge:

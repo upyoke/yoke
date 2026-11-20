@@ -11,6 +11,7 @@ from yoke_contracts.response_deadline_open import ResponseOpenDeadlineError
 from yoke_contracts import github_app_tokens as token_contract
 from yoke_contracts.github_origin import GitHubApiEndpoint, GitHubApiOriginError
 
+from yoke_core.domain.steering_report_handler_timing import time_dependency
 from yoke_core.domain import gh_rest_transport, github_response_safety
 from yoke_core.domain.github_api_transport import open_same_origin_deadline
 from yoke_core.domain.github_app_token_models import (
@@ -34,6 +35,7 @@ from yoke_core.domain.github_response_safety import (
 )
 
 
+@time_dependency("github_token")
 def issue_installation_token_request(
     *,
     endpoint: GitHubApiEndpoint,

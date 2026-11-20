@@ -199,7 +199,7 @@ def _handle_get(
                     telemetry={"steering_report": "composition_skipped"},
                     result_payload={"composition_skipped": True, "delivered": False},
                 )
-        with timing.phase("compose"):
+        with timing.composition():
             combined = compose_held_reports(
                 conn,
                 session_id=session_id,
