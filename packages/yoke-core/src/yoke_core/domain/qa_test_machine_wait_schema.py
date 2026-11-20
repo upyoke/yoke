@@ -21,6 +21,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from yoke_core.domain.schema_common import _add_column_if_not_exists
 from yoke_core.domain.schema_init_apply import execute_schema_script
 
 QA_TEST_MACHINE_WAIT_TABLE = "qa_test_machine_waits"
@@ -38,12 +39,8 @@ CREATE TABLE IF NOT EXISTS qa_test_machine_waits (
     claim_id INTEGER REFERENCES work_claims(id),
     resume_command TEXT NOT NULL,
     rationale TEXT NOT NULL DEFAULT '',
-    settled_at TIMESTAMPTZ,
-    need_id TEXT
+    settled_at TIMESTAMPTZ
 );
-ALTER TABLE qa_test_machine_waits ADD COLUMN IF NOT EXISTS need_id TEXT;
-CREATE INDEX IF NOT EXISTS idx_qa_test_machine_waits_need
-    ON qa_test_machine_waits(need_id) WHERE need_id IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_qa_test_machine_waits_live_session
     ON qa_test_machine_waits(test_machine, session_id)
     WHERE state IN ('waiting','reserved');
@@ -51,10 +48,18 @@ CREATE INDEX IF NOT EXISTS idx_qa_test_machine_waits_line
     ON qa_test_machine_waits(test_machine, state, queued_at);
 """
 
+#: ``need_id`` lands on an existing table, so boot adds it before its index.
+QA_TEST_MACHINE_WAIT_NEED_INDEX_SQL = """
+CREATE INDEX IF NOT EXISTS idx_qa_test_machine_waits_need
+    ON qa_test_machine_waits(need_id) WHERE need_id IS NOT NULL;
+"""
+
 
 def ensure_qa_test_machine_wait_schema(conn: Any) -> None:
     """Converge the additive Test Machine queue table on ``conn``."""
     execute_schema_script(conn, QA_TEST_MACHINE_WAIT_SCHEMA_SQL)
+    _add_column_if_not_exists(conn, QA_TEST_MACHINE_WAIT_TABLE, "need_id", "TEXT")
+    execute_schema_script(conn, QA_TEST_MACHINE_WAIT_NEED_INDEX_SQL)
 
 
 __all__ = [

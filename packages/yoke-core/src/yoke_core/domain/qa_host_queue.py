@@ -10,10 +10,10 @@ capability tags match, verified) has one row per eligible machine, all sharing
 row on it (``qa_host_turns.reserve_host_turn``), so a waiter the machine cannot
 serve never blocks the waiters behind it.
 
-Once one row of a need is reserved, its sibling rows stop competing for other
-machines. Consuming the reservation cancels them; a released reservation that
-ends the wait cancels them too, and one returned to ``waiting`` lets them
-compete again.
+Once one row of a need is reserved or granted, its sibling rows stop competing
+for other machines. Consuming the reservation cancels them; a released
+reservation that ends the wait cancels them too, and one returned to
+``waiting`` lets them compete again.
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ _WAITING = (
     "ON s.session_id=w.session_id "
     "WHERE w.state='waiting' AND s.ended_at IS NULL AND NOT EXISTS ("
     "SELECT 1 FROM qa_test_machine_waits r WHERE r.need_id=w.need_id "
-    "AND r.state='reserved')"
+    "AND r.state IN ('reserved','granted'))"
 )
 
 

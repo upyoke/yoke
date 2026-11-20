@@ -59,7 +59,10 @@ def test_gone_waiter_names_the_host_turn_and_its_holder():
         holder_ref = render_item_ref_lookup(conn, [19401])(19401)
 
         waiting = _gone(conn, "waiter")
-        sentence = f"Waiting for the {MACHINE} turn held by {holder_ref} (position 1)"
+        sentence = (
+            f"Waiting for a Test Machine turn on {MACHINE} held by {holder_ref} "
+            "(position 1)"
+        )
         assert waiting["actor"] == "another_item"
         assert waiting["reason"] == "qa_host_turn_waiting"
         assert waiting["sentence"] == sentence
