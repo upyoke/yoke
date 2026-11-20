@@ -127,6 +127,59 @@ def verify_origin_health(
     )
 
 
+def verify_log_metrics_export(
+    runner: CommandRunner,
+    env: DeployEnvironment,
+    container_name: str,
+    emit: Callable[[str], None],
+) -> None:
+    """Fail the deploy when a declared EMF exporter did not start.
+
+    Reads the new container's ``ObservabilityConfigured`` startup records;
+    every process must report ``exporting:log``. A silent
+    ``instrumented_no_exporter`` would drop every Yoke/API metric.
+    """
+    if not env.emit_log_metrics:
+        return
+    probe = run_remote(
+        runner,
+        env,
+        f"docker logs {container_name} 2>&1 | grep -F '\"ObservabilityConfigured\"' || true",
+        timeout=30,
+    )
+    if not probe.ok:
+        fail_remote_step("log metrics export check", probe)
+    reasons = []
+    for line in probe.stdout.splitlines():
+        try:
+            record = json.loads(line[line.find("{") :])
+        except ValueError:
+            continue
+        context = record.get("context") if isinstance(record, dict) else None
+        if isinstance(context, dict):
+            reasons.append(str(context.get("otel_reason") or ""))
+    remediation = (
+        f"environment '{env.env_name}' declares observability.emit_log_metrics, "
+        f"so the container env must carry YOKE_OTEL_LOG_METRICS=1 and no "
+        f"OTLP endpoint; check {env.compose_dir}/.env and the container's "
+        f"startup log in {env.log_group}, then redeploy"
+    )
+    if not reasons:
+        raise RemoteConvergenceError(
+            f"[core-deploy] container {container_name} logged no "
+            f"ObservabilityConfigured record, so Yoke/API metric export is "
+            f"unconfirmed; {remediation}"
+        )
+    wrong = sorted({reason for reason in reasons if reason != "exporting:log"})
+    if wrong:
+        raise RemoteConvergenceError(
+            f"[core-deploy] container {container_name} started with "
+            f"otel_reason {wrong} instead of exporting:log, so Yoke/API "
+            f"CloudWatch metrics are not exported; {remediation}"
+        )
+    emit(f"  [core-deploy] Yoke/API log metrics exporting ({len(reasons)} process(es))")
+
+
 def _http_body(raw: str) -> str:
     if "\r\n\r\n" in raw:
         return raw.rsplit("\r\n\r\n", 1)[1].strip()

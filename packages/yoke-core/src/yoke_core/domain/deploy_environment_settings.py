@@ -18,6 +18,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, Mapping
 
+from yoke_core.domain.environment_declared_facts import emits_log_metrics
 from yoke_core.domain.github_app_deployment import (
     GitHubAppDeploymentConfig,
     GitHubAppDeploymentConfigError,
@@ -81,6 +82,9 @@ class DeployEnvironment:
     # activation fails loudly at the single point where the tag is required.
     origin_vps_stack_name: str = ""
     otel_exporter_endpoint: str = ""
+    # environments.settings.observability.emit_log_metrics: the container
+    # exports Yoke/API EMF metrics through its CloudWatch log stream.
+    emit_log_metrics: bool = False
     github_app: GitHubAppDeploymentConfig | None = None
     # Origin of hosts.api (scheme://host) used to build the health URL.
     api_origin: str = ""
@@ -273,6 +277,7 @@ def deploy_environment_from_settings(
         ),
         origin_vps_stack_name=str(pulumi.get("origin_vps_stack_name") or ""),
         otel_exporter_endpoint=str(observability.get("otel_exporter_endpoint") or ""),
+        emit_log_metrics=emits_log_metrics(env.settings),
         github_app=github_app,
         api_origin=api_origin,
         git_branch=str(git.get("branch") or ""),

@@ -181,7 +181,11 @@ def _timestamp_ms(point: Any) -> int:
 
 
 def log_metrics_requested(env: Any) -> bool:
-    """True when hosted (or an explicit flag) should install the log sink."""
+    """True when ``YOKE_OTEL_LOG_METRICS`` asks for the EMF log sink.
+
+    The core-container deploy writes ``YOKE_OTEL_LOG_METRICS=1`` for an
+    environment that declares ``observability.emit_log_metrics``.
+    """
     flag = str(env.get("YOKE_OTEL_LOG_METRICS", "")).lower()
     if flag in {"0", "false", "no"}:
         return False

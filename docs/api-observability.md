@@ -24,10 +24,14 @@ series. A process restart starts counts from zero. CloudWatch still sums
 those deltas; do not treat OTel attribute cardinality as CloudWatch
 dimension cardinality.
 
-Disable the log sink with `YOKE_OTEL_LOG_METRICS=0`. Force it on
-(including local/self-host) with `YOKE_OTEL_LOG_METRICS=1`. The
-environment's `observability.emit_log_metrics` setting is the durable
-declaration; the process flag is the runtime override.
+`YOKE_OTEL_LOG_METRICS=1` turns the log sink on; without it the sink is
+off. An environment that declares `observability.emit_log_metrics: true`
+(hosted prod and stage do) gets the flag in its container env file on
+every core-container deploy. The deploy then reads the new container's
+`ObservabilityConfigured` startup records and fails, without rolling
+back, unless every process reports `otel_reason` `exporting:log`; a
+silent `instrumented_no_exporter` would drop every `Yoke/API` metric.
+Local and self-hosted runs set the flag by hand when they want EMF.
 
 ## Targeted diagnostics
 
@@ -98,7 +102,7 @@ export spans.
 | Flag | Effect |
 | --- | --- |
 | `YOKE_ENVIRONMENT` / `APP_ENV` | Resource environment name (identity only) |
-| `YOKE_OTEL_LOG_METRICS` | `1`/`0` override for the EMF sink |
+| `YOKE_OTEL_LOG_METRICS` | `1` turns on the EMF sink; deploy writes it when `observability.emit_log_metrics` is declared |
 | `YOKE_OTEL_DISABLED` | Skip OTel entirely |
 | `YOKE_OTEL_CONSOLE_EXPORT` | Local console traces/metrics |
 | `YOKE_OTEL_SERVICE_NAME` / `YOKE_SERVICE_NAME` | Resource service name |
