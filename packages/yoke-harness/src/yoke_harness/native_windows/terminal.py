@@ -1,5 +1,6 @@
 """Real Windows console input and screen evidence under the test user's token."""
 
+import base64
 import time
 from uuid import uuid4
 
@@ -43,7 +44,9 @@ public static class QaConsole {
    if(handle==new IntPtr(-1)) throw Failure("windows_console_open_failed",pid);
    Info info;
    if(!GetConsoleScreenBufferInfo(handle,out info)) throw Failure("windows_console_read_failed",pid);
-   uint length=(uint)Math.Min(1000000,info.Size.X*(info.Cursor.Y+1));
+   // A full-screen app (Textual) parks its hidden cursor near the top of the
+   // alternate buffer, so read through the bottom of the visible window too.
+   uint length=(uint)Math.Min(1000000,info.Size.X*(Math.Max(info.Cursor.Y,info.Window.B)+1));
    var text=new StringBuilder((int)length); uint read;
    if(!ReadConsoleOutputCharacterW(handle,text,length,new Coord(),out read)) throw Failure("windows_console_read_failed",pid);
    var result=new StringBuilder();
@@ -90,15 +93,19 @@ class WindowsTerminal:
 
     def transcript(self):
         script = "Add-Type -TypeDefinition " + quote(SCREEN_READER)
+        # Base64 of UTF-8 survives the PowerShell code-page round trip intact.
         result = desktop_script(
-            self.control, script + f"; [QaConsole]::Read({self.pid})", timeout=30,
+            self.control,
+            script + "; [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("
+            f"[QaConsole]::Read({self.pid})))",
+            timeout=30,
         )
         if result.returncode:
             raise RuntimeError(
                 result.stderr
                 or "windows_console_read_failed: inspect the native terminal before retrying"
             )
-        return result.stdout
+        return base64.b64decode(result.stdout.strip()).decode("utf-8")
 
     def send(self, text, *, submit=True):
         keys = {

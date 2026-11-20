@@ -130,3 +130,26 @@ try {
     )
     assert result.returncode == 0, result.stderr
     assert "OWNED_WINDOW_GUARDS_PROVED" in result.stdout
+
+
+def test_the_transcript_reads_the_whole_window_as_utf8(monkeypatch):
+    import base64
+    from types import SimpleNamespace
+
+    from yoke_harness.native_windows import terminal as module
+
+    screen = "? Setting up Yoke…\n  › Don't set up a project now\n"
+    scripts = []
+
+    def run(control, script, *, timeout):
+        scripts.append(script)
+        encoded = base64.b64encode(screen.encode("utf-8")).decode()
+        return subprocess.CompletedProcess([], 0, encoded + "\r\n", "")
+
+    monkeypatch.setattr(module, "desktop_script", run)
+    terminal = module.WindowsTerminal(SimpleNamespace(home=r"C:\Users\qa"))
+    terminal.pid = 42
+    assert terminal.transcript() == screen
+    # A full-screen app parks its cursor high; the read covers the visible window.
+    assert "Math.Max(info.Cursor.Y,info.Window.B)" in module.SCREEN_READER
+    assert "UTF8.GetBytes([QaConsole]::Read(42))" in scripts[0]
