@@ -59,6 +59,47 @@ def test_machine_only_setup_finishes_with_answers_only(agent):
     assert not setup_agent_answers.store_path().exists()
 
 
+@pytest.mark.parametrize("failed_check", ["install-health", "hook-evaluator"])
+def test_applied_setup_reports_readiness_problems(agent, monkeypatch, failed_check):
+    drive, fake = agent
+    apply = type(fake).__call__
+    recovery = "Run the check's recovery command."
+    health = {"ready": True}
+    evaluator = {"ready": True}
+    if failed_check == "install-health":
+        health = {
+            "ready": False,
+            "results": [{"hc": "HC-machine-path", "severity": "FAIL"}],
+            "recovery": recovery,
+        }
+    else:
+        evaluator = {"ready": False, "reason": "evaluator blocked", "recovery": recovery}
+
+    def report(self, kwargs, **options):
+        result = apply(self, kwargs, **options)
+        if kwargs.get("apply"):
+            result.update(install_health=health, hook_evaluator=evaluator)
+        return result
+
+    monkeypatch.setattr(type(fake), "__call__", report)
+    drive.walk(MACHINE_ONLY_ANSWERS)
+    code, line = _last(drive("review.confirm=apply"))
+
+    assert (code, line["state"], line["reason"]) == (
+        1,
+        "finished_with_problems",
+        "setup_readiness_failed",
+    )
+    assert line["install_health"] == health
+    assert line["hook_evaluator"] == evaluator
+    assert recovery in line["recovery"]
+    assert "setup is done" not in line["guidance"]
+    check_name = "HC-machine-path" if failed_check == "install-health" else "hook-resident"
+    assert check_name in line["guidance"]
+    assert line["guidance"].index("recovery") < line["guidance"].index("next steps")
+    assert not setup_agent_answers.store_path().exists()
+
+
 def test_every_line_is_one_json_object_and_progress_goes_to_stderr(agent):
     drive, _ = agent
 

@@ -157,7 +157,13 @@ def _round_trip(
     deadline: float,
     client_started_monotonic: float | None = None,
 ) -> dict:
-    peer = _connect(paths, deadline)
+    # Lifecycle owns this deadline. On Windows, let the pipe client's busy
+    # wait settle under it before starting another connection attempt.
+    peer = (
+        connect_pipe(str(paths.socket), deadline)
+        if uses_named_pipe()
+        else _connect(paths, deadline)
+    )
     try:
         return _exchange(peer, request, deadline, client_started_monotonic)
     finally:

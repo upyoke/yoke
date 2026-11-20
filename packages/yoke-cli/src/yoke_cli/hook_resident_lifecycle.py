@@ -200,11 +200,12 @@ def _restart_locked(paths: client.ResidentPaths) -> None:
                         paths,
                     )
                 return
-        except (OSError, client.HookEvaluatorProtocolError) as exc:
-            last_error = type(exc).__name__
+        except (OSError, EOFError, client.HookEvaluatorProtocolError) as exc:
+            # A pipe may disappear or disconnect as the new resident binds it.
+            last_error = f"{type(exc).__name__}: {exc}"
         except client.ResidentUnavailable as exc:
             raise _failure(exc.code, exc.detail, paths) from None
-        time.sleep(_RETRY_SECONDS)
+        time.sleep(max(0, min(_RETRY_SECONDS, deadline - time.monotonic())))
     raise _failure("YOKE_HOOK_RESIDENT_START_TIMEOUT", last_error, paths)
 
 

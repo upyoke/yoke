@@ -207,7 +207,7 @@ def run(
         return responses.EXIT_CODES[responses.STATE_FAILED]
     finally:
         store.release()
-    if setup.outcome == responses.STATE_DONE:
+    if setup.outcome in {responses.STATE_DONE, responses.STATE_FINISHED_WITH_PROBLEMS}:
         onboard_interactive.finish_pending_source_install(
             parsed.config_path, stream=sys.stderr
         )

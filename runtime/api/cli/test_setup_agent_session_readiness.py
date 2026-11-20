@@ -41,7 +41,9 @@ def _done(checkout: Path | None) -> dict:
         ),
         report_path="",
     )
-    return AnswerFlow._done_fields(flow)
+    result = AnswerFlow._apply_completion(flow)
+    assert result["state"] == "done"
+    return result
 
 
 def test_a_session_in_the_project_checks_itself_then_follows_current_action(

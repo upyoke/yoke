@@ -12,9 +12,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from yoke_cli.commands.adapters.doctor_install import _install_row_ready
+from yoke_cli.config import onboard_hook_resident, setup_agent_response as responses
 from yoke_cli.config import onboard_wizard_apply_prompts as apply_prompts
 from yoke_cli.config.onboard_wizard_state import _View
-from yoke_cli.config.setup_agent_response import yoke_executable
 from yoke_cli.config.setup_prompt import (
     SetupPrompt,
     check_choice,
@@ -188,7 +189,7 @@ class AnswerFlow:
         if (prompt.key, staged.get(prompt.key)) not in INVOCATION_ONLY_ANSWERS:
             self._answers.stage(staged)
 
-    def _done_fields(self) -> dict[str, Any]:
+    def _apply_completion(self) -> dict[str, Any]:
         report = getattr(self, "_applied_report", None)
         report = report if isinstance(report, dict) else {}
         summary = report.get("apply_report")
@@ -200,7 +201,7 @@ class AnswerFlow:
                 "Open a new terminal so the changed shell files take effect: "
                 + ", ".join(changed)
             )
-        readiness = f"{yoke_executable()} doctor run --session"
+        readiness = f"{responses.yoke_executable()} doctor run --session"
         in_checkout = bool(checkout) and _inside(Path.cwd(), Path(checkout))
         if in_checkout:
             next_steps.append(
@@ -229,20 +230,58 @@ class AnswerFlow:
                 )
             elif setup["lines"]:
                 next_steps.extend(setup["lines"])
-        return {
+        health = report.get("install_health")
+        evaluator = report.get("hook_evaluator")
+        fields = {
             "next_action": setup["next_action"] if setup else None,
             "detail": ([f"Run report: {self.report_path}"] if self.report_path else [])
             + [apply_prompts.CONCEPTS_GUIDANCE],
             "report": summary if isinstance(summary, dict) else None,
-            "install_health": report.get("install_health"),
+            "install_health": health,
+            "hook_evaluator": evaluator,
             "changed_files": changed,
             "next": next_steps,
-            "guidance": (
+        }
+        problems = []
+        recovery = []
+        if isinstance(health, dict) and health.get("ready") is False:
+            checks = [
+                row["hc"]
+                for row in health.get("results", [])
+                if row.get("hc") and not _install_row_ready(row)
+            ]
+            error = health.get("error") or {}
+            checks.extend(error.get("missing_checks") or [])
+            if error.get("code"):
+                checks.append(error["code"])
+            problems.extend(checks or ["install readiness"])
+            recovery.append(health["recovery"])
+        if isinstance(evaluator, dict) and evaluator.get("ready") is False:
+            if not any(check.removeprefix("HC-") == "hook-resident" for check in problems):
+                problems.append("hook-resident")
+            fields["detail"].extend(onboard_hook_resident.summary_lines(evaluator))
+            recovery.insert(0, evaluator["recovery"])
+        if problems:
+            return responses.response(
+                responses.STATE_FINISHED_WITH_PROBLEMS,
+                **fields,
+                reason="setup_readiness_failed",
+                recovery=" ".join(recovery),
+                guidance=(
+                    "Tell the person setup finished with problems. Show the failed "
+                    f"checks ({', '.join(problems)}) and their recovery before the "
+                    "next steps. Show the install health result in full."
+                ),
+            )
+        return responses.response(
+            responses.STATE_DONE,
+            **fields,
+            guidance=(
                 "Tell the person setup is done, show the install health result in "
                 "full, and give them the next steps in order. Yoke never opens "
                 "a new session for them."
             ),
-        }
+        )
 
 
 def _inside(path: Path, folder: Path) -> bool:
