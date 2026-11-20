@@ -19,6 +19,11 @@ private code from their administrator. For bootstrap or recovery, use
 `yoke connect https://<server> --token-stdin` or `--token-file PATH`;
 the first-boot admin token connects the first machine.
 
+`yoke connect` with no URL, or with the public site `https://upyoke.com` or
+`https://www.upyoke.com`, starts hosted approval at `https://app.upyoke.com`.
+A URL that answers with a web page instead of Yoke's JSON fails with
+`server_not_yoke` and names the hosted app URL.
+
 Interactive `yoke connect` announces and opens browser approval; approve, then
 return to the terminal. Agent, non-TTY, and `--json` runs print the link instead;
 `--json` sends instructions to stderr. Use the printed link if opening fails.

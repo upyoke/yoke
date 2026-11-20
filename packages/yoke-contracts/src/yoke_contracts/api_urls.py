@@ -32,6 +32,9 @@ HOSTED_PROD_API_URL = "https://app.upyoke.com/api/orgs/upyoke"
 HOSTED_STAGE_API_URL = "https://app.stage.upyoke.com/api/orgs/upyoke-stage-1"
 HOSTED_PLATFORM_URL = "https://app.upyoke.com"
 HOSTED_STAGE_PLATFORM_URL = "https://app.stage.upyoke.com"
+# The public website addresses people see in the installer and docs. They serve
+# no Yoke API, so a connect to one means the production hosted app.
+HOSTED_PUBLIC_SITE_URLS = ("https://upyoke.com", "https://www.upyoke.com")
 
 API_VERSION_PREFIX = "/v1"
 AUTH_IDENTITY_PATH = f"{API_VERSION_PREFIX}/auth/identity"
@@ -89,6 +92,7 @@ __all__ = [
     "HOSTED_PROD_API_URL",
     "HOSTED_STAGE_API_URL",
     "HOSTED_PLATFORM_URL",
+    "HOSTED_PUBLIC_SITE_URLS",
     "HOSTED_STAGE_PLATFORM_URL",
     "join_api_url",
     "validate_control_api_url",

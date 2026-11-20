@@ -21,7 +21,11 @@ from yoke_cli.config.local_reachability import (
     active_connection_is_local,
     LOCAL_REACHABILITY_NOTICE,
 )
-from yoke_contracts.api_urls import HOSTED_PLATFORM_URL, HOSTED_STAGE_PLATFORM_URL
+from yoke_contracts.api_urls import (
+    HOSTED_PLATFORM_URL,
+    HOSTED_PUBLIC_SITE_URLS,
+    HOSTED_STAGE_PLATFORM_URL,
+)
 from yoke_contracts.designed_wait import announce_designed_wait, poll_every
 from yoke_contracts.machine_authorization import (
     MATCH_CODE_LABEL,
@@ -30,6 +34,13 @@ from yoke_contracts.machine_authorization import (
 from yoke_contracts.harness_sandbox_recovery import running_harness_family
 
 AdapterFn = Callable[[List[str]], int]
+
+# Hosted addresses a person may type, each mapped to the hosted app it means.
+_HOSTED_PLATFORMS: Dict[str, str] = {
+    HOSTED_PLATFORM_URL: HOSTED_PLATFORM_URL,
+    HOSTED_STAGE_PLATFORM_URL: HOSTED_STAGE_PLATFORM_URL,
+    **{site: HOSTED_PLATFORM_URL for site in HOSTED_PUBLIC_SITE_URLS},
+}
 
 CONNECT_USAGE = (
     "yoke connect [URL] [--name ENV] [--token-file PATH | --token-stdin | --invite-code-stdin] "
@@ -66,7 +77,8 @@ def connect(args: List[str]) -> int:
         default=None,
         metavar="URL",
         help=(
-            "Hosted platform URL for browser sign-in, or a self-hosted server "
+            "Hosted platform URL for browser sign-in (https://upyoke.com means "
+            "the hosted app), or a self-hosted server "
             "URL: approve the printed code by company sign-in (when configured) "
             "or from your own machine already connected to it, or pass an "
             "explicit API token. Omit it for ordinary production hosted browser "
@@ -140,12 +152,12 @@ def connect(args: List[str]) -> int:
         return usage_error(
             f"a server URL is required with an explicit token or invite code: {CONNECT_USAGE}"
         )
-    hosted_platform_urls = {
-        HOSTED_PLATFORM_URL.rstrip("/"),
-        HOSTED_STAGE_PLATFORM_URL.rstrip("/"),
-    }
+    if parsed.url:
+        parsed.url = _HOSTED_PLATFORMS.get(
+            parsed.url.strip().rstrip("/").lower(), parsed.url
+        )
     parsed.self_host = bool(
-        parsed.url and parsed.url.rstrip("/") not in hosted_platform_urls
+        parsed.url and parsed.url not in _HOSTED_PLATFORMS.values()
     )
     if parsed.url:
         try:
@@ -305,7 +317,6 @@ def _connect_hosted(parsed: argparse.Namespace) -> int:
             print(teammate_invite_redemption.LOST_DELIVERY, file=sys.stderr)
         return 1
     return finish_connection(report, json_mode=parsed.json_mode)
-
 
 
 TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
