@@ -85,6 +85,11 @@ class SshNativeWindowsHostOperations(WindowsMissionOperations, WindowsTransport)
     def capture_screenshot(self, *, focused_window=False):
         return capture_desktop(self, focused_window=focused_window)
 
+    def drive_desktop(self, request, *, secrets=()):
+        from yoke_harness.native_windows.desktop_input import drive_desktop
+
+        return drive_desktop(self, request, secrets=secrets)
+
     def capture_golden_baseline(self, destination, *, probes_document=None):
         from yoke_harness.golden_harness_clis import record_golden_harness_clis
         from yoke_harness.native_windows.probes import capture_document, prove_document
