@@ -78,8 +78,9 @@ Each step reports done, skipped with a reason, or failed with a named recovery.
 On macOS, systemd Linux and Windows, uninstall checks saved relay services
 (launchd jobs, systemd units, scheduled tasks) even after their connection was
 removed. It proves their machine-home ownership and verifies that the services
-have stopped. An unreadable service or failed stop
-retains recovery files.
+have stopped. On Windows it waits up to 30 seconds for the relay's processes to
+exit; one still running fails with `uninstall_relay_not_stopped` naming its PID.
+An unreadable service or failed stop retains recovery files.
 Before any step, uninstall runs each selected project's `yoke project uninstall
 --check`; a refusal there stops it with nothing removed. Independent cleanup
 continues after a later failure, but a failed project step keeps the local

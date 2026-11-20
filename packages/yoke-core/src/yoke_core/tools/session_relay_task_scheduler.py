@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import partial
 import locale
 import os
 from pathlib import Path
@@ -26,6 +27,8 @@ from yoke_core.tools.session_relay_release_retention import release_install_lock
 from yoke_contracts.machine_config.relay_instance import WINDOWS_RELAY_RUNNER_ENV, WINDOWS_RELAY_RESTART_CODE
 from yoke_contracts.designed_wait import announce_designed_wait
 from yoke_contracts.refusal_recovery import compose_refusal
+from yoke_contracts.platform_process import process_command_lines
+from yoke_core.tools.session_relay_task_stop import wait_relay_task_stopped
 
 Runner = Callable[..., subprocess.CompletedProcess[str]]
 TASK_NS = "http://schemas.microsoft.com/windows/2004/02/mit/task"
@@ -311,14 +314,20 @@ def install_relay_task(*, instance=None, home=None, environ: Mapping[str, str] |
     return status
 
 
-def uninstall_relay_task(*, instance=None, home=None, runner= subprocess.run):
+def uninstall_relay_task(*, instance=None, home=None, runner= subprocess.run,
+                         processes=process_command_lines):
     selected = instance or resolve_relay_instance()
     status = relay_task_status(instance=selected, runner=runner)
     if not status.supported:
         raise _unavailable(status.reason)
+    task_state = None
+    if status.task_present and status.loaded:
+        _checked(["schtasks", "/End", "/TN", selected.label], runner)
+        task_state = partial(relay_task_state, selected.label, runner)
+    # End returns before the relay tree exits; files it holds open cannot be removed.
+    wait_relay_task_stopped(state_dir=selected.state_dir, task_state=task_state,
+                            task_name=selected.label, processes=processes)
     if status.task_present:
-        if status.loaded:
-            _checked(["schtasks", "/End", "/TN", selected.label], runner)
         _checked(["schtasks", "/Delete", "/TN", selected.label, "/F"], runner)
     status = relay_task_status(instance=selected, runner=runner)
     if status.reason or status.task_present:
