@@ -47,6 +47,7 @@ from yoke_core.domain.machine_verification_recording import (
 from yoke_core.domain.machine_qa_lease_messages import invalid_lease
 from yoke_core.domain.machine_qa_operator_browser import (
     browser_export,
+    operator_identity,
     with_operator_browser,
 )
 from yoke_contracts.browser_identity import BrowserIdentityError
@@ -63,6 +64,8 @@ class MachineQaLease:
     owns_lease: bool = True
     progress_callback: Callable[[], None] | None = None
     allowed_operator_urls: tuple[str, ...] = ()
+    # Resolved by the server into the contract; the local runner has no conn.
+    operator_identity: str | None = None
     baseline: HostBaselineResult | None = None
     closed: bool = False
 
@@ -154,8 +157,15 @@ class MachineQaLease:
                 try:
                     config = with_operator_browser(
                         config,
-                        conn=self.conn,
-                        project_id=self.material.project_id,
+                        identity=(
+                            self.operator_identity
+                            if self.conn is None
+                            else operator_identity(
+                                self.conn,
+                                self.material.project_id,
+                                [{"method_config": config}],
+                            )
+                        ),
                         project=self.material.project,
                         test_machine=self.material.settings["resource_name"],
                         os_name=self.material.settings["os"],
