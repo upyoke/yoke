@@ -6,29 +6,31 @@
 
 Prepare the controller before continuing [native Windows host setup](windows-native-host-provisioning.md).
 
-On a macOS controller, install Microsoft's **Windows App** before starting
-VM setup. Microsoft provides a [standalone installer](https://learn.microsoft.com/windows-app/get-started-connect-devices-desktops-apps?pivots=remote-pc)
-or Mac App Store download; Homebrew's `windows-app` cask uses the vendor PKG.
-The PKG requires controller administrator authentication. Complete installation
-and verify Computer Use can select the packaged app before powering on the VM;
-an unbundled SDL FreeRDP process may connect without a controllable app surface.
-Use the verified private tailnet address, retain certificate validation, and
-keep test-account credentials in private custody. Do not save credentials or
-accept an unexpected certificate warning as part of unattended setup.
+Agents drive the lab's desktop apps without any RDP client. QA walkers list,
+focus, click, type into, press keys in and read any window with
+`yoke qa mission desktop`, launch apps with `yoke qa mission host-command
+--gui-session`, and see the result with `yoke test-machine screenshot`. All
+three run in the auto-logged-on test user's console session through a Yoke
+scheduled task, so the controller needs only Yoke and its SSH key; see
+[driving desktop apps](windows-native-harnesses.md#driving-desktop-apps).
 
-For a person viewing the lab, also install FreeRDP's visible SDL client on the
-operator workstation (macOS: `brew install freerdp`; Linux: the distribution's
-`freerdp-sdl` package). `yoke test-machine desktop-access --view` and
-`yoke browser authorize --test-machine` open the native desktop in it and feed
-the password on stdin; Windows App stays the Computer Use path above. Without
-it they refuse `desktop_rdp_client_missing`. The lab needs nothing more: its
-RDP listener, Remote Desktop Users membership and `YokeQa-ReturnToConsole`
-task come from provisioning, and Yoke pins the direct route's certificate on
-first use.
+An RDP client is optional and only for people: watching the lab, or a
+one-time sign-in handoff during setup. For that, install FreeRDP's visible SDL
+client on the operator workstation (macOS: `brew install freerdp`; Linux: the
+distribution's `freerdp-sdl` package). `yoke test-machine desktop-access
+--view` and `yoke browser authorize --test-machine` open the native desktop in
+it and feed the password on stdin. Without it they refuse
+`desktop_rdp_client_missing`. Microsoft's **Windows App** also works for a
+person who prefers it; it is not needed for agent input. The lab needs nothing
+more: its RDP listener, Remote Desktop Users membership and
+`YokeQa-ReturnToConsole` task come from provisioning, and Yoke pins the direct
+route's certificate on first use. Use the verified private tailnet address,
+retain certificate validation, and keep test-account credentials in private
+custody.
 
-Require a controllable app window before starting VM setup. A
-successful TCP connection or client process alone does not prove an interactive
-desktop, successful authentication or completion of Windows first-run choices.
+A successful TCP connection or client process alone does not prove an
+interactive desktop, successful authentication or completion of Windows
+first-run choices; `yoke test-machine verify` and a screenshot do.
 Prepare controller installation first. Once active setup starts, keep the lab
 on until setup, sign-ins and QA finish; do not use countdowns or idle shutdowns.
 Complete approved Windows privacy choices only after verifying the target

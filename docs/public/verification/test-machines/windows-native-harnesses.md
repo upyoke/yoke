@@ -200,9 +200,11 @@ do not enable blanket **Always trust**. Never reuse a saved Administrator entry.
 The generated password is in the private file reported by `desktop-access`;
 for this lab its custody is
 `~/.yoke/secrets/capability-secrets/yoke/test-machine_windows-native-lab/desktop_password`.
-The operator enters it only in Windows App, never chat, argv or screenshots.
-Windows App stays the Computer Use path; a person who only needs to look can
-instead run `yoke test-machine desktop-access --test-machine VM --view`, which
+The operator enters it only in the RDP client, never chat, argv or screenshots.
+This bootstrap is the one step that needs a person in an RDP client; once
+autologon is proven, agents drive the desktop without one (see
+[driving desktop apps](#driving-desktop-apps)). A person who only needs to look
+can run `yoke test-machine desktop-access --test-machine VM --view`, which
 opens FreeRDP over the same route with the password on stdin.
 
 Inside Windows choose **Start > Tailscale > Get Started**, then sign in with the
@@ -216,6 +218,49 @@ before treating the private desktop as persistent. Close completed auth tabs,
 leave apps authenticated, disconnect without Windows sign-out, terminate the
 local forward when it is no longer needed. Once all setup, sign-ins and QA
 finish, deallocate the VM, verify its actual power state and report it.
+
+## Driving desktop apps
+
+QA walkers drive any native app on the lab, such as Codex Desktop or Claude
+Desktop, with no RDP session and no Windows App on the controller. Use the
+walk's mission flags:
+
+```text
+yoke qa mission host-command FLAGS --gui-session -- explorer.exe "shell:AppsFolder\OpenAI.Codex_2p2nqsd0c76g0!App"
+yoke qa mission desktop FLAGS windows
+yoke qa mission desktop FLAGS focus --process ChatGPT
+yoke qa mission desktop FLAGS click --process ChatGPT --name "New chat" --index 1
+printf %s 'a short prompt' | yoke qa mission desktop FLAGS type --process ChatGPT --text-stdin
+yoke qa mission desktop FLAGS keys --process ChatGPT --keys enter
+yoke qa mission desktop FLAGS read --process claude --name "Reply" --control-type Text
+yoke test-machine screenshot --test-machine VM
+```
+
+Each call runs a Yoke helper as a hidden interactive scheduled task in the
+auto-logged-on test user's session. It uses Win32 input and UI Automation, so
+it reaches Electron, WinUI and classic apps alike. `windows` lists top-level
+windows with handle, title, process, pid, screen bounds and foreground. Every
+other action targets one window by `--title` substring, `--process` name or
+`--handle`, brings it to the foreground and verifies that before sending input.
+`click` takes window-relative `--x/--y` pixels (screenshot pixels minus the
+window's bounds) or a UI Automation element selected by exact `--name`,
+`--automation-id` and `--control-type`; `--index N` picks one of several
+listed matches. `type` reads plain text from stdin only, so it never enters
+argv or shell history; send Enter, Tab and shortcuts with `keys`.
+
+Every result is one JSON object. Typed text appears only as its length, and
+text carrying a lease secret or a credential shape is refused
+(`desktop_input_secret_refused`) before anything is typed: a password entry is
+a human gate. Failures exit 1 with a named code and recovery:
+`windows_desktop_locked` (the console is locked; reboot so autologon signs
+in, or a person unlocks it over RDP), `windows_window_not_found`,
+`windows_window_ambiguous`, `windows_element_not_found`,
+`windows_element_ambiguous`, `windows_foreground_refused`,
+`windows_foreground_changed`, `windows_click_target_obscured` and
+`windows_input_blocked`. An option the action does not use is refused
+(`desktop_input_option_unused`), never ignored. Other operating systems refuse
+`desktop_input_unsupported_os`: drive macOS apps with `--gui-session`
+osascript, and Linux apps with `--gui-session` xdotool.
 
 ## Tray startup and autologon
 

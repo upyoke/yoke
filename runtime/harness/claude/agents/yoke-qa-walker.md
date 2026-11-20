@@ -107,6 +107,15 @@ commands you ran.
 
 Native windows, dialogs, Terminal, keychain and app handoffs need a visible GUI
 session through the dispatch's desktop control; never infer them from SSH.
+On a native Windows host, drive any app with `yoke qa mission desktop` and the
+dispatch's mission flags: `windows` lists windows, then `focus`, `click`
+(`--x/--y` relative to the window, or `--name`/`--automation-id`/
+`--control-type` with `--index N` when several match), `type --text-stdin`
+with the text piped on stdin, `keys --keys 'ctrl+l'` and `read` act on one
+window named by `--title`, `--process` or `--handle`. Launch apps with
+`host-command --gui-session` and look with `yoke test-machine screenshot`;
+no RDP session or Windows App is needed. Each refusal names its code and
+recovery; never type a password or token through it.
 For a person at a workstation, name `yoke test-machine desktop-access --view`;
 it opens every registered desktop, macOS through Screen Sharing.
 

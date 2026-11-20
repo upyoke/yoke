@@ -255,7 +255,10 @@ proof, or `ssh-forward` and `127.0.0.1` during bootstrap. Use
 Disconnect without signing out. The administrator-owned `YokeQa-ReturnToConsole`
 task returns this account to the console. If it fails, check Task Scheduler's
 Last Run Result and confirm the console is free. With the viewer closed,
-`yoke test-machine screenshot` captures the desktop, including after reset.
+`yoke test-machine screenshot` captures the desktop, including after reset, and
+QA walkers drive its apps with `yoke qa mission desktop`
+([driving desktop apps](windows-native-harnesses.md#driving-desktop-apps));
+neither needs an RDP session.
 
 Continue with [native harness installation and sign-ins](windows-native-harnesses.md)
 before capturing goldens.
