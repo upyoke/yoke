@@ -58,7 +58,9 @@ def check_setup(parsed) -> bool:
         setup_agent_response.emit(
             setup_agent_response.refused(
                 "windows_preflight",
-                " ".join(row["message"] + " " + row["hint"] for row in errors),
+                " ".join(
+                    f"{row['message']} {row.get('hint', '')}".rstrip() for row in errors
+                ),
                 None,
             )
         )

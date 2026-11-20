@@ -30,6 +30,7 @@ import os
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterator, Optional
 
+from yoke_contracts import windows_vc_runtime_install
 from yoke_contracts.machine_config import runtime as machine_runtime
 from yoke_core.domain.local_universe_operating_actor import (
     _ensure_human_actor,
@@ -104,11 +105,11 @@ def start(
 ) -> Dict[str, Any]:
     """Idempotently start the embedded cluster; returns a status payload."""
     resolved = _resolve_spec(spec, emit=emit)
-    rc = postgres_cluster.ensure_started(resolved)
-    if rc != 0:
-        raise LocalUniverseError(
-            f"embedded Postgres failed to start (exit {rc}); see {resolved.log_file}"
-        )
+    if resolved.bin_dir is not None:
+        windows_vc_runtime_install.ensure_runtime(resolved.bin_dir, emit=emit)
+    failure = postgres_cluster.start_failure(resolved)
+    if failure is not None:
+        raise LocalUniverseError(failure.describe(resolved.log_file))
     ensure_database(resolved)
     return status(resolved)
 

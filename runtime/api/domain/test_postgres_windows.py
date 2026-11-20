@@ -63,10 +63,9 @@ def test_missing_dll_hint_names_vc_runtime_first(monkeypatch):
     )
     stderr = postgres_cluster_process._run(["initdb"]).stderr
     assert "embedded_postgres_load_failed" in stderr
-    runtime = stderr.index("Visual C++ runtime (vcruntime140.dll)")
-    step = stderr.index("winget install --id Microsoft.VCRedist.2015+.x64 -e")
-    assert runtime < step < stderr.index("owner access")
-    assert "yoke local-postgres start" in stderr
+    runtime = stderr.index("vcruntime140.dll, vcruntime140_1.dll, msvcp140.dll")
+    repair = stderr.index("yoke local-postgres start")
+    assert runtime < repair < stderr.index("owner access")
 
 
 def test_windows_archive_directories_use_owner_private_creation(monkeypatch, tmp_path):

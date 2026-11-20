@@ -15,6 +15,9 @@ import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ET
 
+from yoke_contracts import windows_vc_runtime
+from yoke_contracts.embedded_postgres import engine_bin_dir
+
 DOWNLOAD_HOSTS = ("claude.ai", "downloads.cursor.com", "registry.npmjs.org")
 RESERVED = re.compile(r"^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)", re.I)
 
@@ -179,11 +182,9 @@ def _policy_blocks(errors: list[str]) -> list[dict[str, str]]:
     return blocks
 
 
-def _vc_runtime(env) -> str | None:
-    """The MSVC runtime DLL the embedded Postgres engine loads, when present."""
-    system32 = ntpath.join(env.get("SystemRoot") or r"C:\Windows", "System32")
-    dll = ntpath.join(system32, "vcruntime140.dll")
-    return dll if os.path.isfile(dll) else None
+def _vc_runtime(env, home: str) -> tuple[str | None, list[str]]:
+    """Where the engine's MSVC runtime DLLs come from, else those with no source."""
+    return windows_vc_runtime.runtime_source(engine_bin_dir(home), env)
 
 
 def _desktop(env, errors: list[str]) -> bool:
@@ -313,6 +314,7 @@ def collect_facts(
         errors,
         0,
     )
+    vc_runtime, vc_runtime_missing = _vc_runtime(env, selected_home)
     return {
         "system": system,
         "build": int(str(build)) if str(build).isdecimal() else 0,
@@ -330,7 +332,8 @@ def collect_facts(
         "colliding_names": collisions,
         "git": git,
         "ssh": shutil.which("ssh"),
-        "vc_runtime": _vc_runtime(env),
+        "vc_runtime": vc_runtime,
+        "vc_runtime_missing": vc_runtime_missing,
         "wsl_yoke": wsl_yoke,
         "desktop": _desktop(env, errors),
         "browser": bool(browser),

@@ -9,6 +9,8 @@ from __future__ import annotations
 from typing import Any, Mapping
 import re
 
+from yoke_contracts.windows_vc_runtime import RUNTIME_DLLS, unsourced_problem
+
 
 def issue(severity: str, code: str, message: str, hint: str = "") -> dict[str, str]:
     result = {"severity": severity, "code": code, "message": message}
@@ -136,19 +138,20 @@ def verdicts(facts: Mapping[str, Any], *, local: bool = False) -> list[dict[str,
             "not found; repository/SSH operations are unavailable",
             "warning",
         ),
-        (
-            "vc_runtime",
-            "winget install --id Microsoft.VCRedist.2015+.x64 -e",
-            "Microsoft Visual C++ runtime (vcruntime140.dll) not found; "
-            "the local Yoke universe's embedded Postgres cannot start",
-            "error" if local else "warning",
-        ),
     ):
         add(
             "info" if facts.get(tool) else severity,
             tool,
             f"{tool}: {facts.get(tool) or missing}.",
             f"Install step: {command}",
+        )
+    if facts.get("vc_runtime"):
+        add("info", "vc_runtime", f"Microsoft Visual C++ runtime: {facts['vc_runtime']}.")
+    else:
+        add(
+            "error" if local else "warning",
+            "vc_runtime",
+            unsourced_problem(list(facts.get("vc_runtime_missing") or RUNTIME_DLLS)),
         )
     if facts.get("wsl_yoke"):
         add(

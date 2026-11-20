@@ -8,7 +8,7 @@ from typing import Mapping
 
 from yoke_contracts.machine_config.paths import CONFIG_FILE_ENV, HOME_ENV
 from yoke_contracts.machine_config.scratch_roots import fallback_scratch_root
-from yoke_core.domain.postgres_binaries import POSTGRES_VERSION
+from yoke_contracts.embedded_postgres import POSTGRES_VERSION
 from yoke_core.domain.postgres_cluster_process import executable
 
 
