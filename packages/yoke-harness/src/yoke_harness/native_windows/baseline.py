@@ -11,7 +11,7 @@ from yoke_harness.native_windows.mission import (
     WINDOWS_MISSION_SCRATCH_DIRECTORY, windows_stale_scratch_script,
 )
 from yoke_harness.native_windows.profile_processes import (
-    profile_process_stop_script, stop_desktop_profile_processes, stopped_processes,
+    profile_process_stop_script, relaunch_desktop_apps, stop_desktop_profile_processes, stopped_processes,
 )
 from yoke_harness.native_windows.profile_links import (
     link_sweep_record, stale_link_sweep_script,
@@ -116,7 +116,11 @@ $copyExit=$LASTEXITCODE
 if($copyExit -ge 8){{
  # Name the failing files here: the log stays on the host, out of the caller's reach.
  $copyErrors=@(Select-String -LiteralPath $copyLog -Pattern 'ERROR \\d+ \\(0x' -Context 0,1 | Select-Object -First 8 | ForEach-Object {{($_.Line.Trim()+' '+(($_.Context.PostContext -join ' ').Trim())).Trim()}})
- throw ('windows_profile_copy_failed: robocopy exit '+$copyExit+'; '+($copyErrors -join ' | ')+'; inspect private log '+$copyLog+'; preserve the golden and repair the named copy failure before retrying')
+ $recovery='preserve the golden and repair the named copy failure before retrying'
+ if(Select-String -LiteralPath $copyLog -Pattern 'ERROR (32|1224) \\(0x.*[\\\\/]\\.codex[\\\\/]' -Quiet){{
+  $recovery='a running Codex app holds a .codex file open. Close Codex in the signed-in test session and rerun yoke test-machine reset'
+ }}
+ throw ('windows_profile_copy_failed: robocopy exit '+$copyExit+'; '+($copyErrors -join ' | ')+'; inspect private log '+$copyLog+'; '+$recovery)
 }}
 Remove-Item -LiteralPath $copyLog -Force
 """
@@ -196,9 +200,9 @@ foreach($task in $state.tasks){Restore-YokeTask $task}
 def profile_operation(control, operation, path):
     try:
         script = profile_script(control, operation, path)
-        desktop_stopped = []
+        desktop_stopped, targets = [], []
         if operation == "reset":
-            refused, desktop_stopped = stop_desktop_profile_processes(
+            refused, desktop_stopped, targets = stop_desktop_profile_processes(
                 control, PRESERVED_DIRECTORIES
             )
             if refused:
@@ -213,6 +217,7 @@ def profile_operation(control, operation, path):
             False, {"recovery": str(exc)}, "windows_golden_path_unsafe"
         )
     ok = result.returncode == 0
+    relaunch = relaunch_desktop_apps(control, targets) if ok and operation == "reset" else {}
     return HostActionResult(
         ok,
         {
@@ -222,6 +227,8 @@ def profile_operation(control, operation, path):
             "preserved_identity_paths": list(PRESERVED_DIRECTORIES),
             **(
                 {
+                    "desktop_apps_relaunched": [],
+                    **relaunch,
                     **link_sweep_record(result.stdout),
                     "profile_processes_stopped": desktop_stopped
                     + stopped_processes(result.stdout),
