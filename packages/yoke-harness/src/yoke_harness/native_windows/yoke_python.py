@@ -1,6 +1,6 @@
 """Run an installed Yoke command on native Windows without cmd.exe parsing.
 
-The installer's ``yoke.cmd`` shim is one line, ``@"PYTHON" "LAUNCHER" %*``.
+The installer's one-line ``yoke.cmd`` shim starts ``@"PYTHON" "LAUNCHER" %*``.
 Calling it hands every argument to cmd.exe, which reparses quotes, ``&`` and
 ``%`` -- a JSON argument does not survive. This script reads the shim on the
 host and starts that Python and launcher directly with the Windows argv

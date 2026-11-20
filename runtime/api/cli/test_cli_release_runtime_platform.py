@@ -5,6 +5,7 @@ Real-process tests run on the OS they name; fake Windows facts run everywhere.
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 import signal
@@ -123,13 +124,35 @@ def test_windows_layout_uses_scripts_python_and_cmd_shim(tmp_path, monkeypatch):
     python, root = Path("C:/Python/python.exe"), tmp_path / "root"
     shims = runtime._shims(root, python, tmp_path / "bin")
     assert shims[tmp_path / "bin/yoke.cmd"] == (
-        f'@"{python}" "{root / "launcher"}" %* & exit /b\r\n'
+        f'@"{python}" "{root / "launcher"}" %* & call exit /b %%ERRORLEVEL%%\r\n'
     )
     # Git Bash runs the extensionless shim; Git runs helpers through sh too.
     assert shims[tmp_path / "bin/yoke"].startswith("#!/bin/sh\nexec ")
     assert shims[root / "python"].endswith(' --python "$@"\n')
     with pytest.raises(RuntimeError, match="cli_launcher_path_unsupported"):
         runtime._shims(tmp_path / "100%", python, tmp_path / "bin")
+
+
+@pytest.mark.windows
+@pytest.mark.windows_only(reason="cmd.exe runs the yoke.cmd shim")
+@pytest.mark.parametrize("code", [0, 1, 7])
+def test_cmd_shim_exits_with_the_command_code_and_keeps_arguments(tmp_path, code):
+    root, bin_dir = tmp_path / "root", tmp_path / "bin"
+    root.mkdir()
+    (root / "launcher").write_text(
+        "import json, sys\nprint(json.dumps(sys.argv[1:]))\nsys.exit(int(sys.argv[1]))\n"
+    )
+    shim = runtime._shims(root, Path(sys.executable), bin_dir)[bin_dir / "yoke.cmd"]
+    bin_dir.mkdir()
+    (bin_dir / "yoke.cmd").write_bytes(shim.encode())
+    arguments = [str(code), "two words", 'say "hi"', "a & b"]
+    result = subprocess.run(
+        [str(bin_dir / "yoke.cmd"), *arguments], capture_output=True, text=True
+    )
+    assert (result.returncode, json.loads(result.stdout)) == (code, arguments)
+    caller = tmp_path / "caller.cmd"  # %ERRORLEVEL% as a batch caller reads it
+    caller.write_bytes(f'@call "{bin_dir / "yoke.cmd"}" {code} >nul\r\n@exit /b %ERRORLEVEL%\r\n'.encode())
+    assert subprocess.run([str(caller)]).returncode == code
 
 
 @pytest.mark.windows

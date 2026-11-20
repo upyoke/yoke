@@ -156,8 +156,8 @@ def _shims(root: Path, python: Path, bin_dir: Path) -> dict[Path, str]:
     shims = {bin_dir / "yoke": f'{run} "$@"\n'}
     shims[root / "python"] = f'{run} --python "$@"\n'
     if WINDOWS:
-        # Read exit before Python runs, in case uninstall removes the batch file.
-        shims[operator_launcher_path(bin_dir)] = f'@"{python}" "{launcher}" %* & exit /b\r\n'
+        # One line, read before Python runs (uninstall deletes it); call reads the exit code after.
+        shims[operator_launcher_path(bin_dir)] = f'@"{python}" "{launcher}" %* & call exit /b %%ERRORLEVEL%%\r\n'
     return shims
 
 def _remove_tree(path: Path) -> None:
