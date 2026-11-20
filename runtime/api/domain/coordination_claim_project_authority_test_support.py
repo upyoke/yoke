@@ -77,6 +77,10 @@ def conn():
     create_path_registry_tables(connection)
     create_actor_path_claim_tables(connection)
     create_auth_tables(connection)
+    connection.execute(
+        "ALTER TABLE harness_sessions ADD COLUMN IF NOT EXISTS actor_id "
+        "INTEGER REFERENCES actors(id)"
+    )
     seed_default_org(connection)
     seed_roles_and_permissions(connection)
     yield connection

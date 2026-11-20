@@ -215,6 +215,29 @@ def test_qa_admission_release_refuses_an_actor_without_the_session_project(
     assert check_dispatch_permission(conn, entry, request).error is not None
 
 
+@pytest.mark.parametrize(
+    ("same_actor", "same_session"), [(False, True), (True, False)]
+)
+def test_projectless_qa_host_release_requires_its_actor_and_session(
+    conn, same_actor, same_session
+):
+    yoke = resolve_project_id(conn, "yoke")
+    holder = _project_owner(conn, yoke)
+    _session(conn, "holder-session", yoke)
+    conn.execute(
+        "UPDATE harness_sessions SET project_id=NULL, org_id=1, actor_id=%s "
+        "WHERE session_id=%s",
+        (holder, "holder-session"),
+    )
+    claim_id = _qa_host_claim(conn, test_machine="test-mac", session_id="holder-session")
+    actor = holder if same_actor else _project_owner(conn, yoke)
+    request = _release_request(actor, {"claim_id": claim_id, "reason": "finished"})
+    if not same_session:
+        request.actor.session_id = "other-session"
+    entry = _entry("claims.coordination_claim.release")
+    assert check_dispatch_permission(conn, entry, request).error is not None
+
+
 @pytest.mark.parametrize("function", ("list", "operator_release"))
 @pytest.mark.parametrize("project_hint", (None, "externalwebapp"))
 @pytest.mark.parametrize("authorized", (True, False))

@@ -108,4 +108,35 @@ def _visible(
     return project_id, slug_for_project_id(conn, project_id)
 
 
-__all__ = ["resolve_coordination_claim_project_context"]
+def may_release_projectless_qa_host(
+    conn: Any, request: FunctionCallRequest, actor_id: int
+) -> bool:
+    """A registered projectless session can release its own QA host by ID."""
+    if request.function != "claims.coordination_claim.release":
+        return False
+    payload = request.payload
+    if (
+        request.target.kind != "global"
+        or request.target.project_id is not None
+        or any(payload.get(key) is not None for key in ("project", "project_id", "key"))
+        or not request.actor.session_id
+    ):
+        return False
+    try:
+        claim_id = int(payload.get("claim_id"))
+    except (TypeError, ValueError):
+        return False
+    row = conn.execute(
+        "SELECT 1 FROM work_claims AS claim "
+        "JOIN harness_sessions AS holder ON holder.session_id=claim.session_id "
+        "WHERE claim.id=%s AND claim.target_kind=%s AND holder.session_id=%s "
+        "AND holder.actor_id=%s AND holder.project_id IS NULL",
+        (claim_id, TARGET_KIND_QA_ADMISSION, request.actor.session_id, actor_id),
+    ).fetchone()
+    return row is not None
+
+
+__all__ = [
+    "may_release_projectless_qa_host",
+    "resolve_coordination_claim_project_context",
+]

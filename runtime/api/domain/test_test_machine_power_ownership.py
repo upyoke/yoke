@@ -11,12 +11,13 @@ from runtime.api.domain.machine_qa_session_seed import seed_qa_session
 from runtime.api.domain.qa_host_turns_test_support import MACHINE, _execution_wait, _notices
 from yoke_contracts.api.function_call import ActorContext, FunctionCallRequest, TargetRef
 from yoke_core.domain import cloud_machine_power, machine_idle_stop
-from yoke_core.domain.coordination_claims import acquire, active_claim, release
+from yoke_core.domain.coordination_claims import acquire, active_claim, get_claim, release
 from yoke_core.domain.deploy_remote import CommandResult
 from yoke_core.domain.handlers.machine_power_ownership import handle_lease
 from yoke_core.domain.machine_idle_notice import collect_released_hosts
 from yoke_core.domain.qa_host_holdover import HOLDOVER_REASON, session_holdovers
 from yoke_core.domain.work_claim_targets import make_qa_admission_target
+from yoke_core.domain.yoke_function_dispatch import dispatch
 
 
 @pytest.mark.parametrize("state", ["running", "pending", "VM starting", "stopped", "VM deallocated"])
@@ -111,6 +112,48 @@ def test_releasing_an_idle_stop_lease_does_not_restore_a_holdover(test_db):
 
     assert active_claim(test_db, target) is None
     assert session_holdovers(test_db, "owner") == []
+
+
+@pytest.mark.parametrize("purpose", [None, "idle-stop"])
+def test_projectless_session_releases_test_machine_lease_through_dispatch(test_db, purpose):
+    session_id = "projectless-lease-holder"
+    seed_qa_session(test_db, session_id)
+    test_db.execute(
+        "UPDATE harness_sessions SET project_id=NULL, org_id=1 WHERE session_id=%s",
+        (session_id,),
+    )
+    test_db.execute(
+        "INSERT INTO test_machines(name,settings,created_at) VALUES(%s,'{}',now())",
+        (MACHINE,),
+    )
+    test_db.commit()
+    actor = ActorContext(actor_id="1", session_id=session_id)
+    target = TargetRef(kind="global")
+
+    acquired = dispatch(
+        FunctionCallRequest(
+            function="test_machine.lease_acquire",
+            actor=actor,
+            target=target,
+            payload={"test_machine": MACHINE, "purpose": purpose},
+        ),
+        ambient_session_id=session_id,
+    )
+    assert acquired.success, acquired.error
+    claim_id = acquired.result["claim_id"]
+    released = dispatch(
+        FunctionCallRequest(
+            function="claims.coordination_claim.release",
+            actor=actor,
+            target=target,
+            payload={"claim_id": claim_id, "reason": "finished"},
+        ),
+        ambient_session_id=session_id,
+    )
+    assert released.success, released.error
+    assert get_claim(test_db, claim_id).released_at is not None
+    if purpose == "idle-stop":
+        assert active_claim(test_db, make_qa_admission_target(MACHINE)) is None
 
 
 @pytest.mark.parametrize("marker, confirmed", [(False, False), (True, False), (True, True)])
