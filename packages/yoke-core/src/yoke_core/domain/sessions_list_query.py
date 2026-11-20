@@ -12,8 +12,9 @@ from __future__ import annotations
 from yoke_contracts.session_control.liveness import holds_work_claim_sql
 from yoke_core.domain.session_probe import probe_session_sql
 
-#: Order by the later native instant; PostgreSQL GREATEST ignores nulls.
-_ACTIVITY = "GREATEST(s.last_tool_call_at, s.last_heartbeat)"
+#: Order by the later native instant; PostgreSQL GREATEST ignores nulls. A
+#: subagent's call is the session's activity too (``session_child_activity``).
+_ACTIVITY = "GREATEST(s.last_tool_call_at, s.last_child_tool_call_at, s.last_heartbeat)"
 
 #: Whether the session holds a live item work claim. The windowed roster keeps
 #: these rows past its per-project cap: a holder parked at its item's release
@@ -39,7 +40,7 @@ _SELECT = (
     "s.mode, s.quiet_reason, s.keepalive_until, s.keepalive_reason, "
     f"{holds_work_claim_sql('s')} AS holds_work_claim, "
     "s.workspace, s.project_id, s.org_id, pr.slug AS project, "
-    "s.offered_at, s.last_heartbeat, s.last_tool_call_at, "
+    "s.offered_at, s.last_heartbeat, s.last_tool_call_at, s.last_child_tool_call_at, "
     "s.episode_started_at, s.turn_posture, s.turn_posture_at, s.native_turn_end_recorded_at, "
     "s.native_process_gone_at, s.native_process_gone_evidence, "
     "s.ended_at, s.terminated_at, s.terminated_by_actor_id, "
@@ -74,7 +75,7 @@ def build_sessions_query(where: str, *, windowed: bool) -> str:
             f"{_JOINS} {where}) ranked "
             "WHERE _rn <= %s OR _holds_item "
             "ORDER BY _holds_item DESC, "
-            "GREATEST(last_tool_call_at, "
+            "GREATEST(last_tool_call_at, last_child_tool_call_at, "
             "last_heartbeat) DESC, session_id DESC LIMIT %s"
         )
     return f"{_SELECT} {_JOINS} {where} ORDER BY {_ACTIVITY} DESC, s.session_id DESC LIMIT %s"

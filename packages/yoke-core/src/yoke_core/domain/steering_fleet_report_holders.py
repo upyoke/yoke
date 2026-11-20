@@ -145,6 +145,7 @@ def _held_item_rows(conn: Any, *, project_id: int, now: str) -> list[dict[str, A
             f"{OPEN_ATTEMPT_ENQUEUED_AT}, p.public_item_prefix AS prefix, "
             "hs.mode AS mode, hs.quiet_reason AS quiet_reason, "
             "hs.last_tool_call_at AS last_tool_call_at, "
+            "hs.last_child_tool_call_at AS last_child_tool_call_at, "
             "hs.last_heartbeat AS last_heartbeat, "
             "hs.episode_started_at AS episode_started_at, "
             "hs.turn_posture AS turn_posture, "
@@ -203,13 +204,11 @@ def claim_holders(
     from yoke_core.domain.next_actor import session_next_actor
     from yoke_core.domain.session_state import session_presence
     from yoke_core.domain.qa_host_idle_hold import held_qa_hosts_csv
+    from yoke_core.domain.session_reclaim_progress import tool_activity_stamp
 
     for row in rows:
-        last_activity = parse_stamp(
-            row.get("last_tool_call_at")
-            if row.get("last_tool_call_at") is not None
-            else row.get("claimed_at")
-        )
+        # A parent waiting on a working subagent is active (tool_activity_stamp).
+        last_activity = tool_activity_stamp(row) or parse_stamp(row.get("claimed_at"))
         mode = str(row.get("mode") or "")
         process = processes[str(row["session_id"])]
         resume = resumes.get(str(row["session_id"]))
