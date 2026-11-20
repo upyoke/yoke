@@ -24,6 +24,8 @@ from yoke_core.domain.workflow_status_queries import exclude_terminal_items
 from yoke_core.domain.deployment_run_candidate_containment import (
     UNDETERMINED as CONTAINMENT_UNDETERMINED,
     CandidateContainment,
+    CONTAINED,
+    ContainmentVerdict,
     CONTENT_UNDETERMINED,
 )
 from yoke_core.domain.deployment_run_bound_sources import (
@@ -209,6 +211,7 @@ def _custody_for(
     landing_sha: str,
     runs: Sequence[Mapping[str, Any]],
     candidates: dict[str, CandidateContainment],
+    recorded: Mapping[str, frozenset[tuple[str, str, str, str]]],
 ) -> LandingCustody:
     """Walk one item's member runs for the first that carries this landing."""
     if not runs:
@@ -235,11 +238,15 @@ def _custody_for(
         lineage = recorded_source_sha(dict(run), int(project_id))
         if not lineage:
             continue
-        if lineage not in candidates:
-            candidates[lineage] = CandidateContainment(
-                conn, int(project_id), candidate_lineage=lineage
-            )
-        verdict = candidates[lineage].contains(landing_sha)
+        key = (str(project_id), str(item_id), lineage.lower(), landing_sha.lower())
+        if key in recorded.get(str(run["run_id"]), ()):
+            verdict = ContainmentVerdict(CONTAINED)
+        else:
+            if lineage not in candidates:
+                candidates[lineage] = CandidateContainment(
+                    conn, int(project_id), candidate_lineage=lineage
+                )
+            verdict = candidates[lineage].contains(landing_sha)
         if verdict.contained:
             return LandingCustody(
                 item_id=item_id,
@@ -289,8 +296,8 @@ def landing_custody(
 ) -> dict[int, LandingCustody]:
     """Answer custody for every one of ``item_ids`` in one pass.
 
-    Membership and landing receipts are batched. One comparison source per
-    candidate serves every item; immutable definite answers survive requests.
+    Membership, landing receipts, and recorded exact containment are batched.
+    A comparison source serves all unanswered landings for its candidate.
     Excluding a run asks who OTHER than that run holds its members.
     ``candidates`` seeds the per-lineage walkers a caller already built.
     """
@@ -298,7 +305,12 @@ def landing_custody(
     if not ids:
         return {}
     runs = _member_runs(conn, ids, exclude_run_id=str(exclude_run_id))
+    from yoke_core.domain.deployment_run_contained_items import recorded_contained_landings
+
     shas = _landing_shas(conn, ids)
+    recorded = recorded_contained_landings(
+        conn, {str(run["run_id"]) for group in runs.values() for run in group}
+    )
     candidates = dict(candidates or {})
     return {
         item_id: _custody_for(
@@ -308,6 +320,7 @@ def landing_custody(
             landing_sha=shas.get(item_id, ""),
             runs=runs.get(item_id, ()),
             candidates=candidates,
+            recorded=recorded,
         )
         for item_id in ids
     }

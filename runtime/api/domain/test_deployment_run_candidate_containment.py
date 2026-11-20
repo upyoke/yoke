@@ -1,5 +1,6 @@
 """Immutable comparisons are shared across report passes; unknowns retry."""
 
+import json
 from types import SimpleNamespace
 
 import pytest
@@ -127,8 +128,9 @@ def test_cache_is_bounded(monkeypatch):
     assert len(containment._VERDICTS) == 2
 
 
+@pytest.mark.parametrize("recorded", [False, True])
 def test_report_pass_reuses_candidates_and_batches_landing_receipts(
-    test_db, monkeypatch
+    test_db, monkeypatch, recorded
 ):
     calls, opens = _provider(
         monkeypatch, status=lambda path: "ahead" if "a" * 40 in path else "behind"
@@ -170,6 +172,33 @@ def test_report_pass_reuses_candidates_and_batches_landing_receipts(
                     else "2026-09-14T00:20:00Z",
                 ),
             )
+    if recorded:
+        answers = [
+            {
+                "id": item_id,
+                "project_id": 1,
+                "candidate_lineage": "c" * 40,
+                "merge_sha": f"{item_id:040x}",
+                "state": "contained",
+            }
+            for item_id in item_ids
+        ]
+        # A different landing, candidate or project must still use live proof.
+        answers[0]["merge_sha"] = "e" * 40
+        answers[1]["candidate_lineage"] = "f" * 40
+        answers[2]["project_id"] = 2
+        for run_id in ("older", "newer"):
+            proof = {
+                "derivation": {"status": "known", "contents_known": True},
+                "answers": answers if run_id == "older" else [
+                    {**answer, "candidate_lineage": "a" * 40, "state": "not_contained"}
+                    for answer in answers
+                ],
+            }
+            test_db.execute(
+                "UPDATE deployment_runs SET candidate_containment=%s WHERE id=%s",
+                (json.dumps(proof), run_id),
+            )
     test_db.commit()
 
     class ReadCounter:
@@ -190,7 +219,9 @@ def test_report_pass_reuses_candidates_and_batches_landing_receipts(
         )
         assert {row.item_id for row in rows} == set(item_ids)
         assert all(row.custody_state == custody.HELD for row in rows)
-    assert len(calls) == 2 * len(item_ids)
+    assert {row.custody_run_id for row in rows} == {"older"}
+    expected = len(item_ids) + (3 if recorded else len(item_ids))
+    assert len(calls) == expected
     assert len(opens) == 4  # Two candidates per pass, shared by every item.
     assert conn.receipt_reads == 2
 
