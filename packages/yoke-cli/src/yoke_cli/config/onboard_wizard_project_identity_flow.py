@@ -9,10 +9,10 @@ from yoke_cli.config import onboard_wizard_apply_facts as apply_facts
 from yoke_cli.config import onboard_existing_project
 from yoke_cli.config import onboard_local_checkout_identity
 from yoke_cli.config import onboard_project
+from yoke_cli.config import onboard_project_prefixes as project_prefixes
 from yoke_cli.config import onboard_wizard_board_art_apply
 from yoke_cli.config import onboard_wizard_github_state
 from yoke_cli.config import onboard_wizard_project_details as project_details
-from yoke_cli.config import onboard_wizard_steps as steps
 from yoke_cli.config import yoke_token_verify
 from yoke_contracts.onboard_destinations import DESTINATION_LOCAL
 from yoke_cli.config.onboard_wizard import github_connected
@@ -192,28 +192,18 @@ class ProjectIdentityFlow:
         self._after_local_checkout_source(value)
 
     def _goto_project_details(self: _Shell) -> None:
-        from yoke_cli.config.onboard_wizard_state import _View
-
-        suggested_slug = steps.slug_from_checkout(self.result.project_checkout)
-        branch = self.result.project_source_default_branch
-        fields = project_details.fields(
-            slug=suggested_slug,
-            branch_from_source=branch,
-        )
-
-        details = project_details.prompt(fields, branch_from_source=branch)
-
-        def builder():
-            self._begin_form(fields, on_done=self._after_project_details)
-            return project_details.body(details)
-
-        self._goto(
-            _View(
-                details,
-                lambda _choice: self._submit_pending_form(),
-                builder,
-                on_form=self._after_project_details,
-            )
+        self._run_checking(
+            step=STEP_PROJECT,
+            title="Checking item prefixes.",
+            message="Reading the item prefixes projects already use.",
+            work=lambda: project_prefixes.read_holders(
+                self.result, self._yoke_token_for_project_lookup
+            ),
+            on_success=lambda holders: project_details.show(self, holders),
+            on_error=lambda exc: self._goto_existing_project_lookup_error(
+                exc, retry=self._goto_project_details
+            ),
+            group="onboard-project-prefixes",
         )
 
     def _after_project_details(self: _Shell, values: dict[str, str]) -> None:

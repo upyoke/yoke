@@ -2,17 +2,25 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from textual.widgets import Static
 
 from yoke_cli.config import onboard_input_validation as validation
 from yoke_cli.config import onboard_project
+from yoke_cli.config import onboard_project_prefixes as prefixes
 from yoke_cli.config.onboard_wizard_input_entry import form_field_widgets
 from yoke_cli.config.onboard_wizard_step_ids import STEP_PROJECT
 from yoke_cli.config.setup_prompt import SelectionRow, SetupField, SetupPrompt
 from yoke_cli.config.onboard_wizard_widgets import SelectionList
 
 
-def fields(*, slug: str, branch_from_source: str | None) -> tuple[SetupField, ...]:
+def fields(
+    *,
+    slug: str,
+    branch_from_source: str | None,
+    holders: prefixes.Holders | None = None,
+) -> tuple[SetupField, ...]:
     items = [
         SetupField(
             "slug",
@@ -39,16 +47,19 @@ def fields(*, slug: str, branch_from_source: str | None) -> tuple[SetupField, ..
                 initial_value=onboard_project.DEFAULT_NEW_REPO_BRANCH,
             )
         )
-    prefix = "".join(character for character in slug.upper() if character.isalnum())[:6]
-    if len(prefix) < 2:
-        prefix = "PRJ"
+
+    def validate_prefix(value: str) -> str | None:
+        return validation.validate_prefix(value) or prefixes.holder_problem(
+            value, holders, recovery=prefixes.DETAILS_RECOVERY
+        )
+
     items.append(
         SetupField(
             "prefix",
             "Item prefix",
             "PROJ",
-            validate=validation.validate_prefix,
-            initial_value=prefix,
+            validate=validate_prefix,
+            initial_value=prefixes.propose(slug, holders),
         )
     )
     return tuple(items)
@@ -91,4 +102,31 @@ def body(details: SetupPrompt) -> list[Static]:
     return widgets
 
 
-__all__ = ["CONTINUE_ROWS", "body", "fields", "prompt"]
+def show(shell: Any, holders: prefixes.Holders | None) -> None:
+    """Open the details form, its prefix default skipping ``holders``."""
+    from yoke_cli.config import onboard_wizard_steps as steps
+    from yoke_cli.config.onboard_wizard_state import _View
+
+    branch = shell.result.project_source_default_branch
+    form_fields = fields(
+        slug=steps.slug_from_checkout(shell.result.project_checkout),
+        branch_from_source=branch,
+        holders=holders,
+    )
+    details = prompt(form_fields, branch_from_source=branch)
+
+    def builder() -> list[Static]:
+        shell._begin_form(form_fields, on_done=shell._after_project_details)
+        return body(details)
+
+    shell._goto(
+        _View(
+            details,
+            lambda _choice: shell._submit_pending_form(),
+            builder,
+            on_form=shell._after_project_details,
+        )
+    )
+
+
+__all__ = ["CONTINUE_ROWS", "body", "fields", "prompt", "show"]
