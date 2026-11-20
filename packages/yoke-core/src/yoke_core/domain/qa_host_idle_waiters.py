@@ -10,7 +10,7 @@ host is served (:func:`serving_line`), so each host goes to the next waiter.
 Control-plane upkeep hands the reservations it already holds to the next
 waiter the same way (:func:`hand_off_idle_waiter_reservations`).
 
-Its first tool call ends the skip: the next release serves it at its place,
+A new running turn after a recorded death or a fresh tool call ends the skip: the next release serves it at its place,
 an older-waiter pass returns a younger set's partial reservation to it, and
 its resume takes any host that is free.
 """
@@ -39,7 +39,8 @@ def _sessions(conn: Any, session_ids: Iterable[str]) -> dict[str, dict[str, Any]
         conn,
         "SELECT session_id, session_id AS live_row, mode, last_tool_call_at, "
         f"{child_activity_sql(conn, 'harness_sessions')} AS last_child_tool_call_at, "
-        "native_process_gone_at, ended_at, terminated_at FROM harness_sessions "
+        "native_process_gone_at, ended_at, terminated_at, turn_posture, turn_posture_at "
+        "FROM harness_sessions "
         f"WHERE session_id IN ({','.join([_p(conn)] * len(ids))})",
         tuple(ids),
     )
@@ -128,7 +129,14 @@ def hand_off_idle_waiter_reservations(
             f"AND state='reserved' AND claim_id={_p(conn)}",
             (str(row["id"]), claim.id),
         )
-        if not fresh or not claim.is_active or not awaits_other_hosts(conn, fresh[0]):
+        session_id = str(row["session_id"])
+        session = _sessions(conn, (session_id,)).get(session_id)
+        if (
+            not fresh
+            or not claim.is_active
+            or not waiter_away(fresh[0], session, now=current, limit=limit)
+            or not awaits_other_hosts(conn, fresh[0])
+        ):
             conn.rollback()
             continue
         try:

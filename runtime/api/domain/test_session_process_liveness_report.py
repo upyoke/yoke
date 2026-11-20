@@ -160,6 +160,24 @@ def test_new_activity_supersedes_the_process_gone_observation(conn):
     assert current_native_process_observation(row) is None
 
 
+def test_a_repeat_death_report_does_not_end_a_resumed_running_session(conn):
+    session_id = _ghost(conn)
+    claim_work(conn, session_id=session_id, item_id=9301)
+    _apply(conn, session_id)
+    death = _session_row(conn, session_id)["native_process_gone_at"]
+    conn.execute(
+        "UPDATE harness_sessions SET turn_posture='running', turn_posture_at=%s "
+        "WHERE session_id=%s",
+        (death + timedelta(seconds=1), session_id),
+    )
+    conn.commit()
+
+    assert _apply(conn, session_id)["skipped"] == [
+        {"session_id": session_id, "status": "process_death_superseded"}
+    ]
+    assert _session_row(conn, session_id)["ended_at"] is None
+
+
 def test_the_claimless_terminal_event_names_the_verified_dead_process(
     conn, monkeypatch
 ):

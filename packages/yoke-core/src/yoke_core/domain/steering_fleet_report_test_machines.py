@@ -82,7 +82,7 @@ def test_machine_lines(rows: tuple[tuple[str, str], ...]) -> list[str]:
 def _idle_holds(conn: Any, names: set[str]) -> list[IdleHostHold]:
     """Consumed host leases whose holder is parked, exited or ended.
 
-    A holder whose subagent is still calling tools is working, not away.
+    Recent subagent activity or a live execution heartbeat keeps the hold active.
     """
     from yoke_contracts.timestamps import format_instant, utc_now
     from yoke_core.domain import qa_host_idle_hold as idle

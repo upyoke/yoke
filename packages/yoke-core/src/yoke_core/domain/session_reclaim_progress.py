@@ -9,9 +9,8 @@ from typing import Any, Mapping, Optional
 from . import db_backend
 from .schema_common import _get_columns as _schema_get_columns
 
-# One hook writes ``last_tool_call_at`` and the open ``session_tool_calls`` row,
-# so the two stamps of a live call land within seconds of each other. Only a
-# gap wider than that separates a running call from an unclosed leftover.
+# Tolerate nearby completions (for example, a nested call). A completion well
+# after a still-open row is evidence that the row was left behind.
 OPEN_TOOL_CALL_WRITE_SKEW_SECONDS = 60
 
 
@@ -77,11 +76,10 @@ def open_tool_call_is_live(
 ) -> bool:
     """Whether an open tool-call row still evidences work in flight.
 
-    A harness stamps ``harness_sessions.last_tool_call_at`` and inserts the
-    ``session_tool_calls`` row from the same hook, so a genuinely running call
-    is the session's newest recorded activity. Activity recorded well after the
-    call opened proves the opposite: the session kept working and the row was
-    never closed, so it is residue rather than liveness.
+    The start hook opens the ``session_tool_calls`` row and stamps the session's
+    running turn posture. The completion hook stamps ``last_tool_call_at``.
+    A completion well after the call opened indicates that the open row was
+    left behind while the session kept working.
     """
     if open_tool_call_at is None:
         return False

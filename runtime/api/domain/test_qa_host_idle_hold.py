@@ -1,8 +1,6 @@
 """Idle hosts of parked or exited holders return to the line (YOK-5511).
 
-The measured miss: a walk parked on a HUMAN_GATE in awaiting_walk_review kept
-its host lease for five hours, and a host set queued behind it kept partial
-reservations on three other hosts, until a steering operator released them.
+A retained review lease and partial reservations can otherwise strand hosts.
 """
 
 from __future__ import annotations
@@ -41,6 +39,7 @@ from yoke_core.domain.qa_host_idle_hold import (
     release_idle_host_holds,
 )
 from yoke_core.domain.qa_host_set_turns import record_host_wait
+from yoke_core.domain.qa_plan_host_leases import HOST_SET_REASON
 from yoke_core.domain.qa_plan_execution_state import (
     begin_plan_execution,
     lock_plan_execution,
@@ -88,7 +87,6 @@ def review_walk(test_db, tmp_path, monkeypatch):
         )
     )
     assert ready.primary_success, ready.error
-    # The walk handed back for review; review keeps the primary lease.
     test_db.execute(
         "UPDATE qa_plan_executions SET state='awaiting_walk_review' WHERE id=%s",
         (str(execution["id"]),),
@@ -211,6 +209,58 @@ def test_stale_subagent_activity_past_the_hold_returns_the_host(
         last_child_tool_call_at=utc_now() - timedelta(minutes=5),
     )
     _assert_released_and_waiter_woken(test_db, review_walk, bodies)
+
+
+def test_running_turn_after_death_keeps_the_host_before_a_tool_completes(test_db):
+    now = utc_now()
+    death = now - timedelta(hours=2)
+    seed_qa_session(test_db, "resumed")
+    lease = acquire(test_db, make_qa_admission_target("lab-a"), "resumed", now=death)
+    _set_session(test_db, "resumed", last_tool_call_at=death, native_process_gone_at=death,
+                 turn_posture="running", turn_posture_at=now)
+    [row] = held_rows(test_db)
+    assert row["host_operation_at"] is None and idle_since(row) == death
+    assert holder_away(row, now=now, limit=idle_hold_limit()) is None
+    assert release_idle_host_holds(test_db, now=now) == []
+    assert get_claim(test_db, lease.id).is_active
+
+
+@pytest.mark.parametrize("companion", [False, True], ids=["driver", "companion"])
+def test_recent_execution_heartbeat_keeps_the_host_until_it_ages(
+    test_db, review_walk, companion,
+):
+    execution_id, _, lease_id = review_walk
+    death = utc_now() + LATER
+    beat = death + timedelta(hours=2)
+    if companion:
+        test_db.execute(
+            "INSERT INTO test_machines(created_at,power_project_id,name,settings) "
+            "VALUES(%s,1,'companion','{}')", (utc_now(),),
+        )
+        # Make only the companion due for upkeep when the heartbeat expires.
+        test_db.execute("UPDATE work_claims SET claimed_at=%s WHERE id=%s",
+                        (beat + timedelta(seconds=1), lease_id))
+        lease_id = acquire(
+            test_db, make_qa_admission_target("companion"), ACTOR.session_id,
+            reason=HOST_SET_REASON + execution_id,
+        ).id
+    _set_session(test_db, ACTOR.session_id, last_tool_call_at=death,
+                 native_process_gone_at=death)
+    test_db.execute(
+        "UPDATE qa_plan_executions SET state='walking', heartbeat_at=%s WHERE id=%s",
+        (beat, execution_id),
+    )
+    test_db.commit()
+
+    row = next(row for row in held_rows(test_db) if row["id"] == lease_id)
+    limit = idle_hold_limit()
+    assert idle_since(row) == beat
+    assert holder_away(row, now=beat, limit=limit) is None
+    assert release_idle_host_holds(test_db, now=beat) == []
+    assert get_claim(test_db, lease_id).is_active
+    assert holder_away(row, now=beat + limit, limit=limit) == "exited"
+    assert release_idle_host_holds(test_db, now=beat + limit) == [lease_id]
+    assert not get_claim(test_db, lease_id).is_active
 
 
 def test_unparked_live_holder_keeps_its_host(test_db, review_walk):
