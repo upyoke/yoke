@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import sqlite3
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import closing
 from datetime import timedelta
 
 import pytest
@@ -21,6 +21,7 @@ from runtime.api.domain.session_message_support_test_support import (
     NOW,
     NOW_TEXT,
     message_connection,
+    open_message_test_database,
     selector,
 )
 
@@ -133,19 +134,14 @@ def test_concurrent_hook_leases_exclude_the_same_receipt(tmp_path) -> None:
     path = tmp_path / "messages.sqlite"
     seed = message_connection(str(path))
     _send(seed)
-    seed.close()
 
     def lease_once():
-        conn = sqlite3.connect(str(path), timeout=5, check_same_thread=False)
-        conn.row_factory = sqlite3.Row
-        try:
+        with closing(open_message_test_database(str(path))) as conn:
             return lease_for_hook(
                 conn, session_id="s1", hook_event="PreToolUse", limit=10
             )
-        finally:
-            conn.close()
 
-    with ThreadPoolExecutor(max_workers=2) as pool:
+    with closing(seed), ThreadPoolExecutor(max_workers=2) as pool:
         leases = list(pool.map(lambda _index: lease_once(), range(2)))
     present = [lease for lease in leases if lease is not None]
     assert len(present) == 1

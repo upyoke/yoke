@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import sqlite3
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import closing
 from datetime import timedelta
 
 from yoke_core.domain.session_broker_wake import lease_broker_wake_for_hook
@@ -23,7 +23,10 @@ from runtime.api.domain.session_broker_test_support import (
     _seed,
     _stamp,
 )
-from runtime.api.domain.session_message_support_test_support import selector
+from runtime.api.domain.session_message_support_test_support import (
+    open_message_test_database,
+    selector,
+)
 
 
 def _instruct(conn):
@@ -308,12 +311,9 @@ def test_render_failures_are_bounded_by_the_wake_retry_policy() -> None:
 def test_direct_and_broker_claims_share_one_recipient_cas(tmp_path) -> None:
     path = tmp_path / "direct-broker.sqlite"
     conn, _message_id = _seed(str(path))
-    conn.close()
 
     def compete(route: str) -> bool:
-        worker = sqlite3.connect(str(path), timeout=5, check_same_thread=False)
-        worker.row_factory = sqlite3.Row
-        try:
+        with closing(open_message_test_database(str(path))) as worker:
             if route == "broker":
                 return (
                     lease_broker_wake_for_hook(
@@ -333,17 +333,14 @@ def test_direct_and_broker_claims_share_one_recipient_cas(tmp_path) -> None:
                 ).jobs
                 != ()
             )
-        finally:
-            worker.close()
 
-    with ThreadPoolExecutor(max_workers=2) as pool:
-        results = list(pool.map(compete, ("direct", "broker")))
-
-    assert sum(results) == 1
-    verify = sqlite3.connect(str(path))
-    assert (
-        verify.execute(
-            "SELECT COUNT(*) FROM session_message_attempts WHERE completed_at IS NULL"
-        ).fetchone()[0]
-        == 1
-    )
+    with closing(conn):
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results = list(pool.map(compete, ("direct", "broker")))
+        assert sum(results) == 1
+        assert (
+            conn.execute(
+                "SELECT COUNT(*) FROM session_message_attempts WHERE completed_at IS NULL"
+            ).fetchone()[0]
+            == 1
+        )

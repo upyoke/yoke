@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import sqlite3
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import closing
 from datetime import timedelta
 
 from yoke_contracts.session_control.wake_instruction import native_wake_instruction
@@ -20,6 +20,9 @@ from runtime.api.domain.session_broker_test_support import (
     _reserve,
     _seed,
     _stamp,
+)
+from runtime.api.domain.session_message_support_test_support import (
+    open_message_test_database,
 )
 
 
@@ -259,30 +262,24 @@ def test_open_broker_roles_cannot_recursively_broker_or_duplicate() -> None:
 def test_concurrent_peers_reserve_exactly_one_broker_attempt(tmp_path) -> None:
     path = tmp_path / "broker.sqlite"
     conn, _message_id = _seed(str(path))
-    conn.close()
 
     def reserve(broker: str):
-        worker = sqlite3.connect(str(path), timeout=5, check_same_thread=False)
-        worker.row_factory = sqlite3.Row
-        try:
+        with closing(open_message_test_database(str(path))) as worker:
             return lease_broker_wake_for_hook(
                 worker,
                 broker_session_id=broker,
                 hook_event="PreToolUse",
                 now=NOW + timedelta(seconds=1),
             )
-        finally:
-            worker.close()
 
-    with ThreadPoolExecutor(max_workers=2) as pool:
-        results = list(pool.map(reserve, ("broker-a", "broker-b")))
-    assert sum(result is not None for result in results) == 1
-    assert (
-        sqlite3.connect(str(path))
-        .execute(
-            "SELECT COUNT(*) FROM session_message_attempts "
-            "WHERE attempt_kind='wake_broker' AND completed_at IS NULL"
+    with closing(conn):
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results = list(pool.map(reserve, ("broker-a", "broker-b")))
+        assert sum(result is not None for result in results) == 1
+        assert (
+            conn.execute(
+                "SELECT COUNT(*) FROM session_message_attempts "
+                "WHERE attempt_kind='wake_broker' AND completed_at IS NULL"
+            ).fetchone()[0]
+            == 1
         )
-        .fetchone()[0]
-        == 1
-    )

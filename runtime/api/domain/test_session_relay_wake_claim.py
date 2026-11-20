@@ -7,8 +7,8 @@ from runtime.api.domain.session_relay_wake_claim_test_support import (
 )
 
 
-import sqlite3
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import closing
 from datetime import timedelta
 
 from yoke_core.domain.session_message_service import send_message
@@ -22,6 +22,7 @@ from runtime.api.domain.session_message_support_test_support import (
     NOW,
     NOW_TEXT,
     message_connection,
+    open_message_test_database,
     selector,
 )
 
@@ -86,31 +87,24 @@ def test_concurrent_relays_cannot_claim_the_same_recipient(tmp_path) -> None:
     )
     _waiting(seed)
     candidate = wake_eligible_recipients(seed, now=NOW + timedelta(minutes=11))[0]
-    seed.close()
 
     def claim_once() -> bool:
-        conn = sqlite3.connect(path, timeout=5, check_same_thread=False)
-        conn.row_factory = sqlite3.Row
-        try:
+        with closing(open_message_test_database(str(path))) as conn:
             claim = claim_wake_attempt(
                 conn, candidate=candidate, now="2026-08-22T16:11:00Z"
             )
             if claim is not None:
                 conn.commit()
             return claim is not None
-        finally:
-            conn.close()
 
-    with ThreadPoolExecutor(max_workers=2) as pool:
-        claimed = list(pool.map(lambda _index: claim_once(), range(2)))
-
-    assert sorted(claimed) == [False, True]
-    check = sqlite3.connect(path)
-    assert (
-        check.execute("SELECT COUNT(*) FROM session_message_attempts").fetchone()[0]
-        == 1
-    )
-    check.close()
+    with closing(seed):
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            claimed = list(pool.map(lambda _index: claim_once(), range(2)))
+        assert sorted(claimed) == [False, True]
+        assert (
+            seed.execute("SELECT COUNT(*) FROM session_message_attempts").fetchone()[0]
+            == 1
+        )
 
 
 def test_new_liveness_observation_invalidates_a_selected_candidate() -> None:

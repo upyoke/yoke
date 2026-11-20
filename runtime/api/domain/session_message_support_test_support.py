@@ -50,9 +50,19 @@ def add_coordination_claim_schema(conn: sqlite3.Connection) -> None:
     )
 
 
-def message_connection(path: str = ":memory:") -> sqlite3.Connection:
+def open_message_test_database(path: str) -> sqlite3.Connection:
     conn = sqlite3.connect(path, timeout=5, check_same_thread=False)
     conn.row_factory = sqlite3.Row
+    # These disposable fixtures exercise transaction contention, not disk durability.
+    conn.execute("PRAGMA synchronous = OFF")
+    return conn
+
+
+def message_connection(path: str = ":memory:") -> sqlite3.Connection:
+    conn = open_message_test_database(path)
+    if path != ":memory:":
+        # Readers should not hold up writer commits in the concurrent lease tests.
+        assert conn.execute("PRAGMA journal_mode = WAL").fetchone()[0] == "wal"
     conn.execute("PRAGMA foreign_keys = ON")
     conn.executescript(
         """
