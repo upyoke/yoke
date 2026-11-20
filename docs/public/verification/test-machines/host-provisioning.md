@@ -4,6 +4,8 @@
 [Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Verification](../index.md) > [Machine QA](index.md) > Host provisioning
 <!-- /yoke:breadcrumbs -->
 
+Follow the [normal-user installation rule](index.md#install-as-the-test-user).
+
 For stored-password setup commands on macOS and Linux, follow [administrator commands](administrator-commands.md).
 
 Follow [setup responsibilities](setup-responsibilities.md) for every step.

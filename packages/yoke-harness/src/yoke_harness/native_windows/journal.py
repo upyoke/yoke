@@ -23,8 +23,17 @@ $journal="$root\private\journal.json"
 $receipt='RECEIPT_PATH'
 RECEIPT_PUBLISH
 function Tools {
+ # Correlate both HKLM uninstall views with the installed Programs/MSI packages.
+ # The test user's tools belong to the profile golden.
+ $machine=@(Get-ItemProperty -Path @(
+  'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*',
+  'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*'
+ ) -ErrorAction SilentlyContinue)
  @(Get-Package -ProviderName Programs,msi -ErrorAction SilentlyContinue |
-   Select-Object Name,Version,ProviderName | Sort-Object Name,Version,ProviderName)
+   Where-Object {
+    $name=$_.Name; $version=$_.Version
+    $machine | Where-Object {$_.DisplayName -eq $name -and $_.DisplayVersion -eq $version} | Select-Object -First 1
+   } | Select-Object Name,Version,ProviderName | Sort-Object Name,Version,ProviderName)
 }
 function Certificates {
  @(Get-ChildItem Cert:\LocalMachine -Recurse | Where-Object Thumbprint |

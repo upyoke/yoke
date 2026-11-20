@@ -14,24 +14,15 @@ from yoke_contracts.self_host_paths import default_bundle_dir
 # from these absolute locations rather than from a login PATH, because the
 # program runs with a deliberately clean PATH and a runtime it cannot see is a
 # runtime whose containers it would silently leave running.
+DOCKER_DESKTOP_CLI = "~/.docker/bin/docker"
+CONTAINER_RUNTIME_PROCESS_ANCHOR = "/Applications/Docker.app/Contents/MacOS/com.docker.backend"
 CONTAINER_RUNTIME_PATHS = (
+    DOCKER_DESKTOP_CLI,
     "/usr/local/bin/docker",
     "/opt/homebrew/bin/docker",
 )
-# The desktop application owning the runtime's data. It is stopped before the
-# clear because a live backend keeps writing into the very home directory the
-# restore is replacing, which turns a clean restore into a race. A Colima host
-# keeps its VM state outside the restored home, so it does not match and its
-# daemon stays up across resets, which is what lets the verify phase list it.
-CONTAINER_RUNTIME_PROCESS_ANCHOR = "/Applications/Docker.app"
 CONTAINER_RUNTIME_STOP_TIMEOUT_SECONDS = 30
-# A stopped Colima is the normal state when a test Mac resets: provisioning
-# ends with `colima stop` and the runtime stops across every reset. Its VM disk
-# lives outside the restored home and keeps whatever the last walk left, so the
-# reset starts it to list that stack, and stops it again once verify has seen
-# it, leaving the runtime as it found it. Colima also names the daemon socket
-# (`colima status --json`), which the client needs when the restored home
-# carries no Colima docker context and it falls back to /var/run/docker.sock.
+# Colima names the daemon socket when the restored home has no Docker context.
 CONTAINER_RUNTIME_STARTER_PATHS = (
     "/usr/local/bin/colima",
     "/opt/homebrew/bin/colima",
@@ -63,19 +54,19 @@ RESET_SELF_HOST_KINDS = (
 #: rejected as not produced by the program that owns this contract.
 RESET_SELF_HOST_KIND_PATHS = {
     RESET_SELF_HOST_KIND_DOCKER_UNREACHABLE: CONTAINER_RUNTIME_PATHS,
-    RESET_SELF_HOST_KIND_RUNTIME_STOP_FAILED: CONTAINER_RUNTIME_STARTER_PATHS,
+    RESET_SELF_HOST_KIND_RUNTIME_STOP_FAILED: (DOCKER_DESKTOP_CLI, *CONTAINER_RUNTIME_STARTER_PATHS),
 }
 RESET_SELF_HOST_RECOVERY = {
     RESET_SELF_HOST_KIND_DOCKER_UNREACHABLE: (
         "The container runtime client {runtime} cannot list the self-host "
         "stack, even after the reset tried to start the runtime, so the reset "
         "cannot tell a clean host from leftovers it could not see. Start the "
-        "runtime as the test account (colima start), confirm `docker ps` "
+        "runtime as the test account (`{start}`), confirm `docker ps` "
         "answers, and rerun the reset."
     ),
     RESET_SELF_HOST_KIND_RUNTIME_STOP_FAILED: (
         "The reset started the container runtime with {runtime} to list the "
-        "self-host stack and could not stop it again. Run `colima stop` as "
+        "self-host stack and could not stop it again. Run `{stop}` as "
         "the test account, then rerun the reset."
     ),
 }
@@ -83,6 +74,7 @@ RESET_SELF_HOST_RECOVERY = {
 
 __all__ = [
     "COMPOSE_PROJECT_LABEL",
+    "DOCKER_DESKTOP_CLI",
     "CONTAINER_RUNTIME_PATHS",
     "CONTAINER_RUNTIME_PROCESS_ANCHOR",
     "CONTAINER_RUNTIME_STARTER_PATHS",

@@ -21,6 +21,7 @@ from yoke_contracts.ssh_mac_full_reset_contract import (
 from yoke_contracts.ssh_mac_full_reset_self_host_contract import (
     CONTAINER_RUNTIME_PATHS,
     CONTAINER_RUNTIME_STARTER_PATHS,
+    DOCKER_DESKTOP_CLI,
     RESET_SELF_HOST_KIND_DOCKER_UNREACHABLE,
     RESET_SELF_HOST_KIND_RUNTIME_STOP_FAILED,
     RESET_SELF_HOST_RECOVERY,
@@ -38,11 +39,11 @@ def _unreachable_stdout(phase: str, runtime: str) -> str:
     )
 
 
+@pytest.mark.parametrize("runtime", [CONTAINER_RUNTIME_PATHS[1], DOCKER_DESKTOP_CLI])
 @pytest.mark.parametrize("phase", ["stop_self_host_stack", "verify_restored_home"])
 def test_reset_refuses_naming_the_runtime_whose_daemon_could_not_list(
-    phase: str,
+    phase: str, runtime: str,
 ) -> None:
-    runtime = CONTAINER_RUNTIME_PATHS[1]
     transport = FakeResetTransport(
         _unreachable_stdout(phase, runtime), reset_returncode=1
     )
@@ -52,13 +53,14 @@ def test_reset_refuses_naming_the_runtime_whose_daemon_could_not_list(
     assert not result.ok
     assert result.error_code == f"test_mac_reset_{phase}_failed"
     assert result.evidence["reset_phase"] == phase
+    start = f"{runtime} desktop start" if runtime == DOCKER_DESKTOP_CLI else "colima start"
     recovery = RESET_SELF_HOST_RECOVERY[RESET_SELF_HOST_KIND_DOCKER_UNREACHABLE]
     assert result.evidence["self_host_state"] == {
         "runtime": runtime,
         "reason": RESET_SELF_HOST_KIND_DOCKER_UNREACHABLE,
-        "recovery": recovery.format(runtime=runtime),
+        "recovery": recovery.format(runtime=runtime, start=start),
     }
-    assert "colima start" in str(result.evidence["self_host_state"]["recovery"])
+    assert start in str(result.evidence["self_host_state"]["recovery"])
 
 
 def test_reset_rejects_an_unreachable_detail_naming_a_foreign_client() -> None:
@@ -108,8 +110,8 @@ def test_reset_rejects_an_inconsistent_reachability_line(stdout: str) -> None:
     assert result.error_code == "test_mac_reset_output_invalid"
 
 
-def test_reset_refuses_naming_the_runtime_it_started_and_could_not_stop() -> None:
-    starter = CONTAINER_RUNTIME_STARTER_PATHS[1]
+@pytest.mark.parametrize("starter", [CONTAINER_RUNTIME_STARTER_PATHS[1], DOCKER_DESKTOP_CLI])
+def test_reset_refuses_naming_the_runtime_it_started_and_could_not_stop(starter: str) -> None:
     transport = FakeResetTransport(
         "\n".join(
             (
@@ -125,9 +127,10 @@ def test_reset_refuses_naming_the_runtime_it_started_and_could_not_stop() -> Non
 
     assert not result.ok
     assert result.error_code == "test_mac_reset_verify_restored_home_failed"
+    stop = f"{starter} desktop stop" if starter == DOCKER_DESKTOP_CLI else "colima stop"
     recovery = RESET_SELF_HOST_RECOVERY[RESET_SELF_HOST_KIND_RUNTIME_STOP_FAILED]
     assert result.evidence["self_host_state"] == {
         "runtime": starter,
         "reason": RESET_SELF_HOST_KIND_RUNTIME_STOP_FAILED,
-        "recovery": recovery.format(runtime=starter),
+        "recovery": recovery.format(runtime=starter, stop=stop),
     }

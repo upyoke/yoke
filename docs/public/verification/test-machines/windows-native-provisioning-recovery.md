@@ -308,7 +308,8 @@ only by Administrators/SYSTEM; the standard user can start it and write
 `C:\ProgramData\YokeQa\requests`, never replace the program or its protected
 receipts. Before mutations
 it records AppLocker policy, `LongPathsEnabled` presence/value, machine
-certificate inventory and Programs/MSI tools; public certificates export privately.
+certificate inventory and machine-scope Programs/MSI tools. Public certificates
+export privately. Restore per-user tools with the test user's profile golden.
 
 Before baseline-tool removal, the administrator supplies its versioned installer
 in the private recovery cache and `tool-installers.json`. Private-key certificate

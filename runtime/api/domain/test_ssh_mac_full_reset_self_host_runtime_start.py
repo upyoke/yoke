@@ -173,3 +173,46 @@ def test_verify_reaches_colima_after_the_restore_drops_its_docker_context(
     assert "TEARDOWN_FAILED" not in result.stdout, result.stdout + result.stderr
     assert "VERIFY_FAILED" not in result.stdout, result.stdout + result.stderr
     assert _starter_calls(state) == ["status", "status"]
+
+
+@pytest.mark.macos_only(reason="executes a macOS reset program in /bin/zsh")
+@pytest.mark.parametrize("daemon_down", [True, False])
+def test_docker_desktop_uses_its_own_socket_and_keeps_its_prior_state(
+    tmp_path: Path, daemon_down: bool
+) -> None:
+    fake_client, state = fake_runtime(tmp_path, containers=("core",))
+    client = state / ".docker/bin/docker"
+    client.parent.mkdir(parents=True)
+    (state / "needs-socket").touch()
+    body = fake_client.read_text().replace(
+        'unix://$state/docker.sock', 'unix://$state/.docker/run/docker.sock'
+    )
+    body = body.replace('subject=', r"""
+case "$1 ${2:-}" in
+  'desktop start') print start >> "$state/desktop.log"; /bin/rm "$state/down"; exit ;;
+  'desktop stop') print stop >> "$state/desktop.log"; touch "$state/down"; exit ;;
+esac
+subject=""")
+    client.write_text(body)
+    client.chmod(0o755)
+
+    lines = (
+        *self_host_lines(client, anchor="no-such-application"),
+        'container_runtime_paths=("$docker_desktop_cli")',
+        'docker_desktop_is_running() { [[ ! -e "$home/down" ]]; }',
+        'export DOCKER_CONTEXT=wrong-context',
+        'stop_self_host_stack || print -r -- TEARDOWN_FAILED',
+        'self_host_stack_is_absent || print -r -- VERIFY_FAILED',
+        'restore_container_runtime_state || print -r -- RESTORE_FAILED',
+        'print -r -- "REACHABLE $self_host_stack_reachable"',
+    )
+    result = run(lines, state=state, daemon_down=daemon_down)
+
+    assert "FAILED" not in result.stdout, result.stdout + result.stderr
+    assert "REACHABLE 1" in result.stdout
+    assert (state / "removed-containers").read_text().strip() == "core"
+    assert (state / "down").exists() == daemon_down
+    log = state / "desktop.log"
+    assert (log.read_text().splitlines() if log.exists() else []) == (
+        ["start", "stop"] if daemon_down else []
+    )

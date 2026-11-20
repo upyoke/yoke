@@ -4,6 +4,8 @@
 [Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Verification](../index.md) > [Machine QA](index.md) > macOS host provisioning
 <!-- /yoke:breadcrumbs -->
 
+Follow the [normal-user installation rule](index.md#install-as-the-test-user).
+
 For stored-password setup commands on macOS and Linux, follow [administrator commands](administrator-commands.md).
 
 Follow [setup responsibilities](setup-responsibilities.md) and the project-owned
@@ -33,12 +35,13 @@ sign-in flow. Enable startup/unattended operation and disable device key expiry
 in the admin console. Controllers join the same tailnet and use MagicDNS.
 This is one-time manual machine setup.
 
-Install the [standalone macOS client](https://tailscale.com/download/mac),
+On supported macOS versions, install the [standalone macOS client](https://tailscale.com/download/mac),
 open it and approve its VPN/system extension. Complete sign-in, enable launch
 at startup and prove reachability after logout/reboot. Existing test Macs join
 or retain this same tailnet; their system Tailscale state stays outside goldens.
 Use the client CLI at `/Applications/Tailscale.app/Contents/MacOS/Tailscale`
-for the status command below, or the installed `tailscale` command if available.
+for the status command below. For macOS 12, use the
+[documented exception](#macos-12-only).
 
 Complete the [Remote Login setup](#3-remote-login-and-full-disk-access) before
 proving SSH. Read `Self.DNSName` from `tailscale status --json`, trim the trailing dot and
@@ -213,43 +216,38 @@ current [Claude installer](https://code.claude.com/docs/en/setup),
 Terminal and check that each prints its version. A non-login SSH PATH may omit `.local/bin`;
 that is not an absent CLI. Declare actual executable paths for probes. Open each
 desktop app from the test account once and complete its first-run prompts in the
-GUI. Homebrew can install the Claude, ChatGPT (Codex) and Cursor desktop apps
-with `brew install --cask claude chatgpt cursor`. Leave credential prompts open
-for the operator and resume when they confirm.
+GUI. Download [Claude](https://claude.com/download),
+[ChatGPT with Codex](https://chatgpt.com/download) and
+[Cursor](https://cursor.com/download) in the test user's browser. Drag each app
+to Applications. Leave credential prompts open for the operator.
 Check each vendor's current supported OS list before choosing coverage. An
 existing executable does not prove that the host supports a new installation.
-Golden refresh proves each installed CLI with `--version` in the GUI session.
-If a new binary cannot run, it restores a runnable prior version and reports
-`held back: HARNESS VERSION does not run on this host` with its exit code and
-stderr. Cursor releases remain under `~/.local/share/cursor-agent/versions/`;
-refresh selects the newest runnable one and re-points both CLI links. It sets
-Cursor's existing `static` channel through the retained CLI's
-`set-channel static` command, preserving other config keys, so a real request
-cannot auto-update those links to the broken
-release. Yoke still retries the latest vendor installer on later plans. Keep
-those releases. A held-back CLI is accepted for this host and captured in its
-new golden. With no runnable version, refresh stops naming the harness and
-error; install a supported version as the test user, prove `--version` in
-Terminal, then rerun the plan. Installer success alone proves nothing.
+Golden refresh proves each CLI with `--version` in the GUI session. If a new
+release fails, refresh reports the exit code and keeps a runnable prior one.
+Cursor keeps releases in `~/.local/share/cursor-agent/versions/`. Refresh
+re-points both CLI links and runs `set-channel static` on the retained CLI to
+prevent a request from relinking the broken release. Later plans retry the
+vendor installer. If no version runs, install a supported release as the test
+user, prove `--version` in Terminal, and retry.
 
-Self-host cases need Docker. Run `brew install colima docker docker-compose`
-as the test user. Add the prefix's `lib/docker/cli-plugins` directory to
-`cliPluginsExtraDirs` in `~/.docker/config.json`, keeping other settings.
-Use the `docker compose` plugin interface. [Docker Compose version history](https://docs.docker.com/compose/intro/history/)
-Keep `COLIMA_HOME`, `LIMA_HOME` and `COLIMA_CACHE_HOME`
-under a shared folder in `~/.zshenv`, and put `/usr/local/bin` on PATH (Intel)
-or `/opt/homebrew/bin` (Apple silicon). Keep the shared folder owner-only
-and outside golden retention directories. Colima stops across a reset or reboot.
-Each Docker case starts it again. A reset starts a stopped Colima itself to
-remove leftover self-host containers and volumes, then stops it; it refuses
-`docker_unreachable` when the daemon still cannot list them. Prove Docker once, then stop the fixture VM:
+For self-host cases, download [Docker Desktop](https://docs.docker.com/desktop/setup/install/mac-install/)
+and drag Docker to Applications. Open it as the test user and have the
+operator accept the Docker Subscription Service Agreement. Keep the default
+user-scoped setup. Verify `~/.docker/bin/docker version` and
+`~/.docker/bin/docker compose version`. The reset removes the labeled self-host
+stack and keeps Docker Desktop's VM data live outside the golden. If the reset
+starts Docker Desktop, it quits it again after verification.
 
-```text
-colima start --vm-type vz  # Apple silicon
-docker run --rm hello-world
-docker compose version
-colima stop
-```
+### macOS 12 only
+
+On macOS 12, use [Colima](https://colima.run/docs/installation/) for Docker
+and Compose. Choose versions that support the installed OS. Initialize the
+runtime and verify `docker run --rm hello-world` and `docker compose version`
+before stopping it. Set `COLIMA_HOME`, `LIMA_HOME` and `COLIMA_CACHE_HOME`
+in `~/.zshenv` to owner-only directories outside the captured home and
+golden retention directories. Use the Homebrew Tailscale formula on macOS 12 and verify the existing
+service and tailnet connection after reboot. The current standalone app
+requires a newer version of macOS.
 
 ## 7. Effective privacy and terminal control
 

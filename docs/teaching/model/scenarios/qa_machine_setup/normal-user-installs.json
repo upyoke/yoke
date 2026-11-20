@@ -1,0 +1,12 @@
+{
+ "id": "normal-user-installs",
+ "title": "Install fixture software as the test user",
+ "status": "approved",
+ "audience": "both",
+ "when": "A dedicated QA host needs software installed or replaced",
+ "need": "Use vendor public installers as the test user. Elevate at the vendor's normal prompt for a machine-wide dependency. Use Docker Desktop on supported Macs and keep its VM state live outside the golden. Apply the documented macOS 12 exceptions.",
+ "disclosure": "current cue",
+ "surface": "Machine QA index and host provisioning procedures",
+ "review": "Verify install scopes and fresh goldens on the reinstalled fleet.",
+ "sources": ["docs/public/verification/test-machines/index.md", "docs/public/verification/test-machines/macos-host-provisioning.md", "docs/public/verification/test-machines/windows-native-host-provisioning.md"]
+}

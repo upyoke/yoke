@@ -23,6 +23,8 @@ PRESERVED_DIRECTORIES = (
     ".yoke-browser-identities",
     ".ssh",
     ".codex/packages",
+    # The vendor's standalone launcher is a junction into those packages.
+    "AppData/Local/Programs/OpenAI/Codex/bin",
     ".local/share/claude",
     ".local/share/cursor-agent",
     "AppData/Local/Microsoft",

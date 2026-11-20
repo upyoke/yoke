@@ -88,44 +88,32 @@ Keep every OS-guide prerequisite: dedicated console account, private SSH,
 Command Line Tools/Git, Python, GUI Terminal, privacy grants, harness sign-ins,
 Claude acceptance, screen saver and Keychain. Do not replace these with Docker checks.
 For a fresh install choose supported native binaries for `uname -m` and `sw_vers`.
-The proved combination was Colima 0.10.3/Lima 2.2.1 with Docker CLI and Compose v2;
-these are evidence versions, not mandatory patch pins for future machines.
+On supported macOS, follow the [Docker Desktop install and verification steps](../public/verification/test-machines/macos-host-provisioning.md).
+Run the workload below in the test user's GUI session and confirm the CLI
+is available under `~/.docker/bin`. Docker Desktop's VM data and live socket
+stay on the host and out of the golden.
 
-Follow [Colima installation](https://colima.run/docs/installation/),
-[Lima installation](https://lima-vm.io/docs/installation/),
-[Docker static binaries](https://docs.docker.com/engine/install/binaries/), and
-[Compose releases](https://github.com/docker/compose/releases).
-On supported current macOS, `brew install colima docker docker-compose` is an
-installation choice; follow the formula's plugin-discovery caveat. Check its OS
-support first. The proved portable manual route installs release binaries:
+### macOS 12 only
 
-| Host | Colima/Lima asset arch | Docker archive arch | Compose asset arch | VM |
-| --- | --- | --- | --- | --- |
-| Apple Silicon | arm64 | aarch64 | aarch64 | VZ on supported macOS |
-| Intel | x86_64 | x86_64 | x86_64 | QEMU on Monterey |
-
-Select reviewed release tags from each vendor and verify published checksums
-before installation. Download Colima's `colima-Darwin-ARCH`, Lima's
-`lima-VERSION-Darwin-ARCH.tar.gz`, Docker's `mac/static/stable/ARCH/docker-VERSION.tgz`,
-and Compose's `docker-compose-darwin-ARCH` from those vendor pages. Preserve
-existing binaries/configuration before replacing anything. Administrator installs
-Colima and Docker executables mode 0755 in `/usr/local/bin`; extract Lima's full
-`bin`, `share` and `libexec` distribution under `/usr/local`, preserving its
-relative layout. Do not copy only `limactl`. Install the Compose executable mode
-0755 as the test user's `~/.docker/cli-plugins/docker-compose`; this is captured
-home state. Confirm native `colima version`, `limactl --version`, `docker --version`
-and `docker compose version` in SSH and GUI Terminal. Reset must find Docker at
-`/usr/local/bin/docker` or `/opt/homebrew/bin/docker`, not only a custom shell alias.
-
-Monterey cannot use current Docker Desktop's supported OS range. The proved
-Intel path uses [MacPorts](https://www.macports.org/install.php)' signed/notarized
+The proved path uses Colima 0.10.3, Lima 2.2.1, Docker CLI and Compose v2.
+For this Intel fixture, use [MacPorts](https://www.macports.org/install.php)' signed/notarized
 installer for that exact OS, then `sudo port -N install qemu +target_x86_64`.
 Put `/opt/local/bin` on the test user's PATH and prove `qemu-system-x86_64 --version`.
 Use [Lima's QEMU requirements](https://lima-vm.io/docs/config/vmtype/qemu/).
 Do not upgrade hardware/OS or accept a Desktop agreement as an implied repair.
 Licensing, personal sign-in, password and 2FA gates go to the operator when needed.
 
-### External profile, environment and first start
+Download the Intel release assets from
+[Colima](https://github.com/abiosoft/colima/releases),
+[Lima](https://github.com/lima-vm/lima/releases),
+[Docker](https://download.docker.com/mac/static/stable/x86_64/) and
+[Compose](https://github.com/docker/compose/releases). Verify the published
+checksums before installing. Place the executable tools in `/usr/local/bin`,
+including Lima's matching `share/lima` tree under `/usr/local`. Put the
+Compose plugin in `~/.docker/cli-plugins/docker-compose`. Prove the versions
+in both SSH and GUI Terminal.
+
+#### External profile, environment and first start
 
 Choose a test-user-owned mode-0700 directory such as
 `/Users/Shared/colima-TESTUSER`, outside the captured home AND every golden
@@ -153,8 +141,7 @@ Start as the test user, never root. The proved first-start shape is:
 colima start --runtime docker --cpus 2 --memory 4 --disk 20 --ssh-config=false
 ```
 
-On supported Apple Silicon add `--vm-type vz`; the proved Monterey build chooses
-QEMU and omits that unsupported flag. Preserve project-approved DNS/mount/resource
+The Monterey build uses QEMU. Preserve project-approved DNS, mount and resource
 settings; the fixture used explicit `--dns` values, not universal DNS policy.
 Require `colima status`, a responding Docker server and a context whose endpoint
 is `unix://$COLIMA_HOME/default/docker.sock` (`docker context inspect colima`).
@@ -171,7 +158,7 @@ A daemon failure requires the same environment and `colima start`, followed by
 actual workloads, not a claim that the Docker executable proves readiness.
 Sealed runtime extras must ensure the declared daemon is up and leave it running.
 
-### A Mac serving its own LAN/Tailscale address
+#### Serving the Mac's LAN or Tailscale address
 
 Loopback remains the default. A Linux VM IP is not the Mac's LAN/Tailscale IP.
 For a declared numeric private-address server, use Colima's existing

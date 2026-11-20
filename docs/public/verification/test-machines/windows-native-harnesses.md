@@ -5,7 +5,8 @@
 <!-- /yoke:breadcrumbs -->
 
 Complete [desktop setup](windows-native-host-provisioning.md#3-desktop-and-sign-ins)
-before installing and signing in as the dedicated standard test user.
+before installing and signing in as the dedicated standard test user. Follow
+the [normal-user installation rule](index.md#install-as-the-test-user).
 
 Open built-in **Windows PowerShell 5.1** as that user: **Start > Run**, then
 `C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe` (or
@@ -34,7 +35,7 @@ try {
  $entries=@($raw -split ';'|ForEach-Object {[Environment]::ExpandEnvironmentVariables($_).TrimEnd('\')})
  if($entries -inotcontains $claudeDir){$key.SetValue('Path',($raw.TrimEnd(';')+';'+$claudeDir).TrimStart(';'),$kind)}
 } finally {$key.Dispose()}
-npm.cmd install --global @openai/codex
+& (VendorScript 'https://chatgpt.com/codex/install.ps1')
 & (VendorScript 'https://cursor.com/install?win32=true')
 $env:Path=[Environment]::GetEnvironmentVariable('Path','Machine')+';'+[Environment]::GetEnvironmentVariable('Path','User')
 claude --version
@@ -46,8 +47,8 @@ Native installer downloads are decoded as UTF-8 from their raw response bytes.
 Finish each successful install before starting another. Claude can report
 success while warning that `.local\bin` is missing from PATH; preserve existing
 entries and registry value kind when adding it. Existing GUI processes retain
-their inherited PATH. Verify command discovery in a fresh desktop shell as well
-as SSH; a probe that rebuilds its own PATH does not prove GUI inheritance.
+their inherited PATH. Verify command discovery in a fresh desktop shell.
+A probe that rebuilds its PATH does not prove GUI inheritance.
 Windows PowerShell can expose binary media as a byte array in `Content`; treating
 that value as text can break execution or hash a conversion instead of the script.
 Compare raw bytes before attributing a checksum refusal to changed vendor code.
@@ -61,18 +62,24 @@ If Cursor architecture detection fails with CIM/WMI access denied under SSH,
 stop and inspect the partial installer directory and user PATH before retrying.
 Its initializer can mutate both before the architecture check. An interactive
 token must be proved separately; do not elevate the standard test user.
-Yoke runs Cursor installation and its post-install probe through the existing
-standard user's interactive desktop task. Ordinary probes and the other CLI
-installers use SSH. A missing interactive session refuses installation.
+Yoke uses the standard user's interactive desktop task for Cursor and Codex
+installation and for probes that include Codex. OpenSSH Redirection Guard
+can block the Codex vendor installer's per-user launcher junction.
+A missing interactive session refuses the operation.
 
-Install desktop apps using the vendor's documented package context, then launch
-and sign in as the standard test user. Claude's direct MSIX includes a service
-and requires administrator provisioning; non-admin `Add-AppxPackage` can refuse
-with `0x80073D28`. OpenAI's machine provisioning requires its offline license.
-Follow [Claude deployment](https://support.claude.com/en/articles/12622703-deploy-claude-desktop-for-windows)
-and [OpenAI deployment](https://learn.chatgpt.com/docs/enterprise/windows-deployment.md);
-keep WSL and VirtualMachinePlatform disabled. Provisioning alone does not prove
-standard-user registration, launch or authentication.
+Install desktop apps from their public downloads in the standard test user's
+desktop session:
+
+- **Claude Desktop:** Ben opens [Claude's download page](https://claude.com/download)
+  in the test user's browser, downloads the Windows installer and runs it.
+- **OpenAI desktop app with Codex:** start from the [ChatGPT desktop download](https://chatgpt.com/download/)
+  and follow the Windows install as the test user. Select **Codex** after
+  signing in.
+- **Cursor:** choose the Windows **User** installer for the host architecture
+  from [Cursor's download page](https://cursor.com/download). Run it as the
+  test user.
+
+Keep WSL and VirtualMachinePlatform disabled on this fixture.
 
 Agents finish setup and navigation; Ben types his own harness/GitHub passwords. Before goldens,
 prove real CLI requests and visible signed-in desktop apps; installs/versions

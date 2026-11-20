@@ -59,7 +59,8 @@ with TemporaryDirectory(prefix="install-health-") as directory:
         ]),
     }
     recovery_tokens = dict([
-        ("harness-auth-missing", "install -g @openai/codex"),
+        ("harness-auth-missing", "https://chatgpt.com/codex/install.ps1"
+         if sys.platform == "win32" else "https://chatgpt.com/codex/install.sh"),
         ("dashboard-stale", "yoke ui down"),
         ("session-hook-unobserved", "Start a new harness session"),
         ("foreign-install-binding", "yoke setup"),

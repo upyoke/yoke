@@ -18,7 +18,7 @@ pytestmark = pytest.mark.windows
 
 
 @pytest.mark.windows_only(reason="requires Windows PowerShell 5.1")
-@pytest.mark.parametrize("harness", ["claude-code", "cursor"])
+@pytest.mark.parametrize("harness", ["claude-code", "codex", "cursor"])
 @pytest.mark.parametrize("media_type", ["application/octet-stream", "text/plain; charset=utf-8"])
 @pytest.mark.parametrize("encoding", ["utf-8", "utf-8-sig", "invalid-utf-8"])
 def test_vendor_installers_decode_raw_utf8(tmp_path, monkeypatch, harness, media_type, encoding):
@@ -32,7 +32,10 @@ def test_vendor_installers_decode_raw_utf8(tmp_path, monkeypatch, harness, media
     marker = tmp_path / "installed.txt"
     expected = "installer executed: café 雪"
     source = (
-        "param([string]$Target)\n"
+        "param([string]$Release)\n"
+        + ("if($env:CODEX_NON_INTERACTIVE -ne '1' -or $Release -ne '1.2.3'){throw 'Missing pinned install'}\n"
+           if harness == "codex" else "")
+        +
         f"[IO.File]::WriteAllText({quote(str(marker))},{quote(expected)},"
         "[Text.UTF8Encoding]::new($false)); $global:LASTEXITCODE=0\n"
     ).encode("utf-8-sig" if encoding == "utf-8-sig" else "utf-8")
@@ -58,10 +61,11 @@ def test_vendor_installers_decode_raw_utf8(tmp_path, monkeypatch, harness, media
     thread = Thread(target=server.serve_forever, daemon=True)
     thread.start()
     local_url = f"http://127.0.0.1:{server.server_port}/installer.ps1"
-    vendor_url = (
-        "https://claude.ai/install.ps1" if harness == "claude-code"
-        else "https://cursor.com/install?win32=true"
-    )
+    vendor_url = {
+        "claude-code": "https://claude.ai/install.ps1",
+        "codex": "https://chatgpt.com/codex/install.ps1",
+        "cursor": "https://cursor.com/install?win32=true",
+    }[harness]
     content_type = "System.Byte[]" if media_type == "application/octet-stream" else "System.String"
 
     class Control:

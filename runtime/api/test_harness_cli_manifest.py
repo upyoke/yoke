@@ -122,10 +122,14 @@ def test_codex_app_bundle_is_resolved_from_the_declared_path(tmp_path, monkeypat
     from dataclasses import replace
 
     manifest = next(m for m in HARNESS_CLI_MANIFESTS if m.harness_id == "codex")
+    assert manifest.install_for_platform(windows=False) == (
+        "curl -fsSL https://chatgpt.com/codex/install.sh | sh"
+    )
     assert manifest.bundled_candidates == (
+        "~/.local/bin/codex",
         "/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex",
     )
-    bundled = _native_executable(tmp_path / manifest.bundled_candidates[0].lstrip("/"))
+    bundled = _native_executable(tmp_path / manifest.bundled_candidates[1].lstrip("/"))
     monkeypatch.setattr(
         HarnessCliManifest, "bundles_for_platform",
         lambda self, **kw: (self.bundled_candidates, self.bundled_patterns),

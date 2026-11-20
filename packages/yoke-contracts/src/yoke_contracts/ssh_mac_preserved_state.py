@@ -39,8 +39,16 @@ HARNESS_LOGIN_HOME_ENTRIES = (
 # restored copy is the golden's stale sign-in for the same reason a restored
 # harness login is; the store stays live and is kept only when present.
 LIVE_IDENTITY_HOME_ENTRIES = (LIVE_IDENTITY_STORE_HOME_ENTRY,)
+# The reset cleans Yoke's stack through the daemon. The VM and live socket
+# remain in place so unrelated workloads and an already-running daemon survive.
+DOCKER_DESKTOP_HOME_ENTRIES = (
+    "Library/Containers/com.docker.docker",
+    "Library/Group Containers/group.com.docker",
+    ".docker/run",
+)
 PRESERVED_HOME_ENTRIES = (
     *REQUIRED_PRESERVED_HOME_ENTRIES,
+    *DOCKER_DESKTOP_HOME_ENTRIES,
     "Library/Application Support/com.apple.TCC",
     *HARNESS_LOGIN_HOME_ENTRIES,
     *OS_MANAGED_HOME_ENTRIES,

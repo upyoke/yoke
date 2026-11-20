@@ -134,15 +134,13 @@ HARNESS_CLI_MANIFESTS = (
         "codex_account_rate_limits",
         "0.161.0",
         bundled_candidates=(
+            "~/.local/bin/codex",
             "/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex",
         ),
-        install_command="npm install -g @openai/codex",
+        install_command="curl -fsSL https://chatgpt.com/codex/install.sh | sh",
         update_command="codex update",
-        windows_install_command="npm.cmd install -g @openai/codex",
-        windows_bundled_candidates=("%APPDATA%/npm/codex.cmd",),
-        windows_bundled_patterns=(
-            "%APPDATA%/npm/node_modules/@openai/codex/node_modules/@openai/codex-win32-*/vendor/*/codex/codex.exe",
-        ),
+        windows_install_command="irm https://chatgpt.com/codex/install.ps1 | iex",
+        windows_bundled_candidates=("%LOCALAPPDATA%/Programs/OpenAI/Codex/bin/codex.exe",),
         auth_args=("login", "status"),
         background_time_limit=(
             "Designed deferral: no equivalent unattended background time limit "

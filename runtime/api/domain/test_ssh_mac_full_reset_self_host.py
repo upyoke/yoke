@@ -8,7 +8,6 @@ from pathlib import Path
 from runtime.api.domain.ssh_mac_full_reset_self_host_test_support import (
     fake_runtime as _fake_runtime,
     run as _run,
-    self_host_lines as _self_host_lines,
     teardown_lines as _teardown_lines,
 )
 from yoke_contracts.ssh_mac_full_reset_contract import (
@@ -111,28 +110,6 @@ def test_teardown_reports_a_reachable_empty_daemon(tmp_path: Path) -> None:
 
 
 @pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")
-@pytest.mark.parametrize(("stopped", "passes"), [("0", False), ("1", True)])
-def test_verify_excuses_only_a_daemon_this_reset_quit(
-    tmp_path: Path, stopped: str, passes: bool
-) -> None:
-    client, state = _fake_runtime(tmp_path, containers=())
-    lines = (
-        *_self_host_lines(client, anchor="no-such-application"),
-        f"self_host_runtime_stopped={stopped}",
-        "self_host_stack_is_absent || print -r -- VERIFY_FAILED",
-        'print -r -- "DETAIL $failure_detail"',
-    )
-
-    result = _run(lines, state=state, daemon_down=True)
-
-    # The stop phase lists the stack empty before it quits the application, so
-    # only that quit explains a silent daemon at verify; anything else refuses.
-    assert ("VERIFY_FAILED" not in result.stdout) is passes, result.stdout
-    if not passes:
-        assert RESET_SELF_HOST_KIND_DOCKER_UNREACHABLE in result.stdout
-
-
-@pytest.mark.macos_only(reason="executes a macOS reset or capture program in /bin/zsh")
 def test_teardown_refuses_when_the_stack_survives_removal(tmp_path: Path) -> None:
     client, state = _fake_runtime(tmp_path, containers=("core",))
 
@@ -151,12 +128,11 @@ def test_the_bundle_directory_and_its_secrets_are_asserted_absent() -> None:
     assert SELF_HOST_COMPOSE_PROJECT == "yoke-server"
 
 
-def test_the_teardown_runs_before_the_clear_replaces_the_runtime_data() -> None:
+def test_the_teardown_runs_before_the_home_is_cleared() -> None:
     ordered = FULL_RESET_SCRIPT
     teardown = ordered.index('run_reset_step "$reset_phase_stop_self_host_stack"')
     clear = ordered.index('run_reset_step "$reset_phase_clear_home"')
-    # Ordering is the whole design: the daemon can only name its own objects
-    # while it is up, and the clear can only replace its data once it is down.
+    # Initial cleanup uses the live daemon before any home paths are replaced.
     assert teardown < clear
     assert "stop_self_host_stack" in RESET_PHASES
 
