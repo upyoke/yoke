@@ -113,7 +113,7 @@ multi-machine form: a single host pin cannot satisfy conflicting constraints.
 For one case that needs several hosts simultaneously, declare its driving host
 as `method_config.test_machine` and every required host in
 `method_config.test_machines`; names must be registered, unique, and include
-the driving host. Run this case through `yoke qa plan run`; direct case
+the driving host. Explain why in `method_config.test_machine_reason`. Run it through `yoke qa plan run`; direct case
 execution refuses it. The
 runner takes the set in sorted name order once every host is free or reserved
 for it, and retains it through case execution and mission review. Completion
@@ -184,22 +184,19 @@ through the current bundle's `yoke qa plan review-submit ... --stdin`:
 {"host_wait":{"test_machine":"linux-example","rationale":"holder evidence"}}
 ```
 
-Submit this object alone. It records no verdict or human review request,
-retains the old capture and bundle as history, and queues a new capture against
-the identical immutable target. Host-ready and continuation commands omit
-`--test-machine`, so every platform in a multi-host roster can resume. The scheduler
-keeps simultaneous cases on their declared driver with the full host set. For
-single-host cases it returns each previously used platform to its recorded host; only a new platform
-selects a fresh eligible host. Correction-ready commands also omit the pin; scheduling retains each corrected
-case’s failed attempt host through its requirement replacement history.
-Use a verdict only after the required host was available and the walk ran.
+Submit this object alone to retain prior capture and queue the immutable target.
+It records no verdict or review request. Resume keeps the execution's host
+affinity and simultaneous host set. A replacement selects afresh by
+`method_config.os` and `capability_tags`. An explicit name overrides recorded
+affinity. Finish or abort a case that still owns host state before switching.
+Record a verdict only after the walk runs.
 
 Exploratory mission `method_config` can declare an apt package fixture:
 
 ```json
 {
   "executor":"informed_subagent",
-  "test_machine":"linux-example",
+  "os":"linux",
   "host_starting_state":{"os_packages":{
     "absent":["python3-venv","python3.12-venv"],"present":[]
   }}
@@ -207,8 +204,8 @@ Exploratory mission `method_config` can declare an apt package fixture:
 ```
 
 A Command case whose command calls `yoke test-machine` must declare
-`method_config.test_machine`; without it the case would run outside the host's
-queue and meet `test_machine_leased`, so authoring refuses it naming that field.
+`method_config.test_machine` for its target host and `test_machine_reason` for its
+dependency. The name puts the local Command under that host's queue lease.
 
 `method_config.test_machine` selects that registered host even when this direct
 requirement has only the generic <!-- qa:test-machine-capability -->`test-machine` capability. Deployment

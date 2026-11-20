@@ -4,6 +4,9 @@
 [Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Verification](../index.md) > [Machine QA](index.md) > Setup responsibilities
 <!-- /yoke:breadcrumbs -->
 
+Keep [capability tags](host-provisioning.md#register-capability-tags) current
+when registering or verifying a host, including after a sign-in changes.
+
 For stored-password setup commands on macOS and Linux, follow [administrator commands](administrator-commands.md).
 
 Agents do every step an agent physically can, including system settings such

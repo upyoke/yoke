@@ -23,9 +23,8 @@ The exploratory QA method has these immutable properties:
 A mission without a declared host explores on the controller, the machine
 running the main session. It records a mission docket without a lease and
 reaches `awaiting_walk_review` without a restore artifact or reset debt.
-It ignores a run's `--test-machine` pin. Declare `method_config.test_machine`,
-`test_machines`, `os`, a specific `test-machine:<name>` capability or
-`host_baselines` to use a Test Machine; that host mission requires starting
+It ignores a run's `--test-machine` pin. Declare `method_config.os` to use a
+Test Machine of that type; that host mission requires starting
 state and retains the lease/reset/restore protocol described below.
 The runner supplies `browser-control` without a project capability row.
 Controller walkers use local tools and browsers. Host walkers use managed
@@ -38,9 +37,9 @@ capture `--run-id` its commands use.
 
 ## Authoring Shape
 
-Write territory and an observable outcome; split by machine so separate host
-queues run in parallel. Order a small cross-machine mission after the
-single-machine missions; declare its host set below.
+Write territory and an observable outcome. Split platform coverage by OS
+and use required capability tags for portable missions. Order a small
+cross-machine mission after single-host missions and declare its host set.
 
 Ask only for actions a real user takes; browser actions must come from the
 [action reference](browser-scenarios.md#action-reference), with the full list in
@@ -57,25 +56,18 @@ and a viewport check does not prove real-phone touch behavior.
   "method_id": "exploratory-mission",
   "instructions": "Install as a new user, work through onboarding, and investigate confusing, broken, missing, or unsafe behavior using the terminal, browser, and visible desktop.",
   "expected_outcome": "Return a ranked actionable report, name what could not be verified and why, and return a precise handoff if a person must act.",
-  "method_config": {"executor": "informed_subagent", "test_machine": "macos-example"},
+  "method_config": {"executor": "informed_subagent", "os": "macos"},
   "host_baselines": ["fresh-host"]
 }
 ```
 
-For a host mission, omit `test_machine` to select a registered host matching
-the declared case OS (native-Windows walks pin one only when about that host,
-and a busy fleet queues the walk on its shortest host line). Execution
-checks `method_config.os` / `platform`, capability requirements and executable
-steps before leasing a host. A declared machine supplies its registered `os`
-when those fields do not choose one. Instructions never choose an OS. Without
-a declared platform or machine OS, `test_machine_platform_undeclared` asks for
-`method_config.os` or a registered `method_config.test_machine`. An unavailable
-platform refuses as `test_machine_platform_unavailable`: register and verify
-a matching host, then retry with its `--test-machine NAME`. When present, it
-is validated during plan authoring and becomes the case's durable
-<!-- qa:test-machine-capability -->`test-machine:<name>` capability constraint. Execution also reads the pin from
-`method_config` for direct requirements and their admitted deployment copies;
-omitting `--test-machine` preserves that pin, and a conflicting run pin is refused.
+Set `method_config.os` and any required `capability_tags` so a host mission
+can use any verified, healthy match. If all matches are busy, QA takes the
+shortest eligible host line. Review each `test_machine` pin for a specific
+dependency stated in `method_config.test_machine_reason`. A pin remains a
+<!-- qa:test-machine-capability -->`test-machine:<name>` constraint even when the run omits `--test-machine`.
+See [Machine QA host selection](test-machine-desktop.md) for platform
+inference and refusal recovery.
 
 For a mission that needs two hosts at once, also declare
 `"test_machines":["linux-example","macos-example"]` with `"test_machine":"macos-example"` naming the
@@ -284,8 +276,7 @@ their declared driver and full host set. For single-host cases, the scheduler
 recovers each platform's original host from the execution's recorded leases and runs,
 including its continuation source. A platform not used before selects a fresh
 eligible host; a global pin cannot represent a roster using several hosts.
-Correction-ready commands also omit the pin; scheduling recovers each corrected
-case's failed attempt host from its requirement replacement history.
+A replacement starts fresh from its own OS, tags or explicit host name.
 
 A continuation records new runs over the same roster without resetting hosts.
 Its latest runs supersede the swept `error`; the prior runs retain their

@@ -22,8 +22,8 @@ the subject. Hold the item's work claim for an item case.
   a fixture PR to eject, or short traffic.
 - Put real-event or long-wait evidence on the item: "record the next real
   occurrence", outside blocking QA.
-- Split missions by machine for parallel host queues; order a small
-  cross-machine mission after the single-machine ones.
+- Split mission coverage by OS and required capability tags. Order a small
+  cross-machine mission after the single-host cases.
 
 ```text
 yoke qa requirement add --item PREFIX-N \

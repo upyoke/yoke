@@ -147,13 +147,12 @@ to any address and keep RDP off public networks, as
 [network access](host-provisioning.md#network-access) requires; audit the
 effective SSH and firewall policy, not just successful login.
 
-Register the Test Machine by name through `yoke test-machine settings-replace --test-machine NAME --settings-file FILE --new`. Read `--help`; updates
-use the as-read settings token. Settings include `resource_name`, `os=linux`,
-`host`, `user` and the absolute home golden path outside the home. A cloud
-host's `cloud_instance_id` and operating notes belong to this record, not Yoke
-source. With the id, a lease starts the host as needed.
-A lease keeps the registered MagicDNS host unchanged.
-A capacity machine is independent; ordinary agent work must use another home.
+Register with `yoke test-machine settings-replace --test-machine NAME --settings-file FILE --new`.
+Declare `resource_name`, `os=linux`, `host`, `user` and a golden path outside the
+home. For updates use the as-read settings token. Add `cloud_instance_id` if
+a lease should start the host. Its MagicDNS address stays the same. Verify
+after setting [capability tags](host-provisioning.md#register-capability-tags).
+Register launch capacity separately under another home.
 
 On each QA workstation, store shared SSH and per-host desktop secrets:
 

@@ -37,7 +37,6 @@ import logging
 from pathlib import Path
 import random
 import signal
-import threading
 import time
 from typing import Callable, Sequence
 
@@ -103,28 +102,27 @@ class DaemonOutcome:
 
 
 class _StopRequest:
-    """Records why the loop should stop starting new work."""
+    """Publish the main thread's stop reason and deadline start to workers."""
 
     def __init__(self) -> None:
-        self._reason = ""
-        self._event = threading.Event()
-        self.requested_at = 0.0
+        self._state = ("", 0.0)
 
     def set(self, reason: str, *, replace: bool = False) -> None:
-        if not self._reason or replace:
-            self._reason = reason
-            self.requested_at = time.monotonic()
-        self._event.set()
+        # SIGTERM can interrupt the main thread while it holds a lock.
+        # Publish both values together without acquiring one in the handler.
+        if not self.reason or replace:
+            self._state = (reason, time.monotonic())
 
     @property
     def reason(self) -> str:
-        return self._reason
+        return self._state[0]
+
+    @property
+    def requested_at(self) -> float:
+        return self._state[1]
 
     def is_set(self) -> bool:
-        return self._event.is_set()
-
-    def wait(self, seconds: float) -> None:
-        self._event.wait(seconds)
+        return bool(self.reason)
 
 
 def _install_signal_handlers(stop: _StopRequest) -> dict[int, object]:
@@ -309,7 +307,8 @@ def _serve_under_lock(
                 if stop_after_cycles is not None and cycles >= stop_after_cycles:
                     stop.set("cycle_cap")
                     break
-                stop.wait(idle_tick_seconds)
+                if idle_tick_seconds > 0:
+                    time.sleep(idle_tick_seconds)
             supervisor.drain(timeout=drain_timeout_seconds)
         except RelayStopRequested:
             if pinner is not None:

@@ -269,6 +269,8 @@ def validate_method_config(
                 "platform",
                 "test_machine",
                 "test_machines",
+                "test_machine_reason",
+                "capability_tags",
                 "host_starting_state",
                 "continuity_fingerprint",
                 "browser_identities",
@@ -278,7 +280,8 @@ def validate_method_config(
             raise QaMethodConfigError(
                 "agent_mission_executor_invalid: set method_config.executor to "
                 "informed_subagent. Agent missions may also name test_machine, "
-                "test_machines, os, platform, host_starting_state, browser_identities "
+                "test_machines, test_machine_reason, capability_tags, os, platform, "
+                "host_starting_state, browser_identities "
                 "and continuity_fingerprint; remove other keys. "
                 "Update the saved plan case and rematerialize affected requirements "
                 "before retrying."

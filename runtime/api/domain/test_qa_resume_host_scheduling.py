@@ -9,9 +9,13 @@ from yoke_core.domain.qa_plan_host_leases import begin_case_host_contract
 from yoke_core.domain.qa_plan_execution_begin_validation import validate_begun_execution
 
 
-@pytest.mark.parametrize("retained", ["linux-lab", None])
+@pytest.mark.parametrize(
+    ("retained", "pin", "selected"),
+    [("linux-lab", None, "linux-lab"), (None, None, None),
+     ("test-mac", "linux-lab", "linux-lab")],
+)
 def test_resumed_platform_retains_host_and_new_platform_selects_normally(
-    monkeypatch, retained
+    monkeypatch, retained, pin, selected
 ):
     from yoke_core.domain import machine_qa_execution_protocol as protocol
     from yoke_core.domain import qa_plan_execution_lifecycle as lifecycle
@@ -52,10 +56,10 @@ def test_resumed_platform_retains_host_and_new_platform_selects_normally(
     monkeypatch.setattr(lifecycle, "set_plan_machine_lease", Mock())
 
     contract = begin_case_host_contract(
-        conn, execution, case, ordinal=0, test_machine=None, actor_id="1", session_id="owner"
+        conn, execution, case, ordinal=0, test_machine=pin, actor_id="1", session_id="owner"
     )
     assert contract.lease_id == 9
-    assert begin.call_args.kwargs["test_machine"] == retained
+    assert begin.call_args.kwargs["test_machine"] == selected
     assert begin.call_args.kwargs["host_cases"] == [case]
     assert execution["test_machine_lease_id"] is None
     released.assert_called_once_with(conn, 7, "qa-case-host-change", commit=False)
@@ -121,6 +125,7 @@ def test_standalone_multi_platform_resume_uses_durable_hosts(
         TEST_MACHINE_SETTINGS,
         _terminal_recipe,
         configure_test_machine,
+        verify_fixture_host,
     )
     from yoke_core.domain.machine_qa_capability import replace_test_machine_settings
     from yoke_core.domain.qa_plan_management import create_plan, replace_plan_cases
@@ -142,6 +147,7 @@ def test_standalone_multi_platform_resume_uses_durable_hosts(
         settings={**TEST_MACHINE_SETTINGS, "resource_name": "linux-lab", "os": "linux"},
         base_settings=None,
     )
+    verify_fixture_host(test_db, "linux-lab")
     from runtime.api.domain.deployment_qa_stage_execution_test_support import (
         _environment,
     )

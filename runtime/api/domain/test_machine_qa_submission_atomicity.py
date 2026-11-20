@@ -277,7 +277,7 @@ def test_verification_release_failure_rolls_back_receipt(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     conn = make_conn()
-    configure_test_machine(conn, tmp_path, monkeypatch)
+    configure_test_machine(conn, tmp_path, monkeypatch, verified=False)
     submission = _local_verification_submission()
 
     monkeypatch.setattr(

@@ -11,6 +11,7 @@ from runtime.api.domain.machine_qa_host_test_support import (
     OpenFixtureConnection,
     machine_case_request,
     materialize_installer_campaign,
+    verify_fixture_host,
 )
 from yoke_core.domain.actor_permissions import PERM_ITEMS_WRITE
 from yoke_core.domain.coordination_claim_record import CoordinationClaim
@@ -43,6 +44,7 @@ def test_held_lease_becomes_structured_machine_waiting_state() -> None:
 
     conn = make_conn()
     register_test_machine(conn)
+    verify_fixture_host(conn, "mac-mini-lab")
     now = iso8601_now()
     seed_qa_session(conn, "holder-session")
     conn.execute(

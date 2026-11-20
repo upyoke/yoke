@@ -9,6 +9,8 @@ from typing import Any
 from yoke_contracts.machine_config.test_machine import (
     TEST_MACHINE_OSES,
     TestMachineCapabilityError,
+    normalize_test_machine_capability_tags,
+    test_machine_capability_tags,
 )
 
 # Only execution inputs participate; expected screen text and outcomes can
@@ -145,6 +147,26 @@ def required_platform(
             f"{', '.join(sorted(platforms))}; run separate platform rosters"
         )
     return next(iter(platforms), None)
+
+
+def required_host_tags(cases: Sequence[Mapping[str, Any]]) -> set[str]:
+    return {
+        tag
+        for case in cases
+        for tag in normalize_test_machine_capability_tags(
+            (case.get("method_config") or {}).get("capability_tags", [])
+        )
+    }
+
+
+def require_host_tags(settings: Mapping[str, str], cases: Sequence[Mapping[str, Any]]) -> None:
+    missing = required_host_tags(cases).difference(test_machine_capability_tags(settings))
+    if missing:
+        raise TestMachineCapabilityError(
+            f"test_machine_capability_tags_unavailable: {settings['resource_name']} "
+            f"lacks required tags {', '.join(sorted(missing))}; select a Test Machine "
+            "with the required capability_tags or correct the case's declared tags"
+        )
 
 
 def matching_platform_hosts(

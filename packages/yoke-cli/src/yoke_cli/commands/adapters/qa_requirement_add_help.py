@@ -82,11 +82,13 @@ Full configuration: verification/browser-targets.md#method-configuration.
 A case that runs on a Test Machine declares the state it starts from:
 --host-baseline names a registered baseline the runner resets to first.
 Use shell-preconfigured when the case needs Yoke. Every host_control
-case runs on a Test Machine. An agent_mission runs on one only when its
-method_config names test_machine, test_machines or os (os leases a Test
-Machine of that OS), it requires a test-machine: capability, or it names a
-baseline; otherwise it runs on the controller and needs no starting state.
-A Command whose method_config names test_machine requires --host-baseline.
+case runs on a Test Machine. Set method_config.os and optional capability_tags
+(a JSON array such as ["arch:x64"]) to select a verified, healthy match.
+For a case that needs a specific test_machine, state the dependency in
+method_config.test_machine_reason. A Command that calls a specific host also
+requires --host-baseline. An agent_mission with no declared host, OS, host tags,
+host capability or baseline runs on the controller. A replacement selects
+afresh, and a resume keeps affinity within its execution history.
 A case added on its own belongs to no plan, so it cannot inherit a preceding
 case's machine; author that chain in a plan.
 

@@ -2,6 +2,7 @@
 
 import pytest
 
+from runtime.api.domain.machine_qa_host_test_support import verify_fixture_host
 from runtime.api.domain.machine_qa_multiple_hosts_test_support import _settings
 from runtime.api.domain.machine_qa_session_seed import seed_qa_session
 from yoke_core.domain.coordination_claims import acquire
@@ -15,6 +16,18 @@ from yoke_core.domain.work_claim_targets import make_qa_admission_target
 
 HOSTS = ("windows-native-lab", "windows-native-lab-2")
 WINDOWS_CASE = {"instructions": "Run PowerShell", "method_config": {"os": "windows"}}
+
+
+def _register_verified_windows_hosts(conn):
+    for name in HOSTS:
+        replace_test_machine_settings(
+            conn,
+            power_project="yoke",
+            test_machine=name,
+            settings={**_settings(name), "os": "windows"},
+            base_settings=None,
+        )
+        verify_fixture_host(conn, name)
 
 
 def _queue(conn, session_id: str) -> str:
@@ -39,14 +52,7 @@ def _queue(conn, session_id: str) -> str:
 
 
 def test_three_waiters_spread_across_two_busy_windows_hosts(test_db):
-    for name in HOSTS:
-        replace_test_machine_settings(
-            test_db,
-            power_project="yoke",
-            test_machine=name,
-            settings={**_settings(name), "os": "windows"},
-            base_settings=None,
-        )
+    _register_verified_windows_hosts(test_db)
     seed_qa_session(test_db, "holder-1", "holder-2", "w1", "w2", "w3")
     acquire(test_db, make_qa_admission_target(HOSTS[0]), "holder-1")
     acquire(test_db, make_qa_admission_target(HOSTS[1]), "holder-2")
@@ -62,14 +68,7 @@ def test_three_waiters_spread_across_two_busy_windows_hosts(test_db):
 def test_a_held_host_with_an_empty_line_beats_the_first_named_busy_host(test_db):
     """The live YOK-5545 shape: the first host is leased with a waiter, the
     second is held only by a session's hold-over and nobody waits for it."""
-    for name in HOSTS:
-        replace_test_machine_settings(
-            test_db,
-            power_project="yoke",
-            test_machine=name,
-            settings={**_settings(name), "os": "windows"},
-            base_settings=None,
-        )
+    _register_verified_windows_hosts(test_db)
     seed_qa_session(test_db, "walker", "queued", "setup", "w1")
     acquire(test_db, make_qa_admission_target(HOSTS[0]), "walker")
     join_host_line(
@@ -91,14 +90,7 @@ def test_a_held_host_with_an_empty_line_beats_the_first_named_busy_host(test_db)
 
 
 def test_a_queued_waiter_keeps_its_line_on_retry(test_db):
-    for name in HOSTS:
-        replace_test_machine_settings(
-            test_db,
-            power_project="yoke",
-            test_machine=name,
-            settings={**_settings(name), "os": "windows"},
-            base_settings=None,
-        )
+    _register_verified_windows_hosts(test_db)
     seed_qa_session(test_db, "holder-1", "holder-2", "w1", "w2")
     acquire(test_db, make_qa_admission_target(HOSTS[0]), "holder-1")
     acquire(test_db, make_qa_admission_target(HOSTS[1]), "holder-2")

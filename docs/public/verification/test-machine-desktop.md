@@ -14,7 +14,7 @@ or abort your own mission before resetting. Do not reset an active mission from
 an unrelated command.
 
 A Command QA case that operates a host declares `method_config.test_machine` in its
-saved plan. The plan acquires that host, queues when it is busy or unhealthy,
+saved plan and states why in `method_config.test_machine_reason`. The plan acquires that host, queues when it is busy or unhealthy,
 and heartbeats its lease while the local command runs. Nested host operations
 borrow that owned active Command plan lease. A Command without a machine
 declaration has no host custody; declaring the machine is required before
@@ -32,6 +32,20 @@ refuse with `test_machine_platform_undeclared`; set `method_config.os` to `linux
 WSL2, so a native case never selects a WSL machine or accepts its receipts.
 PowerShell and `cmd.exe` steps imply native `windows`; a WSL case declares
 `os=wsl` or names its WSL machine.
+
+Set `method_config.os` for cases that can run on any matching host. Automatic
+QA selects only verified, healthy hosts and can use another eligible host while
+the first is busy. To require capabilities, add a JSON array such as
+`"capability_tags": ["arch:x64", "codex-desktop-signed-in"]` to `method_config`.
+Record tags in each host's non-secret settings as comma-separated text, using
+Edit settings or `yoke test-machine settings-replace`. Every case tag must be
+present on the selected driver. During case review, require
+`method_config.test_machine_reason` for a named pin that the case truly needs.
+
+A replacement case starts with no inherited machine preference. A resumed QA
+execution keeps the host from its own execution history or continuation chain,
+unless the case or run explicitly names a different host. Finish or abort an
+admitted case that still owns host state before changing its driver.
 
 Simultaneous machine-QA cases keep their declared driver and check platforms
 across the full host set; see [host-set authoring](exploration.md#authoring-shape).

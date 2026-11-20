@@ -63,6 +63,7 @@ export function machineSettingsDialog(context, detail, close, saved) {
     ["user", "User"],
     ["os", "Operating system"],
     ["operating_notes", "Operating notes"],
+    ["capability_tags", "Capability tags (comma-separated)"],
     ["golden_baseline_path", "Golden baseline path"],
     ["power_project", "Cloud power project"],
     ["cloud_provider", "Cloud provider (aws or azure; default aws)"],

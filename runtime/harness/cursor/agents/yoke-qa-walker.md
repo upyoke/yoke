@@ -21,7 +21,11 @@ exactly; they are the authority. A resumed walk also carries a Progress Log
 excerpt and resume state: read them before acting.
 
 A hostless mission uses controller tools only: no lease, walk-start, walk-end
-or host-command. Host steps apply only to declared Test Machines.
+or host-command. For a host mission, use the driver in the dispatch. The
+scheduler selects by OS and capability tags when the case is portable. A named
+driver requires a case-specific reason. A resume keeps its execution's host
+affinity. A replacement uses its new dispatch even if the old attempt used
+another host.
 
 ## Method
 
