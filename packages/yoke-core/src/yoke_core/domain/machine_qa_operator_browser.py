@@ -29,8 +29,6 @@ OPERATOR_BROWSER = "operator_browser"
 
 
 def _browser_settings(conn: Any, project_id: int) -> Mapping[str, Any]:
-    if conn is None:
-        return {}
     raw = query_scalar(
         conn,
         f"SELECT settings FROM project_capabilities WHERE project_id={marker(conn)} "
@@ -41,21 +39,33 @@ def _browser_settings(conn: Any, project_id: int) -> Mapping[str, Any]:
     return settings if isinstance(settings, Mapping) else {}
 
 
+def needs_operator_browser(config: Mapping[str, Any]) -> bool:
+    return any(gate_needs_desktop_browser(a) for a in config.get("actions") or ())
+
+
+def operator_identity(conn: Any, project_id: int, cases) -> str | None:
+    """The server's answer: the default identity when a case's gate needs it.
+
+    The local runner has no database, so the contract carries this value.
+    """
+    if not any(
+        needs_operator_browser(case.get("method_config") or {}) for case in cases
+    ):
+        return None
+    return declared_default_identity(_browser_settings(conn, project_id))
+
+
 def with_operator_browser(
     config: Mapping[str, Any],
     *,
-    conn: Any,
-    project_id: int,
+    identity: str | None,
     project: str,
     test_machine: str,
     os_name: str,
 ) -> dict[str, Any]:
     """Name the operator identity on a config whose gate approves in a browser."""
-    if not any(
-        gate_needs_desktop_browser(a) for a in config.get("actions") or ()
-    ):
+    if not needs_operator_browser(config):
         return dict(config)
-    identity = declared_default_identity(_browser_settings(conn, project_id))
     if identity is None:
         raise BrowserIdentityError(
             "machine_operator_identity_undeclared: a browser approval runs in the "
@@ -141,6 +151,8 @@ def reauthorize_command(config: Mapping[str, Any]) -> str:
 __all__ = [
     "OPERATOR_BROWSER",
     "browser_export",
+    "needs_operator_browser",
+    "operator_identity",
     "reauthorize_command",
     "with_operator_browser",
 ]

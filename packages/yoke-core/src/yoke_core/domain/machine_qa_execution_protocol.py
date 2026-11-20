@@ -116,8 +116,11 @@ def _issue(
 
     from yoke_core.domain.machine_reset_debt import reset_owed
 
+    from yoke_core.domain.machine_qa_operator_browser import operator_identity
+
     owed = reset_owed(conn, settings["resource_name"]) if cases else None
     return issue_execution_contract(
+        operator_identity=operator_identity(conn, test_machine.project_id, cases),
         reset_owed_baseline=owed,
         operation=operation,
         lease_id=lease.id,

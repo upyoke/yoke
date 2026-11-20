@@ -33,10 +33,10 @@ REAUTHORIZE = (
 
 def _windows_config(monkeypatch):
     monkeypatch.setattr(operator, "_browser_settings", lambda conn, pid: DECLARED)
+    config = {"actions": [GATE], "capture_checkpoints": []}
     return operator.with_operator_browser(
-        {"actions": [GATE], "capture_checkpoints": []},
-        conn=object(),
-        project_id=1,
+        config,
+        identity=operator.operator_identity(object(), 1, [{"method_config": config}]),
         project="acme",
         test_machine="windows-native-lab",
         os_name="windows",

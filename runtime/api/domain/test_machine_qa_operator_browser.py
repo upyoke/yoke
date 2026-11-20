@@ -15,10 +15,10 @@ DECLARED = {"identities": {"operator": {"sites": []}}, "default_identity": "oper
 
 def _with(monkeypatch, settings, actions=(GATE,), os_name="linux"):
     monkeypatch.setattr(operator, "_browser_settings", lambda conn, pid: settings)
+    config = {"actions": list(actions)}
     return operator.with_operator_browser(
-        {"actions": list(actions)},
-        conn=object(),
-        project_id=1,
+        config,
+        identity=operator.operator_identity(object(), 1, [{"method_config": config}]),
         project="acme",
         test_machine="linux-lab",
         os_name=os_name,
@@ -71,3 +71,34 @@ def test_the_export_routes_links_to_the_launcher_with_the_users_store(monkeypatc
         "env -u YOKE_MACHINE_HOME {yoke_bin} browser open --project acme "
         "--identity operator %s"
     )
+
+
+def test_the_server_contract_carries_the_identity_to_a_connectionless_runner(
+    monkeypatch,
+):
+    from types import SimpleNamespace
+
+    from yoke_contracts.machine_qa_execution import HostControlExecutionContract
+    from yoke_core.domain import machine_qa_local_execution as local
+
+    monkeypatch.setattr(operator, "_browser_settings", lambda conn, pid: DECLARED)
+    cases = [{"method_config": {"actions": [GATE]}}]
+    assert operator.operator_identity(object(), 1, cases) == "operator"
+    assert operator.operator_identity(object(), 1, [{"method_config": {}}]) is None
+    contract = HostControlExecutionContract.model_construct(
+        project_id=1,
+        project="acme",
+        settings={"resource_name": "linux-lab"},
+        cases=[],
+        plan_execution_id=None,
+        continues_execution_id=None,
+        lease_id=7,
+        operator_identity="operator",
+    )
+    control = SimpleNamespace(mission_scratch_path=lambda value: value)
+    monkeypatch.setattr(
+        local, "resolve_contract_host_control", lambda raw: (control, object())
+    )
+    lease = local._execution(contract)
+    # The local runner holds no database connection; the contract is its source.
+    assert lease.conn is None and lease.operator_identity == "operator"

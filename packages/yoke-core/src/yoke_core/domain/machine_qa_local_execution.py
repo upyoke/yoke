@@ -95,6 +95,7 @@ def _execution(
         owns_lease=False,
         progress_callback=progress_callback,
         allowed_operator_urls=allowed_urls,
+        operator_identity=contract.operator_identity,
     )
 
 

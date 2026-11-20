@@ -74,6 +74,11 @@ class HostControlExecutionContract(BaseModel):
     ordinal: int | None = Field(default=None, ge=0)
     case_position: int | None = Field(default=None, ge=1)
     baseline_position: int | None = Field(default=None, ge=1)
+    # The project's browser-control default identity, resolved by the server
+    # for a case whose gate approves in the operator identity browser.
+    operator_identity: str | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     contract_digest: str
 
     @model_validator(mode="after")
@@ -205,6 +210,7 @@ def issue_execution_contract(
     ordinal: int | None = None,
     case_position: int | None = None,
     baseline_position: int | None = None,
+    operator_identity: str | None = None,
 ) -> HostControlExecutionContract:
     """Build and digest one normalized server-authoritative contract."""
     normalized_cases = [_validated_case(case) for case in (cases or [])]
@@ -232,6 +238,7 @@ def issue_execution_contract(
         ordinal=ordinal,
         case_position=case_position,
         baseline_position=baseline_position,
+        operator_identity=operator_identity,
         contract_digest="",
     )
     return HostControlExecutionContract.model_validate(
