@@ -6,6 +6,7 @@ from pathlib import PureWindowsPath
 
 from yoke_harness.native_windows.transport import quote
 
+DISCOVERY_MARKER = "YOKE_RESET_PROCESS_DISCOVERY "
 STOPPED_MARKER = "YOKE_RESET_PROCESSES_STOPPED "
 TARGETS_MARKER = "YOKE_RESET_DESKTOP_TARGETS "
 RELAUNCHED_MARKER = "YOKE_RESET_DESKTOP_RELAUNCHED "
@@ -179,24 +180,41 @@ def profile_process_stop_script(home, preserved, *, desktop=False):
     )
 
 
+def profile_process_discovery_script(home, preserved):
+    # The verified staging wrapper can collapse a child script's nonzero
+    # exit status. Use a receipt for both successful discovery outcomes.
+    return (
+        "$ErrorActionPreference='Stop'\n"
+        + f"$profileRoot={quote(home)}\n" + _preamble(home, preserved)
+        + f"if(@(Get-YokeProfileProcesses).Count){{'{DISCOVERY_MARKER}present'}}"
+        + f"else{{'{DISCOVERY_MARKER}empty'}}"
+    )
+
+
 def stop_desktop_profile_processes(control, preserved):
     """End profile processes from the test user's signed-in session."""
     from yoke_harness.native_windows.desktop import desktop_script
 
-    home = f"$profileRoot={quote(control.home)}\n"
-    listed = control._run(
-        "$ErrorActionPreference='Stop'\n" + home + _preamble(control.home, preserved)
-        + "if(@(Get-YokeProfileProcesses).Count){exit 3}; exit 0"
-    )
-    if listed.returncode == 0:
-        return None, [], []
-    if listed.returncode != 3:
-        detail = (listed.stderr or listed.stdout or f"exit {listed.returncode}").strip()
+    listed = control._run(profile_process_discovery_script(control.home, preserved))
+    answers = [
+        line[len(DISCOVERY_MARKER):] for line in (listed.stdout or "").splitlines()
+        if line.startswith(DISCOVERY_MARKER)
+    ]
+    if listed.returncode or answers not in (["present"], ["empty"]):
+        detail = (listed.stderr or "").strip()
+        if not detail:
+            detail = (listed.stdout or "").strip() if listed.returncode else ""
+            detail = detail or (
+                f"exit {listed.returncode}" if listed.returncode else "missing or invalid discovery receipt"
+            )
         return (
             f"windows_reset_profile_process_listing_failed: SSH process discovery failed: {detail}. "
             "Verify the standard test-user SSH session and rerun yoke test-machine reset",
             [], [],
         )
+    if answers == ["empty"]:
+        return None, [], []
+    home = f"$profileRoot={quote(control.home)}\n"
     stopped = desktop_script(
         control, home + profile_process_stop_script(control.home, preserved, desktop=True),
         timeout=60, hidden=True,
