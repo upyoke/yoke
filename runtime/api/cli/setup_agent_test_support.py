@@ -18,6 +18,7 @@ from yoke_cli.config import (
     onboard_machine_setup,
     onboard_native_preflight,
     onboard_preflight,
+    onboard_project_prefixes,
     onboard_session_relay,
     onboard_wizard,
 )
@@ -145,6 +146,9 @@ def isolate_agent_setup(tmp_path: Path, monkeypatch) -> FakeApply:
     monkeypatch.setattr(
         BoardArtFlow, "_board_art_after_apply", lambda _self, _report: False
     )
+    # Prefix holders come from the destination universe; tests that need
+    # taken prefixes stub their own (test_setup_agent_project_prefix).
+    monkeypatch.setattr(onboard_project_prefixes, "read_holders", lambda *_a: {})
     fake = FakeApply()
     monkeypatch.setattr(onboard_apply, "apply_with_durable_report", fake)
     return fake

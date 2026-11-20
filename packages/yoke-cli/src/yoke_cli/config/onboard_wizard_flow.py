@@ -275,10 +275,14 @@ class WizardFlow(
 
         from yoke_cli.config import onboard_preflight
         from yoke_cli.config import onboard_project_create_permission
+        from yoke_cli.config import onboard_project_prefixes
 
         probes = replace(
             onboard_preflight.default_probes(),
             project_create_allowed=onboard_project_create_permission.probe_for(
+                self.result, self._yoke_token_for_project_lookup
+            ),
+            prefix_holders=lambda: onboard_project_prefixes.read_holders(
                 self.result, self._yoke_token_for_project_lookup
             ),
         )

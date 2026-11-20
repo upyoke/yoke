@@ -29,6 +29,7 @@ from yoke_contracts.windows_drive_checkout import windows_drive_checkout_warning
 from yoke_cli.config import onboard_input_validation as validation
 from yoke_cli.config import onboard_credential_replacement
 from yoke_cli.config import onboard_project
+from yoke_cli.config import onboard_project_prefixes
 from yoke_cli.config import project_git_prerequisite
 from yoke_cli.config import project_clone_resume
 from yoke_cli.config import onboard_wizard_github_state
@@ -83,6 +84,9 @@ class PreflightProbes:
     # Answers "can the local universe's engine load its MSVC runtime?" with
     # the refusal, or None. Runs for the local destination however chosen.
     vc_runtime_problem: Callable[[_ResultLike], str | None] | None = None
+    # Reads the destination's item-prefix holders (prefix -> owning project),
+    # or None when the destination cannot say; Apply's refusal stands then.
+    prefix_holders: Callable[[], dict[str, str] | None] | None = None
 
 
 @dataclass(frozen=True)
@@ -171,16 +175,29 @@ def _project_create_problems(
         return []
     if getattr(result, "existing_project_id", None) is not None:
         return []
+    problems = _prefix_problems(result, probes)
     if probes.project_create_allowed is None:
-        return []
+        return problems
     org = getattr(result, "project_org", None) or None
     if probes.project_create_allowed(org) is not False:
-        return []
+        return problems
     where = org or "this Yoke server's org"
     return [
+        *problems,
         f"You lack project.create on {where}. Ask a Yoke admin for an org role "
         "that grants it, or choose an existing project."
     ]
+
+
+def _prefix_problems(result: _ResultLike, probes: PreflightProbes) -> list[str]:
+    if probes.prefix_holders is None:
+        return []
+    problem = onboard_project_prefixes.holder_problem(
+        getattr(result, "project_public_item_prefix", None),
+        probes.prefix_holders(),
+        recovery=onboard_project_prefixes.REVIEW_RECOVERY,
+    )
+    return [problem] if problem else []
 
 
 def _folder_notes(result: _ResultLike) -> list[str]:

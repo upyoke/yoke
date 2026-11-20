@@ -80,6 +80,7 @@ def stub_board_art(monkeypatch) -> None:
 def stub_token_verifiers(monkeypatch) -> None:
     """Keep wizard authorization confirmation screens deterministic and offline."""
     from yoke_cli.config import existing_project_lookup
+    from yoke_cli.config import onboard_project_prefixes
     from yoke_cli.config import onboard_wizard_flow_connect
     from yoke_cli.config import onboard_wizard_flow_github
     from yoke_cli.config import team_server_authorization
@@ -158,6 +159,7 @@ def stub_token_verifiers(monkeypatch) -> None:
         "find_by_github_repo",
         lambda **_: None,
     )
+    monkeypatch.setattr(onboard_project_prefixes, "read_holders", lambda *_a: {})
 
 
 def stub_preflight_clear(monkeypatch) -> None:
