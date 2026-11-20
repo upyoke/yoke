@@ -8,6 +8,13 @@ because a parked message was never delivered to any session. Both are the
 holder acknowledging its own mail, so both acknowledge, and a caller that
 is neither is still refused.
 
+A QA recheck wake (a manual-wait notice, a release-takeover notice or a
+fired scheduled wake) is the one thing that wakes a manual-wake QA owner. A
+one-shot resume that reads and acknowledges it without scheduling the next
+recheck never parks, so the park guard never runs and the owner goes silent.
+Acknowledging such a message therefore owes the same future scheduled wake a
+park would (:mod:`session_park_recheck_guard`).
+
 Cancellation belongs to the sender, or to an administrator of every project
 the message reached -- anything narrower would let one project's admin
 revoke a message that also went elsewhere.
@@ -32,6 +39,14 @@ from yoke_core.domain.steering_message_recipients import (
 )
 
 
+#: Idempotency-key prefixes of the wakes that carry a manual-wake QA recheck.
+RECHECK_WAKE_PREFIXES = (
+    "deployment-qa-manual-wait:",
+    "deployment-qa-moved:",
+    "scheduled-wake:",
+)
+
+
 def acknowledge_message(
     conn: Any,
     *,
@@ -44,13 +59,20 @@ def acknowledge_message(
 
     expire_due_recipients(conn, now=now)
     from yoke_core.domain.session_launch_types import SessionLaunchError
-    from yoke_core.domain.session_launch_late_acceptance import accept_late_acknowledgement
+    from yoke_core.domain.session_launch_late_acceptance import (
+        accept_late_acknowledgement,
+    )
 
     try:
-        accept_late_acknowledgement(conn, message_id=message_id, session_id=session_id, now=now)
+        accept_late_acknowledgement(
+            conn, message_id=message_id, session_id=session_id, now=now
+        )
     except SessionLaunchError as exc:
         conn.rollback()
         raise SessionMessageError(exc.code, str(exc)) from exc
+    _refuse_unscheduled_recheck(
+        conn, message_id=message_id, session_id=session_id, now=now
+    )
     acknowledged_at = now
     seated = acknowledge_steering_recipient(
         conn,
@@ -136,6 +158,27 @@ def acknowledge_message(
         details = message_details(conn, message_id)
     conn.commit()
     return details
+
+
+def _refuse_unscheduled_recheck(
+    conn: Any, *, message_id: str, session_id: str, now: datetime
+) -> None:
+    from yoke_core.domain import db_backend
+
+    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    row = conn.execute(
+        f"SELECT idempotency_key FROM session_messages WHERE message_id={marker}",
+        (message_id,),
+    ).fetchone()
+    key = str(row[0] or "") if row is not None else ""
+    if not key.startswith(RECHECK_WAKE_PREFIXES):
+        return
+    from yoke_core.domain.session_park_recheck_guard import park_recheck_refusal
+
+    refusal = park_recheck_refusal(conn, session_id, now=now, then="acknowledge again")
+    if refusal:
+        conn.rollback()
+        raise SessionMessageError("PARK_RECHECK_REQUIRED", refusal)
 
 
 def acknowledge_actor_message(
@@ -237,6 +280,7 @@ def _actor_id_for_session(conn: Any, session_id: str) -> int | None:
 
 
 __all__ = [
+    "RECHECK_WAKE_PREFIXES",
     "acknowledge_actor_message",
     "acknowledge_message",
     "cancel_message",

@@ -215,7 +215,11 @@ A holder that was sent a manual-wake QA notice for a requirement that is still
 open, on a run executing that requirement's stage, cannot park without a future
 scheduled recheck: `yoke sessions touch --mode parked` (and the merge-time
 release-wait park) refuses with `park_recheck_required` and names the exact
-`yoke sessions wake schedule` command. Parks before the stage opens are not
+`yoke sessions wake schedule` command. Acknowledging a QA recheck wake (the
+manual-wait notice, a release-takeover notice or a fired scheduled wake) owes
+the same thing: `yoke messages acknowledge` refuses with
+`park_recheck_required` until the next recheck is scheduled, so a one-shot
+resume that never parks cannot drop it. Parks before the stage opens are not
 affected. Because successful work ends a park, every re-park after a recheck
 needs a fresh scheduled wake. A release takeover does not wake a holder whose
 moved open requirements are all manual-wake and who holds a future scheduled

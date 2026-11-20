@@ -84,9 +84,17 @@ def open_manual_obligation(conn: Any, session_id: str) -> dict[str, Any] | None:
 
 
 def park_recheck_refusal(
-    conn: Any, session_id: str, *, now: datetime | None = None
+    conn: Any,
+    session_id: str,
+    *,
+    now: datetime | None = None,
+    then: str = "park again",
 ) -> str:
-    """Why this session cannot park yet, or ``""`` when it may."""
+    """Why this session cannot park yet, or ``""`` when it may.
+
+    ``then`` names the step the caller refused, so the recipe ends on the
+    command the session retries after scheduling.
+    """
     obligation = open_manual_obligation(conn, session_id)
     if obligation is None:
         return ""
@@ -102,7 +110,7 @@ def park_recheck_refusal(
         f"({item_ref}, run {obligation['run_id']} stage {obligation['stage']!r}) "
         "and holds no future scheduled recheck, so nothing would wake it when the "
         "evidence appears. Schedule your next recheck for whenever the evidence "
-        "could plausibly exist, then park again: `yoke sessions wake schedule "
+        f"could plausibly exist, then {then}: `yoke sessions wake schedule "
         f'--at UTC_INSTANT --reason "recheck evidence for {item_ref} requirement '
         f'#{requirement}"`.'
     )

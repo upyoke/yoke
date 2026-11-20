@@ -53,6 +53,12 @@ def native_wake_instruction(message_id: str) -> str:
     waits or ends, so a re-wake of a message still unacknowledged never
     repeats an action that already happened.
 
+    "Needs none" is not an answer for a QA recheck or scheduled wake whose
+    QA is still owed: a one-shot resume read and acknowledged a fired recheck
+    278 times over eleven days without ever scheduling the next one, so the
+    instruction says to schedule first, and acknowledgement refuses with
+    ``PARK_RECHECK_REQUIRED`` until it has.
+
     It still names the one case where acknowledging would be wrong. An
     unconditional "acknowledge now" turns a wake whose message never arrived
     into a receipt that reports delivery which did not happen, and the plane
@@ -69,7 +75,11 @@ def native_wake_instruction(message_id: str) -> str:
         "happens. Then act on the message. Run "
         f"`{WAKE_ACKNOWLEDGE_COMMAND} {message_id}` once the action is done "
         "or durably underway, or once you decide it needs none — and always "
-        "before you park, wait or end this turn. If you already acted on it, "
+        "before you park, wait or end this turn. A QA recheck or scheduled "
+        "wake never needs none while its QA is still owed: schedule your next "
+        "recheck with `yoke sessions wake schedule --at UTC_INSTANT --reason "
+        "TEXT` first, then acknowledge; the acknowledgement refuses until you "
+        "do. If you already acted on it, "
         "acknowledge it now; if not, act on it first. If the read reported no "
         "such message, do not acknowledge; report that instead."
     )
