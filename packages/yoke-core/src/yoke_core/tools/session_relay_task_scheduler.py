@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import partial
 import locale
 import os
 from pathlib import Path
@@ -322,7 +323,7 @@ def uninstall_relay_task(*, instance=None, home=None, runner= subprocess.run,
     task_state = None
     if status.task_present and status.loaded:
         _checked(["schtasks", "/End", "/TN", selected.label], runner)
-        task_state = lambda: relay_task_state(selected.label, runner)
+        task_state = partial(relay_task_state, selected.label, runner)
     # End returns before the relay tree exits; files it holds open cannot be removed.
     wait_relay_task_stopped(state_dir=selected.state_dir, task_state=task_state,
                             task_name=selected.label, processes=processes)
