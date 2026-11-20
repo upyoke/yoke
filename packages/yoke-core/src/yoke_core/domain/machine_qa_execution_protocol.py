@@ -186,7 +186,7 @@ def begin_host_control_execution(
     except CoordinationClaimStaleHolderError as exc:
         raise MachineQaProtocolError(str(exc)) from None
     except TestMachineFleetBusy as exc:
-        held = exc.busy[0]
+        held = exc.shortest_line(conn, session_id)
         raise MachineQaProtocolLeaseHeld(
             lease=held.lease,
             test_machine=held.test_machine,
