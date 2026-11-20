@@ -65,15 +65,22 @@ Yoke runs Cursor installation and its post-install probe through the existing
 standard user's interactive desktop task. Ordinary probes and the other CLI
 installers use SSH. A missing interactive session refuses installation.
 
-Install desktop apps the way a normal user does: in the standard test user's
-desktop, download each app from its vendor's public download page and run the
-standard installer as that user. Never provision an app as administrator
-(`Add-AppxProvisionedPackage`) or install an offline-license package; those are
-enterprise fleet paths, not what a user does. Claude's link on
+Target, not yet applied: desktop apps are installed the way a normal user
+does, by the standard test user from each vendor's public download page with
+the standard installer, with no administrator provisioning
+(`Add-AppxProvisionedPackage`) or offline-license package. Claude's link on
 [claude.com/download](https://claude.com/download) refuses scripted downloads,
-so the person in the desktop downloads it in the browser. Keep WSL and
-VirtualMachinePlatform disabled. Installation alone does not prove launch or
-authentication.
+so the person in the desktop downloads it in the browser.
+
+Current labs: Cursor is the per-user install. Claude Desktop and the
+ChatGPT/Codex app are provisioned as administrator: Claude's MSIX from
+`https://claude.ai/api/desktop/win32/x64/msix/latest/redirect` with
+`Add-AppxProvisionedPackage -Online -PackagePath Claude.msix -SkipLicense -Regions all`
+(non-admin `Add-AppxPackage` refuses with `0x80073D28`), and OpenAI's MSIX with
+its offline license, per [Claude deployment](https://support.claude.com/en/articles/12622703-deploy-claude-desktop-for-windows)
+and [OpenAI deployment](https://learn.chatgpt.com/docs/enterprise/windows-deployment.md).
+Keep WSL and VirtualMachinePlatform disabled. Installation alone does not
+prove launch or authentication.
 
 Agents finish setup and navigation; Ben types his own harness/GitHub passwords. Before goldens,
 prove real CLI requests and visible signed-in desktop apps; installs/versions
