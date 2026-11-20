@@ -229,44 +229,61 @@ try {
     assert "held.exe" in result.stdout
 
 
-def test_reset_ends_desktop_session_processes_before_mirroring(monkeypatch):
-    from yoke_harness.native_windows import profile_processes
+@pytest.mark.parametrize("relaunch_fails", [False, True])
+def test_reset_ends_desktop_session_processes_before_mirroring(monkeypatch, relaunch_fails):
+    from yoke_harness.native_windows import profile_processes as processes
 
-    exe = HOME + r"\AppData\Roaming\uv\tools\yoke-cli\Scripts\python.exe"
+    packaged = r"C:\Program Files\WindowsApps\Codex_1\app\Codex.exe"
+    installed = HOME + r"\AppData\Local\Programs\Claude\Claude.exe"
+    aumid = r"shell:AppsFolder\Codex_fixture!App"
+    targets = [{"target": aumid, "path": packaged}, {"target": installed, "path": installed}]
     calls = []
 
     class _Control:
         home = HOME
 
         def _run(self, script, timeout=60):
-            calls.append("list" if "Get-YokeProfileProcesses).Count" in script else "reset")
-            code = 3 if calls[-1] == "list" else 0
-            return subprocess.CompletedProcess([], code, "", "")
+            listing = "Get-YokeProfileProcesses).Count" in script
+            calls.append("list" if listing else "reset")
+            return subprocess.CompletedProcess([], 3 if listing else 0, "", "")
 
     def desktop(control, script, *, timeout=60, hidden=False):
-        calls.append("desktop")
-        assert "taskkill" in script and hidden
-        return subprocess.CompletedProcess(
-            [], 0, "YOKE_RESET_PROCESSES_STOPPED " + json.dumps([exe]), "",
-        )
+        assert hidden
+        if "Stop-Process" in script:
+            calls.append("stop")
+            assert "Get-AppxPackageManifest" in script
+            assert script.index("Get-AppxPackageManifest") < script.index("Stop-Process -InputObject")
+            output = processes.STOPPED_MARKER + json.dumps([packaged, installed]) + "\n"
+            output += processes.TARGETS_MARKER + json.dumps([*targets, targets[0]])
+        else:
+            calls.append("relaunch")
+            assert script.count(json.dumps(aumid)) == 1
+            output = "\n".join(
+                processes.RELAUNCHED_MARKER + json.dumps({"target": app["target"], "failure": error})
+                for app, error in zip(targets, ["activation failed" if relaunch_fails else "", ""])
+            )
+        return subprocess.CompletedProcess([], 0, output, "")
 
     monkeypatch.setattr("yoke_harness.native_windows.desktop.desktop_script", desktop)
     result = baseline.profile_operation(_Control(), "reset", GOLDEN)
-    assert calls == ["list", "desktop", "reset"]
-    assert result.ok and result.evidence["profile_processes_stopped"] == [exe]
+    assert calls == ["list", "stop", "reset", "relaunch"]
+    assert result.ok and result.evidence["profile_processes_stopped"] == [packaged, installed]
+    assert result.evidence["desktop_apps_relaunched"] == ([installed] if relaunch_fails else [aumid, installed])
+    assert result.evidence["desktop_apps_relaunch_failed"] == (
+        [{"target": aumid, "failure": "activation failed"}] if relaunch_fails else []
+    )
+
+
+def test_desktop_stop_failure_refuses_before_mirroring(monkeypatch):
+    control = SimpleNamespace(home=HOME, _run=lambda *a, **k: subprocess.CompletedProcess([], 3, "", ""))
 
     def stuck(control, script, *, timeout=60, hidden=False):
-        return subprocess.CompletedProcess(
-            [], 1, "", "windows_reset_profile_process_running: processes ... kept their files open",
-        )
+        return subprocess.CompletedProcess([], 1, "", "Test-user processes kept their files open")
 
     monkeypatch.setattr("yoke_harness.native_windows.desktop.desktop_script", stuck)
-    calls.clear()
-    refused = baseline.profile_operation(_Control(), "reset", GOLDEN)
-    assert calls == ["list"]
+    refused = baseline.profile_operation(control, "reset", GOLDEN)
     assert refused.error_code == "windows_reset_profile_process_running"
     assert "kept their files open" in refused.evidence["recovery"]
-    assert profile_processes is not None
 
 
 def test_mirror_excludes_the_live_windows_data_store_and_names_copy_errors():
@@ -275,6 +292,8 @@ def test_mirror_excludes_the_live_windows_data_store_and_names_copy_errors():
     assert quote(GOLDEN + r"\profile\AppData\Local\Comms") in mirror
     assert "Select-String -LiteralPath $copyLog -Pattern 'ERROR" in mirror
     assert "($copyErrors -join ' | ')" in mirror
+    assert "ERROR (32|1224)" in mirror
+    assert "Close Codex in the signed-in test session" in mirror
 
 
 def test_mirror_keeps_windows_profile_compatibility_junctions():
@@ -283,3 +302,48 @@ def test_mirror_keeps_windows_profile_compatibility_junctions():
     assert walk < robocopy
     assert "[IO.FileAttributes]::System) -and" in mirror
     assert "$exclude+=$entry.FullName" in mirror
+
+
+@pytest.mark.windows_only(reason="requires Windows PowerShell")
+def test_desktop_stop_resolves_only_test_user_app_targets(tmp_path):
+    from yoke_harness.native_windows.profile_processes import (
+        STOPPED_MARKER, TARGETS_MARKER, profile_process_stop_script,
+    )
+
+    result = _run_powershell(tmp_path, rf"""
+$profileRoot={quote(HOME)}
+$env:ProgramFiles='C:\Program Files'
+""" + r"""
+$packageRoot=Join-Path $env:ProgramFiles 'WindowsApps\Codex_fixture'
+$codex=Join-Path $packageRoot 'app\Codex.exe'
+$claude=Join-Path $profileRoot 'AppData\Local\Programs\Claude.exe'
+$preserved=Join-Path $profileRoot 'AppData\Local\Microsoft\Keep.exe'
+$other=Join-Path $packageRoot 'Other.exe'
+$entries=@()
+foreach($path in @($codex,$claude,$preserved,$other)){
+ $entries+= [pscustomobject]@{Id=$entries.Count+1;Path=$path;SessionId=1;MainWindowHandle=1;HasExited=$false}
+}
+function Get-Process($Id){if($Id -eq $PID){@{SessionId=1}}else{$entries}}
+function Get-CimInstance($ClassName,$Filter){$Filter}
+function Invoke-CimMethod($InputObject,$MethodName){
+ $sid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+ if($InputObject -eq 'ProcessId=4'){$sid='different user'}
+ @{ReturnValue=0;Sid=$sid}
+}
+function Get-AppxPackage {@{InstallLocation=$packageRoot;PackageFamilyName='Codex_fixture'}}
+function Get-AppxPackageManifest($Package) {
+ [xml]'<Package><Applications><Application Id="App" Executable="app\Codex.exe"/></Applications></Package>'
+}
+function Stop-Process($InputObject,[switch]$Force){$InputObject.HasExited=$true}
+""" + profile_process_stop_script(HOME, PRESERVED_DIRECTORIES, desktop=True) + r"""
+if($entries[2].HasExited -or $entries[3].HasExited){throw 'excluded process stopped'}
+""")
+    assert result.returncode == 0, result.stderr
+    stopped, targets = (
+        json.loads(next(line[len(marker):] for line in result.stdout.splitlines() if line.startswith(marker)))
+        for marker in (STOPPED_MARKER, TARGETS_MARKER)
+    )
+    assert [app["path"] for app in targets] == stopped
+    assert [app["target"] for app in targets] == [
+        r"shell:AppsFolder\Codex_fixture!App", HOME + r"\AppData\Local\Programs\Claude.exe",
+    ]

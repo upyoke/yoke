@@ -135,10 +135,15 @@ private robocopy log under `AppData/Local/YokeQa`.
 Goldens also retain raw User PATH values, registry types and absence. Reset
 validates that metadata before mirroring the profile and verifies it afterward;
 older goldens without it require recapture rather than guessing a registry type.
-Before mirroring, reset stops processes whose executable lives in the resettable
-profile (such as the installed Yoke tool's Python), because robocopy cannot purge
-open files. Processes the signed-in session owns are ended from that session; one that will not exit refuses `windows_reset_profile_process_running`.
-Stopped executables are recorded as `profile_processes_stopped`.
+Before mirroring, reset stops test-user processes that run from the resettable
+profile or from WindowsApps. Executables in preserved profile directories stay
+running. Desktop processes are stopped from the signed-in session. A process
+that will not exit refuses with `windows_reset_profile_process_running`.
+After a successful restore, reset reopens the stopped desktop apps in that same
+session. The receipt reports `profile_processes_stopped` and
+`desktop_apps_relaunched`. If a desktop app fails to reopen, reset still succeeds
+and `desktop_apps_relaunch_failed` names the app. If robocopy reports a sharing
+or memory-mapped-file error under `.codex`, close Codex and retry the reset.
 Goldens hold no links (`/XJ`) and `/MIR` purges profile links the golden lacks,
 so the mirror excludes Windows' own System-marked profile compatibility
 junctions (`My Music`, `Application Data` and similar). After the mirror, reset
