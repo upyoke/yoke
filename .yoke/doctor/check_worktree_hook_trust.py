@@ -30,6 +30,7 @@ from yoke_contracts.codex_hook_trust_store import (
     stale_trust_scan,
 )
 from yoke_contracts.codex_lane_hook_trust import (
+    REASON_CONTENT_DIFFERS,
     codex_config_path,
     inspect_hook_trust,
 )
@@ -118,18 +119,19 @@ def hc_worktree_hook_trust(
     for worktree in worktrees:
         result = inspect_hook_trust(str(repo_root), worktree, config_path=config)
         label = Path(worktree).name
-        if result.blocked_reason:
-            blocked.append(
-                f"{label}: {result.summary()}. {retrust_recovery(worktree, lane=True)}"
-            )
+        if result.blocked_reason == REASON_CONTENT_DIFFERS:
+            recovery = retrust_recovery(worktree, lane=True)
+            partial.append(f"{label}: {result.summary()}. {recovery}")
         elif result.stale:
             partial.append(f"{label}: {result.summary()}")
+        elif result.blocked_reason:
+            blocked.append(f"{label}: {result.blocked_reason}")
         elif result.dead_zone:
             dead.append(f"{label}: none of {len(result.source_trusted)} trusted")
         elif not result.hooks_fire:
             partial.append(f"{label}: {result.summary()}")
 
-    if dead or partial or blocked:
+    if dead or partial:
         rec.record(
             name,
             desc,
