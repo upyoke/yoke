@@ -9,8 +9,11 @@ it froze, rather than refusing with "ordered plan case snapshot changed".
 
 from __future__ import annotations
 
+import base64
 import json
 import subprocess
+
+import pytest
 
 from runtime.api.domain import deployment_run_target_takeover_test_support as takeover
 from runtime.api.domain.agent_mission_qa_test_support import ACTOR
@@ -23,7 +26,6 @@ from runtime.api.fixtures.deployment_scoped_qa_run_fixture import (
     seed_run_standing_on_qa_stage,
 )
 from yoke_contracts.api.function_call import FunctionCallRequest, TargetRef
-from yoke_core.domain import deployment_qa_requirement_target_refresh as refresh
 from yoke_core.domain.agent_mission_recording import (
     handle_agent_mission_access,
     handle_agent_mission_ready,
@@ -41,15 +43,28 @@ from yoke_core.domain.machine_qa_local_execution import (
     prepare_agent_mission_contract,
 )
 from yoke_core.domain.machine_qa_mission_walk import execute_agent_mission_walk_end
+from yoke_core.domain.coordination_claims import get_claim
+from yoke_core.domain.qa_artifact_recording import handle_qa_artifact_add
+from yoke_core.domain.qa_case_execution_context import (
+    QaCaseExecutionError,
+    get_case_execution_context,
+)
+from yoke_core.domain.handlers.qa_plan_review import handle_plan_review_submit
 from yoke_core.domain.qa_plan_execution_state import (
+    QaPlanExecutionStateError,
+    advance_plan_execution,
     begin_plan_execution,
     lock_plan_execution,
 )
 from yoke_core.domain.qa_plan_management import create_plan, replace_plan_cases
+from yoke_core.domain.qa_plan_execution_stop import STEERING_STOP_REASON, stop_plan_execution
 from yoke_core.domain.qa_plan_review import begin_plan_review
+from yoke_core.domain.qa_requirement_ops import waive_requirement
+from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_run
 
 MEMBER = takeover.WAITING
 CASE_KEY = "new-user-install"
+COMMAND_KEY = "extra-command"
 
 
 def _mission_plan(conn) -> int:
@@ -72,7 +87,15 @@ def _mission_plan(conn) -> int:
                 "expected_outcome": "Ranked actionable findings.",
                 "method_config": {"executor": "informed_subagent", "os": "macos"},
                 "host_baselines": ["fresh-host"],
-            }
+            },
+            {
+                "case_key": COMMAND_KEY,
+                "position": 2,
+                "method_id": "command",
+                "instructions": "Run an independent command.",
+                "expected_outcome": "The command exits successfully.",
+                "method_config": {"command": "true"},
+            },
         ],
     )
     return int(plan["id"])
@@ -81,7 +104,7 @@ def _mission_plan(conn) -> int:
 def _seed_old_with_mission(conn) -> int:
     """OLD stands on item QA; PASSED closed, WAITING owes the mission."""
     stages = item_qa_stage_definitions(_mission_plan(conn))
-    stages[1]["cases"]["case_keys"] = [CASE_KEY]
+    stages[1]["cases"]["case_keys"] = [CASE_KEY, COMMAND_KEY]
     seed_run_standing_on_qa_stage(
         conn,
         run_id=takeover.OLD,
@@ -142,13 +165,23 @@ def _begin_walk(conn, requirement: int) -> FunctionCallRequest:
         )
     )
     assert ready.primary_success, ready.error
-    # The deterministic capture is done; the walk now awaits the mission.
-    begin_plan_review(conn, lock_plan_execution(conn, str(execution["id"])))
+    current = lock_plan_execution(conn, str(execution["id"]))
+    advance_plan_execution(
+        conn, current, ordinal=1,
+        requirement_id=current["roster"][1]["requirement_id"],
+        result={"runner_id": "worktree_run", "verdict": "pass", "case_outcome": "passed"},
+        commit=False,
+    )
+    begin_plan_review(conn, current)
     conn.commit()
     return request.model_copy(
         update={
             "function": "test_machine.mission.access",
-            "payload": {"execution_id": str(execution["id"]), "requirement_id": requirement},
+            "payload": {
+                "execution_id": str(execution["id"]),
+                "requirement_id": requirement,
+                "run_id": ready.result_payload["result"]["run_id"],
+            },
         }
     )
 
@@ -163,7 +196,10 @@ def _requirement_target(conn, requirement: int) -> tuple[dict, str]:
     return json.loads(row["execution_target_json"]), row["execution_target_digest"]
 
 
-def test_taken_over_mission_walk_commands_its_host_and_ends(test_db, tmp_path, monkeypatch):
+@pytest.mark.parametrize("waive_mission", [False, True], ids=["review", "steering-abort"])
+def test_taken_over_mission_walk_commands_its_host_and_ends(
+    test_db, tmp_path, monkeypatch, waive_mission,
+):
     configure_test_machine(test_db, tmp_path, monkeypatch)
     # Suppress only the external review wake sent to the run's driver session.
     monkeypatch.setattr(
@@ -193,14 +229,6 @@ def test_taken_over_mission_walk_commands_its_host_and_ends(test_db, tmp_path, m
 
     # The successor deploys, and its item-QA materialization rebinds the case.
     _redeploy_new(test_db)
-    rebound = []
-    real_rebind = refresh.rebind_subject
-
-    def spy(conn, *, subject, target):
-        rebound.extend(real_rebind(conn, subject=subject, target=target))
-        return list(rebound)
-
-    monkeypatch.setattr(refresh, "rebind_subject", spy)
     materialize_deployment_qa_stage(
         test_db,
         deployment_run_id=takeover.NEW,
@@ -208,14 +236,38 @@ def test_taken_over_mission_walk_commands_its_host_and_ends(test_db, tmp_path, m
         deployment_member_item_id=MEMBER,
     )
     test_db.commit()
-    assert rebound == [requirement]
     target, digest = _requirement_target(test_db, requirement)
     assert digest != frozen_digest
-    assert digest != frozen["execution_target_digest"]
     assert target["deployment"]["run_id"] == takeover.NEW
     assert target["deployment"]["release_lineage"] == takeover.NEW_LINEAGE
     assert target["deployment"]["starting_run_id"] == takeover.OLD
 
+    waived_id = requirement if waive_mission else frozen["roster"][1]["requirement_id"]
+    waive_requirement(test_db, waived_id, "Waived during the frozen walk.", force=True)
+    with pytest.raises(QaCaseExecutionError, match=rf"requirement {waived_id} is waived"):
+        get_case_execution_context(test_db, requirement_id=waived_id)
+    test_db.rollback()
+
+    def assert_begin_preserves_walk(state):
+        with pytest.raises(QaPlanExecutionStateError, match="^qa_walk_in_progress:") as refusal:
+            begin_plan_execution(
+                test_db,
+                deployment_run_id=takeover.NEW,
+                deployment_stage=ITEM_QA_STAGE,
+                deployment_member_item_id=MEMBER,
+                actor_id=ACTOR.actor_id,
+                session_id=ACTOR.session_id,
+            )
+        message = str(refusal.value)
+        assert "yoke qa mission walk-end" in message
+        assert "yoke qa plan review-submit" in message
+        assert "yoke qa plan abort" not in message
+        still = lock_plan_execution(test_db, execution_id)
+        test_db.rollback()
+        assert still["state"] == state
+        assert still["execution_target_digest"] == frozen["execution_target_digest"]
+
+    assert_begin_preserves_walk("walking")
     # A mission host command is granted and runs on the walk's own lease.
     command = handle_agent_mission_access(access)
     assert command.primary_success, command.error
@@ -248,8 +300,49 @@ def test_taken_over_mission_walk_commands_its_host_and_ends(test_db, tmp_path, m
     assert ended["starting_state_restore"]["restored"] is True
     assert ended["starting_state_restore"]["baseline"] == "fresh-host"
 
-    still = lock_plan_execution(test_db, execution_id)
-    test_db.rollback()
-    assert still["deployment_run_id"] == takeover.NEW
-    assert still["state"] == "walking"
-    assert still["execution_target_digest"] == frozen["execution_target_digest"]
+    run_id = access.payload["run_id"]
+    saved = handle_qa_artifact_add(FunctionCallRequest(
+        function="qa.artifact.add", actor=ACTOR,
+        target=TargetRef(kind="qa_requirement", qa_requirement_id=requirement),
+        payload={
+            "run_id": run_id, "artifact_type": "starting_state_restore",
+            "filename": "starting-state-restore.json", "content_type": "application/json",
+            "content_base64": base64.b64encode(json.dumps(ended["starting_state_restore"]).encode()).decode(),
+        },
+    ))
+    assert saved.primary_success, saved.error
+    assert test_db.execute(
+        "SELECT id FROM qa_artifacts WHERE qa_run_id=%s AND artifact_type='starting_state_restore'",
+        (run_id,),
+    ).fetchone()["id"] == saved.result_payload["qa_artifact_id"]
+    assert_begin_preserves_walk("awaiting_walk_review")
+
+    current = lock_plan_execution(test_db, execution_id)
+    if waive_mission:
+        stopped = stop_plan_execution(
+            test_db, current, actor_id="9", session_id="steering-session", reason="stop after restore",
+        )
+        assert stopped["state"] == "aborted"
+        assert stopped["release_reason"].startswith(STEERING_STOP_REASON)
+        assert not get_claim(test_db, contract["lease_id"]).is_active
+    else:
+        bundle = begin_plan_review(test_db, current)
+        test_db.commit()
+        submitted = handle_plan_review_submit(FunctionCallRequest(
+            function="qa.plan_review.submit", actor=ACTOR,
+            target=TargetRef(kind="item", item_id=MEMBER),
+            payload={
+                "execution_id": execution_id, "bundle_id": bundle["bundle_id"],
+                "bundle_digest": bundle["bundle_digest"],
+                "verdicts": [{
+                    "requirement_id": requirement, "verdict": "pass",
+                    "rationale": "The walk finished on the retained host.",
+                }],
+            },
+        ))
+        assert submitted.primary_success, submitted.error
+        assert submitted.result_payload["state"] == "passed"
+        assert has_current_passing_run(test_db, requirement)
+        assert test_db.execute(
+            "SELECT rebound_from_digest FROM qa_requirements WHERE id=%s", (requirement,)
+        ).fetchone()["rebound_from_digest"] == frozen["execution_target_digest"]

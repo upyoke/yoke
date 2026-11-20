@@ -83,11 +83,10 @@ def get_case_execution_context(
         conn,
         "SELECT q.id AS requirement_id, q.item_id, q.task_num, q.deployment_run_id, "
         "q.deployment_stage,q.deployment_member_item_id,q.standalone_execution_id, "
-        "q.plan_id, q.target_env, "
+        "q.plan_id, q.target_env, q.waived_at, "
         "q.plan_case_key, q.method_id, q.qa_kind, q.instructions, "
         "q.expected_outcome, q.method_config, q.host_baseline, "
-        f"{'q.starting_state,q.starting_state_reason'}, "
-        "q.workflow_transition_id, q.entry_surface, "
+        "q.starting_state, q.starting_state_reason, q.workflow_transition_id, q.entry_surface, "
         "q.required_completion, q.method_name, q.runner_id, "
         "q.capability_requirements, q.verdict_path, "
         "q.execution_target_json, q.execution_target_digest, "
@@ -102,13 +101,15 @@ def get_case_execution_context(
         "LEFT JOIN items m ON m.id=q.deployment_member_item_id "
         "LEFT JOIN projects mp ON mp.id=m.project_id "
         f"JOIN projects p ON p.id={project_of_requirement(member='m', plan='qp', item='i', run='dr')} "
-        f"WHERE q.id={marker}" + ("" if include_waived else " AND q.waived_at IS NULL"),
+        f"WHERE q.id={marker}",
         (int(requirement_id),),
     )
     if row is None:
         raise QaCaseExecutionError(
             f"materialized QA case requirement {requirement_id} not found"
         )
+    if not include_waived and row["waived_at"] is not None:
+        raise QaCaseExecutionError(f"materialized QA case requirement {requirement_id} is waived")
     if not row["method_id"]:
         raise QaCaseExecutionError(
             "shared case execution requires a method-backed requirement"
