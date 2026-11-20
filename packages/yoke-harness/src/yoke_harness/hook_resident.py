@@ -201,7 +201,14 @@ class _ResidentHandler(socketserver.BaseRequestHandler):
     server: _ResidentServer
 
     def handle(self) -> None:
+        from yoke_harness.hooks.denial_relay import (
+            hold_denial_audits,
+            send_held_denial_audits,
+        )
+
         self.server.begin_request()
+        # A deny's audit POST waits for the reply; the caller's budget cannot.
+        held_audits = hold_denial_audits()
         request = None
         client_wall_target = None
         try:
@@ -261,6 +268,7 @@ class _ResidentHandler(socketserver.BaseRequestHandler):
                 target=client_wall_target,
             )
         finally:
+            send_held_denial_audits(held_audits)
             self.server.end_request()
 
 

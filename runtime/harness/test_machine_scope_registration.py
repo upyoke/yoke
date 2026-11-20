@@ -172,7 +172,7 @@ def remote(monkeypatch, harness):
         monkeypatch.setattr(identity_relay, name, lambda *a: "test")
     monkeypatch.setattr(identity_relay, "client_machine_id", lambda: "machine")
     monkeypatch.setattr(
-        relay, "relay_denial_audit", lambda c, a: state.audits.append(a)
+        relay, "submit_denial_audit", lambda c, a, _d: state.audits.append(a)
     )
 
     def opener(request, **kwargs):

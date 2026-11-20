@@ -83,7 +83,7 @@ def test_hook_provenance_is_printed_only_on_allow(path, denied, monkeypatch, cap
             reason if local_denied else "", 2 if local_denied else 0, local_denied
         ),
     )
-    monkeypatch.setattr(relay, "relay_denial_audit", lambda *a: None)
+    monkeypatch.setattr(relay, "submit_denial_audit", lambda *a: None)
     monkeypatch.setattr(relay, "_codex_capture", lambda *a: None)
     monkeypatch.setattr(relay, "deny_unstamped_relay", lambda _p: None)
     monkeypatch.setattr(

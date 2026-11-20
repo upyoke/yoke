@@ -43,7 +43,7 @@ from yoke_harness.hooks.identity import (
 )
 from yoke_harness.hooks.launch_context import settle_projection, stamp_hook_input
 from yoke_harness.hooks.guard_version_skew import annotate_guard_version_skew
-from yoke_harness.hooks.denial_relay import relay_denial_audit
+from yoke_harness.hooks.denial_relay import submit_denial_audit
 from yoke_harness.hooks.local_subset import (
     evaluate_local_subset,
     render_dry_run,
@@ -185,7 +185,7 @@ def relay_hook_event(
             local.stdout, local.exit_code, executor, event_name=event_name
         )
         if local.denial_audit:
-            relay_denial_audit(connection, local.denial_audit)
+            submit_denial_audit(connection, local.denial_audit, deadline)
         return local.exit_code
 
     allow_stdout = _with_extra_context(
