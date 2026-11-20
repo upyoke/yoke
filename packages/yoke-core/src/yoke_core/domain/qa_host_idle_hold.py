@@ -122,7 +122,8 @@ def _live_executions_holding_lease(lease_id: str, reason: str, prefix: str) -> s
 
 
 def held_rows(conn: Any) -> list[dict[str, Any]]:
-    """Every consumed host lease with its holder's activity facts."""
+    """Every consumed lease and its activity in a universe with host waits."""
+    from yoke_core.domain.qa_plan_host_leases import HOST_SET_REASON
     from yoke_core.domain.schema_work_claim_sql import scope_text_sql
 
     machine = scope_text_sql(conn, "wc.scope", "test_machine")
@@ -132,14 +133,9 @@ def held_rows(conn: Any) -> list[dict[str, Any]]:
         if _table_exists(conn, "test_machine_operation_receipts")
         else "NULL"
     )
-    from yoke_core.domain.qa_plan_host_leases import HOST_SET_REASON
-
+    # The host wait schema already references qa_plan_executions.
     holding = _live_executions_holding_lease("wc.id", "wc.reason", _p(conn))
-    has_executions = _table_exists(conn, "qa_plan_executions")
-    execution_heartbeat = (
-        f"(SELECT MAX(heartbeat_at) FROM qa_plan_executions WHERE {holding})"
-        if has_executions else "NULL"
-    )
+    execution_heartbeat = f"(SELECT MAX(heartbeat_at) FROM qa_plan_executions WHERE {holding})"
     return query_rows(
         conn,
         f"SELECT wc.id, wc.session_id, wc.claimed_at, {machine} AS test_machine, "
@@ -151,7 +147,7 @@ def held_rows(conn: Any) -> list[dict[str, Any]]:
         "FROM work_claims wc "
         "LEFT JOIN harness_sessions hs ON hs.session_id=wc.session_id "
         f"WHERE {_HELD} ORDER BY wc.id",
-        (HOST_SET_REASON,) if has_executions else (),
+        (HOST_SET_REASON,),
     )
 
 
