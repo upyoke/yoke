@@ -286,12 +286,17 @@ def test_wsl_mission_routes_commands_and_screenshots_to_selected_desktop(monkeyp
 
     monkeypatch.setattr(windows, "desktop_script", run_native)
     monkeypatch.setattr(windows.SshLinuxHostOperations, "run_command", run_linux)
-    monkeypatch.setattr(windows, "capture_desktop", lambda host, **_: host)
-    monkeypatch.setattr(windows.SshLinuxHostOperations, "capture_screenshot", lambda host, **_: host)
+    def captured(source):
+        return lambda host, **_: HostActionResult(True, {"source": source, "host": host})
+
+    monkeypatch.setattr(windows, "capture_desktop", captured("windows"))
+    monkeypatch.setattr(windows.SshLinuxHostOperations, "capture_screenshot", captured("xfce"))
 
     result = control.run_command(["yoke", "ui", "up"], required_session_context="gui", timeout=90)
     assert result.returncode == 0 and calls == [(target, 90)]
-    assert control.capture_screenshot() is (console if target == "windows" else control)
+    shot = control.capture_screenshot().evidence
+    assert shot["source"] == target
+    assert shot["host"] is (console if target == "windows" else control)
 
 
 @pytest.mark.parametrize("wsl", [False, True])
@@ -316,3 +321,25 @@ def test_interactive_windows_console_probe_requires_receipt(monkeypatch, wsl, re
     else:
         assert result.error_code == "windows_console_not_ready"
         assert "Reboot" in result.evidence["recovery"]
+
+
+def wsl_console_screenshot(monkeypatch):
+    """Capture through a WSL machine whose desktop is the Windows console."""
+    from runtime.api.domain.machine_screenshot_test_support import screenshot_result
+    from yoke_harness import ssh_windows_host_operations as windows
+
+    native = screenshot_result()
+    native.evidence.update(os="windows", desktop_session="interactive")
+    monkeypatch.setattr(windows, "capture_desktop", lambda host, **_: native)
+    control = object.__new__(SshWindowsHostOperations)
+    control.windows_host = object()
+    control.wsl_desktop_session = "windows"
+    return control.capture_screenshot()
+
+
+def test_wsl_windows_console_screenshot_names_the_wsl_machine(monkeypatch):
+    result = wsl_console_screenshot(monkeypatch)
+    assert result.ok and result.error_code is None
+    assert result.evidence["os"] == "wsl"
+    assert result.evidence["desktop_session"] == "windows_console"
+    assert result.evidence["capture_artifact"]["token"] == "desktop"

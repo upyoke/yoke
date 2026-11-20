@@ -77,7 +77,15 @@ class SshWindowsHostOperations(SshLinuxHostOperations):
 
     def capture_screenshot(self, *, focused_window=False):
         if self.wsl_desktop_session == "windows":
-            return capture_desktop(self.windows_host, focused_window=focused_window)
+            result = capture_desktop(self.windows_host, focused_window=focused_window)
+            if not result.ok:
+                return result
+            # The receipt must name the WSL machine its contract was issued for.
+            return HostActionResult(
+                True,
+                {**result.evidence, "os": "wsl", "desktop_session": "windows_console"},
+                result.error_code,
+            )
         return super().capture_screenshot(focused_window=focused_window)
 
     def diagnose_terminal_bridge(self):
