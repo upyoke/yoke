@@ -1,4 +1,4 @@
-"""Azure VM startup and public IP attachment."""
+"""Azure VM power and managed public IP attachment."""
 
 from __future__ import annotations
 
@@ -27,6 +27,10 @@ class AzureMachinePower:
     @property
     def read_command(self):
         return f"yoke azure exec --project {self.project} -- vm show --ids {self.instance_id} --show-details"
+
+    @property
+    def stop_command(self) -> str:
+        return f"yoke azure exec --project {self.project} -- vm deallocate --ids {self.instance_id}"
 
     def _run(self, action, *args, timeout=60):
         return run_checked(
@@ -155,10 +159,8 @@ class AzureMachinePower:
             )
         return config_id, attached, details["location"]
 
-    def _attach_public_ip(self):
-        config_id, attached, location = self._ip_config()
-        if attached:
-            return
+    @staticmethod
+    def _ip_config_selectors(config_id: str) -> tuple[str, str, str]:
         selectors = re.fullmatch(
             r"/subscriptions/[^/]+/resourceGroups/([^/]+)/providers/"
             r"Microsoft\.Network/networkInterfaces/([^/]+)/ipConfigurations/([^/]+)",
@@ -169,7 +171,29 @@ class AzureMachinePower:
             raise AzureAdminError(
                 "Azure NIC IP configuration id is invalid; inspect the NIC and retry"
             )
-        resource_group, nic_name, config_name = selectors.groups()
+        return selectors.groups()
+
+    def _update_public_ip(self, selectors: tuple[str, str, str], address: str):
+        resource_group, nic_name, config_name = selectors
+        self._network(
+            "nic",
+            "ip-config",
+            "update",
+            "--resource-group",
+            resource_group,
+            "--nic-name",
+            nic_name,
+            "--name",
+            config_name,
+            "--public-ip-address",
+            address,
+        )
+
+    def _attach_public_ip(self):
+        config_id, attached, location = self._ip_config()
+        if attached:
+            return
+        selectors = self._ip_config_selectors(config_id)
         self._network(
             "public-ip",
             "create",
@@ -184,17 +208,26 @@ class AzureMachinePower:
             "--allocation-method",
             "Static",
         )
-        self._network(
-            "nic",
-            "ip-config",
-            "update",
-            "--resource-group",
-            resource_group,
-            "--nic-name",
-            nic_name,
-            "--name",
-            config_name,
-            "--public-ip-address",
-            self.public_ip_id,
-        )
+        self._update_public_ip(selectors, self.public_ip_id)
         self.emit(f"  attached Azure public IP {self.public_ip_id}")
+
+    def _delete_public_ip(self):
+        config_id, attached, _ = self._ip_config()
+        if attached:
+            self._update_public_ip(self._ip_config_selectors(config_id), "null")
+
+        # Also find a managed IP left behind by an unsuccessful attachment.
+        group = self.instance_id.split("/")[4]
+        result = self._network("public-ip", "list", "--resource-group", group)
+        try:
+            resources = json.loads(result.stdout)
+            if not isinstance(resources, list):
+                raise ValueError("expected a list of public IP resources")
+            resource_ids = {ip["id"].lower() for ip in resources}
+        except (ValueError, KeyError, TypeError, AttributeError):
+            raise AzureAdminError(
+                "Azure public-ip list returned invalid resources; inspect and delete the power IP, then retry"
+            ) from None
+        if self.public_ip_id.lower() in resource_ids:
+            self._network("public-ip", "delete", "--ids", self.public_ip_id)
+            self.emit(f"  deleted Azure public IP {self.public_ip_id}")
