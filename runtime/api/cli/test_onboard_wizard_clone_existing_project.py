@@ -26,6 +26,7 @@ from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     skip_hosting,
     type_text,
 )
+from runtime.api.cli.onboard_wizard_view_test_support import wait_for_view  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -38,6 +39,15 @@ def _body_text(app) -> str:
         str(widget.render())
         for widget in app.query("#onboard-body Static").results(Static)
     )
+
+
+async def _enter_clone_source(app, pilot) -> None:
+    await connect_github_app(app, pilot)
+    await pick_mode(pilot, onboard_project.PROJECT_MODE_CLONE_REMOTE)
+    await wait_for_view(pilot, "project.clone_visibility", "SelectionList")
+    await pilot.press("enter")  # visibility: Public
+    await wait_for_view(pilot, "project.clone_url", "Input")
+    await type_text(pilot, "git@github.com:example-org/externalwebapp.git")
 
 
 def test_clone_existing_yoke_project_offers_binding_upgrade(
@@ -59,13 +69,9 @@ def test_clone_existing_yoke_project_offers_binding_upgrade(
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
-            await connect_github_app(app, pilot)
-            await pick_mode(pilot, onboard_project.PROJECT_MODE_CLONE_REMOTE)
-            await pilot.press("enter")  # visibility: Public
-            await type_text(pilot, "git@github.com:example-org/externalwebapp.git")
+            await _enter_clone_source(app, pilot)
             await pilot.press("enter")  # remote -> existing project announced
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(pilot, "project.existing_found", "SelectionList")
             title = next(
                 str(w.render()) for w in app.query(".onboard-title").results(Static)
             )
@@ -89,6 +95,7 @@ def test_clone_existing_yoke_project_offers_binding_upgrade(
             assert "Clone target:" not in body
             assert "Using existing checkout:" not in body
             await pilot.press("enter")  # connect to it -> clone folder input
+            await wait_for_view(pilot, "project.clone_folder", "Input")
             await pilot.press("enter")  # folder default -> clone, then GitHub choice
             await select_connected_repository(app, pilot)
             await skip_hosting(pilot)  # hosting: skip -> Finish
@@ -128,13 +135,12 @@ def test_clone_existing_yoke_project_access_error_blocks_setup(monkeypatch) -> N
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
-            await connect_github_app(app, pilot)
-            await pick_mode(pilot, onboard_project.PROJECT_MODE_CLONE_REMOTE)
-            await pilot.press("enter")  # visibility: Public
-            await type_text(pilot, "git@github.com:example-org/externalwebapp.git")
+            await _enter_clone_source(app, pilot)
             source_view = app._history[-1]
             await pilot.press("enter")
-            await pilot.pause()
+            await wait_for_view(
+                pilot, "project.existing_project_lookup_error", "SelectionList"
+            )
             title = next(
                 str(w.render())
                 for w in app.query(".onboard-title-error").results(Static)
@@ -148,7 +154,7 @@ def test_clone_existing_yoke_project_access_error_blocks_setup(monkeypatch) -> N
             assert len(app._history) == error_depth
             await pilot.press("down")  # Back
             await pilot.press("enter")
-            await pilot.pause()
+            await wait_for_view(pilot, "project.clone_url", "Input")
             assert app._history[-1] is source_view
             assert "Clone a project from GitHub." in _body_text(app)
             assert len(app._history) == error_depth - 1
