@@ -21,6 +21,7 @@ from yoke_contracts.bounded_json_http import (
     BoundedJsonHttpNetworkError,
     BoundedJsonHttpStatusError,
 )
+from yoke_contracts.api_urls import HOSTED_PLATFORM_URL
 from yoke_contracts.network_failure_reason import (
     NETWORK_NAME_UNRESOLVED,
     NETWORK_NOT_HTTP,
@@ -53,8 +54,8 @@ def describe(
 ) -> str | None:
     """``code: what failed; fix`` for a reach failure, else ``None``.
 
-    ``None`` leaves an HTTP status other than 404 to its caller, which knows
-    what that endpoint's statuses mean.
+    ``None`` leaves a 5xx, or a 4xx other than 404 that carries Yoke's JSON,
+    to its caller, which knows what that endpoint's statuses mean.
     """
     host = urllib.parse.urlsplit(url).netloc or url
     failure = _failure(exc, host)
@@ -101,6 +102,11 @@ def _failure(exc: BoundedJsonHttpError, host: str) -> str | None:
             )
         if exc.status == 404:
             return _not_yoke(host, "it has no Yoke API at that address (HTTP 404)")
+        if 400 <= exc.status < 500 and not isinstance(exc.payload, Mapping):
+            # Every Yoke refusal is a JSON object; a page here is a website.
+            return _not_yoke(
+                host, f"it answered HTTP {exc.status} without Yoke's JSON"
+            )
     if isinstance(exc, BoundedJsonHttpBodyError):
         return _not_yoke(host, "its answer was not Yoke's JSON")
     return None
@@ -121,7 +127,8 @@ def _timed_out(host: str) -> str:
 def _not_yoke(host: str, why: str) -> str:
     return (
         f"{SERVER_NOT_YOKE}: {host} answered, but not as a Yoke server: {why}; "
-        "check that the URL names the Yoke server itself."
+        "check that the URL names the Yoke server itself. For the hosted "
+        f"app run `yoke connect` with no URL (it uses {HOSTED_PLATFORM_URL})."
     )
 
 

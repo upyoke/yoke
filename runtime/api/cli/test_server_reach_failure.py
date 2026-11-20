@@ -64,6 +64,8 @@ def test_network_failures_are_named_by_cause(cause, code) -> None:
     "exc",
     [
         BoundedJsonHttpStatusError(404, None),
+        BoundedJsonHttpStatusError(405, None),
+        BoundedJsonHttpStatusError(403, None),
         BoundedJsonHttpBodyError("JSON response body is not valid JSON"),
         BoundedJsonHttpStatusError(
             401, {"error": {"code": reach.LOCAL_DASHBOARD_ERROR_CODE}}
@@ -88,6 +90,14 @@ def test_other_statuses_stay_with_their_caller() -> None:
     assert (
         reach.describe(
             BoundedJsonHttpStatusError(503, None), URL, check_server_machine=True
+        )
+        is None
+    )
+    assert (
+        reach.describe(
+            BoundedJsonHttpStatusError(405, {"error": "method_not_allowed"}),
+            URL,
+            check_server_machine=True,
         )
         is None
     )
