@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shlex
 import subprocess
 from pathlib import Path
 from unittest import mock
@@ -199,3 +200,51 @@ def test_both_guards_render_the_same_refusal(repo: Path) -> None:
     local = _local("git reset --hard", repo)
     assert core is not None and local is not None
     assert local.split("Doctrine:")[0] == core.split("Doctrine:")[0]
+
+
+@pytest.fixture()
+def dirty_lane(repo: Path) -> Path:
+    (repo / ".gitignore").write_text(".worktrees/\n.pytest_cache/\n__pycache__/\n")
+    (repo / "src").mkdir()
+    (repo / "src/a.py").write_text("original = True\n")
+    _commit_all(repo, "seed lane source")
+    lane = repo / ".worktrees" / "example"
+    assert _git(repo, "worktree", "add", "-qb", "example", str(lane)).returncode == 0
+    (lane / "src/a.py").write_text("original = False\n")
+    return lane
+
+
+@GUARDS
+@pytest.mark.parametrize(
+    ("command", "from_lane", "shape"),
+    [
+        ("rm -rf src", True, "rm -rf <path inside a lane>"),
+        ("rm -rf {lane}/src", False, "rm -rf <path inside a lane>"),
+        ("cd {lane} && rm -rf src", False, "rm -rf <path inside a lane>"),
+        ("rm -rf {lane}", False, "rm -rf .worktrees/<path>"),
+        ("rm -rf .worktrees", False, "rm -rf .worktrees/<path>"),
+    ],
+)
+def test_recursive_rm_refuses_dirty_lane_paths(
+    guard, repo: Path, dirty_lane: Path, command: str, from_lane: bool, shape: str
+) -> None:
+    # Engine-only config provenance is covered separately from the shared narrative.
+    with mock.patch.object(ldg, "_config_note", return_value=""):
+        command = command.format(lane=shlex.quote(str(dirty_lane)))
+        cwd = dirty_lane if from_lane else repo
+        reason = guard(command, cwd)
+        assert reason is not None
+        assert f"Shape: {shape}\n" in reason
+        assert _risk_lines(reason) == [f"{dirty_lane.resolve()}/src/a.py"]
+        assert reason == _local(command, cwd)
+
+
+@GUARDS
+@pytest.mark.parametrize("cache", [".pytest_cache", "src/__pycache__"])
+def test_recursive_rm_allows_ignored_lane_cache(
+    guard, dirty_lane: Path, cache: str
+) -> None:
+    cache_dir = dirty_lane / cache
+    cache_dir.mkdir()
+    (cache_dir / "generated").write_text("cache\n")
+    assert guard(f"rm -rf {cache}", dirty_lane) is None

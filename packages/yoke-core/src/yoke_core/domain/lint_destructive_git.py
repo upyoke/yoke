@@ -18,7 +18,7 @@ from typing import Optional, Tuple
 
 from yoke_contracts.hook_runner import destructive_git_messages as messages
 from yoke_contracts.hook_runner import destructive_git_rules as rules
-from yoke_contracts.hook_runner import recursive_rm_guard
+from yoke_contracts.hook_runner import recursive_rm_guard, rm_lane_guard
 from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_payload_shell
 from yoke_core.domain import lint_config
 from yoke_core.domain import lint_destructive_git_commands as command_checks
@@ -127,34 +127,11 @@ def evaluate_payload(
             config_note=_config_note(cwd),
         )
         return reason, outcome
-    for targets in recursive_rm_guard.recursive_rm_invocations(parsed):
-        resolved_targets = worktree_checks.resolve_rm_targets(targets, cwd)
-        if not resolved_targets:
-            continue
-        lane_roots, in_lane = worktree_checks.rm_worktree_targets(resolved_targets)
-        threatened = [
-            threat
-            for target in lane_roots
-            for threat in worktree_checks.worktree_status_threats(target, _git)
-        ]
-        # Location-blind: a target can hold another item's live lane nested
-        # arbitrarily deep beneath it with no literal ".worktrees" segment
-        # of its own (a scratch clone mis-registered as a checkout, an
-        # unrelated parent under /tmp, a symlink alias), so this checks
-        # every resolved target, not just the ones that look worktree-named.
-        threatened.extend(_claimed_worktree_threats(resolved_targets))
-        shape = "rm_rf_worktree"
-        if not threatened:
-            shape = "rm_rf_in_lane"
-            threatened = [
-                threat
-                for lane_root, target in in_lane
-                for threat in worktree_checks.in_lane_status_threats(
-                    lane_root, target, _git
-                )
-            ]
-        if not threatened:
-            continue
+    lane_threat = rm_lane_guard.recursive_rm_lane_threat(
+        parsed, cwd, _git, claimed_threats=_claimed_worktree_threats
+    )
+    if lane_threat is not None:
+        shape, threatened = lane_threat
         reason = messages.format_reason(
             shape,
             threatened,

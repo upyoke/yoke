@@ -107,11 +107,6 @@ def _walk(
             yield targets, dict(bindings), segment_cwd
 
 
-def recursive_rm_invocations(command: str | ShellParse) -> list[list[str]]:
-    """Return the raw targets of every recursive ``rm`` in ``command``."""
-    return [targets for targets, _, _ in _walk(command, "")]
-
-
 def _substitute(raw: str, bindings: dict[str, object]) -> str | None:
     """Return ``raw`` with literal bindings applied, ``""`` when the command
     made the path itself, or ``None`` when part of it stays unresolved."""
@@ -122,6 +117,16 @@ def _substitute(raw: str, bindings: dict[str, object]) -> str | None:
         return None
     text = _VARIABLE.sub(lambda m: str(bindings[m.group(1) or m.group(2)]), raw)
     return None if "$" in text or "`" in text else text
+
+
+def recursive_rm_invocations(
+    command: str | ShellParse, cwd: str
+) -> Iterator[tuple[list[str], str]]:
+    """Yield each recursive delete's literal targets and effective cwd."""
+    for raw_targets, bindings, segment_cwd in _walk(command, cwd):
+        targets = [text for raw in raw_targets if (text := _substitute(raw, bindings))]
+        if targets:
+            yield targets, segment_cwd
 
 
 def _resolve(raw: str, cwd: str) -> str:
