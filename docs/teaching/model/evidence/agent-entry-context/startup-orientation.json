@@ -4,10 +4,10 @@
  "status": "observed",
  "scope": "current installed project and native session",
  "moment": "Claude/Codex UserPromptSubmit; Cursor SessionStart; missed Cursor delivery retries on PostToolUse",
- "current": "Client renderer uses payload/filesystem/git, without a DB read, to supply session ID, root, optional branch/recent commit, drift/install advisories, trust/authority core and deep-read pointers. It requires a session ID and .yoke ancestor. It confirms emitted allow output and retries missed delivery.",
+ "current": "Client renderer uses payload/filesystem/git, without a DB read, to supply session ID, root, optional branch/recent commit within a 1200-byte budget, drift/install advisories on top of it, trust/authority core and deep-read pointers. It requires a session ID and .yoke ancestor. It confirms emitted allow output and retries missed delivery.",
  "planned": "JOURNEYS proposes state-dependent project gaps such as template strategy, unstaffed plan or missing release setup.",
  "proposed_content": ["Reserve orientation for identity, current scope, important readiness/degradation and a bounded next-step hint.", "Fetch any proposed strategy/deploy/QA facts through existing authorized reads; unknown/unreachable is not configured or missing. Keep the current offline orientation available.", "Do not inline the full main_agent packet or resend static AGENTS doctrine. Add only facts useful to the current task.", "Treat delivery confirmation as emitted output evidence; separately prove model-visible receipt in D."],
  "plan_notes": ["FIRST-USER C/D/E", "JOURNEYS rows 9-12/15", "JOURNEYS open question 3"],
- "sources": ["packages/yoke-contracts/src/yoke_contracts/hook_runner/chain_registry.py:47", "packages/yoke-core/src/yoke_core/domain/session_orientation.py:151", "packages/yoke-core/src/yoke_core/domain/session_orientation.py:196", "packages/yoke-core/src/yoke_core/domain/session_orientation_delivery.py:1", "packages/yoke-core/src/yoke_core/domain/main_agent_packet.py:147"],
+ "sources": ["packages/yoke-contracts/src/yoke_contracts/hook_runner/chain_registry.py:47", "packages/yoke-core/src/yoke_core/domain/session_orientation.py:151", "packages/yoke-core/src/yoke_core/domain/session_orientation.py:199", "packages/yoke-core/src/yoke_core/domain/session_orientation_delivery.py:1", "packages/yoke-core/src/yoke_core/domain/main_agent_packet.py:143"],
  "position": 4
 }

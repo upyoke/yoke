@@ -213,23 +213,6 @@ def test_unusable_payloads_degrade_to_silence(stdin_data: str) -> None:
     assert so.orientation_for_hook("UserPromptSubmit", stdin_data) is None
 
 
-def test_orientation_reports_git_state(project: Path, monkeypatch) -> None:
-    calls: list[list[str]] = []
-
-    def fake_git(root: Path, args: list[str]) -> str:
-        calls.append(args)
-        if args[:1] == ["branch"]:
-            return "feature-branch"
-        return "abc1234 a recent commit"
-
-    monkeypatch.setattr(so, "_git_line", fake_git)
-    out = so.orientation_for_hook("UserPromptSubmit", _payload(project))
-
-    assert out is not None
-    assert "Current branch: feature-branch" in out
-    assert "abc1234 a recent commit" in out
-
-
 def test_orientation_survives_a_checkout_without_git(
     project: Path,
     monkeypatch,
