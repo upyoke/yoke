@@ -45,7 +45,10 @@ def needs_test_machine(case: Mapping[str, Any]) -> bool:
         kinds = case.get(field) or []
         required.extend(json.loads(kinds) if isinstance(kinds, str) else kinds)
     return bool(
-        any(config.get(key) for key in ("test_machine", "test_machines", "os"))
+        any(
+            config.get(key)
+            for key in ("test_machine", "test_machines", "os", "platform", "capability_tags")
+        )
         or any(str(kind).startswith("test-machine:") for kind in required)
         or case.get("host_baselines")
         or case.get("host_baseline")

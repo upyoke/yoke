@@ -13,6 +13,7 @@ from yoke_contracts.machine_config.desktop_access import (
 
 
 _RESOURCE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$")
+_CAPABILITY_TAG = re.compile(r"^[a-z0-9][a-z0-9:._-]{0,79}$")
 _REMOTE_USER = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9._-]{0,63}$")
 # ``windows`` is native Windows; ``wsl`` is a Windows host whose SSH commands run
 # inside the SSH user's default WSL2 distro.
@@ -22,7 +23,7 @@ _SETTING_KEYS = frozenset({"resource_name", "host", "user", "os", "operating_not
 # restore instead of an enumeration, so its absence means the machine has opted
 # out of that reset rather than that the settings are incomplete.
 _OPTIONAL_SETTING_KEYS = (
-    frozenset({"golden_baseline_path", "cloud_instance_id", "cloud_provider", "wsl_desktop_session"})
+    frozenset({"golden_baseline_path", "cloud_instance_id", "cloud_provider", "wsl_desktop_session", "capability_tags"})
     | DESKTOP_SETTING_KEYS
 )
 
@@ -76,6 +77,25 @@ def validate_golden_baseline_path(value: Any) -> str:
     return normalized
 
 
+def normalize_test_machine_capability_tags(tags: Any) -> tuple[str, ...]:
+    """Normalize exact-match tags shared by host settings and QA cases."""
+    if not isinstance(tags, list) or any(
+        not isinstance(tag, str) or not _CAPABILITY_TAG.fullmatch(tag.strip())
+        for tag in tags
+    ):
+        raise TestMachineCapabilityError(
+            "test_machine_capability_tags_invalid: use lowercase tags such as "
+            "arch:x64 or codex-desktop-signed-in"
+        )
+    return tuple(sorted({tag.strip() for tag in tags}))
+
+
+def test_machine_capability_tags(settings: Mapping[str, str]) -> tuple[str, ...]:
+    """Read an optional comma-separated capability tag setting."""
+    value = settings.get("capability_tags", "")
+    return normalize_test_machine_capability_tags(value.split(",") if value else [])
+
+
 def validate_test_machine_settings(payload: Mapping[str, Any]) -> dict[str, str]:
     """Return the canonical, non-secret settings document."""
     if "os" not in payload:
@@ -97,10 +117,18 @@ def validate_test_machine_settings(payload: Mapping[str, Any]) -> dict[str, str]
         raise TestMachineCapabilityError(
             "test-machine settings require exactly resource_name, host, user, "
             "os, and operating_notes, and optionally "
-            "golden_baseline_path, cloud_instance_id, cloud_provider "
+            "golden_baseline_path, cloud_instance_id, cloud_provider, capability_tags, "
             "a WSL desktop session and a complete desktop route (" + "; ".join(detail) + ")"
         )
+    if "capability_tags" in payload and not isinstance(payload["capability_tags"], str):
+        raise TestMachineCapabilityError(
+            "test_machine_capability_tags_invalid: supply capability_tags as comma-separated text"
+        )
     values = {key: str(payload[key] or "").strip() for key in present}
+    if tags := test_machine_capability_tags(values):
+        values["capability_tags"] = ",".join(tags)
+    else:
+        values.pop("capability_tags", None)
     if values.get("golden_baseline_path"):
         values["golden_baseline_path"] = validate_golden_baseline_path(
             values["golden_baseline_path"]

@@ -23,9 +23,8 @@ The exploratory QA method has these immutable properties:
 A mission without a declared host explores on the controller, the machine
 running the main session. It records a mission docket without a lease and
 reaches `awaiting_walk_review` without a restore artifact or reset debt.
-It ignores a run's `--test-machine` pin. Declare `method_config.test_machine`,
-`test_machines`, `os`, a specific `test-machine:<name>` capability or
-`host_baselines` to use a Test Machine; that host mission requires starting
+It ignores a run's `--test-machine` pin. Declare `method_config.os` to use a
+Test Machine of that type; that host mission requires starting
 state and retains the lease/reset/restore protocol described below.
 The runner supplies `browser-control` without a project capability row.
 Controller walkers use local tools and browsers. Host walkers use managed
@@ -57,21 +56,24 @@ and a viewport check does not prove real-phone touch behavior.
   "method_id": "exploratory-mission",
   "instructions": "Install as a new user, work through onboarding, and investigate confusing, broken, missing, or unsafe behavior using the terminal, browser, and visible desktop.",
   "expected_outcome": "Return a ranked actionable report, name what could not be verified and why, and return a precise handoff if a person must act.",
-  "method_config": {"executor": "informed_subagent", "test_machine": "macos-example"},
+  "method_config": {"executor": "informed_subagent", "os": "macos"},
   "host_baselines": ["fresh-host"]
 }
 ```
 
-For a host mission, omit `test_machine` to select a registered host matching
-the declared case OS (native-Windows walks pin one only when about that host,
-and a busy fleet queues the walk on its shortest host line). Execution
+Set `method_config.os` for host missions so QA can use any verified, healthy
+host of that type. Add `method_config.capability_tags` when the mission needs
+specific host capabilities. If every eligible host is busy, QA queues on the
+shortest eligible host line. Use `test_machine` only when the test depends on
+a specific host and state the dependency in `method_config.test_machine_reason`.
+When reviewing a pin, require that reason or ask for OS and tags instead. Execution
 checks `method_config.os` / `platform`, capability requirements and executable
 steps before leasing a host. A declared machine supplies its registered `os`
 when those fields do not choose one. Instructions never choose an OS. Without
 a declared platform or machine OS, `test_machine_platform_undeclared` asks for
 `method_config.os` or a registered `method_config.test_machine`. An unavailable
 platform refuses as `test_machine_platform_unavailable`: register and verify
-a matching host, then retry with its `--test-machine NAME`. When present, it
+a matching host, then retry. A name pin
 is validated during plan authoring and becomes the case's durable
 <!-- qa:test-machine-capability -->`test-machine:<name>` capability constraint. Execution also reads the pin from
 `method_config` for direct requirements and their admitted deployment copies;
@@ -79,7 +81,7 @@ omitting `--test-machine` preserves that pin, and a conflicting run pin is refus
 
 For a mission that needs two hosts at once, also declare
 `"test_machines":["linux-example","macos-example"]` with `"test_machine":"macos-example"` naming the
-driving host. Every name must be registered and listed once. Each host uses its
+driving host. In `test_machine_reason`, state what the case needs from that driver. Every name must be registered and listed once. Each host uses its
 registered OS; the declared case platform must match at least one host in the
 set. Platform words in instructions do not constrain the host set. The plan runner
 acquires the complete set in sorted name order through each host's FIFO,

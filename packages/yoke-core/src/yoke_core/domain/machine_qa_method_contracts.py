@@ -65,7 +65,6 @@ def validate_machine_method_config(
     )
 
     from yoke_core.domain.machine_qa_case_platform import platform_config
-
     config = dict(config)
     platform = platform_config(config)
     for key in platform:
@@ -76,7 +75,8 @@ def validate_machine_method_config(
         )
     except MachineConstraintError as exc:
         raise MachineQaExecutionError(str(exc)) from exc
-    config.pop("test_machine", None)
+    for key in ("test_machine", "test_machine_reason", "capability_tags"):
+        config.pop(key, None)
     machines = config.pop("test_machines", None)
     from yoke_contracts.qa_continuity_fingerprint import KEY, normalize_fingerprint
 

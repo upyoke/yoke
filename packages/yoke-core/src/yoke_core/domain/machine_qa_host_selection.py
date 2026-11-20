@@ -7,6 +7,7 @@ from typing import Any
 
 from yoke_contracts.machine_config.test_machine import (
     TestMachineCapabilityError,
+    test_machine_capability_tags,
 )
 
 from yoke_core.domain.coordination_claim_contention import ClaimContention
@@ -132,13 +133,14 @@ def acquire_test_machine_admission(
     test_machine: str | None,
     select_any: bool,
     healthy_only: bool = False,
+    require_verified: bool = True,
     cases: tuple[dict[str, Any], ...] = (),
 ) -> TestMachineAdmission:
-    """Acquire a named host, or the healthiest free host then stable name.
+    """Acquire a named host or the first verified, healthy available match.
 
     *healthy_only* is a scoped plan's admission: an unhealthy host is skipped
     so its waiters stay queued until a verify or golden capture heals it.
-    Operator operations admit it, because they are what heals it.
+    Operator operations admit unverified hosts so they can establish readiness.
     """
     from yoke_core.domain.qa_host_health import host_unhealthy
 
@@ -149,7 +151,10 @@ def acquire_test_machine_admission(
         ]
     else:
         candidates = list_test_machine_contracts(conn, project=project)
-    from yoke_core.domain.machine_qa_case_platform import matching_platform_hosts
+    from yoke_core.domain.machine_qa_case_platform import (
+        matching_platform_hosts,
+        required_host_tags,
+    )
 
     candidates = matching_platform_hosts(candidates, cases)
     if not candidates:
@@ -157,6 +162,18 @@ def acquire_test_machine_admission(
             "no eligible Test Machine is registered; "
             "register and verify a Test Machine before retrying"
         )
+    tags = required_host_tags(cases)
+    if tags:
+        candidates = [
+            candidate for candidate in candidates
+            if tags.issubset(test_machine_capability_tags(candidate.settings))
+        ]
+        if not candidates:
+            raise TestMachineCapabilityError(
+                "test_machine_capability_tags_unavailable: QA requires "
+                f"{', '.join(sorted(tags))}; select a Test Machine with "
+                "the required capability_tags or correct the case's declared tags"
+            )
     verification = _verification_by_machine(conn, candidates)
     candidates.sort(
         key=lambda candidate: (
@@ -166,12 +183,17 @@ def acquire_test_machine_admission(
     )
     busy: list[BusyTestMachine] = []
     unhealthy: list[dict[str, Any]] = []
+    unverified: list[str] = []
     for candidate in candidates:
         name = candidate.settings["resource_name"]
         target = host_claim_target(name)
-        health = host_unhealthy(conn, name) if healthy_only else None
+        verified_only = automatic and require_verified
+        health = host_unhealthy(conn, name) if healthy_only or verified_only else None
         if health is not None:
             unhealthy.append(health)
+            continue
+        if verified_only and verification[name].status != "verified":
+            unverified.append(name)
             continue
         try:
             lease = acquire(
@@ -197,9 +219,15 @@ def acquire_test_machine_admission(
                 automatic=automatic,
             ),
         )
-    if busy or not unhealthy:
+    if busy:
         raise TestMachineFleetBusy(busy)
-    raise TestMachineHostUnhealthy(unhealthy[0])
+    if unhealthy:
+        raise TestMachineHostUnhealthy(unhealthy[0])
+    raise TestMachineCapabilityError(
+        "test_machine_no_verified_host: no matching Test Machine has verified readiness "
+        f"({', '.join(unverified)}); run yoke test-machine verify --test-machine NAME "
+        "for a matching host, then retry QA"
+    )
 
 
 def acquire_test_machine(

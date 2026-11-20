@@ -55,10 +55,6 @@ def execution_machine(
             )
         return bool(test_machine) and (platform is None or hosts.get(test_machine) == platform)
 
-    if case.get("requirement_id"):
-        corrected = corrected_case_machine(conn, int(case["requirement_id"]))
-        if corrected and matches(corrected):
-            return corrected
     p = marker(conn)
     seen = set()
     while str(execution["id"]) not in seen:
@@ -98,42 +94,3 @@ def execution_machine(
         "qa_resume_history_cycle: execution continuation history repeats; "
         "ask the control-plane operator to repair its source links before resuming"
     )
-
-
-def corrected_case_machine(conn: Any, requirement_id: int) -> str | None:
-    """Follow a corrected case's durable predecessor links to its attempted host."""
-    p = marker(conn)
-    seen = set()
-    pending = [requirement_id]
-    machines = set()
-    while pending:
-        current = pending.pop()
-        if current in seen:
-            raise ValueError(
-                "qa_resume_correction_cycle: corrected requirement history repeats; "
-                "ask the control-plane operator to repair its successor links"
-            )
-        seen.add(current)
-        predecessors = conn.execute(
-            f"SELECT id FROM qa_requirements WHERE replacement_requirement_id={p} "
-            f"OR superseded_by_requirement_id={p} ORDER BY id",
-            (current, current),
-        ).fetchall()
-        for predecessor in predecessors:
-            prior = int(predecessor["id"])
-            row = conn.execute(
-                f"SELECT raw_result FROM qa_runs WHERE qa_requirement_id={p} "
-                "ORDER BY created_at DESC,id DESC LIMIT 1",
-                (prior,),
-            ).fetchone()
-            if row and (test_machine := run_machine(conn, row["raw_result"])):
-                machines.add(test_machine)
-            else:
-                pending.append(prior)
-        if len(machines) > 1:
-            raise ValueError(
-                "qa_resume_correction_hosts_conflict: this corrected case replaces "
-                "attempts on different hosts; split the correction into one case "
-                "per original host before resuming"
-            )
-    return next(iter(machines), None)

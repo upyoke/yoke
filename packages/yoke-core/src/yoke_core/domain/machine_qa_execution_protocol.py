@@ -181,6 +181,7 @@ def begin_host_control_execution(
             test_machine=test_machine,
             select_any=select_any,
             healthy_only=healthy_only,
+            require_verified=bool(cases or host_cases) or healthy_only,
             cases=tuple(host_cases if host_cases is not None else cases),
         )
     except CoordinationClaimStaleHolderError as exc:

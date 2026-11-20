@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_core.domain.qa_plan_execution_continuation import continuation_recipe
-from yoke_core.domain.qa_resume_machine import corrected_case_machine, execution_machine
+from yoke_core.domain.qa_resume_machine import execution_machine
 
 
 @pytest.mark.parametrize("hosts", [("linux-lab",), ("linux-lab", "test-mac")])
@@ -50,18 +50,15 @@ def test_settled_execution_recovers_host_from_its_recorded_runs(monkeypatch):
     )
 
 
-def test_correction_uses_its_own_failed_attempt_host():
+def test_replacement_does_not_read_predecessor_host(monkeypatch):
+    _hosts(monkeypatch)
     conn = Mock()
-    conn.execute.side_effect = [
-        Mock(fetchall=lambda: [{"id": 12}]),
-        Mock(
-            fetchone=lambda: {
-                "raw_result": json.dumps({"evidence": {"test_machine": "linux-lab"}})
-            }
-        ),
-    ]
-    assert corrected_case_machine(conn, 13) == "linux-lab"
-    assert conn.execute.call_args.args[1] == (12,)
+    conn.execute.return_value.fetchall.return_value = []
+    assert execution_machine(
+        conn, {"id": "replacement"}, {**_case("linux"), "requirement_id": 13}
+    ) is None
+    assert conn.execute.call_count == 1
+    assert "qa_plan_execution_results" in conn.execute.call_args.args[0]
 
 
 def test_multi_host_correction_notice_omits_a_global_pin(monkeypatch):
@@ -200,35 +197,6 @@ def test_stale_continuation_recovers_its_source_platform_host(monkeypatch):
     )
 
 
-@pytest.mark.parametrize("requirement,host", [(13, "linux-lab"), (15, "test-mac")])
-def test_corrected_roster_cases_recover_separate_hosts(requirement, host):
-    conn = Mock()
-    conn.execute.side_effect = [
-        Mock(fetchall=lambda: [{"id": requirement - 1}]),
-        Mock(
-            fetchone=lambda: {
-                "raw_result": json.dumps({"evidence": {"test_machine": host}})
-            }
-        ),
-    ]
-    assert corrected_case_machine(conn, requirement) == host
-
-
-def test_correction_without_attempt_follows_its_original_failed_case():
-    conn = Mock()
-    conn.execute.side_effect = [
-        Mock(fetchall=lambda: [{"id": 13}]),
-        Mock(fetchone=lambda: None),
-        Mock(fetchall=lambda: [{"id": 12}]),
-        Mock(
-            fetchone=lambda: {
-                "raw_result": json.dumps({"evidence": {"test_machine": "linux-lab"}})
-            }
-        ),
-    ]
-    assert corrected_case_machine(conn, 14) == "linux-lab"
-
-
 def test_recorded_host_removal_refuses_instead_of_substituting_another_host(
     monkeypatch,
 ):
@@ -241,25 +209,6 @@ def test_recorded_host_removal_refuses_instead_of_substituting_another_host(
         execution_machine(
             Mock(), {"id": "single", "test_machine_lease_id": 42}, _case("linux")
         )
-
-
-def test_one_corrected_case_cannot_silently_choose_between_original_hosts():
-    conn = Mock()
-    conn.execute.side_effect = [
-        Mock(fetchall=lambda: [{"id": 12}, {"id": 14}]),
-        Mock(
-            fetchone=lambda: {
-                "raw_result": json.dumps({"evidence": {"test_machine": "linux-lab"}})
-            }
-        ),
-        Mock(
-            fetchone=lambda: {
-                "raw_result": json.dumps({"evidence": {"test_machine": "test-mac"}})
-            }
-        ),
-    ]
-    with pytest.raises(ValueError, match="qa_resume_correction_hosts_conflict.*split"):
-        corrected_case_machine(conn, 15)
 
 
 def test_wait_recipe_is_rendered_from_its_execution_instead_of_saved_text(monkeypatch):

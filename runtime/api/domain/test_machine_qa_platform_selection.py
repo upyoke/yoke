@@ -16,6 +16,7 @@ from yoke_contracts.machine_config.test_machine import (
 from yoke_core.domain.machine_qa_capability import replace_test_machine_settings
 from yoke_core.domain.machine_qa_case_platform import case_platform
 from yoke_core.domain.machine_qa_execution_protocol import begin_host_control_execution
+from yoke_core.domain.machine_verification_recording import record_test_machine_verification
 from yoke_core.domain.machine_qa_host_selection import (
     acquire_test_machine_admission,
     TestMachineFleetBusy as FleetBusy,
@@ -90,6 +91,13 @@ def _fleet():
         test_machine="z-linux",
         settings={**_settings("z-linux"), "os": "linux"},
         base_settings=None,
+    )
+    record_test_machine_verification(
+        conn,
+        test_machine="z-linux",
+        status="verified",
+        checks=[{"name": "connection", "ok": True}],
+        error_code=None,
     )
     seed_qa_session(conn, "linux-one", "linux-two")
     return conn

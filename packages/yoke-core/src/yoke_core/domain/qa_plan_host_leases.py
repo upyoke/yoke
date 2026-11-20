@@ -7,7 +7,7 @@ released, and a set the held hosts do not cover is released and acquired anew.
 
 from __future__ import annotations
 
-from yoke_contracts.qa_case_starting_state import needs_test_machine
+from yoke_contracts.machine_config.test_machine import test_machine_capability_tags
 
 from typing import Any
 from datetime import datetime
@@ -119,27 +119,29 @@ def begin_case_host_contract(
 
     from yoke_core.domain.qa_resume_machine import execution_machine
     from yoke_core.domain.machine_qa_case_platform import (
-        case_platform,
         matching_platform_hosts,
+        require_host_tags,
+        required_host_tags,
     )
 
-    retained = execution_machine(conn, execution, case)
-    if retained and test_machine and retained != test_machine:
-        custody = (
-            "active plan lease"
-            if execution.get("test_machine_lease_id")
-            else "recorded platform host"
-        )
-        raise ValueError(
-            f"test_machine_constraint_mismatch: {custody} uses {retained!r}, "
-            f"but --test-machine names {test_machine!r}; omit --test-machine to resume on its recorded host"
-        )
-    driver = resolve_case_machine(case, retained or test_machine)
-    names = case_host_set(execution, case, ordinal, driver)
+    explicit = resolve_case_machine(case, test_machine)
+    driver = explicit or execution_machine(conn, execution, case)
+    chain = host_case_chain(execution, ordinal)
+    tags = required_host_tags(chain)
+    if tags and driver and not explicit:
+        from yoke_core.domain.machine_qa_host_rows import test_machine_rows
+
+        settings = {row.test_machine: row.settings for row in test_machine_rows(conn)}
+        if not tags.issubset(test_machine_capability_tags(settings[driver])):
+            driver = None
+    names = tuple(sorted(set(case_machines(case, driver)).union(
+        name for row in chain for name in case_machines(row)
+    )))
     lease_id = execution.get("test_machine_lease_id")
     from yoke_core.domain.qa_plan_execution_reentry import admitted_case
 
-    primary = get_claim(conn, int(lease_id)).target.test_machine if lease_id else None
+    lease = get_claim(conn, int(lease_id)) if lease_id else None
+    primary = lease.target.test_machine if lease and lease.is_active else None
     held = held_hosts(conn, execution) if lease_id is not None else set()
     # A chain baseline not yet admitted takes exactly its set; an admitted
     # case continues only with the custody it was admitted with.
@@ -147,10 +149,15 @@ def begin_case_host_contract(
         case.get("starting_state") != "inherit"
         and admitted_case(execution) != ordinal
     )
+    if primary and not baseline and primary != driver:
+        raise ValueError(
+            f"test_machine_custody_in_use: this case still owns state on {primary!r}; "
+            "finish or abort this execution to restore the host before switching machines"
+        )
     if primary == driver and baseline and set(names) < held:
         release_hosts_outside(conn, execution, names)
     if lease_id is not None and (
-        primary != driver or (baseline and not set(names) <= held)
+        primary is None or primary != driver or (baseline and not set(names) <= held)
     ):
         release_execution_hosts(conn, execution, reason="qa-case-host-change")
         release(conn, int(lease_id), "qa-case-host-change", commit=False)
@@ -159,14 +166,6 @@ def begin_case_host_contract(
             (str(execution["id"]),),
         )
         execution["test_machine_lease_id"] = None
-    from yoke_core.domain.machine_qa_host_rows import test_machine_rows
-
-    platforms = {}
-    if any(case_machines(row) for row in execution["roster"]):
-        platforms = {
-            row.test_machine: row.settings["os"]
-            for row in test_machine_rows(conn)
-        }
     arguments = plan_case_contract_arguments(execution, case, ordinal=ordinal)
     deferred = commit_deferred_connection(conn)
     lease_id = execution.get("test_machine_lease_id")
@@ -178,13 +177,7 @@ def begin_case_host_contract(
                 session_id=session_id,
                 test_machine=driver,
                 healthy_only=True,
-                host_cases=[
-                    row
-                    for row in execution["roster"]
-                    if needs_test_machine(row)
-                    and case_platform(row, platforms) == case_platform(case, platforms)
-                    and resolve_case_machine(row, None) in {None, driver}
-                ],
+                host_cases=chain,
                 **arguments,
             )
             set_plan_machine_lease(conn, execution, lease_id=contract.lease_id)
@@ -262,6 +255,7 @@ def begin_case_host_contract(
         [admission.contract for admission in admissions.values()], (case,)
     )
     selected = admissions[driver]
+    require_host_tags(selected.contract.settings, chain)
     contract = _issue(
         conn,
         selected.contract,
@@ -274,10 +268,10 @@ def begin_case_host_contract(
     return contract
 
 
-def case_host_set(
-    execution: dict[str, Any], case: dict[str, Any], ordinal: int, driver: str | None
-) -> tuple[str, ...]:
-    """The case's hosts with its own ``inherit`` chain's union, sorted."""
+def host_case_chain(
+    execution: dict[str, Any], ordinal: int
+) -> list[dict[str, Any]]:
+    """Return the baseline case and its inheriting cases."""
     from yoke_core.domain.qa_plan_case_chain import ends_chain
 
     roster = execution["roster"]
@@ -287,10 +281,7 @@ def case_host_set(
     end = ordinal
     while end < len(roster) - 1 and not ends_chain(roster, end):
         end += 1
-    hosts = set(case_machines(case, driver))
-    for row in roster[start : end + 1]:
-        hosts.update(case_machines(row))
-    return tuple(sorted(hosts))
+    return roster[start : end + 1]
 
 
 def held_hosts(conn: Any, execution: dict[str, Any]) -> set[str]:
