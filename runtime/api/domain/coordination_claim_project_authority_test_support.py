@@ -40,6 +40,8 @@ from yoke_core.domain.project_identity import resolve_project_id
 
 from yoke_core.domain.project_seed_test_helpers import seed_project_identities
 
+from yoke_core.domain.schema_harness_session_columns import apply_harness_session_columns
+
 from yoke_core.domain.schema_init_actor_path_claim_tables import (
     create_actor_path_claim_tables,
 )
@@ -77,6 +79,7 @@ def conn():
     create_path_registry_tables(connection)
     create_actor_path_claim_tables(connection)
     create_auth_tables(connection)
+    apply_harness_session_columns(connection)
     seed_default_org(connection)
     seed_roles_and_permissions(connection)
     yield connection

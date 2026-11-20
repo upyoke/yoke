@@ -35,6 +35,9 @@ from yoke_core.domain.fleet_rehearsal_record_permission import (
     effective_permission_key,
 )
 from yoke_core.domain.function_authz_types import AuthzSpec
+from yoke_core.domain.function_target_coordination_claim_project import (
+    may_release_projectless_qa_host,
+)
 from yoke_core.domain.function_target_resolution import (
     resolve_org_context,
     resolve_project_context,
@@ -246,6 +249,8 @@ def check_dispatch_permission(
                 error=_error_response(request, entry, code, str(exc)),
             )
         if project_context is None:
+            if may_release_projectless_qa_host(conn, request, actor_id):
+                return DispatchPermission(None, None, None)
             return DispatchPermission(
                 spec.permission_key,
                 None,
