@@ -91,7 +91,6 @@ def test_locked_session_does_not_hold_response_and_background_skips_write(
             "UPDATE harness_sessions SET turn_posture='running' WHERE session_id='locked'"
         )
         try:
-            started = time.monotonic()
             context = SimpleNamespace(
                 session_id="locked",
                 executor_family="codex",
@@ -116,9 +115,11 @@ def test_locked_session_does_not_hold_response_and_background_skips_write(
             monkeypatch.setattr(
                 runner, "chain_for", lambda *a, **kw: ["locked_session.guard"]
             )
+            payload = json.dumps({"session_id": "locked"})
+            started = time.monotonic()
             result = evaluate_remote(
                 "Stop",
-                json.dumps({"session_id": "locked"}),
+                payload,
                 "codex",
                 None,
                 10000,
