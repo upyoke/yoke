@@ -96,12 +96,15 @@ def obligations_fully_discharged(
 def _latest_verdicts(
     conn: Any, requirement_ids: tuple[int, ...]
 ) -> dict[int, tuple[int, str]]:
-    """Each case's accepted run id and verdict, in one statement for the set."""
+    """Each case's accepted run id and verdict; a stale-target non-pass is unrun."""
     if not requirement_ids:
         return {}
+    from yoke_core.domain.qa_attempt_target_currency import current_target_attempts
     from yoke_core.domain.qa_latest_execution import latest_verdict_executions
 
-    rows = latest_verdict_executions(conn, requirement_ids).values()
+    rows = current_target_attempts(
+        conn, latest_verdict_executions(conn, requirement_ids)
+    ).values()
     return {
         int(row["qa_requirement_id"]): (
             int(row["id"]),

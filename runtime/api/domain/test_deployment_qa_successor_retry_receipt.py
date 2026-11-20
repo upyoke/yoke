@@ -1,4 +1,9 @@
-"""A fresh successor retry preserves the inherited pass and failed attempt."""
+"""A fresh successor retry preserves the inherited pass and failed attempt.
+
+The inherited fail answered the predecessor's target, so once the case
+rebinds it reads as unrun: the stage waits for the retry instead of blocking
+and nobody is handed a failure to act on.
+"""
 
 from runtime.api.domain.deployment_qa_successor_retry_test_support import (
     _pinned_release as _pinned_release,
@@ -28,7 +33,7 @@ from yoke_core.domain.qa_case_execution_context import get_case_execution_contex
 from yoke_core.domain.deployment_run_project_sources import run_source_sha
 
 
-def test_a_failed_case_is_retried_on_the_successor_and_its_owner_told_once(
+def test_a_failed_case_is_retried_on_the_successor_without_a_failure_handoff(
     test_db, monkeypatch
 ):
     execution = _seed_member_execution(test_db, monkeypatch)
@@ -45,25 +50,18 @@ def test_a_failed_case_is_retried_on_the_successor_and_its_owner_told_once(
     status = deployment_qa_stage_status(
         test_db, run_id=takeover.NEW, stage_name="item-qa", member_item_id=MEMBER
     )
-    assert status["outcome"] == "blocked"
+    assert status["outcome"] == "waiting"
+    assert {
+        (int(f["requirement_id"]), f["kind"]) for f in status["case_failures"]
+    } == {(failed, "unrun")}
     key = failure_handoff_key(
         takeover.NEW, "item-qa", MEMBER, str(status["target_digest"]), fail_run
     )
-    for _ in range(2):  # A repeat dispatch sends no duplicate.
-        delivery = notify_member_qa_failure(
-            test_db, run_id=takeover.NEW, stage="item-qa", item_id=MEMBER, status=status
-        )
-        assert delivery in {"delivered", "undelivered"}, (
-            delivery,
-            status["case_failures"],
-        )
-    # HOLDER_A produced the FAIL itself and still gets exactly one retry notice.
-    [body] = _bodies(test_db, key)
-    assert "contains the item's merge; retry the case" in body
-    from yoke_core.domain.project_identity import render_item_ref
-
-    ref = render_item_ref(test_db, MEMBER)
-    assert f"yoke qa plan run --item {ref} --stage item-qa --project yoke" in body
+    delivery = notify_member_qa_failure(
+        test_db, run_id=takeover.NEW, stage="item-qa", item_id=MEMBER, status=status
+    )
+    assert delivery == ""
+    assert _bodies(test_db, key) == []
 
     from yoke_core.domain.qa_plan_rematerialize_deployment import (
         rematerialize_for_deployment_stage,

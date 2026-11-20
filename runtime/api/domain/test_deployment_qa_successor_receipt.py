@@ -154,5 +154,8 @@ def test_partial_refresh_keeps_unresolved_evidence_from_another_plan(
         stage_name=takeover.RUN_QA_STAGE,
         member_item_id=None,
     )
-    assert status["outcome"] == "blocked"
-    assert other in [failure["requirement_id"] for failure in status["case_failures"]]
+    # The other plan's fail answered the predecessor's target: still owed, as unrun.
+    assert status["outcome"] == "waiting"
+    assert (other, "unrun") in [
+        (failure["requirement_id"], failure["kind"]) for failure in status["case_failures"]
+    ]
