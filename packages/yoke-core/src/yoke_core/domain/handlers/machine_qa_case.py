@@ -132,6 +132,7 @@ def handle_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
     if isinstance(target, HandlerOutcome):
         return target
     from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.machine_qa_case_machine import resolve_case_machine
     from yoke_core.domain.machine_qa_execution_protocol import (
         MachineQaProtocolError,
         MachineQaProtocolLeaseHeld,
@@ -160,6 +161,7 @@ def handle_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
                 project=str(case["project"]),
                 session_id=request.actor.session_id,
                 operation="case",
+                test_machine=resolve_case_machine(case, None),
                 baselines=tuple(contract_baseline(case)),
                 cases=(case,),
             )

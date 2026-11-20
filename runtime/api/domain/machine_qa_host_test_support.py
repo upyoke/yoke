@@ -93,10 +93,24 @@ ACTING_SESSIONS = (
 )
 
 
+def verify_fixture_host(conn: Any, name: str) -> None:
+    from yoke_core.domain.machine_verification_recording import record_test_machine_verification
+
+    record_test_machine_verification(
+        conn,
+        test_machine=name,
+        status="verified",
+        checks=[{"name": "connection", "ok": True}],
+        error_code=None,
+    )
+
+
 def configure_test_machine(
     conn: Any,
     tmp_path: Path,
     monkeypatch: Any,
+    *,
+    verified: bool = True,
 ) -> None:
     """Configure the host and register the sessions that will claim it.
 
@@ -121,6 +135,8 @@ def configure_test_machine(
         settings=TEST_MACHINE_SETTINGS,
         base_settings=None,
     )
+    if verified:
+        verify_fixture_host(conn, TEST_MACHINE_SETTINGS["resource_name"])
     monkeypatch.setattr(
         "yoke_core.domain.db_helpers.connect",
         lambda *_args, **_kwargs: OpenFixtureConnection(conn),

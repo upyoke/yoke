@@ -84,7 +84,7 @@ def test_reset_reaches_one_baseline_and_leaves_verification_alone(
     # A fresh box is still a proven one: the reset records beside the
     # verification row rather than into it.
     conn = make_conn()
-    configure_test_machine(conn, tmp_path, monkeypatch)
+    configure_test_machine(conn, tmp_path, monkeypatch, verified=False)
     control = FakeHostControl()
 
     submitted, execution = run_operation("reset", control=control)
