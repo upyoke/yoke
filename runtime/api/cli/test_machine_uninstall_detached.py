@@ -1,6 +1,7 @@
 """The final CLI removal waits for the uninstall process and exposes its outcome."""
 
 import json
+import shutil
 import os
 from pathlib import Path
 import subprocess
@@ -232,8 +233,44 @@ def test_handoff_folder_is_removed_only_after_success(tmp_path, monkeypatch, suc
 
     monkeypatch.setattr(cli_release_runtime, "uninstall", remove)
     monkeypatch.setattr(shell_startup_files, "remove_shell_path", lambda: [])
+    monkeypatch.setattr(detached, "_release_log", lambda: None)
+    monkeypatch.chdir(tmp_path)
     code = detached.finish(
         lock, folder / "armed", folder / "ready", tmp_path / "tools", tmp_path / "bin"
     )
     assert code == (0 if succeeds else 1)
     assert folder.exists() is not succeeds
+
+
+def _windows_rmtree(released, real_rmtree=shutil.rmtree):
+    """rmtree with Windows rules: no open file and no working directory inside."""
+
+    def rmtree(folder):
+        if Path.cwd().resolve().is_relative_to(Path(folder).resolve()):
+            raise PermissionError("[WinError 32] the folder is the working directory")
+        if not released:
+            raise PermissionError("[WinError 32] result.log is open by this process")
+        real_rmtree(folder)
+
+    return rmtree
+
+
+@pytest.mark.windows
+@pytest.mark.parametrize("releases", [True, False])
+def test_own_folder_removal_releases_log_and_cwd_first(tmp_path, monkeypatch, releases):
+    folder = tmp_path / f"{detached.HANDOFF_PREFIX}fixture"
+    folder.mkdir()
+    (folder / "result.log").write_text("CLI: done\n")
+    monkeypatch.chdir(folder)  # Started inside it, as a pre-fix worker was.
+    released = []
+    monkeypatch.setattr(
+        detached, "_release_log", lambda: released.append(True) if releases else None
+    )
+    monkeypatch.setattr(detached.shutil, "rmtree", _windows_rmtree(released))
+    detached._remove_own_folder(folder)
+    if releases:
+        assert not folder.exists()
+    else:
+        log = (folder / "result.log").read_text()
+        assert "handoff folder: failed (uninstall_handoff_cleanup_failed:" in log
+        assert f"delete {folder}" in log
