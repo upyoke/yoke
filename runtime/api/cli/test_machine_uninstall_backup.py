@@ -136,6 +136,17 @@ def test_failed_export_still_reports_child_stderr(monkeypatch):
         _REAL_COMMAND(["universe", "export"], forward_stderr=False)
 
 
+def test_backup_authentication_failure_names_retired_credential_recovery(monkeypatch):
+    def run(argv, **_kwargs):
+        return subprocess.CompletedProcess(argv, 1, "", "self-host export returned HTTP 401")
+
+    monkeypatch.setattr(backups.steps.subprocess, "run", run)
+    with pytest.raises(
+        UninstallError, match="HTTP 401.*machine credential was retired.*reconnect"
+    ):
+        _REAL_COMMAND(["--env", "self-host", "universe", "export"], forward_stderr=False)
+
+
 class _Fixed:
     def strftime(self, _format):
         return "20261118T192728Z"

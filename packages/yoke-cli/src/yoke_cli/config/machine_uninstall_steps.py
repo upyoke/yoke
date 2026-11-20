@@ -68,6 +68,11 @@ def command(args: list[str], *, forward_stderr: bool = True) -> str:
         detail = redact_api_tokens(
             "; ".join(warnings) or (result.stderr or result.stdout).strip()[-2048:]
         )
+        if args[2:4] == ["universe", "export"] and "HTTP 401" in detail:
+            detail += (
+                ". If the machine credential was retired, reconnect to the server "
+                "for a fresh credential before retrying the backup"
+            )
         raise UninstallError(
             f"uninstall_command_failed: yoke {' '.join(args)} (exit {result.returncode}); "
             f"{detail}. Repair this step and retry uninstall."
@@ -302,7 +307,7 @@ def remove(
         retained += (
             f" Also kept: this machine's record {machine_id} on each server it connected to "
             f"(retire it with `yoke machine retire {machine_id} --confirm` "
-            "from a connected machine)."
+            "from another machine connected to the same server)."
         )
     emit(retained)
     emit(UV_REMOVAL)
