@@ -123,7 +123,8 @@ def test_setup_done_keeps_readiness_before_shared_project_action(monkeypatch, tm
     flow = setup_agent_answering.AnswerFlow()
     flow.result = SimpleNamespace(path_repair=None, project_checkout=str(tmp_path))
     flow.report_path = None
-    result = flow._done_fields()
+    result = flow._apply_completion()
+    assert result["state"] == "done"
     assert "doctor run --session" in result["next"][0]
     assert "/yoke onboard" in result["next"][1]
     assert result["next_action"] == ACTION
