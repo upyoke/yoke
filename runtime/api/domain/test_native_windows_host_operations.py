@@ -156,6 +156,10 @@ def test_native_refresh_never_runs_posix_python(monkeypatch):
         seen.append(script)
         return completed('{"codex":"1.2.3","claude-code":"2.3.4","cursor":"3.4.5"}')
 
+    monkeypatch.setattr(
+        "yoke_harness.native_windows.harness_clis.desktop_script",
+        lambda control, script, **kwargs: run(script),
+    )
     versions = probe_harness_cli_versions(SimpleNamespace(os="windows", _run=run))
     assert versions["codex"] == "1.2.3"
     assert "/usr/bin/python3" not in seen[0]

@@ -1,4 +1,4 @@
-"""Cursor installation requires the existing user's interactive logon token."""
+"""Route native CLI operations through the required test-user token."""
 
 import json
 import subprocess
@@ -11,10 +11,11 @@ from yoke_harness.native_windows import harness_clis
 @pytest.mark.parametrize("action,harness,expected", [
     ("install", "cursor", "desktop"),
     ("install", "claude-code", "ssh"),
-    ("install", "codex", "ssh"),
+    ("install", "codex", "desktop"),
+    ("probe", "codex", "desktop"),
     ("probe", "cursor", "ssh"),
 ])
-def test_only_cursor_install_uses_interactive_token(monkeypatch, action, harness, expected):
+def test_native_cli_routes_through_the_required_token(monkeypatch, action, harness, expected):
     calls = []
     result = {"install_exit_code": 0, "probe": {"version": "1.2.3"}}
 

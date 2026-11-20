@@ -64,10 +64,14 @@ $env:Path=[Environment]::GetEnvironmentVariable('Path','Machine')+';'+[Environme
 """
         script += "$p=Probe $payload[1]; "
         script += "@{install_exit_code=$code;install_stderr='';probe=$p} | ConvertTo-Json -Depth 8 -Compress"
-    # Cursor's architecture query needs the same user's interactive logon token;
-    # the standard SSH token can be denied local CIM/WMI access. The desktop
-    # helper refuses absent sessions and never substitutes an elevated token.
-    if action == "install" and payload[0] == "cursor":
+    # Codex's standalone launcher is a user junction blocked by OpenSSH
+    # Redirection Guard. Cursor's installer needs desktop access to CIM/WMI.
+    # Run on the same user's interactive token for both cases.
+    if action == "install":
+        needs_desktop = harness in {"codex", "cursor"}
+    else:
+        needs_desktop = any(row[0] == "codex" for row in payload)
+    if needs_desktop:
         result = desktop_script(control, script, timeout=timeout)
     else:
         result = control._run(script, timeout=timeout)

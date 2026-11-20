@@ -222,19 +222,13 @@ GUI. Download [Claude](https://claude.com/download),
 to Applications. Leave credential prompts open for the operator.
 Check each vendor's current supported OS list before choosing coverage. An
 existing executable does not prove that the host supports a new installation.
-Golden refresh proves each installed CLI with `--version` in the GUI session.
-If a new binary cannot run, it restores a runnable prior version and reports
-`held back: HARNESS VERSION does not run on this host` with its exit code and
-stderr. Cursor releases remain under `~/.local/share/cursor-agent/versions/`;
-refresh selects the newest runnable one and re-points both CLI links. It sets
-Cursor's existing `static` channel through the retained CLI's
-`set-channel static` command, preserving other config keys, so a real request
-cannot auto-update those links to the broken
-release. Yoke still retries the latest vendor installer on later plans. Keep
-those releases. A held-back CLI is accepted for this host and captured in its
-new golden. With no runnable version, refresh stops naming the harness and
-error; install a supported version as the test user, prove `--version` in
-Terminal, then rerun the plan. Installer success alone proves nothing.
+Golden refresh proves each CLI with `--version` in the GUI session. If a new
+release fails, refresh reports the exit code and keeps a runnable prior one.
+Cursor keeps releases in `~/.local/share/cursor-agent/versions/`. Refresh
+re-points both CLI links and runs `set-channel static` on the retained CLI to
+prevent a request from relinking the broken release. Later plans retry the
+vendor installer. If no version runs, install a supported release as the test
+user, prove `--version` in Terminal, and retry.
 
 For self-host cases, download [Docker Desktop](https://docs.docker.com/desktop/setup/install/mac-install/)
 and drag Docker to Applications. Open it as the test user and have the

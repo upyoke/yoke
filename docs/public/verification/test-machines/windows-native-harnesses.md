@@ -47,8 +47,8 @@ Native installer downloads are decoded as UTF-8 from their raw response bytes.
 Finish each successful install before starting another. Claude can report
 success while warning that `.local\bin` is missing from PATH; preserve existing
 entries and registry value kind when adding it. Existing GUI processes retain
-their inherited PATH. Verify command discovery in a fresh desktop shell as well
-as SSH; a probe that rebuilds its own PATH does not prove GUI inheritance.
+their inherited PATH. Verify command discovery in a fresh desktop shell.
+A probe that rebuilds its PATH does not prove GUI inheritance.
 Windows PowerShell can expose binary media as a byte array in `Content`; treating
 that value as text can break execution or hash a conversion instead of the script.
 Compare raw bytes before attributing a checksum refusal to changed vendor code.
@@ -62,9 +62,10 @@ If Cursor architecture detection fails with CIM/WMI access denied under SSH,
 stop and inspect the partial installer directory and user PATH before retrying.
 Its initializer can mutate both before the architecture check. An interactive
 token must be proved separately; do not elevate the standard test user.
-Yoke runs Cursor installation and its post-install probe through the existing
-standard user's interactive desktop task. Ordinary probes and the other CLI
-installers use SSH. A missing interactive session refuses installation.
+Yoke uses the standard user's interactive desktop task for Cursor and Codex
+installation and for probes that include Codex. OpenSSH Redirection Guard
+can block the Codex vendor installer's per-user launcher junction.
+A missing interactive session refuses the operation.
 
 Install desktop apps from their public downloads in the standard test user's
 desktop session:

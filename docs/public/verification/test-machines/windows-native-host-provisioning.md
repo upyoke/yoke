@@ -190,21 +190,13 @@ task, and enables private RDP over the tailnet or an SSH forward:
 python -m yoke_harness.native_windows.provision --project P --machine VM --host ADDRESS --resource-group GROUP --admin-user ADMIN --test-user yokeqa
 ```
 
-When administrator key SSH already works, add `--bootstrap-transport ssh` to run
-bootstrap through SSH instead of Azure Run Command. The default remains `azure`.
-Administrator scripts use batch SFTP into a unique administrator/SYSTEM-only
-directory; the controller also requires `sftp` beside its SSH client. Private
-local staging uses owner-only permissions on either controller OS. Preparation,
-transfer and independent length/SHA256 verification share one 90-second deadline;
-only the verified script runs through `-File`, with a separate 300-second budget.
-Optional password input stays on framed stdin, open until remote completion,
-with concurrent output draining. Local child termination/draining reserves four
-seconds; exact owned staging cleanup reserves thirty seconds and preserves prior
-errors. Include both reserves in the enclosing controller budget. A collision,
-changed file or uncertain ownership is preserved for inspection, never replayed.
-`staging_diagnostics` retains exact owned paths, step timing, verified byte count
-and cleanup outcome. Inspect it before a diagnostic retry; private causes can
-contain encoded argv. Password frames never produce digests or wait for stdin EOF.
+When administrator key SSH works, `--bootstrap-transport ssh` uses private
+batch SFTP. The controller needs `sftp` beside `ssh`. Preparation, transfer and
+hash verification share 90 seconds. The verified script runs through `-File`
+with a 300-second budget. Password input stays on framed stdin with concurrent
+output draining. Allow four seconds for child termination and thirty for cleanup.
+On staging failure, inspect `staging_diagnostics` using the
+[native Windows recovery guide](windows-native-provisioning-recovery.md).
 SFTP verifies script transfer only; setup still requires actual password-input,
 standard-user desktop and SSH proof before readiness is claimed.
 
@@ -242,14 +234,12 @@ Retain all required receipts before continuing setup or QA.
 Prove the test user is not an Administrator and cannot modify the fixed
 administrator task or its program. The terminal reader uses interactive-session
 `CONOUT$`, including with redirected output, rather than a substituted transcript.
-Install [Python 3](https://www.python.org/downloads/windows/) using the
-default per-user setup, with **Install for all users** off. Verify
-`(Get-Command python.exe).Source` resolves under `%LOCALAPPDATA%`.
-Use the vendor installers for [Git](https://git-scm.com/install/windows),
-[Node.js](https://nodejs.org/en/download) and
-[Tailscale](https://tailscale.com/download/windows). Accept UAC for their
-default machine-wide setup. Yoke ships its Visual C++ runtime app-local.
-Keep WSL, VirtualMachinePlatform and Linux distros absent on this fixture.
+Install [Python 3](https://www.python.org/downloads/windows/) with **Install
+for all users** off. Verify `(Get-Command python.exe).Source` is under
+`%LOCALAPPDATA%`. Use the vendor defaults with UAC for
+[Git](https://git-scm.com/install/windows), [Node.js](https://nodejs.org/en/download)
+and Tailscale. Yoke ships the Visual C++ runtime app-local. Keep WSL,
+VirtualMachinePlatform and Linux distros absent.
 
 ## 3. Desktop and sign-ins
 

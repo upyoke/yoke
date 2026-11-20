@@ -8,7 +8,6 @@ from pathlib import Path
 from runtime.api.domain.ssh_mac_full_reset_self_host_test_support import (
     fake_runtime as _fake_runtime,
     run as _run,
-    self_host_lines as _self_host_lines,
     teardown_lines as _teardown_lines,
 )
 from yoke_contracts.ssh_mac_full_reset_contract import (
