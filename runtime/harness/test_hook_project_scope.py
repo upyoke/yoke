@@ -229,7 +229,7 @@ def test_unmapped_https_hook_relays_scope_and_preserves_local_guards(
         return _FakeResponse(b'{"stdout": "", "exit_code": 0, "outcome": "completed"}')
 
     monkeypatch.setattr(
-        relay, "relay_denial_audit", lambda _connection, audit: audits.append(audit)
+        relay, "submit_denial_audit", lambda _c, audit, _d: audits.append(audit)
     )
     resolutions: list[dict] = []
     real_resolve = project_scope.project_id_for_payload
