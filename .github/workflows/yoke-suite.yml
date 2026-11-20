@@ -124,7 +124,7 @@ jobs:
           docker rm -f "yoke-suite-collection-pg-${{ github.run_id }}" || true
           if [ -n "${YOKE_PG_SOCKET_DIR:-}" ]; then sudo rm -rf -- "$YOKE_PG_SOCKET_DIR"; fi
   suite:
-    timeout-minutes: 25
+    timeout-minutes: 30
     name: suite (${{ matrix.os }}, ${{ matrix.shard }})
     needs: plan
     runs-on: ${{ matrix.runner }}
@@ -222,7 +222,25 @@ jobs:
         run: rg --version
       - name: Start the native test Postgres
         run: uv run --frozen python -m yoke_core.tools.ci_suite_postgres start
+      - name: Stress Windows timing regressions
+        if: matrix.os == 'windows' && matrix.shard == 1
+        timeout-minutes: 5
+        run: |
+          set -o pipefail
+          picker=runtime/api/cli/test_yoke_operations_cli_onboard_wizard_clone_outcome.py
+          javascript=runtime/api/test_universe_ui_mount_contract.py
+          for attempt in 1 2 3 4 5; do
+            printf 'Windows timing check %s/5\n' "$attempt"
+            uv run --frozen python -m pytest -n 0 -q \
+              "$picker::test_empty_private_repo_picker_requires_app_access" \
+              "$javascript::test_universe_ui_javascript_modules_in_node"
+          done
+          uv run --frozen python -m pytest -n 0 -q --capture=tee-sys \
+            runtime/api/tools/test_ci_shards.py::test_shard_log_preserves_hung_worker_traceback_before_exit \
+            | tee -a pytest-output.txt
       - name: Run pytest
+        # End a hung step before the job deadline so artifact upload can run.
+        timeout-minutes: 18
         env:
           YOKE_CI_PRODUCT_WHEELS: ${{ runner.temp }}/product-wheels
         # -v names every test as it finishes. --max-worker-restart=0 ends the
@@ -231,7 +249,7 @@ jobs:
         # test until the job timed out.
         run: >-
           uv run --frozen python -m yoke_core.tools.ci_shards run --group "${{ matrix.shard }}"
-          -- -v --max-worker-restart=0
+          -- -v --max-worker-restart=0 -o faulthandler_timeout=300
       - name: Upload pytest output
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

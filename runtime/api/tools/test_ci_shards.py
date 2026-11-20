@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 from io import StringIO
 from pathlib import Path
 from types import SimpleNamespace
@@ -226,6 +227,54 @@ def test_shard_run_does_not_probe_capacity(tmp_path, monkeypatch) -> None:
         lambda *a, **kw: SimpleNamespace(stdout=StringIO("ok\n"), wait=lambda: 0),
     )
     assert ci_shards.main(["run", "--group", "1"]) == 0
+
+
+def test_shard_log_preserves_hung_worker_traceback_before_exit(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("PYTEST_ADDOPTS", raising=False)
+    (tmp_path / "test_watchdog.py").write_text(
+        "from pathlib import Path\n"
+        "from time import monotonic, sleep\n"
+        "\n"
+        "def test_blocked_until_traceback_is_saved():\n"
+        f"    log = Path({ci_shards.OUTPUT_LOG!r})\n"
+        "    deadline = monotonic() + 10\n"
+        "    while monotonic() < deadline:\n"
+        "        if 'in test_blocked_until_traceback_is_saved' in log.read_text():\n"
+        "            return\n"
+        "        sleep(0.1)\n"
+        "    raise AssertionError('No worker traceback in the live shard log')\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        ci_shards,
+        "pytest_command",
+        lambda group, extra: [
+            sys.executable, "-m", "pytest", "-n", "1",
+            "-o", "faulthandler_timeout=1", "test_watchdog.py",
+        ],
+    )
+
+    assert ci_shards.main(["run", "--group", "1"]) == 0
+    log = (tmp_path / ci_shards.OUTPUT_LOG).read_text(encoding="utf-8")
+    assert "Timeout (0:00:01)!" in log
+    assert "in test_blocked_until_traceback_is_saved" in log
+
+
+def test_multi_os_suite_reserves_time_to_upload_a_timed_out_shard():
+    import yaml
+
+    workflow = WORKFLOW.with_name("yoke-suite.yml").read_text(encoding="utf-8")
+    suite = yaml.safe_load(workflow)["jobs"]["suite"]
+    steps = suite["steps"]
+    run = next(step for step in steps if step["name"] == "Run pytest")
+    upload = next(step for step in steps if step["name"] == "Upload pytest output")
+    watchdog_seconds = int(run["run"].split("faulthandler_timeout=")[1].split()[0])
+    assert 0 < watchdog_seconds < run["timeout-minutes"] * 60
+    assert run["timeout-minutes"] < suite["timeout-minutes"]
+    assert steps.index(run) < steps.index(upload)
+    assert upload["if"] == "always()"
+    assert ci_shards.OUTPUT_LOG in upload["with"]["path"].splitlines()
 
 
 def test_extra_pytest_flags_travel_on_the_command_line(tmp_path, monkeypatch) -> None:

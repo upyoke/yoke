@@ -260,6 +260,7 @@ def test_empty_private_repo_picker_requires_app_access(monkeypatch) -> None:
             await _pick_mode(pilot, onboard_project.PROJECT_MODE_CLONE_REMOTE)
             await pilot.press("down")  # visibility: move to Private
             await pilot.press("enter")
+            await app.workers.wait_for_complete()
             await pilot.pause()
             from textual.widgets import Input
 
