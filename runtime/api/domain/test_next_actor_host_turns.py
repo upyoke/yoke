@@ -13,7 +13,7 @@ from yoke_core.domain.coordination_claims import acquire
 from yoke_core.domain.item_ref_render import render_item_ref_lookup
 from yoke_core.domain.next_actor import session_next_actor
 from yoke_core.domain.next_actor_facts import next_actor_facts
-from yoke_core.domain.qa_host_turns import join_host_line
+from yoke_core.domain.qa_host_turns import join_host_queue
 from yoke_core.domain.steering_fleet_report_holders import ClaimHolder
 from yoke_core.domain.steering_fleet_report_render_holders import holder_lines
 from yoke_core.domain.work_claim_targets import make_qa_admission_target
@@ -52,7 +52,7 @@ def test_gone_waiter_names_the_host_turn_and_its_holder():
             _insert_session(conn, sid, last_heartbeat=now)
             _insert_item_claim(conn, sid, iid)
         acquire(conn, target, "holder", reason="qa walk", commit=False)
-        join_host_line(
+        join_host_queue(
             conn, target, session_id="waiter", actor_id=1, resume_command="resume"
         )
         conn.commit()

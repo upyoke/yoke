@@ -1,10 +1,11 @@
-"""A plan execution waits for its whole host set from one queue place.
+"""A plan execution waits for its hosts from one queue place.
 
 Every host the current case needs gets a live wait at the execution's single
 place: the earliest ``queued_at`` of any wait it ever recorded, or the place of
-an aborted shared walk it recovers (``qa_host_turn_inheritance``). Every line
-therefore orders the same executions the same way. An unconsumed reservation
-held by an execution still waiting for another host passes to an older live
+an aborted shared walk it recovers (``qa_host_turn_inheritance``), so the one
+queue (``qa_host_queue``) orders each execution once, whichever machine serves
+it. A walk any one of several eligible machines serves waits on each of them
+as one need. An unconsumed reservation held by an execution still waiting for another host passes to an older live
 waiter on its host (:func:`pass_to_older_waiter`), so the oldest set-waiter is
 reserved each host in turn and no cycle of partial reservations can form. A
 holder reserved its whole set was woken and takes or releases it. The
@@ -26,7 +27,7 @@ _LIVE = "('waiting','reserved')"
 
 
 def line_key(wait: Mapping[str, Any]) -> tuple[datetime, str, str]:
-    """The order of a wait in every line; the SQL order of ``host_line``."""
+    """The order of a wait in the queue; the SQL order of ``machine_waiters``."""
     return (
         parse_instant(wait["queued_at"]),
         str(wait["qa_plan_execution_id"] or wait["session_id"]),
@@ -62,7 +63,7 @@ def reserved_wait(conn: Any, claim: Any) -> dict[str, Any] | None:
     from yoke_core.domain.schema_common import _table_exists
 
     if not _table_exists(conn, QA_TEST_MACHINE_WAIT_TABLE):
-        # Partial fixture schemas without the line hold no reservation.
+        # Partial fixture schemas without the queue hold no reservation.
         return None
     row = query_one(
         conn,
@@ -78,15 +79,15 @@ def pass_to_older_waiter(conn: Any, claim: Any) -> None:
 
     The younger wait goes back to ``waiting`` at its own place before the
     reservation is released, so the release neither cancels it nor aborts its
-    execution; the release then reserves the host for the line's head.
+    execution; the release then reserves the host for the oldest waiter it can serve.
     """
     from yoke_core.domain.coordination_claims import release
-    from yoke_core.domain.qa_host_idle_waiters import serving_line
+    from yoke_core.domain.qa_host_idle_waiters import serving_waiters
 
     holder = reserved_wait(conn, claim)
     if holder is None or not awaits_other_hosts(conn, holder):
         return
-    line = serving_line(conn, str(claim.target.test_machine))
+    line = serving_waiters(conn, str(claim.target.test_machine))
     if not line or line_key(line[0]) >= line_key(holder):
         return
     conn.execute(
@@ -98,16 +99,26 @@ def pass_to_older_waiter(conn: Any, claim: Any) -> None:
 
 
 def awaits_other_hosts(conn: Any, wait: Mapping[str, Any]) -> bool:
-    """True while the wait's execution still waits for another host."""
+    """True while the wait's execution still waits for another host.
+
+    The other machine rows of the wait's own need are alternatives, not
+    other hosts it needs.
+    """
     if not wait["qa_plan_execution_id"]:
         return False
     p = _p(conn)
+    need = wait.get("need_id")
     return (
         query_one(
             conn,
             "SELECT id FROM qa_test_machine_waits "
-            f"WHERE qa_plan_execution_id={p} AND state='waiting' AND id<>{p}",
-            (str(wait["qa_plan_execution_id"]), str(wait["id"])),
+            f"WHERE qa_plan_execution_id={p} AND state='waiting' AND id<>{p}"
+            + (f" AND COALESCE(need_id,'')<>{p}" if need else ""),
+            (
+                str(wait["qa_plan_execution_id"]),
+                str(wait["id"]),
+                *((str(need),) if need else ()),
+            ),
         )
         is not None
     )
@@ -165,25 +176,32 @@ def record_host_wait(
     test_machine: str,
     rationale: str,
     test_machines: Iterable[str] = (),
+    eligible: Iterable[str] = (),
     commit: bool = True,
 ) -> dict:
-    """Keep the cursor open and queue the execution on every host its case needs.
+    """Keep the cursor open and queue the execution for the hosts its case needs.
 
-    Waits on hosts outside the set leave their lines; waits and reservations
-    inside it keep them. Every new wait takes the execution's one place.
+    *test_machines* is a set the case needs all of; *eligible* names the
+    machines any one of which serves it, queued as one need. Waits on other
+    hosts leave the queue; waits and reservations kept keep their place.
+    Every new wait takes the execution's one place.
     """
     from yoke_core.domain.machine_qa_capability import host_claim_target
+    from yoke_core.domain.qa_host_queue import new_need_id
     from yoke_core.domain.qa_host_turns import (
         cancel_host_waits,
         host_wait_view,
-        join_host_line,
+        join_host_queue,
         lock_host_turn,
         reserve_host_turn,
     )
     from yoke_core.domain.qa_plan_execution_lifecycle import finish_plan_execution
 
     execution_id = str(execution["id"])
-    machines = sorted({test_machine, *test_machines})
+    alternatives = sorted({test_machine, *eligible})
+    any_of = len(alternatives) > 1
+    machines = alternatives if any_of else sorted({test_machine, *test_machines})
+    need_id = new_need_id() if any_of else None
     live = query_rows(
         conn,
         "SELECT DISTINCT test_machine FROM qa_test_machine_waits "
@@ -197,7 +215,7 @@ def record_host_wait(
         cancel_host_waits(conn, execution_ids=[execution_id], test_machines=left)
     place = execution_place(conn, execution, machines) or utc_now()
     waits = [
-        join_host_line(
+        join_host_queue(
             conn,
             host_claim_target(name),
             session_id=str(execution["session_id"]),
@@ -205,9 +223,12 @@ def record_host_wait(
             resume_command=f"yoke qa plan run --resume-execution-id {execution_id}",
             rationale=rationale
             if name == test_machine
+            else f"any of {', '.join(machines)} serves this walk: {rationale}"
+            if any_of
             else f"held with {test_machine} for one case: {rationale}",
             execution_id=execution_id,
             queued_at=place,
+            need_id=need_id,
         )
         for name in machines
     ]

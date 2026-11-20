@@ -1,14 +1,17 @@
-"""One row per session waiting in a physical Test Machine's line.
+"""The one Test Machine queue: a row per machine each waiter can take.
 
 A ``QA_HOST:<machine>`` claim admits one session at a time. A session
-refused because another holds the host joins this line instead of retrying
-blind: a scoped QA plan execution joins when its case cannot lease the
-host, and a manual ``yoke claims coordination-claim acquire`` joins when it
-is refused ``claim_held``. Every release of the host reserves it for the
-oldest live waiter and wakes that session; the waiter's next acquire
+refused because another holds the host joins the queue instead of retrying
+blind: a scoped QA plan execution joins when its case cannot lease a host,
+and a manual ``yoke claims coordination-claim acquire`` joins when it is
+refused ``claim_held``. Each row names one machine that can serve its
+waiter; a walk any of several machines can serve has one row per eligible
+machine, sharing ``need_id``, and the first one reserved serves it
+(``qa_host_queue``). Every release of a host reserves it for the oldest live
+waiter it can serve and wakes that session; the waiter's next acquire
 consumes the reservation.
 
-States: ``waiting`` (in line), ``reserved`` (the host is held for this
+States: ``waiting`` (in the queue), ``reserved`` (the host is held for this
 waiter as ``claim_id``), ``granted`` (the waiter's acquire consumed the
 reservation) and ``cancelled`` (the waiter's session ended, its execution
 settled or moved hosts, or the reservation was released unused).
@@ -35,8 +38,12 @@ CREATE TABLE IF NOT EXISTS qa_test_machine_waits (
     claim_id INTEGER REFERENCES work_claims(id),
     resume_command TEXT NOT NULL,
     rationale TEXT NOT NULL DEFAULT '',
-    settled_at TIMESTAMPTZ
+    settled_at TIMESTAMPTZ,
+    need_id TEXT
 );
+ALTER TABLE qa_test_machine_waits ADD COLUMN IF NOT EXISTS need_id TEXT;
+CREATE INDEX IF NOT EXISTS idx_qa_test_machine_waits_need
+    ON qa_test_machine_waits(need_id) WHERE need_id IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_qa_test_machine_waits_live_session
     ON qa_test_machine_waits(test_machine, session_id)
     WHERE state IN ('waiting','reserved');
@@ -46,7 +53,7 @@ CREATE INDEX IF NOT EXISTS idx_qa_test_machine_waits_line
 
 
 def ensure_qa_test_machine_wait_schema(conn: Any) -> None:
-    """Converge the additive Test Machine waiting-line table on ``conn``."""
+    """Converge the additive Test Machine queue table on ``conn``."""
     execute_schema_script(conn, QA_TEST_MACHINE_WAIT_SCHEMA_SQL)
 
 

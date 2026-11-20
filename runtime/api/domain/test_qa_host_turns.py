@@ -25,7 +25,7 @@ from yoke_core.domain.coordination_claims import (
     release,
 )
 from yoke_core.domain.handlers.claims_coordination_claim import handle_acquire
-from yoke_core.domain.qa_host_turns import host_line
+from yoke_core.domain.qa_host_turns import machine_waiters
 from yoke_core.domain.work_claim_targets import make_qa_admission_target
 
 
@@ -67,7 +67,7 @@ def test_manual_and_execution_waiters_share_one_fifo_line(test_db, monkeypatch):
         refused.error.message
     )
     _execution_wait(test_db, "plan")
-    assert [row["session_id"] for row in host_line(test_db, MACHINE)] == [
+    assert [row["session_id"] for row in machine_waiters(test_db, MACHINE)] == [
         "manual",
         "plan",
     ]

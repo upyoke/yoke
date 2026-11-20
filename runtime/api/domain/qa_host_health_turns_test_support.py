@@ -36,7 +36,7 @@ from yoke_core.domain.machine_verification_recording import (
 
 from yoke_core.domain.qa_host_health import HOST_UNHEALTHY_REASON, host_unhealthy
 
-from yoke_core.domain.qa_host_turns import host_line
+from yoke_core.domain.qa_host_turns import machine_waiters
 
 from yoke_core.domain.qa_plan_execution_state import begin_plan_execution
 

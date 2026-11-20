@@ -50,28 +50,17 @@ class _Verification:
 
 
 class TestMachineFleetBusy(TestMachineCapabilityError):
-    """Every eligible machine is already admitted to another execution."""
+    """Every eligible machine is already admitted to another execution.
 
-    def __init__(self, busy: list[BusyTestMachine]) -> None:
+    *eligible* names every machine that could serve the refused walk; it
+    waits in the one queue for whichever of them frees first.
+    """
+
+    def __init__(self, busy: list[BusyTestMachine], eligible: tuple[str, ...]) -> None:
         names = ", ".join(candidate.test_machine for candidate in busy)
         super().__init__(f"all registered test machines are in use: {names}")
         self.busy = tuple(busy)
-
-    def shortest_line(self, conn: Any, session_id: str) -> BusyTestMachine:
-        """The busy host with the fewest other waiters; ties go by name.
-
-        The refused session's own wait does not lengthen a line, so a
-        queued waiter is not pushed off its host by its own place in it.
-        """
-        from yoke_core.domain.qa_host_turns import host_line
-
-        def others(candidate: BusyTestMachine) -> int:
-            line = host_line(conn, candidate.test_machine)
-            return sum(1 for wait in line if wait["session_id"] != session_id)
-
-        return min(
-            self.busy, key=lambda candidate: (others(candidate), candidate.test_machine)
-        )
+        self.eligible = eligible
 
 
 class TestMachineHostUnhealthy(TestMachineCapabilityError):
@@ -79,6 +68,8 @@ class TestMachineHostUnhealthy(TestMachineCapabilityError):
 
     #: Every host the refused plan case needs; its plan waits on all of them.
     test_machines: tuple[str, ...] = ()
+    #: Every machine that could serve the refused walk; it waits for any one.
+    eligible: tuple[str, ...] = ()
 
     def __init__(self, health: dict[str, Any]) -> None:
         from yoke_core.domain.qa_host_health import unhealthy_rationale
@@ -108,6 +99,23 @@ def _verification_by_machine(
         for name, verified_at, status, error_code in rows
         if name in names
     }
+
+
+def _reserved_for(conn: Any, session_id: str) -> set[str]:
+    """Machines the queue reserved for *session_id*: it takes those first."""
+    from yoke_core.domain.db_helpers import query_rows
+    from yoke_core.domain.qa_plan_execution_store import marker
+    from yoke_core.domain.schema_common import _table_exists
+
+    if not _table_exists(conn, "qa_test_machine_waits"):
+        return set()
+    rows = query_rows(
+        conn,
+        "SELECT test_machine FROM qa_test_machine_waits "
+        f"WHERE session_id={marker(conn)} AND state='reserved'",
+        (session_id,),
+    )
+    return {str(row["test_machine"]) for row in rows}
 
 
 def _selection_reason(
@@ -175,8 +183,10 @@ def acquire_test_machine_admission(
                 "the required capability_tags or correct the case's declared tags"
             )
     verification = _verification_by_machine(conn, candidates)
+    reserved = _reserved_for(conn, session_id)
     candidates.sort(
         key=lambda candidate: (
+            candidate.settings["resource_name"] not in reserved,
             verification[candidate.settings["resource_name"]].status != "verified",
             candidate.settings["resource_name"],
         )
@@ -219,10 +229,19 @@ def acquire_test_machine_admission(
                 automatic=automatic,
             ),
         )
+    eligible = tuple(
+        sorted(
+            candidate.settings["resource_name"]
+            for candidate in candidates
+            if candidate.settings["resource_name"] not in unverified
+        )
+    )
     if busy:
-        raise TestMachineFleetBusy(busy)
+        raise TestMachineFleetBusy(busy, eligible)
     if unhealthy:
-        raise TestMachineHostUnhealthy(unhealthy[0])
+        refused = TestMachineHostUnhealthy(unhealthy[0])
+        refused.eligible = eligible
+        raise refused
     raise TestMachineCapabilityError(
         "test_machine_no_verified_host: no matching Test Machine has verified readiness "
         f"({', '.join(unverified)}); run yoke test-machine verify --test-machine NAME "

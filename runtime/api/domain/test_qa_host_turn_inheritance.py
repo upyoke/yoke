@@ -9,7 +9,7 @@ from yoke_core.domain.coordination_claims import acquire, active_claim, release
 from yoke_core.domain.db_helpers import query_one
 from yoke_core.domain.qa_host_turn_inheritance import inherited_host_place
 from yoke_core.domain.qa_host_set_turns import record_host_wait
-from yoke_core.domain.qa_host_turns import host_line, join_host_line
+from yoke_core.domain.qa_host_turns import machine_waiters, join_host_queue
 from yoke_core.domain.work_claim_targets import make_qa_admission_target
 
 MACHINE = "test-mac"
@@ -58,7 +58,7 @@ def _aborted_walk(conn, monkeypatch, **shape):
     prior = _execution(conn, "owner", created_at=utc_now() - timedelta(hours=2), **shape)
     lease = acquire(conn, target, "owner")
     for waiter in ("first", "second"):
-        join_host_line(
+        join_host_queue(
             conn, target, session_id=waiter, actor_id=1, resume_command="yoke acquire"
         )
     release(conn, lease.id, "aborted")
@@ -81,7 +81,7 @@ def test_recovery_walk_resumes_next_ahead_of_unrelated_waiters(test_db, monkeypa
     )
 
     assert waiting["host_wait"]["position"] == 1
-    assert [row["session_id"] for row in host_line(test_db, MACHINE)] == [
+    assert [row["session_id"] for row in machine_waiters(test_db, MACHINE)] == [
         "owner",
         "second",
     ]

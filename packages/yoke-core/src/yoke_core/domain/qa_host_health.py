@@ -5,7 +5,7 @@ the readiness row every availability surface reads. A later successful
 ``verify`` or ``golden_capture`` heals it. Reset and diagnosis receipts record
 what was last done to the machine, not whether it works, so they never
 decide admission. Health is physical: every project registering the machine
-contributes its facts, like the one waiting line the machine keeps.
+contributes its facts, like the one Test Machine queue.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ HOST_UNHEALTHY_REASON = "test_machine_host_unhealthy"
 #: What a QA owner does when a Test Machine its cases need is taken or broken.
 HOST_WAIT_TEACHING = (
     "If a Test Machine its cases need is busy or unhealthy, run the plan "
-    "anyway: the runner queues this session in that host's line, then park; "
+    "anyway: the runner queues this session in the Test Machine queue, then park; "
     "you are woken with the resume command when it is your turn. Write no "
     "host hold of your own."
 )
@@ -76,7 +76,7 @@ def unhealthy_rationale(health: dict[str, Any]) -> str:
         f"its last verification failed ({health['error_code']} at "
         f"{health['checked_at']}). The operator must repair that failure and run "
         f"{host_heal_commands(health['test_machine'])}; successful verification wakes "
-        "the host line. Keep the sealed baseline unchanged"
+        "the queue. Keep the sealed baseline unchanged"
     )
 
 

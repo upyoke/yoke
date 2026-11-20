@@ -12,9 +12,7 @@ import hmac
 from typing import Any, Sequence
 
 from yoke_core.domain.machine_qa_submission_lease import _lock_submission_claim
-from yoke_core.domain.coordination_claim_record import (
-    CoordinationClaim,
-)
+from yoke_core.domain.coordination_claim_record import CoordinationClaim
 from yoke_core.domain.coordination_claims import (
     CoordinationClaimNotFoundError,
     CoordinationClaimStaleHolderError,
@@ -57,13 +55,14 @@ class MachineQaProtocolLeaseHeld(MachineQaProtocolError):
         test_machine: str,
         contention: ClaimContention | None = None,
         test_machines: tuple[str, ...] = (),
+        eligible: tuple[str, ...] = (),
     ) -> None:
         super().__init__(held_host(lease, test_machine))
-        self.lease = lease
-        self.test_machine = test_machine
-        self.contention = contention
+        self.lease, self.test_machine, self.contention = lease, test_machine, contention
         #: Every host the refused case needs; its plan waits on all of them.
         self.test_machines = test_machines
+        #: Every machine that could serve the refused walk; it waits for any one.
+        self.eligible = eligible
 
 
 class _CommitDeferredConnection:
@@ -187,11 +186,12 @@ def begin_host_control_execution(
     except CoordinationClaimStaleHolderError as exc:
         raise MachineQaProtocolError(str(exc)) from None
     except TestMachineFleetBusy as exc:
-        held = exc.shortest_line(conn, session_id)
+        held = exc.busy[0]
         raise MachineQaProtocolLeaseHeld(
             lease=held.lease,
             test_machine=held.test_machine,
             contention=held.contention,
+            eligible=exc.eligible,
         ) from None
     return _issue(
         conn,

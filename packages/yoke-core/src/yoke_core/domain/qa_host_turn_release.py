@@ -1,8 +1,9 @@
 """A released, unconsumed host turn ends the waiting execution it was held for.
 
-``reserve_host_turn`` reserves a free host for the oldest waiter. When that
-reservation's lease is released before the waiter takes it, the wait is
-cancelled. A ``waiting`` plan execution left with no live wait on any host
+``reserve_host_turn`` reserves a free host for the oldest waiter it can
+serve. When that reservation's lease is released before the waiter takes it,
+the wait is cancelled, with the waiter's other eligible machine rows. A
+``waiting`` plan execution left with no live wait on any host
 can never be served again, yet it still counts as an open walk, so control-
 plane upkeep would never wake its owner. It is therefore aborted in the same
 transaction with :data:`HOST_TURN_RELEASED_REASON`, naming the fresh run that
@@ -32,12 +33,13 @@ def cancel_released_reservation(conn: Any, claim: Any) -> None:
 
     A wait whose execution's stage is not open yet goes back to ``waiting``.
     """
+    from yoke_core.domain.qa_host_queue import settle_need
     from yoke_core.domain.qa_host_stage_unopened import execution_stage_unopened
 
     p = _p(conn)
     rows = query_rows(
         conn,
-        "SELECT id,qa_plan_execution_id FROM qa_test_machine_waits "
+        "SELECT id,qa_plan_execution_id,need_id FROM qa_test_machine_waits "
         f"WHERE claim_id={p} AND state='reserved'",
         (claim.id,),
     )
@@ -56,6 +58,7 @@ def cancel_released_reservation(conn: Any, claim: Any) -> None:
             f"WHERE id={p}",
             (now, str(row["id"])),
         )
+        settle_need(conn, row)
         cancelled.append(row)
     executions = {
         str(r["qa_plan_execution_id"]) for r in cancelled if r["qa_plan_execution_id"]

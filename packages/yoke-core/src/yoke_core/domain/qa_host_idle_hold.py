@@ -1,4 +1,4 @@
-"""A QA host held by a parked or exited session returns to the line after a limit.
+"""A QA host held by a parked or exited session returns to the queue after a limit.
 
 A walk in ``awaiting_walk_review`` keeps its primary lease on purpose
 (``qa_plan_execution_reconcile_hosts.held_leases``), work claims exempt a
@@ -15,8 +15,8 @@ call, host operation or other activity below for the machine setting
 owning walk is aborted with a reason naming the ``yoke qa plan run`` that starts
 it again. First, every unconsumed reservation held by an execution still waiting
 on that host returns to ``waiting`` at the execution's own place and its claim is
-released, so each of those hosts serves its line. Each release reserves the host
-for its line's oldest waiter and wakes that session.
+released, so each of those hosts serves the queue. Each release reserves the host
+for the oldest waiter it can serve and wakes that session.
 
 The idle clock includes the holder's and its subagent's tool calls, operations
 on the lease, and the holding QA execution's custody-checked heartbeat.
@@ -41,7 +41,7 @@ _LOG = logging.getLogger(__name__)
 
 #: Machine setting: minutes a parked or exited holder may sit on a host.
 IDLE_HOLD_SETTING = "qa_host_idle_hold_minutes"
-#: Release code of a host lease returned to the line by this module.
+#: Release code of a host lease returned to the queue by this module.
 IDLE_HOLD_RELEASED_REASON = "qa_host_idle_hold_expired"
 #: Release code of a waiting set's reservation returned with it.
 IDLE_HOLD_RESERVATION_REASON = "qa-host-turn-returned-idle-holder"
@@ -64,7 +64,7 @@ def held_qa_hosts(conn: Any, session_ids: Iterable[str]) -> dict[str, list[str]]
     """Test Machines each session holds a consumed QA host lease on.
 
     Unconsumed reservations and hold-overs are turns, not hosts in use, so a
-    session waiting in line holds nothing here.
+    session waiting in the queue holds nothing here.
     """
     ids = sorted({str(value) for value in session_ids})
     if not ids or not _table_exists(conn, "qa_test_machine_waits"):
@@ -215,10 +215,10 @@ def _set_reservations(conn: Any, execution_ids: list[str]) -> list[dict[str, Any
 
 
 def return_waiting_set_reservations(conn: Any, test_machine: str) -> list[int]:
-    """Return every reservation of a set waiting on *test_machine* to its line.
+    """Return every reservation of a set waiting on *test_machine* to the queue.
 
     Each wait goes back to ``waiting`` at its own ``queued_at``, so the
-    execution keeps its place; the release then serves that host's line,
+    execution keeps its place; the release then serves the queue,
     which reserves it again for the execution when it is still the oldest.
     """
     from yoke_core.domain.coordination_claims import release

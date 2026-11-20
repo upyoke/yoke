@@ -1,10 +1,10 @@
-"""A plan execution waits in host lines before its owning run opens its stage.
+"""A plan execution waits in the queue before its owning run opens its stage.
 
 A takeover moves a ``waiting`` deployment-stage execution to the successor
 run, which may still be before that QA stage. Its resume would refuse
 ``qa_item_stage_not_open``, so serving it a host only wakes it to release the
-turn. Such a wait keeps its place in every line but is passed over
-(``qa_host_idle_waiters.serving_line``), and a released reservation held for
+turn. Such a wait keeps its place in the queue but is passed over
+(``qa_host_idle_waiters.serving_waiters``), and a released reservation held for
 it returns it to ``waiting`` instead of aborting it
 (``qa_host_turn_release``). When the stage opens, the stage-wait notice sends
 its owner to ``yoke qa plan run``, which re-freezes the same execution and

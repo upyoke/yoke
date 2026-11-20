@@ -25,7 +25,7 @@ from yoke_core.domain.coordination_claims import acquire, active_claim, release
 from yoke_core.domain.deployment_qa_execution_refreeze import resume_moved_execution
 from yoke_core.domain.qa_host_set_turns import record_host_wait
 from yoke_core.domain.qa_host_turn_release import HOST_TURN_RELEASED_REASON
-from yoke_core.domain.qa_host_turns import HOST_TURN_REASON, join_host_line
+from yoke_core.domain.qa_host_turns import HOST_TURN_REASON, join_host_queue
 from yoke_core.domain.qa_plan_execution_store import select_plan_execution
 from yoke_core.domain.work_claim_targets import make_qa_admission_target
 
@@ -40,7 +40,7 @@ def _line(conn, monkeypatch, *, held: bool):
     if held:
         acquire(conn, TARGET, HOLDER, commit=False)
     start = utc_now() - timedelta(hours=1)
-    wait = join_host_line(
+    wait = join_host_queue(
         conn,
         TARGET,
         session_id=takeover.DRIVER_SESSION,
@@ -50,7 +50,7 @@ def _line(conn, monkeypatch, *, held: bool):
         queued_at=start,
     )
     for offset, session in ((1, LATER), (2, LAST)):
-        join_host_line(
+        join_host_queue(
             conn,
             TARGET,
             session_id=session,

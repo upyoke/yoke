@@ -1,11 +1,11 @@
-"""FIFO turns on one physical Test Machine, kept in ``qa_test_machine_waits``.
+"""Turns on Test Machines, served from the one queue in ``qa_test_machine_waits``.
 
 A session refused a ``QA_HOST:<machine>`` claim, or a scoped QA plan whose
-host is leased or unhealthy, joins the line; the host's next release reserves
-it for the oldest live waiter and wakes that session, and the waiter's next
-acquire consumes the reservation. Scoped QA plan executions and manual
-acquires share one line, ordered by when each session first queued; a
-walk recovering an aborted shared walk takes that walk's place
+host is leased or unhealthy, joins the queue (``qa_host_queue``); a host's
+next release reserves it for the oldest live waiter it can serve and wakes
+that session, and the waiter's next acquire consumes the reservation. Scoped
+QA plan executions and manual acquires share the queue, ordered by when each
+first queued; a walk recovering an aborted shared walk takes that walk's place
 (``qa_host_turn_inheritance``). A plan execution waits on every host of its
 case at one place, and an unconsumed reservation passes to an older waiter
 that joins later (``qa_host_set_turns``). A session that just used a host
@@ -21,8 +21,14 @@ from uuid import uuid4
 from yoke_contracts.coordination_claim_recovery import holder_release_command
 from yoke_contracts.timestamps import format_instant, utc_now
 from yoke_core.domain.machine_idle_notice import note_released_host
-from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import instant_parameter, query_one, query_rows
+from yoke_core.domain.qa_host_queue import (
+    lock_host_queue,
+    machine_waiters as queue_machine_waiters,
+    queue_place,
+    settle_need,
+    waits_for_text,
+)
 from yoke_core.domain.qa_plan_execution_store import marker as _p
 from yoke_core.domain.qa_test_machine_wait_schema import (
     QA_TEST_MACHINE_WAIT_TABLE,
@@ -57,54 +63,45 @@ def _resume_command(conn: Any, wait: Any) -> str:
 
 
 def _has_line(conn: Any) -> bool:
-    """Partial fixture schemas without the line have no waiter to serve."""
+    """Partial fixture schemas without the queue have no waiter to serve."""
     return _table_exists(conn, QA_TEST_MACHINE_WAIT_TABLE)
 
 
 def lock_host_turn(conn: Any, target: Any) -> None:
-    """Serialize queue admission and lease release on the physical host."""
-    if target.test_machine and db_backend.connection_is_postgres(conn):
-        conn.execute(
-            "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
-            ("qa-host-turn:" + target.test_machine,),
-        )
+    """Serialize a host target's turn decisions under the one queue lock."""
+    if target.test_machine:
+        lock_host_queue(conn)
 
 
-def host_line(conn: Any, test_machine: str) -> list[dict[str, Any]]:
-    """Waiters still in line for *machine*, oldest first; ended sessions drop out."""
+def machine_waiters(conn: Any, test_machine: str) -> list[dict[str, Any]]:
+    """The queue's live waits *test_machine* can serve, oldest first."""
     if not _has_line(conn):
         return []
-    rows = query_rows(
-        conn,
-        "SELECT w.* FROM qa_test_machine_waits w JOIN harness_sessions s "
-        "ON s.session_id=w.session_id "
-        f"WHERE w.test_machine={_p(conn)} AND w.state='waiting' AND s.ended_at IS NULL "
-        "ORDER BY w.queued_at, COALESCE(w.qa_plan_execution_id, w.session_id), w.id",
-        (test_machine,),
-    )
-    return [dict(row) for row in rows]
+    return queue_machine_waiters(conn, test_machine)
 
 
 def host_wait_view(conn: Any, wait_id: str) -> dict[str, Any]:
-    """Return one wait with its current place in its machine's line."""
+    """Return one wait with its waiter's current place in the queue."""
     row = query_one(
         conn, f"SELECT * FROM qa_test_machine_waits WHERE id={_p(conn)}", (wait_id,)
     )
     assert row is not None
-    line = [str(waiter["id"]) for waiter in host_line(conn, str(row["test_machine"]))]
+    entry, length = queue_place(conn, wait_id)
     return {
         "id": str(row["id"]),
         "test_machine": str(row["test_machine"]),
+        "test_machines": entry["test_machines"] if entry else [str(row["test_machine"])],
+        "waits_for": waits_for_text(entry) if entry else str(row["test_machine"]),
         "state": str(row["state"]),
         "queued_at": format_instant(row["queued_at"]),
         "resume_command": _resume_command(conn, row),
         "rationale": str(row["rationale"] or ""),
-        "position": line.index(wait_id) + 1 if wait_id in line else None,
-        "line_length": len(line),
+        "position": entry["position"] if entry else None,
+        "queue_length": length,
     }
 
 
-def join_host_line(
+def join_host_queue(
     conn: Any,
     target: Any,
     *,
@@ -114,10 +111,13 @@ def join_host_line(
     rationale: str = "",
     execution_id: str | None = None,
     queued_at: Any = None,
+    need_id: str | None = None,
 ) -> dict[str, Any]:
-    """Queue *session_id* at *queued_at* or now; a queued session keeps its place.
+    """Queue *session_id* for *target*'s machine at *queued_at* or now; a
+    queued session keeps its place.
 
-    A live wait moves only earlier, to a *queued_at* before its own.
+    Rows sharing *need_id* are one waiter's alternative machines. A live wait
+    moves only earlier, to a *queued_at* before its own.
     """
     p = _p(conn)
     test_machine = str(target.test_machine)
@@ -132,8 +132,8 @@ def join_host_line(
         wait_id = str(uuid4())
         conn.execute(
             "INSERT INTO qa_test_machine_waits(id,test_machine,session_id,actor_id,queued_at,"
-            "qa_plan_execution_id,state,resume_command,rationale) "
-            f"VALUES({p},{p},{p},{p},{p},{p},'waiting',{p},{p})",
+            "qa_plan_execution_id,state,resume_command,rationale,need_id) "
+            f"VALUES({p},{p},{p},{p},{p},{p},'waiting',{p},{p},{p})",
             (
                 wait_id,
                 test_machine,
@@ -143,14 +143,16 @@ def join_host_line(
                 execution_id,
                 resume_command,
                 rationale,
+                need_id,
             ),
         )
     else:
         wait_id = str(live["id"])
         conn.execute(
             f"UPDATE qa_test_machine_waits SET resume_command={p},rationale={p},"
-            f"qa_plan_execution_id=COALESCE({p},qa_plan_execution_id) WHERE id={p}",
-            (resume_command, rationale, execution_id, wait_id),
+            f"qa_plan_execution_id=COALESCE({p},qa_plan_execution_id),need_id={p} "
+            f"WHERE id={p}",
+            (resume_command, rationale, execution_id, need_id, wait_id),
         )
         if queued_at is not None:
             place = instant_parameter(conn, queued_at)
@@ -163,15 +165,15 @@ def join_host_line(
 
 
 def reserve_host_turn(conn: Any, target: Any) -> None:
-    """Reserve a free, healthy host for the oldest live waiter.
+    """Reserve a free, healthy host for the oldest live waiter it can serve.
 
     A set-waiter away past the idle hold keeps its place but is passed over
     (``qa_host_idle_waiters``).
 
     A host reserved for a younger waiter passes to the older one first.
-    An unhealthy host keeps its line waiting and stays free for the operator
+    An unhealthy host keeps its waiters waiting and stays free for the operator
     verify or golden capture that heals it; that operation's release serves
-    the line.
+    the queue.
     """
     if not target.test_machine:
         return
@@ -183,15 +185,15 @@ def reserve_host_turn(conn: Any, target: Any) -> None:
     held = active_claim(conn, target)
     if held is not None:
         # Releasing a lapsed hold-over or a passed reservation serves the
-        # line through this function.
+        # queue through this function.
         if not expire_holdover(conn, held):
             pass_to_older_waiter(conn, held)
         return
     if host_unhealthy(conn, target.test_machine) is not None:
         return
-    from yoke_core.domain.qa_host_idle_waiters import serving_line
+    from yoke_core.domain.qa_host_idle_waiters import serving_waiters
 
-    line = serving_line(conn, target.test_machine)
+    line = serving_waiters(conn, target.test_machine)
     if not line:
         return
     first = line[0]
@@ -253,16 +255,20 @@ def reservation_for(conn: Any, claim: Any, session_id: str) -> bool:
     if claim.session_id != session_id or not _has_line(conn):
         return False
     p = _p(conn)
-    cursor = conn.execute(
+    rows = query_rows(
+        conn,
         f"UPDATE qa_test_machine_waits SET state='granted',settled_at={p} "
-        f"WHERE claim_id={p} AND session_id={p} AND state='reserved'",
+        f"WHERE claim_id={p} AND session_id={p} AND state='reserved' "
+        "RETURNING id,need_id",
         (instant_parameter(conn, utc_now()), claim.id, session_id),
     )
-    return cursor.rowcount == 1
+    for row in rows:
+        settle_need(conn, row)
+    return len(rows) == 1
 
 
 def host_claim_released(conn: Any, claim: Any) -> None:
-    """Drop the unconsumed reservation, ending a wait it orphans; serve the line.
+    """Drop the unconsumed reservation, ending a wait it orphans; serve the queue.
 
     A direct operation's release may first keep the host for its session as a
     hold-over (``qa_host_holdover``).
@@ -286,8 +292,8 @@ def cancel_host_waits(
     execution_ids: Iterable[str] = (),
     test_machines: Iterable[str] = (),
 ) -> None:
-    """Leave every line the session or executions wait in, or only the
-    lines of *test_machines* when named.
+    """Leave the queue for the session or executions, or only their waits on
+    *test_machines* when named.
 
     Every matching wait is cancelled before any reservation is released, so
     a released turn never passes to another wait this same call removes.
