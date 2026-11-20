@@ -7,17 +7,20 @@
 Choose what to preserve before removing Yoke from this machine or its projects.
 The uninstall command reports each cleanup result and names recovery on failure.
 
-## Retire the machine on its server
+## Back up before retiring the machine
 
-Retire the machine before removing its connection or uninstalling Yoke.
-Run `yoke --env ENV machine retire MACHINE_ID --confirm` for each server,
-using the local connection name for `ENV`. Retirement preserves machine
-history and revokes the machine's bound credential.
+Keep the machine connected while you back up data and complete any cleanup
+that needs the server. For a local universe or self-host install, choose
+**back up first** in `yoke uninstall`, or use `yoke uninstall --backup` with
+a project selection. The export needs a working connection credential.
 
-Connection removal and uninstall leave the server's machine record in place.
-Both print the machine ID when one is saved in the config. After removing
-the connection, the machine's owner or a server administrator can retire it
-by ID from another machine connected to the same server.
+After backup, remove the connection or finish uninstalling. Save the machine
+ID printed by either command. For each server that remains available, the
+machine's owner or a server administrator can run
+`yoke --env ENV machine retire MACHINE_ID --confirm` from another machine
+connected to that server. Use the connection name on the machine running
+the command for `ENV`. Retirement preserves machine history and revokes
+the retired machine's bound credential.
 
 ## Uninstall
 

@@ -147,7 +147,8 @@ def connection_remove(args: List[str]) -> int:
             "the alias is this machine's only connection, which simply leaves "
             "it unconfigured. A credential file outside Yoke's machine secrets "
             "is kept and reported. The server keeps the machine record. "
-            "Use `yoke machine retire` before removing the connection. "
+            "Finish any backup or server cleanup while connected. After removal, "
+            "use `yoke machine retire` from another machine connected to the server. "
             + CONFIG_SELECTION_HELP
         ),
     )
@@ -176,7 +177,8 @@ def connection_remove(args: List[str]) -> int:
             result["machine record"] = (
                 f"{machine_id} stays registered on {env}; retire it with "
                 f"`yoke --env {env} machine retire {machine_id} --confirm` "
-                "before removing the connection, or from another connected machine."
+                "from another machine connected to the same server. "
+                "Use that machine's connection name."
             )
         return result
 

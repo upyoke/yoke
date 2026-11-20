@@ -37,6 +37,7 @@ def test_connection_remove_reports_machine_retirement_command(
     if has_machine_id:
         assert f"machine record: {machine_id} stays registered on prod" in out
         assert f"`yoke --env prod machine retire {machine_id} --confirm`" in out
+        assert "from another machine connected to the same server" in out
     else:
         assert "machine record:" not in out
         assert "machine retire" not in out
