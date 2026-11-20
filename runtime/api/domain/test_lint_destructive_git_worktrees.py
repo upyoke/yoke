@@ -145,7 +145,7 @@ def lane():
     repo = _make_repo(initial_files={"src/a.py": "v1\n"})
     path = Path(repo) / ".worktrees" / "lane"
     _git_run(repo, "worktree", "add", str(path), "-b", "lane", "main")
-    yield path
+    yield path.resolve()
     shutil.rmtree(repo, ignore_errors=True)
 
 
