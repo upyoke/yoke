@@ -91,7 +91,8 @@ def prepare(home: Path) -> Handoff:
             stdin=subprocess.DEVNULL,
             stdout=output,
             stderr=subprocess.STDOUT,
-            cwd=directory,
+            # Outside the folder, so the worker can delete it when done.
+            cwd=root,
             **_detached(),
         )
     deadline = time.monotonic() + 10
@@ -215,8 +216,39 @@ def finish(
     # Success needs no recovery evidence: remove this worker's own folder.
     os.close(descriptor)
     if lock.parent.name.startswith(HANDOFF_PREFIX):
-        shutil.rmtree(lock.parent, ignore_errors=True)
+        _remove_own_folder(lock.parent)
     return 0
+
+
+def _remove_own_folder(folder: Path) -> None:
+    """Delete the handoff folder, holding no file or directory inside it.
+
+    Windows cannot delete an open file or a process's working directory, and
+    this worker's stdout and stderr are the folder's result.log. A failure is
+    appended to that log, which then stays for the operator to read.
+    """
+    os.chdir(folder.parent)
+    _release_log()
+    try:
+        shutil.rmtree(folder)
+    except OSError as exc:
+        with (folder / "result.log").open("a", encoding="utf-8") as log:
+            log.write(
+                f"handoff folder: failed (uninstall_handoff_cleanup_failed: {exc}); "
+                f"delete {folder} once no process holds it\n"
+            )
+
+
+def _release_log() -> None:
+    """Point stdout and stderr away from result.log so its handle closes."""
+    sys.stdout.flush()
+    sys.stderr.flush()
+    devnull = os.open(os.devnull, os.O_WRONLY)
+    try:
+        os.dup2(devnull, 1)
+        os.dup2(devnull, 2)
+    finally:
+        os.close(devnull)
 
 
 if __name__ == "__main__":
