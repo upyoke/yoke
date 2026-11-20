@@ -90,6 +90,34 @@ print('stopped', flush=True)
             process.communicate(timeout=2)
 
 
+@pytest.mark.posix_only(reason="Uses the daemon's POSIX signal handlers")
+def test_term_handler_records_stop_without_acquiring_idle_event_lock(monkeypatch):
+    import threading
+    from yoke_harness.session_relay_daemon import (
+        _StopRequest,
+        _install_signal_handlers,
+        _restore_signal_handlers,
+    )
+    from yoke_harness.session_relay_supervision import RelayStopRequested
+
+    def refuse_event_lock(_event):
+        pytest.fail("SIGTERM cannot set an event whose lock the main thread may hold")
+
+    stop = _StopRequest()
+    previous = _install_signal_handlers(stop)
+    try:
+        started = time.monotonic()
+        with monkeypatch.context() as patch:
+            patch.setattr(threading.Event, "set", refuse_event_lock)
+            with pytest.raises(RelayStopRequested):
+                signal.raise_signal(signal.SIGTERM)
+        assert stop.is_set()
+        assert stop.reason == "signal:SIGTERM"
+        assert started <= stop.requested_at <= time.monotonic()
+    finally:
+        _restore_signal_handlers(previous)
+
+
 def test_stop_and_busy_workers_release_unstarted_jobs(tmp_path):
     import threading
     from yoke_harness.session_relay_daemon import _StopRequest
