@@ -10,6 +10,7 @@ import pytest
 from runtime.api.cli.setup_agent_test_support import (
     AgentDriver,
     MACHINE_ONLY_ANSWERS,
+    git_checkout,
     isolate_agent_setup,
 )
 from yoke_cli.config import setup_agent_answers
@@ -19,6 +20,46 @@ pytest.importorskip("textual")
 
 def saved() -> dict:
     return json.loads(setup_agent_answers.store_path().read_text())
+
+
+@pytest.mark.parametrize("set_on_resume", [False, True])
+def test_checkout_and_prefix_flags_answer_project_questions(
+    tmp_path, monkeypatch, capsys, set_on_resume
+):
+    fake = isolate_agent_setup(tmp_path, monkeypatch)
+    checkout = git_checkout(tmp_path / "demo")
+    drive = AgentDriver(capsys)
+    flags = ("--checkout", str(checkout), "--public-item-prefix", "qnwb")
+    code, lines = drive(flags=() if set_on_resume else flags)
+    assert code == 0, lines
+
+    for answer in ("project.mode=local-checkout", *MACHINE_ONLY_ANSWERS[1:]):
+        code, lines = drive(answer)
+        assert code == 0, lines
+        if not set_on_resume:
+            assert all(line.get("key") != "project.folder" for line in lines)
+    if set_on_resume:
+        assert lines[-1]["key"] == "project.folder"
+        code, lines = drive(flags=flags)
+        assert code == 0, lines
+        assert lines[-1]["key"] == "project.mode"
+        code, lines = drive("project.mode=local-checkout")
+
+    assert code == 0, lines
+    assert lines[-1]["key"] == "project.details"
+    fields = {field["key"] for field in lines[-1]["fields"]}
+    assert "project.details.name" in fields
+    assert "project.details.prefix" not in fields
+    assert drive() == (code, lines)
+
+    for answer in (
+        "project.details=continue", "hosting.provider=skip", "review.confirm=apply",
+    ):
+        code, lines = drive(answer)
+        assert code == 0, lines
+    assert lines[-1]["state"] == "done"
+    assert fake.applied[0]["project_checkout"] == str(checkout)
+    assert fake.applied[0]["project_public_item_prefix"] == "QNWB"
 
 
 @pytest.mark.parametrize("old_mode,new_mode", [

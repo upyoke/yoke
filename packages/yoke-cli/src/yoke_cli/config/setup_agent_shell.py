@@ -191,6 +191,8 @@ class AgentSetup(AgentShell, *SETUP_FLOWS):
                 "answer the current question shown here, by its key",
             )
         self._apply_preset = bool(defaults.apply)
+        self._project_checkout_preset = defaults.project_checkout
+        self._project_prefix_preset = defaults.project_public_item_prefix
         self._next: Callable[[], None] | None = None
         self._exited = False
         self._final: dict[str, Any] | None = None
@@ -230,7 +232,7 @@ class AgentSetup(AgentShell, *SETUP_FLOWS):
     # ── presenting one screen ───────────────────────────────
 
     def _present_current(self) -> None:
-        view = self._history[-1]
+        view = self._with_project_prefix_preset(self._history[-1])
         prompt = view.prompt
         if prompt.key == apply_prompts.APPLY_DONE_KEY:
             self._finish_done()

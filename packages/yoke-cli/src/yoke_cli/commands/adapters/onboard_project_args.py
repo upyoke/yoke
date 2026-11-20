@@ -24,7 +24,7 @@ def add_project_args(parser: argparse.ArgumentParser) -> None:
         "--checkout",
         dest="project_checkout",
         default=None,
-        help="Local checkout path for the project.",
+        help="Local checkout path for the project. In agent mode, answers the folder question.",
     )
     parser.add_argument(
         "--remote-url",
@@ -66,7 +66,7 @@ def add_project_args(parser: argparse.ArgumentParser) -> None:
         "--public-item-prefix",
         dest="project_public_item_prefix",
         default=None,
-        help="Prefix for item ids, e.g. ACME for ACME-1.",
+        help="Prefix for item ids, e.g. ACME for ACME-1. In agent mode, answers the item prefix.",
     )
     parser.add_argument(
         "--publication-destination",

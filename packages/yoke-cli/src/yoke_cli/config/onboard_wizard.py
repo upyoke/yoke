@@ -277,6 +277,7 @@ class WizardDefaults:
     apply: bool = False
     post_install: bool = False
     machine_github: str | None = None
+    project_public_item_prefix: str | None = None
 
 
 def run_wizard(

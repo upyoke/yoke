@@ -23,6 +23,7 @@ from yoke_cli.commands.adapters import onboard_interactive
 from yoke_cli.commands.adapters import onboard_project_args
 from yoke_cli.commands.adapters import onboard_resume
 from yoke_cli.config import machine_config
+from yoke_cli.config.onboard_input_validation import validate_prefix
 from yoke_contracts import onboard_destinations as onboard_destinations
 from yoke_cli.config import onboard_machine_setup
 from yoke_cli.config import onboard_wizard
@@ -182,10 +183,12 @@ def run(
             return _usage(prepared.error)
         onboard_machine_setup.prepare(machine_config.config_path(parsed.config_path))
         selected_mode = "advanced" if parsed.advanced else "quick"
+        wizard_defaults = onboard_interactive.wizard_defaults(
+            parsed, prepared.env_name, selected_mode, prepared.destination
+        )
+        wizard_defaults.project_public_item_prefix = parsed.project_public_item_prefix
         setup = _agent_setup()(
-            defaults=onboard_interactive.wizard_defaults(
-                parsed, prepared.env_name, selected_mode, prepared.destination
-            ),
+            defaults=wizard_defaults,
             apply_report=onboard_interactive.report_runner(
                 parsed, onboard_apply.apply_with_durable_report, install_health=True
             ),
@@ -226,6 +229,11 @@ def _apply_presets(
         for name, value in vars(parsed).items()
         if name not in AGENT_ONLY_OPTIONS and value != getattr(defaults, name, None)
     }
+    prefix = given.get("project_public_item_prefix", store.presets.get("project_public_item_prefix"))
+    if prefix is not None:
+        error = validate_prefix(prefix)
+        if error:
+            return "setup_project_prefix_invalid", f"Correct --public-item-prefix. {error}"
     refusal = store.apply_presets(given)
     for name, value in store.presets.items():
         setattr(parsed, name, value)
