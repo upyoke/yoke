@@ -80,6 +80,47 @@ def parse_candidate_containment(value: Any) -> dict[str, Any]:
     return payload
 
 
+def recorded_contained_landings(
+    conn: Any, run_ids: set[str],
+) -> dict[str, frozenset[tuple[str, str, str, str]]]:
+    """Batch positive answers for exact immutable landing and candidate pairs."""
+    if not run_ids or not _column_exists(conn, "deployment_runs", CANDIDATE_CONTAINMENT_FIELD):
+        return {}
+    from yoke_core.domain.deployment_run_compare_response import FULL_SHA_LENGTH, is_hex
+
+    marker = _p(conn)
+    holes = ",".join(marker for _ in run_ids)
+    rows = conn.execute(
+        f"SELECT id,{CANDIDATE_CONTAINMENT_FIELD} FROM deployment_runs "
+        f"WHERE id IN ({holes}) AND {CANDIDATE_CONTAINMENT_FIELD} IS NOT NULL",
+        tuple(sorted(run_ids)),
+    ).fetchall()
+    result = {}
+    for row in rows:
+        snapshot = parse_candidate_containment(row[1])
+        derivation = snapshot.get("derivation")
+        answers = snapshot.get("answers")
+        if (
+            not isinstance(derivation, Mapping)
+            or derivation.get("contents_known") is not True
+            or not isinstance(answers, list)
+        ):
+            continue
+        contained = set()
+        for answer in answers:
+            if not isinstance(answer, Mapping) or answer.get("state") != CONTAINED:
+                continue
+            candidate = str(answer.get("candidate_lineage") or "")
+            merge = str(answer.get("merge_sha") or "")
+            if all(len(sha) == FULL_SHA_LENGTH and is_hex(sha) for sha in (candidate, merge)):
+                contained.add((
+                    str(answer.get("project_id")), str(answer.get("id")),
+                    candidate.lower(), merge.lower(),
+                ))
+        result[str(row[0])] = frozenset(contained)
+    return result
+
+
 def attest_candidate_containment(
     basis: Mapping[str, Any], checkout_for_project: Callable[[str], str],
     *, run_id: str,
@@ -235,4 +276,5 @@ __all__ = [
     "candidate_containment_basis",
     "parse_candidate_containment",
     "record_attested_candidate_containment",
+    "recorded_contained_landings",
 ]
