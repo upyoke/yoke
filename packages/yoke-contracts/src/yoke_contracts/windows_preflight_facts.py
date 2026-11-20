@@ -186,6 +186,23 @@ def _vc_runtime(env) -> str | None:
     return dll if os.path.isfile(dll) else None
 
 
+def _desktop(env, errors: list[str]) -> bool:
+    """Interactive desktop: a non-zero session id outside SSH (session 0 is services and OpenSSH).
+
+    Task Scheduler interactive tasks, such as the machine relay, get no SESSIONNAME, so it is
+    only the fallback when the session id cannot be read.
+    """
+    if env.get("SSH_CONNECTION"):
+        return False
+    session, kernel = ctypes.c_ulong(), ctypes.windll.kernel32
+    if kernel.ProcessIdToSessionId(os.getpid(), ctypes.byref(session)):
+        return session.value != 0
+    errors.append(
+        f"ProcessIdToSessionId failed (error {kernel.GetLastError()}); desktop read from SESSIONNAME"
+    )
+    return env.get("SESSIONNAME", "").lower() not in ("", "services")
+
+
 def collect_facts(
     *, home: str | Path | None = None, repo: str | Path | None = None
 ) -> dict:
@@ -315,8 +332,7 @@ def collect_facts(
         "ssh": shutil.which("ssh"),
         "vc_runtime": _vc_runtime(env),
         "wsl_yoke": wsl_yoke,
-        "desktop": env.get("SESSIONNAME", "").lower() not in ("", "services")
-        and not env.get("SSH_CONNECTION"),
+        "desktop": _desktop(env, errors),
         "browser": bool(browser),
         "store_blocked": bool(store),
         "blocked_hosts": blocked,

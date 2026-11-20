@@ -192,7 +192,21 @@ class _Lxss:
         return (self.distributions, 0, 0)
 
 
-def _windows_host(monkeypatch, *, build="26200", product="Windows 11 Pro", lxss=1):
+def _kernel(session):
+    """A fake kernel32 whose ProcessIdToSessionId reports ``session``, or fails on None."""
+
+    def session_id(pid, out):
+        if session is None:
+            return 0
+        out.value = session
+        return 1
+
+    return SimpleNamespace(ProcessIdToSessionId=session_id, GetLastError=lambda: 5)
+
+
+def _windows_host(
+    monkeypatch, *, build="26200", product="Windows 11 Pro", lxss=1, session=1
+):
     """Stub a Windows host's facts; returns the list every probe argv lands in."""
     monkeypatch.setitem(sys.modules, "winreg", _Lxss(lxss))
     values = {
@@ -216,7 +230,12 @@ def _windows_host(monkeypatch, *, build="26200", product="Windows 11 Pro", lxss=
         collector,
         "ctypes",
         SimpleNamespace(
-            windll=SimpleNamespace(shell32=SimpleNamespace(IsUserAnAdmin=lambda: 0))
+            c_ulong=ctypes.c_ulong,
+            byref=lambda value: value,
+            windll=SimpleNamespace(
+                shell32=SimpleNamespace(IsUserAnAdmin=lambda: 0),
+                kernel32=_kernel(session),
+            ),
         ),
     )
     monkeypatch.setattr(
@@ -290,3 +309,41 @@ def test_wsl_stub_without_a_registered_distribution_is_not_probed(
     assert not any("wsl" in e.lower() for e in result["probe_errors"])
     assert not result["wsl_yoke"]
     assert not any(r["code"] == "probe_incomplete" for r in verdicts(result))
+
+
+@pytest.mark.parametrize(
+    "session,sessionname,ssh,desktop",
+    [
+        (1, None, None, True),  # Task Scheduler interactive task: no SESSIONNAME
+        (0, "Console", None, False),  # services and OpenSSH logons run in session 0
+        (2, "Console", "10.0.0.2 50000 10.0.0.1 22", False),
+    ],
+)
+def test_desktop_comes_from_the_session_id(
+    monkeypatch, tmp_path, session, sessionname, ssh, desktop
+):
+    _windows_host(monkeypatch, session=session)
+    for name, value in (("SESSIONNAME", sessionname), ("SSH_CONNECTION", ssh)):
+        if value is None:
+            monkeypatch.delenv(name, raising=False)
+        else:
+            monkeypatch.setenv(name, value)
+    result = collector.collect_facts(home=tmp_path / "absent", repo=tmp_path)
+    assert result["desktop"] is desktop
+    assert not any("ProcessIdToSessionId" in e for e in result["probe_errors"])
+    codes = {r["code"] for r in verdicts(result)}
+    assert ("windows_code_flow" in codes) is not desktop
+
+
+@pytest.mark.parametrize("sessionname,desktop", [("Console", True), ("", False)])
+def test_failed_session_id_falls_back_to_sessionname_and_is_named(
+    monkeypatch, tmp_path, sessionname, desktop
+):
+    _windows_host(monkeypatch, session=None)
+    monkeypatch.setenv("SESSIONNAME", sessionname)
+    result = collector.collect_facts(home=tmp_path / "absent", repo=tmp_path)
+    assert result["desktop"] is desktop
+    assert (
+        "ProcessIdToSessionId failed (error 5); desktop read from SESSIONNAME"
+        in result["probe_errors"]
+    )
