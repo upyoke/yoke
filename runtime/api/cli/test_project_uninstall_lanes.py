@@ -52,8 +52,24 @@ def test_clean_lane_is_removed_and_uninstall_completes_in_one_commit(installed):
     report = uninstall(root, config_path=config, remove_lanes=True)
     assert report["outcome"] == "complete", report
     assert report["lanes_removed"] == [str(lane.resolve())]
+    assert report["lane_branches_kept"] == ["WALKNE-1"]
+    [kept] = [w for w in report["warnings"] if "lane_branches_kept" in w]
+    assert "WALKNE-1" in kept and f"git -C {root.resolve()} branch -D" in kept
     assert not (root / ".worktrees").exists()
     # The lane's branch keeps its commit; uninstall adds exactly one commit.
     assert git(root, "log", "-1", "--format=%s", "WALKNE-1") == "Lane work"
     assert git(root, "rev-parse", "HEAD~1") == head
     assert not git(root, "status", "--porcelain")
+
+
+def test_check_runs_the_lane_refusals_and_changes_nothing(installed):
+    root, _, config = installed
+    lane = _lane(root)
+    before = _snapshot(root)
+    report = uninstall(root, config_path=config, remove_lanes=True, check=True)
+    assert report["operation"] == "uninstall-check"
+    assert _snapshot(root) == before and lane.is_dir()
+    (lane / "work.txt").write_text("uncommitted\n")
+    with pytest.raises(files.ProjectInstallError, match="project_uninstall_lane_dirty"):
+        uninstall(root, config_path=config, remove_lanes=True, check=True)
+    assert _snapshot(root) == before

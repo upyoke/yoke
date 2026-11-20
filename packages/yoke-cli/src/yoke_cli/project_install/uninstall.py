@@ -50,6 +50,7 @@ def uninstall(
     config_path: str | Path | None = None,
     *,
     remove_lanes: bool = False,
+    check: bool = False,
 ) -> Dict[str, Any]:
     """Remove the installed layer and exclusive owned registration/folder trust.
 
@@ -57,11 +58,17 @@ def uninstall(
     manifest mode so a legacy or hand-edited manifest can never
     authorize de-installing the source checkout; manifests without the
     mode key are copy manifests (pre-mode installed state).
+
+    *check* runs every refusal this checkout can raise before a change and
+    changes nothing, so ``yoke uninstall`` can preflight each project before
+    it tears down anything a project step needs.
     """
     from yoke_cli.project_install.install_recovery import PENDING_REL
 
     root = files_layer.resolve_repo_root(repo_root)
     manifest = files_layer.load_manifest(root)
+    if manifest is None and check:
+        return {"operation": "uninstall-check", "repo_root": str(root), "warnings": []}
     if manifest is None:
         from yoke_cli.project_install.registration_only_uninstall import (
             uninstall_registration,
@@ -102,7 +109,15 @@ def uninstall(
     )
     # Lanes settle before anything changes: an open lane refuses here, never
     # after the removal commit.
-    lanes_removed = uninstall_lanes.settle(root, config_path, remove=remove_lanes)
+    lanes = uninstall_lanes.settle(
+        root, config_path, remove=remove_lanes, check=check
+    )
+    if check:
+        return {
+            "operation": "uninstall-check",
+            "repo_root": str(root),
+            "warnings": commit_warnings,
+        }
     shared_scope = owned_cleanup.scope_reason(root, manifest, config_path)
     file_records = dict(manifest.get("files") or {})
     discovery_removed = skill_discovery.remove(
@@ -110,6 +125,7 @@ def uninstall(
     )
     removed, skipped, absent, warnings = remove_manifest_files(root, file_records)
     warnings.extend(commit_warnings)
+    warnings.extend(uninstall_lanes.kept_branches_warning(root, lanes["branches_kept"]))
     # Contract files: remove only installer-created files still byte-equal
     # to their seeded content; edited ones are preserved with a warning and
     # pre-existing files were never recorded, so they are never touched.
@@ -252,7 +268,8 @@ def uninstall(
             managed_markdown_removed["stripped_blocks"]
         ),
         "worktrees_ignore": worktrees_ignore,
-        "lanes_removed": lanes_removed,
+        "lanes_removed": lanes["removed"],
+        "lane_branches_kept": lanes["branches_kept"],
         "settings_files_deleted": settings_deleted,
         "local_cleanup": local_cleanup,
         "outcome": "complete" if local_cleanup["complete"] else "partial",

@@ -18,7 +18,7 @@ import sys
 from pathlib import Path
 
 from yoke_cli.config import machine_uninstall_detached, machine_uninstall_workers
-from yoke_cli.config import machine_config, machine_uninstall_relays
+from yoke_cli.config import machine_config, machine_uninstall_projects, machine_uninstall_relays
 from yoke_cli.config import machine_uninstall_browsers
 from yoke_cli.config.machine_uninstall_inventory import Inventory, UninstallError
 from yoke_cli.config.machine_config_file import remove_file
@@ -153,6 +153,17 @@ def remove(
             f"Uninstall summary: {counts['done']} done, {counts['skipped']} skipped, {counts['failed']} failed."
         )
         return 1
+    # A project step that would refuse stops everything before anything changes.
+    refusals = machine_uninstall_projects.preflight(inventory, selected, command)
+    if refusals:
+        counts["failed"] += len(refusals)
+        for line in refusals:
+            emit(line)
+        skipped("remaining steps", "a project would refuse uninstall; nothing else changed")
+        emit(
+            f"Uninstall summary: {counts['done']} done, {counts['skipped']} skipped, {counts['failed']} failed."
+        )
+        return 1
     # Remove the supervisor first so it cannot launch another worker during teardown.
     for env in inventory.relay_envs:
         attempt(
@@ -167,26 +178,21 @@ def remove(
             lambda: machine_uninstall_relays.remove_saved_services(inventory.home),
         )
     attempt("workers", lambda: machine_uninstall_workers.stop(inventory.relay_envs))
+    before_projects = counts["failed"]
     for checkout in inventory.projects:
         if checkout in selected:
             attempt(
                 f"project {checkout}",
                 lambda checkout=checkout: command(
-                    [
-                        "project",
-                        "uninstall",
-                        str(checkout),
-                        "--config",
-                        str(inventory.config),
-                        "--remove-lanes",
-                        "--json",
-                    ]
+                    machine_uninstall_projects.project_args(checkout, inventory)
                 ),
             )
         else:
             skipped(f"project {checkout}", "operator retained the project layer")
     if not inventory.projects:
         skipped("projects", "no installed registered checkouts")
+    # A failed project step's retry asks the server that owns it.
+    keep_servers = counts["failed"] > before_projects
     github_skip = _github_skip_reason(inventory.config)
     if github_skip is None:
         payload = machine_config.load_config(inventory.config)
@@ -212,11 +218,17 @@ def remove(
         attempt("Windows user PATH", lambda: _report_windows_path(emit))
     attempt("hook evaluator", stop_resident)
     attempt("local UI", lambda: command(["ui", "down"]))
-    if inventory.local_universe:
+    kept = "kept: a project step failed and its retry needs this server"
+    if inventory.local_universe and keep_servers:
+        skipped("local Postgres", kept)
+    elif inventory.local_universe:
         attempt("local Postgres", lambda: command(["local-postgres", "stop"]))
     else:
         skipped("local Postgres", "no embedded universe")
     for directory, _env in inventory.bundles:
+        if keep_servers:
+            skipped(f"self-host {directory}", kept)
+            continue
         attempt(
             f"self-host {directory} (its connection goes with the machine home)",
             lambda directory=directory: command(

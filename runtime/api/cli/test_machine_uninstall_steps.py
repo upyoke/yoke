@@ -56,8 +56,11 @@ def test_complete_cleanup_removes_home_and_hands_off_cli(machine, tmp_path):
     output = []
     assert steps.remove(value, value.projects, output.append) == 0
     assert not value.home.exists()
-    assert calls[0] == ["--env", "remote", "relay", "uninstall"]
-    assert calls[1] == ["workers"]
+    # Each selected project is preflighted, changing nothing, before any step.
+    assert calls[0][:3] == ["project", "uninstall", str(value.projects[0])]
+    assert "--check" in calls[0]
+    assert calls[1] == ["--env", "remote", "relay", "uninstall"]
+    assert calls[2] == ["workers"]
     assert ["hook evaluator"] in calls
     assert ["ui", "down"] in calls
     assert ["local-postgres", "stop"] in calls
@@ -137,18 +140,42 @@ def test_one_failure_does_not_hide_other_cleanup_and_keeps_recovery(
 
     def command(args):
         calls.append(args)
-        if args[:2] == ["project", "uninstall"]:
+        if args[:2] == ["project", "uninstall"] and "--check" not in args:
             raise OSError("checkout is read-only")
 
     monkeypatch.setattr(steps, "command", command)
     output = []
     assert steps.remove(value, value.projects, output.append) == 1
     assert ["ui", "down"] in calls
-    assert any(args[:2] == ["self-host", "teardown"] for args in calls)
+    # The failed project's retry needs its server, so both stay.
+    assert not any(args[:2] == ["self-host", "teardown"] for args in calls)
+    assert ["local-postgres", "stop"] not in calls
+    kept = "kept: a project step failed and its retry needs this server"
+    assert f"local Postgres: skipped ({kept})" in output
+    assert f"self-host {value.bundles[0][0]}: skipped ({kept})" in output
     assert value.config.is_file()
     assert not handoff
     assert any("project" in line and "failed" in line for line in output)
     assert any("CLI: skipped" in line for line in output)
+
+
+def test_project_preflight_refusal_stops_before_anything_changes(
+    machine, monkeypatch
+):
+    value, calls, handoff = machine
+
+    def command(args):
+        calls.append(args)
+        if "--check" in args:
+            raise UninstallError("project_uninstall_lane_dirty: lane holds work")
+
+    monkeypatch.setattr(steps, "command", command)
+    output = []
+    assert steps.remove(value, value.projects, output.append) == 1
+    assert len(calls) == 1 and "--check" in calls[0] and not handoff
+    assert value.home.exists()
+    assert f"project {value.projects[0]}: refused (project_uninstall_lane_dirty: lane holds work)" in output
+    assert "remaining steps: skipped (a project would refuse uninstall; nothing else changed)" in output
 
 
 def test_cli_spawn_failure_keeps_machine_home(machine, monkeypatch):
