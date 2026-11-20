@@ -274,7 +274,7 @@ def _walk(paths: Sequence[Path] | None, *, apply: bool) -> HarnessSetupResult:
                             and not inspect_hook_file_trust(
                                 source / ".codex/hooks.json"
                             ).approved
-                            else retrust_recovery(target)
+                            else retrust_recovery(target, lane=target != source)
                         ),
                     )
                 )

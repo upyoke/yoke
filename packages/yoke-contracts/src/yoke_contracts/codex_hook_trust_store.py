@@ -121,8 +121,16 @@ def hooks_file_for(checkout: str | Path) -> Path:
     return Path(checkout).expanduser() / HOOKS_RELATIVE_PATH
 
 
-def retrust_recovery(checkout: str | Path) -> str:
-    return f"re-trust in Codex: open Codex in {Path(checkout)}, Hooks, Trust"
+def retrust_recovery(checkout: str | Path, *, lane: bool = False) -> str:
+    if lane:
+        repair = (
+            "Restore the lane's hooks to the trusted source content, then run "
+            "`yoke doctor run --only harness-setup --fix`. "
+            "If you intend to keep different hooks, "
+        )
+    else:
+        repair = f"Run `yoke project refresh` in {Path(checkout)}. If needed, "
+    return f"{repair}re-trust in Codex: open Codex in {Path(checkout)}, Hooks, Trust"
 
 
 def inspect_hook_file_trust(

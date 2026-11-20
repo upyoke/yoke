@@ -104,6 +104,24 @@ def test_command_edit_marks_persisted_trust_modified(monkeypatch, tmp_path: Path
     assert "session_start:0:0" in result.detail
 
 
+def test_differing_untrusted_lane_names_cli_recovery_first(monkeypatch, tmp_path):
+    source, worktree, config = _seed(tmp_path)
+    _write_trust(config, (source,))
+    hooks = worktree / ".codex/hooks.json"
+    document = json.loads(hooks.read_text(encoding="utf-8"))
+    handler = document["hooks"]["SessionStart"][0]["hooks"][0]
+    handler["commandWindows" if os.name == "nt" else "command"] += " changed"
+    hooks.write_text(json.dumps(document), encoding="utf-8")
+
+    result = _run(monkeypatch, source, worktree, config)
+
+    assert result.result == "FAIL"
+    assert "worktree hooks content differs from the trusted source" in result.detail
+    cli = "yoke doctor run --only harness-setup --fix"
+    fallback = f"open Codex in {worktree}, Hooks, Trust"
+    assert result.detail.index(cli) < result.detail.index(fallback)
+
+
 def test_main_checkout_mismatch_fails_with_codex_retrust_recovery(
     monkeypatch, tmp_path: Path
 ):

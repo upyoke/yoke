@@ -30,6 +30,7 @@ from yoke_contracts.codex_hook_trust_store import (
     stale_trust_scan,
 )
 from yoke_contracts.codex_lane_hook_trust import (
+    REASON_CONTENT_DIFFERS,
     codex_config_path,
     inspect_hook_trust,
 )
@@ -118,10 +119,12 @@ def hc_worktree_hook_trust(
     for worktree in worktrees:
         result = inspect_hook_trust(str(repo_root), worktree, config_path=config)
         label = Path(worktree).name
-        if result.stale:
+        if result.blocked_reason == REASON_CONTENT_DIFFERS:
+            recovery = retrust_recovery(worktree, lane=True)
+            partial.append(f"{label}: {result.summary()}. {recovery}")
+        elif result.stale:
             partial.append(f"{label}: {result.summary()}")
-            continue
-        if result.blocked_reason:
+        elif result.blocked_reason:
             blocked.append(f"{label}: {result.blocked_reason}")
         elif result.dead_zone:
             dead.append(f"{label}: none of {len(result.source_trusted)} trusted")
@@ -138,9 +141,8 @@ def hc_worktree_hook_trust(
                 + [f"  - {row}" for row in dead + partial]
                 + [f"  - {row}" for row in blocked]
                 + [
-                    "Preparing the lane again mirrors the checkout's trust; "
-                    "hook content that differs from the trusted original "
-                    "needs its own trust decision in Codex.",
+                    "Run `yoke doctor run --only harness-setup --fix` "
+                    "to mirror trust for matching lane hooks.",
                 ]
             ),
         )

@@ -46,8 +46,11 @@ plane already passes launched workers, plus a `[projects."<checkout>"]` trust
 entry so Codex does not ask about the directory either. It only writes a key
 that is absent, reports rather than overwrites a value you set yourself, and
 leaves your model choices in place. It mints checkout hook trust and mirrors
-that trust only to lanes with identical hook content. After hook content changes,
-run `yoke project refresh` to install it and renew trust for the new hashes.
+that trust to lanes whose hooks match after folding CRLF to LF. Run
+`yoke project refresh` in the main checkout to install current hooks and renew
+source trust. If the lane's hooks differ, restore them to match the trusted
+source, then run `yoke doctor run --only harness-setup --fix`. To keep an
+intentional lane-only change, open the lane in Codex and use **Hooks → Trust**.
 
 Yoke serializes its folder trust, posture, hook trust and owned-setting removal
 against the resolved configuration file, including symlink aliases. Each update
