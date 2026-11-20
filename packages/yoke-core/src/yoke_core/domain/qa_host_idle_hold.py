@@ -154,16 +154,23 @@ def held_rows(conn: Any) -> list[dict[str, Any]]:
 def holder_away(row: dict[str, Any], *, now: datetime, limit: timedelta) -> str | None:
     """Why the holder cannot use its host now: parked, exited, or ended.
 
-    Recent subagent activity or a live execution heartbeat establishes work.
+    Subagent activity or an execution heartbeat establishes work only when it
+    is recent and later than the holder's own last tool call: a heartbeat the
+    holder's own walk left before it parked or exited is not work.
     """
     from yoke_core.domain.session_mode import session_is_parked
     from yoke_core.domain.session_state import session_presence
 
     if row.get("live_row") is None:
         return "ended"
+    own = row.get("last_tool_call_at")
     for field in ("last_child_tool_call_at", "execution_heartbeat_at"):
         stamp = row.get(field)
-        if stamp is not None and now - parse_instant(stamp) < limit:
+        if (
+            stamp is not None
+            and now - parse_instant(stamp) < limit
+            and (own is None or parse_instant(stamp) > parse_instant(own))
+        ):
             return None
     presence = session_presence(row)
     if presence != "present":
