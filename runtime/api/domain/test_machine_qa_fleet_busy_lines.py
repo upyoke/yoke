@@ -59,6 +59,37 @@ def test_three_waiters_spread_across_two_busy_windows_hosts(test_db):
     assert [w["session_id"] for w in host_line(test_db, HOSTS[1])] == ["w2"]
 
 
+def test_a_held_host_with_an_empty_line_beats_the_first_named_busy_host(test_db):
+    """The live YOK-5545 shape: the first host is leased with a waiter, the
+    second is held only by a session's hold-over and nobody waits for it."""
+    for name in HOSTS:
+        replace_test_machine_settings(
+            test_db,
+            power_project="yoke",
+            test_machine=name,
+            settings={**_settings(name), "os": "windows"},
+            base_settings=None,
+        )
+    seed_qa_session(test_db, "walker", "queued", "setup", "w1")
+    acquire(test_db, make_qa_admission_target(HOSTS[0]), "walker")
+    join_host_line(
+        test_db,
+        make_qa_admission_target(HOSTS[0]),
+        session_id="queued",
+        actor_id=1,
+        resume_command="yoke qa plan run --resume-execution-id queued",
+    )
+    acquire(
+        test_db,
+        make_qa_admission_target(HOSTS[1]),
+        "setup",
+        reason="qa-host-turn:holdover",
+    )
+
+    assert _queue(test_db, "w1") == HOSTS[1]
+    assert [w["session_id"] for w in host_line(test_db, HOSTS[1])] == ["w1"]
+
+
 def test_a_queued_waiter_keeps_its_line_on_retry(test_db):
     for name in HOSTS:
         replace_test_machine_settings(
