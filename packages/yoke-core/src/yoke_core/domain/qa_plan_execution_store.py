@@ -208,13 +208,10 @@ def resume_owned_plan_execution(
 ) -> dict[str, Any]:
     """Validate and reactivate a live execution already owned by the caller."""
     if str(execution["roster_digest"]) != digest:
-        from yoke_core.domain.qa_plan_execution_roster_change import abort_command
+        from yoke_core.domain.qa_plan_execution_roster_change import refuse_changed_roster
 
-        command = abort_command(conn, execution)
-        conn.rollback()
-        raise QaPlanExecutionStateError(
-            f"qa_roster_changed: execution {execution['id']} froze a different "
-            f"QA roster. Abort it with `{command}`, then run the plan again."
+        refuse_changed_roster(
+            conn, execution, message=f"execution {execution['id']} froze a different QA roster."
         )
     from yoke_core.domain.qa_plan_execution_reentry import resume_if_paused
 

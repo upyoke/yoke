@@ -55,7 +55,9 @@ def record_restore_artifact(conn, requirement_id, run_id, content, actor):
         restore = json.loads(content) if content is not None else None
     except (ValueError, TypeError):
         restore = None
-    case = get_case_execution_context(conn, requirement_id=requirement_id)
+    case = get_case_execution_context(
+        conn, requirement_id=requirement_id, include_waived=True
+    )
     if case_restore_proven(case, restore if isinstance(restore, dict) else {}):
         return  # An as-is mission's no-restore receipt owes no reset.
     record_unproven_restore(

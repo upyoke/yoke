@@ -4,14 +4,14 @@ An execution freezes its roster when it begins. Superseding, adding or
 retiring a requirement afterwards changes the roster ``begin`` would build
 now. An execution that has not run a case yet holds nothing worth keeping, so
 ``begin`` retires it and starts over on the current roster. One that already
-ran cases holds results the operator must decide about, so it refuses with the
-exact abort command. Before each case, the check-in refuses a cursor case
-that no longer owes an attempt, so a superseded case never runs.
+ran cases holds results the operator must decide about. A walk finishes on
+its frozen roster. Other executions get the exact abort command. The check-in
+refuses a cursor case that no longer owes an attempt, so a superseded case never runs.
 """
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, NoReturn
 
 from yoke_core.domain.qa_plan_execution_store import (
     QaPlanExecutionStateError,
@@ -27,6 +27,24 @@ def abort_command(conn: Any, execution: dict[str, Any]) -> str:
     return f"yoke qa plan abort --execution-id {execution['id']} --reason TEXT"
 
 
+def refuse_changed_roster(conn: Any, execution: dict[str, Any], *, message: str) -> NoReturn:
+    """Preserve a walk for hand-back and review when begin sees a new roster."""
+    conn.rollback()
+    execution_id = execution["id"]
+    if execution["state"] in {"walking", "awaiting_walk_review"}:
+        raise QaPlanExecutionStateError(
+            f"qa_walk_in_progress: execution {execution_id} has a frozen walk "
+            "on a different roster. Finish the dispatched `yoke qa mission walk-end` "
+            "for any outstanding host cleanup, then use "
+            f"`yoke qa plan review-begin --execution-id {execution_id}` and "
+            "`yoke qa plan review-submit` to record the verdicts."
+        )
+    raise QaPlanExecutionStateError(
+        f"qa_roster_changed: {message} Abort it with `{abort_command(conn, execution)}`, "
+        "then run the plan again to start on the current requirements."
+    )
+
+
 def retire_unstarted_changed_roster(
     conn: Any, execution: dict[str, Any], *, digest: str
 ) -> bool:
@@ -34,19 +52,20 @@ def retire_unstarted_changed_roster(
 
     Unchanged rosters return ``False`` so the caller resumes. A changed roster
     with no case run is aborted, like an abandoned one, and the caller builds
-    and inserts the replacement. A changed roster with
-    cases already run refuses with the abort recovery.
+    and inserts the replacement. A changed roster with cases already run
+    refuses with the recovery appropriate to the execution's state.
     """
     if str(execution["roster_digest"]) == digest:
         return False
     execution_id = str(execution["id"])
     if int(execution["cursor_ordinal"]) > 0 or result_rows(conn, execution_id):
-        conn.rollback()
-        raise QaPlanExecutionStateError(
-            f"qa_roster_changed: QA requirements changed after execution "
-            f"{execution_id} already ran cases, so it cannot resume on its "
-            f"frozen roster. Abort it with `{abort_command(conn, execution)}`, "
-            "then run the plan again to start on the current requirements."
+        refuse_changed_roster(
+            conn,
+            execution,
+            message=(
+                f"QA requirements changed after execution {execution_id} already ran cases, "
+                "so it cannot resume on its frozen roster."
+            ),
         )
     from yoke_core.domain.qa_plan_execution_lifecycle import finish_plan_execution
 
