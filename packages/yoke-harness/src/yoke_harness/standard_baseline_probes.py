@@ -66,12 +66,25 @@ def standard_probe_failure(name: str, exit_code: int) -> dict[str, str] | None:
     return failure_evidence(failure, name, recovery)
 
 
+def read_error_event_count(stdout: str) -> int:
+    """Read the sealed success record without retaining host output."""
+    try:
+        record = json.loads(stdout)
+    except ValueError:
+        return 0
+    if isinstance(record, dict) and set(record) == {"error_event_count"}:
+        count = record["error_event_count"]
+        if type(count) is int and count > 0:
+            return count
+    return 0
+
+
 def _probe(name: str, program: str) -> dict:
     return {"name": name, "argv": ["/usr/bin/python3", "-c", _PREAMBLE + program]}
 
 
 def standard_probes(os_name: str) -> list[dict]:
-    """Run harnesses without tools; only an exit code and a sanitized rejection leave the host."""
+    """Run native requests and return sanitized probe evidence."""
     if os_name not in {"macos", "linux", "wsl", "windows"}:
         raise ValueError("baseline_probe_os_unsupported")
     source = (
@@ -98,8 +111,7 @@ def standard_probes(os_name: str) -> list[dict]:
         ("Codex", ("codex",)),
         ("Cursor", ("agent", "cursor-agent")),
     ):
-        # The sealed program carries the existing response parser, so remote
-        # machines need no Yoke installation. Native output stays on the host.
+        # Embed the parser so native output stays on the host.
         program = (
             source
             + "\n"
@@ -142,10 +154,12 @@ if result.returncode != 0:
     if rejection is not None:
         print(json.dumps({{**rejection, 'harness_exit_code': result.returncode}}))
     sys.exit(EXIT[refusal['cause'] if refusal else 'probe_harness_exit_nonzero'])
-rejection = request.reply_rejection(result.stdout)
-if rejection is None: sys.exit(0)
-# Only the sanitized rejection record leaves the host; the reply stays here.
-print(json.dumps({{**rejection, 'harness_exit_code': result.returncode}}))
+branches, record = request.review_reply(result.stdout)
+if not branches:
+    if record['error_event_count']:
+        print(json.dumps(record))
+    sys.exit(0)
+print(json.dumps({{**record, 'harness_exit_code': result.returncode}}))
 sys.exit(EXIT['probe_reply_unanswered'])
 """
         )

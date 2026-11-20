@@ -1,10 +1,4 @@
-"""User-equivalence probes declared alongside one captured golden baseline.
-
-Restored credentials can be byte-identical but expired: declared harnesses must
-answer a real request. Other probes retain their declared argv and expectation.
-An undelivered host-session command and a delivered failing probe differ: one
-needs the session repaired, the other a new sign-in.
-"""
+"""Run the user-equivalence probes declared alongside a golden baseline."""
 
 from __future__ import annotations
 
@@ -24,7 +18,11 @@ from yoke_contracts.ssh_mac_full_reset_contract import GOLDEN_PROBES_SUFFIX
 from yoke_harness.ssh_mac_gui_session import (
     classify_macos_session_context_failure,
 )
-from yoke_harness.standard_baseline_probes import prove_current_standard, standard_probe_failure
+from yoke_harness.standard_baseline_probes import (
+    prove_current_standard,
+    read_error_event_count,
+    standard_probe_failure,
+)
 from yoke_contracts.test_machine_types import HostActionResult
 
 
@@ -164,11 +162,7 @@ def run_baseline_probes(
     run_gui_command: Callable[..., Any],
     classify_gui_failures: bool = True,
 ) -> HostActionResult:
-    """Run probes through the supplied host session, recording no account output.
-
-    Retry an undeclared exit once; declared causes and bridge failures stop.
-    Harnesses must answer a real request; evidence never carries account output.
-    """
+    """Run probes with sanitized evidence and retry one undeclared exit."""
     rows: list[dict[str, Any]] = []
     for probe in probes:
         request = harness_request(probe.argv)
@@ -208,10 +202,12 @@ def run_baseline_probes(
             exit_code = int(result.returncode)
             expectation = probe.expect_output_contains
             stdout, stderr = result.stdout or "", result.stderr or ""
-            # Nothing expected is not an expectation met: it is reported as None.
+            errors = 0
             matched: bool | None = None
             if request:
-                matched = request.reply_rejection(stdout) is None
+                branches, record = request.review_reply(stdout)
+                matched = not branches
+                errors = record["error_event_count"]
             elif expectation is not None:
                 matched = expectation in "\n".join((stdout, stderr))
             if exit_code == 0 and matched is not False:
@@ -224,6 +220,10 @@ def run_baseline_probes(
                         "outcome": "passed",
                     }
                 )
+                if not request and probe.name == "Codex real request":
+                    errors = read_error_event_count(stdout)
+                if errors:
+                    rows[-1]["error_event_count"] = errors
                 break
             classified = (
                 classify_macos_session_context_failure(result)

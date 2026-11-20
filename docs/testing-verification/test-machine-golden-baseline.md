@@ -250,6 +250,10 @@ ones and seals extras; it never imports an older sidecar implicitly. Mac's six
 standards include real requests, bypass, saver and GUI Keychain; Linux's five
 include desktop input; Windows/WSL's four do not establish desktop rendering.
 Preserve standard checks and credential/GUI acceptance, even when Docker passes.
+The Codex real request can pass after stream `error` events if a later
+`turn.completed` confirms the exact `OK` reply. A `turn.failed`, missing
+completion or wrong reply fails the check. The probe receipt records the
+number of stream errors without their message text.
 Keep private probe programs, raw reports, manifests and archives out of Git.
 
 Before every capture ATTEMPT, choose a distinct new destination PARENT outside
