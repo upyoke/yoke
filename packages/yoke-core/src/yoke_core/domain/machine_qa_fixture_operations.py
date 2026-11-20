@@ -62,12 +62,6 @@ class MachineQaFixtureOperationRunner(
         if not self._accepting:
             raise MachineQaFixtureOperationError("fixture runner is already closing")
         normalized = validate_setup_operations(operations)
-        if any(operation_id == WINDOWS_SETTINGS_JOURNAL for operation_id, _ in normalized):
-            reason = "windows_settings_journal_requires_native_host: select a native Windows Test Machine"
-            return HostActionResult(
-                False, {"operations": [failed_row(WINDOWS_SETTINGS_JOURNAL, RemoteFixtureFailure(reason))]},
-                "windows_settings_journal_requires_native_host",
-            )
         return self._execute_batch(normalized, self._setup_handlers())
 
     def execute_post_state_assertions(
@@ -99,6 +93,12 @@ class MachineQaFixtureOperationRunner(
             rows.append({"id": operation_id, "outcome": "passed"})
         return HostActionResult(True, {"operations": rows})
 
+    @staticmethod
+    def _windows_settings_journal(_parameters: Mapping[str, Any]) -> None:
+        raise RemoteFixtureFailure(
+            "windows_settings_journal_requires_native_host: select a native Windows Test Machine"
+        )
+
     def _setup_handlers(
         self,
     ) -> Mapping[str, Callable[[Mapping[str, Any]], None]]:
@@ -122,6 +122,7 @@ class MachineQaFixtureOperationRunner(
             "machine.yoke-connection-restore": self._connection_restore,
             "machine.yoke-connections-prepare": self._connections_prepare,
             "terminal.size-prepare": self._terminal_size,
+            WINDOWS_SETTINGS_JOURNAL: self._windows_settings_journal,
         }
 
     def _post_handlers(

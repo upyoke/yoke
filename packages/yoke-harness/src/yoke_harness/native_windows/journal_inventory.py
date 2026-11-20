@@ -96,7 +96,7 @@ function Public-Row($row) {
   $value=$property.Value
   if($value -is [string]){
    $value=$value -replace '[\p{C}]','?'
-   $value=$value -replace '(?i)(?:https?://|[a-z]:\\|\\\\)\S+','[REDACTED]'
+   $value=$value -replace '(?i)(?:https?://|\b[a-z]:\\|\\\\)\S+','[REDACTED]'
    if($value.Length -gt 120){$value=$value.Substring(0,120)+'...'}
   }
   $safe[$property.Name]=$value
