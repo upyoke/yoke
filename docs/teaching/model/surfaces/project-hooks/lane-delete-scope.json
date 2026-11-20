@@ -1,10 +1,10 @@
 {
  "id": "lane-delete-scope",
- "title": "Refuse a recursive delete of a lane, the shared .worktrees directory or an ancestor while it holds uncommitted or ignored files or an active claim; inside a lane, refuse only for tracked edits and untracked unignored files under the target, so ignored caches delete freely.",
+ "title": "The client and engine refuse recursive deletion of a lane or the shared .worktrees directory when it contains uncommitted or ignored files. Inside a lane they refuse only when the target covers tracked edits or untracked, unignored files, so ignored caches can be deleted. The engine also checks for active claims on a lane or any ancestor being deleted.",
  "status": "observed",
  "form": "Rule",
- "verification": "Candidate regression tests run the engine guard against real lanes: ignored .pytest_cache and __pycache__ deletes beside an untracked root file, an in-lane directory with a tracked edit, an untracked unignored file, a lane root, and an ancestor of a claimed lane; no deployed proof yet.",
+ "verification": "Candidate tests compare both guards against real lanes for relative, absolute and cd-prefixed targets, whole lanes, the shared .worktrees directory and ignored caches. Engine tests also cover deleting an ancestor of a claimed lane. Installed relay proof is pending.",
  "topics": ["context/hooks"],
- "sources": ["packages/yoke-core/src/yoke_core/domain/lint_destructive_git_worktrees.py", "runtime/api/domain/test_lint_destructive_git_worktrees.py"],
+ "sources": ["packages/yoke-contracts/src/yoke_contracts/hook_runner/rm_lane_guard.py", "packages/yoke-core/src/yoke_core/domain/lint_destructive_git_worktrees.py", "runtime/api/domain/test_lint_destructive_git_worktrees.py"],
  "position": 11
 }

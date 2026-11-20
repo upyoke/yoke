@@ -11,6 +11,7 @@ from yoke_contracts.hook_runner import (
     destructive_git_messages,
     destructive_git_rules,
     recursive_rm_guard,
+    rm_lane_guard,
 )
 from yoke_contracts.machine_config import runtime as machine_config
 from yoke_contracts.machine_config.schema_projects import mapped_checkouts
@@ -58,10 +59,12 @@ _SEARCH_PROGRAMS = frozenset({"rg", "grep", "egrep", "fgrep"})
 def lint_destructive_git(payload: dict, shell: ShellParse) -> PolicyResult:
     """Apply the shared destructive-git and recursive-rm rules.
 
-    ``worktree remove`` and the claimed-worktree ``rm`` check are engine-only.
+    Recursive deletes share filesystem checks with the engine, which also
+    checks its database for active lane claims.
     """
     suppression_seen = destructive_git_messages.SUPPRESSION_TOKEN in shell.command
-    refusal = recursive_rm_guard.recursive_rm_refusal(shell, cwd_from_payload(payload))
+    base_cwd = cwd_from_payload(payload)
+    refusal = recursive_rm_guard.recursive_rm_refusal(shell, base_cwd)
     if refusal is not None:
         return PolicyResult(
             DENY,
@@ -77,6 +80,13 @@ def lint_destructive_git(payload: dict, shell: ShellParse) -> PolicyResult:
         threatened = destructive_git_rules.threatened_state(shape, cwd, args, git)
         if not threatened:
             continue
+        return PolicyResult(
+            DENY,
+            destructive_git_messages.format_reason(shape, threatened, suppression_seen),
+        )
+    lane_threat = rm_lane_guard.recursive_rm_lane_threat(shell, base_cwd, git)
+    if lane_threat is not None:
+        shape, threatened = lane_threat
         return PolicyResult(
             DENY,
             destructive_git_messages.format_reason(shape, threatened, suppression_seen),
