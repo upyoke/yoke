@@ -6,6 +6,18 @@
 
 For stored-password setup commands on macOS and Linux, follow [administrator commands](administrator-commands.md).
 
+## Install as the test user
+
+Install software as the dedicated test user from each vendor's public download
+page or documented user install. Use the standard installer with its default
+scope. Elevate only when the vendor's normal install requires it.
+
+The Windows vendor defaults for Git, Node.js and Tailscale are machine-wide
+and request UAC. On macOS 12 only, use the
+[documented runtime and Tailscale exceptions](macos-host-provisioning.md#macos-12-only).
+Record a desktop app as unsupported on the host if its vendor no longer
+supports that OS.
+
 Machine QA registers four reusable proof contracts:
 
 - Terminal check drives a real terminal program through structured PTY steps.

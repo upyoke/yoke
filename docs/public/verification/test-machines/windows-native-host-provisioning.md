@@ -4,6 +4,8 @@
 [Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Verification](../index.md) > [Machine QA](index.md) > Native Windows host provisioning
 <!-- /yoke:breadcrumbs -->
 
+Follow the [normal-user installation rule](index.md#install-as-the-test-user).
+
 Native Windows 11 lab procedure, WSL absent; no Windows support claim.
 Follow [setup responsibilities](setup-responsibilities.md); inventory holds
 hosts/accounts/evidence. Record results; mark untested steps unverified.
@@ -103,10 +105,10 @@ az vm deallocate --resource-group GROUP --name VM
 
 ### Tailscale and public IP lifetime
 
-Follow [tailnet bootstrap](tailnet-bootstrap.md) to start the deallocated VM,
-install/join Tailscale as SYSTEM through Azure Run Command, and have the
-operator approve the AuthURL and disable key expiry. The standard SSH user
-must remain standard. Install on Windows only, never WSL. Complete
+Follow [tailnet bootstrap](tailnet-bootstrap.md) to start the deallocated VM.
+From the standard user's desktop, run the [Tailscale Windows installer](https://tailscale.com/download/windows)
+and accept its normal UAC prompt. Have the operator approve the AuthURL and
+disable key expiry. Complete
 [unattended selection and coldboot proof](windows-native-provisioning-recovery.md#unattended-selection-before-registration)
 before registration; resolve the reported MagicDNS name from the controller.
 Use the linked bootstrap SSH command with Yoke's known_hosts and the full VM
@@ -240,8 +242,14 @@ Retain all required receipts before continuing setup or QA.
 Prove the test user is not an Administrator and cannot modify the fixed
 administrator task or its program. The terminal reader uses interactive-session
 `CONOUT$`, including with redirected output, rather than a substituted transcript.
-Install Python 3, Git, Node.js/npm and baseline tools natively; no WSL,
-VirtualMachinePlatform or Linux distro.
+Install [Python 3](https://www.python.org/downloads/windows/) using the
+default per-user setup, with **Install for all users** off. Verify
+`(Get-Command python.exe).Source` resolves under `%LOCALAPPDATA%`.
+Use the vendor installers for [Git](https://git-scm.com/install/windows),
+[Node.js](https://nodejs.org/en/download) and
+[Tailscale](https://tailscale.com/download/windows). Accept UAC for their
+default machine-wide setup. Yoke ships its Visual C++ runtime app-local.
+Keep WSL, VirtualMachinePlatform and Linux distros absent on this fixture.
 
 ## 3. Desktop and sign-ins
 

@@ -35,10 +35,14 @@ $env:Path=[Environment]::GetEnvironmentVariable('Path','Machine')+';'+[Environme
         installers = {
             "claude-code": "& (VendorScript 'https://claude.ai/install.ps1') "
             + quote(wanted),
-            "codex": "& npm.cmd install --global " + quote("@openai/codex@" + wanted),
+            "codex": "$env:CODEX_NON_INTERACTIVE='1'; "
+            "& (VendorScript 'https://chatgpt.com/codex/install.ps1') -Release " + quote(wanted),
             "cursor": "& (VendorScript 'https://cursor.com/install?win32=true')",
         }
-        script += installers[harness] + "; $code=$LASTEXITCODE; "
+        script += "$global:LASTEXITCODE=0; " + installers[harness] + "; $code=$LASTEXITCODE; "
+        # Vendor scripts can update the persistent user PATH. Probe the same
+        # PATH a fresh native session will inherit, after installer exit.
+        script += "$env:Path=[Environment]::GetEnvironmentVariable('Path','Machine')+';'+[Environment]::GetEnvironmentVariable('Path','User'); "
         if harness == "claude-code":
             # Claude's native installer reports success while only warning that
             # .local\bin is absent from PATH. Finish this installer immediately,

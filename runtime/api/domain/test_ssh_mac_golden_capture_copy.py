@@ -323,3 +323,21 @@ def test_copy_recovery_limits_its_excerpt_and_preserves_full_diagnostics():
     assert "receipt field copy_stderr" in refusal["recovery"]
     assert len(refusal["recovery"]) < 1000
     assert diagnostic not in refusal["recovery"]
+
+
+@pytest.mark.macos_only(reason="runs the generated macOS capture program")
+def test_capture_keeps_docker_desktop_vm_data_live(tmp_path):
+    home = tmp_path / "home"
+    disk = home / "Library/Containers/com.docker.docker/Data/vms/0/Docker.raw"
+    disk.parent.mkdir(parents=True)
+    disk.write_text("live VM disk")
+    unrelated = home / "Library/Containers/other"
+    unrelated.write_text("captured user state")
+    destination = tmp_path / "golden"
+
+    result = _run_capture(home, destination, tmp_path, check_residue=True)
+
+    assert result.returncode == 0, (result.stdout, result.stderr)
+    assert not (destination / "Library/Containers/com.docker.docker").exists()
+    assert (destination / "Library/Containers/other").read_text() == "captured user state"
+    assert disk.read_text() == "live VM disk"

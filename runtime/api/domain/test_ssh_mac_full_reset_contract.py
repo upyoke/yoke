@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from yoke_contracts.ssh_mac_preserved_state import (
+    DOCKER_DESKTOP_HOME_ENTRIES,
     OS_MANAGED_HOME_ENTRIES,
     OS_PROTECTED_CACHE_HOME_ENTRIES,
 )
@@ -63,6 +64,7 @@ def test_preserved_levels_descend_exactly_as_far_as_a_protected_ancestor() -> No
 def test_preserved_and_absent_surface_contract() -> None:
     assert PRESERVED_HOME_ENTRIES == (
         ".ssh",
+        *DOCKER_DESKTOP_HOME_ENTRIES,
         "Library/Application Support/com.apple.TCC",
         "Library/Keychains",
         ".claude/.credentials.json",

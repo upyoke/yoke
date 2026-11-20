@@ -4,6 +4,8 @@
 [Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Verification](../index.md) > [Machine QA](index.md) > Windows host provisioning
 <!-- /yoke:breadcrumbs -->
 
+Follow the [normal-user installation rule](index.md#install-as-the-test-user).
+
 Follow [setup responsibilities](setup-responsibilities.md) and the project-owned
 manual preparation inventory in the [provisioning index](host-provisioning.md).
 
@@ -29,9 +31,8 @@ host through the project's aws-admin key and waits for SSH. The host stays
 running after release. Never start it
 by hand to satisfy a documentation audit without authorization.
 
-Create/use the dedicated Windows SSH account. WSL distributions are per Windows
-user: installing under a service or another administrator account does not
-prepare the test account. Separate operator users/homes remain outside capture,
+Create a dedicated standard Windows test user and use that account for SSH
+and for its [WSL and Ubuntu setup](#3-wsl2-ubuntu-and-systemd). Separate operator users/homes remain outside capture,
 restore, inspection and logout. Open SSH to any address with key-only
 authentication and keep RDP off public networks, as
 [network access](host-provisioning.md#network-access) requires.
@@ -120,12 +121,12 @@ wait, not permission to disturb it.
 ## 3. WSL2 Ubuntu and systemd
 
 Follow [Microsoft's WSL installation](https://learn.microsoft.com/en-us/windows/wsl/install)
-for the selected Windows release. In elevated PowerShell enable
-`Microsoft-Windows-Subsystem-Linux` and `VirtualMachinePlatform`, install WSL
-(`wsl --install --no-distribution --web-download` for this documented path),
-and reboot when required. Under the test Windows account install Ubuntu24.04,
+for the selected Windows release. From the standard test user's desktop, run
+`wsl --install --no-distribution --web-download`. Supply Administrator
+credentials at the UAC prompt for the Windows components and reboot when
+required. Back in the standard account, install and launch Ubuntu 24.04,
 select it as the default distribution, and prove version 2 with
-`wsl --list --verbose`.
+`wsl --list --verbose`. The distro belongs to the Windows user who sets it up.
 If WSL under a service context reports absent, verify the account identity;
 use Microsoft's published offline MSI only with its published integrity proof.
 

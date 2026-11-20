@@ -132,6 +132,8 @@ def self_host_lines(
 ) -> tuple[str, ...]:
     return (
         function_program(),
+        'home="$HOME"',
+        'docker_desktop_cli="~/.docker/bin/docker"',
         f"self_host_state_prefix={shlex.quote(RESET_SELF_HOST_STATE_PREFIX)}",
         "self_host_kind_docker_unreachable="
         + shlex.quote(RESET_SELF_HOST_KIND_DOCKER_UNREACHABLE),

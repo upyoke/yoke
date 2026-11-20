@@ -38,6 +38,7 @@ from yoke_contracts.ssh_mac_full_reset_self_host_contract import (
     SELF_HOST_COMPOSE_PROJECT,
     RESET_SELF_HOST_CONTAINERS_PREFIX,
     RESET_SELF_HOST_IMAGES_PREFIX,
+    DOCKER_DESKTOP_CLI,
     RESET_SELF_HOST_KIND_PATHS,
     RESET_SELF_HOST_REACHABLE_PREFIX,
     RESET_SELF_HOST_RECOVERY,
@@ -164,10 +165,13 @@ def self_host_detail(detail: str) -> dict[str, str] | None:
         or runtime not in RESET_SELF_HOST_KIND_PATHS[kind]
     ):
         return None
+    control = f"{runtime} desktop" if runtime == DOCKER_DESKTOP_CLI else "colima"
     return {
         "runtime": runtime,
         "reason": kind,
-        "recovery": RESET_SELF_HOST_RECOVERY[kind].format(runtime=runtime),
+        "recovery": RESET_SELF_HOST_RECOVERY[kind].format(
+            runtime=runtime, start=f"{control} start", stop=f"{control} stop"
+        ),
     }
 
 

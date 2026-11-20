@@ -37,3 +37,14 @@ def test_windows_bundled_cli_found_off_path(tmp_path, monkeypatch, index):
     resolved = resolve_harness_clis("", manifests=(manifest,))[0]
     assert resolved.path == str(bundled) and resolved.source == "bundled"
     assert original.windows_install_command in manifest.missing_cli_recovery()
+
+
+def test_windows_codex_uses_the_vendor_standalone_installer():
+    manifest = registry.HARNESS_CLI_BY_ID["codex"]
+    assert manifest.install_for_platform(windows=True) == (
+        "irm https://chatgpt.com/codex/install.ps1 | iex"
+    )
+    assert manifest.bundles_for_platform(windows=True) == (
+        ("%LOCALAPPDATA%/Programs/OpenAI/Codex/bin/codex.exe",),
+        (),
+    )

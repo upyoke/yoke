@@ -225,6 +225,9 @@ finish() {
   failure_step="$reset_step"
   set +e
   trap - EXIT HUP INT TERM
+  if (( finish_rc != 0 )) && [[ -n "$self_host_runtime_started" ]]; then
+    restore_container_runtime_state
+  fi
   cleanup_scratch
   if (( finish_rc != 0 )); then
     print -r -- "$reset_failure_prefix$failure_step"
@@ -266,7 +269,6 @@ self_host_containers_removed=0
 self_host_volumes_removed=0
 self_host_images_removed=0
 self_host_stack_reachable=0
-self_host_runtime_stopped=0
 self_host_runtime_started=""
 failure_detail=""
 failure_excerpts=""

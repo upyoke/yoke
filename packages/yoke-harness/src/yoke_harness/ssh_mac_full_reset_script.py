@@ -52,6 +52,7 @@ from yoke_contracts.ssh_mac_full_reset_contract import (
 from yoke_contracts.ssh_mac_full_reset_self_host_contract import (
     COMPOSE_PROJECT_LABEL,
     CONTAINER_RUNTIME_PATHS,
+    DOCKER_DESKTOP_CLI,
     CONTAINER_RUNTIME_PROCESS_ANCHOR,
     CONTAINER_RUNTIME_STARTER_PATHS,
     CONTAINER_RUNTIME_START_TIMEOUT_SECONDS,
@@ -282,6 +283,7 @@ def render_full_reset_script(contract: FullResetPathContract) -> str:
             "container_runtime_stop_timeout="
             + str(CONTAINER_RUNTIME_STOP_TIMEOUT_SECONDS),
             f"container_runtime_paths={_array(CONTAINER_RUNTIME_PATHS)}",
+            "docker_desktop_cli=" + shlex.quote(DOCKER_DESKTOP_CLI),
             "container_runtime_starter_paths="
             + _array(CONTAINER_RUNTIME_STARTER_PATHS),
             "container_runtime_start_timeout="
