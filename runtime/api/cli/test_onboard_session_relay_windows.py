@@ -49,6 +49,8 @@ def test_windows_status_names_task_and_shows_policy_restriction():
 
 #: A manual first served-release install on native Windows took this long.
 OBSERVED_FIRST_INSTALL_SECONDS = 349
+#: A native Windows relay's first heartbeat came this long after it started.
+OBSERVED_FIRST_HEARTBEAT_SECONDS = 116
 
 
 def _installer(install_seconds, timeouts=None):
@@ -117,7 +119,8 @@ def test_windows_fresh_install_waits_with_the_heartbeat_bound(monkeypatch):
     wait, calls = _waits()
     relay.install(local_destination=False, environment="upyoke",
                   runner=_installer(1), wait_for_connection=wait)
-    assert calls == [relay_wait.RELAY_CONNECT_WAIT_SECONDS] == [90]
+    assert calls == [relay_wait.RELAY_CONNECT_WAIT_SECONDS] == [300]
+    assert relay_wait.RELAY_CONNECT_WAIT_SECONDS > OBSERVED_FIRST_HEARTBEAT_SECONDS
 
 
 def test_windows_heartbeat_timeout_reports_pending_not_fail(monkeypatch):
@@ -139,7 +142,7 @@ def test_windows_heartbeat_timeout_reports_pending_not_fail(monkeypatch):
                              "plan": {"steps": []}, "identity": {}, "next_steps": [],
                              "install_health": result})
     assert "FAIL: HC-session-relay" not in rendered
-    assert "first heartbeat had not arrived within 90 seconds: session-relay" in rendered
+    assert "first heartbeat had not arrived within 300 seconds: session-relay" in rendered
     assert "Next: Run `yoke --env upyoke relay status`" in rendered
 
     heard = {"session_relay": {"installed": True, "connected": True, "environment": "upyoke"}}

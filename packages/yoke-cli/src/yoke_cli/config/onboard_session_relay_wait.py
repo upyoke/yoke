@@ -20,8 +20,9 @@ from yoke_contracts.designed_wait import announce_designed_wait, poll_every
 RELAY_INSTALL_TIMEOUT_SECONDS = 900
 #: Reading status inspects the user service and shakes hands with the plane.
 RELAY_STATUS_TIMEOUT_SECONDS = 60
-#: Covers the relay pinning a release and restarting before its first heartbeat.
-RELAY_CONNECT_WAIT_SECONDS = 90
+#: Covers the relay pinning a release and restarting before its first heartbeat;
+#: a native Windows cold start first connected 116 s after its process started.
+RELAY_CONNECT_WAIT_SECONDS = 300
 #: How often the heartbeat wait reads the relay's connection.
 RELAY_CONNECT_POLL_SECONDS = 1.0
 #: The ``install_health`` check a pending heartbeat stands in for.
