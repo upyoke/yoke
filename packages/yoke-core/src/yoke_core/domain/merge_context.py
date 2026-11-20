@@ -28,6 +28,8 @@ class MergeArgs:
     # Force local post-rebase verification even when the project declares a
     # ci_workflow_file capability (offline / deliberate local execution).
     local_verification: bool = False
+    # The outer item command, including the evidence needed for close-out.
+    resume_command: str = ""
 
 
 @dataclass

@@ -36,8 +36,22 @@ def check_and_clean_root_dirty_state(ctx: MergeContext) -> Optional[Tuple[int, s
         return None
 
     if user_files:
+        retry = (
+            f"`{ctx.args.resume_command}`"
+            if ctx.args.resume_command
+            else "the merge command you ran"
+        )
         _print("", err=True)
-        _print("Error: Repo root has uncommitted user-authored files.", err=True)
+        _print(
+            compose_refusal(
+                "Error: Repo root has uncommitted user-authored files",
+                recovery="Move the files listed below into the lane and commit "
+                "them there, "
+                "or commit or remove them where they belong. "
+                f"Then rerun {retry}",
+            ),
+            err=True,
+        )
         for uf in user_files:
             _print(f"  - {uf}", err=True)
         return (4, "user-authored files in repo root")

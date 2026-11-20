@@ -14,6 +14,7 @@ def run(
     source_sha: str,
     target: str,
     local_merge: bool,
+    resume_command: str = "",
 ) -> tuple[int, str]:
     """Run the engine while keeping lane name and merge source distinct."""
     from yoke_core.engines.merge_worktree import MergeArgs, run as merge_run
@@ -41,6 +42,7 @@ def run(
                 expected_repo_root=repo_root,
                 local_merge=local_merge,
                 standalone=True,
+                resume_command=resume_command,
             )
         )
     finally:

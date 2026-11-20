@@ -62,6 +62,7 @@ class TestRootDirtyState:
         repo = tmp_path / "repo"
         self._init_repo(repo)
         (repo / "README.md").write_text("changed\n")
+        (repo / "stray.txt").write_text("keep me\n")
 
         messages: list[str] = []
         monkeypatch.setattr(
@@ -70,13 +71,27 @@ class TestRootDirtyState:
             lambda msg="", err=False: messages.append(msg),
         )
 
-        ctx = MergeContext(args=MergeArgs(branch="YOK-9999"))
+        item = "YOK-9999"
+        retry = (
+            f"yoke merge item {item} --result 'Updated README' "
+            "--verification 'Tests passed'"
+        )
+        ctx = MergeContext(args=MergeArgs(branch=item, resume_command=retry))
         ctx.repo_root = str(repo)
 
         result = merge_worktree.check_and_clean_root_dirty_state(ctx)
 
         assert result == (4, "user-authored files in repo root")
-        assert any("README.md" in message for message in messages)
+        refusal = "\n".join(messages)
+        assert "Repo root has uncommitted user-authored files." in refusal
+        assert "  - README.md" in messages
+        assert "  - stray.txt" in messages
+        assert "Move the files listed below into the lane" in refusal
+        assert "and commit them there" in refusal
+        assert "or commit or remove them where they belong" in refusal
+        assert f"Then rerun `{retry}`." in refusal
+        assert (repo / "README.md").read_text() == "changed\n"
+        assert (repo / "stray.txt").read_text() == "keep me\n"
 
     def test_yoke_managed_dirty_files_auto_commit_from_explicit_repo_root(
         self, tmp_path, monkeypatch

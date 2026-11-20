@@ -1,0 +1,9 @@
+{
+ "id": "dirty-repo-root",
+ "title": "Retry merge after clearing user-authored files from the repo root",
+ "status": "observed",
+ "trigger": "The merge engine refuses because the main checkout has uncommitted user-authored files.",
+ "need": "Move the listed files into the lane and commit them there, or commit or remove them where they belong. Rerun the command named in the refusal. The item retry preserves the original close-out evidence flags.",
+ "sources": ["packages/yoke-core/src/yoke_core/engines/merge_worktree_prepare_state.py", "runtime/api/engines/test_merge_worktree_locks.py"],
+ "topics": ["merging"]
+}
