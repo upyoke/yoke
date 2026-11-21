@@ -14,7 +14,7 @@ from yoke_core.domain import cloud_machine_power, machine_idle_stop
 from yoke_core.domain.coordination_claims import acquire, active_claim, get_claim, release
 from yoke_core.domain.deploy_remote import CommandResult
 from yoke_core.domain.handlers.machine_power_ownership import handle_lease
-from yoke_core.domain.machine_idle_notice import collect_released_hosts
+from yoke_core.domain.machine_idle_notice import collect_released_hosts, released_cloud_machines
 from yoke_core.domain.qa_host_holdover import HOLDOVER_REASON, session_holdovers
 from yoke_core.domain.work_claim_targets import make_qa_admission_target
 from yoke_core.domain.yoke_function_dispatch import dispatch
@@ -52,8 +52,8 @@ def test_only_a_start_performed_by_yoke_marks_the_host(monkeypatch, state):
 def test_last_release_emits_notice_only_for_yoke_start(test_db, marked):
     seed_qa_session(test_db, "owner")
     test_db.execute(
-        "INSERT INTO test_machines(name,settings,created_at,yoke_started_at) "
-        "VALUES(%s,'{}',now(),CASE WHEN %s THEN now() END)",
+        "INSERT INTO test_machines(name,settings,created_at,yoke_started_at,power_project_id) "
+        "VALUES(%s,'{}',now(),CASE WHEN %s THEN now() END,1)",
         (MACHINE, marked),
     )
     test_db.commit()
@@ -61,7 +61,10 @@ def test_last_release_emits_notice_only_for_yoke_start(test_db, marked):
     held = acquire(test_db, target, "owner")
     with collect_released_hosts() as hosts:
         release(test_db, held.id, "completed")
-    assert hosts == ({MACHINE} if marked else set())
+    assert hosts == {MACHINE}
+    assert released_cloud_machines(hosts) == (
+        [{"test_machine": MACHINE, "power_project": "yoke"}] if marked else []
+    )
 
 
 def test_queue_handoff_preserves_marker_and_never_notifies_stop(test_db, monkeypatch):

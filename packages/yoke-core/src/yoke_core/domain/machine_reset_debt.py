@@ -1,8 +1,9 @@
 """Durable reset debt and its recovery, owned by machine operation receipts."""
 
+from typing import NamedTuple
+
 from yoke_contracts.qa_case_starting_state import needs_test_machine
 from yoke_contracts.machine_qa_host_control import RESET_OWED_OPERATION
-from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain.machine_operation_recording import (
     _marker,
     _row_result,
@@ -49,17 +50,29 @@ def _verified_reset(receipt):
     )
 
 
-def reset_owed(conn, test_machine):
+class OwedReset(NamedTuple):
+    baseline: str
+    attempt: dict | None
+
+
+def owed_reset(conn, test_machine):
     receipts = _reset_receipts(conn, test_machine)
     owed = next((r for r in receipts if r["operation"] == RESET_OWED_OPERATION), None)
     if owed is None:
         return None
-    cleared = any(
-        _verified_reset(r)
-        and parse_instant(r["performed_at"]) > parse_instant(owed["performed_at"])
-        for r in receipts
+    attempt = next(
+        (r for r in receipts if r["operation"] == "reset"
+         and r["performed_at"] > owed["performed_at"]),
+        None,
     )
-    return owed["checks"][0]["name"] if not cleared else None
+    if attempt is not None and _verified_reset(attempt):
+        return None
+    return OwedReset(owed["checks"][0]["name"], attempt)
+
+
+def reset_owed(conn, test_machine):
+    debt = owed_reset(conn, test_machine)
+    return debt.baseline if debt else None
 
 
 def last_verified_baseline(conn, test_machine):

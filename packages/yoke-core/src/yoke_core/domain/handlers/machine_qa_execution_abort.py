@@ -81,7 +81,7 @@ def _release(
     from yoke_core.domain.qa_host_queue import lock_host_queue
 
     lock_host_queue(conn)
-    lease, _contract = validate_operation_submission(
+    lease, contract = validate_operation_submission(
         conn,
         project=project,
         mission=mission,
@@ -94,6 +94,22 @@ def _release(
         cases=cases,
         golden_destination=golden_destination,
     )
+    if operation == "reset" and reason != "client_cancelled":
+        from yoke_core.domain.machine_operation_recording import (
+            record_test_machine_operation,
+        )
+
+        record_test_machine_operation(
+            conn,
+            test_machine=contract.settings["resource_name"],
+            operation=operation,
+            status="error",
+            checks=[{"name": contract.baselines[0], "ok": False}],
+            error_code="machine_needs_repair",
+            lease_id=lease.id,
+            contract_digest=contract_digest,
+            commit=False,
+        )
     released = finish_operation_execution(
         conn,
         lease,

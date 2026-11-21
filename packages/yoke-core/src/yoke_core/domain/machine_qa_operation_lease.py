@@ -134,6 +134,7 @@ def begin_operation_execution(
     project: str,
     test_machine: str | None,
     plan_execution_id: str | None = None,
+    automatic_reset: bool = False,
     **shape: Any,
 ) -> Any:
     candidate = load_test_machine_contract(
@@ -141,7 +142,31 @@ def begin_operation_execution(
     )
     from yoke_core.domain.qa_host_queue import lock_host_queue
 
-    lease = active_claim(conn, host_claim_target(candidate.settings["resource_name"]))
+    name = candidate.settings["resource_name"]
+    if automatic_reset:
+        from yoke_contracts.machine_qa_execution import RESET_OPERATION
+        from yoke_core.domain.machine_reset_debt import owed_reset
+
+        lock_host_queue(conn)
+        if plan_execution_id is not None or shape["operation"] != RESET_OPERATION:
+            raise MachineQaProtocolError(
+                "automatic_reset_requires_own_lease: begin a standalone reset"
+            )
+        if active_claim(conn, host_claim_target(name)) is not None:
+            raise MachineQaProtocolError(
+                "automatic_reset_skipped: the current holder will recover the host"
+            )
+        debt = owed_reset(conn, name)
+        if debt is None or debt.attempt is not None or shape["baselines"] != [debt.baseline]:
+            raise MachineQaProtocolError(
+                "automatic_reset_skipped: this baseline is no longer owed for automatic reset"
+            )
+        return begin_host_control_execution(
+            conn, project=project, session_id=actor.session_id,
+            test_machine=name, select_any=False, **shape,
+        )
+
+    lease = active_claim(conn, host_claim_target(name))
     mission = (
         None
         if lease is None

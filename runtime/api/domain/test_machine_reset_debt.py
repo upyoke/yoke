@@ -87,9 +87,10 @@ def test_steering_names_owed_machine_and_reset_command(test_db, tmp_path, monkey
             test_machine,
             f"yoke test-machine reset --test-machine {test_machine} --baseline shell-preconfigured",
             None,
+            None,
         ),
     )
-    assert "machine_needs_repair" in reset_debt_lines(rows)[0]
+    assert "reset owed (automatic reset pending)" in reset_debt_lines(rows)[0]
 
 
 @pytest.mark.parametrize("starting_state", ["as_is", "inherit"])
@@ -242,8 +243,8 @@ def test_debt_changes_fleet_actionability_fingerprint_and_render(
     assert report.fingerprint() != before.fingerprint()
     assert report.reset_debts[0][0] == test_machine
     assert report_dict(report)["reset_debts"][0]["test_machine"] == test_machine
-    assert "machine_needs_repair" in report_body(report)
-    assert "yoke test-machine reset" in scope_actionable_digest(report)
+    assert "reset owed (automatic reset pending)" in report_body(report)
+    assert "reset owed (automatic reset pending)" in scope_actionable_digest(report)
 
 
 def test_debt_writer_preserves_the_callers_transaction(test_db, tmp_path, monkeypatch):
