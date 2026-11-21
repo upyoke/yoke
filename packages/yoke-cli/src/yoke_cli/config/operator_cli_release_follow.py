@@ -7,10 +7,10 @@ and exactly one per machine — then compares the installed CLI with the release
 it runs and, whenever the CLI is not exactly that release, runs the official
 installer for exactly that release from the machine's recorded distribution
 origin — the relay's own code, so even a CLI too old to know
-`yoke update --version` is moved. Nothing runs on a schedule. Every outcome is
-written to the relay log and to ``operator-cli-follow.json`` in the relay state
-directory; a CLI left behind also warns on each command it relays to the active
-connection, naming the same recovery.
+`yoke update --version` is moved. While setup Apply holds the machine lock,
+follow defers and retries during relay upkeep. The outcome is recorded in
+``operator-cli-follow.json`` in the relay state directory; a CLI left behind
+also warns when it sends a command to the active connection.
 """
 
 from __future__ import annotations
@@ -27,12 +27,14 @@ from yoke_contracts.machine_config import runtime as machine_config
 from yoke_contracts.machine_config.schema_projects import mapped_checkouts
 
 from yoke_cli.config import cli_release_runtime, project_update, self_update
+from yoke_cli.config import onboard_apply_lock
 from yoke_cli import operating_layer_drift
 from yoke_contracts.shell_path_state import tool_bin_dir
 from yoke_contracts.machine_config.relay_instance import strip_relay_owned_python_state
 from yoke_cli.transport.installed_cli_staleness import update_recovery
 
 FOLLOW_RECORD_NAME = "operator-cli-follow.json"
+DEFERRED_SETUP_ACTIVE = "deferred_setup_active"
 PROBE_TIMEOUT_SECONDS = 30
 SOURCE_VERSION = "source"
 
@@ -55,6 +57,16 @@ def follow_release(
     target = release.strip()
     yoke = executable or cli_release_runtime.operator_launcher_path(Path(tool_bin_dir()))
     record: dict[str, Any] = {"release": target, "cli": str(yoke), "at": iso8601_now()}
+    try:
+        with onboard_apply_lock.acquire():
+            return _follow_locked(target, yoke, record, state_dir, run)
+    except onboard_apply_lock.OnboardApplyBusy:
+        return _finish(record, state_dir, DEFERRED_SETUP_ACTIVE)
+
+
+def _follow_locked(
+    target: str, yoke: Path, record: dict[str, Any], state_dir: Path, run: Runner
+) -> dict[str, Any]:
     if not yoke.is_file():
         return _finish(record, state_dir, "no_installed_cli")
     env = strip_relay_owned_python_state()

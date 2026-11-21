@@ -111,6 +111,7 @@ def serve_release_daemon(*, cycle_maintenance: Callable[[], None] | None = None)
     lane_sweep = importlib.import_module(
         "yoke_core.tools.session_relay_lane_sweep"
     ).relay_lane_sweep(instance)
+    retry_follow = False
 
     def maintain() -> None:
         # The host's own upkeep, then this machine's lane sweep when it is due.
@@ -180,13 +181,28 @@ def serve_release_daemon(*, cycle_maintenance: Callable[[], None] | None = None)
             executable=installed.launch_executable,
         )
 
-    if instance.machine_active:
-        # This start is the relay observing its plane serving this release;
-        # the installed CLI follows the active connection here, never on a
-        # schedule.
-        from yoke_cli.config.operator_cli_release_follow import follow_release
+    def follow_active_release(*, retrying: bool = False) -> bool:
+        from yoke_cli.config.operator_cli_release_follow import (
+            DEFERRED_SETUP_ACTIVE,
+            follow_release,
+        )
 
-        follow_release(installed.pinned_release, instance.state_dir)
+        record = follow_release(installed.pinned_release, instance.state_dir)
+        return record["outcome"] == DEFERRED_SETUP_ACTIVE or (
+            retrying and record["outcome"] == "update_failed"
+        )
+
+    if instance.machine_active:
+        retry_follow = follow_active_release()
+
+    def maintain_served_release() -> None:
+        nonlocal retry_follow
+        maintain()
+        if retry_follow:
+            retry_follow = (
+                resolve_relay_instance().machine_active
+                and follow_active_release(retrying=True)
+            )
 
     def repin(served_build: str, *, runner=subprocess.run):
         return release_install.pin_relay_release(
@@ -199,7 +215,7 @@ def serve_release_daemon(*, cycle_maintenance: Callable[[], None] | None = None)
         state_dir=instance.state_dir,
         inventory_provider=collect_cached_inventory,
         inventory_refresher=refresh_harness_inventory,
-        cycle_maintenance=maintain,
+        cycle_maintenance=maintain_served_release,
         pinned_release=installed.pinned_release,
         pin_served_release=repin,
         reload_argv=["--env", instance.environment, "relay", "serve"],

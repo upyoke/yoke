@@ -232,9 +232,11 @@ def _serve_relay(monkeypatch, tmp_path, *, machine_active: bool) -> list[str]:
             runtime_python=Path(sys.prefix) / "bin" / "python",
         ),
     )
-    monkeypatch.setattr(
-        follow, "follow_release", lambda release, _d: followed.append(release)
-    )
+    def record_follow(release, _state_dir):
+        followed.append(release)
+        return {"outcome": "current"}
+
+    monkeypatch.setattr(follow, "follow_release", record_follow)
     monkeypatch.setattr(session_relay_daemon, "serve_forever", lambda **_k: "served")
     assert release_cli.serve_release_daemon() == "served"
     return followed
