@@ -8,62 +8,18 @@ import shlex
 from pathlib import Path
 
 from yoke_harness import baseline_harness_requests, baseline_native_failures
-from yoke_harness.baseline_probe_failure_causes import (
-    CHECK_UNMET,
-    PROBE_EXIT_CODES,
-    PROBE_FAILURE_CAUSES,
-    UNDECLARED_EXIT,
-    failure_evidence,
-)
+from yoke_harness.baseline_probe_failure_causes import PROBE_EXIT_CODES
 from yoke_harness.macos_claude_desktop_probe import CLAUDE_DESKTOP_PROBE_PROGRAM
-from yoke_harness.ssh_mac_host_session_state import (
-    SCREEN_SAVER_DISABLE_COMMAND,
-    SCREEN_SAVER_READ_COMMAND,
-)
+from yoke_harness.ssh_mac_host_session_state import SCREEN_SAVER_READ_COMMAND
+from yoke_harness.standard_probe_failures import CHECKLIST
 from typing import Any, Callable
 
 from yoke_contracts.test_machine_types import HostActionResult
-
-CHECKLIST = ".yoke/docs/verification/test-machines/host-provisioning.md"
-#: Saving a sign-in is a recapture: it proves the real requests, quits the apps
-#: holding sign-ins and seals a new baseline, so no later reset rolls it back.
-SAVE_BASELINE_COMMAND = (
-    "yoke test-machine golden-capture --test-machine TEST_MACHINE"
-)
-RECOVERIES = {
-    "Claude real request": "Sign in Claude with claude auth login in the test user's session.",
-    "Codex real request": "Sign in Codex with codex login in the test user's session.",
-    "Cursor real request": "Sign in Cursor with agent login in the test user's session.",
-    "Claude bypass accepted": "Have the operator accept Claude's one-time bypass prompt in the test user's session.",
-    "Claude desktop signed in": "Open Claude for Mac in the test user's GUI session. Complete onboarding if prompted, verify the signed-in account in Chat, Code or Cowork, then quit Claude.",
-    "macOS login keychain readable": "Use GUI Terminal to unlock/re-key the login keychain after a password change and sign in Claude again; the keychain stays live through resets.",
-    "macOS screen saver disabled": f"As the GUI test user run {SCREEN_SAVER_DISABLE_COMMAND} before capture; save a new golden and prove the reset roundtrip.",
-    "Linux desktop input available": "Provision xdotool as a baseline package before capture, not as a QA package; capture a new golden and prove the fresh-host reset roundtrip.",
-}
-
 
 # Each sealed program exits with a code from the one cause table. The future
 # import leads, because a program embedding module source must hoist it.
 _FUTURE = "from __future__ import annotations\n"
 _PREAMBLE = f"{_FUTURE}EXIT = {PROBE_EXIT_CODES!r}\n"
-
-
-def standard_probe_failure(name: str, exit_code: int) -> dict[str, str] | None:
-    """Name a sealed standard probe's failure from its exit code, or None."""
-    step = RECOVERIES.get(name)
-    if step is None:
-        return None
-    failure = PROBE_FAILURE_CAUSES.get(exit_code, UNDECLARED_EXIT)
-    # The named step is the fix only when the program ran and reported the
-    # state absent; a missing executable or a timeout has its own fix.
-    if failure == CHECK_UNMET:
-        recovery = (
-            f"{step} Follow {CHECKLIST}, then save it at once with "
-            f"`{SAVE_BASELINE_COMMAND}`, which proves it and recaptures the baseline."
-        )
-    else:
-        recovery = f"{failure.recovery} See {CHECKLIST}."
-    return failure_evidence(failure, name, recovery)
 
 
 def read_error_event_count(stdout: str) -> int:

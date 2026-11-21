@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sqlite3
 import subprocess
 import time
@@ -14,7 +15,7 @@ from yoke_harness.macos_claude_desktop_probe import (
     _SWIFT,
     CLAUDE_DESKTOP_PROBE_PROGRAM,
 )
-from yoke_harness.standard_baseline_probes import standard_probe_failure
+from yoke_harness.standard_probe_failures import standard_probe_failure
 
 # Each fixture is one window frame as Vision reads it: all text, the sidebar
 # navigation, and the account footer. Account names are fixture placeholders.
@@ -239,9 +240,13 @@ def test_the_probe_never_reads_a_cookie_value():
 
 def test_unrecognized_layout_never_tells_the_operator_to_sign_in():
     failure = standard_probe_failure(
-        "Claude desktop signed in", PROBE_EXIT_CODES["probe_layout_unrecognized"]
+        "Claude desktop signed in",
+        PROBE_EXIT_CODES["probe_layout_unrecognized"],
+        '{"app_version": "6.6395.1"}\n',
     )
     assert failure["cause"] == "probe_layout_unrecognized"
+    assert failure["app_version"] == "6.6395.1"
+    assert "Claude for Mac 6.6395.1" in failure["reason"]
     assert "Do not sign in again" in failure["recovery"]
     assert "golden-capture" not in failure["recovery"]
     signed_out = standard_probe_failure(
@@ -271,3 +276,20 @@ def test_the_sealed_program_names_open_and_quit_failures_apart():
     assert "else { return openFailed }" in _SWIFT
     assert "if stillRunning() { exit(quitBlocked) }" in _SWIFT
     assert "exit(11)" not in _SWIFT
+
+
+@pytest.mark.parametrize("stdout", ["", '{"app_version": null}', '{"app_version": "6.1; rm"}'])
+def test_an_unreadable_app_version_is_named_not_dropped(stdout):
+    failure = standard_probe_failure(
+        "Claude desktop signed in", PROBE_EXIT_CODES["probe_layout_unrecognized"], stdout
+    )
+    assert failure["app_version"].startswith("unreadable")
+    assert "About Claude" in failure["reason"]
+
+
+def test_an_unrecognized_layout_prints_the_app_version(monkeypatch, tmp_path, capsys):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    _record_swift_session(monkeypatch, [], swift_exit=14)
+    assert _run_program() == PROBE_EXIT_CODES["probe_layout_unrecognized"]
+    record = json.loads(capsys.readouterr().out)
+    assert set(record) == {"app_version"}

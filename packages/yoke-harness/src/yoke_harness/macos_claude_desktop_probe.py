@@ -232,7 +232,7 @@ exit(outcome)
 
 
 CLAUDE_DESKTOP_PROBE_PROGRAM = f"""
-import pathlib, sqlite3, subprocess, sys, tempfile, time
+import json, pathlib, plistlib, sqlite3, subprocess, sys, tempfile, time
 def claude_session():
     # True or False from the app's cookie store; None when it cannot be read.
     # Reads only the cookie's name and expiry, never its value.
@@ -277,6 +277,14 @@ with tempfile.TemporaryDirectory(prefix='yoke-claude-desktop-') as workspace:
         14: 'probe_layout_unrecognized',
         15: 'probe_app_quit_blocked',
     }}
+    if probe.returncode == 14:
+        # Name the app version an unknown layout came from, for the defect report.
+        try:
+            info = pathlib.Path('/Applications/Claude.app/Contents/Info.plist').read_bytes()
+            version = plistlib.loads(info).get('CFBundleShortVersionString')
+        except (OSError, ValueError):
+            version = None
+        print(json.dumps({{'app_version': version if isinstance(version, str) else None}}))
     if probe.returncode != 0:
         sys.exit(EXIT[cause.get(probe.returncode, 'probe_launch_failed')])
     # The app writes its cookies on quit: a session it dropped while running
