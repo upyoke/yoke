@@ -46,6 +46,7 @@ from yoke_cli.session_id_propagation import propagated_session_identity
 from yoke_cli.invocation_locality import control_plane_locality
 from yoke_contracts.machine_config import schema as machine_schema
 from yoke_contracts.machine_config.schema import ENV_OVERRIDE
+from yoke_contracts.project_defaults import MissingProjectError
 from yoke_contracts.refusal_recovery import compose_refusal
 
 
@@ -310,6 +311,9 @@ def route_command(argv: List[str]) -> int:
                 return exc.code if isinstance(exc.code, int) else 1
             except KeyboardInterrupt:
                 return _emit_interrupted()
+            except MissingProjectError as exc:
+                print(f"yoke: {exc}", file=sys.stderr)
+                return 2
     except MachineConfigContractError as exc:
         print(f"yoke: {exc}", file=sys.stderr)
         return 1

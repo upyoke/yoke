@@ -13,6 +13,7 @@ from yoke_contracts.browser_identity import (
 from yoke_cli.commands._helpers import ensure_handlers_loaded
 from yoke_cli.config import browser_profile, machine_config
 from yoke_cli.config.project_slug_lookup import ProjectSlugLookupError
+from yoke_contracts.project_defaults import MissingProjectError
 from yoke_contracts.machine_config.capability_secret_store import (
     read_test_machine_secret,
 )
@@ -274,6 +275,7 @@ def authorize_remote(parsed) -> int:
         return int(result.returncode)
     except (
         ProjectSlugLookupError,
+        MissingProjectError,
         BrowserIdentityError,
         TestMachineCapabilityError,
         RuntimeError,
