@@ -36,7 +36,7 @@ jobs:
         run: uv run --frozen python -m runtime.api.tools.verify_windows_local_postgres
       - name: Portable engine helpers and detached dashboard lifecycle
         run: >-
-          uv run --frozen python -m pytest --noconftest -q
+          uv run --frozen python -m pytest --noconftest -p runtime.os_scope_markers -q
           runtime/api/domain/test_postgres_windows.py
           runtime/api/domain/test_universe_archive_output_windows.py
           runtime/api/cli/test_yoke_universe_ui_daemon.py
