@@ -7,7 +7,9 @@ import shlex
 from pathlib import Path
 
 from yoke_contracts.refusal_recovery import compose_refusal
-from yoke_harness import linux_desktop_state, linux_platform_payload
+from yoke_harness import (
+    desktop_geometry, linux_desktop_state, linux_display_geometry, linux_platform_payload,
+)
 from yoke_harness.linux_command_custody import run_command
 
 
@@ -28,7 +30,12 @@ print(json.dumps(receipt))
 
 
 def ensure_desktop(control, *, restart=False):
-    source = linux_platform_payload.source() + "\n" + Path(linux_desktop_state.__file__).read_text(encoding="utf-8").replace("from __future__ import annotations", "")
+    source = linux_platform_payload.source() + "\n" + "\n".join(
+        Path(module.__file__).read_text(encoding="utf-8").replace(
+            "from __future__ import annotations", ""
+        )
+        for module in (desktop_geometry, linux_display_geometry, linux_desktop_state)
+    )
     program = (
         source
         + "\nimport sys\ntry:\n"
@@ -65,6 +72,8 @@ def ensure_desktop(control, *, restart=False):
         if (
             receipt["desktop_session"] not in {"started", "reused", "restarted"}
             or not receipt["environment"]["DISPLAY"]
+            or not desktop_geometry.is_desktop_resolution(receipt["resolution"])
+            or receipt["depth"] not in {16, 24, 32}
         ):
             raise ValueError()
     except (ValueError, KeyError, TypeError):
@@ -80,4 +89,5 @@ def desktop_command(control, argv: list[str], *, timeout: int = 60):
     receipt = ensure_desktop(control)
     result = run_command(control, argv, receipt["environment"], timeout=timeout)
     result.desktop_session = receipt["desktop_session"]
+    result.resolution = receipt["resolution"]
     return result

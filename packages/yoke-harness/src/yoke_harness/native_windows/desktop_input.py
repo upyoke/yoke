@@ -9,8 +9,10 @@ import json
 
 from yoke_contracts.desktop_input import refuse_secret_text, validate_request
 from yoke_contracts.test_machine_types import HostActionResult
+from yoke_harness.desktop_geometry import is_desktop_resolution
 from yoke_harness.native_windows.desktop import desktop_script
 from yoke_harness.native_windows.desktop_input_helper import HELPER
+from yoke_harness.native_windows.display_geometry import DEFINITION
 from yoke_harness.native_windows.transport import quote
 
 _ASSEMBLIES = "UIAutomationClient,UIAutomationTypes,WindowsBase"
@@ -19,6 +21,8 @@ $request = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(REQUEST))
 function Element($r) { $t=@{}; foreach($k in 'name','automation_id','control_type','index'){ if($r.element.$k){ $t[$k]=[string]$r.element.$k } }; $t }
 function Target($r) { [QaDesktop]::Resolve([string]$r.window.title,[string]$r.window.process,[string]$r.window.handle,[int]$r.wait_seconds) }
 try {
+  [QaDesktop]::RequireUnlocked()
+  $resolution = [YokeDesktopGeometry]::Ensure()
   $result = switch ($request.action) {
     'windows' { @{windows=@([QaDesktop]::Windows())} }
     'focus' { @{window=[QaDesktop]::Focus((Target $request))} }
@@ -30,11 +34,11 @@ try {
       else { [QaDesktop]::ClickElement((Target $request),(Element $request),[string]$request.button,[bool]$request.double,[int]$request.wait_seconds) }
     }
   }
-  $row = @{ok=$true;result=$result}
+  $row = @{ok=$true;result=$result;resolution=$resolution}
 } catch {
   $message = $_.Exception.Message
   while ($_.Exception.InnerException -and $message -notmatch '^[a-z_]+: ') { $message = $_.Exception.InnerException.Message }
-  $row = @{ok=$false;message=$message}
+  $row = @{ok=$false;message=$message;resolution=$resolution}
 }
 [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes(($row | ConvertTo-Json -Depth 8 -Compress)))
 """
@@ -53,6 +57,7 @@ def drive_desktop(control, raw_request, *, secrets=()):
     script = (
         "$ErrorActionPreference='Stop'; "
         f"Add-Type -ReferencedAssemblies {_ASSEMBLIES} -TypeDefinition {quote(HELPER)}\n"
+        + DEFINITION
         + _DISPATCH.replace("REQUEST", quote(encoded))
     )
     ran = desktop_script(control, script, timeout=request["wait_seconds"] + 60, hidden=True)
@@ -70,18 +75,32 @@ def drive_desktop(control, raw_request, *, secrets=()):
             (ran.stderr or "the helper printed no result").strip()[:600],
             "Take a screenshot, check the test user's session is unlocked, then retry",
         )
+    resolution = row.get("resolution")
     if row.get("ok"):
-        evidence = {"action": request["action"], **(row.get("result") or {})}
+        if not is_desktop_resolution(resolution):
+            return _failure(
+                "windows_desktop_resolution_unavailable",
+                "the desktop action returned no usable display resolution",
+                "Check the lab console display mode with yoke test-machine verify, then retry",
+            )
+        evidence = {
+            "action": request["action"], "resolution": resolution,
+            **(row.get("result") or {}),
+        }
         return HostActionResult(True, evidence)
     code, _, detail = str(row.get("message") or "").partition(": ")
     if not code.replace("_", "").isalpha() or not code.islower():
         code, detail = "windows_desktop_input_failed", str(row.get("message"))
     detail, _, recovery = detail.partition("; recovery: ")
     head, sep, tail = detail.rpartition("; ")
-    return _failure(
+    return HostActionResult(
+        False,
+        {
+            "detail": head if sep else detail,
+            "recovery": recovery or (tail if sep else "Take a screenshot to see the desktop, then retry"),
+            **({"resolution": resolution} if is_desktop_resolution(resolution) else {}),
+        },
         code,
-        head if sep else detail,
-        recovery or (tail if sep else "Take a screenshot to see the desktop, then retry"),
     )
 
 

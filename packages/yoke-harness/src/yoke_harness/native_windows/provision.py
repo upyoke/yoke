@@ -22,6 +22,7 @@ from yoke_harness.native_windows.journal import PROGRAM, TASK
 from yoke_harness.native_windows.autologon import SCRIPT as AUTOLOGON_SCRIPT
 from yoke_harness.native_windows.tailnet_startup import SCRIPT as TAILNET_STARTUP_SCRIPT
 from yoke_harness.native_windows.console_setup import console_settings_script
+from yoke_harness.native_windows.display_geometry import console_display_task_script
 from yoke_harness.native_windows.firewall import SCRIPT as RDP_FIREWALL_SCRIPT
 from yoke_harness.native_windows.user_ssh import SCRIPT as USER_SSH_SCRIPT
 from yoke_harness.native_windows.receipts import SETUP as RECOVERY_PATHS
@@ -213,7 +214,7 @@ Write-Output 'Native standard user, private golden directory and private desktop
         key,
         host,
         admin_user,
-        READ_FRAME_SCRIPT + setup + AUTOLOGON_SCRIPT + console_settings_script(),
+        READ_FRAME_SCRIPT + setup + AUTOLOGON_SCRIPT + console_settings_script() + console_display_task_script(),
         input_text=password,
     )
     if result.returncode:

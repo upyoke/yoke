@@ -281,8 +281,11 @@ receipt states `desktop_session=started|reused`. Exactly one existing human
 XFCE desktop may be reused; multiple desktops refuse as ambiguous. The first
 capture waits for a valid nonblank frame while retaining `started` evidence;
 an already running desktop with a blank capture still refuses.
-The unattended route uses `xrdp-sesrun -s ::1 -t Xorg -F 0 TESTUSER`, feeding
-the registered password on stdin. On a host whose sesman listens on
+The unattended route uses `xrdp-sesrun -s ::1 -t Xorg -F 0 -g 1920x1080 TESTUSER`,
+feeding the registered password on stdin. GUI operations measure the actual
+display with `xwininfo` and report or refuse an undersized display. A disconnected
+XFCE display can switch modes through `xrandr`. Yoke adds a full-HD mode to
+xorgxrdp when that display only offers its previous size. On a host whose sesman listens on
 `[::1]:3350`, omitting `-s ::1` can report a connect error. Do not run a
 password-bearing workaround. If the operation refuses sesrun/startup, repair
 its named prerequisite and rerun. Human RDP login is used only by cases that

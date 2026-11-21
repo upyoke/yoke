@@ -99,20 +99,32 @@ reason and asks the control-plane operator to repair it; access still proceeds.
 The viewer uses the registered Linux or Windows WSL user's XFCE display over
 RDP over the registered route: direct to the MagicDNS host on the tailnet, or
 the SSH-forward fallback, which it owns until the viewer closes. It measures
-that display's geometry and supplies the fixture password through stdin. It does not write a
+that display's geometry, reports `resolution`, and supplies the fixture
+password through stdin. A new unattended XFCE desktop starts at 1920×1080.
+A reused display below that size is resized when no viewer is connected. The
+command refuses with display repair instructions when the minimum is unavailable. It does not write a
 password file or put the password in the client arguments. Personal sign-in is
 performed by the operator in the visible desktop.
 
 A native Windows Test Machine (`os=windows`) is viewed on its own RDP listener
 as the registered `desktop_user`; a `DOMAIN\user` name is passed as FreeRDP's
-domain and user. There is no SSH command, XFCE display or geometry probe: the
-remote desktop follows the window size (`/dynamic-resolution`) and the receipt
-reports `desktop_session: native` without a `display`. Signing in as the
-autologon user disconnects the console; when the viewer closes, the host's
-`YokeQa-ReturnToConsole` task returns the session to the console.
+domain and user. The viewer requests a 1920×1080 desktop and reports
+`desktop_session: native` and `resolution: 1920x1080`. Signing in as the
+autologon user disconnects the console. When the viewer closes, the host's
+`YokeQa-ReturnToConsole` task returns the session to the console. Native
+provisioning registers `YokeQa-ConsoleDisplay` to set a usable adapter mode
+when the test user signs in or returns to the console. Reset also applies
+the minimum. Verify and `yoke qa mission desktop` report the interactive
+session resolution and refuse when the fixture cannot provide at least
+1920×1080. Configure the VM display adapter to expose that mode before retrying.
 
 A macOS Test Machine's VNC route opens in macOS Screen Sharing instead, from a
-Mac workstation. `--view` opens `vnc://USER@HOST:PORT` with the user name only,
+Mac workstation. Before opening, Yoke uses the registered SSH key and the
+signed-in Mac's Terminal bridge to measure the display. When it is below
+1920×1080, Yoke selects the smallest usable display mode that meets the minimum,
+then reports the observed resolution. The test host needs the Command Line
+Tools and a display adapter with a suitable mode. `--view` opens
+`vnc://USER@HOST:PORT` with the user name only,
 copies the fixture password to the clipboard through `pbcopy` stdin, and prints
 one line asking you to paste it at the Screen Sharing prompt. After 60 seconds
 Yoke clears the clipboard if it still holds the password; clipboard-history
@@ -189,12 +201,10 @@ Read `yoke browser authorize --help` and
 [browser identities](browser-identities.md) for SSH, lease and
 GUI prerequisites.
 
-The resizable viewer scales the shared desktop to fit its window. The initial
-window fits within 1280 by 800 logical pixels, with a doubled framebuffer on
-macOS for Retina readability. Resizing the window changes only the local view;
-the measured remote XFCE geometry stays unchanged. FreeRDP SDL uses the
-`/smart-sizing` dimensions for the remote desktop and `/size` for the initial
-local window; see its [window setup](https://github.com/FreeRDP/FreeRDP/blob/3.32.1/client/SDL/SDL3/sdl_context.cpp).
+FreeRDP opens full-screen on the operator's display and uses `/smart-sizing`
+to fit the remote desktop to it. Press Ctrl+Alt+Enter to switch to a resizable
+window. Resizing only changes the local view. See the
+[FreeRDP SDL window setup](https://github.com/FreeRDP/FreeRDP/blob/3.32.1/client/SDL/SDL3/sdl_context.cpp).
 
 On macOS, the FreeRDP SDL client uses OpenGL rendering. Continuous remote updates
 can keep its default Metal renderer waiting for drawables inside the update loop,

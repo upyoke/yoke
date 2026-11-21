@@ -45,4 +45,7 @@ def host(tmp_path, monkeypatch):
     monkeypatch.setattr(state, "human_desktop_exists", lambda *a: False)
     monkeypatch.setattr(state, "rdp_connected", lambda *a: False)
     monkeypatch.setattr(state, "desktop_sessions", lambda **kw: [])
+    monkeypatch.setattr(
+        state, "desktop_geometry", lambda *a, **kw: {"resolution": "1920x1080", "depth": 24},
+    )
     return marker
