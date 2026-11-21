@@ -93,8 +93,10 @@ The same audited removal runs without an operator in these cases:
   froze whose current candidate is outside the frozen lineage, settled QA
   included.
 - At execution context and resume, members with open landings or back at
-  implementing or reviewing are set aside, keeping their unfinished QA and
-  executions for the next run on that flow and target. Members whose
+  implementing or reviewing are set aside, keeping their QA for the next
+  run on that flow and target. A member with live item QA stays attached
+  until its execution stops being live. The next pass sets it aside if it
+  is still reworking. Members whose
   hard-block blocker is set aside go with it, the same way.
 - A takeover sets aside, on the run it takes over, a member whose hard-block
   blocker does not ship in the newer run.

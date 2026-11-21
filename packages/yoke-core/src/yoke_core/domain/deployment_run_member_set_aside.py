@@ -1,4 +1,4 @@
-"""Set reworking members aside without cancelling their unfinished QA.
+"""Set reworking members aside once their live item QA has ended.
 
 A member whose hard-block blocker is set aside would then wait on a blocker
 this run no longer ships, so it is set aside with it, transitively
@@ -6,6 +6,8 @@ this run no longer ships, so it is set aside with it, transitively
 """
 
 from yoke_core.domain.deployment_landing_guard import reworking_members
+from yoke_core.domain.deployment_qa_live_executions import live_executions
+from yoke_core.domain.deployment_qa_presentation_reads import uncached_presentation
 from yoke_core.domain.deployment_run_blocked_dependents import (
     BLOCKED_SET_ASIDE_REASON,
     dependents_stranded_by,
@@ -28,6 +30,16 @@ def set_aside_reworking_members(conn, run_id, item_ids):
     if status not in {"created", "executing", "failed"}:
         return {}
     current = reworking_members(conn, candidates.intersection(held), reconcile=False)
+    if not current:
+        return {}
+    # Membership writes need the live executions under the lock, independent of
+    # any earlier QA presentation snapshot.
+    with uncached_presentation():
+        current.difference_update(
+            int(row["item_id"])
+            for row in live_executions(conn, run_id)
+            if row["item_id"] is not None
+        )
     removed = remove_members_on(
         conn, run_id, current, reason=SET_ASIDE_REASON,
         removed_by="reopened for rework", preserve_qa=True,
