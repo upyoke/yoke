@@ -193,7 +193,7 @@ def module_to_target_id_from_index(
     *, package_roots: PackageRoots,
 ) -> Optional[int]:
     """Resolve a dotted module name through a preloaded path index."""
-    candidates = _candidate_paths_for_module(
+    candidates = candidate_paths_for_module(
         module_name, imported_name, package_roots=package_roots,
     )
     for path in candidates:
@@ -203,7 +203,7 @@ def module_to_target_id_from_index(
     return None
 
 
-def _candidate_paths_for_module(
+def candidate_paths_for_module(
     module_name: str, imported_name: str = "",
     *, package_roots: PackageRoots,
 ) -> Tuple[str, ...]:
@@ -252,7 +252,7 @@ def module_to_target_id(
     Returns None for external modules (``json``, ``sqlite3``) or for
     project-internal modules not present in path_targets yet.
     """
-    path_candidates = _candidate_paths_for_module(
+    path_candidates = candidate_paths_for_module(
         module_name, imported_name, package_roots=package_roots,
     )
     if not path_candidates:
@@ -297,6 +297,7 @@ def iter_python_entries(
 
 __all__ = [
     "PackageRoots",
+    "candidate_paths_for_module",
     "iter_python_entries",
     "load_architecture_context",
     "load_architecture_model",

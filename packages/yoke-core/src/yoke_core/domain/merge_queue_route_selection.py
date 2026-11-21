@@ -24,6 +24,10 @@ from yoke_core.domain.capability_undeclare_remedy import undeclare_remedy
 from yoke_core.domain.integration_dependency_refusal import (
     integration_dependency_refusal,
 )
+from yoke_core.domain.merge_architecture_edge_admission import (
+    GATE as EDGE_GATE,
+    architecture_edge_refusal,
+)
 from yoke_core.domain.merge_candidate_review_admission import (
     candidate_review_refusal,
 )
@@ -172,6 +176,17 @@ def route_admission(
         )
         if review_refusal:
             return RouteAdmission("candidate review", review_refusal, review_head)
+        edge_refusal = architecture_edge_refusal(
+            item_id=item_id,
+            public_ref=public_ref or branch,
+            commit_sha=review_head,
+            target=target,
+            repo_root=repo_root,
+            project=project,
+            dispatch=dispatch,
+        )
+        if edge_refusal:
+            return RouteAdmission(EDGE_GATE, edge_refusal, review_head)
     declared, probe_error = project_declares_merge_queue(project, dispatch=dispatch)
     if probe_error:
         return RouteAdmission(
