@@ -29,7 +29,7 @@ from yoke_contracts.machine_config.paths import yoke_home
 from yoke_contracts import platform_file_lock as locks
 from yoke_contracts.platform_fs import remove_tree
 from yoke_core.domain.relay_release_path import relay_venv_executable, relay_venv_python
-from yoke_core.tools.distribution_channel import join_public_url
+from yoke_contracts.public_url import join_public_url
 
 RUNTIMES_DIR_NAME = "qa-controller-runtimes"
 RECEIPT_NAME = "controller-runtime.json"

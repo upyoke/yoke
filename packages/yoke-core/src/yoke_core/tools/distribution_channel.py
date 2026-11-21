@@ -6,7 +6,9 @@ from datetime import datetime
 from typing import Mapping
 
 from yoke_contracts.timestamps import format_instant
-from urllib.parse import quote, urljoin, urlsplit, urlunsplit
+from urllib.parse import urljoin
+
+from yoke_contracts.public_url import join_public_url
 
 from yoke_core.domain.migration_content_identity import SHA256_PATTERN
 from yoke_core.domain.migration_history_manifest import SOURCE_COMMIT_PATTERN
@@ -111,23 +113,3 @@ def site_root_from_release_base(base_url: str) -> str:
     if marker not in base_url:
         return base_url.rstrip("/") + "/"
     return base_url.split(marker, 1)[0].rstrip("/") + "/"
-
-
-def join_public_url(base: str, *parts: str) -> str:
-    value = quote_url_path(base.rstrip("/"))
-    for part in parts:
-        value += "/" + quote(part.strip("/"), safe="%")
-    return value
-
-
-def quote_url_path(url: str) -> str:
-    parsed = urlsplit(url)
-    return urlunsplit(
-        (
-            parsed.scheme,
-            parsed.netloc,
-            quote(parsed.path, safe="/%"),
-            parsed.query,
-            parsed.fragment,
-        )
-    )

@@ -10,8 +10,8 @@ from pathlib import Path
 import pytest
 
 from yoke_core.domain.relay_release_path import relay_venv_executable, relay_venv_python
-from yoke_core.tools import qa_controller_runtime as runtime_mod
-from yoke_core.tools.qa_controller_runtime import (
+from yoke_core.domain import qa_controller_runtime as runtime_mod
+from yoke_core.domain.qa_controller_runtime import (
     HANDOFF_MODULE,
     ControllerRuntimeError,
     ensure_controller_runtime,

@@ -21,7 +21,7 @@ from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.timestamps import iso8601_now
 
 from yoke_core.tools import session_relay_local_install as local_install
-from yoke_core.tools.distribution_channel import join_public_url
+from yoke_contracts.public_url import join_public_url
 from yoke_core.tools.session_relay_package_validate import relay_package_runnable_reason
 from yoke_core.domain.relay_release_path import relay_launch_executable
 from yoke_core.tools.session_relay_release import PYTHON_ISOLATION_FLAG, RELAY_ACTIVE_RELEASE_NAME, RELAY_RELEASE_ERROR_NAME, RELAY_RELEASE_FETCH_FAILED, RELAY_RELEASE_INSTALL_FAILED, RELAY_RELEASE_RECEIPT_NAME, ManifestFetcher, RelayReleaseError, RelayReleaseStatus, distribution_index_for_instance, fetch_served_build, relay_active_release_path, relay_release_receipt, relay_release_status, relay_runtime_executable, relay_runtime_python, release_version_from_build, write_release_json

@@ -8,7 +8,7 @@ shim and quarantine shadows, never delete).
 
 from __future__ import annotations
 
-from yoke_cli.config.install_advice import InstallOriginUnavailable, install_command
+from yoke_contracts.runtime_ports.install_advice import get_install_advice
 
 import json
 import os
@@ -165,7 +165,9 @@ def hook_config_yoke_problems(root: Path, canonical: Path) -> list[str]:
 
 def hc_launcher_authority(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     """HC-launcher-authority: login-shell yoke is the canonical shim."""
-    from yoke_cli.config import path_doctor
+    from yoke_contracts.runtime_ports.launcher_path_doctor import get_launcher_path_doctor
+
+    path_doctor = get_launcher_path_doctor()
 
     machine_env = _machine_launcher_env()
     checkout = _resolve_checkout(args)
@@ -236,8 +238,8 @@ def hc_launcher_authority(conn, args: DoctorArgs, rec: RecordCollector) -> None:
             )
         else:
             try:
-                recovery = f"Install the release: {install_command()}."
-            except InstallOriginUnavailable as exc:
+                recovery = f"Install the release: {get_install_advice().install_command()}."
+            except get_install_advice().InstallOriginUnavailable as exc:
                 recovery = f"{exc}; then install the release."
             recovery += (
                 " Then repair: python3 -m yoke_core.tools.install_yoke_launcher --repair"
