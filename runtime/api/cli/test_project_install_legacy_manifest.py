@@ -7,6 +7,7 @@ import json
 import pytest
 
 from yoke_cli.project_install import files as project_install_files
+from yoke_contracts.project_contract.install_error import ProjectInstallError
 from yoke_cli.project_install.bundle_apply import apply_bundle
 from yoke_core.domain.project_install_test_helpers import make_bundle
 
@@ -52,7 +53,7 @@ def test_new_manifest_write_keeps_strategy_paths_strict(tmp_path) -> None:
     )
 
     with pytest.raises(
-        project_install_files.ProjectInstallError,
+        ProjectInstallError,
         match="unsafe strategy path",
     ):
         project_install_files.write_manifest(repo, unsafe)

@@ -168,6 +168,6 @@ def test_export_timeout_has_named_recovery(source_checkout, monkeypatch):
     def timeout(*args):
         raise subprocess.TimeoutExpired("git fetch", 30)
 
-    monkeypatch.setattr(sync.source_git, "fetch_branch", timeout)
+    monkeypatch.setattr(sync.get_repo_upstream_git(), "fetch_branch", timeout)
     with pytest.raises(sync.SourceSyncRefused, match="sync after merge"):
         sync.export_source_revision()

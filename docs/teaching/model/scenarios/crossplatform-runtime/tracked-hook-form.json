@@ -8,5 +8,5 @@
  "surface": "agents render drift check, machine hook setup and project install hook merge.",
  "gap": "cursor-windows-project-hook-shell",
  "review": "Source tests pin POSIX repository render under a simulated Windows host, native machine and installed-project rendering, and cross-form convergence.",
- "sources": ["packages/yoke-contracts/src/yoke_contracts/machine_hooks_render.py", "packages/yoke-cli/src/yoke_cli/project_install/hook_platform.py", "packages/yoke-cli/src/yoke_cli/project_install/hook_entries.py", "runtime/harness/test_hook_shell_command.py", "runtime/api/domain/test_project_install_hooks.py"]
+ "sources": ["packages/yoke-contracts/src/yoke_contracts/machine_hooks_render.py", "packages/yoke-cli/src/yoke_cli/project_install/hook_platform.py", "packages/yoke-contracts/src/yoke_contracts/project_contract/hook_entries.py", "runtime/harness/test_hook_shell_command.py", "runtime/api/domain/test_project_install_hooks.py"]
 }

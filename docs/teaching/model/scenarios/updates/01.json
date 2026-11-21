@@ -10,6 +10,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke update --help", "yoke settings set distribution --help", "yoke status"],
  "plan_notes": ["outside both"],
- "sources": ["docs/public/start/install.md", "docs/public/cli/machine-config.md", "packages/yoke-cli/src/yoke_cli/commands/adapters/self_update.py", "packages/yoke-cli/src/yoke_cli/config/distribution.py", "packages/yoke-cli/src/yoke_cli/config/release_build.py", "packages/yoke-cli/src/yoke_cli/config/update_check.py", "runtime/api/cli/test_yoke_update_check.py", "packages/yoke-cli/src/yoke_cli/self_host/upgrade.py", "runtime/api/cli/test_yoke_self_host_upgrade_image_cleanup.py"],
+ "sources": ["docs/public/start/install.md", "docs/public/cli/machine-config.md", "packages/yoke-cli/src/yoke_cli/commands/adapters/self_update.py", "packages/yoke-contracts/src/yoke_contracts/machine_config/distribution.py", "packages/yoke-cli/src/yoke_cli/config/release_build.py", "packages/yoke-cli/src/yoke_cli/config/update_check.py", "runtime/api/cli/test_yoke_update_check.py", "packages/yoke-cli/src/yoke_cli/self_host/upgrade.py", "runtime/api/cli/test_yoke_self_host_upgrade_image_cleanup.py"],
  "position": 0
 }
