@@ -13,6 +13,7 @@ from runtime.api.domain.deployment_qa_successor_retry_test_support import (
 )
 from yoke_contracts.api.function_call import ActorContext
 from yoke_core.domain import qa_plan_execution
+from yoke_core.domain.deployment_qa_stage_gate import deployment_qa_stage_status
 from yoke_core.domain.deployment_qa_stage_materialization import (
     materialize_deployment_qa_stage,
 )
@@ -108,24 +109,38 @@ def test_plan_run_rebinds_in_place_and_carries_only_matching_pass(
     assert frozen["roster"] == before["roster"]
 
 
-def test_original_pass_digest_survives_two_takeovers(test_db, monkeypatch):
+@pytest.mark.parametrize("finish_early", [False, True], ids=["before-takeover", "before-qa"])
+def test_original_pass_digest_survives_two_takeovers(test_db, monkeypatch, finish_early):
     from yoke_core.domain.deployment_stage_receipts import (
         allocate_deployment_stage_receipt,
         complete_deployment_stage_receipt,
     )
 
     execution = _seed_member_execution(test_db, monkeypatch)
-    passed, _ = _record(test_db, execution, 0, "pass")
-    _record(test_db, execution, 1, "fail")
-    finish_plan_execution(test_db, execution, state="completed", reason="case failed")
+    passed = int(execution["roster"][0]["requirement_id"])
+    if not finish_early:
+        _record(test_db, execution, 0, "pass")
+        _record(test_db, execution, 1, "fail")
+        finish_plan_execution(test_db, execution, state="completed", reason="case failed")
     _take_over_and_deploy(test_db)
-    fresh = _plan_run(test_db, monkeypatch, takeover.NEW)
-    finish_plan_execution(
+    materialize_deployment_qa_stage(
         test_db,
-        select_plan_execution(test_db, fresh["execution_id"], lock=False),
-        state="aborted",
-        reason="second takeover",
+        deployment_run_id=takeover.NEW,
+        deployment_stage="item-qa",
+        deployment_member_item_id=MEMBER,
     )
+    intermediate_digest = test_db.execute(
+        "SELECT execution_target_digest FROM qa_requirements WHERE id=%s", (passed,)
+    ).fetchone()[0]
+    assert intermediate_digest != execution["execution_target_digest"]
+    if not finish_early:
+        fresh = _plan_run(test_db, monkeypatch, takeover.NEW)
+        finish_plan_execution(
+            test_db,
+            select_plan_execution(test_db, fresh["execution_id"], lock=False),
+            state="aborted",
+            reason="second takeover",
+        )
     third = "run-third-owner"
     test_db.execute(
         "UPDATE deployment_runs SET status='failed' WHERE id=%s", (takeover.NEW,)
@@ -147,6 +162,14 @@ def test_original_pass_digest_survives_two_takeovers(test_db, monkeypatch):
         "UPDATE deployment_runs SET status='executing',current_stage='deploy' WHERE id=%s",
         (third,),
     )
+    if finish_early:
+        carried = select_plan_execution(test_db, execution["id"], lock=False)
+        assert carried["deployment_run_id"] == third
+        assert carried["execution_target_digest"] == execution["execution_target_digest"]
+        _record(test_db, carried, 0, "pass")
+        _record(test_db, carried, 1, "pass")
+        finish_plan_execution(test_db, carried, state="completed", reason="all cases passed")
+        assert current_passing_requirements(test_db, [passed]) == set()
     receipt = allocate_deployment_stage_receipt(
         test_db,
         run_id=third,
@@ -170,14 +193,28 @@ def test_original_pass_digest_survives_two_takeovers(test_db, monkeypatch):
         "UPDATE deployment_runs SET current_stage='item-qa' WHERE id=%s", (third,)
     )
     test_db.commit()
-    again = _plan_run(test_db, monkeypatch, third)
+    if finish_early:
+        materialize_deployment_qa_stage(
+            test_db,
+            deployment_run_id=third,
+            deployment_stage="item-qa",
+            deployment_member_item_id=MEMBER,
+        )
+        status = deployment_qa_stage_status(
+            test_db, run_id=third, stage_name="item-qa", member_item_id=MEMBER,
+            notify_acceptance=False,
+        )
+        assert status["accepted"], status["reasons"]
+    else:
+        again = _plan_run(test_db, monkeypatch, third)
     row = test_db.execute(
         "SELECT rebound_from_digest,execution_target_digest FROM qa_requirements WHERE id=%s",
         (passed,),
     ).fetchone()
     assert row["rebound_from_digest"] == execution["execution_target_digest"]
-    assert row["execution_target_digest"] == again["execution_target_digest"]
-    assert row["execution_target_digest"] != fresh["execution_target_digest"]
+    if not finish_early:
+        assert row["execution_target_digest"] == again["execution_target_digest"]
+    assert row["execution_target_digest"] != intermediate_digest
     assert current_passing_requirements(test_db, [passed]) == {passed}
 
 

@@ -9,6 +9,7 @@ from yoke_core.domain.qa_execution_environment_target import (
     target_digest,
 )
 from yoke_core.domain.qa_latest_execution import latest_executions
+from yoke_core.domain.qa_plan_execution_target_snapshot import materialized_execution
 from yoke_core.domain.qa_requirement_pass_currency import (
     passing_requirements_for_rows,
     recorded_execution_target_digest,
@@ -87,11 +88,34 @@ def rebind_subject(conn, *, subject, target):
                 ),
             )
             rebound.append(requirement_id)
+        # A walk may have finished before this run entered its QA stage.
+        # Its frozen pass can only be credited after the new target is stored.
+        executions = query_rows(
+            conn,
+            "SELECT e.* FROM qa_plan_executions e WHERE e.deployment_run_id=%s "
+            "AND e.deployment_stage=%s AND COALESCE(e.deployment_member_item_id,0)=%s "
+            "AND e.state='completed' AND e.execution_target_json IS NOT NULL "
+            "AND EXISTS (SELECT 1 FROM jsonb_array_elements(e.roster_json::jsonb) AS c "
+            "WHERE (c->>'requirement_id')::bigint=ANY(%s)) ORDER BY e.id",
+            (
+                str(subject["id"]),
+                str(subject["stage"]["name"]),
+                int(subject.get("member_item_id") or 0),
+                rebound,
+            ),
+        )
+        for execution in executions:
+            carry_execution_passes(
+                conn,
+                subject=subject,
+                target=target,
+                execution=materialized_execution(execution),
+            )
     return rebound
 
 
 def carry_execution_passes(conn, *, subject, target, execution):
-    """Credit a frozen walk that finished after its obligations were rebound."""
+    """Credit a completed frozen walk against obligations on the current target."""
     frozen = execution["execution_target"]
     if not evidence_target_matches(conn, str(subject["id"]), frozen, target):
         return

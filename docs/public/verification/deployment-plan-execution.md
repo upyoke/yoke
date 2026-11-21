@@ -64,8 +64,10 @@ A failed case holds its group open; retries run only failed cases.
 The driver sends back items that owe a fix, or retries, waives or removes.
 Abort notifies unless a retry is live; changed
 reports notify again, and closure withdraws its notice.
-Recording a case verdict while its stage is executing settles that stage in
-the same write; a group case settles its group. When the stage cannot settle,
+Recording a case verdict while its stage is executing settles the stage in
+the same write, or the group for a group case. If the verdict belongs to a
+live execution, that execution's completion settles the saved verdict.
+When the stage cannot settle,
 the write refuses as `qa_verdict_settlement_refused` with the cause and whether
 the verdict persisted. Record an unpersisted verdict again after repairing the
 cause. For a persisted verdict, let the runner adopt it with

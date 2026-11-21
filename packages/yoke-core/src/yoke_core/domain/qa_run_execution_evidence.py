@@ -7,6 +7,7 @@ import sys
 from typing import Any
 
 from yoke_core.domain.db_helpers import query_one, query_rows
+from yoke_core.domain.qa_plan_execution_schema import LIVE_PLAN_EXECUTION_SQL
 from yoke_core.domain.qa_plan_execution_store import result_rows, select_plan_execution
 from yoke_core.domain.schema_common import _table_exists
 
@@ -177,10 +178,10 @@ def commit_settled_verdict_or_exit(conn: Any, run_id: int) -> None:
 
 
 def _settle_recorded_verdict(conn: Any, run_id: int) -> None:
-    """Re-evaluate the active stage a verdict belongs to, if one is executing."""
+    """Settle a verdict on the active stage unless its own execution is live."""
     subject = query_one(
         conn,
-        "SELECT q.* "
+        "SELECT q.*, r.raw_result "
         "FROM qa_runs r JOIN qa_requirements q ON q.id=r.qa_requirement_id "
         "WHERE r.id=%s AND r.verdict IS NOT NULL",
         (run_id,),
@@ -198,6 +199,19 @@ def _settle_recorded_verdict(conn: Any, run_id: int) -> None:
             run is None
             or run["status"] != "executing"
             or run["current_stage"] != subject["deployment_stage"]
+        ):
+            return
+        raw = subject["raw_result"]
+        try:
+            evidence = json.loads(raw) if isinstance(raw, str) else raw
+        except ValueError:
+            evidence = None
+        execution_id = evidence.get("execution_id") if isinstance(evidence, dict) else None
+        if execution_id and query_one(
+            conn,
+            "SELECT id FROM qa_plan_executions WHERE id=%s "
+            f"AND state IN ({LIVE_PLAN_EXECUTION_SQL})",
+            (str(execution_id),),
         ):
             return
         from yoke_core.domain.deployment_qa_shared_plans import (
