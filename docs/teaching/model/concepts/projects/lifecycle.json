@@ -4,6 +4,7 @@
  "status": "draft-copy",
  "commands": ["yoke project refresh", "yoke projects retire", "yoke projects unretire"],
  "functions": ["project.refresh.run", "projects.retire", "projects.unretire"],
+ "summary": "Retire lists attached ordinary capabilities with one copyable removal command per capability, using a digest of its current settings.",
  "page": "projects",
  "position": 4
 }

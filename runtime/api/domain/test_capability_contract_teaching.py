@@ -12,3 +12,17 @@ def test_deploy_capability_hint_names_configure_and_remove() -> None:
         "yoke projects capability-settings remove --project demo "
         "--cap-type ephemeral-env --base <as-read>"
     ) in hint
+
+
+
+def test_operational_ci_inspection_recipe_is_shell_neutral() -> None:
+    from runtime.api.fixtures.operator_recipe import assert_shell_neutral
+    from yoke_core.domain.schema_api_context_commands_core_operational import (
+        OPERATIONAL_COMMANDS,
+    )
+
+    recipe = next(
+        entry["recipe"] for entry in OPERATIONAL_COMMANDS
+        if entry["purpose"] == "Branch / commit / CI inspection (read-only)"
+    )
+    assert_shell_neutral(recipe)

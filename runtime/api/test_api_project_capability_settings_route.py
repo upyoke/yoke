@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from runtime.api.fixtures.actor_roles import seed_project_role
 
+import hashlib
 import json
 
 import pytest
@@ -109,6 +110,34 @@ def test_https_create_get_and_stale_base_refusal(client):
     assert json.loads(_get(client).json()["result"]["settings_json"]) == {
         "host": "current"
     }
+
+
+def test_https_remove_uses_fresh_settings_digest(client):
+    assert _set(client, '{"host":"original"}', create=True).status_code == 200
+    original = _get(client).json()["result"]
+    assert original["base_digest"] == hashlib.sha256(
+        original["settings_json"].encode()
+    ).hexdigest()
+    assert _set(
+        client, '{"host":"current"}', base_settings_json=original["settings_json"]
+    ).status_code == 200
+    payload = {
+        "project": "yoke", "cap_type": "docker", "base_digest": original["base_digest"]
+    }
+    stale = _call(client, "projects.capability_settings.remove", payload)
+    assert stale.status_code == 409
+    error = stale.json()["error"]
+    assert error["code"] == "settings_conflict"
+    assert error["jsonpath"] == "$.payload.base_digest"
+    assert "get --project <project> --cap-type <type> --json" in error["message"]
+    assert "--base-digest" in error["message"]
+
+    current = _get(client).json()["result"]
+    assert json.loads(current["settings_json"]) == {"host": "current"}
+    payload["base_digest"] = current["base_digest"]
+    removed = _call(client, "projects.capability_settings.remove", payload)
+    assert removed.status_code == 200
+    assert _get(client).json()["result"]["settings_json"] is None
 
 
 def test_https_merges_compose_independent_paths(client):

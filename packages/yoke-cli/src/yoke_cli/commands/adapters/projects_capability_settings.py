@@ -31,7 +31,7 @@ PROJECTS_CAPABILITY_SETTINGS_MERGE_USAGE = (
 )
 PROJECTS_CAPABILITY_SETTINGS_REMOVE_USAGE = (
     "yoke projects capability-settings remove --project NAME --cap-type TYPE "
-    "--base AS_READ_JSON (removes the capability row; CAS against the "
+    "(--base AS_READ_JSON | --base-digest SHA256) (removes the capability row; CAS against the "
     "document as read) [--session-id S] [--json]"
 )
 
@@ -77,7 +77,7 @@ def projects_capability_settings_get(args: List[str]) -> int:
             "Read one non-sensitive project capability settings document. "
             "The exact output is the --base token for a CAS set. An undeclared "
             "capability succeeds with empty settings and names how to declare "
-            "it."
+            "it. Use --json to read base_digest for removal with --base-digest."
         ),
     )
     _add_identity_args(parser)
@@ -186,11 +186,16 @@ def projects_capability_settings_remove(args: List[str]) -> int:
         ),
     )
     _add_identity_args(parser)
-    parser.add_argument(
+    choice = parser.add_mutually_exclusive_group(required=True)
+    choice.add_argument(
         "--base",
         dest="base_settings_json",
-        required=True,
         help="Settings JSON you last read; the remove fails if it changed.",
+    )
+    choice.add_argument(
+        "--base-digest",
+        metavar="SHA256",
+        help="The base_digest from capability-settings get --json.",
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -199,15 +204,12 @@ def projects_capability_settings_remove(args: List[str]) -> int:
     )
     if parsed is None:
         return 2
-    return _dispatch(
-        "projects.capability_settings.remove",
-        parsed,
-        {
-            "project": parsed.project,
-            "cap_type": parsed.cap_type,
-            "base_settings_json": parsed.base_settings_json,
-        },
-    )
+    payload = {"project": parsed.project, "cap_type": parsed.cap_type}
+    if parsed.base_digest is None:
+        payload["base_settings_json"] = parsed.base_settings_json
+    else:
+        payload["base_digest"] = parsed.base_digest
+    return _dispatch("projects.capability_settings.remove", parsed, payload)
 
 
 def _add_identity_args(parser: argparse.ArgumentParser) -> None:

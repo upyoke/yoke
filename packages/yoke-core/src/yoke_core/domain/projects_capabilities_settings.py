@@ -7,6 +7,7 @@ merge admits only the documented optional boolean on a canonical binding.
 
 from __future__ import annotations
 
+import re
 from typing import Any, Dict, Optional
 
 from yoke_core.domain.db_helpers import (
@@ -34,6 +35,7 @@ from yoke_core.domain.settings_cas import (
     parse_set_assignments,
     parse_settings_object,
     settings_conflict_teaching,
+    settings_digest,
 )
 
 
@@ -107,7 +109,7 @@ def _read_settings_text(conn: Any, project_id: int, cap_type: str) -> Optional[s
         "WHERE project_id=%s AND type=%s",
         (project_id, cap_type),
     )
-    if val is None or val == "":
+    if val is None:
         return None
     return str(val)
 
@@ -237,7 +239,8 @@ def cmd_capability_remove_settings(
     project: str,
     cap_type: str,
     *,
-    base_settings_json: str,
+    base_settings_json: Optional[str] = None,
+    base_digest: Optional[str] = None,
     db_path: Optional[str] = None,
 ) -> str:
     """CAS-remove one ordinary capability without blind deletion.
@@ -247,34 +250,45 @@ def cmd_capability_remove_settings(
     """
     cap_type = reject_github_capability_full_settings_write(cap_type)
     cap_type = str(cap_type or "").strip()
-    base_text = str(base_settings_json or "")
-    if not base_text.strip():
+    if (base_settings_json is None) == (base_digest is None):
         raise ValueError(
-            "--base is required; read the exact current document with " + _GET_RECIPE
+            "Pass exactly one of --base or --base-digest; read settings with "
+            + _GET_RECIPE + " --json"
+        )
+    if base_settings_json is not None and not base_settings_json.strip():
+        raise ValueError("--base requires the exact settings text from " + _GET_RECIPE)
+    if base_digest is not None and not re.fullmatch(r"[0-9a-fA-F]{64}", base_digest):
+        raise ValueError(
+            "--base-digest requires the 64-character SHA-256 from "
+            + _GET_RECIPE + " --json"
         )
     conn = connect(db_path)
     try:
         project_id = resolve_project_id(conn, project)
-        cur = conn.execute(
-            "DELETE FROM project_capabilities WHERE project_id=%s AND type=%s "
-            "AND COALESCE(settings, '{}')=%s",
-            (project_id, cap_type, base_text),
+        current = _read_settings_text(conn, project_id, cap_type)
+        if current is None:
+            raise LookupError(
+                f"capability '{cap_type}' was not found on project '{project}'"
+            )
+        matches = (
+            settings_digest(current) == base_digest.lower()
+            if base_digest is not None
+            else current == base_settings_json
         )
-        if cur.rowcount == 0:
-            missing = _read_settings_text(conn, project_id, cap_type) is None
+        if matches:
+            deleted = conn.execute(
+                "DELETE FROM project_capabilities WHERE project_id=%s AND type=%s "
+                "AND COALESCE(settings, '{}')=%s",
+                (project_id, cap_type, current),
+            )
+            matches = deleted.rowcount == 1
+        if not matches:
             conn.rollback()
-            if missing:
-                raise LookupError(
-                    f"capability '{cap_type}' was not found on project '{project}'"
-                )
             raise SettingsConflictError(
-                settings_conflict_teaching(
-                    what=(
-                        f"settings for capability '{cap_type}' on project '{project}'"
-                    ),
-                    get_recipe=_GET_RECIPE,
-                    merge_recipe=_MERGE_RECIPE,
-                )
+                f"{SETTINGS_CONFLICT_TAG}: settings for capability '{cap_type}' on "
+                f"project '{project}' changed; removal refused. Re-read with "
+                f"`{_GET_RECIPE} --json`, review the settings, and retry with "
+                "the fresh base_digest as --base-digest or settings_json as --base."
             )
         conn.commit()
         return f"Removed capability '{cap_type}' from project '{project}'"
