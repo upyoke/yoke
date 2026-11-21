@@ -135,7 +135,7 @@ def test_fleet_uses_recorded_landing_and_only_reads_active_prs(conn, monkeypatch
     if receipt_kind != "missing":
         item_merge_receipt_document.record_entry(
             conn, item_id=landed_item, branch="feature", target="main",
-            commit_sha=head, merge_sha=merge if receipt_kind == "valid" else "",
+            commit_sha=head, merge_sha=merge if receipt_kind == "valid" else "invalid",
         )
     conn.commit()
 

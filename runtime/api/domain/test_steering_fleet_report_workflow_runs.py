@@ -110,7 +110,7 @@ def test_suite_findings_use_one_listing_and_report_unreadable_runs(test_db, monk
         requests.append(request)
         raise runs.gh_rest_transport.RestTransportError("GitHub unavailable")
 
-    listing.append(None)
+    listing.append({"id": 45, "status": ["in_progress"]})
     invalid = runs.suite_run_findings(conn, project_id=PROJECT_ID, now=now)
     monkeypatch.setattr(runs.gh_rest_transport, "request_with_retry", unreachable)
     unavailable = runs.suite_run_findings(conn, project_id=PROJECT_ID, now=now)

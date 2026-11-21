@@ -119,7 +119,13 @@ def _list_runs(repo: str, token: str, oldest: datetime) -> dict[str, dict[str, A
         raise ValueError("GitHub returned an invalid workflow run listing")
     by_id = {}
     for run in runs:
-        if not isinstance(run, dict) or not str(run.get("id", "")).isdecimal():
+        if (
+            not isinstance(run, dict)
+            or not str(run.get("id", "")).isdecimal()
+            or not isinstance(run.get("status"), str)
+            or not run["status"]
+            or (run.get("conclusion") is not None and not isinstance(run["conclusion"], str))
+        ):
             raise ValueError("GitHub returned an invalid workflow run in the listing")
         by_id[str(run["id"])] = run
     return by_id

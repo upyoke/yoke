@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any, Mapping, Optional, Sequence
 
@@ -95,7 +96,10 @@ def _recorded_landing(conn: Any, item_id: int, landed_at: Any) -> PrLandingState
     except InvalidInstant:
         receipt = {}
     head_sha, merge_sha = receipt.get("commit_sha"), receipt.get("merge_sha")
-    if not all(isinstance(sha, str) and sha.strip() for sha in (head_sha, merge_sha)):
+    if not all(
+        isinstance(sha, str) and re.fullmatch(r"[0-9a-fA-F]{40}", sha)
+        for sha in (head_sha, merge_sha)
+    ):
         head_sha = merge_sha = ""
     return PrLandingState(
         merged=True,
