@@ -108,6 +108,8 @@ def _run_lines(runs: tuple[DeploymentRunProgress, ...]) -> list[str]:
             f"outstanding, {len(run.red)} red"
         )
         lines.extend(f"      {detail}" for detail in run.unresolved)
+        if run.member_counts:
+            lines.append(f"      {run.member_counts}")
         lines.extend(f"      {detail}" for detail in run.member_lines)
         lines.extend(f"      {detail}" for detail in run.no_obligation_lines)
         lines.extend(f"      {detail}" for detail in run.completion.lines)

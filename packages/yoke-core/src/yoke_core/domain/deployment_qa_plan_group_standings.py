@@ -35,7 +35,24 @@ def _open_group_standings(conn: Any, run_id: str, stage_name: str) -> list[tuple
         from yoke_core.domain.deployment_qa_plan_group_failure import group_failed
         from yoke_core.domain.deployment_qa_failure_triage import pinned_source_guidance
 
-        recovery = f"requirements {list(group.requirement_ids)}: `{command}`"
+        from yoke_core.domain import qa_execution_environment_target as target_authority
+        from yoke_core.domain.deployment_qa_live_executions import (
+            covering_execution,
+            execution_line,
+        )
+
+        # The group's own driver execution, queued or walking, already runs it.
+        live = covering_execution(
+            conn,
+            run_id=run_id,
+            stage_name=stage_name,
+            member_item_id=None,
+            execution_target_digest=target_authority.target_digest(
+                subject["shared_target"]
+            ),
+        )
+        step = execution_line(conn, live) if live is not None else f"`{command}`"
+        recovery = f"requirements {list(group.requirement_ids)}: {step}"
         if (
             answer.failed_requirement_ids
             or answer.state == "rejected"

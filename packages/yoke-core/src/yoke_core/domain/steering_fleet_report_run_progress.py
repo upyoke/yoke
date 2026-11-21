@@ -23,7 +23,16 @@ from yoke_core.domain.deployment_qa_stage_outstanding import (
     QaStageOutstanding,
     qa_stage_outstanding,
 )
-from yoke_core.domain.deployment_qa_stage_wake_state import member_wake_states, stalled_qa_notice
+from yoke_core.domain.deployment_qa_live_executions import (
+    AWAITING_REVIEW,
+    QUEUED,
+    WALKING_STATES,
+    live_executions,
+)
+from yoke_core.domain.deployment_qa_stage_wake_state import (
+    member_wake_states,
+    run_subject_notice_stalled,
+)
 from yoke_core.domain.deployment_run_unpassable_blocking_qa import (
     PinQaDiagnosis,
     diagnose_red_runs,
@@ -85,13 +94,54 @@ def _stage_lines(
         for reason in chunk:
             ids = re.findall(r"requirement #(\d+)", reason)
             if ids:
+                # A case a live walk owns carries no command: name what it does.
                 commands = re.findall(r"`(yoke [^`]+)`", reason)
-                commands = commands or [f"yoke qa case run --requirement-id {rid}" for rid in ids]
+                step = (
+                    ", ".join(f"`{cmd}`" for cmd in commands)
+                    if commands
+                    else reason.split("; ", 1)[1] if "; " in reason else ""
+                )
                 details.append("requirements " + ", ".join(f"#{rid}" for rid in ids)
-                               + ": " + ", ".join(f"`{cmd}`" for cmd in commands))
+                               + (f": {step}" if step else ""))
         member_lines.append(line + ((": " + "; ".join(details)) if details else ""))
     run_lines.extend(qa.lines[offset:])
     return tuple(run_lines), tuple(member_lines)
+
+
+def _member_activity(
+    waiting: list[int], walks: dict[int, list[str]], red: set[int]
+) -> dict[int, str]:
+    """Each waiting member's one-word activity: red, walking, queued, review, idle."""
+    found: dict[int, str] = {}
+    for member in waiting:
+        states = set(walks.get(member, ()))
+        found[member] = (
+            "red"
+            if member in red
+            else "walking"
+            if states & WALKING_STATES
+            else "awaiting review"
+            if AWAITING_REVIEW in states
+            else "queued"
+            if QUEUED in states
+            else "not started"
+        )
+    return found
+
+
+def _counts_line(activity: dict[int, str]) -> str:
+    """'8 open: 2 walking, 5 queued, 1 not started, 0 red' for the members."""
+    if not activity:
+        return ""
+    counts = {kind: 0 for kind in ("walking", "queued", "awaiting review", "not started", "red")}
+    for kind in activity.values():
+        counts[kind] += 1
+    shown = [
+        f"{count} {kind}"
+        for kind, count in counts.items()
+        if count or kind != "awaiting review"
+    ]
+    return f"item QA: {len(activity)} open: " + ", ".join(shown)
 
 
 @composition_operation
@@ -197,6 +247,31 @@ def _run_row(
     member_lines: tuple[str, ...] = ()
     if qa is not None:
         unresolved, member_lines = _stage_lines(conn, qa, wakes)
+    live = (
+        [row for row in live_executions(conn, run_id) if str(row["stage"]) == stage]
+        if qa is not None and qa.waiting_members
+        else []
+    )
+    walks: dict[int, list[str]] = {}
+    for row in live:
+        if row["item_id"] is not None:
+            walks.setdefault(int(row["item_id"]), []).append(str(row["state"]))
+    red_members = {int(r.item_id) for r in facts.red.get(run_id, ()) if r.item_id}
+    activity = _member_activity(waiting, walks, red_members)
+    # Only a blocker nothing will move is a stall: a member nobody walks and
+    # nobody can wake, or a run-level wait no driver or upkeep will tell.
+    open_without_driver = bool(qa is not None and outstanding and not driver_phase)
+    run_stalled = (
+        open_without_driver
+        and qa is not None
+        and None in qa.waiting_members
+        and not any(row["item_id"] is None for row in live)
+        and run_subject_notice_stalled(conn, run_id, stage)
+    )
+    member_stalled = any(
+        activity[member] == "not started" and wakes.get(member, "").startswith("not woken:")
+        for member in waiting
+    )
     return DeploymentRunProgress(
         run_id=run_id,
         flow=str(run["flow"] or ""),
@@ -214,10 +289,8 @@ def _run_row(
         member_lines=member_lines,
         completion=completion_preview(conn, run_id, run=run),
         manual_wakes=manual,
-        qa_notice_stalled=bool(qa is not None and outstanding and not driver_phase
-                              and (stalled_qa_notice(conn, run_id, stage)
-                                   or any(state.startswith(("not woken:", "wake pending (driver gone"))
-                                           for state in wakes.values()))),
+        member_counts=_counts_line(activity),
+        qa_notice_stalled=open_without_driver and (run_stalled or member_stalled),
     )
 
 

@@ -115,7 +115,13 @@ def test_a_qa_stage_reports_the_gate_not_the_settled_requirement_count(test_db) 
     assert run.stage == ITEM_QA_STAGE
     assert run.outstanding == 3
     assert run.total_blocking == 3
-    assert run.needs_action is True
+    # Every member is either woken or owed a wake upkeep will send, so the
+    # run is waiting, not stalled: no mark, and each member is counted.
+    assert run.needs_action is False
+    assert run.member_counts == (
+        f"item QA: {len(MEMBERS)} open: 0 walking, 0 queued, "
+        f"{len(MEMBERS)} not started, 0 red"
+    )
     assert f"{RUN_ID}" in body
     assert "3 of 3 outstanding" in body
     assert f"Nothing is outstanding; re-drive {RUN_ID}" not in body

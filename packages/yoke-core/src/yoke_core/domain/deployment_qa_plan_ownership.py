@@ -230,62 +230,31 @@ def plan_only_members(conn: Any, run_id: str, item_ids: Any) -> set[int]:
 def open_walk_members(
     conn: Any, run_id: str, item_ids: Any, *, stage: str | None = None
 ) -> set[int]:
-    """Members still walking on this run under an owner that has not ended."""
-    return set(open_walk_owners(conn, run_id, item_ids, stage=stage))
+    """Members with a live walk (queued, walking or awaiting review) on this run."""
+    return set(open_walks(conn, run_id, item_ids, stage=stage))
 
 
-def open_walk_owners(
+def open_walks(
     conn: Any, run_id: str, item_ids: Any, *, stage: str | None = None
-) -> dict[int, list[str]]:
-    """Each member still walking on this run, with the sessions walking it.
+) -> dict[int, list[dict[str, Any]]]:
+    """Each member's live executions on this run, each with its state.
 
     A carried walk keeps going on its own execution, so its owner is never
     told to wait or rerun. An owner with recorded session end is excluded:
     its walk is the sweep's to settle, and the member is woken as usual.
-    Upkeep, the driver and the fleet report all read this one rule; a
-    presentation reads every presented run's open walks once.
+    Upkeep, the driver and the fleet report all read this one rule; callers
+    that show the member tell a queued walk (``waiting``) from a walking one.
     """
-    from yoke_core.domain.deployment_qa_presentation_facts import presented_run_ids
-    from yoke_core.domain.deployment_qa_presentation_reads import presentation_read
+    from yoke_core.domain.deployment_qa_live_executions import live_executions
 
     members = {int(item) for item in item_ids}
-    runs = presented_run_ids(conn, str(run_id))
-    rows = (
-        presentation_read(
-            conn, ("qa_open_walks", runs), lambda: _open_walk_rows(conn, runs)
-        )
-        if runs
-        else _open_walk_rows(conn, (str(run_id),), members)
-    )
-    owners: dict[int, list[str]] = {}
-    for row in rows:
-        member = int(row["item_id"])
-        if (
-            str(row["run_id"]) == str(run_id)
-            and member in members
-            and (stage is None or str(row["stage"]) == str(stage))
-            and str(row["session_id"]) not in owners.get(member, [])
-        ):
-            owners.setdefault(member, []).append(str(row["session_id"]))
-    return owners
-
-
-def _open_walk_rows(conn: Any, runs: Any, members: Any = None) -> list:
-    from yoke_core.domain.qa_plan_execution_schema import LIVE_PLAN_EXECUTION_SQL
-
-    member_filter = "" if members is None else "AND e.deployment_member_item_id=ANY(%s) "
-    return query_rows(
-        conn,
-        "SELECT e.deployment_run_id AS run_id, e.deployment_stage AS stage, "
-        "e.deployment_member_item_id AS item_id, e.session_id "
-        "FROM qa_plan_executions e WHERE e.deployment_run_id=ANY(%s) "
-        f"AND e.deployment_member_item_id IS NOT NULL {member_filter}"
-        f"AND e.state IN ({LIVE_PLAN_EXECUTION_SQL}) AND NOT EXISTS ("
-        "SELECT 1 FROM harness_sessions s WHERE s.session_id=e.session_id "
-        "AND s.ended_at IS NOT NULL) ORDER BY e.session_id",
-        (sorted(str(run) for run in runs),)
-        + (() if members is None else (sorted(members),)),
-    )
+    walks: dict[int, list[dict[str, Any]]] = {}
+    for row in live_executions(conn, str(run_id)):
+        if row["item_id"] is None or int(row["item_id"]) not in members:
+            continue
+        if stage is None or str(row["stage"]) == str(stage):
+            walks.setdefault(int(row["item_id"]), []).append(row)
+    return walks
 
 
 def transfer_plan_owners(

@@ -85,6 +85,36 @@ def test_gone_waiter_names_the_host_turn_and_its_holder():
         assert MACHINE in reserved["sentence"]
 
 
+def test_a_reserved_turn_beside_a_waiting_one_still_reads_as_waiting():
+    """A session holding a reservation on one machine while it queues for
+    another is waiting on the queue, not stalled on its own turn."""
+    now = utc_now()
+    with test_database() as conn:
+        for sid, iid in (("holder", 19411), ("waiter", 19412)):
+            insert_item(conn, id=iid, title="QA item", status="implementing")
+            _insert_session(conn, sid, last_heartbeat=now)
+            _insert_item_claim(conn, sid, iid)
+        acquire(conn, make_qa_admission_target(MACHINE), "holder", reason="qa walk", commit=False)
+        for machine in ("reserved-lab", MACHINE):
+            join_host_queue(
+                conn,
+                make_qa_admission_target(machine),
+                session_id="waiter",
+                actor_id=1,
+                resume_command="resume",
+            )
+        conn.execute(
+            "UPDATE qa_test_machine_waits SET state='reserved' "
+            "WHERE session_id='waiter' AND test_machine='reserved-lab'"
+        )
+        conn.commit()
+
+        waiting = _gone(conn, "waiter")
+        assert waiting["actor"] == "another_item"
+        assert waiting["reason"] == "qa_host_turn_waiting"
+        assert waiting["test_machine"] == MACHINE
+
+
 def test_gone_process_without_a_wait_still_needs_steering():
     with test_database() as conn:
         _insert_session(conn, "lonely", last_heartbeat=utc_now())

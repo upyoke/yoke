@@ -28,7 +28,8 @@ from yoke_core.domain.qa_plan_execution_store import marker
 _PENDING_REVIEW_SQL = (
     "SELECT e.id AS execution_id, e.session_id AS session_id, e.state AS state, "
     "e.item_id,e.deployment_run_id,e.deployment_stage,e.deployment_member_item_id,"
-    "e.execution_target_digest,b.id AS bundle_id, b.bundle_json AS bundle_json "
+    "e.execution_target_digest,e.test_machine_lease_id,"
+    "b.id AS bundle_id, b.bundle_json AS bundle_json "
     "FROM qa_plan_executions e "
     "JOIN qa_plan_review_bundles b ON b.execution_id = e.id "
     "WHERE e.state IN ('walking','awaiting_walk_review','aborted','error') "
@@ -55,6 +56,8 @@ class PendingAgentReview:
     state: str = "awaiting_walk_review"
     scope_flag: str = ""
     execution_target_digest: str = ""
+    #: The Test Machine a walking mission holds, when it holds one.
+    test_machine: str = ""
 
     def review_begin_command(self) -> str:
         return (
@@ -64,7 +67,19 @@ class PendingAgentReview:
         )
 
     def next_action(self) -> str:
-        """The review step that settles this execution."""
+        """The review step that settles this execution.
+
+        A ``walking`` mission is still capturing: no review command applies
+        until hand-back moves it to ``awaiting_walk_review``.
+        """
+        if self.state == "walking":
+            where = f" on {self.test_machine}" if self.test_machine else ""
+            return (
+                f"mission walk in progress{where} (plan execution "
+                f"{self.execution_id}, session {self.session_id or 'unrecorded'}); "
+                "its walker hands back to that session, and review opens once "
+                "the execution reaches awaiting_walk_review"
+            )
         return (
             "the session that ran the capture "
             f"({self.session_id or 'unrecorded'}) runs "
@@ -80,8 +95,24 @@ class PendingAgentReview:
         )
 
 
+def _lease_machine(conn: Any, row: Any) -> str:
+    """The Test Machine a walking execution's lease names, if any."""
+    lease = row["test_machine_lease_id"] if row["state"] == "walking" else None
+    if lease is None:
+        return ""
+    from yoke_core.domain.schema_work_claim_sql import scope_text_sql
+
+    found = conn.execute(
+        f"SELECT {scope_text_sql(conn, 'scope', 'test_machine')} FROM work_claims "
+        f"WHERE id={marker(conn)}",
+        (int(lease),),
+    ).fetchone()
+    return str(found[0] or "") if found is not None else ""
+
+
 def _pending(conn: Any, row: Any) -> PendingAgentReview:
     return PendingAgentReview(
+        test_machine=_lease_machine(conn, row),
         execution_id=str(row["execution_id"]),
         bundle_id=str(row["bundle_id"]),
         session_id=str(row["session_id"] or ""),
@@ -180,8 +211,12 @@ def pending_review_for_stage(
 
 def capture_verdict_refusal(pending: PendingAgentReview, requirement_id: int) -> str:
     """Refuse a verdict written beside a pending independent review."""
+    walking = pending.state == "walking"
     return compose_refusal(
-        f"requirement {requirement_id} is captured and its independent agent "
+        f"requirement {requirement_id} belongs to a mission walk still in "
+        "progress; its verdict comes only from the independent review after hand-back"
+        if walking
+        else f"requirement {requirement_id} is captured and its independent agent "
         "review is pending; its verdict comes only from that review",
         evaluated=(
             f"plan execution {pending.execution_id} is {pending.state} "

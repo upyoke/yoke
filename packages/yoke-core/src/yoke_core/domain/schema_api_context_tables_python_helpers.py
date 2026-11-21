@@ -341,10 +341,10 @@ PYTHON_HELPERS_TABLES: dict[str, dict] = {
             "Read live deployment run progress with run_progress(conn, "
             "project_id=..., now=...). Wrong guess: read_deployment_runs "
             "does not exist. Scoped QA reports include no_obligation_lines "
-            "for carried members exempt under their own completion flow, and "
-            "member_lines: one line per waiting item-QA member with its "
-            "blocker count and whether its owner was woken (stage-wait notice "
-            "or QA failure handoff)."
+            "for carried members exempt under their own completion flow, "
+            "member_counts (N open: walking, queued, not started, red) and "
+            "member_lines: per waiting member, its blocker count and its live "
+            "walk (walking, queued with its place) or whether it was woken."
         ),
     },
 }

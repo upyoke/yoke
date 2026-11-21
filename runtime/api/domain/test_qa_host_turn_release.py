@@ -88,8 +88,9 @@ def test_released_reservation_aborts_the_waiting_execution_and_upkeep_wakes_it(
     reservation = active_claim(conn, target)
     assert reservation.session_id == WORKER_SESSION
 
-    # While the walk is open, upkeep skips the member and the report agrees.
-    assert _report(conn)[MEMBER] == f"walking under session {WORKER_SESSION}"
+    # While the walk is queued, upkeep skips the member and the report says
+    # it is queued, not walking.
+    assert _report(conn)[MEMBER] == f"queued for {MACHINE}, 1st for {MACHINE}"
     assert wake_driverless_qa_waits(conn)["sent"] == [
         f"{RUN_ID}:{ITEM_QA_STAGE}:{MEMBERS[1]}"
     ]
@@ -136,4 +137,4 @@ def test_release_keeps_an_execution_still_queued_on_another_host(
     release(conn, active_claim(conn, target).id, "not needed")
 
     assert _execution(conn, execution_id)[0] == "waiting"
-    assert _report(conn)[MEMBER] == f"walking under session {WORKER_SESSION}"
+    assert _report(conn)[MEMBER] == "queued for other-lab, 1st for other-lab"

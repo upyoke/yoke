@@ -9,6 +9,7 @@ each case is.
 
 from __future__ import annotations
 
+import functools
 from typing import Any
 
 from yoke_core.domain.db_helpers import query_rows
@@ -157,6 +158,23 @@ def case_failures(
     if only_non_blocking(every):
         return []
     rows = blocking_cases(every)
+    from yoke_core.domain.deployment_qa_live_executions import (
+        case_next_step,
+        covering_execution,
+    )
+
+    # A live execution of this subject's target (a member's own walk, or the
+    # plan group's driver execution) already owns every case it has not
+    # passed. Asked only once a case is unpassed, and then once.
+    @functools.cache
+    def live():
+        return covering_execution(
+            conn,
+            run_id=run_id,
+            stage_name=stage_name,
+            member_item_id=member_item_id,
+            execution_target_digest=execution_target_digest,
+        )
     if not rows and shared_plan_id is None:
         from yoke_core.domain.deployment_qa_presentation_facts import (
             subject_requirement_rows,
@@ -222,7 +240,11 @@ def case_failures(
         )
         return [
             CaseFailure(
-                0, "", FAILURE_UNRUN, f"{NO_CASES_FAILURE.detail}; run `{command}`"
+                0,
+                "",
+                FAILURE_UNRUN,
+                NO_CASES_FAILURE.detail
+                + case_next_step(conn, verdict="", review=None, live=live(), recipe=command),
             )
         ]
     # The accepted verdict, the execution results behind it, and which runs
@@ -277,19 +299,17 @@ def case_failures(
                     detail=(
                         f"requirement #{row['id']} ({row['plan_case_key']}) latest "
                         f"verdict is {verdict or 'missing'}{replacement_note(row)}"
-                        + (
-                            ""
-                            if int(row["id"]) in reviewing
-                            else f"; run `yoke qa plan run --deployment-run-id {run_id} "
-                            f"--stage {stage_name} --plan {shared_plan_id}`"
-                            if shared_plan_id
-                            else f"; run `yoke qa case run --requirement-id {row['id']}`"
-                        )
-                        + (
-                            "; its capture awaits independent review: "
-                            + reviewing[int(row["id"])].next_action()
-                            if not verdict and int(row["id"]) in reviewing
-                            else ""
+                        + case_next_step(
+                            conn,
+                            verdict=verdict,
+                            review=reviewing.get(int(row["id"])),
+                            live=live(),
+                            recipe=(
+                                f"yoke qa plan run --deployment-run-id {run_id} "
+                                f"--stage {stage_name} --plan {shared_plan_id}"
+                                if shared_plan_id
+                                else f"yoke qa case run --requirement-id {row['id']}"
+                            ),
                         )
                     ),
                 )

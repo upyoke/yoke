@@ -147,6 +147,7 @@ def project_payload(rows: ProjectRows) -> dict[str, Any]:
                 entry.total_blocking,
                 tuple(entry.unresolved),
                 tuple(entry.no_obligation_lines),
+                entry.member_counts,
                 tuple(entry.member_lines),
                 entry.completion.lines,
                 tuple(sorted(red.requirement_id for red in entry.red)),

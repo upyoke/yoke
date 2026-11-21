@@ -106,9 +106,12 @@ class DeploymentRunProgress:
     driver_phase: str = ""
     no_obligation_lines: tuple[str, ...] = ()
     #: One line per waiting item-QA member: how many blockers it holds and
+    #: what its live walk is doing (walking, queued with its place) or
     #: whether its owner was woken. The per-requirement detail stays on
     #: ``yoke deployment-runs stages RUN``.
     member_lines: tuple[str, ...] = ()
+    #: "item QA: 8 open: 2 walking, 5 queued, 1 not started, 0 red".
+    member_counts: str = ""
     completion: CompletionPreview = CompletionPreview()
     #: Open manual-wake requirements of waiting members: the stage driver
     #: woke each owner to check the named evidence before running the case.
