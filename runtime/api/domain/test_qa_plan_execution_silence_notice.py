@@ -11,12 +11,17 @@ from runtime.api.domain.machine_qa_session_seed import seed_qa_session
 from runtime.api.domain.qa_plan_execution_authority_test_support import (
     _materialize_two_cases,
 )
+from yoke_contracts.timestamps import format_instant
 from yoke_core.domain.db_helpers import instant_parameter
+from yoke_core.domain.fleet_delta_snapshot import session_rows
+from yoke_core.domain.fleet_delta_stale_walks import stale_walks
 from yoke_core.domain.qa_plan_execution_lifecycle import reap_stale_plan_executions
+from yoke_core.domain.qa_plan_execution_silence_notice import silent_walks
 from yoke_core.domain.qa_plan_execution_state import (
     begin_plan_execution,
     select_plan_execution,
 )
+from yoke_core.domain.session_activity_state import apply_envelope_state
 
 NOW = datetime(2026, 11, 19, 16, 30, tzinfo=timezone.utc)
 SESSION = "session-silent-walker"
@@ -79,7 +84,7 @@ def test_a_walk_silent_twenty_minutes_mails_its_owner_once(
     assert len(notices) == 1
     body = notices[0]
     assert f"execution {walk}" in body
-    assert "has sent no heartbeat for 20m" in body
+    assert "has sent no heartbeat or owner tool activity for 20m" in body
     assert "aborts it at 2026-11-19T16:40Z" in body
     assert "`yoke qa mission host-command`" in body
     assert "`yoke qa plan abort " in body
@@ -148,8 +153,6 @@ def test_a_walk_silent_past_thirty_minutes_is_still_aborted(
 def test_the_roster_read_serves_each_owner_its_heartbeat_walks(
     test_db: Any, walk: str
 ) -> None:
-    from yoke_core.domain.qa_plan_execution_silence_notice import silent_walks
-
     _silence(test_db, walk, 21, state="walking")
     served = silent_walks(test_db, [SESSION, "someone-else"])
     assert list(served) == [SESSION]
@@ -158,6 +161,65 @@ def test_the_roster_read_serves_each_owner_its_heartbeat_walks(
     assert row["item"] == "YOK-5531"
     assert row["test_machine"] is None
     assert row["heartbeat_at"] is not None
+    assert row["activity_at"] == NOW - timedelta(minutes=21)
     _silence(test_db, walk, 21, state="waiting")
     assert silent_walks(test_db, [SESSION]) == {}
     assert silent_walks(test_db, []) == {}
+
+
+@pytest.mark.parametrize(
+    "executor,tool,agent",
+    [
+        pytest.param("claude-code", "Read", None, id="claude-owner"),
+        pytest.param("claude-code", "Read", "yoke-qa-walker", id="claude-child"),
+        pytest.param("codex", "Bash", None, id="codex-owner-shell"),
+        pytest.param("codex", "Bash", "yoke-qa-walker", id="codex-child-shell"),
+        # Cursor's walker calls are recorded on the parent session.
+        pytest.param("cursor", "Read", None, id="cursor-owner-or-folded-child"),
+    ],
+)
+def test_recent_tool_activity_keeps_a_walk_live_until_the_activity_window_expires(
+    test_db: Any, walk: str, executor: str, tool: str, agent: str | None
+) -> None:
+    test_db.execute(
+        "UPDATE harness_sessions SET executor=%s WHERE session_id=%s",
+        (executor, SESSION),
+    )
+    _silence(test_db, walk, 25, state="walking")
+    envelope = {
+        "session_id": SESSION,
+        "executor": executor,
+        "tool_name": tool,
+        "tool_use_id": "walker-progress",
+        "event_time": format_instant(NOW),
+        "event_outcome": "completed",
+    }
+    if agent is not None:
+        envelope["agent"] = agent
+    for event in ("HarnessToolCallStarted", "HarnessToolCallCompleted"):
+        apply_envelope_state(test_db, {**envelope, "event_name": event})
+    test_db.commit()
+
+    def alarm_age(now: datetime) -> list[int]:
+        walks = silent_walks(test_db, [SESSION])[SESSION]
+        owner = session_rows({
+            "rows": [{"session_id": SESSION, "silent_walks": walks}]
+        })[SESSION]
+        return [minutes for _, minutes in stale_walks(owner, now)]
+
+    assert reap_stale_plan_executions(test_db, now=NOW) == []
+    assert _notices(test_db, walk) == []
+    after_old_deadline = NOW + timedelta(minutes=6)
+    assert reap_stale_plan_executions(test_db, now=after_old_deadline) == []
+    assert alarm_age(after_old_deadline) == []
+
+    warning_time = NOW + timedelta(minutes=20)
+    assert reap_stale_plan_executions(test_db, now=warning_time) == []
+    (notice,) = _notices(test_db, walk)
+    assert "no heartbeat or owner tool activity for 20m" in notice
+    assert "aborts it at 2026-11-19T17:00Z" in notice
+    assert alarm_age(warning_time) == [20]
+
+    reaped = reap_stale_plan_executions(test_db, now=NOW + timedelta(minutes=30))
+    assert [entry["execution_id"] for entry in reaped] == [walk]
+    assert _state(test_db, walk) == "aborted"

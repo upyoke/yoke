@@ -1,16 +1,9 @@
 """Warn a walk's owner before the stale sweep aborts its silent walk.
 
-``reap_stale_plan_executions`` aborts an ``active`` or ``walking`` execution
-once its heartbeat is :data:`PLAN_EXECUTION_STALE_SECONDS` old, unless its
-live owner is parked. Before that, on the same sweep and from the same rows,
-the owner gets one Fleet message once the walk has been silent for
-:data:`SILENT_WALK_WARN_SECONDS`. The message names the walk, its Test
-Machine, the abort time and the fix: a ``yoke qa mission host-command``
-heartbeats the walk, and a walk that no longer needs its host releases it.
-
-The idempotency key carries the heartbeat it warns about: a repeat sweep
-does not resend, and a walk that heartbeats and then goes silent again is
-warned again. The sweep itself is unchanged.
+The sweep, owner notice and fleet alarm use the latest execution heartbeat
+or tool call by the owner or its subagents. The live, unparked owner gets
+one Fleet message at the warning threshold. Its idempotency key carries
+the activity timestamp so a walk that resumes and goes quiet warns again.
 """
 
 from __future__ import annotations
@@ -18,12 +11,14 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Any, Iterable, Mapping
 
-from yoke_contracts.timestamps import as_utc, format_instant, parse_instant, utc_now
+from yoke_contracts.timestamps import as_utc, format_instant, utc_now
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.qa_plan_execution_authority import (
     HELD_PLAN_EXECUTION_STATES,
     PLAN_EXECUTION_STALE_SECONDS,
     owning_session_is_parked,
+    walk_activity_rows,
+    walk_silent_seconds,
 )
 from yoke_core.domain.qa_plan_execution_store import marker
 
@@ -39,7 +34,7 @@ def walk_rows(
     states: Iterable[str],
     session_ids: Iterable[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Live executions with their owner, item, Test Machine and heartbeat.
+    """Live executions with their owner, item, Test Machine and activity.
 
     One read serves the sweep (every live state, all owners) and the roster
     (heartbeat states, one page of owners). The Test Machine is the one the
@@ -68,19 +63,7 @@ def walk_rows(
         f"WHERE {where} ORDER BY e.created_at, e.id",
         tuple(params),
     )
-    return [
-        {
-            "id": str(row["id"]),
-            "heartbeat_at": row["heartbeat_at"],
-            "session_id": row["session_id"],
-            "state": row["state"],
-            "actor_id": row["actor_id"],
-            "item_id": row["item_id"],
-            "test_machine_lease_id": row["test_machine_lease_id"],
-            "test_machine": row["test_machine"],
-        }
-        for row in rows
-    ]
+    return walk_activity_rows(conn, [{**row, "id": str(row["id"])} for row in rows])
 
 
 def silent_walks(conn: Any, session_ids: Iterable[str]) -> dict[str, list[dict[str, Any]]]:
@@ -106,16 +89,10 @@ def silent_walks(conn: Any, session_ids: Iterable[str]) -> dict[str, list[dict[s
                 "item": refs(row["item_id"]) if row["item_id"] is not None else None,
                 "test_machine": row["test_machine"],
                 "heartbeat_at": row["heartbeat_at"],
+                "activity_at": row["activity_at"],
             }
         )
     return walks
-
-
-def silent_seconds(heartbeat_at: Any, now: datetime) -> float | None:
-    """Seconds since *heartbeat_at*, or ``None`` when no heartbeat exists."""
-    if heartbeat_at is None:
-        return None
-    return (as_utc(now) - parse_instant(heartbeat_at)).total_seconds()
 
 
 def _owner_ended(conn: Any, session_id: str) -> bool:
@@ -145,7 +122,7 @@ def _notice_body(conn: Any, walk: Mapping[str, Any], silent: float) -> str:
         if walk.get("test_machine")
         else "no Test Machine yet"
     )
-    abort_at = as_utc(parse_instant(walk["heartbeat_at"])) + timedelta(
+    abort_at = walk["activity_at"] + timedelta(
         seconds=PLAN_EXECUTION_STALE_SECONDS
     )
     execution = select_plan_execution(conn, str(walk["id"]), lock=False)
@@ -157,7 +134,7 @@ def _notice_body(conn: Any, walk: Mapping[str, Any], silent: float) -> str:
     )
     return (
         f"QA walk silent: execution {walk['id']} for {item} ({host}) has sent "
-        f"no heartbeat for {int(silent // 60)}m. The stale sweep aborts it at "
+        f"no heartbeat or owner tool activity for {int(silent // 60)}m. The stale sweep aborts it at "
         f"{abort_at:%Y-%m-%dT%H:%M}Z and the next waiter takes and resets the "
         "host. If the walk is still working, run its next step through "
         "`yoke qa mission host-command`, which heartbeats it." + cancel
@@ -173,7 +150,7 @@ def warn_silent_walk(
     """Mail the owner of a silent, unshielded walk once per silence.
 
     Returns the message id, or ``None`` when this walk needs no notice: it is
-    held, has heartbeat recently, is past the abort line (the sweep owns it),
+    held, has recent activity, is past the abort line (the sweep owns it),
     or its owner is parked or ended. Commits the message so a later
     candidate's rollback in the same sweep cannot drop it.
     """
@@ -183,9 +160,9 @@ def warn_silent_walk(
     if walk.get("state") in HELD_PLAN_EXECUTION_STATES:
         return None
     observed = as_utc(now) if now is not None else utc_now()
-    silent = silent_seconds(walk.get("heartbeat_at"), observed)
+    silent = walk_silent_seconds(walk["activity_at"], observed)
     if silent is None or not (
-        SILENT_WALK_WARN_SECONDS <= silent <= PLAN_EXECUTION_STALE_SECONDS
+        SILENT_WALK_WARN_SECONDS <= silent < PLAN_EXECUTION_STALE_SECONDS
     ):
         return None
     session_id = str(walk.get("session_id") or "")
@@ -204,7 +181,7 @@ def warn_silent_walk(
         body=_notice_body(conn, walk, silent),
         idempotency_key=(
             f"qa-walk-silent:{walk['id']}:"
-            f"{format_instant(parse_instant(walk['heartbeat_at']))}"
+            f"{format_instant(walk['activity_at'])}"
         ),
         idempotency_intent_only=True,
         commit=False,
@@ -216,7 +193,6 @@ def warn_silent_walk(
 __all__ = [
     "HEARTBEAT_WALK_STATES",
     "SILENT_WALK_WARN_SECONDS",
-    "silent_seconds",
     "silent_walks",
     "walk_rows",
     "warn_silent_walk",

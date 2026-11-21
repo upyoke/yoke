@@ -266,8 +266,8 @@ docket holding only setup and restore receipts is not product proof.
 
 An `active` or `walking` execution whose owner has
 stopped reporting progress is reaped into `aborted` with `release_reason`
-`stale-heartbeat` after 30 minutes without a heartbeat — unless its owning
-session is live and parked, which is a declared hold rather than an absence
+`stale-heartbeat` after 30 minutes without a walk heartbeat or tool call by
+the owner or its subagents. A live, parked owner keeps its walk on hold
 (see *Holding a Walk, and Continuing a Settled One*, which also covers
 `waiting` and `awaiting_walk_review` walks, freed only by their owner's end). Reaping is
 deliberately blind to row vintage: a stranded execution written before

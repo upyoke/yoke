@@ -24,7 +24,7 @@ def _walk(silent_minutes: int) -> WalkRow:
         execution_id="exec-1f35f350",
         item="YOK-5475",
         test_machine="test-mac-studio",
-        heartbeat_at=NOW - timedelta(minutes=silent_minutes),
+        activity_at=NOW - timedelta(minutes=silent_minutes),
     )
 
 
@@ -119,7 +119,7 @@ def test_the_roster_field_becomes_walk_rows_and_its_absence_is_none() -> None:
             execution_id="exec-1f35f350",
             item="YOK-5475",
             test_machine="test-mac-studio",
-            heartbeat_at=datetime(2026, 11, 19, 15, 46, tzinfo=timezone.utc),
+            activity_at=datetime(2026, 11, 19, 15, 46, tzinfo=timezone.utc),
         ),
     )
     assert session_rows({"rows": [{"session_id": OWNER}]})[OWNER].walks == ()
