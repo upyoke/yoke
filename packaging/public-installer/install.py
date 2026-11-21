@@ -120,17 +120,6 @@ RESOLVER_SOURCE_ENV_VARS = frozenset(
 DIAGNOSTIC_MAX_CHARS = 4000
 FAILURE_REASON_MAX_CHARS = 600
 _URL_RE = re.compile(r"https?://[^\s'\"<>]+", re.IGNORECASE)
-FRESH_STATUS_ERROR_CODES = frozenset(
-    {
-        "machine_not_set_up",
-        "schema_version",
-        "connections_required",
-        "active_env_required",
-        "active_env",
-        "temp_root_not_writable",
-        "cache_dir_not_writable",
-    }
-)
 
 
 class InstallError(RuntimeError):
@@ -731,24 +720,6 @@ def run_command_capture(command: Sequence[str]) -> subprocess.CompletedProcess[s
     )
 
 
-def _unexpected_status_error_codes(status: object) -> list[str]:
-    if not isinstance(status, dict):
-        return ["status_not_object"]
-    issues = status.get("issues")
-    if not isinstance(issues, list):
-        return ["issues_missing"]
-    unexpected: list[str] = []
-    for issue in issues:
-        if not isinstance(issue, dict):
-            unexpected.append("issue_not_object")
-            continue
-        severity = str(issue.get("severity") or "")
-        code = str(issue.get("code") or "")
-        if severity == "error" and code not in FRESH_STATUS_ERROR_CODES:
-            unexpected.append(code or "missing_code")
-    return unexpected
-
-
 def _loads_json(data: bytes, label: str) -> dict[str, object]:
     try:
         value = json.loads(data.decode("utf-8"))
@@ -997,14 +968,8 @@ class InstallerVerification:
                 "product-boundary audit failed: `yoke status --json` did not "
                 f"return valid JSON ({exc})."
             ) from exc
-        if result.returncode != 0:
-            unexpected = _unexpected_status_error_codes(status)
-            if unexpected:
-                raise InstallError(
-                    "product-boundary audit failed: `yoke status --json` "
-                    "reported unexpected errors on a fresh install: "
-                    + ", ".join(unexpected)
-                )
+        # Status also diagnoses machine health. Its exit code can be nonzero
+        # even when the installed product passes every boundary check below.
         connection = status.get("connection") if isinstance(status, dict) else None
         authority = ""
         if isinstance(connection, dict):

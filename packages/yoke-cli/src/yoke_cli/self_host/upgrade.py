@@ -214,17 +214,18 @@ def _install_cli(plan: UpgradePlan, installer: bytes) -> None:
             plan.target, installer, timeout=INSTALL_TIMEOUT_SECONDS
         )
     except distribution_target.ReleaseTargetError as exc:
-        raise SelfHostUpgradeError(
-            "cli-install",
-            "The CLI installer could not complete; the bundle pin was not changed.",
-            (_diagnostic(str(exc)), _retry_command(plan)),
-        ) from exc
-    if completed.returncode != 0:
-        raise SelfHostUpgradeError(
-            "cli-install",
-            "The CLI installer failed; the bundle pin was not changed.",
-            (_completed_diagnostic(completed), _retry_command(plan)),
-        )
+        diagnostic = _diagnostic(str(exc))
+    else:
+        if completed.returncode == 0:
+            return
+        diagnostic = _completed_diagnostic(completed)
+    version = release_target.installed_cli_version() or "unknown"
+    raise SelfHostUpgradeError(
+        "cli-install",
+        f"The CLI installer failed. Installed CLI version: {version}. "
+        f"The bundle pin remains {plan.previous_image} and the server was left untouched.",
+        (diagnostic, _retry_command(plan)),
+    )
 
 
 def _replace_server_image(plan: UpgradePlan) -> None:

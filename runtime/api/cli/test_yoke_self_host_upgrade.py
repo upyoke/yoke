@@ -206,23 +206,28 @@ def test_upgrade_moves_cli_pin_pull_and_restart_as_one_ordered_pair(
 def test_installer_failure_preserves_old_pin_and_skips_compose(
     initialized_bundle, selected_release, monkeypatch
 ):
-    calls = []
-    monkeypatch.setattr(
-        upgrade.release_target, "fetch_installer", lambda _target: b"ok"
-    )
+    monkeypatch.setattr(release_target, "fetch_installer", lambda _target: b"ok")
+    monkeypatch.setattr(release_target, "tool_bin_dir", lambda: str(initialized_bundle))
 
-    def fail_install(command, **_kwargs):
-        calls.append(tuple(command))
-        return _completed(command, returncode=7, stderr="resolver unavailable")
+    def fail_after_activation(*_args, **_kwargs):
+        launcher = initialized_bundle / "yoke"
+        launcher.write_text(f"#!/bin/sh\nprintf '%s\\n' {selected_release.version}\n")
+        launcher.chmod(0o700)
+        return _completed([], returncode=7, stderr="installer failed after activation")
 
-    monkeypatch.setattr(release_target, "_RUN", fail_install)
+    monkeypatch.setattr(release_target, "run_installer", fail_after_activation)
+    monkeypatch.setattr(upgrade, "_RUN", lambda *_a, **_kw: pytest.fail("Compose called"))
+    plan = _plan(initialized_bundle, selected_release)
     with pytest.raises(upgrade.SelfHostUpgradeError) as raised:
-        upgrade.execute_upgrade(_plan(initialized_bundle, selected_release))
+        upgrade.execute_upgrade(plan)
 
     assert raised.value.code == "cli-install"
-    assert len(calls) == 1
-    env_text = (initialized_bundle / ".env").read_text(encoding="utf-8")
-    assert "YOKE_SERVER_IMAGE=ghcr.io/upyoke/yoke-server:111111111111" in env_text
+    assert f"Installed CLI version: {selected_release.version}" in str(raised.value)
+    assert f"The bundle pin remains {plan.previous_image}" in str(raised.value)
+    assert upgrade._read_server_image(initialized_bundle / ".env") == plan.previous_image
+    assert raised.value.detail_lines[-1] == (
+        f"Retry: yoke self-host upgrade --dir {initialized_bundle} --channel stable --yes"
+    )
 
 
 @pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
