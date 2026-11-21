@@ -29,16 +29,23 @@ from yoke_core.domain.lint_lane_main_write_messages import (
 )
 from yoke_core.domain.lint_lane_main_write_lanes import matching_claim_for_main_target
 from yoke_core.domain.lint_shell_path_use import analyze_shell_path_use, git_state_change
+from yoke_core.domain.lint_session_cwd_git_read_forms import git_subcommand_index
 from yoke_core.domain.lint_session_cwd_home import expand_machine_home
 from yoke_core.domain.lint_session_cwd_path_authority import (
     repo_root_from_worktree_path,
 )
 from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 from yoke_core.domain.lint_session_cwd_target_extract import (
+    _split_redirect_targets,
     analyze_payload_write_targets,
     extract_payload_command,
     payload_has_embedded_python_write,
 )
+from yoke_core.domain.lint_session_cwd_target_extract_shell import (
+    STDOUT_REPORTERS,
+    without_heredoc_operators,
+)
+from yoke_core.domain.lint_shell_target_tokens import resolve_path_operands, segment_variable_bindings
 from yoke_core.domain.path_claim_bash_parser import split_git_global_options
 from yoke_core.domain.session_claimed_worktrees import ClaimedWorktree
 
@@ -242,28 +249,38 @@ def collect_main_write_targets(
         segment_cwds=segment_cwds,
     )
     targets: list[tuple[str, str, str]] = []
+    unreadable = bool(analysis.unresolved_writes)
     if shell is not None:
+        bindings = segment_variable_bindings([segment.text for segment in shell.segments])
         for index, segment in enumerate(shell.segments):
+            if analysis.unresolved_variable and segment.program in STDOUT_REPORTERS | {"echo"}:
+                # A direct output command declares its write through the
+                # redirect. Capturing another tool's output does not locate
+                # that tool's writes in the checkout.
+                _, redirects = _split_redirect_targets(without_heredoc_operators(segment.tokens))
+                _, unresolved_redirect = resolve_path_operands(redirects, bindings[index])
+                unreadable = unreadable or unresolved_redirect
+
             argv = list(segment.argv)
             subcommand = git_state_change(argv)
             if not subcommand:
                 continue
+            options, unresolved_options = resolve_path_operands(
+                argv[1:git_subcommand_index(argv)], bindings[index]
+            )
+            if unresolved_options:
+                continue
             segment_cwd = segment_cwds[index] if index < len(segment_cwds) else ""
             cwd = segment_cwd or fallback_cwd
-            git_cwd, _ = split_git_global_options(argv[1:], cwd, shell=shell.shell)
-            if git_cwd or cwd:
-                targets.append((git_cwd or cwd, git_cwd or cwd, subcommand))
+            git_cwd, _ = split_git_global_options(options, cwd, shell=shell.shell)
+            git_cwd = git_cwd or cwd
+            if git_cwd:
+                targets.append((git_cwd, git_cwd, subcommand))
     targets.extend((raw, fallback_cwd, "") for raw in analysis.targets)
 
     fell_back_to_cwd = not targets and shell is not None and bool(fallback_cwd.strip())
-    unreadable = bool(analysis.unresolved_writes)
-    if fell_back_to_cwd:
-        if analysis.unresolved_variable:
-            # Free writes may also set unresolved_variable. Fall back only
-            # when there is a genuinely unresolved shell destination.
-            unreadable = unreadable or analyze_shell_path_use(shell).unresolved_writes
-        if not analysis.unresolved_variable or unreadable:
-            targets.append((fallback_cwd, fallback_cwd, ""))
+    if fell_back_to_cwd and (not analysis.unresolved_variable or unreadable):
+        targets.append((fallback_cwd, fallback_cwd, ""))
 
     hits: list[derivation.MainWriteHit] = []
     seen: set[str] = set()
