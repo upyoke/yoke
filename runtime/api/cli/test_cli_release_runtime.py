@@ -68,7 +68,10 @@ def test_current_release_command_does_not_need_the_publication_lock(
         raise PermissionError(f"sandbox denied {path.name}")
 
     monkeypatch.setattr(runtime, "locked", refuse_lock)
-    command = "import sys; print('HARNESS_POSTURE_RESTRICTED', file=sys.stderr); sys.exit(1)"
+    command = (
+        "import sys; sys.stderr.buffer.write(b'HARNESS_POSTURE_RESTRICTED\\n'); "
+        "sys.exit(1)"
+    )
     assert runtime.launch(root, ["--python", "-c", command]) == 1
     captured = capfd.readouterr()
     assert captured.out == ""
