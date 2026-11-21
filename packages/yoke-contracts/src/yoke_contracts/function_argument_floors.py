@@ -67,6 +67,13 @@ _TEST_MACHINE_FLOOR = ArgumentFloor(
     "release that server runs",
 )
 
+#: ``--item PREFIX-N --stage S --deployment-run-id RUN`` names the item's run.
+_ITEM_RUN_FLOOR = ArgumentFloor(
+    "next-release",
+    "`--item PREFIX-N --stage S` without --deployment-run-id, after confirming "
+    "with `yoke deployment-runs get RUN` that only that run is executing S for the item",
+)
+
 #: function_id -> {argument: floor}, for arguments added to an already-served
 #: function. Older request models may reject unknown arguments or silently
 #: ignore them. Payload refusals name this floor; adapters whose writes can be
@@ -152,7 +159,14 @@ FUNCTION_ARGUMENT_MINIMUM_SERVING_VERSIONS: dict[str, dict[str, ArgumentFloor]] 
         )
     },
     **{
-        function_id: {"test_machine": _TEST_MACHINE_FLOOR}
+        function_id: {
+            "test_machine": _TEST_MACHINE_FLOOR,
+            **(
+                {"deployment_run_id": _ITEM_RUN_FLOOR}
+                if function_id == "qa.plan_execution.begin"
+                else {}
+            ),
+        }
         for function_id in TEST_MACHINE_ARGUMENT_FUNCTIONS
     },
     "test_machine.lease_acquire": {
@@ -161,19 +175,8 @@ FUNCTION_ARGUMENT_MINIMUM_SERVING_VERSIONS: dict[str, dict[str, ArgumentFloor]] 
         ),
     },
     **{
-        function_id: {
-            "deployment_run_id": ArgumentFloor(
-                "next-release",
-                "`--item PREFIX-N --stage S` without --deployment-run-id, after "
-                "confirming with `yoke deployment-runs get RUN` that only that run "
-                "is executing S for the item",
-            ),
-        }
-        for function_id in (
-            "qa.plan.materialize",
-            "qa.plan.rematerialize",
-            "qa.plan_execution.begin",
-        )
+        function_id: {"deployment_run_id": _ITEM_RUN_FLOOR}
+        for function_id in ("qa.plan.materialize", "qa.plan.rematerialize")
     },
     "session_control.launch.preview": {
         "level": ArgumentFloor(

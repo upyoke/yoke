@@ -19,6 +19,7 @@ class MaterializeRequest(BaseModel):
     project: Optional[str] = Field(default=None, min_length=1)
     deployment_stage: Optional[str] = Field(default=None, min_length=1)
     deployment_member: Optional[str] = Field(default=None, min_length=1)
+    deployment_run_id: Optional[str] = Field(default=None, min_length=1)
     replacements: list["ReplacementDeclaration"] = Field(default_factory=list)
 
 
@@ -36,6 +37,7 @@ class RematerializeRequest(BaseModel):
     transition_id: str | None = None
     deployment_stage: str | None = None
     deployment_member: str | None = None
+    deployment_run_id: str | None = None
     plan: str | None = None
 
 
