@@ -9,7 +9,6 @@ from runtime.api.domain.rdp_desktop_view_test_support import (
     PASSWORD,
     SETTINGS,
     RECEIPT,
-    geometry,
 )
 from yoke_harness import rdp_desktop_client as viewer
 from yoke_harness.desktop_access import DesktopAccessError
@@ -31,7 +30,7 @@ def test_missing_executable_teaches_install(monkeypatch):
     with pytest.raises(
         DesktopAccessError, match="desktop_rdp_client_missing:.*Install FreeRDP"
     ):
-        viewer.view_desktop("project", "lab", SETTINGS, PASSWORD, RECEIPT, geometry)
+        viewer.view_desktop("project", "lab", SETTINGS, PASSWORD, RECEIPT)
 
 
 @pytest.mark.parametrize(
@@ -51,7 +50,7 @@ def test_present_client_failure_names_log_reason(
     process.stdin.close = lambda: None
     monkeypatch.setattr(viewer.subprocess, "Popen", lambda *a, **kw: process)
     with pytest.raises(DesktopAccessError) as refused:
-        viewer.view_desktop("project", "lab", SETTINGS, PASSWORD, RECEIPT, geometry)
+        viewer.view_desktop("project", "lab", SETTINGS, PASSWORD, RECEIPT)
     message = str(refused.value)
     assert reason in message and recovery in message and "retained log:" in message
     assert "Install FreeRDP" not in message and PASSWORD not in message
@@ -74,7 +73,7 @@ def test_launch_error_distinguishes_missing_from_permissions(
     with pytest.raises(
         DesktopAccessError, match=reason + ":.*retained log:"
     ) as refused:
-        viewer.view_desktop("project", "lab", SETTINGS, PASSWORD, RECEIPT, geometry)
+        viewer.view_desktop("project", "lab", SETTINGS, PASSWORD, RECEIPT)
     assert ("Install FreeRDP" in str(refused.value)) == isinstance(
         error, FileNotFoundError
     )
@@ -102,5 +101,4 @@ def test_direct_route_pins_the_certificate_first_seen(client_route, monkeypatch)
         {**SETTINGS, "desktop_route": "direct"},
         PASSWORD,
         RECEIPT,
-        geometry,
-    )
+        )

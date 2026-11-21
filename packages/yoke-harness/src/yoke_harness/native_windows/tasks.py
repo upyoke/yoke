@@ -5,6 +5,7 @@ The native Scheduler service enforces each task's existing security descriptor.
 """
 
 from yoke_contracts.machine_qa_failures import HostControlLocalError
+from yoke_harness.native_windows.display_geometry import CONSOLE_DISPLAY_TASK
 from yoke_harness.native_windows.transport import quote
 
 
@@ -42,7 +43,7 @@ function Remove-YokeTask($path) {
 }
 function Get-YokeOwnedTasks($folder) {
  foreach($task in $folder.GetTasks(1)) {
-  if(Test-YokeTaskOwner $task){$task}
+  if($task.Path -ne '\CONSOLE_DISPLAY_TASK' -and (Test-YokeTaskOwner $task)){$task}
  }
  foreach($child in $folder.GetFolders(0)){Get-YokeOwnedTasks $child}
 }
@@ -89,7 +90,7 @@ function Restore-YokeTask($row) {
  $folder=Get-YokeTaskFolder $row.path
  $folder.RegisterTaskDefinition($row.name,$definition,38,$taskIdentity.User.Value,$null,$definition.Principal.LogonType,$null) | Out-Null
 }
-"""
+""".replace("CONSOLE_DISPLAY_TASK", CONSOLE_DISPLAY_TASK)
 
 
 def start_fixed_task(name):

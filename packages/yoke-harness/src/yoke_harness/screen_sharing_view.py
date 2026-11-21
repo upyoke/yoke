@@ -12,7 +12,9 @@ import sys
 import threading
 from urllib.parse import quote
 
-from yoke_harness.desktop_access import DesktopAccessError
+from yoke_contracts.machine_config.capability_secret_store import test_machine_secret_path
+from yoke_harness.desktop_access import DesktopAccessError, _desktop_runner
+from yoke_harness.mac_desktop_geometry import ensure_mac_desktop
 from yoke_harness.desktop_forward import desktop_forward
 
 CLIPBOARD_SECONDS = 60
@@ -35,13 +37,14 @@ def _copy(text: str) -> None:
 class ScreenSharingView:
     """One Screen Sharing launch. Close clears the clipboard and any SSH forward."""
 
-    def __init__(self, stack, password, address, user):
+    def __init__(self, stack, password, address, user, resolution):
         self._stack = stack
         self._password = password
         self._lock = threading.Lock()
         self._clipboard_owned = True
         self.address = address
         self.user = user
+        self.resolution = resolution
         self._timer = threading.Timer(CLIPBOARD_SECONDS, self._expire)
         self._timer.daemon = True
 
@@ -54,12 +57,19 @@ class ScreenSharingView:
                 "client to the printed address as the printed user, with the password "
                 "in password_file"
             )
+        key_path = test_machine_secret_path(test_machine, "ssh_private_key")
+        if not key_path.is_file():
+            raise DesktopAccessError(
+                "desktop_ssh_key_missing: import the SSH key with yoke test-machine secret set "
+                f"--test-machine {test_machine} --key ssh_private_key --value-file FILE"
+            )
+        resolution = ensure_mac_desktop(_desktop_runner(settings, key_path))
         stack = ExitStack()
         try:
             host, port, user = stack.enter_context(desktop_forward(project, settings))
             authority = f"[{host}]" if ":" in host else host
             address = f"vnc://{quote(user, safe='')}@{authority}:{port}"
-            view = cls(stack, password, address, user)
+            view = cls(stack, password, address, user, resolution)
             try:
                 _copy(password)
             except (OSError, subprocess.SubprocessError):
@@ -82,7 +92,7 @@ class ScreenSharingView:
                 )
             view._timer.start()
             print(
-                f"Screen Sharing is opening {address} for test machine {test_machine}. "
+                f"Screen Sharing is opening {address} at {resolution} for test machine {test_machine}. "
                 f"Paste the desktop password from the clipboard at its prompt; Yoke "
                 f"clears it in {CLIPBOARD_SECONDS} seconds. Clipboard-history apps "
                 "may keep a copy.",
@@ -150,4 +160,7 @@ def view_screen_sharing(project, test_machine, settings, password):
             pass
     finally:
         view.close()
-    return {"address": view.address, "user": view.user, "viewer": "closed"}
+    return {
+        "address": view.address, "user": view.user,
+        "viewer": "closed", "resolution": view.resolution,
+    }

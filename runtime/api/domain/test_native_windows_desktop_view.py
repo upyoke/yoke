@@ -100,14 +100,15 @@ def test_direct_route_pins_the_certificate_and_feeds_the_password_on_stdin(launc
     assert f"/cert:fingerprint:sha256:{FINGERPRINT}" in argv
     assert "/cert:ignore" not in argv
     assert "/d:winnative" in argv and "/u:yokeqa" in argv and "/d:" not in argv
-    assert "/from-stdin:force" in argv and "/dynamic-resolution" in argv
-    assert not any(arg.startswith(("/size:", "/smart-sizing:", "/bpp:")) for arg in argv)
+    assert "/from-stdin:force" in argv and "/f" in argv
+    assert "/size:1920x1080" in argv and "/smart-sizing:1920x1080" in argv
+    assert not any(arg.startswith(("/dynamic-resolution", "/bpp:")) for arg in argv)
     assert launched["stdin"] == PASSWORD + "\n"
     assert PASSWORD not in repr(argv) + repr(launched["kw"]) + json.dumps(result)
     assert launched["forward"] == ["open", "close"]
     assert result == {
         "user": "winnative\\yokeqa",
-        "desktop_session": "native",
+        "desktop_session": "native", "resolution": "1920x1080",
         "certificate_sha256": FINGERPRINT,
         "viewer": "closed",
         "client_exit_code": 0,
@@ -133,7 +134,7 @@ def test_begin_view_opens_the_native_viewer_until_close(launched):
         project="yoke", test_machine="windows-native-lab", settings=SETTINGS
     )
     assert launched["forward"] == ["open"]
-    assert opened.session == {"desktop_session": "native", "certificate_sha256": FINGERPRINT}
+    assert opened.session == {"desktop_session": "native", "resolution": "1920x1080", "certificate_sha256": FINGERPRINT}
     opened.close()
     Path(opened.log_path).unlink()
     assert launched["forward"] == ["open", "close"]

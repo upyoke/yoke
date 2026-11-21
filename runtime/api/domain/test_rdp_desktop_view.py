@@ -5,7 +5,6 @@ from runtime.api.domain.rdp_desktop_view_test_support import (
     PASSWORD as PASSWORD,
     RECEIPT as RECEIPT,
     SETTINGS as SETTINGS,
-    geometry as geometry,
 )
 
 
@@ -51,8 +50,8 @@ def test_view_uses_actual_geometry_stdin_and_always_closes_forward(
         assert PASSWORD not in repr(argv) + repr(kw)
         assert "/from-stdin:force" in argv
         assert "/cert:ignore" in argv and "/cert:tofu" not in argv
-        assert "/smart-sizing:1280x1024" in argv and "/bpp:24" in argv
-        assert ("/size:2000x1600" if platform == "darwin" else "/size:1000x800") in argv
+        assert "/smart-sizing:1920x1080" in argv and "/bpp:24" in argv
+        assert "/f" in argv
         assert not any("dynamic-resolution" in arg for arg in argv)
         assert "/u:fixture" in argv and "/v:127.0.0.1:5555" in argv
         assert "SDL_VIDEODRIVER" not in kw["env"]
@@ -64,7 +63,7 @@ def test_view_uses_actual_geometry_stdin_and_always_closes_forward(
     monkeypatch.setattr(viewer, "desktop_forward", forward)
     monkeypatch.setattr(viewer.subprocess, "Popen", popen)
     result = viewer.view_desktop(
-        "project", "lab", SETTINGS, PASSWORD, RECEIPT, geometry
+        "project", "lab", SETTINGS, PASSWORD, RECEIPT
     )
     log_path = Path(result.pop("log_path"))
     assert is_owner_private_file(log_path)
@@ -73,6 +72,7 @@ def test_view_uses_actual_geometry_stdin_and_always_closes_forward(
         "user": "fixture",
         "desktop_session": "reused",
         "display": ":10.0",
+        "resolution": "1920x1080",
         "viewer": "closed",
         "client_exit_code": 0,
     }
@@ -127,10 +127,10 @@ def test_mac_renderer_and_evidence_bound_local_quit(
             desktop_access.DesktopAccessError,
             match="desktop_view_failed:.*retained log:",
         ):
-            viewer.view_desktop("project", "lab", SETTINGS, PASSWORD, RECEIPT, geometry)
+            viewer.view_desktop("project", "lab", SETTINGS, PASSWORD, RECEIPT)
     else:
         result = viewer.view_desktop(
-            "project", "lab", SETTINGS, PASSWORD, RECEIPT, geometry
+            "project", "lab", SETTINGS, PASSWORD, RECEIPT
         )
         assert result["client_exit_code"] == code
 
@@ -168,33 +168,7 @@ def test_log_creation_failure_refuses_before_client(monkeypatch):
     with pytest.raises(
         desktop_access.DesktopAccessError, match="desktop_view_log_unavailable:"
     ):
-        viewer.view_desktop("project", "lab", SETTINGS, PASSWORD, RECEIPT, geometry)
-
-
-@pytest.mark.parametrize(
-    "output",
-    [
-        "",
-        "Width: 0\nHeight: 1024\nDepth: 24\n",
-        "Width: 1280\nHeight: 1024\nDepth: 8\n",
-    ],
-)
-def test_geometry_refusal_happens_before_connect(monkeypatch, output):
-    monkeypatch.setattr(viewer.shutil, "which", lambda name: "/tools/sdl-freerdp")
-    monkeypatch.setattr(
-        viewer, "desktop_forward", lambda *a: pytest.fail("invalid geometry connects")
-    )
-    with pytest.raises(
-        desktop_access.DesktopAccessError, match="desktop_view_geometry"
-    ):
-        viewer.view_desktop(
-            "project",
-            "lab",
-            SETTINGS,
-            PASSWORD,
-            RECEIPT,
-            lambda *a, **kw: subprocess.CompletedProcess([], 0, output, ""),
-        )
+        viewer.view_desktop("project", "lab", SETTINGS, PASSWORD, RECEIPT)
 
 
 def test_missing_client_refuses_before_host_or_forward(monkeypatch):
@@ -208,7 +182,6 @@ def test_missing_client_refuses_before_host_or_forward(monkeypatch):
             SETTINGS,
             PASSWORD,
             RECEIPT,
-            lambda *a, **kw: pytest.fail("host called"),
         )
 
 
@@ -240,7 +213,7 @@ def test_prepare_uses_registered_xfce_user_port_and_wsl_stdin_frame(
         return subprocess.CompletedProcess(argv, 0, json.dumps(RECEIPT), "")
 
     monkeypatch.setattr(desktop_access.subprocess, "run", run)
-    receipt, _ = desktop_access._prepare_desktop(settings, tmp_path / "key", PASSWORD)
+    receipt = desktop_access._prepare_desktop(settings, tmp_path / "key", PASSWORD)
     assert receipt == RECEIPT
     assert len(calls) == 2
     if os_name == "linux":
@@ -273,7 +246,7 @@ def test_view_path_does_not_materialize_password_file(tmp_path, monkeypatch):
         "lab", "desktop_password", PASSWORD
     )
     monkeypatch.setattr(
-        desktop_access, "_prepare_desktop", lambda *a: (RECEIPT, geometry)
+        desktop_access, "_prepare_desktop", lambda *a: RECEIPT
     )
     monkeypatch.setattr(
         desktop_access.tempfile,

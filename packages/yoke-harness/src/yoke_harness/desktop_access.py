@@ -78,15 +78,7 @@ def _read_prefix(connection: socket.socket) -> bytes:
     return prefix
 
 
-def _prepare_desktop(settings, key_path, password):
-    """Use the same framed WSL transport and XFCE helper as GUI operations.
-
-    Native Windows never comes here: it owns its RDP listener and autologon
-    session, and its viewer connects to that listener directly.
-    """
-    from types import SimpleNamespace
-
-    from yoke_harness.linux_desktop_session import ensure_desktop
+def _desktop_runner(settings, key_path):
     from yoke_contracts.windows_wsl_command import (
         windows_wsl_command,
         windows_wsl_input,
@@ -115,6 +107,16 @@ def _prepare_desktop(settings, key_path, password):
                 "desktop_transport_unavailable: check the registered SSH/WSL endpoint and retry"
             ) from None
 
+    return run
+
+
+def _prepare_desktop(settings, key_path, password):
+    """Use the same framed WSL transport and XFCE helper as GUI operations."""
+    from types import SimpleNamespace
+
+    from yoke_harness.linux_desktop_session import ensure_desktop
+
+    run = _desktop_runner(settings, key_path)
     user = run("id -un", timeout=20)
     if user.returncode:
         detail = (user.stderr or "SSH command failed").strip()
@@ -139,7 +141,7 @@ def _prepare_desktop(settings, key_path, password):
         )
     except RuntimeError as exc:
         raise DesktopAccessError(str(exc)) from None
-    return receipt, run
+    return receipt
 
 
 def _desktop_route(settings):
@@ -186,8 +188,7 @@ def _ready_desktop_view(project, test_machine, settings):
             "desktop_ssh_key_missing: import the SSH key with yoke test-machine secret set "
             f"--test-machine {test_machine} --key ssh_private_key --value-file FILE"
         )
-    receipt, run = _prepare_desktop(settings, key_path, password)
-    return password, receipt, run
+    return password, _prepare_desktop(settings, key_path, password)
 
 
 def begin_desktop_view(*, project: str, test_machine: str, settings: Mapping[str, str]):
@@ -202,10 +203,10 @@ def begin_desktop_view(*, project: str, test_machine: str, settings: Mapping[str
 
         password = _desktop_password(project, test_machine)
         return open_native_view(project, test_machine, settings, password)
-    password, receipt, run = _ready_desktop_view(project, test_machine, settings)
+    password, receipt = _ready_desktop_view(project, test_machine, settings)
     from yoke_harness.rdp_desktop_client import DesktopView
 
-    return DesktopView.open(project, test_machine, settings, password, receipt, run)
+    return DesktopView.open(project, test_machine, settings, password, receipt)
 
 
 def _hold_forward() -> None:
@@ -260,10 +261,10 @@ def open_desktop_access(
         announce(view_native_desktop(project, test_machine, settings, password))
         return
     if view:
-        password, receipt, run = _ready_desktop_view(project, test_machine, settings)
+        password, receipt = _ready_desktop_view(project, test_machine, settings)
         from yoke_harness.rdp_desktop_client import view_desktop
 
-        announce(view_desktop(project, test_machine, settings, password, receipt, run))
+        announce(view_desktop(project, test_machine, settings, password, receipt))
         return
     password = _desktop_password(project, test_machine)
     session_evidence = {}
@@ -274,8 +275,10 @@ def open_desktop_access(
                 "desktop_ssh_key_missing: import the SSH key with yoke test-machine secret set "
                 f"--test-machine {test_machine} --key ssh_private_key --value-file FILE"
             )
-        receipt, _ = _prepare_desktop(settings, key_path, password)
-        session_evidence = {"desktop_session": receipt["desktop_session"]}
+        receipt = _prepare_desktop(settings, key_path, password)
+        session_evidence = {
+            key: receipt[key] for key in ("desktop_session", "resolution")
+        }
     from yoke_harness.desktop_forward import desktop_forward
 
     with desktop_forward(project, settings) as (host, port, user):

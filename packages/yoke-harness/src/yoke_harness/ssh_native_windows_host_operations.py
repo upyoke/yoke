@@ -4,7 +4,7 @@ import json
 
 from yoke_contracts.test_machine_types import HostActionResult
 from yoke_harness.native_windows.baseline import profile_operation, reach_baseline
-from yoke_harness.native_windows.console import verify_console
+from yoke_harness.native_windows.console import probe_console, verify_console
 from yoke_harness.native_windows.desktop import capture_desktop
 from yoke_harness.native_windows.journal import journal_operation
 from yoke_harness.native_windows.features import feature_states, features_absent
@@ -134,6 +134,9 @@ class SshNativeWindowsHostOperations(WindowsMissionOperations, WindowsTransport)
         restored = profile_operation(self, "reset", self.golden_baseline_path)
         if not restored.ok:
             return restored
+        console = probe_console(self, set_resolution=True)
+        if not console.ok:
+            return console
         absent = self._run(
             "$env:Path=[Environment]::GetEnvironmentVariable('Path','Machine')+';'+[Environment]::GetEnvironmentVariable('Path','User'); if(Get-Command yoke,yoke.cmd,uv,uvx -ErrorAction SilentlyContinue){exit 1}"
         )
@@ -141,6 +144,7 @@ class SshNativeWindowsHostOperations(WindowsMissionOperations, WindowsTransport)
             absent.returncode == 0,
             {
                 **restored.evidence,
+                "windows_console": console.evidence,
                 "path_state": {"yoke_tools_resolve": absent.returncode != 0},
                 **(
                     {}

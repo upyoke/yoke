@@ -5,6 +5,8 @@ from __future__ import annotations
 if __package__:
     from yoke_contracts.owner_private_path import posix_uid
     from yoke_contracts.platform_file_lock import acquire_exclusive
+    from yoke_harness.desktop_geometry import MINIMUM_RESOLUTION
+    from yoke_harness.linux_display_geometry import desktop_geometry
 
 import json
 import os
@@ -251,7 +253,10 @@ def ensure_desktop(password, port=RDP_PORT, *, rdp_access=False):
                 sessions = []
         if len(sessions) == 1:
             environment = sessions[0]["environment"]
-            return {"environment": environment, "desktop_session": "reused"}
+            return {
+                "environment": environment, "desktop_session": "reused",
+                **desktop_geometry(environment, can_resize=not rdp_connected(port)),
+            }
         if sessions or human_desktop_exists(Path.home()) or rdp_connected(port):
             raise RuntimeError(
                 "linux_desktop_session_ambiguous: a desktop session or RDP client already exists; "
@@ -266,7 +271,7 @@ def ensure_desktop(password, port=RDP_PORT, *, rdp_access=False):
             result = subprocess.run(
                 ["xrdp-sesrun", "-s", "::1", "-t", "Xorg", "-F", "0"]
                 + [
-                    "-S",
+                    "-g", MINIMUM_RESOLUTION, "-S",
                     "env GDK_BACKEND=x11 /etc/xrdp/startwm.sh",
                     pwd.getpwuid(posix_uid()).pw_name,
                 ],
@@ -302,6 +307,7 @@ def ensure_desktop(password, port=RDP_PORT, *, rdp_access=False):
                 return {
                     "environment": sessions[0]["environment"],
                     "desktop_session": "restarted" if restarted else "started",
+                    **desktop_geometry(sessions[0]["environment"], can_resize=False),
                 }
             if time.monotonic() >= deadline:
                 raise RuntimeError(

@@ -28,7 +28,10 @@ def test_capture_uses_os_display_and_removes_remote_file(monkeypatch, os):
         )
         if "receipt = ensure_desktop(password" in command:
             output = json.dumps(
-                {"environment": {"DISPLAY": ":12"}, "desktop_session": "reused"}
+                {
+                    "environment": {"DISPLAY": ":12"}, "desktop_session": "reused",
+                    "resolution": "1920x1080", "depth": 24,
+                }
             )
         tokens = shlex.split(command)
         if tokens[0] == "/usr/bin/python3" and len(tokens) == 7:

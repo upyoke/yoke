@@ -2,7 +2,6 @@
 
 from contextlib import contextmanager
 import io
-import subprocess
 
 from yoke_harness import rdp_desktop_client as viewer
 
@@ -17,7 +16,7 @@ SETTINGS = {
     "desktop_port": "3389",
     "desktop_user": "fixture",
 }
-RECEIPT = {"desktop_session": "reused", "environment": {"DISPLAY": ":10.0"}}
+RECEIPT = {"desktop_session": "reused", "environment": {"DISPLAY": ":10.0"}, "resolution": "1920x1080", "depth": 24}
 
 
 class Client:
@@ -63,13 +62,8 @@ def test_held_view_stays_open_until_close(monkeypatch):
     monkeypatch.setattr(viewer, "desktop_forward", forward)
     monkeypatch.setattr(viewer.subprocess, "Popen", popen)
 
-    def geometry(command, **kwargs):
-        return subprocess.CompletedProcess(
-            command, 0, "  Width: 1280\n  Height: 800\n  Depth: 24\n", ""
-        )
-
     opened = viewer.DesktopView.open(
-        "project", "lab", SETTINGS, PASSWORD, RECEIPT, geometry
+        "project", "lab", SETTINGS, PASSWORD, RECEIPT
     )
     assert events == ["forward-open", "client"]
     assert process.terminated is False

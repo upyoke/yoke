@@ -170,6 +170,7 @@ def _run_windows_desktop(settings, argv, timeout):
         test_machine_secret_path,
     )
     from yoke_harness.native_windows.desktop import desktop_script
+    from yoke_harness.native_windows.display_geometry import ENSURE
     from yoke_harness.ssh_native_windows_host_operations import (
         SshNativeWindowsHostOperations,
     )
@@ -190,7 +191,7 @@ def _run_windows_desktop(settings, argv, timeout):
         if argv and argv[0] == "yoke"
         else process_script(argv)
     )
-    result = desktop_script(control, script, timeout=timeout)
+    result = desktop_script(control, "$ErrorActionPreference='Stop'\n" + ENSURE + script, timeout=timeout)
     result.output_streamed = False
     return result
 
@@ -249,9 +250,10 @@ def run_gui_command(
     if kind == "windows":
         return _run_windows_desktop(settings, argv, timeout)
     if kind == "macos":
+        from yoke_harness.mac_desktop_geometry import desktop_argv
         from yoke_harness.ssh_mac_gui_session import run_terminal_app_command
 
-        result = run_terminal_app_command(control._run, argv=argv, timeout=timeout)
+        result = run_terminal_app_command(control._run, argv=desktop_argv(argv), timeout=timeout)
         result.output_streamed = control.streamed
         return result
     from yoke_harness.linux_desktop_session import desktop_command
