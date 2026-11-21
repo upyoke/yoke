@@ -47,7 +47,10 @@ def test_recovery_waits_only_before_the_plan_stage(monkeypatch, member_owned, cu
         assert "stage-wait notice will wake the holder" in recovery
         assert "yoke qa plan run" not in recovery
     elif member_owned:
-        assert recovery == f"yoke qa plan run --item {item_ref} --stage {stage}"
+        assert recovery == (
+            f"yoke qa plan run --item {item_ref} --stage {stage} "
+            f"--deployment-run-id {run_id}"
+        )
     else:
         assert recovery == (
             f"yoke qa plan run --deployment-run-id {run_id} --stage {stage} --plan {slug}"

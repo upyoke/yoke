@@ -215,7 +215,8 @@ def case_failures(
                 )
             ]
         command = (
-            f"yoke qa plan run --item {member_ref_lookup(conn, [member_item_id])(member_item_id)} --stage {stage_name}"
+            f"yoke qa plan run --item {member_ref_lookup(conn, [member_item_id])(member_item_id)} "
+            f"--stage {stage_name} --deployment-run-id {run_id}"
             if member_item_id is not None
             else f"yoke qa plan run --deployment-run-id {run_id} --stage {stage_name}"
         )

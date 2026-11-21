@@ -28,6 +28,15 @@ from yoke_core.domain.qa_member_plan_execution import execute_serial_partitions
 _call_plan_function = call_plan_function
 
 
+def require_selected_run(function_id: str, requested: str, receipt: Any) -> None:
+    """Refuse when the server answered some run other than the one named."""
+    from yoke_contracts.qa_item_run_selection_receipt import selected_run_mismatch
+
+    refusal = selected_run_mismatch(function_id, requested, receipt)
+    if refusal:
+        raise QaPlanExecutionError(refusal)
+
+
 def _checkout_project(checkout_path: Optional[str | Path]) -> str:
     """The project a recovery command names when the caller passed none."""
     from yoke_contracts.project_defaults import default_project_for_directory
@@ -115,14 +124,18 @@ def execute_plan(
             materialize_payload["deployment_stage"] = deployment_stage
         if deployment_member:
             materialize_payload["deployment_member"] = deployment_member
+        if public_ref and deployment_run_id:
+            materialize_payload["deployment_run_id"] = deployment_run_id
         if replacements:
             materialize_payload["replacements"] = replacements
-        _call_plan_function(
+        materialized = _call_plan_function(
             function_id="qa.plan.materialize",
             target=target,
             payload=materialize_payload,
             actor=resolved_actor,
         )
+        if public_ref and deployment_run_id:
+            require_selected_run("qa.plan.materialize", deployment_run_id, materialized)
     for key, value in (
         ("test_machine", test_machine),
         ("continue_mission", continue_mission),
@@ -168,6 +181,8 @@ def execute_plan(
             raise
         print(f"yoke qa plan run: {discharged['message']}", file=sys.stderr)
         return discharged
+    if public_ref and deployment_run_id and not resume_execution_id:
+        require_selected_run("qa.plan_execution.begin", deployment_run_id, execution)
     if requirement_id is not None and [
         int(r["requirement_id"]) for r in execution.get("requirements", [])
     ] != [requirement_id]:

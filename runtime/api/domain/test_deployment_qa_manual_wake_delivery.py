@@ -115,7 +115,10 @@ def test_parked_holder_gets_one_wake_per_manual_requirement(test_db: Any) -> Non
         assert f"{ref}'s claim holder" in body
         assert "Check this evidence with a registered read" in body
         assert EVIDENCE in body
-        assert (f"yoke qa plan run --item {ref} --stage item-qa --project yoke") in body
+        assert (
+            f"yoke qa plan run --item {ref} --stage item-qa "
+            "--deployment-run-id run-manual-wd-1 --project yoke"
+        ) in body
         assert "schedule your next recheck for whenever the evidence" in body
         assert MANUAL_WAKE_RECHECK_INSTRUCTION in body
         assert "parking refuses without one" in body

@@ -145,7 +145,7 @@ def stage_wait_message(
         f"supply this stage's evidence/verdict ({reasons}). Run its cases "
         "naming BOTH the stage and the member, which is what this stage "
         f"credits: 'yoke qa plan run --item {item_ref} --stage "
-        f"{stage_name}{_plan_selection(names_cases)} "
+        f"{stage_name} --deployment-run-id {run_id}{_plan_selection(names_cases)} "
         f"--project PROJECT'. "
         "Omitting them materializes requirements this stage never counts, so "
         "the verdict would discharge nothing. The stage binds the run's own "

@@ -120,7 +120,7 @@ def test_item_message_names_the_stage_and_member_bound_invocation():
 
     assert (
         "yoke qa plan run --item EXT-541 --stage item-qa "
-        "--plan PLAN" in body
+        "--deployment-run-id run-1 --plan PLAN" in body
     )
     assert "never counts" in body
 
@@ -154,7 +154,10 @@ def test_a_stage_that_already_names_cases_gets_a_recipe_without_a_plan():
         names_cases=True,
     )
 
-    assert "yoke qa plan run --item EXT-541 --stage item-qa --project PROJECT" in body
+    assert (
+        "yoke qa plan run --item EXT-541 --stage item-qa "
+        "--deployment-run-id run-1 --project PROJECT"
+    ) in body
     assert "--plan" not in body
 
 

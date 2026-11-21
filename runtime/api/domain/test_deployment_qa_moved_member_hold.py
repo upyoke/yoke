@@ -101,11 +101,12 @@ def test_item_call_waits_until_the_successor_reaches_item_qa(test_db, monkeypatc
     assert refused.primary_success is False
     message = refused.error.message
     assert refused.error.code == "qa_item_stage_unavailable"
-    assert "no member run is executing stage 'item-qa'" in message
-    assert "Ask steering or the release driver" in message
-    assert "yoke deployment-runs create" in message
-    assert "--environment stage" in message
-    assert "before you retry QA" in message
+    # The successor already holds the moved requirement: wait for its wake.
+    assert f"held by live run {NEW}" in message
+    assert "has not reached 'item-qa'" in message
+    assert f"--deployment-run-id {NEW}" in message
+    assert "Do not start a new deployment" in message
+    assert "yoke deployment-runs create" not in message
 
     _freeze_successor(test_db)
     proceeded = _materialize(test_db)

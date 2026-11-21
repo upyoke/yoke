@@ -32,9 +32,10 @@ def build_plan_execution_target(
                 "standalone_subject_invalid: use --plan PLAN --project P without item, transition, stage or member"
             )
         return TargetRef(kind="global", project_id=project), {"plan": plan}
-    if public_ref and deployment_run_id:
+    if public_ref and deployment_run_id and not deployment_stage:
         raise QaPlanExecutionError(
-            "exactly one of public_ref or deployment_run_id is required"
+            "an item with a deployment run id needs a deployment stage; "
+            "a workflow transition has no deployment run"
         )
     if public_ref:
         if bool(transition_id) == bool(deployment_stage) or deployment_member:
@@ -51,7 +52,11 @@ def build_plan_execution_target(
                 public_ref=str(public_ref),
                 project_id=project,
             ),
-            {"deployment_stage": deployment_stage, **({"plan": plan} if plan else {})}
+            {
+                "deployment_stage": deployment_stage,
+                **({"plan": plan} if plan else {}),
+                **({"deployment_run_id": deployment_run_id} if deployment_run_id else {}),
+            }
             if deployment_stage
             else {"transition_id": transition_id},
         )

@@ -253,7 +253,7 @@ def resolve_group_subject(
                 f"plan_member_owned: plan {plan_id} ({_plan_slug(conn, plan_id)}) "
                 f"belongs to {item_ref}; its claim holder runs it "
                 f"with `yoke qa plan run --item {item_ref} --stage {stage_name} "
-                f"--project {project}`"
+                f"--deployment-run-id {run_id} --project {project}`"
             )
             refusal.code = "plan_member_owned"
             raise refusal

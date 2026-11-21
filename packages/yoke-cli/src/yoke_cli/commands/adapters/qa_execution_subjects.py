@@ -20,6 +20,10 @@ from yoke_cli.commands._helpers import (
 )
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher, emit_response
 from yoke_cli.transport.test_machine_response_field import recorded_test_machine
+from yoke_cli.commands.adapters.qa_item_run_dispatch import (
+    dispatch_subject as _dispatch_subject,
+    subject_refusal as _subject_refusal,
+)
 from yoke_cli.commands.adapters.qa_catalog_usage import (
     USAGE_BY_FUNCTION_ID,
     PLAN_MATERIALIZE_EPILOG,
@@ -49,12 +53,16 @@ def qa_plan_materialize_for_item(args: List[str]) -> int:
         epilog=PLAN_MATERIALIZE_EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    subject = parser.add_mutually_exclusive_group(required=True)
-    subject.add_argument(
+    parser.add_argument(
         "--item", metavar="PREFIX-N", help="Item whose QA cases to build."
     )
-    subject.add_argument(
-        "--deployment-run-id", metavar="RUN", help="Deployment run to build cases for."
+    parser.add_argument(
+        "--deployment-run-id",
+        metavar="RUN",
+        help=(
+            "Deployment run to build cases for. With --item --stage, the run "
+            "holding that item's stage QA when more than one could."
+        ),
     )
     parser.add_argument(
         "--transition", metavar="T", help="Workflow transition the cases block."
@@ -77,6 +85,9 @@ def qa_plan_materialize_for_item(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, usage)
     if parsed is None:
         return 2
+    refusal = _subject_refusal(parsed)
+    if refusal:
+        return usage_error(refusal)
     if parsed.item and parsed.stage and parsed.transition:
         return usage_error("item stage excludes a transition selector")
     if parsed.item and not (parsed.transition or parsed.stage):
@@ -104,13 +115,7 @@ def qa_plan_materialize_for_item(args: List[str]) -> int:
     }
     if parsed.replaces:
         payload["replacements"] = parsed.replaces
-    return dispatch_and_emit(
-        function_id="qa.plan.materialize",
-        target=target,
-        payload=payload,
-        session_id=parsed.session_id,
-        json_mode=parsed.json_mode,
-    )
+    return _dispatch_subject(dispatch_and_emit, "qa.plan.materialize", parsed, target, payload)
 
 
 def qa_plan_rematerialize(args: List[str]) -> int:
@@ -121,12 +126,16 @@ def qa_plan_rematerialize(args: List[str]) -> int:
         epilog=PLAN_REMATERIALIZE_EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    subject = parser.add_mutually_exclusive_group(required=True)
-    subject.add_argument(
+    parser.add_argument(
         "--item", metavar="PREFIX-N", help="Item whose QA cases to refresh."
     )
-    subject.add_argument(
-        "--deployment-run-id", metavar="RUN", help="Deployment run to refresh."
+    parser.add_argument(
+        "--deployment-run-id",
+        metavar="RUN",
+        help=(
+            "Deployment run to refresh. With --item --stage, the run holding "
+            "that item's stage QA when more than one could."
+        ),
     )
     parser.add_argument(
         "--transition", metavar="T", help="Workflow transition the cases block."
@@ -149,6 +158,9 @@ def qa_plan_rematerialize(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, usage)
     if parsed is None:
         return 2
+    refusal = _subject_refusal(parsed)
+    if refusal:
+        return usage_error(refusal)
     if parsed.item and parsed.plan and not parsed.stage:
         return usage_error(
             "item_plan_filter_unsupported: remove --plan; --item refreshes attached plans"
@@ -178,13 +190,7 @@ def qa_plan_rematerialize(args: List[str]) -> int:
             "plan": parsed.plan,
         }
     )
-    return dispatch_and_emit(
-        function_id="qa.plan.rematerialize",
-        target=target,
-        payload=payload,
-        session_id=parsed.session_id,
-        json_mode=parsed.json_mode,
-    )
+    return _dispatch_subject(dispatch_and_emit, "qa.plan.rematerialize", parsed, target, payload)
 
 
 def qa_artifact_read(args: List[str]) -> int:

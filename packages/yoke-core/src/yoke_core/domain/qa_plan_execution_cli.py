@@ -114,9 +114,14 @@ def run(args: List[str]) -> int:
         epilog=QA_PLAN_RUN_EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    subject = parser.add_mutually_exclusive_group()
-    subject.add_argument("--item", help="Item whose attached plans to run.")
-    subject.add_argument("--deployment-run-id", help="Deployment run whose QA to run.")
+    parser.add_argument("--item", help="Item whose attached plans to run.")
+    parser.add_argument(
+        "--deployment-run-id",
+        help=(
+            "Deployment run whose QA to run. With --item --stage, the run "
+            "holding that item's stage QA when more than one could."
+        ),
+    )
     parser.add_argument("--stage", help="Deployment stage to run QA for.")
     parser.add_argument("--transition", help="Workflow transition of the item's plans.")
     parser.add_argument("--plan", help="QA plan to run.")
@@ -164,6 +169,8 @@ def run(args: List[str]) -> int:
         parser.error("--continue-mission requires --resume-execution-id")
     if parsed.recovery_file and not parsed.resume_execution_id:
         parser.error("--recovery-file requires --resume-execution-id")
+    if parsed.item and parsed.deployment_run_id and not parsed.stage:
+        parser.error("--item with --deployment-run-id requires --stage")
     if parsed.resume_execution_id and parsed.deployment_run_id:
         parser.error(
             "resume resolves ownership from --resume-execution-id; omit --deployment-run-id"

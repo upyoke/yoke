@@ -28,7 +28,8 @@ QA_CASE_RUN_USAGE = (
 )
 QA_PLAN_RUN_USAGE = (
     "yoke qa plan run "
-    "(--item PREFIX-N (--transition TRANSITION | --stage STAGE [--plan PLAN]) | "
+    "(--item PREFIX-N (--transition TRANSITION | --stage STAGE [--plan PLAN] "
+    "[--deployment-run-id RUN]) | "
     "--deployment-run-id RUN --stage STAGE [--plan PLAN] | "
     "--plan PLAN --project P | --resume-execution-id ID) [--replaces CASE_KEY=REQUIREMENT_ID] "
     "[--project P] [--base-url URL] [--test-machine TEST_MACHINE] "
@@ -87,6 +88,8 @@ def qa_plan_run(args: List[str]) -> int:
         "with none open it refuses plan_group_not_open and lists P's closed groups. "
         "A single-member plan is member QA: its claim holder runs it with "
         "--item PREFIX-N --stage STAGE; a run-wide call refuses plan_member_owned. "
+        "When several live runs could answer the item's stage, it refuses "
+        "qa_item_stage_ambiguous listing each; add --deployment-run-id RUN to pick one. "
         "At a run-scoped stage, a new plan fills only an empty stage. "
         "Host selection respects the case OS. Resume and correction commands omit --test-machine; "
         "the scheduler retains each platform's or corrected case's recorded host.\n\n"

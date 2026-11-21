@@ -272,7 +272,8 @@ def refresh_invocation(conn: Any, row: Any) -> str:
         ):
             return ""
         subject = (
-            f"--item {render_item_ref(conn, int(member))}"
+            f"--item {render_item_ref(conn, int(member))} "
+            f"--deployment-run-id {row['deployment_run_id']}"
             if member
             else f"--deployment-run-id {row['deployment_run_id']}"
         )
