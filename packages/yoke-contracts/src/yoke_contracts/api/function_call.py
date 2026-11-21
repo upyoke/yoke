@@ -180,6 +180,12 @@ class FunctionCallResponse(BaseModel):
         default_factory=list, exclude_if=lambda value: not value
     )
 
+    #: Released Test Machines with an unattempted reset debt, as
+    #: {"test_machine", "baseline"}; the caller rechecks under the host queue lock.
+    test_machines_to_reset: List[Dict[str, str]] = Field(
+        default_factory=list, exclude_if=lambda value: not value
+    )
+
     @field_serializer("result")
     def _wire_result(self, value: Dict[str, Any]) -> Dict[str, Any]:
         """Keep native handler values internal and every adapter's wire identical."""

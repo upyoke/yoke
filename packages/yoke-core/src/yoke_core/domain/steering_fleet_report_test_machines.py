@@ -10,6 +10,7 @@ class ResetDebt(NamedTuple):
     test_machine: str
     recovery: str | None
     execution_id: str | None
+    error_code: str | None
 
 
 class IdleHostHold(NamedTuple):
@@ -151,21 +152,23 @@ def _idle_holds(conn: Any, names: set[str]) -> list[IdleHostHold]:
 def read_reset_debts(
     conn, project_id
 ) -> tuple[ResetDebt | IdleHostHold | QueuedWalk, ...]:
-    from yoke_core.domain.machine_reset_debt import reset_command, reset_owed
+    from yoke_core.domain.machine_reset_debt import owed_reset, reset_command
 
     if not _table_exists(conn, "test_machine_operation_receipts"):
         return ()
     names = {name for name, _ in read_test_machines(conn, project_id)}
     debts = _idle_holds(conn, names)
     for name, _ in read_test_machines(conn, project_id):
-        if (baseline := reset_owed(conn, name)) is None:
+        if (debt := owed_reset(conn, name)) is None:
             continue
         execution_id = _holding_execution(conn, name)
+        failed = debt.attempt is not None and execution_id is None
         debts.append(
             ResetDebt(
                 name,
-                None if execution_id else reset_command(name, baseline),
+                None if execution_id else reset_command(name, debt.baseline),
                 execution_id,
+                (debt.attempt["error_code"] or "machine_needs_repair") if failed else None,
             )
         )
     return (*debts, *read_queue(conn))
@@ -185,6 +188,9 @@ def reset_debt_lines(rows):
         if isinstance(row, IdleHostHold)
         else f"Test Machine {row.test_machine}: reset owed after {row.execution_id}"
         if row.execution_id
-        else f"Test Machine {row.test_machine}: machine_needs_repair; run `{row.recovery}`"
+        else f"Test Machine {row.test_machine}: machine_needs_repair: automatic reset failed "
+        f"({row.error_code}); run `{row.recovery}`"
+        if row.error_code
+        else f"Test Machine {row.test_machine}: reset owed (automatic reset pending)"
         for row in rows
     ]

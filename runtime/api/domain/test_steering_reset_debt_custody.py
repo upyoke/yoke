@@ -57,7 +57,8 @@ def test_live_walk_debt_names_execution_without_recovery(
     seed_steering_scope(test_db)
     report = compose(test_db)
     assert report_dict(report)["reset_debts"] == [
-        {"test_machine": test_machine, "recovery": None, "execution_id": execution_id}
+        {"test_machine": test_machine, "recovery": None, "execution_id": execution_id,
+         "error_code": None}
     ]
     assert "reset owed after " + execution_id in report_body(report)
     assert "yoke test-machine reset" not in report_body(report)
@@ -68,8 +69,7 @@ def test_live_walk_debt_names_execution_without_recovery(
     test_db.commit()
     released = compose(test_db)
     assert released.fingerprint() != held_fingerprint
-    assert "machine_needs_repair" in report_body(released)
-    assert "yoke test-machine reset" in report_body(released)
+    assert "reset owed (automatic reset pending)" in report_body(released)
 
 
 def test_terminal_execution_does_not_hide_reset_recovery(test_db, removed_mission):
@@ -87,4 +87,4 @@ def test_terminal_execution_does_not_hide_reset_recovery(test_db, removed_missio
     )
     rows = read_reset_debts(test_db, 1)
     assert rows[0].execution_id is None
-    assert "machine_needs_repair" in reset_debt_lines(rows)[0]
+    assert "reset owed (automatic reset pending)" in reset_debt_lines(rows)[0]

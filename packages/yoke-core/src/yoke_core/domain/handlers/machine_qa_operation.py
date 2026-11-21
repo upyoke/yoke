@@ -63,8 +63,7 @@ OperatorOperation = Literal[
 
 
 class TestMachineOperationShape(BaseModel):
-    """An operation's issued shape; submit and abort echo it so a wrong echo
-    fails the rebuilt contract's comparison instead of being trusted."""
+    """Operation shape echoed by submit and abort to validate its contract."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -78,6 +77,7 @@ class TestMachineOperationShape(BaseModel):
 class TestMachineOperationBeginRequest(TestMachineOperationShape):
     project: str | None = None
     test_machine: str | None = None
+    automatic_reset: bool = False
 
 
 class TestMachineOperationBeginResponse(BaseModel):
@@ -167,7 +167,7 @@ def handle_operation_begin(request: FunctionCallRequest) -> HandlerOutcome:
             conn,
             project=project,
             actor=request.actor,
-            test_machine=parsed.test_machine,
+            test_machine=parsed.test_machine, automatic_reset=parsed.automatic_reset,
             plan_execution_id=parsed.plan_execution_id,
             operation=_operation(parsed.operation),
             **operation_contract_shape(

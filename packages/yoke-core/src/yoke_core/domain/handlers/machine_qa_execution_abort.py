@@ -63,6 +63,7 @@ def _release(
     from yoke_core.domain.machine_qa_operation_lease import (
         operation_mission,
         finish_operation_execution,
+        holds_plan_turn,
     )
 
     mission = (
@@ -81,7 +82,7 @@ def _release(
     from yoke_core.domain.qa_host_queue import lock_host_queue
 
     lock_host_queue(conn)
-    lease, _contract = validate_operation_submission(
+    lease, contract = validate_operation_submission(
         conn,
         project=project,
         mission=mission,
@@ -94,6 +95,28 @@ def _release(
         cases=cases,
         golden_destination=golden_destination,
     )
+    # Borrowed operations leave their host lease in the plan's custody.
+    if (
+        operation == "reset"
+        and reason != "client_cancelled"
+        and mission is None
+        and not holds_plan_turn(conn, lease, request.actor)
+    ):
+        from yoke_core.domain.machine_operation_recording import (
+            record_test_machine_operation,
+        )
+
+        record_test_machine_operation(
+            conn,
+            test_machine=contract.settings["resource_name"],
+            operation=operation,
+            status="error",
+            checks=[{"name": contract.baselines[0], "ok": False}],
+            error_code="machine_needs_repair",
+            lease_id=lease.id,
+            contract_digest=contract_digest,
+            commit=False,
+        )
     released = finish_operation_execution(
         conn,
         lease,

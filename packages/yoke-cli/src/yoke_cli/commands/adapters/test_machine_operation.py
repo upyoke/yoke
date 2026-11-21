@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import importlib
+from functools import partial
 from pathlib import Path
 from typing import Any
 
@@ -106,8 +107,21 @@ def _execute(
     json_mode: bool,
 ) -> int:
     ensure_handlers_loaded()
-    actor = build_actor(session_id=session_id)
-    begin = call_dispatcher(
+    response = _run(
+        operation=operation, test_machine=test_machine, baseline=baseline,
+        destination=destination, probes_document=probes_document,
+        actor=build_actor(session_id=session_id),
+    )
+    exit_code = emit_response(response, json_mode=json_mode)
+    return 1 if response.success and response.result.get("status") == "error" else exit_code
+
+
+def _run(
+    *, operation, test_machine, baseline, actor, destination=None,
+    probes_document=None, relay_env=None, automatic_reset=False,
+) -> FunctionCallResponse:
+    dispatch = partial(call_dispatcher, actor=actor, relay_env=relay_env)
+    begin = dispatch(
         function_id="test_machine.operation.begin",
         target=TargetRef(kind="global"),
         payload={
@@ -115,20 +129,14 @@ def _execute(
             "operation": operation,
             "baseline": baseline,
             "destination": destination,
+            **({"automatic_reset": True} if automatic_reset else {}),
         },
-        actor=actor,
     )
     if not begin.success:
-        return emit_response(_as_public(begin, operation), json_mode=json_mode)
+        return _as_public(begin, operation)
     execution = (begin.result or {}).get("execution")
     if not isinstance(execution, dict):
-        return emit_response(
-            _local_execution_error(
-                operation,
-                f"{operation} begin returned no execution contract",
-            ),
-            json_mode=json_mode,
-        )
+        return _local_execution_error(operation, f"{operation} begin returned no execution contract")
     project = execution["project"]
     submission = None
     try:
@@ -144,7 +152,7 @@ def _execute(
         )
 
         power = _power()
-        with power.power_dispatch_scope(actor=actor):
+        with power.power_dispatch_scope(actor=actor, relay_env=relay_env):
             power.power_on(execution["project"], execution["settings"])
         if registered := begin.result.get(
             REGISTERED_GOLDENS_KEY
@@ -170,36 +178,25 @@ def _execute(
             operation=operation,
             baseline=baseline,
             execution=execution,
-            reason="local_execution_failed",
+            reason="local_execution_failed", relay_env=relay_env,
         )
         error_code, message, recovery_hint = (
             (exc.code, exc.detail, exc.recovery)
             if isinstance(exc, SnapshotRetentionError)
             else host_control_failure(exc, phase=f"{operation}_execution")
         )
-        return emit_response(
-            _local_execution_error(
-                operation,
-                message
-                + "; "
-                + (
-                    "the server lease was released"
-                    if released
-                    else (
-                        "the mission host lease was retained"
-                        if released is False
-                        else "automatic server-lease abort also failed"
-                    )
-                ),
-                error_code=error_code,
-                recovery_hint=recovery_hint,
-                lease_released=released is True,
-                lease_retained=released is False,
-            ),
-            json_mode=json_mode,
+        lease_state = {
+            True: "the server lease was released",
+            False: "the mission host lease was retained",
+            None: "automatic server-lease abort also failed",
+        }
+        return _local_execution_error(
+            operation, f"{message}; {lease_state[released]}",
+            error_code=error_code, recovery_hint=recovery_hint,
+            lease_released=released is True, lease_retained=released is False,
         )
     try:
-        submit = call_dispatcher(
+        submit = dispatch(
             function_id="test_machine.operation.submit",
             target=TargetRef(kind="global"),
             payload={
@@ -208,7 +205,6 @@ def _execute(
                 "destination": execution.get("golden_destination"),
                 **submission.payload,
             },
-            actor=actor,
         )
         if not submit.success:
             abort_operation(
@@ -217,7 +213,7 @@ def _execute(
                 operation=operation,
                 baseline=baseline,
                 execution=execution,
-                reason="submission_failed",
+                reason="submission_failed", relay_env=relay_env,
             )
     finally:
         submission.cleanup_artifacts()
@@ -232,15 +228,12 @@ def _execute(
                 update={"result": {**submit.result, "artifact_path": str(path)}}
             )
         except (OSError, ValueError) as exc:
-            return emit_response(
-                _local_execution_error(
-                    operation,
-                    "Screenshot receipt was recorded, but its local PNG could not be saved: "
-                    + str(exc),
-                    error_code="screenshot_local_save_failed",
-                    recovery_hint="Repair the machine's private temp directory and retry screenshot.",
-                ),
-                json_mode=json_mode,
+            return _local_execution_error(
+                operation,
+                "Screenshot receipt was recorded, but its local PNG could not be saved: "
+                + str(exc),
+                error_code="screenshot_local_save_failed",
+                recovery_hint="Repair the machine's private temp directory and retry screenshot.",
             )
     from yoke_harness.harness_cli_latest import warn_capture_behind_latest
     if removed is not None and submit.success:
@@ -248,10 +241,7 @@ def _execute(
             update={"result": {**submit.result, "removed_snapshots": removed}}
         )
     warn_capture_behind_latest(operation, submit.result, submission.payload)
-    exit_code = emit_response(_as_public(submit, operation), json_mode=json_mode)
-    if submit.success and (submit.result or {}).get("status") == "error":
-        return 1
-    return exit_code
+    return _as_public(submit, operation)
 
 
 def retain_screenshot(payload):
@@ -274,6 +264,7 @@ def abort_operation(
     baseline: str | None,
     execution: dict[str, Any],
     reason: str,
+    relay_env: str | None = None,
 ) -> bool | None:
     """Return released/retained for an accepted abort, or None if it failed."""
     lease_id = execution.get("lease_id")
@@ -292,7 +283,7 @@ def abort_operation(
             "destination": execution.get("golden_destination"),
             "reason": reason,
         },
-        actor=actor,
+        actor=actor, relay_env=relay_env,
     )
     return bool((response.result or {}).get("released")) if response.success else None
 
