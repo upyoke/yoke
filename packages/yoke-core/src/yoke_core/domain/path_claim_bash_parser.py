@@ -146,7 +146,7 @@ def _extract_git_paths(args: List[str], cwd: str, *, shell: str = "bash") -> Lis
     path-specific forms such as ``git diff -- path``. Relative paths join
     the ``-C`` directory, itself resolved from ``cwd``, as git does.
     """
-    base, args = _split_git_global_options(args, cwd, shell=shell)
+    base, args = split_git_global_options(args, cwd, shell=shell)
     if not args:
         return []
     sub = args[0]
@@ -171,7 +171,7 @@ def _extract_git_paths(args: List[str], cwd: str, *, shell: str = "bash") -> Lis
     return out
 
 
-def _split_git_global_options(args: List[str], cwd: str, *, shell: str = "bash") -> tuple[str, List[str]]:
+def split_git_global_options(args: List[str], cwd: str, *, shell: str = "bash") -> tuple[str, List[str]]:
     """Return the ``-C`` directory (``""`` when absent) and the subcommand on.
 
     Each ``-C DIR`` applies relative to the previous one, then to ``cwd``.
@@ -184,6 +184,10 @@ def _split_git_global_options(args: List[str], cwd: str, *, shell: str = "bash")
             if token == "-C":
                 base = join_path(base or cwd, args[i + 1], shell=shell)
             i += 2
+            continue
+        if token.startswith("-C") and len(token) > 2:
+            base = join_path(base or cwd, token[2:], shell=shell)
+            i += 1
             continue
         if token.startswith(("--git-dir=", "--work-tree=")):
             i += 1

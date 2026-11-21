@@ -8,14 +8,19 @@ call's own add targets) as a fact; the policy reads only that fact.
 from __future__ import annotations
 
 import unittest
+from types import SimpleNamespace
 from unittest import mock
 
+import pytest
+
+from yoke_contracts.hook_runner.main_commit import CLIENT_GIT_COMMIT_FACTS_KEY
 from yoke_core.domain import lint_main_commit
 from yoke_harness.hooks import main_commit_client
 from runtime.api.domain.lint_main_commit_test_support import (
     TEST_ITEM_REF,
     _evaluate_payload,
     _payload,
+    git_facts,
 )
 from yoke_contracts.hook_runner.shell_parse import parse_shell
 
@@ -71,3 +76,29 @@ class TestOneCallAddCommit(unittest.TestCase):
         self.assertIsNone(
             _evaluate("git add AGENTS.md && git commit -m 'docs'", staged=[])
         )
+
+
+@pytest.mark.parametrize(("repo", "lane", "denied"), [
+    (r"C:\Client\Checkout", "c:/client/CHECKOUT/.worktrees/item", True),
+    ("/Client/Checkout", "/client/CHECKOUT/.worktrees/item", False),
+])
+def test_main_commit_compares_repo_roots_by_client_path_style(repo, lane, denied):
+    facts = git_facts("main", ["src/implementation.py"])
+    facts[CLIENT_GIT_COMMIT_FACTS_KEY]["repo_root"] = repo
+    response = SimpleNamespace(success=True, result={"rows": [{
+        "public_ref": TEST_ITEM_REF,
+        "title": "Open item",
+        "worktrees": [{"path": lane}],
+    }]})
+    payload = _payload("git commit -m x", facts)
+    with mock.patch(
+        "yoke_contracts.runtime_ports.structured_dispatch.get_structured_dispatch",
+        return_value=SimpleNamespace(call_dispatcher=mock.Mock(return_value=response)),
+    ):
+        reason = _evaluate_payload(payload)
+    if denied:
+        assert "Implementation commit on main branch" in reason
+        assert "src/implementation.py" in reason
+        assert TEST_ITEM_REF in reason
+    else:
+        assert reason is None

@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
+from yoke_contracts.hook_tool_names import canonicalize_shell_payload
 from yoke_contracts.hook_runner.repo_paths import normalize_repo_path
 from unittest import mock
 
@@ -18,13 +20,16 @@ from runtime.api.fixtures.pg_testdb import test_database
 from yoke_core.domain import lint_lane_main_write
 from yoke_core.domain.lint_lane_main_write_derivation import (
     COMMAND_TOKEN,
+    GIT_STATE_CHANGE,
     RECOVERY_MESSAGE_FILE,
     TOOL_TARGET,
-    WORKING_DIRECTORY,
+    UNREADABLE_DESTINATION,
     TargetDerivation,
     format_derivation_guidance,
 )
 from yoke_core.domain.lint_session_cwd_path_authority import is_free_path
+from yoke_core.domain.session_claimed_worktrees import ClaimedWorktree
+from yoke_harness.hooks.shell_kind_stamp import stamp_shell_kind
 from yoke_core.domain.lint_lane_main_write_messages import format_denial
 from yoke_core.domain.lint_python_write_target_extract import (
     analyze_python_heredoc_writes,
@@ -159,7 +164,7 @@ class TestWorkingDirectoryFallbackRefusal:
         lane = _seed_lane(conn, repo)
         verdict = _evaluate(_computed_target_heredoc(lane), repo)
         assert verdict.allow is False
-        assert verdict.derivation.source == WORKING_DIRECTORY
+        assert verdict.derivation.source == UNREADABLE_DESTINATION
         assert verdict.derivation.token == ""
         assert "no readable write destination" in verdict.reason
         assert f"fell back to the working directory {repo}" in verdict.reason
@@ -220,7 +225,7 @@ class TestProjectAgnosticMessages:
             lane_equivalent=supplied[1],
             suppression_seen=False,
             derivation=TargetDerivation(
-                source=WORKING_DIRECTORY,
+                source=UNREADABLE_DESTINATION,
                 working_directory=supplied[3],
                 main_checkout=supplied[3],
             ),
@@ -234,9 +239,8 @@ class TestProjectAgnosticMessages:
 class TestComputedCommitMessageRecovery:
     """The refusal must name a recovery the refused caller can run.
 
-    A commit whose message is built by a command substitution has no
-    readable write target, so the guard falls back to the effective
-    working directory, including a leading absolute ``cd``.
+    A computed commit message leaves the Git command's effective working
+    directory intact, including a leading absolute ``cd``.
     """
 
     def _computed_commit(self, lane: Path) -> str:
@@ -262,8 +266,9 @@ class TestComputedCommitMessageRecovery:
         _seed_lane(conn, repo)
         verdict = _evaluate(self._computed_commit(repo), repo)
         assert verdict.allow is False
-        assert verdict.derivation.source == WORKING_DIRECTORY
-        assert f"fell back to the working directory {repo}" in verdict.reason
+        assert verdict.derivation.source == GIT_STATE_CHANGE
+        assert f"Git runs in {repo}" in verdict.reason
+        assert "unreadable destination" not in verdict.reason
 
     def test_computed_commit_refusal_names_the_lane_recovery(self, conn, repo):
         lane = _seed_lane(conn, repo)
@@ -285,6 +290,53 @@ class TestComputedCommitMessageRecovery:
 
     def test_guidance_without_a_lane_path_stays_a_placeholder(self):
         guidance = format_derivation_guidance(
-            TargetDerivation(source=WORKING_DIRECTORY, working_directory="/w"),
+            TargetDerivation(source=UNREADABLE_DESTINATION, working_directory="/w"),
         )
         assert "git -C <lane path> commit" in guidance
+
+
+@pytest.mark.parametrize("command", [
+    "git commit -m x", "git add a.py", "git mv a.py b.py",
+    "git stash", "git checkout other",
+])
+@pytest.mark.parametrize(("cwd", "shell_kind"), [
+    ("/repo", "bash"),
+    (r"C:\Repo", "powershell"),
+    ("C:/Repo", "powershell"),
+    (r"C:\Repo", None),
+])
+def test_git_state_change_names_command_and_held_lane(command, cwd, shell_kind):
+    lane = f"{cwd}/.worktrees/YOK-{ITEM_ID}"
+    payload = {
+        "session_id": SESSION,
+        "tool_name": "Bash",
+        "cwd": cwd,
+        "tool_input": {"command": command, "workdir": cwd},
+    }
+    if shell_kind is None:
+        payload = json.loads(stamp_shell_kind(json.dumps(payload), "codex", windows=True))
+        assert payload["yoke_shell_kind"] == "powershell"
+    else:
+        payload["yoke_shell_kind"] = shell_kind
+    with (
+        mock.patch.object(lint_lane_main_write, "_open_conn"),
+        mock.patch.object(lint_lane_main_write, "claimed_worktrees",
+                          return_value=[ClaimedWorktree(ITEM_ID, None, lane)]),
+        mock.patch.object(lint_lane_main_write, "_lane_is_active", return_value=True),
+        mock.patch.object(lint_lane_main_write, "derive_repo_roots", return_value=[cwd]),
+        mock.patch.object(lint_lane_main_write, "item_label", return_value=f"YOK-{ITEM_ID}"),
+        mock.patch.object(lint_lane_main_write, "emit_denied"),
+    ):
+        verdict = lint_lane_main_write.evaluate_pre_tool_use(canonicalize_shell_payload(payload))
+    subcommand = command.split()[1]
+    assert not verdict.allow
+    assert f"git {subcommand} changes the main checkout" in verdict.reason
+    assert f"YOK-{ITEM_ID}'s lane is open at {lane}" in verdict.reason
+    assert "unreadable destination" not in verdict.reason
+
+
+def test_unbound_redirect_keeps_unreadable_destination_reason(conn, repo):
+    _seed_lane(conn, repo)
+    verdict = _evaluate('echo x > "$F"', repo)
+    assert not verdict.allow
+    assert "unreadable destination" in verdict.reason
