@@ -89,10 +89,28 @@ Read [envelope and authority](index.md) first. `none` means no dispatcher work-c
 | `test_machine.power_stopped` | The current host lease holder clears the marker after a confirmed stop. |
 | `test_machine.queue.hand_over` | Requires a covering steering seat and an unstarted host turn. |
 | `test_machine.queue.place` | Requires a covering steering seat and a live wait. |
+| `test_machine.queue.withdraw` | Requires a covering steering seat. Aborts a waiting execution that holds no host, or cancels a single manual wait. |
 | `test_machine.reset` | `none` |
 | `test_machine.screenshot` | `none` |
 | `test_machine.settings_replace` | `none` |
 | `test_machine.verify` | `none` |
+
+## Withdraw a Test Machine wait
+
+```text
+yoke test-machine queue withdraw --execution ID --reason TEXT
+yoke test-machine queue withdraw --session S --host H --reason TEXT
+```
+
+Use the execution form to cancel every wait for a queued execution. Use the
+session and host form for a manual wait from a coordination claim. The fleet
+report identifies which form to use. A released reservation passes to the
+next eligible waiter.
+
+Waiving the final remaining requirement of a waiting execution that holds
+no host aborts the execution and cancels its waits in the waiver transaction.
+A wait with an unwaived case stays queued, and a walk already underway
+continues recording its results.
 
 ## Transfer a direct case
 

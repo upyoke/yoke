@@ -36,6 +36,7 @@ windows-2910bee3c5f540a5c688,yoke qa plan review-begin,cli,hosted-client,must-pa
 windows-fb06758f65f9259e54c8,yoke qa post-deploy record-no-obligation,cli,hosted-client,must-pass,,
 windows-1737a2ca7091915cdfc8,yoke relay install,cli,local,must-pass,,
 windows-287dc01396eb1c5ecc08,yoke say,cli,hosted-client,must-pass,,
+windows-ae9e16abdd588c7b9688,yoke test-machine queue withdraw,cli,hosted-client,must-pass,,
 windows-72be185db658d7a95ec8,yoke watch preflight,cli,local,must-pass,,
 windows-30ab239a50d501c56588,yoke workflow execution-instruction update,cli,hosted-client,must-pass,,
 windows-585c821ea2431017af88,yoke workflow item epic task body get,cli,local,must-pass,,

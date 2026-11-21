@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 from typing import Any
+from uuid import uuid4
 
 import pytest
 
@@ -23,6 +24,7 @@ from runtime.api.domain.independent_member_delivery_close_out_test_support impor
 )
 from runtime.api.domain import independent_member_delivery_close_out_test_support
 from runtime.api.domain.deployment_qa_stage_wake_delivery_test_support import HOLDER_A
+from runtime.api.domain.qa_host_turns_test_support import MACHINE, _notices
 from runtime.api.domain.status_transition_preflight_test_support import (
     _isolate_status_effects,
 )
@@ -50,6 +52,9 @@ from yoke_core.domain.handlers.qa_plan_execution import (
     handle_plan_execution_complete,
 )
 from yoke_core.domain.qa_plan_execution_state import advance_plan_execution, begin_plan_execution
+from yoke_core.domain.qa_host_set_turns import execution_waits, record_host_wait
+from yoke_core.domain.qa_host_turns import join_host_queue
+from yoke_core.domain.qa_plan_execution_store import lock_plan_execution, roster_digest
 from yoke_core.domain.qa_plan_review import begin_plan_review
 from yoke_core.domain.qa_plan_review_submission import submit_plan_review
 from yoke_core.domain.qa_requirement_ops import waive_requirement
@@ -57,7 +62,7 @@ from yoke_core.domain.qa_requirement_pass_currency import stamp_executed_method_
 from yoke_core.domain.qa_settlement_followups import replay_settlement_followups
 from yoke_core.domain.qa_run_execution_evidence import commit_settled_verdict
 from yoke_core.domain.qa_run_verdict_record import update_qa_run
-from yoke_core.domain.work_claim_targets import make_item_target
+from yoke_core.domain.work_claim_targets import make_item_target, make_qa_admission_target
 
 RUN_ID = "run-close-out-retry"
 
@@ -120,6 +125,54 @@ def test_settling_the_blocker_closes_the_member(test_db, monkeypatch, settle) ->
 
     assert _status(test_db, MEMBER_A) == "done"
     assert _status(test_db, MEMBER_B) == "release"
+
+
+def test_final_waiver_releases_reserved_turn_and_settles_member(test_db, monkeypatch):
+    from runtime.api.domain.deployment_qa_stage_wake_delivery_test_support import HOLDER_B
+
+    _isolate_status_effects(monkeypatch)
+    _seed_final_run(test_db, RUN_ID, shared_qa=False)
+    _notices(monkeypatch)
+    requirements = [
+        _row_id(insert_qa_requirement(test_db, item_id=MEMBER_A, blocking_mode="non_blocking"))
+        for _ in range(3)
+    ]
+    roster = [{"requirement_id": requirement} for requirement in requirements]
+    execution = str(uuid4())
+    test_db.execute(
+        "INSERT INTO qa_plan_executions(id,item_id,transition_id,session_id,actor_id,"
+        "roster_digest,roster_json,cursor_ordinal,state,created_at,heartbeat_at) "
+        "VALUES(%s,%s,'release',%s,'1',%s,%s,1,'active',now(),now())",
+        (execution, MEMBER_A, HOLDER_A, roster_digest(roster), json.dumps(roster)),
+    )
+    record_host_wait(
+        test_db, lock_plan_execution(test_db, execution), test_machine=MACHINE, rationale="test queue"
+    )
+    target = make_qa_admission_target(MACHINE)
+    reservation = active_claim(test_db, target)
+    assert reservation.session_id == HOLDER_A
+    join_host_queue(test_db, target, session_id=HOLDER_B, actor_id=1, resume_command="manual acquire")
+    test_db.commit()
+    _settle(test_db, run_id=RUN_ID, stage="item-qa", member=MEMBER_A)
+    assert _status(test_db, MEMBER_A) == "release"
+
+    waive_requirement(test_db, requirements[1], "no longer needed")
+    assert lock_plan_execution(test_db, execution)["state"] == "waiting"
+    assert execution_waits(test_db, execution)[0]["state"] == "reserved"
+    assert active_claim(test_db, target).id == reservation.id
+    test_db.commit()
+
+    waive_requirement(test_db, requirements[2], "no longer needed")
+    stopped = lock_plan_execution(test_db, execution)
+    assert stopped["state"] == "aborted"
+    assert stopped["release_reason"] == (
+        f"qa_requirement_waived: requirement {requirements[2]} was waived; nothing left to walk"
+    )
+    assert not execution_waits(test_db, execution)
+    assert active_claim(test_db, target).session_id == HOLDER_B
+    test_db.commit()
+    assert replay_settlement_followups(test_db)["replayed"] == [MEMBER_A]
+    assert _status(test_db, MEMBER_A) == "done"
 
 
 def test_a_member_its_run_has_not_accepted_is_left_to_its_stage(

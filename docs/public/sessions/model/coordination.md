@@ -54,8 +54,8 @@ yoke test-machine queue hand-over --from ID --to ID --host H --reason TEXT
 `place` moves the execution before N on H, or last if N exceeds the line. Its
 place applies to all its hosts and survives resume. `hand-over` gives the turn
 to a waiter first on its other hosts and keeps the former holder queued.
-Both commands need a covering steering seat. Active use, including reset and
-verify, prevents handover.
+Active use, including reset and verify, prevents handover. A covering steering
+seat can place, hand over, or [withdraw a wait](../../functions/qa.md#withdraw-a-test-machine-wait).
 
 Deployment runs take no coordination claim. `deploy_serialization` is the
 retired per-project deploy lock: nothing takes one, a `DEPLOY:` key refuses

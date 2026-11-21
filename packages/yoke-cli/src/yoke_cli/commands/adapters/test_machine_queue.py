@@ -21,9 +21,14 @@ HAND_OVER_USAGE = (
     "yoke test-machine queue hand-over --from ID --to ID --host H --reason TEXT "
     "[--project P] [--session-id S] [--json]"
 )
+WITHDRAW_USAGE = (
+    "yoke test-machine queue withdraw (--execution ID | --session S --host H) "
+    "--reason TEXT [--project P] [--session-id S] [--json]"
+)
 FUNCTION_USAGE = {
     "test_machine.queue.place": PLACE_USAGE,
     "test_machine.queue.hand_over": HAND_OVER_USAGE,
+    "test_machine.queue.withdraw": WITHDRAW_USAGE,
 }
 
 
@@ -33,11 +38,11 @@ def _command(args, *, action, summary, configure):
     parser = argparse.ArgumentParser(
         prog=f"yoke test-machine queue {action}",
         description=summary,
-        epilog="Requires a steering seat covering the execution's project.",
+        epilog="Requires a steering seat covering the waiter's project.",
     )
     configure(parser)
     parser.add_argument(
-        "--host", required=True, help="Test Machine whose line to edit."
+        "--host", required=action != "withdraw", help="Test Machine whose line to edit."
     )
     parser.add_argument(
         "--reason", required=True, help="Reason to record with the edit."
@@ -48,18 +53,29 @@ def _command(args, *, action, summary, configure):
     parsed = parse_or_usage_error(parser, args, usage)
     if isinstance(parsed, int):
         return parsed
+    if action == "withdraw" and (parsed.session is None) != (parsed.host is None):
+        return usage_error("Use either --execution ID or --session S --host H.")
     payload = vars(parsed)
     project = client_project_context(payload.pop("project"))
     session_id = payload.pop("session_id")
     json_mode = payload.pop("json_mode")
     if not project:
         return usage_error(
-            "Pass --project P or run from the execution's project checkout."
+            "Pass --project P or run from the waiter's project checkout."
         )
 
     def write_result(response, out, _err):
         result = response.result
-        execution = result["execution_id"]
+        execution = result.get("execution_id")
+        if action == "withdraw":
+            if execution:
+                print(f"Withdrew waiting execution {execution}.", file=out)
+            else:
+                print(
+                    f"Withdrew the wait for session {result['session']} on {result['host']}.",
+                    file=out,
+                )
+            return
         position = result["position"]
         if position is None:
             print(
@@ -121,4 +137,19 @@ def queue_hand_over(args):
         action="hand-over",
         summary="Give an unstarted reservation to another QA execution.",
         configure=_handover_args,
+    )
+
+
+def _withdraw_args(parser):
+    selector = parser.add_mutually_exclusive_group(required=True)
+    selector.add_argument("--execution", help="Waiting QA plan execution to abort.")
+    selector.add_argument("--session", help="Session whose manual wait to cancel.")
+
+
+def queue_withdraw(args):
+    return _command(
+        args,
+        action="withdraw",
+        summary="Withdraw a waiting QA execution or one manual Test Machine wait.",
+        configure=_withdraw_args,
     )

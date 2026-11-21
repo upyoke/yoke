@@ -254,6 +254,7 @@ PRODUCT_AUTHZ_BY_ID = {
     "test_machine.delete": AuthzSpec(ORG, PERM_ORG_ADMIN),
     "test_machine.queue.place": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "test_machine.queue.hand_over": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
+    "test_machine.queue.withdraw": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "test_machine.get": AuthzSpec(ACTOR_SESSION, None),
     "test_machine.desktop_access": AuthzSpec(ORG, PERM_ORG_ADMIN),
     "test_machine.list": AuthzSpec(ACTOR_SESSION, None),

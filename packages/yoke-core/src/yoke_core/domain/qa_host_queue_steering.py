@@ -4,7 +4,7 @@ from datetime import timedelta
 
 from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.timestamps import utc_now
-from yoke_core.domain.db_helpers import instant_parameter
+from yoke_core.domain.db_helpers import instant_parameter, query_one
 from yoke_core.domain.qa_host_idle_waiters import recheck_host_sets, serving_waiters
 from yoke_core.domain.qa_host_queue import machine_waiters, queue_waits
 from yoke_core.domain.qa_host_set_turns import (
@@ -16,7 +16,11 @@ from yoke_core.domain.qa_host_set_turns import (
     set_at_front,
 )
 from yoke_core.domain.qa_host_turn_borrow import turn_in_operation
-from yoke_core.domain.qa_host_turns import host_wait_view, reserve_host_turn
+from yoke_core.domain.qa_host_turns import (
+    cancel_host_waits,
+    host_wait_view,
+    reserve_host_turn,
+)
 from yoke_core.domain.qa_plan_execution_store import marker as _p
 from yoke_core.domain.work_claim_targets import make_qa_admission_target
 
@@ -198,3 +202,69 @@ def hand_over(conn, holder, receiver, host: str) -> dict:
         "host": host,
         "position": 1,
     }
+
+
+def withdraw_execution(conn, execution, reason: str) -> dict:
+    """Abort an execution that has not started using a Test Machine."""
+    from yoke_core.domain.qa_plan_execution_lifecycle import finish_plan_execution
+    from yoke_core.domain.qa_plan_host_leases import held_host_leases
+    from yoke_core.domain.qa_settlement_followups import request_settlement_followup
+
+    execution_id = str(execution["id"])
+    if held_host_leases(conn, execution):
+        raise QueueEditRefused(
+            "qa_host_turn_started",
+            f"Execution {execution_id} already holds a Test Machine lease",
+            "Let the walk finish or use yoke qa plan abort to stop it and restore its hosts",
+        )
+    if execution["state"] != "waiting":
+        raise QueueEditRefused(
+            "qa_host_turn_not_waiting",
+            f"Execution {execution_id} is {execution['state']}",
+            "Read the steering fleet report and retry with a waiting execution",
+        )
+    finish_plan_execution(
+        conn,
+        execution,
+        state="aborted",
+        reason=f"qa_host_wait_withdrawn: {reason}",
+        commit=False,
+    )
+    item_id = execution["deployment_member_item_id"] or execution["item_id"]
+    if item_id is not None:
+        request_settlement_followup(conn, item_id=int(item_id))
+    return {"execution_id": execution_id}
+
+
+def withdraw_manual_wait(conn, session_id: str, host: str, project_id: int) -> dict:
+    """Cancel the single live manual wait for this session and host."""
+    p = _p(conn)
+    wait = query_one(
+        conn,
+        "SELECT w.id, w.qa_plan_execution_id, s.project_id "
+        "FROM qa_test_machine_waits w JOIN harness_sessions s ON s.session_id=w.session_id "
+        f"WHERE w.session_id={p} AND w.test_machine={p} AND w.state IN ('waiting','reserved')",
+        (session_id, host),
+    )
+    if wait is None:
+        raise QueueEditRefused(
+            "qa_host_turn_not_waiting",
+            f"Session {session_id} has no live wait on {host}",
+            "Read the steering fleet report and retry with a current waiter on this host",
+        )
+    if wait["qa_plan_execution_id"] is not None:
+        raise QueueEditRefused(
+            "qa_host_wait_execution_owned",
+            f"The wait on {host} belongs to execution {wait['qa_plan_execution_id']}",
+            f"Run yoke test-machine queue withdraw --execution {wait['qa_plan_execution_id']} --reason TEXT",
+        )
+    if wait["project_id"] != project_id:
+        raise QueueEditRefused(
+            "qa_host_wait_project_mismatch",
+            f"Session {session_id} is outside the selected project",
+            "Pass the waiting session's --project P from a steering seat covering it",
+        )
+    # The live (host, session) row is unique and the queue lock keeps it from
+    # changing owners between validation and cancellation.
+    cancel_host_waits(conn, session_id=session_id, test_machines=[host])
+    return {"session": session_id, "host": host, "wait_id": str(wait["id"])}

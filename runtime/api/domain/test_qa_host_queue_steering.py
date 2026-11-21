@@ -18,11 +18,13 @@ from yoke_core.domain.db_helpers import query_one
 from yoke_core.domain.handlers.machine_qa_queue import (
     HandOverRequest,
     PlaceRequest,
+    WithdrawRequest,
     _edit,
 )
 from yoke_core.domain.qa_host_idle_waiters import hand_off_idle_waiter_reservations
 from yoke_core.domain.qa_host_set_turns import execution_waits, record_host_wait
 from yoke_core.domain.qa_host_turn_borrow import borrow_turn
+from yoke_core.domain.qa_host_turns import join_host_queue
 from yoke_core.domain.qa_plan_execution_store import lock_plan_execution, roster_digest
 from yoke_core.domain.steering_claims import acquire as acquire_seat
 from yoke_core.domain.work_claim_targets import make_qa_admission_target
@@ -70,11 +72,9 @@ def _seat(conn):
     conn.commit()
 
 
-def _call(model, event, payload):
+def _call(action, model, event, payload):
     request = FunctionCallRequest(
-        function="test_machine.queue.place"
-        if model is PlaceRequest
-        else "test_machine.queue.hand_over",
+        function=f"test_machine.queue.{action}",
         actor=ActorContext(actor_id="1", session_id="operator"),
         target=TargetRef(kind="global", project_id="yoke"),
         payload={"reason": REASON, **payload},
@@ -84,6 +84,7 @@ def _call(model, event, payload):
 
 def _place(execution, position, host=WIN):
     return _call(
+        "place",
         PlaceRequest,
         "QaHostWaiterPlaced",
         {"execution": execution, "host": host, "position": position},
@@ -92,10 +93,15 @@ def _place(execution, position, host=WIN):
 
 def _hand_over(source, receiver):
     return _call(
+        "hand_over",
         HandOverRequest,
         "QaHostTurnHandedOver",
         {"from_execution": source, "to_execution": receiver, "host": WIN},
     )
+
+
+def _withdraw(**selector):
+    return _call("withdraw", WithdrawRequest, None, selector)
 
 
 def _assert_event(conn, name):
@@ -226,7 +232,7 @@ def test_handover_refuses_while_an_operation_borrows_the_turn(world):
     assert active_claim(world, _target()).id == turn.id
 
 
-def test_both_commands_refuse_after_custody_starts(world):
+def test_queue_commands_refuse_after_custody_starts(world):
     holder = _queue(world, 561, "older")
     receiver = _queue(world, 562, "younger")
     taken = acquire(world, _target(), "older")
@@ -239,13 +245,66 @@ def test_both_commands_refuse_after_custody_starts(world):
 
     assert _place(holder, 1).error.code == "qa_host_turn_started"
     assert _hand_over(holder, receiver).error.code == "qa_host_turn_started"
+    assert _withdraw(execution=holder).error.code == "qa_host_turn_started"
     assert active_claim(world, _target()).id == taken.id
 
 
-def test_both_queue_edits_require_steering_authority(world):
+def test_queue_edits_require_steering_authority(world):
     holder = _queue(world, 561, "older")
     receiver = _queue(world, 562, "younger")
 
     assert _place(receiver, 1).error.code == "steering_seat_required"
     assert _hand_over(holder, receiver).error.code == "steering_seat_required"
+    assert _withdraw(execution=holder).error.code == "steering_seat_required"
+    assert _withdraw(session="older", host=WIN).error.code == "steering_seat_required"
     assert active_claim(world, _target()).session_id == "older"
+
+
+def test_withdraw_execution_leaves_every_line_and_passes_its_reserved_turn(world):
+    acquire(world, _target(NATIVE), "current")
+    holder = _queue(world, 561, "matrix", NATIVE, (NATIVE, WIN))
+    receiver = _queue(world, 562, "younger")
+    assert active_claim(world, _target()).session_id == "matrix"
+    _seat(world)
+
+    result = _withdraw(execution=holder)
+
+    assert result.primary_success, result.error
+    assert result.result_payload["execution_id"] == holder
+    assert not execution_waits(world, holder)
+    stopped = lock_plan_execution(world, holder)
+    assert stopped["state"] == "aborted"
+    assert stopped["release_reason"] == f"qa_host_wait_withdrawn: {REASON}"
+    assert execution_waits(world, receiver)[0]["state"] == "reserved"
+    world.commit()
+    assert _withdraw(execution=holder).error.code == "qa_host_turn_not_waiting"
+
+
+def test_withdraw_manual_wait_preserves_other_session_work(world):
+    acquire(world, _target(), "current")
+    walking = _queue(world, 561, "older", STUDIO)
+    unrelated_lease = acquire(world, _target(STUDIO), "older")
+    world.execute(
+        "UPDATE qa_plan_executions SET state='active',test_machine_lease_id=%s WHERE id=%s",
+        (unrelated_lease.id, walking),
+    )
+    wait = join_host_queue(
+        world, _target(), session_id="older", actor_id=1, resume_command="manual acquire"
+    )
+    _queue(world, 562, "older", NATIVE)
+    _seat(world)
+
+    wrong_form = _withdraw(session="older", host=NATIVE)
+    assert wrong_form.error.code == "qa_host_wait_execution_owned"
+    assert "--execution" in wrong_form.error.message
+    result = _withdraw(session="older", host=WIN)
+
+    assert result.primary_success, result.error
+    assert result.result_payload["wait_id"] == wait["id"]
+    row = query_one(
+        world, "SELECT state FROM qa_test_machine_waits WHERE id=%s", (wait["id"],)
+    )
+    assert row["state"] == "cancelled"
+    assert active_claim(world, _target(STUDIO)).id == unrelated_lease.id
+    assert active_claim(world, _target(NATIVE)).session_id == "older"
+    assert lock_plan_execution(world, walking)["state"] == "active"

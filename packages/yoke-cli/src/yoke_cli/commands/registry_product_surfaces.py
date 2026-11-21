@@ -134,6 +134,10 @@ TEST_MACHINE_SUBCOMMAND_REGISTRY = {
         "test_machine.queue.hand_over",
         test_machine_queue.queue_hand_over,
     ),
+    ("test-machine", "queue", "withdraw"): (
+        "test_machine.queue.withdraw",
+        test_machine_queue.queue_withdraw,
+    ),
     ("test-machine", "get"): (
         "test_machine.get",
         test_machine.test_machine_get,
