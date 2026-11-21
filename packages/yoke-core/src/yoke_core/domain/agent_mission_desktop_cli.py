@@ -89,9 +89,10 @@ def _parser() -> argparse.ArgumentParser:
             "(UI Automation names such as Button, Edit, Document); when several match,\n"
             "the refusal lists them and --index N picks the Nth. An option the action\n"
             "does not use is refused, never ignored.\n"
-            "Results print as one JSON object; typed text is reported only as its length,\n"
-            "and secrets or credential-shaped text are refused. A refusal prints its\n"
-            "error_code and recovery, and the command exits 1. Launch apps with\n"
+            "Every action, refusals included, prints one JSON object with ok, and on a\n"
+            "refusal error_code, detail and recovery; a refusal also names itself on\n"
+            "stderr and exits 1. Typed text is reported only as its length, and secrets\n"
+            "or credential-shaped text are refused. Launch apps with\n"
             "`yoke qa mission host-command --gui-session`; see the result with\n"
             "`yoke test-machine screenshot`."
         ),
@@ -133,9 +134,67 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _refuse(refusal: str, recovery: str, code: str) -> int:
-    print(f"{PROG}: {compose_refusal(code + ': ' + refusal, recovery=recovery)}", file=sys.stderr)
+def _refused(code: str, detail: str, recovery: str) -> dict[str, Any]:
+    return {"ok": False, "error_code": code, "detail": detail, "recovery": recovery}
+
+
+def _finish(parsed: argparse.Namespace, result: dict[str, Any]) -> int:
+    """Print every outcome as one JSON object; a refusal also names itself on stderr."""
+    payload = {
+        "execution_id": parsed.execution_id,
+        "requirement_id": parsed.requirement_id,
+        "action": parsed.action,
+        **result,
+    }
+    print(json.dumps(payload, sort_keys=True))
+    if result["ok"]:
+        return 0
+    reason = f"{result.get('error_code')}: {result.get('detail') or ''}"
+    recovery = str(result.get("recovery") or "Take a screenshot, then retry")
+    print(f"{PROG}: {compose_refusal(reason, recovery=recovery)}", file=sys.stderr)
     return 1
+
+
+def _outcome(parsed: argparse.Namespace, request: dict[str, Any]) -> dict[str, Any] | None:
+    """Return the action's result or refusal; None when the lease refused (already printed)."""
+    if parsed.text_stdin and parsed.action != "type":
+        return _refused(
+            "desktop_input_option_unused",
+            f"{parsed.action} does not use --text-stdin",
+            "Remove --text-stdin; only `type` reads stdin",
+        )
+    if parsed.action == "type":
+        if not parsed.text_stdin:
+            return _refused(
+                "desktop_input_text_missing",
+                "type reads its text from stdin only",
+                "Pipe the text and pass --text-stdin, so it never enters argv or shell history",
+            )
+        request["text"] = sys.stdin.read().removesuffix("\n").removesuffix("\r")
+    try:
+        validate_request(request)
+    except DesktopInputRefused as exc:
+        return _refused(exc.code, exc.detail, exc.recovery)
+    contract = resolve_mission_contract(parsed, prog=PROG)
+    if contract is None:
+        return None
+    try:
+        from yoke_core.domain.machine_qa_host_control import (
+            register_test_machine_host_control,
+        )
+
+        register_test_machine_host_control()
+        return execute_agent_mission_desktop(contract, request)
+    except DesktopInputRefused as exc:
+        return _refused(exc.code, exc.detail, exc.recovery)
+    except HostControlLocalError as exc:
+        return _refused(exc.code, str(exc), exc.recovery_hint)
+    except Exception as exc:
+        return _refused(
+            "desktop_input_failed",
+            f"local execution failed ({type(exc).__name__})",
+            "Check the host with `yoke test-machine verify`, then retry",
+        )
 
 
 def run(args: list[str]) -> int:
@@ -147,57 +206,8 @@ def run(args: list[str]) -> int:
             "control_type", "index", "x", "y", "button", "double", "keys", "wait_seconds",
         )
     }
-    if parsed.text_stdin and parsed.action != "type":
-        return _refuse(
-            f"{parsed.action} does not use --text-stdin",
-            "Remove --text-stdin; only `type` reads stdin",
-            "desktop_input_option_unused",
-        )
-    if parsed.action == "type":
-        if not parsed.text_stdin:
-            return _refuse(
-                "type reads its text from stdin only",
-                "Pipe the text and pass --text-stdin, so it never enters argv or shell history",
-                "desktop_input_text_missing",
-            )
-        request["text"] = sys.stdin.read().removesuffix("\n").removesuffix("\r")
-    try:
-        validate_request(request)
-    except DesktopInputRefused as exc:
-        return _refuse(exc.detail, exc.recovery, exc.code)
-    contract = resolve_mission_contract(parsed, prog=PROG)
-    if contract is None:
-        return 2
-    try:
-        from yoke_core.domain.machine_qa_host_control import (
-            register_test_machine_host_control,
-        )
-
-        register_test_machine_host_control()
-        result = execute_agent_mission_desktop(contract, request)
-    except DesktopInputRefused as exc:
-        return _refuse(exc.detail, exc.recovery, exc.code)
-    except HostControlLocalError as exc:
-        return _refuse(str(exc), exc.recovery_hint, exc.code)
-    except Exception as exc:
-        return _refuse(
-            f"local execution failed ({type(exc).__name__})",
-            "Check the host with `yoke test-machine verify`, then retry",
-            "desktop_input_failed",
-        )
-    payload = {
-        "execution_id": parsed.execution_id,
-        "requirement_id": parsed.requirement_id,
-        **result,
-    }
-    print(json.dumps(payload, sort_keys=True))
-    if not result["ok"]:
-        return _refuse(
-            str(result.get("detail") or ""),
-            str(result.get("recovery") or "Take a screenshot, then retry"),
-            str(result.get("error_code")),
-        )
-    return 0
+    result = _outcome(parsed, request)
+    return 2 if result is None else _finish(parsed, result)
 
 
 def main(argv: Optional[list[str]] = None) -> int:

@@ -248,7 +248,7 @@ window's bounds) or a UI Automation element selected by exact `--name`,
 listed matches. `type` reads plain text from stdin only, so it never enters
 argv or shell history; send Enter, Tab and shortcuts with `keys`.
 
-Every result is one JSON object. Typed text appears only as its length, and
+Every action, refusals included, prints one JSON object. Typed text appears only as its length, and
 text carrying a lease secret or a credential shape is refused
 (`desktop_input_secret_refused`) before anything is typed: a password entry is
 a human gate. Failures exit 1 with a named code and recovery:
