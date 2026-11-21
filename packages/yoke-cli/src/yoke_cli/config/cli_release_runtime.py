@@ -36,7 +36,7 @@ WAIT_NOTICE = "Waiting by design: CLI publication lock; checking every 50ms; giv
 BUSY = "cli_publication_busy: let the active update finish, then retry"
 RESTART = f"{RECOVERY}, then run yoke hook resident restart from your own terminal; read this evaluator log"
 HELD = []  # Leases this process keeps until it exits.
-CLEANUP_RETRY = "the next yoke command or update retries cleanup"
+CLEANUP_RETRY = "the next CLI release publication retries cleanup"
 RELEASE_ENTRY = """
 import os, signal, sys, threading
 def end_with_launcher(token):
@@ -308,7 +308,8 @@ def launch(root: Path, arguments: list[str]) -> int:
         return 2
     finally:  # The last command on a replaced release retires it.
         try:
-            if generation is not None:
+            # A publisher that changes the pointer after this read collects retired releases.
+            if generation is not None and _generation(root) != generation:
                 with locked(root / "publication.lock", nonblocking=True):
                     if _generation(root) != generation:
                         collect(root)

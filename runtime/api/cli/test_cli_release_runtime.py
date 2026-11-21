@@ -58,6 +58,24 @@ def test_two_commands_across_an_update_and_cleanup_after_the_old_one_exits(
 
 
 @pytest.mark.windows
+def test_current_release_command_does_not_need_the_publication_lock(
+    tmp_path, monkeypatch, capfd,
+):
+    root, bin_dir = tmp_path / "runtime", tmp_path / "bin"
+    runtime.activate(root, candidate(root, "1.0"), bin_dir, "1.0")
+
+    def refuse_lock(path, *, nonblocking=False):
+        raise PermissionError(f"sandbox denied {path.name}")
+
+    monkeypatch.setattr(runtime, "locked", refuse_lock)
+    command = "import sys; print('HARNESS_POSTURE_RESTRICTED', file=sys.stderr); sys.exit(1)"
+    assert runtime.launch(root, ["--python", "-c", command]) == 1
+    captured = capfd.readouterr()
+    assert captured.out == ""
+    assert captured.err == "HARNESS_POSTURE_RESTRICTED\n"
+
+
+@pytest.mark.windows
 def test_failed_candidate_preserves_public_command_and_is_cleaned_later(tmp_path):
     root, bin_dir = tmp_path / "runtime", tmp_path / "bin"
     old = candidate(root, "1.0")
