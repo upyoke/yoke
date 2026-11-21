@@ -55,6 +55,7 @@ class DeploymentRunCreateResponse(BaseModel):
     replayed: bool = False
     idempotency_basis: Optional[str] = None
     supersedes_run_id: Optional[str] = None
+    carried_execution_ids: list[str] = []
     waiting_for_run_id: Optional[str] = None
     execution_instructions: list[dict] = []
 

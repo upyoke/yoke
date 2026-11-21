@@ -12,6 +12,15 @@ plane's own serving API requires control-plane operator authority.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
+#: A takeover moves each open walk to the successor before it ends the older
+#: run; the walk keeps its execution ID, state and owner.
+OPEN_WALKS_CARRY = (
+    "Open walks carry intact to the successor; never hold a release for an "
+    "open walk."
+)
+
 FINALIZATION_PENDING_PREFIX = "deploy succeeded, finalization pending"
 
 INTERRUPTED_RUN_RECOVERY = """\
@@ -127,7 +136,7 @@ CREATE_DESCRIPTION = (
     "takes over nothing. A key whose run was cancelled before it started "
     "creates a fresh run. Creation pins bound "
     "source commits and provisionally composes membership from the candidate. "
-    "It reports all detectable blockers, including selected member flow "
+    "It reports every detectable blocker, including member flow "
     "mismatches, before committing a run ID. On a flow that waits for CI, "
     "the release commit must have its own run of the project's "
     "ci_workflow_file: without --source-ref creation binds the gate branch "
@@ -159,23 +168,22 @@ CREATE_DESCRIPTION = (
     "reaches its release stage. "
     "A run on a flow with an item-scoped QA stage that carries or owes "
     "members must take delivery custody, or it is refused "
-    "(item_qa_flow_without_delivery_custody), because its members could "
-    "never be proven at item QA. "
+    "(item_qa_flow_without_delivery_custody): its members could not pass "
+    "item QA. "
     "Takes over the newest same-flow/target predecessor whose source is contained when created, "
     "failed, or waiting only on item QA; a deploying or settling predecessor "
     "stays live and is named in the receipt "
     "(deployments/takeover.md). "
-    "Whether a memberless item-QA run owes a "
-    "delivery is asked by validate-composition and before execution, not "
-    "here, so add-item can attach to an itemless run. "
-    "Choose the items' selected completion flow or deliberately reconcile "
-    "their flow, then revalidate; creation never changes item flows. Uses the selected "
-    "control-plane transport, including HTTPS for ordinary external "
-    "delivery. Creation does not execute: the run stays 'created' until an "
+    f"{OPEN_WALKS_CARRY} The receipt's carried_execution_ids names them. "
+    "validate-composition and execution, not creation, ask whether a "
+    "memberless item-QA run owes a delivery, so add-item can attach to it. "
+    "Choose the items' selected completion flow or reconcile it, then "
+    "revalidate; creation never changes item flows. Uses the selected "
+    "control-plane transport (HTTPS for external delivery). Creation does not execute: the run stays 'created' until an "
     "operator drives it through the same control-plane connection with "
-    "`yoke watch deploy`. A true self-deploy of that connection's serving "
-    "API requires operator authority; escalate the named refusal and recovery "
-    "to the control-plane operator."
+    "`yoke watch deploy`. A self-deploy of that connection's serving API "
+    "needs operator authority; escalate its named refusal to the "
+    "control-plane operator."
 )
 
 WATCH_DEPLOY_DESCRIPTION = (
@@ -209,11 +217,13 @@ def replayed_run_note(run_id: str, key: str) -> str:
 BASIS_RECORDED_KEY = "recorded_key"
 
 
-def takeover_note(run_id: str, superseded: str) -> str:
+def takeover_note(run_id: str, superseded: str, carried: Sequence[str] = ()) -> str:
     """Post-create stderr line when the create took over an older run."""
+    executions = ", ".join(carried) if carried else "none"
     return (
         f"note: {run_id} took over {superseded}, which was waiting only on "
         f"item QA on this target; its waiting members now ride {run_id}. "
+        f"{OPEN_WALKS_CARRY} Carried open executions: {executions}. "
         f"`yoke deployment-runs get {superseded}` shows what stayed there."
     )
 
@@ -232,6 +242,7 @@ __all__ = [
     "CREATE_RETRY_GUIDANCE",
     "FINALIZATION_PENDING_PREFIX",
     "INTERRUPTED_RUN_RECOVERY",
+    "OPEN_WALKS_CARRY",
     "ITEMLESS_RELEASE_RECIPE",
     "RESOLVE_TARGET_DESCRIPTION",
     "SCOPED_QA_WAIT_GUIDANCE",

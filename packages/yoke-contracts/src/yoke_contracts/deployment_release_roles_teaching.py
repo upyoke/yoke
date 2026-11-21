@@ -23,7 +23,9 @@ Item-bound batch release — who runs what:
   waits only on item QA takes that run over when the new candidate contains
   its candidate: waiting members move to the new run (every unclosed member
   when the flow has run-level QA or approval, which cancels the older run as
-  superseded); `deployment-runs create --help` has the rules. On a flow
+  superseded). Open walks carry intact to the successor before the older run
+  ends; never hold a release for an open walk. `deployment-runs create --help`
+  has the rules. On a flow
   that waits for CI that SHA needs its own CI run: create the CI-gated run
   without --source-ref to bind one, then pin its release_lineage. The start
   enrolls every delivery-ready item its candidate carries that no live or

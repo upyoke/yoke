@@ -214,7 +214,9 @@ def deployment_runs_create(args: List[str]) -> int:
         if run_id and result.get("replayed"):
             print(replayed_run_note(run_id, result.get("idempotency_key") or parsed.idempotency_key), file=stderr)
         if run_id and result.get("supersedes_run_id"):
-            print(takeover_note(run_id, result["supersedes_run_id"]), file=stderr)
+            # An older server omits carried_execution_ids; the note then says none.
+            carried = result.get("carried_execution_ids") or ()
+            print(takeover_note(run_id, result["supersedes_run_id"], carried), file=stderr)
         if run_id and result.get("waiting_for_run_id"):
             print(f"Run {run_id} starts after run {result['waiting_for_run_id']} "
                   "releases target occupancy; watch that run before starting this one.", file=stderr)
