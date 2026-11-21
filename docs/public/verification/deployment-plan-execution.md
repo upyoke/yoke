@@ -230,13 +230,10 @@ Old snapshots left after a verified refresh capture only warn
 A declared host baseline restores the golden home. Before new case work, an
 unproven mission cleanup also requires a reset: its `reset_owed` machine receipt
 names the failed cleanup's baseline, or `fresh-host` when none was declared.
-When a release leaves the host free, the releasing CLI attempts the owed reset
-once with its own lease. It first stops a cloud host Yoke started, then the
-reset starts it from stopped and its release stops it again. A reserved turn
-goes to the waiter, which clears reset debt before starting its case.
-A failed reset records an error receipt, and the CLI prints the failure and
-the exact `yoke test-machine reset` command. The steering report shows the
-failure and command until a verified reset clears the debt.
+The releasing CLI tries the owed reset once if the host stays free, stopping a
+Yoke-started cloud host before and after reset. A waiter that takes the turn
+clears the debt in case preparation. The [steering report](../sessions/steering-report-delivery.md#reset-debt)
+names any failed reset and its recovery command.
 A failed ordinary case restore or current holder's mission restore artifact
 also records this debt before custody ends. A terminal case missing its
 restore receipt records debt too; an intermediate successful case keeps
