@@ -55,12 +55,37 @@ def test_type_reads_text_from_stdin_and_prints_only_its_length(leased, monkeypat
         (["type", "--title", "Codex"], "desktop_input_text_missing"),
         (["keys", "--title", "C", "--keys", "enter", "--text-stdin"], "desktop_input_option_unused"),
         (["click", "--title", "C"], "desktop_input_click_target_invalid"),
+        (["read", "--process", "claude"], "desktop_input_element_required"),
     ],
 )
 def test_bad_requests_refuse_before_resolving_the_lease(leased, capsys, args, code):
     assert cli.run([*FLAGS, *args]) == 1
-    assert f"{code}:" in capsys.readouterr().err
+    captured = capsys.readouterr()
+    assert f"{code}:" in captured.err
+    printed = json.loads(captured.out)
+    assert printed["ok"] is False and printed["error_code"] == code
+    assert printed["recovery"] and printed["action"] == args[0]
     assert leased == []
+
+
+def test_secret_refusal_prints_a_json_result(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "resolve_mission_contract", lambda parsed, prog: {"op": 1})
+    monkeypatch.setattr(
+        "yoke_core.domain.machine_qa_host_control.register_test_machine_host_control",
+        lambda: None,
+    )
+
+    def execute(contract, request):
+        raise DesktopInputRefused("desktop_input_secret_refused", "secret", "human gate")
+
+    monkeypatch.setattr(cli, "execute_agent_mission_desktop", execute)
+    monkeypatch.setattr("sys.stdin", io.StringIO("ghp_" + "a" * 36))
+    assert cli.run([*FLAGS, "type", "--title", "C", "--text-stdin"]) == 1
+    captured = capsys.readouterr()
+    printed = json.loads(captured.out)
+    assert printed["error_code"] == "desktop_input_secret_refused"
+    assert printed["recovery"] == "human gate"
+    assert "ghp_" not in captured.out + captured.err
 
 
 def test_host_refusal_prints_json_and_named_error_and_exits_1(leased, capsys):
