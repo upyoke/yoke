@@ -228,8 +228,12 @@ $version=Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion'
             f"if(Test-Path -LiteralPath {quote(path)}){{[IO.File]::ReadAllText({quote(path)})}}"
         )
         if result.returncode:
-            raise RuntimeError(
-                "windows_host_file_read_failed: repair the declared file's ACL and retry"
+            raise HostControlLocalError(
+                code="windows_host_file_read_failed", phase="file_read",
+                detail=f"Windows host file read failed: {path}",
+                recovery_hint="Inspect the read diagnostics; retry if the file was being written, otherwise repair access to the named file.",
+                exit_code=result.returncode, stdout=result.stdout, stderr=result.stderr,
+                secrets=getattr(self, "secret_values", ()),
             )
         return result.stdout or None
 

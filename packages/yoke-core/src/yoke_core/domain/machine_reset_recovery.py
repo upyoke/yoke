@@ -15,11 +15,10 @@ def recover_owed_reset(contract, execution):
         failure_code="machine_needs_repair",
     )
     if not receipt["ok"]:
-        receipt.update(
-            error_code="machine_needs_repair",
-            recovery=reset_command(
-                contract.settings["resource_name"], baseline
-            ),
+        # Keep the harness's error_code: it names the real cause. Callers
+        # raise machine_needs_repair themselves.
+        receipt["recovery"] = reset_command(
+            contract.settings["resource_name"], baseline
         )
     return receipt
 
