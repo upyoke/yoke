@@ -284,7 +284,7 @@ def test_machine_hooks_and_recorded_settings_are_removed_before_home(machine, tm
     assert not hooks.exists()
     assert json.loads(settings.read_text()) == {"model": "x"}
     created = f"cursor: deleted {hooks} (Yoke created it"
-    assert any(l.startswith("machine-wide hooks: ") and created in l for l in output)
+    assert any(x.startswith("machine-wide hooks: ") and created in x for x in output)
     assert "machine-wide hooks: done" in output
     assert "harness settings: done" in output
     assert not value.home.exists()
