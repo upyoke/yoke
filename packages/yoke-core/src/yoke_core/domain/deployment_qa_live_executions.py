@@ -70,14 +70,24 @@ def covering_execution(
     member_item_id: int | None,
     execution_target_digest: str,
 ) -> dict[str, Any] | None:
-    """The live execution already walking this exact subject and target."""
+    """The live execution already walking this subject.
+
+    A member has one subject per run and stage, and a takeover carries its
+    walk onto the successor run with the target it froze, so any live
+    execution of the member there owns its cases, whatever its digest. A
+    run-level subject is one plan group per target digest, so only the
+    execution of that exact digest owns it.
+    """
     return next(
         (
             row
             for row in live_executions(conn, run_id)
             if str(row["stage"]) == str(stage_name)
             and int(row["item_id"] or 0) == int(member_item_id or 0)
-            and str(row["digest"] or "") == str(execution_target_digest)
+            and (
+                member_item_id is not None
+                or str(row["digest"] or "") == str(execution_target_digest)
+            )
         ),
         None,
     )
