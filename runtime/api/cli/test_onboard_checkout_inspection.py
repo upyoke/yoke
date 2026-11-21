@@ -113,7 +113,7 @@ def test_apply_refuses_a_repository_nobody_inspected(tmp_path: Path) -> None:
     root = _repo_with_layer(tmp_path)
 
     with pytest.raises(ProjectOnboardError) as excinfo:
-        project_onboard_installed_layer.apply_decision(root, "")
+        project_onboard_installed_layer.removal_requested(root, "")
 
     message = str(excinfo.value)
     assert "already carries a Yoke operating layer" in message
@@ -125,11 +125,8 @@ def test_apply_refuses_a_repository_nobody_inspected(tmp_path: Path) -> None:
 def test_apply_keeps_the_layer_when_that_was_the_decision(tmp_path: Path) -> None:
     root = _repo_with_layer(tmp_path)
 
-    assert (
-        project_onboard_installed_layer.apply_decision(
-            root, layer.LAYER_DECISION_KEEP
-        )
-        is None
+    assert not project_onboard_installed_layer.removal_requested(
+        root, layer.LAYER_DECISION_KEEP
     )
     assert (root / ".yoke").is_dir()
 
@@ -138,9 +135,9 @@ def test_apply_removes_the_layer_when_that_was_the_decision(tmp_path: Path) -> N
     root = _repo_with_layer(tmp_path)
     steps: list[tuple[str, str, str]] = []
 
-    report = project_onboard_installed_layer.apply_decision(
+    assert project_onboard_installed_layer.removal_requested(root, layer.LAYER_DECISION_REMOVE)
+    report = project_onboard_installed_layer.remove_layer(
         root,
-        layer.LAYER_DECISION_REMOVE,
         progress=lambda action, target, status: steps.append(
             (action, target, status)
         ),
@@ -153,7 +150,7 @@ def test_apply_removes_the_layer_when_that_was_the_decision(tmp_path: Path) -> N
 
 
 def test_apply_needs_no_decision_for_a_clean_repository(tmp_path: Path) -> None:
-    assert project_onboard_installed_layer.apply_decision(_clean_repo(tmp_path), "") is None
+    assert not project_onboard_installed_layer.removal_requested(_clean_repo(tmp_path), "")
 
 
 def test_plan_lists_the_removal_before_the_scaffold_install(tmp_path: Path) -> None:

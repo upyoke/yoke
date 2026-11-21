@@ -47,6 +47,10 @@ def _stub_backend(monkeypatch):
         lambda *a, **k: {"installed": True},
     )
     monkeypatch.setattr(
+        project_onboard_apply, "resolve_bundle",
+        lambda *a, **k: ({"yoke_version": "test"}, "test"),
+    )
+    monkeypatch.setattr(
         project_onboard_apply.machine_writer,
         "register_project",
         lambda *a, **k: None,

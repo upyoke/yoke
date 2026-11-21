@@ -3,7 +3,7 @@
  "title": "When Apply fails, show its real cause and a recovery action on screen and after exit.",
  "status": "observed",
  "form": "Do",
- "verification": "Source trace and scripted regressions cover network failure, project permission denial and repository collision through the durable report, failure screen and terminal exit. When a served bundle release differs from the installed CLI, Apply refuses before writing the project layer, names the release to install, and reports how to resume the same run. Native Windows release proof is pending.",
+ "verification": "Source trace and scripted regressions cover network failure, project permission denial and repository collision through the durable report, failure screen and terminal exit. When a served bundle release differs from the installed CLI, Apply refuses before registering the checkout or writing the layer, names the release to install, and reports how to resume the same run. This lets the resumed install own the registration for uninstall. Native Windows release proof for the ownership correction is pending.",
  "topics": ["installation/readiness"],
  "sources": ["packages/yoke-cli/src/yoke_cli/commands/adapters/onboard_apply.py", "packages/yoke-cli/src/yoke_cli/config/onboard_wizard_flow_apply.py", "runtime/api/cli/test_setup_failure_reason.py", "runtime/api/cli/test_setup_scaffold_release.py", "docs/public/start/install.md"],
  "position": 12

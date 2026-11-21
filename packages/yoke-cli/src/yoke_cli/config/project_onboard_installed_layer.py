@@ -2,11 +2,9 @@
 
 Onboarding materializes the checkout before Review so the operator can see
 what the repository actually contains, and records keep-or-remove with the
-clone plan. Apply reaches this module once the folder exists and before the
-project install writes anything: it removes the layer when that was the
-decision, and refuses when no decision was ever made — installing over a
-repository nobody looked at is how a "first install" silently converges
-hundreds of files somebody else's install left behind.
+clone plan. Inspect that decision before dispatching project creation. Remove
+the existing layer only once the replacement bundle has passed its release
+check.
 """
 
 from __future__ import annotations
@@ -23,13 +21,8 @@ from yoke_cli.project_install.source_dev import is_yoke_source_checkout
 REMOVE_LAYER_ACTION = "project-remove-installed-layer"
 
 
-def apply_decision(
-    root: Path,
-    decision: str,
-    *,
-    progress: onboard_apply_progress.ProgressCallback | None = None,
-) -> dict[str, Any] | None:
-    """Remove, keep, or refuse — return the removal report when one ran.
+def removal_requested(root: Path, decision: str) -> bool:
+    """Read the existing layer and require a decision if it needs one.
 
     A checkout carrying no layer needs no decision, and the Yoke source
     checkout is exempt: the layer there is the repository's own tracked
@@ -37,12 +30,20 @@ def apply_decision(
     """
     scan = layer.scan(root)
     if not scan.present or is_yoke_source_checkout(root):
-        return None
+        return False
     selected = str(decision or "").strip()
     if selected == layer.LAYER_DECISION_KEEP:
-        return None
+        return False
     if selected != layer.LAYER_DECISION_REMOVE:
         raise ProjectOnboardError(uninspected_message(scan))
+    return True
+
+
+def remove_layer(
+    root: Path,
+    *,
+    progress: onboard_apply_progress.ProgressCallback | None,
+) -> dict[str, Any]:
     with onboard_apply_progress.step(progress, REMOVE_LAYER_ACTION, str(root)):
         return project_installed_layer_removal.remove(root)
 
@@ -68,4 +69,4 @@ def uninspected_message(scan: layer.InstalledLayerScan) -> str:
     )
 
 
-__all__ = ["REMOVE_LAYER_ACTION", "apply_decision", "uninspected_message"]
+__all__ = ["REMOVE_LAYER_ACTION", "removal_requested", "remove_layer", "uninspected_message"]

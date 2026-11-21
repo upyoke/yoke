@@ -1,4 +1,4 @@
-"""Setup rejects release skew before a project-layer write."""
+"""Refuse setup release skew before claiming checkout registration."""
 
 from __future__ import annotations
 
@@ -6,36 +6,72 @@ import subprocess
 
 import pytest
 
-from yoke_cli.config import project_onboard_apply
-from yoke_cli.project_install import runner, validate
+from yoke_cli.config import machine_config, project_onboard_apply, writer
+from yoke_cli.project_install import validate
 from yoke_cli.project_install.files import ProjectInstallError
 
 
-def test_setup_refuses_mismatched_bundle_before_writing_layer(monkeypatch, tmp_path):
+def test_release_mismatch_leaves_registration_for_resumed_setup(monkeypatch, tmp_path):
     running = "0.2.0.202611201926"
     served = "0.2.0.202611202031"
-    subprocess.run(["git", "init", "-q", "-b", "main", str(tmp_path)], check=True)
+    config = tmp_path / "home" / "config.json"
+    checkout = tmp_path / "checkout"
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(config.parent))
+    writer.set_connection(
+        "test", transport="https", api_url="https://test.invalid",
+        token="fixture", path=config,
+    )
+    subprocess.run(["git", "init", "-q", "-b", "main", str(checkout)], check=True)
+    scaffold = ({"yoke_version": served}, "https://test.invalid")
     monkeypatch.setattr(validate, "local_handshake_version", lambda: running)
-    monkeypatch.setattr(project_onboard_apply.machine_config, "project_id", lambda *_: 42)
     monkeypatch.setattr(
-        runner, "_resolve_bundle",
-        lambda *_args, **_kwargs: ({"yoke_version": served}, "https://test.invalid"),
+        project_onboard_apply, "resolve_bundle", lambda *_args, **_kwargs: scaffold,
     )
     monkeypatch.setattr(
-        runner, "assert_install_repository",
+        project_onboard_apply.install_runner, "install",
         lambda *_args, **_kwargs: pytest.fail("setup advanced past the bundle preflight"),
     )
+    calls = []
+    monkeypatch.setattr(
+        project_onboard_apply.project_onboard_installed_layer, "remove_layer",
+        lambda *_args, **_kwargs: calls.append("remove"),
+    )
+    monkeypatch.setattr(
+        project_onboard_apply.progress_steps, "store_github_binding",
+        lambda *_args, **_kwargs: calls.append("binding"),
+    )
+
+    def apply():
+        return project_onboard_apply.finish_after_dispatch(
+            operation="onboard", root=checkout,
+            result={"project": {"id": 42}}, github_adoption={},
+            config_path=config, progress=None,
+            github_auth_target="", scaffold_action="project-install-scaffold",
+            reuse_github_auth=False,
+            remove_existing_layer=True,
+        )
 
     with pytest.raises(ProjectInstallError, match="setup_bundle_version_mismatch") as exc:
-        project_onboard_apply.finish_after_dispatch(
-            operation="onboard", root=tmp_path,
-            result={"project": {"id": 42}},
-            github_adoption={}, config_path=None, progress=None,
-            github_auth_target="", scaffold_action="project-install-scaffold",
-            reuse_github_auth=True,
-        )
+        apply()
 
     assert running in str(exc.value)
     assert f"yoke update --version {served}" in str(exc.value)
     assert "resume this setup run" in str(exc.value)
-    assert not (tmp_path / ".yoke").exists()
+    assert machine_config.project_id(checkout, config) is None
+    assert not calls
+    assert not (checkout / ".yoke").exists()
+
+    def install(root, *, resolved_bundle, owns_registration, **_kwargs):
+        assert root == checkout
+        assert resolved_bundle is scaffold
+        assert owns_registration is True
+        assert machine_config.project_id(checkout, config) == 42
+        calls.append("install")
+        raise ProjectInstallError("scaffold started")
+
+    running = served
+    monkeypatch.setattr(project_onboard_apply.install_runner, "install", install)
+    with pytest.raises(ProjectInstallError, match="scaffold started"):
+        apply()
+
+    assert calls == ["remove", "binding", "install"]

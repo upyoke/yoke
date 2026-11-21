@@ -38,7 +38,7 @@ def test_actual_fork_destination_is_saved_before_later_work(tmp_path, monkeypatc
         if later_failure:
             raise RuntimeError("later layer failure")
 
-    monkeypatch.setattr(project_onboard.project_onboard_installed_layer, "apply_decision", layer)
+    monkeypatch.setattr(project_onboard.project_onboard_installed_layer, "removal_requested", layer)
     monkeypatch.setattr(project_onboard.progress_steps, "record_mutated_repository", lambda *a, **k: None)
     monkeypatch.setattr(project_onboard, "dispatch", lambda *a, **k: {})
     monkeypatch.setattr(project_onboard.project_onboard_apply, "finish_after_dispatch", lambda **k: {})

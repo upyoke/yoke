@@ -223,10 +223,10 @@ relay follows releases for the installed CLI. A local universe serves from the
 installed CLI itself.
 
 If a release changes before setup fetches the project layer, setup stops before
-writing the layer and names the exact `yoke update --version VERSION` command
-to run. Then use the resume command in the setup report to continue the same
-run. Other commands sent to the active connection warn when the installed CLI
-is older than the served release.
+registering the checkout or changing the layer. It names the exact
+`yoke update --version VERSION` command to run. Then use the resume command in
+the setup report to continue the same run. Other commands sent to the active
+connection warn when the installed CLI is older than the served release.
 `yoke update --version VERSION` pins that exact release, older or newer: it
 prints `Downgraded` when the pin is older than the installed CLI, and names
 `pinned` (plus the channel's latest on a downgrade) instead of the channel.
