@@ -19,11 +19,11 @@ import {
 import { descendantText, recentIso, workbenchClient } from "./universe_ui_workbench_test_support.mjs";
 import { state, stateModel } from "./frontier_dependency_states.mjs";
 
-function draw(id) {
+function draw(id, claimantFor = () => null) {
   const documentNode = new FakeDocument();
   const model = stateModel(state(id));
   const section = frontierGraphSection(documentNode, model, {
-    claimantFor: () => null,
+    claimantFor: (ref) => claimantFor(ref, documentNode),
     cardFor: (ref) => {
       const card = documentNode.createElement("article");
       card.className = "work-item-card";
@@ -54,6 +54,19 @@ test("tiles carry the item link, stage, leverage, title, gate and rationale", ()
   const dependent = tile("YOK-3725");
   assert.equal(ownTextContent(byClass(dependent, "fdv-tile-meta")[0]), "Starts after YOK-3717 merges");
   assert.match(dependent.title, /^YOK-3717: The lanes-to-levels rename/);
+});
+
+test("a claimed Release reference tile names the claimant", () => {
+  const ref = "PLAT-210";
+  const { tile } = draw("gates", (candidate, documentNode) => {
+    if (candidate !== ref) return null;
+    const chip = documentNode.createElement("span");
+    chip.textContent = "Release claimant";
+    return chip;
+  });
+  assert.equal(tile(ref).getAttribute("data-band"), "release");
+  assert.match(descendantText(tile(ref)), /Release claimant/);
+  assert.doesNotMatch(descendantText(tile(ref)), /No holder/);
 });
 
 test("one path per edge, and only the longest chain is heavier", () => {

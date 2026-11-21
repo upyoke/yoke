@@ -85,7 +85,7 @@ def test_a_landed_item_nobody_holds_carries_the_command_that_runs_for_it():
     body = report_body(dataclasses.replace(report, landed_open=(unheld,)))
 
     landed_row = next(line for line in body.splitlines() if "YOK-4" in line)
-    assert "no live holder" in landed_row
+    assert "claim released after landing; the release carries it" in landed_row
     assert "do not wait on status" in landed_row
     assert '--result "<what landed>"' in landed_row
     assert '--verification "<how it was verified>"' in landed_row

@@ -46,13 +46,15 @@ export function frontierTile(documentNode, model, ref, helpers) {
     documentNode, "span", "fdv-tile-title", node.title || "Open the item for its title and state",
   ));
   const names = { on_hold: "On hold", in_progress: "In progress", active: "In progress", ready: "Ready", release: "Release", done: "Done", waiting: "Waiting" };
+  const chip = helpers.claimantFor(ref);
+  const activity = node.activity ? (node.activity === "working" ? "Working" : "Idle") : "";
+  const referenceStatus = activity || (chip ? "" : "No holder");
   if (node.reference) tile.appendChild(el(documentNode, "span", "fdv-reference-home",
-    `Reference · ${names[node.home] || node.home}${node.activity ? ` · ${node.activity === "working" ? "Working" : "Idle"}` : " · No holder"}`));
+    `Reference · ${names[node.home] || node.home}${referenceStatus ? ` · ${referenceStatus}` : ""}`));
   const meta = frontierTileMeta(node);
   if (meta) tile.appendChild(el(documentNode, "span", "fdv-tile-meta", meta));
   const why = node.blockers.filter((e) => e.why).map((e) => `${e.from}: ${e.why}`);
   if (why.length) tile.title = why.join("\n");
-  const chip = helpers.claimantFor(ref);
   if (chip) tile.appendChild(chip);
   return tile;
 }

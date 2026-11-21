@@ -72,7 +72,7 @@ The page shows **Waiting**, **On hold**, **Ready**, **In progress**, **Release**
 Waiting lays out unsatisfied dependencies in columns. The first column shows work holding other items up; later columns show how many dependency steps separate the work. Cards explain whether an item is waiting to start, merge, or finish. Coordination-only relationships do not appear as blocking edges.
 The graph keeps the full chain, including items whose home is another section.
 Those items appear as smaller outlined **Reference** cards showing their home,
-activity. Their reference link jumps to the home card, and they
+activity when available, and the live claimant. Their reference link jumps to the home card, and they
 never increase the Waiting count.
 
 Every item has exactly one home section. Counts include only home cards.
