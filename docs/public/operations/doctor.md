@@ -28,6 +28,10 @@ WSL it also warns when systemd is not PID 1. See
 [Yoke on Windows (WSL)](../start/windows-wsl.md) for the recovery steps. These machine
 checks report N/A on other operating systems.
 
+On native Windows, the launcher-authority check compares the current and
+fresh Windows PATH resolutions with the installed `yoke.cmd` launcher.
+Run `yoke path fix --yes` and open a new terminal to repair stale PATH.
+
 From a folder outside every project, Doctor runs only its machine-scope
 checks, which read this machine's harness homes, hooks, relay and
 connections. It reports each project-scope check it skipped as N/A with
