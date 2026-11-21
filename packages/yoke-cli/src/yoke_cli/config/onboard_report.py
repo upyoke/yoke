@@ -105,6 +105,7 @@ def build_plan(
     # Machine-wide hooks, relay and skill, with or without a project. What is
     # already current is a reuse line, not a change (onboard_machine_reuse).
     steps.extend(onboard_machine_reuse.machine_hook_steps(reuse))
+    steps.extend(onboard_machine_registry.plan_steps())
     if not reuse.get(onboard_machine_reuse.SESSION_RELAY):
         steps.extend(
             onboard_session_relay.plan_steps(
@@ -113,7 +114,6 @@ def build_plan(
                 environment=env_name,
             )
         )
-    steps.extend(onboard_machine_registry.plan_steps())
     if not reuse.get(onboard_machine_reuse.GLOBAL_SKILL):
         steps.extend(onboard_global_skill.plan_steps())
     steps.extend(onboard_hook_resident.plan_steps())
