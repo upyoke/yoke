@@ -151,7 +151,7 @@ def test_native_connection_reports_and_enforces_commit_headroom(monkeypatch, fre
         scripts.append(script)
         output = (
             {"commit_limit_bytes": limit, "committed_bytes": limit - free}
-            if "Win32_PerfRawData_PerfOS_Memory" in script else {"yoke_release": "absent"}
+            if "GetPerformanceInfo" in script else {"yoke_release": "absent"}
         )
         return subprocess.CompletedProcess([], 0, json.dumps(output), "")
 

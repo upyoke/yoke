@@ -21,6 +21,31 @@ from yoke_harness.native_windows.transport import (
 
 
 MINIMUM_FREE_COMMIT_BYTES = 1024**3
+# GetPerformanceInfo works under the standard SSH user. WMI performance
+# counters on the labs require permissions that account does not have.
+COMMIT_MEMORY_PROBE = r"""
+Add-Type @'
+using System;
+using System.Runtime.InteropServices;
+public static class CommitMemory {
+    [StructLayout(LayoutKind.Sequential)]
+    public struct Info {
+        public uint Size;
+        public UIntPtr Total, Limit, Peak, Physical, Available, Cache,
+            Kernel, Paged, Nonpaged, PageSize;
+        public uint Handles, Processes, Threads;
+    }
+    [DllImport("psapi.dll")]
+    public static extern bool GetPerformanceInfo(out Info info, uint size);
+}
+'@
+$info=New-Object 'CommitMemory+Info'
+if(![CommitMemory]::GetPerformanceInfo([ref]$info,[Runtime.InteropServices.Marshal]::SizeOf($info))){
+    throw 'GetPerformanceInfo failed'
+}
+$page=$info.PageSize.ToUInt64()
+@{commit_limit_bytes=$info.Limit.ToUInt64()*$page;committed_bytes=$info.Total.ToUInt64()*$page} | ConvertTo-Json -Compress
+"""
 
 
 class SshNativeWindowsHostOperations(WindowsMissionOperations, WindowsTransport):
@@ -52,12 +77,7 @@ class SshNativeWindowsHostOperations(WindowsMissionOperations, WindowsTransport)
                 recovery_hint="Acquire and bind a fresh serial machine QA lease before checking native readiness.",
             )
         wsl_absent = features_absent(self.native_features)
-        commit = self._run(
-            r"""$memory=Get-CimInstance -ClassName Win32_PerfRawData_PerfOS_Memory
-@{commit_limit_bytes=$memory.CommitLimit;committed_bytes=$memory.CommittedBytes} | ConvertTo-Json -Compress
-""",
-            timeout=20,
-        )
+        commit = self._run(COMMIT_MEMORY_PROBE, timeout=20)
         try:
             counters = json.loads(commit.stdout)
         except ValueError:
@@ -74,8 +94,8 @@ class SshNativeWindowsHostOperations(WindowsMissionOperations, WindowsTransport)
             return HostActionResult(
                 False,
                 {
-                    "reason": "Windows commit memory counters could not be read.",
-                    "recovery": "Check Windows memory performance counters and rerun test-machine verify.",
+                    "reason": "Windows commit memory could not be measured.",
+                    "recovery": "Check PowerShell and GetPerformanceInfo on the host, then rerun test-machine verify.",
                     "exit_code": commit.returncode,
                     "stdout": bounded_machine_qa_diagnostic(commit.stdout, self.secret_values),
                     "stderr": bounded_machine_qa_diagnostic(commit.stderr, self.secret_values),
