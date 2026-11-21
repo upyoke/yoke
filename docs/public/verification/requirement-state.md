@@ -262,8 +262,8 @@ including failed cases, until retry or takeover by a later containing release
 on the same flow and target. Requirement and execution IDs, history and host
 custody survive. A rebound target keeps its immutable `deployment.starting_run_id`.
 Cancellation aborts the live executions still on the run and retracts its
-unsettled requirements in the same transaction; passing proof and standing plans remain. An execution
-already under a recorded abort keeps its host until cleanup proof settles it.
+unsettled requirements at once; passing proof and standing plans remain. An
+execution under a recorded abort keeps its host until cleanup proof settles it.
 
 A takeover moves QA ownership without aborting or retracting it. Ordinary
 member removal (`yoke deployment-runs remove-item`) aborts that member's live
