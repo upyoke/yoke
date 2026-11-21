@@ -13,6 +13,7 @@ from yoke_contracts.connection_authority_teaching import (
     ENV_LIST_AUTHORITY_FOOTER,
 )
 from yoke_contracts.machine_config import schema as machine_config_contract
+from yoke_contracts.machine_config.schema_transport import display_transport
 
 
 CONFIG_EXAMPLE_USAGE = "yoke config example"
@@ -70,7 +71,7 @@ def env_list(args: List[str]) -> int:
         for row in rows:
             print(
                 f"{row['env']}|{str(row['active']).lower()}|"
-                f"{row['transport']}|{str(row['prod']).lower()}|{row['api_url']}"
+                f"{display_transport(row)}|{str(row['prod']).lower()}|{row['api_url']}"
             )
         print(ENV_LIST_AUTHORITY_FOOTER)
     return 0

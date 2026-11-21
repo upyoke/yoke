@@ -253,11 +253,16 @@ def test_cancel_preserves_config(endpoint, monkeypatch, tmp_path, capsys, choice
 @pytest.mark.parametrize(
     "company,tty,choice", [(False, True, "1"), (False, False, None), (True, True, None)]
 )
-def test_choices_and_notice(monkeypatch, capsys, company, tty, choice):
-    monkeypatch.setattr(connect, "active_connection_is_local", lambda _: True)
+def test_choices_without_local_notice(monkeypatch, capsys, company, tty, choice):
+    from yoke_cli.config import local_reachability
+
+    # Leaving a local universe for a remote server never prints its notice.
+    monkeypatch.setattr(local_reachability, "active_connection_is_local", lambda _: True)
 
     def methods(_):
-        assert "Reachable here only" in capsys.readouterr().err
+        err = capsys.readouterr().err
+        assert "Reachable here only" not in err
+        assert "This universe runs on this computer" not in err
         return team.SignInMethods(True, company)
 
     monkeypatch.setattr(team, "sign_in_methods", methods)
@@ -268,6 +273,25 @@ def test_choices_and_notice(monkeypatch, capsys, company, tty, choice):
     )
     assert connect.connect([ORIGIN]) == 0
     assert ("Enter invite code" in capsys.readouterr().err) == bool(choice)
+
+
+def test_json_never_shows_the_picker(monkeypatch, capsys):
+    monkeypatch.setattr(
+        team, "sign_in_methods", lambda _: team.SignInMethods(True, False)
+    )
+    monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
+
+    def no_prompt():
+        raise AssertionError("--json prompted")
+
+    monkeypatch.setattr("builtins.input", no_prompt)
+    monkeypatch.setattr(
+        connect, "_connect_hosted", lambda p: 0 if p.invite_code is None else 99
+    )
+    assert connect.connect([ORIGIN, "--json"]) == 0
+    err = capsys.readouterr().err
+    assert "This is my own machine" not in err
+    assert "Enter invite code" not in err
 
 
 @pytest.mark.parametrize(

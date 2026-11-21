@@ -31,6 +31,7 @@ from yoke_cli import hook_resident_client as client
 from yoke_cli.commands.adapters import hooks
 from yoke_contracts.harness_machine_hooks import HARNESS_MACHINE_HOOKS
 from yoke_contracts.hook_budget import harness_budget_ceiling_ms, hook_budget_ms
+from yoke_contracts.machine_hooks_render import CLAUDE_SESSION_END_HOOK_TIMEOUT_S
 from yoke_contracts.hook_evaluator_protocol import (
     HookEvaluatorRequest,
     receive_frame,
@@ -177,6 +178,7 @@ def test_a_cold_resident_listens_before_loading_and_answers_once_ready(
 def test_the_budget_stays_below_every_harness_hook_timeout(monkeypatch) -> None:
     shortest = min(s.hook_timeout_seconds for s in HARNESS_MACHINE_HOOKS.values())
     assert harness_budget_ceiling_ms() < shortest * 1000
+    assert harness_budget_ceiling_ms() < CLAUDE_SESSION_END_HOOK_TIMEOUT_S * 1000
     assert hook_budget_ms({}) == 10000
     assert hook_budget_ms({"YOKE_HOOK_TOTAL_TIMEOUT_MS": "3600000"}) == (
         harness_budget_ceiling_ms()

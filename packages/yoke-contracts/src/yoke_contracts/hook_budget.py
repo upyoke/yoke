@@ -12,6 +12,7 @@ from __future__ import annotations
 from typing import Mapping
 
 from yoke_contracts.harness_machine_hooks import HARNESS_MACHINE_HOOKS
+from yoke_contracts.machine_hooks_render import CLAUDE_SESSION_END_HOOK_TIMEOUT_S
 
 
 TOTAL_TIMEOUT_ENV = "YOKE_HOOK_TOTAL_TIMEOUT_MS"
@@ -21,9 +22,13 @@ HARNESS_TIMEOUT_HEADROOM_MS = 5000
 
 
 def harness_budget_ceiling_ms() -> int:
-    """The largest budget that still ends before every harness's hook timeout."""
+    """The largest budget that still ends before every harness's hook timeout.
+
+    Claude's SessionEnd entry carries its own, shorter timeout.
+    """
     shortest = min(
-        spec.hook_timeout_seconds for spec in HARNESS_MACHINE_HOOKS.values()
+        CLAUDE_SESSION_END_HOOK_TIMEOUT_S,
+        *(spec.hook_timeout_seconds for spec in HARNESS_MACHINE_HOOKS.values()),
     )
     return shortest * 1000 - HARNESS_TIMEOUT_HEADROOM_MS
 

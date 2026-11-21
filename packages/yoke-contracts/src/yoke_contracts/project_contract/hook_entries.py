@@ -78,26 +78,37 @@ def converge_event_entries(
 ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
     """Make *entries* hold every provided entry; return (added, replaced).
 
-    An existing entry that is the same Yoke hook in another shell form is
-    replaced in place by the provided form; anything else missing appends.
+    An existing entry with the same key but other content (such as an older
+    handler ``timeout``), or that is the same Yoke hook in another shell form,
+    is replaced in place by the provided entry; anything else missing appends.
     """
     provided_keys = {entry_key(entry) for entry in provided}
     added: List[Dict[str, Any]] = []
     replaced: List[Dict[str, Any]] = []
     for entry in provided:
-        if any(isinstance(e, dict) and entry_key(e) == entry_key(entry) for e in entries):
+        if entry in entries:
             continue
-        neutral = form_neutral_key(entry)
+        key = entry_key(entry)
         index = next(
             (
                 i
                 for i, existing in enumerate(entries)
-                if isinstance(existing, dict)
-                and entry_key(existing) not in provided_keys
-                and form_neutral_key(existing) == neutral
+                if isinstance(existing, dict) and entry_key(existing) == key
             ),
             None,
         )
+        if index is None:
+            neutral = form_neutral_key(entry)
+            index = next(
+                (
+                    i
+                    for i, existing in enumerate(entries)
+                    if isinstance(existing, dict)
+                    and entry_key(existing) not in provided_keys
+                    and form_neutral_key(existing) == neutral
+                ),
+                None,
+            )
         if index is None:
             entries.append(entry)
         else:

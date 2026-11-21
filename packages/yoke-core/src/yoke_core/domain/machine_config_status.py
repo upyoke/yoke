@@ -18,6 +18,7 @@ from yoke_core.domain.machine_status_diagnostics import (
 from yoke_contracts import install_binding as install_binding_contract
 from yoke_contracts import owner_private_path
 from yoke_contracts.machine_config import schema as contract, setup_status
+from yoke_contracts.machine_config.schema_transport import display_transport
 from yoke_contracts.runtime_identity import (
     detect_install,
     human_identity_line,
@@ -143,7 +144,7 @@ def render_human(report: Mapping[str, Any]) -> str:
         lines.append(
             "  connection: "
             f"env={connection.get('env') or '<missing>'} "
-            f"transport={connection.get('transport') or '<missing>'} "
+            f"transport={display_transport(connection) or '<missing>'} "
             f"credential={connection.get('credential_source', {}).get('kind') or '<missing>'} "
             f"envs={','.join(connection.get('envs') or []) or '<none>'}"
         )

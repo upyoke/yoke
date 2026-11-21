@@ -19,6 +19,7 @@ from __future__ import annotations
 
 from yoke_contracts.machine_hooks_render import (
     CURSOR_HOOK_TIMEOUT_S as _CURSOR_HOOK_TIMEOUT_S,
+    claude_hook_handler,
     cwd_resilient_hook_command,
     evaluate_hook_command,
 )
@@ -53,7 +54,7 @@ def _claude_command(event: str) -> str:
 
 
 def _claude_hook_entry(event: str) -> dict:
-    return {"command": _claude_command(event), "type": "command"}
+    return claude_hook_handler(_claude_command(event), event)
 
 
 def _claude_chain_for(event: str, matcher: str) -> list[str]:
