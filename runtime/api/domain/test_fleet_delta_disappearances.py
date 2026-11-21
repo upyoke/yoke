@@ -72,6 +72,30 @@ def test_landed_item_proves_a_removed_pull_request_merged():
     )
 
 
+@pytest.mark.parametrize("pr_number", [None, 18, 17])
+@pytest.mark.parametrize("merged_readback", [False, True])
+def test_disappearance_ties_merge_to_the_landing_or_matching_pr(
+    pr_number, merged_readback
+):
+    before = report(in_flight=[{**HOLDER, "pr_number": pr_number}], landings=[LANDING])
+    evidence = (
+        {"landings": [{**LANDING, "merged": True}]}
+        if merged_readback
+        else {"landed_open": [{"public_ref": REF}]}
+    )
+    lines = removed(before, report(holders=[], **evidence))
+    in_flight = next(line for line in lines if "[in_flight]" in line)
+    reason = (
+        "pull request merged"
+        if merged_readback and pr_number == 17
+        else "claim released"
+    )
+    assert f"no longer listed — {reason}" in in_flight
+    if not merged_readback:
+        landing = next(line for line in lines if "[landings]" in line)
+        assert "no longer listed — pull request merged" in landing
+
+
 def test_relanding_items_old_landing_does_not_prove_its_open_pull_request_merged():
     before = report(in_flight=[HOLDER])
     landed = {"public_ref": REF, "relanding_owed": True}

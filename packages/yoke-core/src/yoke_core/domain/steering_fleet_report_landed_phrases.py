@@ -40,6 +40,9 @@ from yoke_core.domain.steering_fleet_report_landed_gate import (
 from yoke_core.domain.steering_fleet_report_landed_open import LandedItem
 
 
+_RELEASED_CLAIM = "claim released after landing; the release carries it"
+
+
 def _holder_is_quiet(entry: LandedItem, idle_after_seconds: int | None) -> bool:
     """True when both holder silence and landing age reach the idle threshold."""
     if (
@@ -64,7 +67,7 @@ def holder_phrase(entry: LandedItem, *, idle_after_seconds: int | None = None) -
 
 def _holder_state(entry: LandedItem, idle_after_seconds: int | None) -> str:
     if not entry.holder_session_id:
-        return "no live holder"
+        return _RELEASED_CLAIM
     held = f"held by {entry.holder_session_id}"
     if entry.holder_process_phrase:
         return f"{held}, {entry.holder_process_phrase}"
@@ -161,10 +164,7 @@ def release_wait_phrase(entry: LandedItem) -> str:
     if entry.custody_state == HELD and _delivered_short_of_target(entry):
         # A stage run that reached stage is not the custodian of a member
         # that owes prod: its completion target still waits on a release.
-        wait = (
-            f"delivered to {entry.delivered_to}; "
-            f"awaiting {entry.completion_target}"
-        )
+        wait = f"delivered to {entry.delivered_to}; awaiting {entry.completion_target}"
     elif entry.custody_state == HELD:
         wait = f"awaiting {entry.custody_run_flow} release — {custody_phrase(entry)}"
     elif entry.custody_state in {REMERGED, CUSTODY_UNDETERMINED}:
@@ -183,7 +183,7 @@ def _delivered_short_of_target(entry: LandedItem) -> bool:
 
 def _holder_context(entry: LandedItem) -> str:
     if not entry.holder_session_id:
-        return "no live holder"
+        return _RELEASED_CLAIM
     if entry.holder_process_phrase:
         return f"holder {entry.holder_process_phrase}"
     if entry.holder_parked:

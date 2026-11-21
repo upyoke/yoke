@@ -131,7 +131,10 @@ def test_parked_release_is_compact_even_after_hours_of_tool_silence(
     "changes, context",
     [
         ({"holder_parked": False}, "holder idle 360m"),
-        ({"holder_session_id": ""}, "no live holder"),
+        (
+            {"holder_session_id": ""},
+            "claim released after landing; the release carries it",
+        ),
         (
             {
                 "holder_native_process_gone": True,

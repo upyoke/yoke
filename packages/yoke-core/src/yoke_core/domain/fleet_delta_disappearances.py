@@ -152,15 +152,26 @@ def _reason(
     landings = _item_rows(scope, "landings", row.subject)
     # A landed row whose item owes a re-landing carries an earlier merge, not
     # the current pull request's outcome.
-    if any(landing.get("merged") is True for landing in landings) or any(
-        landed.get("relanding_owed") is not True
-        for landed in _item_rows(scope, "landed_open", row.subject)
+    if row.section == "landings" and (
+        row.facts.get("merged") is True
+        or any(
+            landed.get("relanding_owed") is not True
+            for landed in _item_rows(scope, "landed_open", row.subject)
+        )
+    ):
+        return "pull request merged"
+    pr_number = str(row.facts.get("pr_number") or "")
+    if any(
+        landing.get("merged") is True
+        and (
+            row.section == "landings"
+            or (pr_number and pr_number == str(landing.get("pr_number") or ""))
+        )
+        for landing in landings
     ):
         return "pull request merged"
     if any(landing.get("closed") is True for landing in landings):
         return "pull request closed"
-    if row.section == "landings" and row.facts.get("merged") is True:
-        return "pull request merged"
     if row.section == "landings" and row.facts.get("closed") is True:
         return "pull request closed"
     if any(

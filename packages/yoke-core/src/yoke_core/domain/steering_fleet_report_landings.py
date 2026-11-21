@@ -28,10 +28,17 @@ class FleetLandingReadback:
     status: str
     readiness: MergeQueueReadiness
     wake_delivered: bool = False
+    call_starting: bool = False
 
     @property
     def needs_action(self) -> bool:
-        return self.readiness.needs_action
+        return not self.call_starting and self.readiness.needs_action
+
+    @property
+    def narrative(self) -> str:
+        if self.call_starting:
+            return f"pull request {self.readiness.pr_number}: landing call starting"
+        return self.readiness.describe()
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -41,6 +48,7 @@ class FleetLandingReadback:
             "wake_delivered": self.wake_delivered,
             **self.readiness.to_dict(),
             "needs_action": self.needs_action,
+            "narrative": self.narrative,
         }
 
 
@@ -125,6 +133,7 @@ def landing_readbacks(
                 status=str(row["status"]),
                 readiness=readiness,
                 wake_delivered=bool(row.get("merge_queue_notified_at")),
+                call_starting=not row.get("merge_queue_enqueued_at"),
             )
         )
     return tuple(result)
@@ -167,10 +176,10 @@ def landing_lines(rows: tuple[FleetLandingReadback, ...]) -> list[str]:
     """Render both healthy in-flight and stopped landing facts."""
     return [
         f"  {'!' if row.needs_action else ' '} {row.public_ref}  "
-        f"{row.status}  {row.readiness.describe()}"
+        f"{row.status}  {row.narrative}"
         + (
             f"; warnings={' | '.join(row.readiness.warnings)}"
-            if row.readiness.warnings
+            if row.readiness.warnings and not row.call_starting
             else ""
         )
         for row in rows

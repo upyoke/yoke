@@ -53,7 +53,7 @@ def _landing(**changes) -> LandedItem:
 
 def test_stage_delivered_member_that_owes_prod_awaits_prod():
     assert release_wait_phrase(_landing()) == (
-        "delivered to stage; awaiting prod (no live holder)"
+        "delivered to stage; awaiting prod (claim released after landing; the release carries it)"
     )
 
 

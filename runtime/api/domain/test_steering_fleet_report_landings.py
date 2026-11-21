@@ -8,6 +8,7 @@ from runtime.api.steering_fleet_test_helpers import (
     WORKER_SESSION,
     compose,
     seed_steering_scope,
+    seed_tool_call,
 )
 from yoke_core.domain import merge_queue_read_reuse as reads_mod
 from yoke_core.domain.steering_fleet_report_projection import report_dict
@@ -93,6 +94,37 @@ def test_an_open_verification_pr_is_not_yet_a_fleet_landing(fleet, monkeypatch) 
     )
 
     assert compose(fleet).landings == ()
+
+
+def test_inline_merge_call_starting_has_no_landing_alarm_or_recovery(
+    fleet, monkeypatch
+):
+    fleet.execute("UPDATE items SET merge_queue_enqueued_at=NULL WHERE id=1")
+    claim_work(fleet, session_id=WORKER_SESSION, target=make_item_target(1))
+    seed_tool_call(
+        fleet,
+        WORKER_SESSION,
+        tool_use_id="starting-merge",
+        started_at="2026-08-26T11:40:00.000000Z",
+        command_summary="yoke watch merge merge-item -- YOK-1 --wait",
+    )
+    fleet.commit()
+    _wire(
+        monkeypatch,
+        state=PrLandingState(False, False, False, merge_state_status="clean"),
+    )
+
+    report = compose(fleet)
+    [row] = report.landings
+    assert row.readiness.needs_action
+    assert report.landings_needing_action() == ()
+    body = report_body(report)
+    assert "pull request 42: landing call starting" in body
+    assert "! YOK-1" not in body
+    assert "re-run `yoke merge item`" not in body
+    [landing] = report_dict(report)["landings"]
+    assert landing["narrative"] == "pull request 42: landing call starting"
+    assert landing["needs_action"] is False
 
 
 @pytest.mark.parametrize("queued", [False, True])
