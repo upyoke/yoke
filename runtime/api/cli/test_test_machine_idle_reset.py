@@ -174,7 +174,7 @@ def test_release_with_waiter_does_not_offer_automatic_reset(test_db, configured_
 
     target = configured_host
     waiter = "waiting-qa-session"
-    seed_qa_session(test_db, waiter, messageable=True)
+    seed_qa_session(test_db, waiter)
     _notices(monkeypatch)
     lease = acquire(test_db, target, ACTOR.session_id)
     _debt(test_db)
