@@ -11,6 +11,7 @@
   "test machine queue": "Manage the Test Machine queue from a steering seat.",
   "test-machine queue hand-over": "Give an unstarted turn to another waiting QA execution.",
   "test-machine queue place": "Move a QA execution's place across all its host lines.",
+  "test-machine queue withdraw": "Withdraw a waiting QA execution or a manual Test Machine wait.",
   "test-machine reset": "Restore a test machine to its clean baseline.",
   "test-machine screenshot": "Capture a test machine's desktop as a PNG.",
   "test-machine secret": "Manage controller-local Test Machine credentials.",

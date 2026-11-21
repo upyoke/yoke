@@ -44,6 +44,7 @@ windows-88e203ff1a2ecd6d6d91,yoke session control launch get,cli,hosted-client,m
 windows-b24c0b02d687a13f1791,yoke sessions reclaim stale,cli,self-hosted-client,must-pass,,
 windows-b243e75e262948e5bfd1,yoke strategy doc claim list,cli,hosted-client,must-pass,,
 windows-aced9055b155642f3c11,yoke test machine list,cli,self-hosted-client,must-pass,,
+windows-e3ba523a223295058c91,yoke test-machine queue withdraw,cli,local,must-pass,,
 windows-f4b45d58b22957fcf5d1,yoke ui down,cli,local,must-pass,,
 windows-c26b4bf52a353a253911,yoke ui restart-running,cli,local,must-pass,,
 windows-a63cce2551176bc8b151,yoke ui serve-process,cli,local,must-pass,,

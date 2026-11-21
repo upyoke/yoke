@@ -2,7 +2,7 @@
 
 from functools import partial
 
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError, model_validator
 from psycopg.errors import LockNotAvailable, QueryCanceled
 
 from yoke_contracts.api.function_call import FunctionError, HandlerOutcome
@@ -15,6 +15,8 @@ from yoke_core.domain.qa_host_queue_steering import (
     QueueEditRefused,
     hand_over,
     place_waiter,
+    withdraw_execution,
+    withdraw_manual_wait,
 )
 from yoke_core.domain.qa_plan_execution_stop import execution_project_id
 from yoke_core.domain.qa_plan_execution_store import lock_plan_execution
@@ -22,9 +24,12 @@ from yoke_core.domain.session_steering_authority import require_operator_seat
 from yoke_core.domain.sessions_analytics_core import SessionError
 
 
-class QueueEdit(BaseModel):
-    host: str = Field(min_length=1, pattern=r"\S")
+class QueueReason(BaseModel):
     reason: str = Field(min_length=1, max_length=1000, pattern=r"\S")
+
+
+class QueueEdit(QueueReason):
+    host: str = Field(min_length=1, pattern=r"\S")
 
 
 class PlaceRequest(QueueEdit):
@@ -37,11 +42,33 @@ class HandOverRequest(QueueEdit):
     to_execution: str = Field(min_length=1)
 
 
+class WithdrawRequest(QueueReason):
+    execution: str | None = Field(default=None, pattern=r"\S")
+    session: str | None = Field(default=None, pattern=r"\S")
+    host: str | None = Field(default=None, pattern=r"\S")
+
+    @model_validator(mode="after")
+    def validate_selector(self):
+        if self.execution is not None:
+            if self.session is None and self.host is None:
+                return self
+        elif self.session is not None and self.host is not None:
+            return self
+        raise ValueError("Use either --execution ID or --session S --host H")
+
+
 class QueueEditResult(BaseModel):
     execution_id: str
     host: str
     position: int | None
     prior_execution_id: str | None = None
+
+
+class WithdrawResult(BaseModel):
+    execution_id: str | None = None
+    session: str | None = None
+    host: str | None = None
+    wait_id: str | None = None
 
 
 def _failure(code: str, message: str) -> HandlerOutcome:
@@ -60,8 +87,10 @@ def _edit(request, *, model, event_name):
             "qa_host_queue_actor_required",
             "Run from a registered steering session in the execution's project, or pass --project P.",
         )
-    placing = isinstance(body, PlaceRequest)
-    ids = [body.execution] if placing else [body.from_execution, body.to_execution]
+    if isinstance(body, HandOverRequest):
+        ids = [body.from_execution, body.to_execution]
+    else:
+        ids = [body.execution] if body.execution is not None else []
     with connect() as conn:
         try:
             project = resolve_project_id(conn, str(request.target.project_id))
@@ -79,7 +108,7 @@ def _edit(request, *, model, event_name):
             projects = {
                 key: execution_project_id(conn, row) for key, row in executions.items()
             }
-            if projects[ids[0]] != project:
+            if ids and projects[ids[0]] != project:
                 raise ValueError(
                     "The first execution belongs to another project; pass its --project P and retry"
                 )
@@ -91,26 +120,31 @@ def _edit(request, *, model, event_name):
                     action="Hand over a Test Machine turn",
                 )
             lock_host_queue(conn)
-            if placing:
+            if isinstance(body, PlaceRequest):
                 result = place_waiter(
                     conn, executions[ids[0]], body.host, body.position
                 )
-            else:
+            elif isinstance(body, HandOverRequest):
                 result = hand_over(
                     conn, executions[ids[0]], executions[ids[1]], body.host
                 )
-            emit_event(
-                event_name,
-                event_kind="system",
-                event_type="lease_lifecycle",
-                source_type="backend",
-                session_id=request.actor.session_id,
-                auth_context=StandardAuthContext(actor_id=int(request.actor.actor_id)),
-                project=str(project),
-                context={**result, "reason": body.reason},
-                conn=conn,
-                transactional=True,
-            )
+            elif ids:
+                result = withdraw_execution(conn, executions[ids[0]], body.reason)
+            else:
+                result = withdraw_manual_wait(conn, body.session, body.host, project)
+            if event_name:
+                emit_event(
+                    event_name,
+                    event_kind="system",
+                    event_type="lease_lifecycle",
+                    source_type="backend",
+                    session_id=request.actor.session_id,
+                    auth_context=StandardAuthContext(actor_id=int(request.actor.actor_id)),
+                    project=str(project),
+                    context={**result, "reason": body.reason},
+                    conn=conn,
+                    transactional=True,
+                )
             conn.commit()
         except SessionError as exc:
             conn.rollback()
@@ -134,21 +168,22 @@ def _edit(request, *, model, event_name):
 
 
 def register(registry):
-    for action, model, event in (
-        ("place", PlaceRequest, "QaHostWaiterPlaced"),
-        ("hand_over", HandOverRequest, "QaHostTurnHandedOver"),
+    for action, model, result, event in (
+        ("place", PlaceRequest, QueueEditResult, "QaHostWaiterPlaced"),
+        ("hand_over", HandOverRequest, QueueEditResult, "QaHostTurnHandedOver"),
+        ("withdraw", WithdrawRequest, WithdrawResult, None),
     ):
         registry.register(
             f"test_machine.queue.{action}",
             partial(_edit, model=model, event_name=event),
             model,
-            QueueEditResult,
+            result,
             stability="stable",
             minimum_serving_version="next-release",
             owner_module=__name__,
             target_kinds=["global"],
             side_effects=["qa_host_queue_write", "coordination_claim"],
-            emitted_event_names=[event],
+            emitted_event_names=[event] if event else [],
             guardrails=["steering_seat_required", "serialized_host_queue"],
             adapter_status="live",
             claim_required_kind=None,

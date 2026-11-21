@@ -14,6 +14,7 @@ parent ``qa_requirements`` shim.
 
 from __future__ import annotations
 
+import json
 import sys
 from typing import List, Optional
 
@@ -151,6 +152,7 @@ def waive_requirement(
             "Waiving a blocking requirement requires force=True."
         )
 
+    executions = _lock_waiting_executions(conn, req_id)
     now = utc_now()
     conn.execute(
         """UPDATE qa_requirements
@@ -158,6 +160,7 @@ def waive_requirement(
            WHERE id = %s""",
         (instant_parameter(conn, now), rationale, source, req_id),
     )
+    _abort_waived_waits(conn, executions, req_id)
     if row["member_item_id"] is not None:
         # The close-outs this waiver unblocks replay in control-plane upkeep
         # (see qa_settlement_followups), owed in this same transaction.
@@ -179,6 +182,62 @@ def waive_requirement(
         source=source,
         target_row=row,
     )
+
+
+def _remaining_requirements(roster, cursor_ordinal):
+    return {int(case["requirement_id"]) for case in roster[cursor_ordinal:]}
+
+
+def _lock_waiting_executions(conn, req_id):
+    from yoke_core.domain.qa_plan_execution_store import lock_plan_execution
+
+    # Lock before writing the waiver so concurrent waivers of different cases
+    # in the same roster see each other's committed decisions.
+    rows = query_rows(
+        conn,
+        "SELECT id, roster_json, cursor_ordinal FROM qa_plan_executions "
+        "WHERE state='waiting' ORDER BY id",
+    )
+    return [
+        lock_plan_execution(conn, row["id"])
+        for row in rows
+        if req_id in _remaining_requirements(
+            json.loads(row["roster_json"]), row["cursor_ordinal"]
+        )
+    ]
+
+
+def _abort_waived_waits(conn, executions, req_id):
+    from yoke_core.domain.qa_host_queue import lock_host_queue
+    from yoke_core.domain.qa_plan_execution_lifecycle import finish_plan_execution
+    from yoke_core.domain.qa_plan_host_leases import held_host_leases
+
+    if not executions:
+        return
+    lock_host_queue(conn)
+    for execution in executions:
+        if execution["state"] != "waiting" or held_host_leases(conn, execution):
+            continue
+        remaining = _remaining_requirements(
+            execution["roster"], execution["cursor_ordinal"]
+        )
+        if req_id not in remaining:
+            continue
+        placeholders = ", ".join(["%s"] * len(remaining))
+        waived = query_rows(
+            conn,
+            f"SELECT id FROM qa_requirements WHERE id IN ({placeholders}) "
+            "AND waived_at IS NOT NULL",
+            tuple(sorted(remaining)),
+        )
+        if len(waived) == len(remaining):
+            finish_plan_execution(
+                conn,
+                execution,
+                state="aborted",
+                reason=f"qa_requirement_waived: requirement {req_id} was waived; nothing left to walk",
+                commit=False,
+            )
 
 
 def cmd_requirement_waive(
