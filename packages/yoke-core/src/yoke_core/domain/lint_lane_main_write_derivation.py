@@ -6,7 +6,7 @@ path it decided on, the derivation that produced it: which token was
 read, where that token came from, and how it resolved to a path inside
 the main checkout.
 
-Three derivations exist, and the operator's next move differs for each:
+The derivation determines what the refusal teaches:
 
 * ``tool_target`` — the path came from an Edit/Write/patch call's own
   file-path field. It is already the literal destination.
@@ -14,10 +14,10 @@ Three derivations exist, and the operator's next move differs for each:
   position. A relative token resolves against the call's working
   directory, so the same command run from the lane would land in the
   lane.
-* ``working_directory`` — nothing readable was found. The command is a
-  write shape, but its destination is computed at runtime, so the guard
-  fell back to the working directory. Naming that fallback matters:
-  the guard is not claiming the command mentioned this path.
+* ``working_directory`` — a write shape affected its effective directory.
+* ``unreadable_destination`` — the write destination is computed at runtime.
+* ``git_state_change`` — Git changes repository state in its effective
+  directory.
 
 Nothing here assumes a repository layout, checkout name, or item
 prefix — every path in the rendered block is a value the caller
@@ -36,6 +36,8 @@ from yoke_core.domain.session_claimed_worktrees import ClaimedWorktree
 TOOL_TARGET = "tool_target"
 COMMAND_TOKEN = "command_token"
 WORKING_DIRECTORY = "working_directory"
+UNREADABLE_DESTINATION = "unreadable_destination"
+GIT_STATE_CHANGE = "git_state_change"
 
 # The free temp file the computed-message recovery writes through. It is
 # on the free-path allowlist from any lane, which is what makes the
@@ -70,7 +72,7 @@ class TargetDerivation:
     @property
     def fell_back_to_cwd(self) -> bool:
         """True when no write destination could be read from the call."""
-        return self.source == WORKING_DIRECTORY
+        return self.source in {WORKING_DIRECTORY, UNREADABLE_DESTINATION}
 
 
 @dataclass(frozen=True)
@@ -89,13 +91,7 @@ class DerivationContext:
     working_directory: str
     source: str
     unresolved_writes: Tuple[str, ...]
-
-
-def derivation_source(*, is_tool_target: bool, fell_back_to_cwd: bool) -> str:
-    """Name the derivation a collected target came from."""
-    if fell_back_to_cwd:
-        return WORKING_DIRECTORY
-    return TOOL_TARGET if is_tool_target else COMMAND_TOKEN
+    git_subcommand: str
 
 
 def derivation_context(
@@ -103,15 +99,22 @@ def derivation_context(
     is_tool_target: bool,
     fell_back_to_cwd: bool,
     unresolved_writes: Sequence[str],
+    *,
+    unreadable: bool,
+    git_subcommand: str,
 ) -> DerivationContext:
-    """Resolve the derivation facts shared by one payload's targets."""
+    """Resolve the derivation facts for a target."""
+    if git_subcommand:
+        source = GIT_STATE_CHANGE
+    elif fell_back_to_cwd:
+        source = UNREADABLE_DESTINATION if unreadable else WORKING_DIRECTORY
+    else:
+        source = TOOL_TARGET if is_tool_target else COMMAND_TOKEN
     return DerivationContext(
         working_directory=working_directory,
-        source=derivation_source(
-            is_tool_target=is_tool_target,
-            fell_back_to_cwd=fell_back_to_cwd,
-        ),
+        source=source,
         unresolved_writes=tuple(unresolved_writes),
+        git_subcommand=git_subcommand,
     )
 
 
@@ -128,7 +131,10 @@ def build_hit(
         claim=claim,
         derivation=TargetDerivation(
             source=context.source,
-            token="" if context.source == WORKING_DIRECTORY else token,
+            token=(
+                f"git {context.git_subcommand}" if context.git_subcommand
+                else token if context.source in {TOOL_TARGET, COMMAND_TOKEN} else ""
+            ),
             working_directory=context.working_directory,
             main_checkout=main_checkout,
             unresolved_writes=context.unresolved_writes,
@@ -141,6 +147,10 @@ def _line(label: str, value: str) -> str:
 
 
 def _resolution_line(derivation: TargetDerivation, attempted_path: str) -> str:
+    if derivation.source == GIT_STATE_CHANGE:
+        return _line("Resolved", f"Git runs in {derivation.working_directory}")
+    if derivation.source == WORKING_DIRECTORY:
+        return _line("Resolved", f"the command writes in {derivation.working_directory}")
     if derivation.fell_back_to_cwd:
         return _line(
             "Resolved",
@@ -165,13 +175,13 @@ def format_derivation(
 ) -> str:
     """Render the extracted-token / resolution block for a refusal."""
     lines = []
-    if derivation.fell_back_to_cwd:
+    if derivation.source == UNREADABLE_DESTINATION:
         lines.append(
             _line(
                 "Extracted", "(nothing — this call names no readable write destination)"
             )
         )
-    else:
+    elif derivation.token:
         note = _SOURCE_NOTES.get(derivation.source, "")
         suffix = f"   ({note})" if note else ""
         lines.append(_line("Extracted", f"{derivation.token}{suffix}"))
@@ -193,30 +203,32 @@ def format_derivation_guidance(
     *,
     lane_path: str = "",
 ) -> str:
-    """Render the next move, which differs by how the path was derived.
-
-    The cwd-fallback branch names a recovery the guard itself accepts: the
-    working directory comes from the call's declared workdir, then any
-    leading ``cd`` statements, so either one placing the call in the lane
-    moves an unreadable destination there too.
-    """
-    if derivation.fell_back_to_cwd:
+    """Explain how to run the refused command in the held lane."""
+    if derivation.fell_back_to_cwd or derivation.source == GIT_STATE_CHANGE:
         lane = lane_path or "<lane path>"
         shell_lane = shlex.quote(shell_path_spellings(lane)[0]) if lane_path else lane
-        return (
-            "This command writes through a destination the guard cannot read "
-            "— a variable, a command substitution, a heredoc, or another "
-            "computed value — so it resolved against the working directory "
-            "above. A path the command only mentions as string data is never "
-            "treated as a write target, and an unreadable destination is "
-            "refused rather than guessed. Run the call in the lane: declare "
+        recovery = (
+            "Run the call in the lane: declare "
             f"{lane} as the call's workdir, or make `cd {shell_lane}` the "
-            "command's first statement (followed by `&&`, `;`, or a newline). "
+            "command's first statement (followed by `&&`, `;`, or a newline)."
+        )
+        message_file = (
             "For a commit whose message is computed, write the message to a "
             f"free temp file and run `git -C {shell_lane} commit -F "
-            f"{RECOVERY_MESSAGE_FILE}`; otherwise spell each destination as a "
-            "literal absolute lane path."
+            f"{RECOVERY_MESSAGE_FILE}`."
         )
+        if derivation.source == GIT_STATE_CHANGE:
+            recovery += f" If the command already uses `git -C`, point it at {lane}."
+            if derivation.token == "git commit":
+                return f"{recovery} {message_file}"
+            return recovery
+        if derivation.source == UNREADABLE_DESTINATION:
+            return (
+                "The guard could not resolve the unreadable destination, so it used "
+                f"the working directory above. {recovery} {message_file} "
+                "For file writes, spell each destination as a literal absolute lane path."
+            )
+        return recovery
     return LANE_EDIT_GUIDANCE
 
 
@@ -231,15 +243,16 @@ def first_hit_fields(
 __all__ = [
     "COMMAND_TOKEN",
     "DerivationContext",
+    "GIT_STATE_CHANGE",
     "LANE_EDIT_GUIDANCE",
     "MainWriteHit",
     "RECOVERY_MESSAGE_FILE",
     "TOOL_TARGET",
     "TargetDerivation",
+    "UNREADABLE_DESTINATION",
     "WORKING_DIRECTORY",
     "build_hit",
     "derivation_context",
-    "derivation_source",
     "first_hit_fields",
     "format_derivation",
     "format_derivation_guidance",

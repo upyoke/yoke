@@ -7,6 +7,7 @@ from typing import Optional
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
 from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_core.domain.lint_lane_main_write_derivation import (
+    GIT_STATE_CHANGE,
     LANE_EDIT_GUIDANCE,
     TargetDerivation,
     format_derivation,
@@ -46,6 +47,10 @@ def format_denial(
         )
     derivation_block = ""
     guidance = LANE_EDIT_GUIDANCE
+    reason = (
+        "BLOCKED: source write to the main checkout while an implementation "
+        "lane is held."
+    )
     if derivation is not None:
         derivation_block = (
             format_derivation(
@@ -55,6 +60,11 @@ def format_denial(
             + "\n"
         )
         guidance = format_derivation_guidance(derivation, lane_path=lane_path)
+        if derivation.source == GIT_STATE_CHANGE:
+            reason = (
+                f"BLOCKED: {derivation.token} changes the main checkout "
+                f"while {item_label}'s lane is open at {lane_path}."
+            )
     if not lane_equivalent:
         guidance = compose_refusal(
             "git_metadata_unproven: Git metadata proven by the client is outside "
@@ -65,8 +75,7 @@ def format_denial(
         )
     destination = f"Use instead:   {lane_equivalent}\n\n" if lane_equivalent else ""
     body = (
-        "BLOCKED: source write to the main checkout while an implementation "
-        "lane is held.\n\n"
+        f"{reason}\n\n"
         f"Held lane:     {item_label}\n"
         f"Lane path:     {lane_path}\n"
         f"{derivation_block}"

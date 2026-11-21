@@ -90,8 +90,8 @@ _GIT_LOCAL_STATE_MOVES = frozenset(
 _GIT_STASH_READS = frozenset({"list", "show"})
 
 
-def _git_state_move(tokens: list[str]) -> bool:
-    """True when this git invocation changes repository or worktree state."""
+def git_state_change(tokens: list[str]) -> str:
+    """Name the Git subcommand when it changes repository or worktree state."""
     from yoke_core.domain.lint_session_cwd_git_read_forms import (
         GIT_MUTATING_SUBS,
         GIT_READ_ONLY_SUBS,
@@ -101,13 +101,14 @@ def _git_state_move(tokens: list[str]) -> bool:
 
     index = git_subcommand_index(tokens)
     if index is None:
-        return False
-    if tokens[index] in GIT_READ_ONLY_SUBS:
-        return classify_git(tokens) is None
-    if tokens[index] == "stash":
+        return ""
+    sub = tokens[index]
+    if sub in GIT_READ_ONLY_SUBS:
+        return sub if classify_git(tokens) is None else ""
+    if sub == "stash":
         action = tokens[index + 1] if index + 1 < len(tokens) else ""
-        return action not in _GIT_STASH_READS
-    return tokens[index] in GIT_MUTATING_SUBS | _GIT_LOCAL_STATE_MOVES
+        return sub if action not in _GIT_STASH_READS else ""
+    return sub if sub in GIT_MUTATING_SUBS | _GIT_LOCAL_STATE_MOVES else ""
 
 
 def _capacity_operands(tokens: list[str], segment: str, bindings: Mapping[str, str]):
@@ -240,7 +241,7 @@ def analyze_shell_path_use(
         capacity_segments.append(capacity_settled)
         command_text = _command_text(segment)
         state_move = (
-            _git_state_move(tokens)
+            bool(git_state_change(tokens))
             if base == "git"
             else _state_move(tokens, command_text)
         )
