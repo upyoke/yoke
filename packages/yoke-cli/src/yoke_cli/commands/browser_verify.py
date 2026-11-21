@@ -15,6 +15,7 @@ import sys
 from typing import List
 
 from yoke_contracts.browser_identity import BrowserIdentityError
+from yoke_contracts.project_defaults import MissingProjectError
 from yoke_cli.commands._helpers import parse_or_usage_error
 from yoke_cli.commands.browser_sign_in import (
     DECLARATIONS_FLAG_HELP,
@@ -97,7 +98,12 @@ def browser_verify(args: List[str]) -> int:
         runtime = (
             prepare_browser_runtime("verify-sign-in.js") if identity.sites else None
         )
-    except (ProjectSlugLookupError, BrowserIdentityError, RuntimeError) as exc:
+    except (
+        ProjectSlugLookupError,
+        MissingProjectError,
+        BrowserIdentityError,
+        RuntimeError,
+    ) as exc:
         return _report(parsed.json_mode, {"ok": False, "error": str(exc)}, 2)
     try:
         sites = (

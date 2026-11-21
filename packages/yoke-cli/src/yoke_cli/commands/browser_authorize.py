@@ -9,6 +9,7 @@ import sys
 from typing import List
 
 from yoke_contracts.browser_identity import BrowserIdentityError
+from yoke_contracts.project_defaults import MissingProjectError
 from yoke_cli.commands._helpers import parse_or_usage_error
 from yoke_cli.commands.browser_authorize_help import AUTHORIZE_HELP
 from yoke_cli.commands.browser_sign_in import (
@@ -100,7 +101,13 @@ def browser_authorize(args: List[str]) -> int:
             from yoke_cli.commands.browser_authorize_automatic import reset_profile
 
             removed = reset_profile(browser_client, runtime, project_key, identity)
-    except (ProjectSlugLookupError, BrowserIdentityError, RuntimeError, OSError) as exc:
+    except (
+        ProjectSlugLookupError,
+        MissingProjectError,
+        BrowserIdentityError,
+        RuntimeError,
+        OSError,
+    ) as exc:
         return _fail(parsed.json_mode, str(exc), code=2)
     label = f"project {project_key} identity {identity.name}"
 
