@@ -292,7 +292,7 @@ class TestAdapterTransportRouting:
         assert request.actor.session_id == "sid-cli"
 
     def test_unresolvable_project_errors_before_dispatch(self, monkeypatch):
-        from yoke_cli.config import machine_config
+        from yoke_contracts.machine_config import reader as machine_config
         from yoke_cli.commands.adapters.sessions import sessions_begin
 
         monkeypatch.setattr(machine_config, "project_id", lambda path: None)

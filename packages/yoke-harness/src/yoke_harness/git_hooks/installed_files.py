@@ -6,7 +6,7 @@ from fnmatch import fnmatchcase
 from pathlib import Path
 import subprocess
 
-from yoke_cli.project_install.files import ProjectInstallError
+from yoke_contracts.project_contract.install_error import ProjectInstallError
 from yoke_cli.project_install.released_bundle_files import ReleasedBundleFiles
 from yoke_contracts import terminal_detached_process
 from yoke_contracts.install_binding import is_yoke_source_checkout

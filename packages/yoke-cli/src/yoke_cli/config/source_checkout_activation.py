@@ -12,7 +12,8 @@ import uuid
 from pathlib import Path
 from typing import Any, TypeVar
 
-from yoke_cli.config import editable_install, machine_config
+from yoke_cli.config import editable_install
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.project_install.files import MODE_SOURCE_LINK
 from yoke_contracts import terminal_detached_process
 

@@ -9,7 +9,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-from yoke_cli import hook_resident_paths as _resident_paths
+from yoke_contracts import hook_resident_paths
 from yoke_cli.hook_resident_start import _start_resident
 from yoke_contracts.hook_resident_transport import connect_pipe, uses_named_pipe
 from yoke_contracts.hook_budget import TOTAL_TIMEOUT_ENV, hook_budget_ms
@@ -21,14 +21,6 @@ from yoke_contracts.hook_evaluator_protocol import (
     receive_frame,
     send_frame,
 )
-
-
-ResidentPaths = _resident_paths.ResidentPaths
-resident_paths = _resident_paths.resident_paths
-resident_transport_available = _resident_paths.resident_transport_available
-resident_transport_refusal = _resident_paths.resident_transport_refusal
-# Compatibility seam for lifecycle callers and tests that redirect the cache root.
-machine_config = _resident_paths.machine_config
 
 
 _CONNECT_ATTEMPT_SECONDS = 0.1
@@ -97,7 +89,7 @@ def _request(
     )
 
 
-def _connect(paths: ResidentPaths, deadline: float) -> socket.socket:
+def _connect(paths: hook_resident_paths.ResidentPaths, deadline: float) -> socket.socket:
     """One connect attempt that never waits past the budget."""
     if uses_named_pipe():
         return connect_pipe(
@@ -152,7 +144,7 @@ def _exchange(
 
 
 def _round_trip(
-    paths: ResidentPaths,
+    paths: hook_resident_paths.ResidentPaths,
     request: HookEvaluatorRequest,
     deadline: float,
     client_started_monotonic: float | None = None,
@@ -182,7 +174,7 @@ def _restart_detail(response: dict) -> str:
 
 def _validated_result(
     response: dict,
-    paths: ResidentPaths,
+    paths: hook_resident_paths.ResidentPaths,
     resident_wait_ms: int = 0,
 ) -> ResidentEvaluation:
     if response.get("status") == "error":
@@ -229,8 +221,8 @@ def evaluate_with_resident(
     client_started_monotonic: float | None = None,
 ) -> ResidentEvaluation:
     """Evaluate inside the hook budget, including cold startup and retries."""
-    paths = resident_paths()
-    refusal = resident_transport_refusal(paths)
+    paths = hook_resident_paths.resident_paths()
+    refusal = hook_resident_paths.resident_transport_refusal(paths)
     if refusal is not None:
         raise ResidentUnavailable(*refusal, log_path=paths.log)
     request = _request(
@@ -302,10 +294,6 @@ def evaluate_with_resident(
 
 __all__ = [
     "ResidentEvaluation",
-    "ResidentPaths",
     "ResidentUnavailable",
     "evaluate_with_resident",
-    "resident_paths",
-    "resident_transport_available",
-    "resident_transport_refusal",
 ]

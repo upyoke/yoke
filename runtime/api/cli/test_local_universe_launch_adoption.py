@@ -59,11 +59,11 @@ class _LaunchedNative:
         home.mkdir()
 
         monkeypatch.setattr(
-            "yoke_cli.config.machine_config.cache_dir",
+            "yoke_contracts.machine_config.reader.cache_dir",
             lambda *_a, **_k: tmp_path / "machine-cache",
         )
         monkeypatch.setattr(
-            "yoke_cli.config.machine_config.yoke_home",
+            "yoke_contracts.machine_config.reader.yoke_home",
             lambda *_a, **_k: home,
         )
         monkeypatch.setattr(

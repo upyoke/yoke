@@ -11,7 +11,7 @@ from yoke_cli.transport.human_values import write_local
 import sys
 from typing import Callable
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.config import writer
 
 

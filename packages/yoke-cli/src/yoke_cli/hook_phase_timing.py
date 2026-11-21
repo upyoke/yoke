@@ -66,7 +66,7 @@ def _render(value: Optional[int]) -> str:
 
 def record_phase_timing(timing: HookPhaseTiming) -> None:
     """Append private diagnostics; an unwritable log never blocks a hook."""
-    from yoke_cli.hook_resident_client import resident_paths
+    from yoke_contracts.hook_resident_paths import resident_paths
 
     # Windows has no O_NOFOLLOW; the log lives in the owner-private resident
     # state folder, so only its owner could place a link there.

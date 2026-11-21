@@ -1,5 +1,6 @@
 """Project retirement uses disposable checkouts, machine config and harness state."""
 
+from yoke_contracts.project_contract.install_error import ProjectInstallError
 from runtime.api.cli.project_uninstall_owned_cleanup_test_support import (
     installed as installed,
 )
@@ -13,7 +14,8 @@ import pytest
 from yoke_contracts import harness_folder_trust as trust
 from yoke_contracts import harness_settings_ledger as ledger
 from yoke_contracts.codex_config_posture import parse_config
-from yoke_cli.config import machine_config, writer
+from yoke_contracts.machine_config import reader as machine_config
+from yoke_cli.config import writer
 from yoke_cli.project_install import files, owned_cleanup, uninstall_commit
 from yoke_cli.project_install.uninstall import uninstall
 from runtime.api.cli.project_uninstall_test_support import git, read_json
@@ -44,7 +46,7 @@ def test_uninstall_only_exact_owned_entries_and_preserves_shared_state(installed
     assert {p: p.read_bytes() for p in other_files} == other_files
     assert all(entry.get("trust_key") != str(root) for entry in ledger.read())
     assert not git(root, "status", "--porcelain")
-    with pytest.raises(files.ProjectInstallError, match="project_uninstall_registration_missing"):
+    with pytest.raises(ProjectInstallError, match="project_uninstall_registration_missing"):
         uninstall(root, config_path=config)
 
 
@@ -245,11 +247,11 @@ def test_commit_failure_keeps_local_ownership_for_recovery(installed, monkeypatc
     before = config.read_bytes(), trust.claude_state_path().read_bytes()
 
     def fail(*args):
-        raise files.ProjectInstallError("project_uninstall_commit_failed: fixture")
+        raise ProjectInstallError("project_uninstall_commit_failed: fixture")
 
     monkeypatch.setattr(uninstall_commit, "commit", fail)
     with pytest.raises(
-        files.ProjectInstallError, match="project_uninstall_commit_failed"
+        ProjectInstallError, match="project_uninstall_commit_failed"
     ):
         uninstall(root, config_path=config)
     assert files.load_manifest(root)

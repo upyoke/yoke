@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Protocol
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 
 
 class _Shell(Protocol):  # pragma: no cover - structural typing only

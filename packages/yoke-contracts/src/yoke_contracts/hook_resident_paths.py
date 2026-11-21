@@ -8,7 +8,7 @@ import socket
 from dataclasses import dataclass
 from pathlib import Path
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_contracts.hook_resident_transport import uses_named_pipe
 from yoke_contracts.machine_config.directories import (
     create_private_directory,

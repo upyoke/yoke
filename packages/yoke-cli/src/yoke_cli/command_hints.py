@@ -8,7 +8,7 @@ _YOKE_CALL = re.compile(r"(^|\$\()yoke ")
 
 def _with_env(command: str) -> str:
     """Pin printed recipes to the active connection."""
-    from yoke_cli.config.machine_config import active_env
+    from yoke_contracts.machine_config.reader import active_env
 
     try:
         env = active_env()

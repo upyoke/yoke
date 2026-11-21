@@ -6,6 +6,8 @@ Uninstall removal lives in its own operation module.
 
 from __future__ import annotations
 
+from yoke_contracts.project_contract import install_error
+
 import hashlib
 import json
 from pathlib import Path
@@ -35,10 +37,6 @@ HOOK_MERGE_TARGETS = (
 )
 
 
-class ProjectInstallError(RuntimeError):
-    """Install/refresh/uninstall cannot proceed; message names the repair."""
-
-
 def resolve_repo_root(repo_root) -> Path:
     """Resolve and validate the target repo root (default: cwd)."""
     import os
@@ -46,7 +44,7 @@ def resolve_repo_root(repo_root) -> Path:
     root = Path(repo_root) if repo_root else Path(os.getcwd())
     root = root.expanduser().resolve()
     if not root.is_dir():
-        raise ProjectInstallError(f"repo root is not a directory: {root}")
+        raise install_error.ProjectInstallError(f"repo root is not a directory: {root}")
     return root
 
 
@@ -72,11 +70,11 @@ def load_manifest_path(
     if not path.is_file():
         if missing_ok:
             return None
-        raise ProjectInstallError(f"install manifest does not exist: {path}")
+        raise install_error.ProjectInstallError(f"install manifest does not exist: {path}")
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeError, ValueError) as exc:
-        raise ProjectInstallError(
+        raise install_error.ProjectInstallError(
             f"install manifest {path} is unreadable ({exc}); repair or delete "
             "it, then rerun `yoke project install`"
         ) from exc
@@ -120,20 +118,20 @@ def assert_resolved_targets_within(
     root = repo_root.expanduser().resolve()
     for rel in paths:
         if not isinstance(rel, str) or not rel:
-            raise ProjectInstallError(f"{context} contains an invalid path")
+            raise install_error.ProjectInstallError(f"{context} contains an invalid path")
         path = Path(rel)
         if path.is_absolute() or ".." in path.parts:
-            raise ProjectInstallError(
+            raise install_error.ProjectInstallError(
                 f"{context} names unsafe repo-relative path {rel!r}"
             )
         try:
             resolved = (root / path).resolve(strict=False)
         except (OSError, RuntimeError) as exc:
-            raise ProjectInstallError(
+            raise install_error.ProjectInstallError(
                 f"{context} target {rel!r} cannot be resolved safely: {exc}"
             ) from exc
         if resolved != root and root not in resolved.parents:
-            raise ProjectInstallError(
+            raise install_error.ProjectInstallError(
                 f"{context} target {rel!r} resolves outside repo root "
                 f"through a symlink parent ({resolved})"
             )
@@ -152,14 +150,14 @@ def assert_file_targets_plannable(
     for rel in selected:
         target = root / rel
         if target.exists() and not target.is_file():
-            raise ProjectInstallError(
+            raise install_error.ProjectInstallError(
                 f"{context} target {rel!r} exists but is not a regular file"
             )
         parent = target.parent
         while parent != root and not parent.exists():
             parent = parent.parent
         if parent.exists() and not parent.is_dir():
-            raise ProjectInstallError(
+            raise install_error.ProjectInstallError(
                 f"{context} target {rel!r} has a non-directory parent"
             )
 
@@ -177,7 +175,7 @@ def assert_safe_bundle_paths(paths: Iterable[str]) -> None:
             or (path.parts[0] == ".yoke" and path.parts[:2] not in managed)
         )
         if bad:
-            raise ProjectInstallError(
+            raise install_error.ProjectInstallError(
                 f"bundle names an unsafe path {raw!r}: paths must be "
                 "repo-relative, must not traverse '..', must not land under "
                 ".yoke/ (except .yoke/docs/ and .yoke/harness/), and "
@@ -205,7 +203,7 @@ def assert_safe_contract_paths(paths: Iterable[str]) -> None:
             or any(raw == f or raw.startswith(f + "/") for f in forbidden)
         )
         if bad:
-            raise ProjectInstallError(
+            raise install_error.ProjectInstallError(
                 f"bundle names an unsafe contract path {raw!r}: contract "
                 "paths must be repo-relative under .yoke/, must not "
                 "traverse '..', and must not name the install manifest, "
@@ -330,7 +328,6 @@ __all__ = [
     "MODE_COPY",
     "MODE_KEY",
     "MODE_SOURCE_LINK",
-    "ProjectInstallError",
     "apply_contract_files",
     "apply_files",
     "assert_file_targets_plannable",

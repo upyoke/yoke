@@ -24,11 +24,11 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from yoke_cli.project_install.files import (
     HOOK_MERGE_TARGETS,
-    ProjectInstallError,
     assert_resolved_targets_within,
     remove_empty_parents,
     sha256_text,
 )
+from yoke_contracts.project_contract.install_error import ProjectInstallError
 from yoke_cli.project_install.line_endings import fold_newlines
 
 from yoke_contracts.project_contract.managed_block import (

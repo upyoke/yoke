@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.config import onboard_apply_progress
 from yoke_cli.config import onboard_local_checkout_identity
 from yoke_cli.config import project_checkout_path

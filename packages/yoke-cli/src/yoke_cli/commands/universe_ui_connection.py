@@ -19,7 +19,7 @@ from __future__ import annotations
 import importlib
 from typing import Optional, Tuple
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.config.local_universe_setup import ENGINE_MISSING_MESSAGE
 from yoke_contracts.machine_config.schema import MachineConfigContractError
 from yoke_contracts.machine_config.served_view_connection import (

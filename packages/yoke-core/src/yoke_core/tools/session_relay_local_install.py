@@ -25,7 +25,7 @@ from yoke_core.domain.local_relay_launcher_path import (
     local_launcher_ready,
 )
 
-from yoke_contracts.runtime_ports.install_advice import get_install_advice
+from yoke_contracts.install_advice import InstallOriginUnavailable, install_command
 
 from pathlib import Path
 
@@ -39,8 +39,8 @@ LOCAL_LAUNCHER_MISSING = "relay_local_launcher_missing"
 #: The one recovery for that refusal, named wherever the refusal is rendered.
 def local_launcher_recovery() -> str:
     try:
-        return f"install the released CLI with `{get_install_advice().install_command()}`, then retry the relay install"
-    except get_install_advice().InstallOriginUnavailable as exc:
+        return f"install the released CLI with `{install_command()}`, then retry the relay install"
+    except InstallOriginUnavailable as exc:
         return f"{exc}; then install the released CLI and retry the relay install"
 
 

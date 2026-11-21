@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from yoke_contracts.project_contract.install_error import ProjectInstallError
 from pathlib import Path
 import subprocess
 import json
@@ -12,7 +13,8 @@ from yoke_contracts.machine_config.checkout import main_checkout
 from yoke_contracts.machine_config.schema_projects import normalize_projects
 from yoke_contracts.machine_config.settings_keys import MACHINE_SETTING_KEYS
 from yoke_contracts.machine_config import schema as contract
-from yoke_cli.config import machine_config, machine_config_file
+from yoke_contracts.machine_config import reader as machine_config
+from yoke_cli.config import machine_config_file
 from yoke_cli.config.machine_config_mutation import (
     load_payload,
     serialized_mutation,
@@ -46,7 +48,7 @@ def record_registration(root: Path, project_id: int, config_path) -> None:
                 if Path(entry["checkout"]).expanduser().resolve() == checkout
                 and entry["project_id"] == project_id]
     if len(matching) != 1:
-        raise files.ProjectInstallError(
+        raise ProjectInstallError(
             "registration_ownership_unproven: expected one exact checkout/project mapping"
         )
     manifest = files.load_manifest(root)
@@ -80,7 +82,7 @@ def refresh_registration_policy(root, config_path, connection, previous, updated
     try:
         files.write_manifest(checkout, manifest)
     except (OSError, ValueError, RuntimeError) as exc:
-        raise files.ProjectInstallError(
+        raise ProjectInstallError(
             "registration_policy_receipt_failed: publication setting changed but its "
             "ownership receipt could not be saved; preserve the mapping and review "
             "the install manifest before uninstalling"

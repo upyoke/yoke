@@ -18,7 +18,7 @@ import importlib
 from pathlib import Path
 from typing import Callable, Tuple
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.board.outcome import RebuildResult
 
 

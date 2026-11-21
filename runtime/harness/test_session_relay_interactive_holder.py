@@ -19,7 +19,7 @@ START = "Mon Aug 24 08:00:00 2026"
 
 @pytest.fixture(autouse=True)
 def isolated(tmp_path, monkeypatch):
-    monkeypatch.setattr("yoke_cli.config.machine_config.yoke_home", lambda: tmp_path)
+    monkeypatch.setattr("yoke_contracts.machine_config.reader.yoke_home", lambda: tmp_path)
     handles = tmp_path / "handles"
     handles.mkdir()
     monkeypatch.setattr(session_launch_handles, "native_handle_directory", lambda: handles)

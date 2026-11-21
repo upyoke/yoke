@@ -9,7 +9,7 @@ from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.settings_catalog import resolve_setting
 
 from yoke_cli.commands._helpers import ensure_handlers_loaded
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.config.runtime_settings_write import write_setting
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
 
@@ -84,7 +84,7 @@ class SettingsStore:
             present = key in document
             value = spec.stored_value(key, document[key]) if present else spec.default
             if present and key == "distribution":
-                from yoke_cli.config.distribution import validate
+                from yoke_contracts.machine_config.distribution import validate
 
                 value = validate(**value)
         elif scope == "project":

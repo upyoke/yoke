@@ -12,11 +12,8 @@ import importlib
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
-from yoke_cli.project_install.files import (
-    MODE_COPY,
-    MODE_SOURCE_LINK,
-    ProjectInstallError,
-)
+from yoke_cli.project_install.files import MODE_COPY, MODE_SOURCE_LINK
+from yoke_contracts.project_contract.install_error import ProjectInstallError
 from yoke_contracts.install_binding import (
     is_yoke_source_checkout as _contract_is_yoke_source_checkout,
 )

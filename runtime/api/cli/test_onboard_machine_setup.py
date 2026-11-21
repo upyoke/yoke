@@ -8,11 +8,8 @@ from runtime.api.fixtures.machine_config_test import select_machine_config_file
 import pytest
 
 from yoke_cli.commands.adapters import onboard_interactive
-from yoke_cli.config import (
-    machine_config,
-    onboard_machine_setup as setup,
-    onboard_report,
-)
+from yoke_contracts.machine_config import reader as machine_config
+from yoke_cli.config import onboard_machine_setup as setup, onboard_report
 
 
 def test_directories_are_convergent_and_repair_deleted_state(tmp_path, monkeypatch):
@@ -183,7 +180,8 @@ def test_review_excludes_deterministic_setup_and_keeps_choice_dependent_steps(tm
 
 
 def test_onboard_wsl_reuses_setup_and_reports_restart(monkeypatch):
-    from yoke_harness import wsl, wsl_systemd
+    from yoke_contracts import wsl
+    from yoke_harness import wsl_systemd
 
     monkeypatch.setattr(wsl, "is_wsl", lambda: True)
     calls = []
@@ -198,7 +196,8 @@ def test_onboard_wsl_reuses_setup_and_reports_restart(monkeypatch):
 
 def test_onboard_wsl_failure_is_not_reported_ready(monkeypatch):
     import pytest
-    from yoke_harness import wsl, wsl_systemd
+    from yoke_contracts import wsl
+    from yoke_harness import wsl_systemd
 
     monkeypatch.setattr(wsl, "is_wsl", lambda: True)
 
@@ -213,7 +212,7 @@ def test_onboard_wsl_failure_is_not_reported_ready(monkeypatch):
 
 
 def test_prepare_never_writes_wsl_configuration(tmp_path, monkeypatch):
-    from yoke_harness import wsl
+    from yoke_contracts import wsl
 
     monkeypatch.setattr(setup, "setup_directories", lambda *args: None)
     monkeypatch.setattr(setup, "setup_browser", lambda *args: None)
@@ -252,7 +251,8 @@ def test_apply_rechecks_wsl_before_relay(monkeypatch, tmp_path):
 
 
 def test_apply_finishes_with_an_old_wsl_warning(monkeypatch, capsys):
-    from yoke_harness import wsl, wsl_systemd, wsl_lifetime
+    from yoke_contracts import wsl
+    from yoke_harness import wsl_systemd, wsl_lifetime
 
     monkeypatch.setattr(wsl, "is_wsl", lambda: True)
     monkeypatch.setattr(wsl_systemd, "is_wsl", lambda: True)

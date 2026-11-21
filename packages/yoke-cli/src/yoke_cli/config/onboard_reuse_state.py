@@ -7,13 +7,13 @@ from typing import Any, Mapping
 
 from yoke_contracts.machine_config import schema as contract
 from yoke_cli.config import aws_admin_capability
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.config import local_universe_setup
 from yoke_cli.config import onboard_machine_github
 from yoke_cli.config import onboard_machine_reuse
 from yoke_cli.config import onboard_project
 from yoke_cli.config import project_clone_resume
-from yoke_cli.config import project_installed_layer
+from yoke_contracts.project_contract import installed_layer_scan as project_installed_layer
 from yoke_cli.project_install import files as project_install_files
 from yoke_contracts.machine_config import schema as machine_schema
 

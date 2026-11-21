@@ -8,7 +8,7 @@ stays intact.
 
 from __future__ import annotations
 
-from yoke_contracts.runtime_ports.install_advice import get_install_advice
+from yoke_contracts.install_advice import InstallOriginUnavailable, install_command
 
 import os
 import subprocess
@@ -199,8 +199,8 @@ def repair_canonical_launcher(
         break
     else:
         try:
-            recovery = f"install with `{get_install_advice().install_command()}`"
-        except get_install_advice().InstallOriginUnavailable as exc:
+            recovery = f"install with `{install_command()}`"
+        except InstallOriginUnavailable as exc:
             recovery = f"{exc}; then install the released CLI"
         raise InstallError(
             f"cannot repair canonical launcher {target}: "

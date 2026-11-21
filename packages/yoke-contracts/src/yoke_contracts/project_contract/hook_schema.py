@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from yoke_cli.project_install.files import ProjectInstallError
+from yoke_contracts.project_contract.install_error import ProjectInstallError
 
 HOOK_FORMAT_CURSOR = "cursor"
 HOOK_FORMAT_NESTED = "nested"

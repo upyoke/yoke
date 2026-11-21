@@ -14,7 +14,9 @@ from yoke_core.domain.project_checkout_locations import checkout_for_project_id
 
 import yoke_core.engines.doctor_report as _base
 
-from yoke_cli.config import credentialed_git as _credentialed_git
+from yoke_contracts.runtime_ports.credentialed_git import get_credentialed_git
+
+_credentialed_git = get_credentialed_git()
 
 from yoke_core.engines.doctor_report import (
     DoctorArgs,

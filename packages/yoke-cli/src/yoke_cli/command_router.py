@@ -39,7 +39,8 @@ from yoke_cli.commands.tool_shaped import (
     resolve_tool_shaped,
 )
 from yoke_cli.conceptual_cli_names import conceptual_cli_hint
-from yoke_cli.config import install_binding, machine_config
+from yoke_cli.config import install_binding
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli import sandbox_denial
 from yoke_cli.transport.output_limit import read_output_scope
 from yoke_cli.session_id_propagation import propagated_session_identity

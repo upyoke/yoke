@@ -64,7 +64,7 @@ def test_a_degraded_hook_logs_its_phases_without_chat_noise(
 
     monkeypatch.setattr("yoke_cli.hook_resident_client.evaluate_with_resident", refuse)
     monkeypatch.setattr(
-        "yoke_cli.hook_resident_client.machine_config.cache_dir", lambda: tmp_path
+        "yoke_contracts.machine_config.reader.cache_dir", lambda: tmp_path
     )
     monkeypatch.setattr(
         hooks,

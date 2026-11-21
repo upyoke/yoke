@@ -288,7 +288,7 @@ def test_terminal_tail_consumes_codex_total_written_after_stop_timestamp(
         "yoke_harness.hooks.identity_codex_runtime.codex_transcript_candidates",
         lambda _thread_id: [rollout],
     )
-    from yoke_cli.config import machine_config
+    from yoke_contracts.machine_config import reader as machine_config
 
     monkeypatch.setattr(machine_config, "yoke_home", lambda: tmp_path / "yoke-home")
     conn = sqlite3.connect(":memory:")

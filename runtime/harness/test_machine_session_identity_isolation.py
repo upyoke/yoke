@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_contracts.cursor_session_map import CURSOR_CONVERSATION_ENV_VAR
 from yoke_contracts.harness_family_identity import YOKE_SESSION_ENV_VAR
 from yoke_contracts.session_identity import AMBIENT_ENV_VARS

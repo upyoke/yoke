@@ -19,7 +19,7 @@ from yoke_contracts.api.function_call import (
 def _reset_captured(monkeypatch) -> None:
     _CAPTURED_REQUESTS.clear()
     monkeypatch.setattr(
-        "yoke_cli.config.machine_config.load_config",
+        "yoke_contracts.machine_config.reader.load_config",
         lambda *args, **kwargs: {"active_env": "test"},
     )
 

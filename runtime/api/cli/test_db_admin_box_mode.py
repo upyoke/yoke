@@ -11,7 +11,7 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_cli import main as yoke_operations_cli
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_contracts.machine_config import schema as contract
 
 from runtime.api.cli.test_db_admin_project_database import _config, _settings

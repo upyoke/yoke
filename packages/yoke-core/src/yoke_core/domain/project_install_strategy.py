@@ -20,7 +20,7 @@ imports); it is deliberately not duplicated here.
 
 from __future__ import annotations
 
-from yoke_contracts.runtime_ports.project_install_files import get_project_install_files
+from yoke_contracts.project_contract.install_error import ProjectInstallError
 
 from typing import Any, Dict, Iterable, List
 
@@ -68,7 +68,6 @@ def assert_safe_strategy_paths(paths: Iterable[str]) -> None:
     locations, so archived-doc bundle entries pass while any more deeply
     nested or non-``.md`` path is rejected.
     """
-    ProjectInstallError = get_project_install_files().ProjectInstallError
 
     for raw in paths:
         if slug_from_view_path(str(raw)) is None:

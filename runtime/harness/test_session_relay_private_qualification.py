@@ -10,7 +10,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_contracts.machine_config.relay_instance import RelayInstance
 from yoke_contracts.session_control.private_route_qualification import (
     PrivateRouteQualificationGrant,

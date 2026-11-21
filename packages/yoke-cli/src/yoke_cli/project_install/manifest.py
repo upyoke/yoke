@@ -14,9 +14,9 @@ from yoke_cli.project_install.files import (
     MODE_COPY,
     MODE_KEY,
     MODE_SOURCE_LINK,
-    ProjectInstallError,
     assert_safe_bundle_paths,
 )
+from yoke_contracts.project_contract.install_error import ProjectInstallError
 from yoke_cli.project_install.managed_git_hooks import GIT_HOOK_NAMES
 from yoke_contracts.cursor_permissions import CURSOR_PERMISSIONS_MANIFEST_KEY
 from yoke_cli.project_install.settings_status_line import (

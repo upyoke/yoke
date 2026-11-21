@@ -2,7 +2,8 @@
 
 from pathlib import Path
 
-from yoke_cli.config import machine_config, machine_config_mutation as mutation
+from yoke_contracts.machine_config import reader as machine_config
+from yoke_cli.config import machine_config_mutation as mutation
 
 SETTING_KEY = "browser_executable_path"
 # A process projection of SETTING_KEY, never a second persisted setting.

@@ -5,7 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 import sys
 
-from yoke_cli.config import machine_config, onboard_apply_progress, writer
+from yoke_contracts.machine_config import reader as machine_config
+from yoke_cli.config import onboard_apply_progress, writer
 
 BROWSER_SETUP_ACTION = "browser-setup"
 BROWSER_SETUP_TARGET = "machine"
@@ -70,7 +71,7 @@ def setup_browser(progress, report, *, error_cls=RuntimeError):
 
 
 def setup_wsl(report, *, error_cls=RuntimeError):
-    from yoke_harness.wsl import is_wsl
+    from yoke_contracts.wsl import is_wsl
 
     if not is_wsl():
         return

@@ -8,7 +8,7 @@ import argparse
 import json
 from pathlib import Path
 
-from yoke_cli.config.machine_config import all_registered_checkouts
+from yoke_contracts.machine_config.reader import all_registered_checkouts
 from yoke_contracts.harness_lane_cleanup import (
     SWEEP_COMMAND,
     cleanup_lane_configs,

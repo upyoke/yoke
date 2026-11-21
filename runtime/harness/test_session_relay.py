@@ -12,7 +12,7 @@ from pathlib import Path
 from types import SimpleNamespace
 import pytest
 
-from yoke_cli.config.machine_config import ConfiguredProject
+from yoke_contracts.machine_config.reader import ConfiguredProject
 from yoke_harness import session_relay
 from yoke_harness import session_relay_inventory as inventory_module
 from yoke_harness import session_relay_runtime as runtime

@@ -65,7 +65,7 @@ PRODUCT_SMOKE_MODULES = {
     ),
     "yoke_cli": (
         "yoke_cli",
-        "yoke_cli.config.machine_config",
+        "yoke_contracts.machine_config.reader",
         "yoke_cli.transport.dispatcher",
         "yoke_cli.transport.https",
     ),

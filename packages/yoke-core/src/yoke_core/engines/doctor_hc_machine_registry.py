@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_core.domain.control_plane_transport import relay
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 

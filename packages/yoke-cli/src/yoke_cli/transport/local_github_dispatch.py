@@ -5,7 +5,7 @@ from __future__ import annotations
 import importlib
 from typing import Callable
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionCallResponse,

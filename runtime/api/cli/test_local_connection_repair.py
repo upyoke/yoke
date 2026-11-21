@@ -8,7 +8,8 @@ import pytest
 from yoke_contracts.machine_config.runtime import write_config
 
 from yoke_cli.commands import local_universe as commands
-from yoke_cli.config import local_universe_setup as setup, writer, machine_config
+from yoke_cli.config import local_universe_setup as setup, writer
+from yoke_contracts.machine_config import reader as machine_config
 from runtime.api.cli.local_universe_cli_test_support import (
     _stub_engine,
     _config,

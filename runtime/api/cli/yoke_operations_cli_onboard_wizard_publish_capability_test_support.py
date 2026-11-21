@@ -17,7 +17,7 @@ from yoke_cli.config import hosted_machine_browser
 
 from yoke_cli.config import github_publish  # noqa: E402
 
-from yoke_cli.config import machine_config  # noqa: E402
+from yoke_contracts.machine_config import reader as machine_config  # noqa: E402
 
 from yoke_cli.config import onboard_machine_github  # noqa: E402
 

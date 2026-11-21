@@ -12,7 +12,7 @@ import tempfile
 from pathlib import Path
 
 from yoke_harness.system_privileges import command_authority
-from yoke_harness.wsl import is_wsl, systemd_running
+from yoke_contracts.wsl import is_wsl, systemd_running
 from yoke_harness import wsl_lifetime
 from yoke_contracts import terminal_detached_process
 

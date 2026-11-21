@@ -68,7 +68,7 @@ class TestRenderTargetRootMismatch:
     ) -> None:
         monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine-home"))
         monkeypatch.delenv("YOKE_MACHINE_CONFIG_FILE", raising=False)
-        from yoke_cli.config import machine_config
+        from yoke_contracts.machine_config import reader as machine_config
 
         yoke_checkout = tmp_path / "yoke-checkout"
         yoke_checkout.mkdir()
@@ -116,7 +116,7 @@ class TestRenderTargetRootMismatch:
         # win over it once the project is known.
         monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine-home"))
         monkeypatch.delenv("YOKE_MACHINE_CONFIG_FILE", raising=False)
-        from yoke_cli.config import machine_config
+        from yoke_contracts.machine_config import reader as machine_config
 
         platform_checkout = tmp_path / "platform-checkout"
         platform_checkout.mkdir()

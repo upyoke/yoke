@@ -18,8 +18,8 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from packaging.version import InvalidVersion, Version
-from yoke_cli import manifest
-from yoke_cli.config import distribution, machine_config
+from yoke_contracts.runtime_ports.manifest import get_manifest
+from yoke_contracts.machine_config import distribution, reader as machine_config
 from yoke_contracts.machine_config.relay_instance import (
     RelayInstance,
     resolve_relay_instance,
@@ -158,7 +158,7 @@ def distribution_index_for_instance(instance: RelayInstance) -> str:
 def fetch_served_build(
     instance: RelayInstance,
     *,
-    fetch_manifest: ManifestFetcher = manifest.fetch_env_manifest,
+    fetch_manifest: ManifestFetcher = get_manifest().fetch_env_manifest,
 ) -> str:
     """Read the release header from the environment's authenticated manifest."""
     try:
@@ -198,7 +198,7 @@ def relay_release_status(
     *,
     instance: RelayInstance | None = None,
     refresh_served: bool = True,
-    fetch_manifest: ManifestFetcher = manifest.fetch_env_manifest,
+    fetch_manifest: ManifestFetcher = get_manifest().fetch_env_manifest,
     runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
 ) -> RelayReleaseStatus:
     """Inspect the active receipt, prove it runs, and refresh the served build."""

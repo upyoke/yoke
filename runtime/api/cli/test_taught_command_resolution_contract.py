@@ -28,7 +28,7 @@ from yoke_core.tools.taught_recipe_semantic_probe import (
     probe_recipe,
 )
 from yoke_cli.product_boundary_teaching_extract import _teaching_files
-from yoke_cli.product_boundary_teaching_sources import TEACHING_GLOBS
+from yoke_contracts.product_boundary_teaching_sources import TEACHING_GLOBS
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]

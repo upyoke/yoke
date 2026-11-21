@@ -15,7 +15,7 @@ from runtime.api.cli.project_onboarding_test_helpers import (
     write_https_config,
 )
 from yoke_cli import main as yoke_operations_cli
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.config import onboard as onboard_config
 from yoke_contracts import onboard_destinations as onboard_destinations
 from yoke_cli.config import project_onboard

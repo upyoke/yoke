@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from yoke_contracts import distribution_target
 import shlex
 import stat
 import subprocess
@@ -9,7 +10,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Sequence
 
-from yoke_cli.config import distribution, install_binding, onboard_self_host_server
+from yoke_contracts.machine_config import distribution
+from yoke_cli.config import install_binding, onboard_self_host_server
 from yoke_cli.self_host import bundle, runtime
 from yoke_cli.self_host import protection
 from yoke_cli.self_host import release_target
@@ -87,7 +89,7 @@ def plan_upgrade(
             "The self-host bundle is not safe to upgrade.",
             (str(exc), "Repair the named bundle path, then retry the upgrade."),
         ) from exc
-    except release_target.ReleaseTargetError as exc:
+    except distribution_target.ReleaseTargetError as exc:
         raise SelfHostUpgradeError(
             "release-target",
             "The paired Yoke release could not be resolved.",
@@ -198,7 +200,7 @@ def _require_packaged_install() -> None:
 def _fetch_installer(plan: UpgradePlan) -> bytes:
     try:
         return release_target.fetch_installer(plan.target)
-    except release_target.ReleaseTargetError as exc:
+    except distribution_target.ReleaseTargetError as exc:
         raise SelfHostUpgradeError(
             "installer-fetch",
             "The paired CLI installer could not be fetched; nothing changed.",
@@ -211,7 +213,7 @@ def _install_cli(plan: UpgradePlan, installer: bytes) -> None:
         completed = release_target.run_installer(
             plan.target, installer, timeout=INSTALL_TIMEOUT_SECONDS
         )
-    except release_target.ReleaseTargetError as exc:
+    except distribution_target.ReleaseTargetError as exc:
         raise SelfHostUpgradeError(
             "cli-install",
             "The CLI installer could not complete; the bundle pin was not changed.",

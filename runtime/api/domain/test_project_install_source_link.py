@@ -25,13 +25,8 @@ from yoke_core.domain import project_install_source_link as source_link
 from runtime.api.domain.native_view_test_support import seed_native_view_sources
 from yoke_contracts.project_contract.source_native_views import NATIVE_AGENT_LINKS
 from yoke_core.domain.agents_render_cursor import render_cursor_hooks_json
-from yoke_cli.project_install.files import (
-    MANIFEST_REL,
-    MODE_COPY,
-    MODE_KEY,
-    MODE_SOURCE_LINK,
-    ProjectInstallError,
-)
+from yoke_cli.project_install.files import MANIFEST_REL, MODE_COPY, MODE_KEY, MODE_SOURCE_LINK
+from yoke_contracts.project_contract.install_error import ProjectInstallError
 
 MANIFEST_SCHEMA = 1
 

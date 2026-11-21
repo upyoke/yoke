@@ -24,7 +24,7 @@ ENV_LIST_USAGE = "yoke env list [--config PATH] [--json]"
 
 
 def env_list(args: List[str]) -> int:
-    from yoke_cli.config import machine_config
+    from yoke_contracts.machine_config import reader as machine_config
 
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter, prog="yoke env list"

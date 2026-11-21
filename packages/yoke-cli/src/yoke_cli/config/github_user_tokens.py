@@ -9,7 +9,7 @@ from typing import Any, Callable, Mapping
 
 from yoke_cli.config import github_git_credential_store as credential_store
 from yoke_contracts.timestamps import parse_instant
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_contracts.machine_config import schema as machine_contract
 
 
@@ -133,7 +133,7 @@ def _local_token(payload: Mapping[str, Any]) -> LocalUserAccessToken:
 
 
 def _resolved_config_path(path: str | Path | None) -> Path:
-    from yoke_cli.config import machine_config
+    from yoke_contracts.machine_config import reader as machine_config
 
     return machine_config.config_path(path)
 

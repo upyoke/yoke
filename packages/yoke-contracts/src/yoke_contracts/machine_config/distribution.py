@@ -1,4 +1,4 @@
-"""Persist the installed product's distribution in machine configuration."""
+"""Read and validate the installed product's distribution selection."""
 
 from __future__ import annotations
 
@@ -7,8 +7,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
-from yoke_cli.config import machine_config, machine_config_mutation as mutation
-from yoke_cli.self_host import release_target
+from yoke_contracts.machine_config import reader as machine_config
+from yoke_contracts import distribution_target
 from yoke_contracts.api_urls import (
     DISTRIBUTION_PROD_URL,
     DISTRIBUTION_STAGE_URL,
@@ -31,16 +31,16 @@ def validate(*, origin: object, channel: object) -> dict[str, str]:
             f"distribution_origin_missing: no recorded install origin; run `{SELECT_COMMAND}`"
         )
     try:
-        selected = release_target.distribution_base_url(origin)
-    except release_target.ReleaseTargetError as exc:
+        selected = distribution_target.distribution_base_url(origin)
+    except distribution_target.ReleaseTargetError as exc:
         raise DistributionError(
             f"distribution_origin_invalid: repair the origin with `{SELECT_COMMAND}`"
         ) from exc
     try:
         if not isinstance(channel, str):
-            raise release_target.ReleaseTargetError("channel is missing")
-        release_target.release_channel(channel)
-    except release_target.ReleaseTargetError as exc:
+            raise distribution_target.ReleaseTargetError("channel is missing")
+        distribution_target.release_channel(channel)
+    except distribution_target.ReleaseTargetError as exc:
         raise DistributionError(
             "distribution_channel_invalid: select a published channel "
             f"with `{SELECT_COMMAND}`"
@@ -74,25 +74,3 @@ def origin_for_connection(
     if hostname == urlsplit(HOSTED_STAGE_API_URL).hostname:
         return DISTRIBUTION_STAGE_URL
     return recorded(path=path)["origin"]
-
-
-@mutation.serialized_mutation
-def _save(*, origin: str, channel: str, path: str | Path | None = None) -> dict:
-    selected = validate(origin=origin, channel=channel)
-    payload, cfg_path = mutation.load_payload(path)
-    settings = payload.setdefault("settings", {})
-    if not isinstance(settings, dict):
-        raise DistributionError(
-            "distribution_settings_invalid: repair settings to an object"
-        )
-    settings[DISTRIBUTION_KEY] = selected
-    mutation.write_payload(payload, cfg_path, allow_unconfigured=True)
-    return {"path": str(cfg_path), **selected}
-
-
-def save(*, origin: str, channel: str, path: str | Path | None = None) -> dict:
-    """Use the existing serialized, validated machine-config writer."""
-    try:
-        return _save(origin=origin, channel=channel, path=path)
-    except (mutation.MachineConfigWriteError, OSError) as exc:
-        raise DistributionError(f"distribution_record_failed: {exc}") from exc

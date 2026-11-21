@@ -8,7 +8,7 @@ import subprocess
 
 import pytest
 
-from yoke_cli.config import project_installed_layer as layer
+from yoke_contracts.project_contract import installed_layer_scan as layer
 from yoke_cli.config import project_installed_layer_removal as removal
 from yoke_cli.config import onboard_post_checkout_plan
 from yoke_cli.config import project_onboard_installed_layer

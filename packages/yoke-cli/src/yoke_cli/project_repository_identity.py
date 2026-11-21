@@ -92,7 +92,7 @@ def _binding_status(project, *, config_path, explicit_env, session_id, timeout_s
 
 def assert_install_repository(root, project, *, config_path, explicit_env):
     """Translate identity refusals into the install surface's named error."""
-    from yoke_cli.project_install.files import ProjectInstallError
+    from yoke_contracts.project_contract.install_error import ProjectInstallError
 
     try:
         assert_project_repository(root, project, config_path=config_path, explicit_env=explicit_env)

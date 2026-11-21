@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 from yoke_contracts.windows_drive_checkout import windows_drive_checkout_warning
-from yoke_harness.wsl import is_wsl, systemd_running
+from yoke_contracts.wsl import is_wsl, systemd_running
 from yoke_core.engines.doctor_report import (
     DoctorArgs,
     RecordCollector,

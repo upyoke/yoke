@@ -8,7 +8,7 @@ import plistlib
 import sys
 from typing import Any
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_contracts.machine_config.relay_instance import (
     RELAY_LABEL_PREFIX,
     RELAY_BASE_LABEL,

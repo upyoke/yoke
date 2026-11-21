@@ -22,11 +22,8 @@ import stat
 from typing import Any, Mapping
 
 from yoke_cli.config import project_worktrees_ignore
-from yoke_cli.project_install.files import (
-    ProjectInstallError,
-    assert_resolved_targets_within,
-    remove_empty_parents,
-)
+from yoke_contracts.project_contract.install_error import ProjectInstallError
+from yoke_cli.project_install.files import assert_resolved_targets_within, remove_empty_parents
 from yoke_contracts.platform_fs import remove_tree
 from yoke_contracts.platform_links import link
 from yoke_contracts.project_contract.install_bundle import SKILL_DISCOVERY_LINKS

@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from yoke_cli.project_install.files import ProjectInstallError
+from yoke_contracts.project_contract.install_error import ProjectInstallError
 from yoke_cli.project_install.settings_status_line import (
     apply_settings_status_line,
     preview_settings_status_line,

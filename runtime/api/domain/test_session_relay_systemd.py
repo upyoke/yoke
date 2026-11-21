@@ -8,7 +8,7 @@ import subprocess
 
 import pytest
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_contracts.machine_config.relay_instance import RelayInstance
 from yoke_core.domain import relay_launcher_path as relay_launcher
 from yoke_core.tools import session_relay_systemd as service

@@ -6,9 +6,10 @@ import subprocess
 
 import pytest
 
-from yoke_cli.config import machine_config, project_onboard_apply, writer
+from yoke_contracts.machine_config import reader as machine_config
+from yoke_cli.config import project_onboard_apply, writer
 from yoke_cli.project_install import validate
-from yoke_cli.project_install.files import ProjectInstallError
+from yoke_contracts.project_contract.install_error import ProjectInstallError
 
 
 def test_release_mismatch_leaves_registration_for_resumed_setup(monkeypatch, tmp_path):

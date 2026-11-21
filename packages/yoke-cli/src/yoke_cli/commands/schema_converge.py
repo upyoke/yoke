@@ -11,7 +11,7 @@ import sys
 from typing import Callable, Dict, List, Tuple
 
 from yoke_cli.commands._helpers import parse_or_usage_error
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_contracts.json_error_safety import safe_diagnostic_text
 from yoke_contracts.control_plane_locality import PG_DSN_ENV, PG_DSN_FILE_ENV
 from yoke_contracts.machine_config.schema import ENV_OVERRIDE

@@ -8,7 +8,7 @@ shim and quarantine shadows, never delete).
 
 from __future__ import annotations
 
-from yoke_contracts.runtime_ports.install_advice import get_install_advice
+from yoke_contracts.install_advice import InstallOriginUnavailable, install_command
 
 import json
 import os
@@ -238,8 +238,8 @@ def hc_launcher_authority(conn, args: DoctorArgs, rec: RecordCollector) -> None:
             )
         else:
             try:
-                recovery = f"Install the release: {get_install_advice().install_command()}."
-            except get_install_advice().InstallOriginUnavailable as exc:
+                recovery = f"Install the release: {install_command()}."
+            except InstallOriginUnavailable as exc:
                 recovery = f"{exc}; then install the release."
             recovery += (
                 " Then repair: python3 -m yoke_core.tools.install_yoke_launcher --repair"

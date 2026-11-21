@@ -196,7 +196,7 @@ def test_refresh_replaces_codex_entry_when_only_windows_command_changes(tmp_path
     import json
     from copy import deepcopy
     from yoke_cli.project_install import hooks
-    from yoke_cli.project_install.hook_entries import provided_records
+    from yoke_contracts.project_contract.hook_entries import provided_records
 
     old = {"Stop": [{"hooks": [{"type": "command", "command": "echo posix"}]}]}
     target = tmp_path / ".codex" / "hooks.json"

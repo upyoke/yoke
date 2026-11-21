@@ -27,11 +27,11 @@ from yoke_cli.product_boundary_teaching_inventory import (
     TeachingAudit,
     _resolve_python_recipe,
     _missing_teaching_rows,
-)
-from yoke_cli.product_boundary_teaching_sources import (
-    TEACHING_GLOBS,
-    command_path_is_template,
     help_usage_recipes,
+)
+from yoke_contracts.product_boundary_teaching_sources import (
+    TEACHING_GLOBS as _TEACHING_GLOBS,
+    command_path_is_template,
 )
 
 
@@ -88,7 +88,7 @@ def _extract_surfaces(
     smoke_yoke: SmokeRunner | None,
 ) -> Iterable[TaughtSurface]:
     for rel, line_number, recipe, standalone in extract_recipe_rows(
-        root, TEACHING_GLOBS
+        root, _TEACHING_GLOBS
     ):
         if recipe.startswith("yoke "):
             yield _resolve_yoke_recipe(
@@ -339,7 +339,6 @@ __all__ = [
     "DRIFT_UNSANCTIONED_INTERNAL",
     "MissingTeaching",
     "SmokeRunner",
-    "TEACHING_GLOBS",
     "TaughtSurface",
     "TeachingAudit",
     "generate_teaching_audit",

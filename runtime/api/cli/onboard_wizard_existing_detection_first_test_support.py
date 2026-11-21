@@ -7,11 +7,11 @@ from pathlib import Path
 
 from types import SimpleNamespace
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 
 from yoke_cli.config import onboard_existing_project
 
-from yoke_cli.config import project_installed_layer as layer
+from yoke_contracts.project_contract import installed_layer_scan as layer
 
 from yoke_cli.config.onboard_wizard_checkout_inspection_screen import (
     LAYER_ROWS,

@@ -19,11 +19,11 @@ from typing import List
 from yoke_cli.commands._helpers import (
     parse_or_usage_error,
 )
-from yoke_cli.config.machine_config import MachineConfigError
+from yoke_contracts.machine_config.reader import MachineConfigError
 from yoke_cli.config.writer import MachineConfigWriteError
 from yoke_cli.project_install import publication_outcome
 from yoke_cli.project_install import runner as project_install_runner
-from yoke_cli.project_install.files import ProjectInstallError
+from yoke_contracts.project_contract.install_error import ProjectInstallError
 from yoke_contracts.machine_config.schema import MachineConfigContractError
 
 PROJECT_INSTALL_USAGE = (

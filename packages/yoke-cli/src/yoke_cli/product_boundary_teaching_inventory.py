@@ -50,6 +50,14 @@ class TeachingAudit:
         return sum(1 for row in self.surfaces if row.drift_type) + len(self.missing)
 
 
+def help_usage_recipes() -> tuple[str, ...]:
+    """Return the deduplicated usage lines rendered by live CLI help."""
+    from yoke_cli.commands.adapters.usage import ADAPTER_USAGE
+    from yoke_cli.commands.tool_shaped import TOOL_SHAPED_USAGE
+
+    return tuple(sorted(set(ADAPTER_USAGE.values()) | set(TOOL_SHAPED_USAGE.values())))
+
+
 def _resolve_python_recipe(source: str, line_number: int, recipe: str) -> TaughtSurface:
     recipe_tokens = _split_or_empty(recipe)
     best: ops.OperationEntry | None = None

@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from typing import Optional
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.config.project_selection import missing_project_context
 from yoke_cli.config.checkout_context import _strip_worktree_path
 from yoke_contracts.machine_config.schema import DEFAULT_BOARD_PATH

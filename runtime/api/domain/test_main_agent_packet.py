@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from yoke_cli.config.install_advice import install_command
+from yoke_contracts.install_advice import install_command
 
 from pathlib import Path
 

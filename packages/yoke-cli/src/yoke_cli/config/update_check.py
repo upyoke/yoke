@@ -25,17 +25,13 @@ HTTPS env already serves. No server function is involved.
 
 from __future__ import annotations
 
-from yoke_cli.config.install_advice import InstallOriginUnavailable, install_command
+from yoke_contracts.install_advice import InstallOriginUnavailable, install_command
 
 from typing import Any
 
 from yoke_cli import manifest
-from yoke_cli.config import (
-    install_binding,
-    machine_config,
-    release_build,
-    self_update,
-)
+from yoke_cli.config import install_binding, release_build, self_update
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_contracts.onboard_destinations import destination_for_api_url
 from yoke_contracts.deployment_destination import (
     DESTINATION_HOSTED,

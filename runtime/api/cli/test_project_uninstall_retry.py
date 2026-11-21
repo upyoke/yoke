@@ -1,5 +1,6 @@
 """Onboarded projects uninstall completely, and a partial uninstall retries."""
 
+from yoke_contracts.project_contract.install_error import ProjectInstallError
 from yoke_contracts.testing.real_home_isolation import set_home
 
 import json
@@ -7,7 +8,8 @@ import os
 
 import pytest
 
-from yoke_cli.config import machine_config, project_onboard_apply, writer
+from yoke_contracts.machine_config import reader as machine_config
+from yoke_cli.config import project_onboard_apply, writer
 from yoke_cli.project_install import files, uninstall_commit, validate
 from yoke_cli.project_install.uninstall import uninstall
 from yoke_core.domain.project_install_test_helpers import (
@@ -94,7 +96,7 @@ def test_onboarded_checkout_uninstalls_completely(machine, monkeypatch, release_
     if release_change:
         head = git(root, "rev-parse", "HEAD")
         monkeypatch.setattr(validate, "local_handshake_version", lambda: "0.2.0.202611201926")
-        with pytest.raises(files.ProjectInstallError, match="setup_bundle_version_mismatch"):
+        with pytest.raises(ProjectInstallError, match="setup_bundle_version_mismatch"):
             onboard(root, config, monkeypatch)
         assert machine_config.project_id(root, config) is None
         assert not files.manifest_path(root).exists()

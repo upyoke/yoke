@@ -6,8 +6,8 @@ import socket
 import tempfile
 import time
 
-from yoke_cli.config import machine_config
-from yoke_cli.hook_resident_paths import resident_paths
+from yoke_contracts.machine_config import reader as machine_config
+from yoke_contracts.hook_resident_paths import resident_paths
 from yoke_cli.hook_resident_client import _connect
 from yoke_contracts.hook_resident_transport import PipePeer, uses_named_pipe
 from yoke_contracts.machine_config.directories import shortest_temp_directory

@@ -8,7 +8,8 @@ from typing import Any
 
 import pytest
 
-from yoke_cli.config import github_user_tokens, machine_config
+from yoke_cli.config import github_user_tokens
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.config import github_git_credential_store as credential_store
 
 from runtime.api.cli.github_user_token_test_support import (

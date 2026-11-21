@@ -19,7 +19,7 @@ from yoke_cli.commands.adapters.github_credential_helper import (
 from yoke_cli.config import cli_release_runtime as runtime
 from yoke_cli.config import github_git_credentials as credentials
 from yoke_cli.config import github_credential_helper_check as check
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 
 
 def _registered_repo(tmp_path, monkeypatch):

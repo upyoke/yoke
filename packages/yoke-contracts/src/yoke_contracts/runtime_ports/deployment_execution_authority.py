@@ -11,6 +11,7 @@ from yoke_contracts.runtime_ports.loader import load_port
 class DeploymentExecutionAuthority(Protocol):
     """Operations and values supplied by the executing adapter."""
 
+    execution_connection_error: Callable[..., Any]
     self_deploy_door: Callable[..., Any]
 
 

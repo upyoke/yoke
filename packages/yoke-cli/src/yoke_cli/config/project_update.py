@@ -7,7 +7,8 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from yoke_cli.project_install.files import ProjectInstallError, load_manifest
+from yoke_contracts.project_contract.install_error import ProjectInstallError
+from yoke_cli.project_install.files import load_manifest
 
 
 def refresh_current(yoke_bin: str) -> dict[str, Any]:

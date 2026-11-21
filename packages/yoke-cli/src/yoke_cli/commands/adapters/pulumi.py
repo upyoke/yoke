@@ -16,7 +16,8 @@ from yoke_cli.commands._helpers import (
 )
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
 from yoke_contracts.api.function_call import TargetRef
-from yoke_cli.config import existing_project_lookup, machine_config
+from yoke_cli.config import existing_project_lookup
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.transport.pulumi_github_authority import (
     build_pulumi_github_auth_loader,
 )

@@ -16,7 +16,7 @@ from yoke_cli.project_install.cursor_permissions import (
     preview_cursor_permissions,
     remove_cursor_permissions,
 )
-from yoke_cli.project_install.files import ProjectInstallError
+from yoke_contracts.project_contract.install_error import ProjectInstallError
 from yoke_contracts.cursor_permissions import (
     CURSOR_CLI_ALLOW,
     CURSOR_CONFIG_RELS,

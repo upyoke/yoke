@@ -64,7 +64,7 @@ def test_print_session_attests_on_the_first_hook_after_generation(
         json.dumps({"type": "user", "message": {"role": "user"}}) + "\n"
     )
     monkeypatch.setenv("YOKE_MODEL", REQUESTED_MODEL)
-    monkeypatch.setattr("yoke_cli.config.machine_config.yoke_home", lambda: tmp_path)
+    monkeypatch.setattr("yoke_contracts.machine_config.reader.yoke_home", lambda: tmp_path)
     payload = {
         "session_id": SESSION,
         "identity_stamped": True,

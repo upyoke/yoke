@@ -10,7 +10,8 @@ import sys
 from pathlib import Path
 
 from yoke_contracts.self_host_bootstrap_output import redact_api_tokens
-from yoke_cli.config import machine_config, existing_project_lookup
+from yoke_contracts.machine_config import reader as machine_config
+from yoke_cli.config import existing_project_lookup
 from yoke_cli.config import onboard_self_host_server as server
 from yoke_cli.config.setup_run_facts import BACKUP_IMPORT
 from yoke_cli.self_host import runtime

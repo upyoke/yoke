@@ -15,13 +15,13 @@ from runtime.api.cli.setup_agent_test_support import (
 )
 from yoke_cli.config import (
     github_machine,
-    machine_config,
     onboard_apply_resume,
     onboard_wizard,
     setup_agent_answers,
     writer,
     yoke_token_verify,
 )
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.config import onboard_wizard_flow_apply as flow_apply
 
 pytest.importorskip("textual")

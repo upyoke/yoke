@@ -14,7 +14,7 @@ from yoke_contracts.machine_config.capability_secret_store import (
     read_test_machine_secret,
 )
 from yoke_contracts.owner_private_path import write_owner_private
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_contracts.machine_config.directories import create_private_directory
 from yoke_contracts.machine_config.desktop_access import (
     DESKTOP_PASSWORD_KEY,

@@ -9,7 +9,7 @@ from yoke_core.engines.doctor_applicability_declarations import applicability_fo
 from yoke_core.engines.doctor_registry import HEALTH_CHECKS
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 from yoke_core.engines.doctor_source_root import bound_source_root
-from yoke_harness import wsl
+from yoke_contracts import wsl
 
 
 @pytest.mark.parametrize("platform", ["darwin", "win32"])

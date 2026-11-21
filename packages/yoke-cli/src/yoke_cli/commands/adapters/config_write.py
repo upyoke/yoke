@@ -21,7 +21,7 @@ from yoke_cli.commands.adapters.config_write_project import (
     project_register as project_register,
 )
 from yoke_cli.commands.adapters.config_write_shared import run as _run
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.config import writer
 
 

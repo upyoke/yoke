@@ -169,7 +169,7 @@ def _dispatch_hook(args: List[str], stdin_data: str | None = None) -> int:
         ResidentUnavailable,
         evaluate_with_resident,
     )
-    from yoke_cli.hook_resident_health import claim_fallback_warning
+    from yoke_contracts.hook_resident_health import claim_fallback_warning
 
     try:
         result = evaluate_with_resident(

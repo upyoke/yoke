@@ -14,7 +14,7 @@ from importlib import resources
 from pathlib import Path
 from typing import Any, Iterator, Optional
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 
 
 RUNTIME_DIR_NAME = "browser-runtime"

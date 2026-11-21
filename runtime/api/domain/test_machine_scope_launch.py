@@ -27,7 +27,7 @@ from yoke_core.domain.session_launch_registered_session_binding import (
 from yoke_core.domain.session_relay_launch_lease import claim_next_launch
 from yoke_core.domain.session_relay_types import RelayHeartbeat
 from yoke_harness.session_relay_runtime import execution_context
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from runtime.api.domain.session_launch_handler_deadlines_test_support import (
     _NoCloseConnection,
 )

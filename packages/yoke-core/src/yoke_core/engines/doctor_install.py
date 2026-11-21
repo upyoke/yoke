@@ -17,9 +17,10 @@ from yoke_contracts.machine_config.schema import (
 )
 from yoke_contracts.machine_config.served_view_connection import server_workbench_url
 from yoke_contracts.runtime_identity import SERVED_BUILD_PATH
-from yoke_cli.config import machine_config, universe_ui_daemon_state
-from yoke_cli.config.path_harness_clis import resolve_harness_clis
-from yoke_cli.transport.dispatcher import build_actor
+from yoke_contracts.machine_config import reader as machine_config
+from yoke_contracts.runtime_ports.universe_ui_daemon_state import get_universe_ui_daemon_state
+from yoke_contracts.path_harness_clis import resolve_harness_clis
+from yoke_contracts.runtime_ports.dispatcher import get_dispatcher
 from yoke_core.domain.control_plane_transport import ControlPlaneRefused, relay
 from yoke_core.domain.project_scratch_dir import scratch_project
 from yoke_core.domain.session_orientation_delivery import orientation_delivered
@@ -39,6 +40,9 @@ from yoke_core.engines.doctor_hc_connections import (
     active_connection_failure as active_connection_failure,
     hc_connections,
 )
+
+
+build_actor = get_dispatcher().build_actor
 
 
 INSTALL_SLUGS = (
@@ -145,8 +149,8 @@ class _DashboardNotRunning(ValueError):
 
 
 def dashboard_identity() -> tuple[str, str]:
-    record = universe_ui_daemon_state.read_record()
-    if record is None or not universe_ui_daemon_state.process_alive(record.pid):
+    record = get_universe_ui_daemon_state().read_record()
+    if record is None or not get_universe_ui_daemon_state().process_alive(record.pid):
         raise _DashboardNotRunning("DASHBOARD_NOT_RUNNING")
     host = "127.0.0.1" if record.host in {"0.0.0.0", "::"} else record.host
     if ":" in host:

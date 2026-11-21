@@ -10,7 +10,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-from yoke_cli.config.install_advice import install_command
+from yoke_contracts.install_advice import install_command
 from yoke_contracts.api_urls import DISTRIBUTION_PROD_URL, DISTRIBUTION_STAGE_URL
 from yoke_cli.project_install.managed_git_hooks import managed_git_hook_specs
 from yoke_contracts.machine_config.paths import select_read_config

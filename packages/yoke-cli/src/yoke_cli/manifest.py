@@ -90,7 +90,7 @@ def active_env_manifest(
         return None
     if connection is None:
         return None
-    from yoke_cli.config.machine_config import active_env
+    from yoke_contracts.machine_config.reader import active_env
 
     try:
         env_name = active_env(explicit_env=explicit_env)
@@ -156,7 +156,7 @@ def manifest_knows(
 
 
 def _cache_path(env_name: str) -> Path:
-    from yoke_cli.config.machine_config import cache_dir
+    from yoke_contracts.machine_config.reader import cache_dir
 
     return cache_dir() / CACHE_SUBDIR / f"{env_name}.json"
 

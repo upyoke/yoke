@@ -48,7 +48,7 @@ def machine_cache(tmp_path, monkeypatch):
     write is machine-local — pointed at the real cache it would outlive
     the test and answer a later one.
     """
-    from yoke_cli.config import machine_config
+    from yoke_contracts.machine_config import reader as machine_config
 
     cache = tmp_path / "machine-cache"
     monkeypatch.setattr(machine_config, "cache_dir", lambda: cache)

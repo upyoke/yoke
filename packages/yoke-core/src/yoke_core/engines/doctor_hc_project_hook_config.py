@@ -14,9 +14,9 @@ from typing import Any
 
 from yoke_contracts.filesystem_safety import first_symlink_component
 from yoke_contracts.hook_shell_command import hook_command_start_problem
-from yoke_cli.project_install.files import ProjectInstallError
-from yoke_cli.project_install.hook_entries import hook_entry_format
-from yoke_cli.project_install.hook_schema import validate_hooks_subtree
+from yoke_contracts.project_contract.install_error import ProjectInstallError
+from yoke_contracts.project_contract.hook_entries import hook_entry_format
+from yoke_contracts.project_contract.hook_schema import validate_hooks_subtree
 from yoke_core.engines.doctor_context import resolve_context
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 

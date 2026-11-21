@@ -8,7 +8,7 @@ import subprocess
 import pytest
 
 from yoke_cli.commands.adapters import self_update as command
-from yoke_cli.config import distribution, self_update
+from yoke_cli.config import distribution_write, self_update
 from yoke_cli.self_host import release_target
 from yoke_contracts.install_binding import KIND_PACKAGED_WHEEL
 from yoke_contracts.server_image import pinned_server_image
@@ -22,7 +22,7 @@ LATEST = "0.2.0.202611181900"
 def recorded_distribution(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("YOKE_MACHINE_CONFIG_FILE", str(tmp_path / "config.json"))
-    distribution.save(origin="https://distribution.example", channel="latest")
+    distribution_write.save(origin="https://distribution.example", channel="latest")
 
 
 def _install_stubs(monkeypatch, *, installed: str, channel_version: str) -> list:

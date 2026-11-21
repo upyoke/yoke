@@ -18,7 +18,7 @@ from collections import OrderedDict
 from pathlib import Path
 from typing import Optional
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_contracts.executor_labels import surface_alias
 from yoke_harness.artifact_scan import iter_rows, tail_rows_newest_first
 from yoke_harness.codex_artifact_reader import codex_record_decoder

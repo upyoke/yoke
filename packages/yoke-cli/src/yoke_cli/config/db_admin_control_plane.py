@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 from pathlib import Path
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.transport import dispatcher as function_dispatcher
 from yoke_cli.transport import https as https_transport
 from yoke_contracts.api.function_call import TargetRef

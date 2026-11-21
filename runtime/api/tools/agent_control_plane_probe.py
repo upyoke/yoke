@@ -8,7 +8,7 @@ import subprocess
 import sys
 from urllib.parse import urlsplit
 
-from yoke_cli.config.machine_config import active_connection
+from yoke_contracts.machine_config.reader import active_connection
 from yoke_contracts.machine_config.schema import MachineConfigContractError
 
 

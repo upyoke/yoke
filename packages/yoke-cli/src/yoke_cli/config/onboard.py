@@ -10,7 +10,7 @@ from yoke_contracts import hosting_posture
 from yoke_contracts.machine_config import schema as machine_schema
 
 from yoke_cli.config import local_universe_setup
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.config import onboard_apply_path
 from yoke_cli.config import onboard_apply_connection
 from yoke_cli.config import onboard_apply_project_handoff

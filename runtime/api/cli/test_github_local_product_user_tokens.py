@@ -14,7 +14,7 @@ from runtime.api.cli.github_user_token_test_support import (
 from runtime.api.cli.github_user_token_test_support import FakeResponse
 from yoke_cli.config import github_local_user_access
 from yoke_cli.config import github_git_credential_store as credential_store
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 
 
 def test_helper_refresh_proves_local_product_profile_against_bundle(

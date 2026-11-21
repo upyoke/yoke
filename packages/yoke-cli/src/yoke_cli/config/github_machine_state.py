@@ -22,7 +22,8 @@ from yoke_cli.config import github_git_credential_store as credential_store
 from yoke_cli.config import github_machine_installations
 from yoke_cli.config import github_machine_report as reports
 from yoke_cli.config import github_merge_path_binding as merge_path_binding
-from yoke_cli.config import machine_config, writer
+from yoke_contracts.machine_config import reader as machine_config
+from yoke_cli.config import writer
 from yoke_contracts import github_app_tokens, github_origin
 from yoke_contracts.machine_config import schema as contract
 

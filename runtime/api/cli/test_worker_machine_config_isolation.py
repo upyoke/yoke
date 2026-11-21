@@ -10,7 +10,7 @@ import sys
 
 import pytest
 
-from yoke_cli.config import machine_config as client
+from yoke_contracts.machine_config import reader as client
 from yoke_cli.config import writer
 from yoke_cli.config.project_onboard_support import machine_config_path
 from yoke_contracts.machine_config import runtime

@@ -12,11 +12,12 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
-from yoke_harness.hooks.machine_hooks_inspect import (
-    STATE_INSTALLED,
-    STATE_MALFORMED,
-    inspect_machine_hooks,
-)
+from yoke_contracts.runtime_ports.machine_hooks_inspect import get_machine_hooks_inspect
+
+
+STATE_INSTALLED = get_machine_hooks_inspect().STATE_INSTALLED
+STATE_MALFORMED = get_machine_hooks_inspect().STATE_MALFORMED
+inspect_machine_hooks = get_machine_hooks_inspect().inspect_machine_hooks
 
 SLUG = "machine-hooks"
 TITLE = "Machine-wide harness hooks are installed"

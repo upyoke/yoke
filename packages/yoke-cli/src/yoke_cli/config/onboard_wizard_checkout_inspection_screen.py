@@ -8,7 +8,7 @@ in :mod:`onboard_wizard_flow_checkout_inspection`.
 
 from __future__ import annotations
 
-from yoke_cli.config import project_installed_layer as installed_layer
+from yoke_contracts.project_contract import installed_layer_scan as installed_layer
 from yoke_cli.config.onboard_wizard_step_ids import STEP_PROJECT
 from yoke_cli.config.setup_prompt import TONE_ERROR, TONE_OK, SelectionRow, SetupPrompt
 

@@ -15,7 +15,7 @@ from yoke_cli.commands.adapters.admission_floor_recovery import (
 )
 from yoke_cli.config.local_reachability import LOCAL_REACHABILITY_NOTICE
 from yoke_cli.manifest import build_manifest
-from yoke_cli.product_boundary_teaching_sources import help_usage_recipes
+from yoke_cli.product_boundary_teaching_inventory import help_usage_recipes
 from yoke_contracts.api.function_call import FunctionError, HandlerOutcome
 from yoke_contracts.function_serving_floors import FUNCTION_MINIMUM_SERVING_VERSIONS
 

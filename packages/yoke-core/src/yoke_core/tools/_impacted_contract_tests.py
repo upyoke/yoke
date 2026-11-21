@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from yoke_cli.product_boundary_teaching_sources import TEACHING_GLOBS
+from yoke_contracts.product_boundary_teaching_sources import TEACHING_GLOBS
 from yoke_core.tools import _impacted_ci_only_contract_floor as _ci_only
 from yoke_core.tools._impacted_ci_workflow_contracts import CI_WORKFLOW_CONTRACTS
 from yoke_core.tools._impacted_merge_contracts import MERGE_PREFIX_CONTRACTS

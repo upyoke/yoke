@@ -17,7 +17,8 @@ from runtime.api.cli.github_user_token_test_support import (
 from yoke_cli.config import github_git_credential_file as credential_file
 from yoke_cli.config import github_git_credential_document as credential_document
 from yoke_cli.config import github_git_credential_store as credential_store
-from yoke_cli.config import github_user_tokens, machine_config
+from yoke_cli.config import github_user_tokens
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_contracts import owner_private_path
 
 

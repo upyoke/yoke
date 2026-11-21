@@ -78,7 +78,7 @@ def _certificate_option(host, port, settings):
     """SSH's verified host key vouches for the loopback forward; direct pins TOFU."""
     if settings["desktop_route"] == "ssh-forward":
         return "/cert:ignore"
-    from yoke_cli.config import machine_config
+    from yoke_contracts.machine_config import reader as machine_config
     from yoke_harness.rdp_certificate_pin import pinned_certificate
 
     fingerprint = pinned_certificate(

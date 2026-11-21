@@ -17,7 +17,8 @@ from yoke_cli.config import github_git_credential_helper as helper
 
 from yoke_cli.config import github_git_credential_store as store
 
-from yoke_cli.config import github_machine_profile, machine_config, writer
+from yoke_cli.config import github_machine_profile, writer
+from yoke_contracts.machine_config import reader as machine_config
 
 from yoke_contracts import cursor_permissions, github_app_tokens
 

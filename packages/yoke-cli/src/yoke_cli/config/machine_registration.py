@@ -199,7 +199,8 @@ def _persist_credential(
     """Store an HTTPS machine bearer, returning recovery text on failure."""
     from yoke_contracts.machine_config import schema as contract
 
-    from yoke_cli.config import machine_config, writer
+    from yoke_contracts.machine_config import reader as machine_config
+    from yoke_cli.config import writer
 
     connection = machine_config.active_connection(config_path, explicit_env=environment)
     if str(connection.get("transport") or "") != contract.TRANSPORT_HTTPS:

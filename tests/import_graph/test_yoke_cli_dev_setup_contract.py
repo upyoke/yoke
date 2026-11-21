@@ -17,11 +17,8 @@ for package_src in (
 
 from yoke_cli.main import main as yoke_main
 from yoke_cli.project_install import source_dev
-from yoke_cli.project_install.files import (
-    MODE_COPY,
-    MODE_SOURCE_LINK,
-    ProjectInstallError,
-)
+from yoke_cli.project_install.files import MODE_COPY, MODE_SOURCE_LINK
+from yoke_contracts.project_contract.install_error import ProjectInstallError
 
 
 def test_dev_setup_dry_run_detects_source_checkout_without_mutating(

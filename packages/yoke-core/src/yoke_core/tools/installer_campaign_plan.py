@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Sequence
 
 from yoke_core.domain import pack_catalog
-from yoke_cli.config import repo_upstream_git as source_git
+from yoke_contracts.runtime_ports.repo_upstream_git import get_repo_upstream_git
 
 
 # Plans whose cases this build generates; boot converges them when source-bound.
@@ -32,17 +32,17 @@ def _remote_tracking_default_branch(root: str) -> tuple[str, str, int]:
     one git records as tracking that branch. A single remote, or only a
     push default, keeps the same resolution as before.
     """
-    listed = source_git.git(root, "remote")
-    names = source_git.out(listed).split() if listed.returncode == 0 else []
+    listed = get_repo_upstream_git().git(root, "remote")
+    names = get_repo_upstream_git().out(listed).split() if listed.returncode == 0 else []
     for name in names:
-        published = source_git.resolve_base_branch(root, name)
+        published = get_repo_upstream_git().resolve_base_branch(root, name)
         if not published:
             continue
-        remote, count = source_git.resolve_remote(root, published)
+        remote, count = get_repo_upstream_git().resolve_remote(root, published)
         if remote == name:
             return remote, published, count
-    remote, count = source_git.resolve_remote(root)
-    branch = source_git.resolve_base_branch(root, remote) if remote else ""
+    remote, count = get_repo_upstream_git().resolve_remote(root)
+    branch = get_repo_upstream_git().resolve_base_branch(root, remote) if remote else ""
     return remote, branch, count
 
 
@@ -57,29 +57,29 @@ def export_source_revision() -> str:
         remote, branch, count = _remote_tracking_default_branch(root)
         if not remote or not branch:
             raise ValueError(f"default branch unavailable ({count} configured remotes)")
-        fetched = source_git.fetch_branch(root, remote, branch)
+        fetched = get_repo_upstream_git().fetch_branch(root, remote, branch)
         if fetched.returncode:
-            raise ValueError(source_git.reason(fetched))
-        head = source_git.git(root, "rev-parse", "HEAD^{commit}")
-        upstream = source_git.git(
-            root, "rev-parse", source_git.tracking_ref(remote, branch) + "^{commit}"
+            raise ValueError(get_repo_upstream_git().reason(fetched))
+        head = get_repo_upstream_git().git(root, "rev-parse", "HEAD^{commit}")
+        upstream = get_repo_upstream_git().git(
+            root, "rev-parse", get_repo_upstream_git().tracking_ref(remote, branch) + "^{commit}"
         )
-        dirty = source_git.git(
+        dirty = get_repo_upstream_git().git(
             root, "status", "--porcelain", "--untracked-files=normal"
         )
         for result in (head, upstream, dirty):
             if result.returncode:
-                raise ValueError(source_git.reason(result))
-        if source_git.out(dirty):
+                raise ValueError(get_repo_upstream_git().reason(result))
+        if get_repo_upstream_git().out(dirty):
             raise ValueError("source checkout has uncommitted changes")
-        revision = source_git.out(head)
-        ancestry = source_git.git(
-            root, "merge-base", "--is-ancestor", revision, source_git.out(upstream)
+        revision = get_repo_upstream_git().out(head)
+        ancestry = get_repo_upstream_git().git(
+            root, "merge-base", "--is-ancestor", revision, get_repo_upstream_git().out(upstream)
         )
         if ancestry.returncode == 1:
             raise ValueError(f"source commit {revision} is not on {remote}/{branch}")
         if ancestry.returncode:
-            raise ValueError(source_git.reason(ancestry))
+            raise ValueError(get_repo_upstream_git().reason(ancestry))
         return revision
     except (OSError, ValueError, subprocess.SubprocessError) as exc:
         raise SourceSyncRefused(

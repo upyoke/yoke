@@ -56,7 +56,7 @@ def mapped_checkout_for_project(project_id: int) -> Optional[Path]:
     The first existing-directory match wins when more than one checkout
     is mapped to the same project on this machine.
     """
-    from yoke_cli.config import machine_config
+    from yoke_contracts.machine_config import reader as machine_config
 
     for configured in machine_config.configured_projects():
         if configured.project_id == project_id and configured.checkout.is_dir():
@@ -77,7 +77,7 @@ def reject_target_root_project_mismatch(
     possible. Only a checkout registered to a project OTHER than the one
     that just served the read/write is refused.
     """
-    from yoke_cli.config import machine_config
+    from yoke_contracts.machine_config import reader as machine_config
 
     mapped_id = machine_config.project_id(target_root)
     if mapped_id is not None and mapped_id != project_id:

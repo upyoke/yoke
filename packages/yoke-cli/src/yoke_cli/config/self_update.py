@@ -10,17 +10,19 @@ repairs them directly because it skips installation.
 
 from __future__ import annotations
 
-from yoke_cli.config.install_advice import InstallOriginUnavailable, install_command
+from yoke_contracts import distribution_target
+from yoke_contracts.install_advice import InstallOriginUnavailable, install_command
 
 import dataclasses
 import shutil
 import subprocess
 from typing import Any, Mapping
 
-from yoke_cli.config import distribution, github_repo_helper_reconnect, install_binding
+from yoke_contracts.machine_config import distribution
+from yoke_cli.config import github_repo_helper_reconnect, install_binding
 from yoke_cli.self_host import release_target
 from yoke_cli.config import project_update, relay_service_upkeep
-from yoke_cli.project_install.files import ProjectInstallError
+from yoke_contracts.project_contract.install_error import ProjectInstallError
 from yoke_contracts.engine_version import compare_engine_versions
 
 VERSION_PROBE_TIMEOUT_SECONDS = 30.0
@@ -104,7 +106,7 @@ def resolve_target(
         )
     except distribution.DistributionError as exc:
         raise SelfUpdateError(str(exc)) from exc
-    except release_target.ReleaseTargetError as exc:
+    except distribution_target.ReleaseTargetError as exc:
         raise SelfUpdateError(f"could not resolve the release channel: {exc}") from exc
     return _pin(target, version) if version else target
 
@@ -149,11 +151,11 @@ def install_release(
     """
     try:
         installer_bytes = release_target.fetch_installer(target)
-    except release_target.ReleaseTargetError as exc:
+    except distribution_target.ReleaseTargetError as exc:
         raise SelfUpdateError(f"could not fetch the Yoke installer: {exc}") from exc
     try:
         completed = release_target.run_installer(target, installer_bytes, env=env)
-    except release_target.ReleaseTargetError as exc:
+    except distribution_target.ReleaseTargetError as exc:
         raise SelfUpdateError(str(exc)) from exc
     if completed.returncode != 0:
         # Covers every installer-owned failure, credential-helper repair

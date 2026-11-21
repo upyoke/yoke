@@ -253,7 +253,7 @@ def test_admin_candidate_keeps_local_scoped_qa_while_its_https_sibling_still_rel
     # connection — exactly what serving_authority is for.
     relayed = _install_named_serving_sibling(monkeypatch, serving_plane)
 
-    from yoke_cli.config import machine_config
+    from yoke_contracts.machine_config import reader as machine_config
 
     monkeypatch.setattr(machine_config, "active_env", lambda *a, **k: "prod-db-admin")
     monkeypatch.setattr(

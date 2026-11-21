@@ -5,14 +5,20 @@ from pathlib import Path
 import plistlib
 import shlex
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_contracts.machine_config.relay_instance import (
     RELAY_BASE_LABEL,
     SHARED_RELAY_STATE_DIR_NAME,
 )
-from yoke_harness.session_launch_containment import SUPERVISION_DIRECTORY_NAME
-from yoke_harness.session_relay_termination import read_local_record
-from yoke_harness.session_process_custody import custody_state
+from yoke_contracts.relay_release_layout import SUPERVISION_DIRECTORY_NAME
+from yoke_contracts.runtime_ports.session_relay_termination import get_session_relay_termination
+from yoke_contracts.runtime_ports.session_process_custody import get_session_process_custody
+
+
+custody_state = get_session_process_custody().custody_state
+
+
+read_local_record = get_session_relay_termination().read_local_record
 
 
 def _refuse(detail):

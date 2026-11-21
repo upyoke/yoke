@@ -16,7 +16,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from yoke_cli.config import local_universe_setup, machine_config, onboard_project
+from yoke_cli.config import local_universe_setup, onboard_project
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_contracts.onboard_destinations import DESTINATION_LOCAL
 from yoke_cli.config.project_publish_support import is_existing_project_dir
 from yoke_cli.config.setup_run_facts import (

@@ -22,7 +22,7 @@ from yoke_cli.commands.adapters import onboard_hosted_authorization as hosted_au
 from yoke_cli.commands.adapters import onboard_interactive
 from yoke_cli.commands.adapters import onboard_project_args
 from yoke_cli.commands.adapters import onboard_resume
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.config.onboard_input_validation import validate_prefix
 from yoke_contracts import onboard_destinations as onboard_destinations
 from yoke_cli.config import onboard_machine_setup

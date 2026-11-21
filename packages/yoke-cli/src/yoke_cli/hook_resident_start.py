@@ -5,7 +5,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from yoke_cli.hook_resident_paths import ResidentPaths
+from yoke_contracts.hook_resident_paths import ResidentPaths
 from yoke_contracts import platform_file_lock
 from yoke_contracts.hook_resident_transport import uses_named_pipe
 

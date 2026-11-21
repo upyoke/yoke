@@ -25,10 +25,8 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from yoke_cli.project_install.files import (
-    ProjectInstallError,
-    assert_resolved_targets_within,
-)
+from yoke_contracts.project_contract.install_error import ProjectInstallError
+from yoke_cli.project_install.files import assert_resolved_targets_within
 from yoke_cli.project_install.hooks import CLAUDE_SETTINGS_REL
 
 

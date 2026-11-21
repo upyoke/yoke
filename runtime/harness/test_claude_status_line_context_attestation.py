@@ -40,7 +40,7 @@ SESSION = "8b1d0a5c-4f2e-4a77-9c31-6d0f2b7e5a44"
 @pytest.fixture()
 def yoke_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Point the recording directory at a scratch home for one test."""
-    from yoke_cli.config import machine_config
+    from yoke_contracts.machine_config import reader as machine_config
 
     home = tmp_path / "yoke-home"
     home.mkdir()

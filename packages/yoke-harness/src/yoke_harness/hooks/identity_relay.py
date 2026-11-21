@@ -6,7 +6,7 @@ import json
 import os
 from typing import Any, Optional
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_contracts.session_execution import SUBAGENT_EXECUTION_PAYLOAD_KEY
 from yoke_contracts.cursor_session_map import (
     CURSOR_CONVERSATION_ENV_VAR,

@@ -107,7 +107,7 @@ def test_write_back_skips_target_root_registered_to_another_project(
     # project check that applies to it.
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine-home"))
     monkeypatch.delenv("YOKE_MACHINE_CONFIG_FILE", raising=False)
-    from yoke_cli.config import machine_config
+    from yoke_contracts.machine_config import reader as machine_config
 
     other_checkout = tmp_path / "other-project-checkout"
     other_checkout.mkdir()

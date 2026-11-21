@@ -19,7 +19,8 @@ from yoke_cli.config.github_prior_runtime_verification import (
     verified_prior_runtime_helper,
 )
 from yoke_contracts import github_origin
-from yoke_cli.config import github_repo_config, machine_config
+from yoke_cli.config import github_repo_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.config.project_git_transport import GENERAL_CREDENTIAL_HELPER_KEY
 from yoke_contracts.machine_config import schema as contract
 

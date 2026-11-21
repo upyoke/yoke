@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from yoke_cli.config import onboard_apply_progress
-from yoke_cli.config import project_installed_layer as layer
+from yoke_contracts.project_contract import installed_layer_scan as layer
 from yoke_cli.config import project_installed_layer_removal
 from yoke_cli.config.project_onboard_support import ProjectOnboardError
 from yoke_cli.project_install.source_dev import is_yoke_source_checkout

@@ -19,7 +19,8 @@ from yoke_contracts.codex_config_posture import parse_config
 
 from yoke_contracts.harness_folder_trust_grant import grant_folder_trust
 
-from yoke_cli.config import machine_config, writer
+from yoke_contracts.machine_config import reader as machine_config
+from yoke_cli.config import writer
 
 from yoke_cli.project_install import files, owned_cleanup, uninstall_commit
 

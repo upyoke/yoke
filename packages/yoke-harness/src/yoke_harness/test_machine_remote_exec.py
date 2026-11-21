@@ -54,7 +54,7 @@ def host_key_options(
     settings: Mapping[str, str], known_hosts: Path | None = None
 ) -> list[str]:
     """Pin cloud identity to its instance rather than a recyclable address."""
-    from yoke_cli.config import machine_config
+    from yoke_contracts.machine_config import reader as machine_config
 
     known_hosts = known_hosts or known_hosts_path(machine_config.yoke_home())
     create_private_directory(known_hosts.parent)

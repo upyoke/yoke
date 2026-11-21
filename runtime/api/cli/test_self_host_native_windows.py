@@ -152,7 +152,7 @@ def test_host_command_help_works_on_native_windows(monkeypatch, capsys, command,
 
 @pytest.mark.parametrize("command,args", COMMANDS)
 def test_host_command_refuses_without_install_origin(monkeypatch, capsys, command, args):
-    from yoke_cli.config import machine_config
+    from yoke_contracts.machine_config import reader as machine_config
     from yoke_contracts.api_urls import DISTRIBUTION_BASE_URL_ENV
 
     _windows(monkeypatch)

@@ -23,7 +23,7 @@ from yoke_cli.commands._helpers import (
     ensure_handlers_loaded,
     parse_or_usage_error,
 )
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
 from yoke_cli.transport.test_machine_response_field import read_test_machine_field
 

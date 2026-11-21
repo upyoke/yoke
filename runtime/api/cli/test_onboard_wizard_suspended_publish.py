@@ -18,7 +18,7 @@ from runtime.api.cli.yoke_operations_cli_onboard_wizard_publish_capability_test_
     _mark_connected,
 )
 from yoke_cli.config import hosted_machine_browser
-from yoke_cli.config import machine_config  # noqa: E402
+from yoke_contracts.machine_config import reader as machine_config  # noqa: E402
 from yoke_cli.config import onboard_wizard_flow_publish as publish_flow  # noqa: E402
 from yoke_cli.config import onboard_wizard_project_screens as screens  # noqa: E402
 from yoke_contracts import github_origin  # noqa: E402

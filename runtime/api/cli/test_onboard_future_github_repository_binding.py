@@ -8,7 +8,7 @@ import pytest
 
 pytest.importorskip("textual")
 
-from yoke_cli.config import machine_config  # noqa: E402
+from yoke_contracts.machine_config import reader as machine_config  # noqa: E402
 from yoke_cli.config import onboard_machine_github  # noqa: E402
 from yoke_cli.config import onboard_project  # noqa: E402
 from yoke_cli.config import onboard_wizard_github_plan as github_plan  # noqa: E402

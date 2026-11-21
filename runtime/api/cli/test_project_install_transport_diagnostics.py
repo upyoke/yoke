@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_cli.project_install import transport
-from yoke_cli.project_install.files import ProjectInstallError
+from yoke_contracts.project_contract.install_error import ProjectInstallError
 from yoke_contracts.bounded_json_http import BoundedJsonHttpStatusError
 
 

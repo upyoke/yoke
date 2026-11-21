@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from yoke_cli.project_install.files import ProjectInstallError
+from yoke_contracts.project_contract.install_error import ProjectInstallError
 from yoke_cli.project_install.managed_markdown import (
     MANAGED_BLOCK_BEGIN,
     MANAGED_BLOCK_END,

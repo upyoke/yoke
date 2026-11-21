@@ -27,8 +27,8 @@ from yoke_cli.project_install.files import (
     DISCARDED_PRIOR_STRATEGY_RECORDS_KEY,
     MODE_COPY,
     MODE_KEY,
-    ProjectInstallError,
 )
+from yoke_contracts.project_contract.install_error import ProjectInstallError
 from yoke_cli.project_install.preflight import preflight_apply
 from yoke_cli.project_install.hook_platform import native_bundle_hooks
 from yoke_contracts.cursor_permissions import CURSOR_PERMISSIONS_MANIFEST_KEY

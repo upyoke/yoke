@@ -206,7 +206,8 @@ def test_active_setup_does_not_use_another_service_receipt(tmp_path, monkeypatch
 
 
 def test_refresh_migrates_legacy_local_remote_after_registration(tmp_path, monkeypatch):
-    from yoke_cli.config import machine_config, writer_projects
+    from yoke_contracts.machine_config import reader as machine_config
+    from yoke_cli.config import writer_projects
 
     world, _, _, _ = setup_read_only(tmp_path, monkeypatch)
     writer_projects.set_publication_read_only(world.checkout, False)

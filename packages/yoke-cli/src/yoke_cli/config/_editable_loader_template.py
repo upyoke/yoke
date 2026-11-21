@@ -28,7 +28,7 @@ interpreter start:
 
 Kept import-free of ``yoke_*`` on purpose: it runs before those packages are on
 ``sys.path``. The config-path precedence mirrors
-:mod:`yoke_cli.config.machine_config` but cannot import it for the same reason.
+:mod:`yoke_contracts.machine_config.reader` but cannot import it for the same reason.
 """
 
 from __future__ import annotations

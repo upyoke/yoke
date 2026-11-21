@@ -6,7 +6,8 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_cli.config import github_fork_access as access
-from yoke_cli.config import machine_config, onboard_preflight, project_onboard_clone
+from yoke_contracts.machine_config import reader as machine_config
+from yoke_cli.config import onboard_preflight, project_onboard_clone
 from yoke_cli.config import onboard_wizard_github_state as state
 from yoke_cli.config.project_clone_support import ClonePlan
 from yoke_cli.config.project_onboard_support import ProjectOnboardError

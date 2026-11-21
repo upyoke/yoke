@@ -5,7 +5,8 @@ import subprocess
 import pytest
 
 from yoke_cli.commands.adapters import onboard, onboard_interactive
-from yoke_cli.config import existing_project_lookup, github_publish, machine_config
+from yoke_cli.config import existing_project_lookup, github_publish
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.config import onboard_machine_github
 from yoke_cli.config.onboard_wizard_existing_project_detected import CHOICE_NEW_PROJECT
 from yoke_cli.config.onboard_wizard_flows import SETUP_FLOWS, init_setup_state

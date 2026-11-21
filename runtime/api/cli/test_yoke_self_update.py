@@ -8,7 +8,7 @@ import subprocess
 import pytest
 
 from yoke_cli.commands.adapters import self_update as command
-from yoke_cli.config import distribution, self_update
+from yoke_cli.config import distribution_write, self_update
 from yoke_cli.self_host import release_target
 from yoke_contracts.install_binding import KIND_PACKAGED_WHEEL, KIND_SOURCE_CHECKOUT
 from yoke_contracts.server_image import pinned_server_image
@@ -18,7 +18,7 @@ from yoke_contracts.server_image import pinned_server_image
 def recorded_distribution(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("YOKE_MACHINE_CONFIG_FILE", str(tmp_path / "config.json"))
-    distribution.save(origin="https://distribution.example", channel="stable")
+    distribution_write.save(origin="https://distribution.example", channel="stable")
 
 
 def _completed(command_, returncode=0, stdout="", stderr=""):

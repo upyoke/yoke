@@ -9,6 +9,8 @@ readiness outcome. The other setup changes remain applied.
 
 from __future__ import annotations
 
+from yoke_contracts import hook_resident_paths
+
 from typing import Any, Mapping
 
 from yoke_cli import hook_resident_client
@@ -24,7 +26,7 @@ RECOVERY = (
 
 
 def plan_steps() -> list[dict[str, str]]:
-    if not hook_resident_client.resident_transport_available():
+    if not hook_resident_paths.resident_transport_available():
         return []
     return [{"action": RESTART_ACTION, "target": RESTART_TARGET}]
 
@@ -35,7 +37,7 @@ def apply(
     report: dict[str, Any],
 ) -> None:
     """Restart the evaluator, recording the outcome on the onboarding report."""
-    if not hook_resident_client.resident_transport_available():
+    if not hook_resident_paths.resident_transport_available():
         # Hooks evaluate in-process on this platform; there is nothing to warm.
         return
     onboard_apply_progress.emit(progress, RESTART_ACTION, RESTART_TARGET, "running")

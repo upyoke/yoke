@@ -76,7 +76,7 @@ def _request(
 
 def _round_trip(socket_path: str, request: HookEvaluatorRequest) -> dict:
     from yoke_cli.hook_resident_client import _connect
-    from yoke_cli.hook_resident_paths import ResidentPaths
+    from yoke_contracts.hook_resident_paths import ResidentPaths
 
     paths = ResidentPaths(Path("."), Path(socket_path), Path("lock"), Path("log"))
     peer = _connect(paths, time.monotonic() + 10)

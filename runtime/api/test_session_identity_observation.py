@@ -68,7 +68,7 @@ def _claude_transcript(tmp_path: Path, model: str = "claude-opus-5") -> str:
 @pytest.fixture
 def local_claude(monkeypatch, tmp_path) -> None:
     """A machine whose own Claude surface is the only identity authority."""
-    from yoke_cli.config import machine_config
+    from yoke_contracts.machine_config import reader as machine_config
 
     monkeypatch.setattr(machine_config, "yoke_home", lambda: tmp_path / "yoke-home")
     monkeypatch.setenv("CLAUDE_CODE_ENTRYPOINT", "cli")

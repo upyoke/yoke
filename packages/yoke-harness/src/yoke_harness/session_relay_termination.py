@@ -8,14 +8,14 @@ from pathlib import Path
 import subprocess
 from typing import Any, Callable, Mapping
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_contracts.executor_labels import canonical_harness_id
 from yoke_contracts.session_identity import ANCHORS_DIR_NAME
 from yoke_harness.claude_runtime_records import (
     SESSION_RECORD_MISSING,
     resolve_claude_session_record,
 )
-from yoke_harness.session_launch_containment import SUPERVISION_DIRECTORY_NAME
+from yoke_contracts.relay_release_layout import SUPERVISION_DIRECTORY_NAME
 from yoke_harness import session_launch_handles
 from yoke_harness.session_process_custody import (
     MAX_RECORD_BYTES,

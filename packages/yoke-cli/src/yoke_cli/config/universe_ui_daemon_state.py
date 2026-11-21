@@ -38,7 +38,7 @@ import socket
 import time
 from typing import Optional
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 
 #: Machine state directory for the UI daemon, under the machine home.
 UI_STATE_DIR_NAME = "ui"

@@ -14,11 +14,17 @@ from yoke_contracts.session_control.launch_permission_bypass import (
     CLAUDE_SETTINGS_PERMISSION_MODE_KEY,
 )
 from yoke_contracts.refusal_recovery import compose_refusal
-from yoke_harness.codex_session_posture import codex_session_posture
-from yoke_harness.hooks.session_permission_mode import read_permission_mode
+from yoke_contracts.runtime_ports.codex_session_posture import get_codex_session_posture
+from yoke_contracts.runtime_ports.session_permission_mode import get_session_permission_mode
 from yoke_core.engines.doctor_hc_harness_unattended_posture import (
     inspect_unattended_posture,
 )
+
+
+read_permission_mode = get_session_permission_mode().read_permission_mode
+
+
+codex_session_posture = get_codex_session_posture().codex_session_posture
 
 
 def session_posture(

@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_contracts.machine_config import relay_instance as session_relay_instance
 from yoke_cli.config.machine_uninstall_inventory import UninstallError
 
 
 def stop(relay_envs: tuple[str, ...]) -> None:
     from yoke_harness import session_launch_handles, session_relay_termination
-    from yoke_harness.session_launch_containment import SUPERVISION_DIRECTORY_NAME
+    from yoke_contracts.relay_release_layout import SUPERVISION_DIRECTORY_NAME
 
     directories = [
         session_launch_handles.native_handle_directory(),

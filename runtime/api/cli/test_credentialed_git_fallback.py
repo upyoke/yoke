@@ -92,7 +92,7 @@ def test_absent_authorization_preserves_ssh_and_disables_prompts(no_authorizatio
 
 def test_stored_failure_never_runs_ambient_credentials(no_authorization, monkeypatch):
     monkeypatch.setattr(
-        "yoke_cli.config.machine_config.github_config",
+        "yoke_contracts.machine_config.reader.github_config",
         lambda _path: {"authorization": {"status": "revoked"}},
     )
     monkeypatch.setattr(

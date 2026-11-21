@@ -15,7 +15,7 @@ import time
 from typing import Mapping
 from uuid import UUID
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_harness.session_launch_containment import (
     release_supervised_native,
     supervision_record_path,

@@ -7,6 +7,8 @@ resident process behind; the first hook starts one on demand.
 
 from __future__ import annotations
 
+from yoke_contracts import hook_resident_paths
+
 import argparse
 import contextlib
 import os
@@ -32,7 +34,7 @@ class ResidentLifecycleError(RuntimeError):
 
 
 def _failure(
-    code: str, detail: str, paths: client.ResidentPaths, recovery: str = ""
+    code: str, detail: str, paths: hook_resident_paths.ResidentPaths, recovery: str = ""
 ) -> ResidentLifecycleError:
     return ResidentLifecycleError(
         f"{code}: {detail}; "
@@ -44,7 +46,7 @@ def _failure(
     )
 
 
-def _resident_processes(paths: client.ResidentPaths) -> list[tuple[int, float]]:
+def _resident_processes(paths: hook_resident_paths.ResidentPaths) -> list[tuple[int, float]]:
     """Match exact argv, retaining PID birth identity for retirement."""
     from yoke_contracts import platform_process
 
@@ -72,7 +74,7 @@ def _resident_processes(paths: client.ResidentPaths) -> list[tuple[int, float]]:
 
 
 def stop_resident(
-    paths: client.ResidentPaths | None = None, *, require_lock_release: bool = True
+    paths: hook_resident_paths.ResidentPaths | None = None, *, require_lock_release: bool = True
 ) -> None:
     """Stop proven residents, escalating to SIGKILL, and name what remains.
 
@@ -82,9 +84,9 @@ def stop_resident(
     """
     from yoke_contracts import platform_process
 
-    if not client.resident_transport_available():
+    if not hook_resident_paths.resident_transport_available():
         return
-    paths = paths or client.resident_paths()
+    paths = paths or hook_resident_paths.resident_paths()
     residents = _resident_processes(paths)
     if residents:
         announce_designed_wait(
@@ -131,8 +133,8 @@ def stop_resident(
 @contextlib.contextmanager
 def _lifecycle_lock():
     """Hold the machine's lifecycle lock, yielding the resident paths."""
-    paths = client.resident_paths()
-    refusal = client.resident_transport_refusal(paths)
+    paths = hook_resident_paths.resident_paths()
+    refusal = hook_resident_paths.resident_transport_refusal(paths)
     if refusal is not None:
         raise _failure(*refusal, paths)
     lock_fd = os.open(paths.state_dir / "lifecycle.lock", os.O_CREAT | os.O_RDWR, 0o600)
@@ -175,7 +177,7 @@ def verify_resident() -> None:
         stop_resident(paths, require_lock_release=False)
 
 
-def _restart_locked(paths: client.ResidentPaths) -> None:
+def _restart_locked(paths: hook_resident_paths.ResidentPaths) -> None:
     stop_resident(paths, require_lock_release=False)
     request = client._request("PreToolUse", "{}", True, "")
     client._start_resident(paths, request.environment)

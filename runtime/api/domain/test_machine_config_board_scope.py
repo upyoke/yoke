@@ -165,7 +165,7 @@ def test_config_path_absolute_env_is_returned_unchanged(
 def test_cli_machine_home_overrides_relative_config_file_env(
     tmp_path: Path, monkeypatch
 ) -> None:
-    from yoke_cli.config import machine_config as cli_machine_config
+    from yoke_contracts.machine_config import reader as cli_machine_config
 
     home = tmp_path / "machine-home"
     monkeypatch.setenv(cli_machine_config.HOME_ENV, str(home))

@@ -163,7 +163,7 @@ def install_git_hooks(
     try:
         selected = validate_git_hook_specs(selected)
     except ValueError as exc:
-        from yoke_cli.project_install.files import ProjectInstallError
+        from yoke_contracts.project_contract.install_error import ProjectInstallError
 
         raise ProjectInstallError(str(exc)) from exc
     for spec in selected:
@@ -188,7 +188,7 @@ def preview_git_hooks(
     try:
         selected = validate_git_hook_specs(specs)
     except ValueError as exc:
-        from yoke_cli.project_install.files import ProjectInstallError
+        from yoke_contracts.project_contract.install_error import ProjectInstallError
 
         raise ProjectInstallError(str(exc)) from exc
     result = BootstrapResult()

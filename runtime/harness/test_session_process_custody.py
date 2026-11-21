@@ -203,7 +203,7 @@ def test_codex_accepted_resume_has_durable_custody_then_terminates(
         + "}),flush=True)\ntime.sleep(30)\n"
     )
     executable.chmod(0o700)
-    monkeypatch.setattr("yoke_cli.config.machine_config.cache_dir", lambda: tmp_path)
+    monkeypatch.setattr("yoke_contracts.machine_config.reader.cache_dir", lambda: tmp_path)
     for module in ("session_relay_codex_cli", "session_relay_codex_cli_process"):
         monkeypatch.setattr(
             f"yoke_harness.{module}.native_diagnostic_path",

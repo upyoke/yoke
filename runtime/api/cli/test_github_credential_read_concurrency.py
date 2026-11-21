@@ -14,7 +14,7 @@ from yoke_cli.config import github_git_credential_file as credential_file
 from yoke_cli.config import github_git_credential_helper as git_helper
 from yoke_cli.config import github_git_credential_store as store
 from yoke_cli.config import github_local_user_access, github_machine_operation
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.config import github_binding_auth
 from yoke_cli.config import writer
 from yoke_contracts import platform_file_lock

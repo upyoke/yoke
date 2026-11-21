@@ -5,7 +5,8 @@ from types import SimpleNamespace
 
 import pytest
 from yoke_cli.config import setup_facts_summary as summary
-from yoke_cli.config import machine_config, onboard_setup_facts
+from yoke_contracts.machine_config import reader as machine_config
+from yoke_cli.config import onboard_setup_facts
 from yoke_cli.config import project_onboarding_handoff as handoff
 from yoke_cli.commands import _helpers
 from yoke_cli.transport import dispatcher

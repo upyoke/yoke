@@ -15,7 +15,8 @@ from yoke_cli.config import github_local_user_access
 from yoke_cli.config import github_machine_access
 from yoke_cli.config import github_machine_report as reports
 from yoke_cli.config import github_machine_state as state
-from yoke_cli.config import machine_config, writer
+from yoke_contracts.machine_config import reader as machine_config
+from yoke_cli.config import writer
 
 
 def status(

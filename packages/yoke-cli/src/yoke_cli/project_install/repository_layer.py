@@ -14,7 +14,8 @@ from typing import Any, Dict
 from yoke_contracts.refusal_recovery import compose_refusal
 
 from yoke_cli.project_install.bundle_apply import apply_bundle
-from yoke_cli.project_install.files import MODE_COPY, ProjectInstallError
+from yoke_cli.project_install.files import MODE_COPY
+from yoke_contracts.project_contract.install_error import ProjectInstallError
 from yoke_cli.project_install.hooks_path_check import (
     collect_hooks_path_warnings,
 )

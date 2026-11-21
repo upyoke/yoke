@@ -15,7 +15,7 @@ import subprocess
 from importlib import import_module
 from typing import Any, Callable, Sequence
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_contracts.machine_config import schema as contract
 
 DSN_VAR_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")

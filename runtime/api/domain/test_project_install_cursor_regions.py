@@ -11,10 +11,8 @@ import json
 
 import pytest
 
-from yoke_cli.project_install.files import (
-    ProjectInstallError,
-    assert_safe_bundle_paths,
-)
+from yoke_contracts.project_contract.install_error import ProjectInstallError
+from yoke_cli.project_install.files import assert_safe_bundle_paths
 from yoke_contracts.cursor_permissions import (
     CURSOR_CLI_ALLOW,
     CURSOR_CLI_REL,

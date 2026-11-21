@@ -9,7 +9,7 @@ import pytest
 
 from yoke_cli.config import onboard_reuse_feedback
 from yoke_cli.config import onboard_wizard_flow_checkout_inspection as inspection
-from yoke_cli.config import project_installed_layer as layer
+from yoke_contracts.project_contract import installed_layer_scan as layer
 from yoke_cli.config import project_onboard_clone
 from yoke_cli.config.onboard_wizard_checkout_inspection_screen import (
     LAYER_ROWS,

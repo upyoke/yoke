@@ -13,7 +13,8 @@ from yoke_cli.project_install import instruction_discovery
 
 from yoke_cli.project_install.bundle_apply import apply_bundle
 
-from yoke_cli.project_install.files import ProjectInstallError, sha256_text
+from yoke_contracts.project_contract.install_error import ProjectInstallError
+from yoke_cli.project_install.files import sha256_text
 
 from yoke_core.domain.project_install_test_helpers import make_bundle
 

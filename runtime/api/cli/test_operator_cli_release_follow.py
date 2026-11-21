@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from yoke_contracts import distribution_target
 from runtime.api.fixtures.machine_config_test import select_machine_config_file
 import io
 import pytest
@@ -14,7 +15,7 @@ from types import SimpleNamespace
 
 from yoke_cli.commands.adapters import session_control_relay_release as release_cli
 from yoke_cli.config import (
-    distribution,
+    distribution_write,
     install_binding,
     operator_cli_release_follow as follow,
 )
@@ -257,7 +258,7 @@ def test_update_installs_the_requested_version_from_the_recorded_origin(
     monkeypatch, tmp_path
 ) -> None:
     select_machine_config_file(monkeypatch, tmp_path / "config.json")
-    distribution.save(origin="https://fork.example", channel="stable")
+    distribution_write.save(origin="https://fork.example", channel="stable")
     monkeypatch.setattr(
         install_binding,
         "detect",
@@ -280,7 +281,7 @@ def test_update_installs_the_requested_version_from_the_recorded_origin(
 
     def stop(target):
         installed.append(target.version)
-        raise release_target.ReleaseTargetError("stop before fetching")
+        raise distribution_target.ReleaseTargetError("stop before fetching")
 
     monkeypatch.setattr(release_target, "fetch_installer", stop)
     try:

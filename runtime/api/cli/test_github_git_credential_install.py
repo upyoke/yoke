@@ -13,7 +13,7 @@ import pytest
 
 from yoke_cli.config import github_git_credentials
 from yoke_cli.config import github_machine
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_contracts.machine_config import schema as contract
 
 

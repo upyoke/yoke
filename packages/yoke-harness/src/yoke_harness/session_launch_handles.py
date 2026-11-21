@@ -23,7 +23,7 @@ from yoke_contracts.machine_config.directories import create_private_directory
 
 from pathlib import Path
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 
 
 NATIVE_HANDLE_DIRECTORY_NAME = "session-native-handles"

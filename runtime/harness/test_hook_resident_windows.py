@@ -10,7 +10,9 @@ from unittest.mock import Mock
 
 import pytest
 
+from yoke_contracts import hook_resident_paths
 from yoke_contracts import hook_resident_transport as transport
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_contracts.hook_evaluator_protocol import receive_frame, send_frame
 
 pytestmark = pytest.mark.windows
@@ -65,7 +67,7 @@ def test_blocked_pipe_write_obeys_timeout():
 
 
 def test_windows_pipe_path_is_stable_and_not_a_filesystem_socket(monkeypatch, tmp_path):
-    from yoke_cli import hook_resident_paths as paths
+    from yoke_contracts import hook_resident_paths as paths
 
     monkeypatch.setattr(paths.machine_config, "cache_dir", lambda: tmp_path)
     monkeypatch.setattr(paths, "uses_named_pipe", lambda: True)
@@ -88,12 +90,11 @@ def test_discovered_python_resident_stops_and_releases_startup_lock(
     monkeypatch, tmp_path, executable
 ):
     import yoke_contracts
-    from yoke_cli import hook_resident_client as client
     from yoke_cli import hook_resident_lifecycle as lifecycle
     from yoke_cli import hook_resident_start as startup
 
-    monkeypatch.setattr(client.machine_config, "cache_dir", lambda: tmp_path)
-    paths = client.resident_paths()
+    monkeypatch.setattr(machine_config, "cache_dir", lambda: tmp_path)
+    paths = hook_resident_paths.resident_paths()
     held = [startup._open_start_lock(paths.lock)]
     assert held[0] is not None
     process = SimpleNamespace(
@@ -146,12 +147,12 @@ def test_discovered_python_resident_stops_and_releases_startup_lock(
 def test_windows_resident_warms_answers_health_and_stops(monkeypatch, tmp_path):
     from yoke_cli import hook_resident_client as client
     from yoke_cli import hook_resident_lifecycle as lifecycle
-    from yoke_cli.hook_resident_health import resident_revision_problem
+    from yoke_contracts.hook_resident_health import resident_revision_problem
     from yoke_contracts.execution_provenance import collect_execution_provenance
     from yoke_contracts import platform_process
 
-    monkeypatch.setattr(client.machine_config, "cache_dir", lambda: tmp_path)
-    paths = client.resident_paths()
+    monkeypatch.setattr(machine_config, "cache_dir", lambda: tmp_path)
+    paths = hook_resident_paths.resident_paths()
     try:
         lifecycle.restart_resident()
         first = lifecycle._resident_processes(paths)
@@ -179,7 +180,7 @@ def test_windows_client_retries_start_after_retiring_resident_releases_lock(
 ):
     from yoke_cli import hook_resident_client as client
 
-    monkeypatch.setattr(client.machine_config, "cache_dir", lambda: tmp_path)
+    monkeypatch.setattr(machine_config, "cache_dir", lambda: tmp_path)
     monkeypatch.setattr(client, "uses_named_pipe", lambda: True)
     peer = Mock()
     connect = Mock(

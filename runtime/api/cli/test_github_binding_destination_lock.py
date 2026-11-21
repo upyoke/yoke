@@ -10,11 +10,8 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_cli.commands.adapters import project_github_binding
-from yoke_cli.config import (
-    machine_config,
-    machine_config_file,
-    writer,
-)
+from yoke_contracts.machine_config import reader as machine_config
+from yoke_cli.config import machine_config_file, writer
 from yoke_cli.config import project_onboard_progress, project_onboard_support
 from yoke_cli.transport import dispatcher
 from yoke_contracts.api.function_call import (

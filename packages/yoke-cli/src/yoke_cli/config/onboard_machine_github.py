@@ -8,7 +8,7 @@ from typing import Any
 from yoke_contracts import github_origin
 from yoke_cli.config import github_app_public_profile
 from yoke_cli.config import github_machine
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.config import setup_browser
 
 CHOICE_CONNECT = "connect"

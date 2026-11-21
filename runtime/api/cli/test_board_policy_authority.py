@@ -11,7 +11,7 @@ from unittest.mock import patch
 
 from yoke_cli.board import rebuild as board_rebuild
 from yoke_cli.board import outcome as board_outcome
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.main import main as cli_main
 
 

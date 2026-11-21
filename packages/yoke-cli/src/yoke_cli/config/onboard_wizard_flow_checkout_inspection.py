@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, Any, Protocol
 
 from yoke_cli.config import onboard_wizard_github_state as github_state
 from yoke_cli.config import onboard_wizard_checkout_inspection_screen as screen
-from yoke_cli.config import project_installed_layer as layer
+from yoke_contracts.project_contract import installed_layer_scan as layer
 from yoke_cli.config import project_onboard_clone
 from yoke_cli.config.onboard_wizard import github_connected
 from yoke_cli.config.onboard_wizard_widgets import STEP_PROJECT

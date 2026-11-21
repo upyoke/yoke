@@ -166,7 +166,7 @@ class PublishFlow:
                 return False
         except github_origin.GitHubApiOriginError:
             return False
-        from yoke_cli.config import machine_config
+        from yoke_contracts.machine_config import reader as machine_config
 
         config = machine_config.github_config(self.result.config_path)
         return any(
@@ -204,7 +204,7 @@ class PublishFlow:
         )
 
     def _fetch_repo_owners(self: _Shell) -> list:
-        from yoke_cli.config import machine_config
+        from yoke_contracts.machine_config import reader as machine_config
 
         owners = onboard_wizard_flow.fetch_repo_owners(
             self.result.machine_github_api_url or github_origin.DEFAULT_GITHUB_API_URL,

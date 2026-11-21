@@ -9,7 +9,7 @@ from typing import Any, Callable, Iterator
 
 from yoke_cli.config import github_app_public_profile
 from yoke_cli.config import github_user_tokens
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.config import machine_config_file
 
 

@@ -70,7 +70,7 @@ AUTHORITY_TRANSPORT = (
         "yoke_cli.config.checkout_context:_git_toplevel",
         "yoke_cli.config.checkout_context:_strip_worktree_path",
         "yoke_cli.config.checkout_context:resolve_repo_root_from_cwd",
-        "yoke_cli.config.machine_config:load_config",
+        "yoke_contracts.machine_config.reader:load_config",
         "yoke_cli.transport.dispatcher:_resolve_session_id",
         "yoke_cli.transport.dispatcher:call_dispatcher",
         "yoke_cli.transport.dispatcher:build_actor",

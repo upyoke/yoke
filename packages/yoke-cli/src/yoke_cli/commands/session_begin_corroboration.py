@@ -24,7 +24,7 @@ from __future__ import annotations
 import os
 from typing import Mapping, Optional
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_contracts.session_identity import (
     AMBIENT_RESOLUTION_FAILED,
     ANCHORS_DIR_NAME,

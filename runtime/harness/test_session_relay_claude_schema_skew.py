@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 import pytest
 
-from yoke_cli.config.machine_config import ConfiguredProject
+from yoke_contracts.machine_config.reader import ConfiguredProject
 from yoke_contracts.session_control.evidence import redacted_evidence_document
 from yoke_contracts.session_control.launch_bootstrap import native_launch_bootstrap
 from yoke_harness import session_relay_runtime as runtime

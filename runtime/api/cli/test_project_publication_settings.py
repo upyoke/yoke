@@ -1,5 +1,6 @@
 """Checkout publication settings preserve Git configuration and connection scope."""
 
+from yoke_contracts.project_contract.install_error import ProjectInstallError
 from runtime.api.cli.project_publication_settings_test_support import (
     seed_project as seed_project,
 )
@@ -8,7 +9,8 @@ from runtime.api.cli.project_publication_settings_test_support import (
 import json
 import pytest
 
-from yoke_cli.config import machine_config, writer_projects
+from yoke_contracts.machine_config import reader as machine_config
+from yoke_cli.config import writer_projects
 from yoke_contracts.machine_config import schema_projects
 from runtime.api.cli.project_uninstall_owned_cleanup_test_support import (
     installed as installed,
@@ -66,7 +68,7 @@ def test_registration_ownership_snapshots_policy_and_refuses_missing_mapping(tmp
     record = saved[0][owned_cleanup.REGISTRATION_KEY]
     assert record["connection"] == "test"
     assert record["entry"] == {"checkout": str(root), "project_id": 7, "publication_read_only": True}
-    with pytest.raises(files.ProjectInstallError, match="ownership_unproven"):
+    with pytest.raises(ProjectInstallError, match="ownership_unproven"):
         owned_cleanup.record_registration(root, 8, config)
     assert len(saved) == 1
 
@@ -115,7 +117,7 @@ def test_failed_policy_receipt_write_does_not_adopt_mapping_on_retry(installed, 
             raise OSError("fixture receipt unavailable")
 
         patch.setattr(files, "write_manifest", fail)
-        with pytest.raises(files.ProjectInstallError, match="registration_policy_receipt_failed"):
+        with pytest.raises(ProjectInstallError, match="registration_policy_receipt_failed"):
             writer_projects.set_publication_read_only(root, True, path=config)
     assert read_json(config)["connection_projects"]["local"][0]["publication_read_only"] is True
     writer_projects.set_publication_read_only(root, True, path=config)

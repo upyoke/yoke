@@ -141,7 +141,7 @@ def _decided_environment(
                 credentialed_github_env(url, web_url=web_url, base=base)
             )
         except CredentialedGitError:
-            from yoke_cli.config import machine_config
+            from yoke_contracts.machine_config import reader as machine_config
             from yoke_cli.config.project_git_environment import git_config_env
 
             try:
@@ -205,7 +205,7 @@ def resolve_token(https_url: str) -> str:
     from yoke_cli.config import github_git_credential_store as store
     from yoke_cli.config import github_local_user_access
     from yoke_cli.config import github_merge_path_binding
-    from yoke_cli.config import machine_config
+    from yoke_contracts.machine_config import reader as machine_config
     from yoke_contracts.github_auth_transience import call_with_transient_retry
 
     # Prove the profile through the HTTPS sibling, even under an admin connection.
@@ -263,7 +263,7 @@ def _run_own_credentials(argv, cwd, env, timeout):
 
 def configured_web_url() -> str | None:
     """Return the machine's configured GitHub web URL, or ``None``."""
-    from yoke_cli.config import machine_config
+    from yoke_contracts.machine_config import reader as machine_config
 
     try:
         github = machine_config.github_config(None)

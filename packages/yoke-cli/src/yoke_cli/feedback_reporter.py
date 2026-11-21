@@ -56,7 +56,7 @@ def git_email(checkout=None):
 
 
 def _bound_fingerprint():
-    from yoke_cli.config import machine_config
+    from yoke_contracts.machine_config import reader as machine_config
     from yoke_contracts.machine_config.schema_connections import operating_actor_binding
     try:
         return operating_actor_binding(machine_config.load_config(), machine_config.active_env())[1]

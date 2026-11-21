@@ -17,7 +17,7 @@ from typing import Any, Callable, Iterator, List, Optional
 
 from yoke_cli.config import github_local_user_access
 from yoke_cli.config import github_merge_path_binding as merge_path_binding
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.direct_database_access import (

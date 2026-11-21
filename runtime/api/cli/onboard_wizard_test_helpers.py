@@ -9,7 +9,7 @@ from runtime.api.cli.onboard_wizard_view_test_support import wait_for_view
 
 from yoke_cli.config import onboard_wizard_flow_checkout_inspection as inspection
 from yoke_cli.config import path_doctor
-from yoke_cli.config import project_installed_layer as installed_layer
+from yoke_contracts.project_contract import installed_layer_scan as installed_layer
 from yoke_cli.config.onboard_wizard import WizardDefaults
 from yoke_cli.config.onboard_wizard_app import OnboardWizardApp
 
