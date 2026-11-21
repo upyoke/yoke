@@ -2,9 +2,14 @@
 
 import queue
 import socketserver
+import sys
 import threading
 
 from yoke_contracts.hook_resident_transport import PipePeer
+
+#: Consecutive accept failures after which the resident exits.
+MAX_ACCEPT_FAILURES = 5
+ACCEPT_RETRY_SECONDS = 0.1
 
 
 class PipeServer(socketserver.ThreadingMixIn, socketserver.BaseServer):
@@ -23,13 +28,28 @@ class PipeServer(socketserver.ThreadingMixIn, socketserver.BaseServer):
         threading.Thread(target=self._accept, daemon=True).start()
 
     def _accept(self):
+        # One failed accept (a client that abandoned the pipe mid-connect, or
+        # CPython's ``assert err == 0`` in ``PipeListener.accept``) must not
+        # end accepting. Only a listener that keeps failing ends the resident,
+        # and the next hook's cold start replaces it.
+        failures = 0
         while not self.closed.is_set():
             try:
                 peer = PipePeer(self.listener.accept())
-            except OSError as exc:
-                if not self.closed.is_set():
+            except Exception as exc:
+                if self.closed.is_set():
+                    return
+                failures += 1
+                sys.stderr.write(
+                    f"yoke hook resident: pipe accept failed "
+                    f"({failures}/{MAX_ACCEPT_FAILURES}): {exc!r}\n"
+                )
+                if failures >= MAX_ACCEPT_FAILURES:
                     self.incoming.put(exc)
-                return
+                    return
+                self.closed.wait(ACCEPT_RETRY_SECONDS)
+                continue
+            failures = 0
             if self.closed.is_set():
                 peer.close()
             else:
@@ -40,7 +60,7 @@ class PipeServer(socketserver.ThreadingMixIn, socketserver.BaseServer):
             peer = self.incoming.get(timeout=self.timeout)
         except queue.Empty:
             return
-        if isinstance(peer, OSError):
+        if isinstance(peer, Exception):
             raise peer
         self.process_request(peer, self.server_address)
 
