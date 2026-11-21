@@ -36,6 +36,7 @@ def _diagnosis_json(diag: doctor.PathDiagnosis) -> dict:
         "current_on_path": diag.current_on_path,
         "current_resolved": _resolutions(diag.current_resolved),
         "startup_file": diag.startup_file,
+        "startup_read_error": diag.startup_read_error,
         "future_adds_bin": diag.future_adds_bin,
         "managed_block_present": diag.managed_block_present,
         "future_resolved": _resolutions(diag.future_resolved),
@@ -66,6 +67,8 @@ def _render_diagnosis(diag: doctor.PathDiagnosis) -> str:
         "login shell   : "
         + ("needs PATH repair" if diag.login_needs_fix else "resolves canonical Yoke"),
     ]
+    for error in diag.startup_read_error.splitlines():
+        lines.append(f"startup file  : unreadable ({error})")
     if diag.ssh_startup_file:
         lines.extend(
             [

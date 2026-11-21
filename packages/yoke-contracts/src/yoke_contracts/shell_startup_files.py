@@ -89,17 +89,45 @@ def _missing_dirs(path: Path) -> list[Path]:
     return missing[::-1]
 
 
-def write_shell_path(*, env: Mapping[str, str]) -> list[str]:
+def _managed_block(shell: str, directory: str) -> str:
+    if shell == "fish":
+        body = f"if not contains -- {directory} $PATH\n    set -gx PATH {directory} $PATH\nend\n"
+    else:
+        body = (
+            f'case ":$PATH:" in\n    *:{directory}:*) ;;\n'
+            f'    *) export PATH={directory}:"$PATH" ;;\nesac\n'
+        )
+    return f"{MANAGED_BEGIN}\n{body}{MANAGED_END}\n"
+
+
+def _holds_block(path: Path, block: str) -> bool:
+    try:
+        path.lstat()
+        text = path.read_bytes().decode("utf-8")
+    except (OSError, UnicodeError):
+        return False
+    return any(match.group() == block for match in _BLOCK.finditer(text))
+
+
+def write_shell_path(*, env: Mapping[str, str]) -> tuple[list[str], list[str]]:
     """Prepend owned PATH blocks before interactive-only startup guards."""
     if sys.platform == "win32":
         from yoke_contracts.windows_user_path import write_user_path
 
-        return write_user_path(shell_path_state.tool_bin_dir(env), env)
+        return write_user_path(shell_path_state.tool_bin_dir(env), env), []
     directory = shlex.quote(shell_path_state.tool_bin_dir(env))
+    files = shell_setup_files(env)
+    blocks = {shell: _managed_block(shell, directory) for shell in dict.fromkeys(files.values())}
     changed = []
-    for path, shell in shell_setup_files(env).items():
+    failures: list[tuple[str, Path, OSError | UnicodeError]] = []
+    for path, shell in files.items():
         try:
-            exists = path.exists()
+            try:
+                path.lstat()
+            except FileNotFoundError:
+                exists = False
+            else:
+                exists = True
             original = path.read_bytes().decode("utf-8") if exists else ""
             missing = [] if exists else _missing_dirs(path)
             owned = _ownership(original) or (
@@ -107,28 +135,35 @@ def write_shell_path(*, env: Mapping[str, str]) -> list[str]:
                 if not exists
                 else []
             )
-            if shell == "fish":
-                body = f"if not contains -- {directory} $PATH\n    set -gx PATH {directory} $PATH\nend\n"
-            else:
-                body = (
-                    f'case ":$PATH:" in\n    *:{directory}:*) ;;\n'
-                    f'    *) export PATH={directory}:"$PATH" ;;\nesac\n'
-                )
             records = "".join(f"{line}\n" for line in owned)
-            text = f"{MANAGED_BEGIN}\n{body}{MANAGED_END}\n{records}" + (
-                _without_owned(original)
-            )
+            text = blocks[shell] + records + _without_owned(original)
             if text != original:
                 path.parent.mkdir(parents=True, exist_ok=True)
                 # Resolve a user-owned symlink instead of replacing the link.
                 _write_path_file(path, text)
                 changed.append(str(path))
         except (OSError, UnicodeError) as exc:
+            failures.append((shell, path, exc))
+
+    warnings = []
+    for shell, path, exc in failures:
+        alternate = next(
+            (
+                other
+                for other, other_shell in files.items()
+                if other != path and other_shell == shell and _holds_block(other, blocks[shell])
+            ),
+            None,
+        )
+        detail = f"{shell} startup file {path}: {exc}"
+        if alternate is None and shell == shell_path_state.current_shell(env):
             raise OSError(
-                f"shell_path_write_failed: {shell} startup file {path}: {exc}; check shell-file "
+                f"shell_path_write_failed: {detail}; check shell-file "
                 "permissions and retry `yoke path fix --yes`."
             ) from exc
-    return changed
+        location = f"; Yoke PATH block is in {alternate}" if alternate else ""
+        warnings.append(f"shell_path_file_skipped: {detail}{location}")
+    return changed, warnings
 
 
 def remove_shell_path(*, env: Mapping[str, str] | None = None) -> list[str]:

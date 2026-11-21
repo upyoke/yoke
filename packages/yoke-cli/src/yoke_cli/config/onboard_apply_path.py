@@ -11,6 +11,18 @@ from yoke_cli.config import (
     path_repair_plan,
 )
 
+# Keep a newly created file distinguishable from an unreadable snapshot.
+_MISSING = object()
+
+
+def _snapshot(path: Path) -> object:
+    try:
+        return path.read_bytes()
+    except FileNotFoundError:
+        return _MISSING
+    except OSError:
+        return None
+
 
 def apply(
     plan: dict[str, Any] | None,
@@ -34,7 +46,7 @@ def apply(
     if os.environ.get("XDG_CONFIG_HOME"):
         files.add(Path(os.environ["XDG_CONFIG_HOME"]) / "fish" / "config.fish")
     if plan.get("targets"):
-        before = {path: path.read_bytes() if path.exists() else None for path in files}
+        before = {path: _snapshot(path) for path in files}
         target = path_repair_plan.UPDATE_SHELL_COMMAND
         onboard_apply_progress.emit(
             progress, onboard_path_plan.PATH_REPAIR_ACTION, target, "running"
@@ -45,7 +57,9 @@ def apply(
             report["path_repair"]["changed_files"] = sorted(
                 str(path)
                 for path, content in before.items()
-                if (path.read_bytes() if path.exists() else None) != content
+                if content is not None
+                and (after := _snapshot(path)) is not None
+                and after != content
             )
         onboard_apply_progress.emit(
             progress, onboard_path_plan.PATH_REPAIR_ACTION, target, "done"

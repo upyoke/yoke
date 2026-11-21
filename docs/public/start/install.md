@@ -155,7 +155,11 @@ imports use the dashboard portability panel.
 The installer runs `yoke path fix --yes` and verifies every installed supported
 shell: zsh, bash and fish. Yoke prepends marked, idempotent PATH blocks in
 `.zshenv` and `.zprofile`, Bash's selected login file and `.bashrc`, and fish's
-`config.fish`. `ZDOTDIR`, `XDG_CONFIG_HOME`, and the configured tool bin directory
+`config.fish`. Yoke warns with `shell_path_file_skipped` if it skips an
+inaccessible file because another file for that shell holds the exact block or
+the file belongs to a shell other than yours. Setup still requires the block in
+at least one file for your shell and canonical Yoke in every required context.
+`ZDOTDIR`, `XDG_CONFIG_HOME`, and the configured tool bin directory
 are respected. The `.bashrc` block precedes interactive-only guards so SSH
 commands can find Yoke. Open a new terminal after installation.
 

@@ -1,12 +1,14 @@
 """Check, fix and verify expose real shell winners without a repair loop."""
 
 import json
+import os
 import shutil
 
 import pytest
 
 from yoke_cli.commands.adapters import path_doctor as cli
 from yoke_cli.config import path_doctor as doctor
+from yoke_cli.main import main as yoke_main
 from yoke_contracts.shell_startup_files import shell_setup_files
 
 POSIX_SHELL = pytest.mark.posix_only(
@@ -121,6 +123,45 @@ def test_missing_owned_block_is_repaired_and_repeat_is_idempotent(shell_home, ca
     capsys.readouterr()
     assert before == {file: file.read_bytes() for file in shell_setup_files(env)}
     assert launcher.exists()
+
+
+@POSIX_SHELL
+@pytest.mark.parametrize("name,verified", [(".zprofile", True), (".zshenv", False)])
+def test_path_fix_verifies_real_contexts_after_skipping_unreadable_zsh_file(
+    name, verified, tmp_path, monkeypatch, capsys
+):
+    zsh = shutil.which("zsh")
+    if not zsh or os.geteuid() == 0:
+        pytest.skip("zsh and an unprivileged account are required")
+    bindir = tmp_path / "tools"
+    bindir.mkdir()
+    launcher = bindir / "yoke"
+    launcher.write_text("#!/bin/sh\nexit 0\n")
+    launcher.chmod(0o755)
+    env = {
+        "HOME": str(tmp_path), "ZDOTDIR": str(tmp_path), "SHELL": zsh,
+        "PATH": os.defpath, "UV_TOOL_BIN_DIR": str(bindir),
+        "XDG_CONFIG_HOME": str(tmp_path / ".config"),
+    }
+    for key, value in env.items():
+        monkeypatch.setenv(key, value)
+    monkeypatch.delenv("BASH_ENV", raising=False)
+    doctor.update_shell(env=env)
+    blocked = tmp_path / name
+    original = b"# user configuration\n"
+    blocked.write_bytes(original)
+    blocked.chmod(0)
+    try:
+        assert yoke_main(["path", "fix", "--yes", "--json"]) == (0 if verified else 1)
+        payload = json.loads(capsys.readouterr().out)
+        assert payload["verified"] is verified
+        assert f"shell_path_file_skipped: zsh startup file {blocked}" in payload["output"]
+        zsh_contexts = {row["context"]: row for row in payload["contexts"] if row["shell"] == "zsh"}
+        assert set(zsh_contexts) == {"login", "interactive", "non-login", "ssh"}
+        assert zsh_contexts["ssh"]["needs_fix"] is not verified
+    finally:
+        blocked.chmod(0o600)
+    assert blocked.read_bytes() == original
 
 
 def test_different_winner_fails_even_when_canonical_launcher_is_missing(tmp_path):

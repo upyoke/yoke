@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import errno
 import json
 import os
+import shlex
 import shutil
 import subprocess
+from pathlib import Path
 
 import pytest
 
@@ -30,7 +33,80 @@ def test_update_shell_failure_names_recovery(tmp_path, monkeypatch):
     with pytest.raises(
         OSError, match="shell_path_write_failed: zsh startup file .*yoke path fix"
     ):
-        doctor.update_shell(env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path)})
+        doctor.update_shell(env={"SHELL": "/bin/zsh", "HOME": str(tmp_path)})
+
+
+@pytest.fixture
+def deny_startup_access(monkeypatch):
+    def deny(paths, methods=("lstat", "read_bytes")):
+        for method in methods:
+            original = getattr(Path, method)
+
+            def guarded(path, *args, _original=original, **kwargs):
+                if path in paths:
+                    raise PermissionError(errno.EPERM, os.strerror(errno.EPERM))
+                return _original(path, *args, **kwargs)
+
+            monkeypatch.setattr(Path, method, guarded)
+
+    return deny
+
+
+@POSIX_SHELL
+@pytest.mark.parametrize("methods", [("lstat", "read_bytes"), ("read_bytes",)])
+def test_repair_skips_inaccessible_zprofile(tmp_path, deny_startup_access, methods):
+    zprofile = tmp_path / ".zprofile"
+    original = b"# user configuration\n"
+    zprofile.write_bytes(original)
+    (tmp_path / ".zshenv").touch()
+    (tmp_path / ".bash_profile").touch()
+    read_bytes = Path.read_bytes
+    deny_startup_access({zprofile}, methods)
+
+    output = doctor.update_shell(env={"HOME": str(tmp_path), "SHELL": "/bin/zsh"})
+
+    assert f"shell_path_file_skipped: zsh startup file {zprofile}" in output
+    assert f"Yoke PATH block is in {tmp_path / '.zshenv'}" in output
+    assert read_bytes(zprofile) == original
+    directory = shlex.quote(str(tmp_path / ".local/bin"))
+    block = (
+        f'{doctor.MANAGED_BEGIN}\ncase ":$PATH:" in\n    *:{directory}:*) ;;\n'
+        f'    *) export PATH={directory}:"$PATH" ;;\nesac\n{doctor.MANAGED_END}\n'
+    )
+    for name in (".zshenv", ".bash_profile", ".bashrc"):
+        assert (tmp_path / name).read_text().startswith(block)
+    fish = tmp_path / ".config/fish/config.fish"
+    assert fish.read_text().startswith(
+        f"{doctor.MANAGED_BEGIN}\nif not contains -- {directory} $PATH\n"
+        f"    set -gx PATH {directory} $PATH\nend\n{doctor.MANAGED_END}\n"
+    )
+
+
+@POSIX_SHELL
+def test_repair_fails_if_both_zsh_startup_files_are_inaccessible(tmp_path, deny_startup_access):
+    deny_startup_access({tmp_path / ".zshenv", tmp_path / ".zprofile"})
+    with pytest.raises(OSError, match="shell_path_write_failed: zsh startup file"):
+        doctor.update_shell(env={"HOME": str(tmp_path), "SHELL": "/bin/zsh"})
+    assert (tmp_path / ".bashrc").is_file()
+
+
+@POSIX_SHELL
+def test_repair_requires_fish_config_only_for_fish_user(tmp_path, deny_startup_access):
+    fish = tmp_path / ".config/fish/config.fish"
+    deny_startup_access({fish})
+    env = {"HOME": str(tmp_path), "SHELL": "/bin/zsh"}
+    assert f"shell_path_file_skipped: fish startup file {fish}" in doctor.update_shell(env=env)
+    with pytest.raises(OSError, match="shell_path_write_failed: fish startup file"):
+        doctor.update_shell(env={**env, "SHELL": "/bin/fish"})
+
+
+@POSIX_SHELL
+def test_inaccessible_bash_login_probe_is_reported_per_file(tmp_path, deny_startup_access):
+    profile = tmp_path / ".bash_profile"
+    deny_startup_access({profile}, ("stat", "lstat", "read_bytes"))
+    output = doctor.update_shell(env={"HOME": str(tmp_path), "SHELL": "/bin/bash"})
+    assert f"shell_path_file_skipped: bash startup file {profile}" in output
+    assert f"Yoke PATH block is in {tmp_path / '.bashrc'}" in output
 
 
 def test_default_startup_file_per_shell(tmp_path):
