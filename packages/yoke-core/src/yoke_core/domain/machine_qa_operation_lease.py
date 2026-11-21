@@ -139,6 +139,8 @@ def begin_operation_execution(
     candidate = load_test_machine_contract(
         conn, project=project, test_machine=test_machine
     )
+    from yoke_core.domain.qa_host_queue import lock_host_queue
+
     lease = active_claim(conn, host_claim_target(candidate.settings["resource_name"]))
     mission = (
         None
@@ -153,6 +155,11 @@ def begin_operation_execution(
             plan_execution_id=plan_execution_id,
         )
     )
+    if mission is None:
+        lock_host_queue(conn)
+        lease = active_claim(
+            conn, host_claim_target(candidate.settings["resource_name"])
+        )
     if mission is None and plan_execution_id is not None:
         raise MachineQaProtocolError(
             f"plan_golden_refresh_lease_missing: plan {plan_execution_id} does "
@@ -170,7 +177,11 @@ def begin_operation_execution(
             lease_id=lease.id,
             allow_released=False,
         )
-        return _issue(conn, candidate, lease, cases=(), **shape)
+        from yoke_core.domain.qa_host_turn_borrow import borrow_turn
+
+        contract = _issue(conn, candidate, lease, cases=(), **shape)
+        borrow_turn(conn, lease, contract.contract_digest)
+        return contract
     if mission is None:
         return begin_host_control_execution(
             conn,
@@ -214,7 +225,7 @@ def holds_plan_turn(conn: Any, lease: Any, actor: Any) -> bool:
 
 
 def finish_operation_execution(
-    conn: Any, lease: Any, *, mission: Any, reason: str
+    conn: Any, lease: Any, *, mission: Any, reason: str, contract_digest: str
 ) -> bool:
     """Only the plan's own close-out releases a borrowed mission host.
 
@@ -223,6 +234,9 @@ def finish_operation_execution(
     every acquire rewrites the reason it consumes.
     """
     if mission is None and (lease.reason or "").startswith(HOST_TURN_REASON):
+        from yoke_core.domain.qa_host_turn_borrow import finish_borrow
+
+        finish_borrow(conn, lease, contract_digest)
         heartbeat(conn, lease.id)
         return False
     if mission is None:

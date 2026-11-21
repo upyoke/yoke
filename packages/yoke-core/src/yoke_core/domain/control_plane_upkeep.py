@@ -146,7 +146,7 @@ def run_control_plane_upkeep() -> None:
             ("driverless item-QA wake", wake_driverless_qa_waits),
             ("lapsed Test Machine hold-over release", expire_holdovers),
             ("idle parked QA host release", release_idle_host_holds),
-            ("idle parked set-waiter turn handoff", hand_off_idle_waiter_reservations),
+            ("QA host queue reservation upkeep", hand_off_idle_waiter_reservations),
             ("scheduled universe prune", run_scheduled_prune),
         ):
             try:

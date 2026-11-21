@@ -31,6 +31,19 @@ yoke steering report get
 - If the doc's last curation date is absent or 7+ days old, ask the operator
   to run `/yoke curate`.
 
+When the Test Machine lines need a different order, use the seat covering the
+execution's project. Read each execution's position on its hosts in the fleet report.
+
+```text
+yoke test-machine queue place --execution ID --host H --position N --reason TEXT
+yoke test-machine queue hand-over --from ID --to ID --host H --reason TEXT
+```
+
+`place` moves the execution before position N on H across all its host lines.
+A position beyond the end puts it last. `hand-over` gives an unstarted
+reservation to an eligible waiter and keeps the former holder in line.
+Wait for any running reset or verify to finish before handing over the turn.
+
 ## 2. Messages
 
 ```text

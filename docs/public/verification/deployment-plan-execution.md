@@ -136,14 +136,15 @@ preparation.
 When a Test Machine is leased or unhealthy, the plan
 keeps its cursor open and joins the same FIFO line (`qa_test_machine_waits`)
 as a refused `yoke claims coordination-claim acquire --key QA_HOST:<machine>`.
-The runner prints `Queued for QA host <machine>, position N of M` and the
-park command. Let the runner queue you, then park until it wakes you.
-The first wait sets the plan's place across hosts and retries, including a
-rerun of an aborted walk that held the host. A plan waits on every host in
-its set and keeps its reservations. A partial set passes a reservation to
-an older waiter to avoid deadlock. The plan wakes after its last reservation.
+The runner prints the position on each host, counting any reserved turn
+first, and a park command. Park until the host-turn notice wakes you.
+A host set can reserve turns only while it is first on every required host.
+If it loses the front on any of them before the set is complete, partial
+reservations pass to the next eligible waiters and the plan keeps its place.
+The plan wakes once its last host is reserved. The first wait sets its place
+across hosts and retries, including a rerun of an aborted walk that held the host.
 Releasing a healthy host, including with `yoke claims work release --claim-id N`,
-reserves it for the oldest live waiter and sends that session the resume command.
+serves the next eligible waiter.
 Stopped sessions use the same wake route as other control-plane notices.
 An unhealthy host stays free for `yoke test-machine verify` or
 `yoke test-machine golden-capture`. A successful release wakes the first waiter.
@@ -154,6 +155,19 @@ then run `yoke test-machine verify`. Verification determines health alongside
 successful golden captures. Ending the session or settling the plan cancels
 its waits. Releasing an unused reservation passes the turn on and aborts
 the execution if no live wait remains.
+
+A steering seat covering the execution's project can move a waiter or pass
+an unstarted reservation:
+
+```text
+yoke test-machine queue place --execution ID --host H --position N --reason TEXT
+yoke test-machine queue hand-over --from ID --to ID --host H --reason TEXT
+```
+
+Placement applies across the execution's hosts and survives resume. A position
+past the end goes last. A handover keeps the former holder in line and requires
+the receiver to be first on its other required hosts. A running reset or verify
+keeps custody until it finishes.
 
 A Test Machine operation borrows the turn reserved for your plan. On retry,
 a changed result becomes the current receipt and an identical submission

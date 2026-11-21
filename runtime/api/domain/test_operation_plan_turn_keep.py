@@ -68,14 +68,14 @@ def stubbed_host(monkeypatch):
 
     def issue(conn, candidate, lease, **shape):
         issued.append(lease.id)
-        return SimpleNamespace(lease_id=lease.id)
+        return SimpleNamespace(lease_id=lease.id, contract_digest="digest")
 
     monkeypatch.setattr(operations, "_issue", issue)
 
     def admit(conn, *, session_id, **_shape):
         lease = acquire(conn, TARGET, session_id, reason="machine-qa-execution")
         issued.append(lease.id)
-        return SimpleNamespace(lease_id=lease.id)
+        return SimpleNamespace(lease_id=lease.id, contract_digest="digest")
 
     monkeypatch.setattr(operations, "begin_host_control_execution", admit)
     return issued
@@ -131,11 +131,15 @@ def test_reset_on_a_reserved_plan_turn_keeps_it_for_the_plan_run(
 
     contract = _begin(test_db)
     assert contract.lease_id == turn.id
-    _assert_turn_kept(test_db, turn, execution, behind)
+    assert get_claim(test_db, turn.id).reason == turn.reason + ":operation:digest"
 
     lease = get_claim(test_db, turn.id)
     released = operations.finish_operation_execution(
-        test_db, lease, mission=None, reason="test-machine-reset-complete"
+        test_db,
+        lease,
+        mission=None,
+        reason="test-machine-reset-complete",
+        contract_digest="digest",
     )
     assert released is False
     _assert_turn_kept(test_db, turn, execution, behind)
@@ -192,7 +196,11 @@ def test_reset_on_a_holdover_still_consumes_and_releases_it(
     lease = get_claim(test_db, contract.lease_id)
     assert lease.id == holdover.id and lease.reason == "machine-qa-execution"
     released = operations.finish_operation_execution(
-        test_db, lease, mission=None, reason="test-machine-reset-complete"
+        test_db,
+        lease,
+        mission=None,
+        reason="test-machine-reset-complete",
+        contract_digest="digest",
     )
 
     assert released is True

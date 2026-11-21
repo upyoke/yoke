@@ -49,6 +49,11 @@ def test_report_alarms_on_a_host_held_by_an_ended_parked_session(
     [line] = reset_debt_lines((row,))
     assert line.startswith(f"Test Machine {MACHINE}: ALARM held by ended session")
     assert f"upkeep returns it to the queue at {row.returns_at}" in line
+    assert (
+        "root-cause it with a subagent and file feedback first; a nudge is a workaround."
+        in line
+    )
+    assert f"workaround=`{row.recovery}`" in line
 
 
 def test_a_live_holder_keeps_its_host_out_of_the_alarm(test_db, tmp_path, monkeypatch):
@@ -160,10 +165,13 @@ def test_a_heartbeat_the_holder_left_before_parking_is_not_work():
 
     own = datetime(2026, 11, 20, 4, 22, tzinfo=timezone.utc)
     row = {
-        "live_row": "a", "mode": "parked", "last_tool_call_at": own,
+        "live_row": "a",
+        "mode": "parked",
+        "last_tool_call_at": own,
         "native_process_gone_at": own + timedelta(seconds=11),
         "execution_heartbeat_at": own - timedelta(seconds=12),
-        "turn_posture": "waiting", "turn_posture_at": own,
+        "turn_posture": "waiting",
+        "turn_posture_at": own,
     }
     now = own + timedelta(minutes=27)
     assert holder_away(row, now=now, limit=idle_hold_limit()) == "exited"

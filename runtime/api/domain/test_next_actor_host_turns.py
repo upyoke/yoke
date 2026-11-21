@@ -61,7 +61,7 @@ def test_gone_waiter_names_the_host_turn_and_its_holder():
         waiting = _gone(conn, "waiter")
         sentence = (
             f"Waiting for a Test Machine turn on {MACHINE} held by {holder_ref} "
-            "(position 1)"
+            f"(1st for {MACHINE})"
         )
         assert waiting["actor"] == "another_item"
         assert waiting["reason"] == "qa_host_turn_waiting"
@@ -96,3 +96,22 @@ def test_gone_process_without_a_wait_still_needs_steering():
         assert line.split("  next: ")[1].startswith(
             "parent_or_steering — session_process_gone  "
         )
+
+
+def test_idle_holder_row_calls_the_nudge_a_workaround():
+    holder = ClaimHolder(
+        session_id="idle-holder",
+        item_id=1,
+        public_ref="YOK-1",
+        mode="wait",
+        parked=False,
+        last_activity_at=GONE_AT,
+        idle_seconds=31 * 60,
+    )
+    line = holder_lines((holder,), idle=True)[0]
+
+    assert (
+        "root-cause it with a subagent and file feedback first; a nudge is a workaround."
+        in line
+    )
+    assert "workaround=`yoke say --item YOK-1 --stdin`" in line

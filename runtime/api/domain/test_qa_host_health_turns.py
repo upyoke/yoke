@@ -160,8 +160,7 @@ def test_waiting_case_teaches_queue_position_and_park() -> None:
         {
             "host_wait": {
                 "test_machine": "linux-lab",
-                "position": 2,
-                "queue_length": 3,
+                "position_text": "2nd for linux-lab",
                 "rationale": "lease 9 held by holder",
             }
         },
@@ -170,7 +169,7 @@ def test_waiting_case_teaches_queue_position_and_park() -> None:
     )
     assert case["verdict"] == "waiting"
     assert case["recovery"].startswith(
-        "Queued for QA host linux-lab, position 2 of 3 (lease 9 held by holder)."
+        "Queued for QA host linux-lab, 2nd for linux-lab (lease 9 held by holder)."
     )
     assert "yoke sessions touch --mode parked" in case["recovery"]
     assert "Write no hold" in case["recovery"]

@@ -80,7 +80,7 @@ def test_recovery_walk_resumes_next_ahead_of_unrelated_waiters(test_db, monkeypa
         test_db, _row(test_db, recovery), test_machine=MACHINE, rationale="host busy"
     )
 
-    assert waiting["host_wait"]["position"] == 1
+    assert waiting["host_wait"]["position"] == 2
     assert [row["session_id"] for row in machine_waiters(test_db, MACHINE)] == [
         "owner",
         "second",

@@ -60,9 +60,7 @@ def test_manual_and_execution_waiters_share_one_fifo_line(test_db, monkeypatch):
 
     refused = _manual_acquire(test_db, monkeypatch, "manual")
     assert refused.error.code == "claim_held"
-    assert "number 1 of 1 in the Test Machine queue" in (
-        refused.error.message
-    )
+    assert f"1st for {MACHINE} in the Test Machine queue" in (refused.error.message)
     assert f"yoke claims coordination-claim release --claim-id {held.id}" in (
         refused.error.message
     )
@@ -76,8 +74,8 @@ def test_manual_and_execution_waiters_share_one_fifo_line(test_db, monkeypatch):
     reservation = active_claim(test_db, target)
     assert reservation.session_id == "manual"
     assert len(notices) == 1 and "yoke claims coordination-claim acquire" in notices[0]
-    assert "If you no longer need this turn, release it before taking it" in (
-        notices[0]
+    assert (
+        "If you no longer need this turn, release it before taking it" in (notices[0])
     )
     with pytest.raises(CoordinationClaimHeldError):
         acquire(test_db, target, "outsider")

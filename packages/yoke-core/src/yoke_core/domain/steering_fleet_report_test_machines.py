@@ -35,7 +35,7 @@ class QueuedWalk(NamedTuple):
     """
 
     test_machine: str
-    position: int
+    place: str
     session_id: str
     execution_id: str | None
     queued_at: str
@@ -44,14 +44,18 @@ class QueuedWalk(NamedTuple):
 
 def read_queue(conn: Any) -> list[QueuedWalk]:
     """The one Test Machine queue, oldest waiter first."""
-    from yoke_core.domain.qa_host_queue import queue_entries, waits_for_text
+    from yoke_core.domain.qa_host_queue import (
+        position_text,
+        queue_entries,
+        waits_for_text,
+    )
 
     if not _table_exists(conn, "qa_test_machine_waits"):
         return []
     return [
         QueuedWalk(
             waits_for_text(entry),
-            int(entry["position"]),
+            position_text(entry["places"]),
             str(entry["session_id"]),
             entry["execution_id"],
             str(entry["queued_at"]),
@@ -169,13 +173,15 @@ def read_reset_debts(
 
 def reset_debt_lines(rows):
     return [
-        f"Test Machine queue #{row.position}: session {row.session_id}"
+        f"Test Machine queue: session {row.session_id}"
         + (f" (execution {row.execution_id})" if row.execution_id else "")
-        + f" waits for {row.test_machine} since {row.queued_at}"
+        + f" waits for {row.test_machine} ({row.place}) since {row.queued_at}"
         if isinstance(row, QueuedWalk)
         else f"Test Machine {row.test_machine}: ALARM held by {row.idle_state} session "
         f"{row.idle_session}, silent since {row.idle_since}; upkeep returns it to "
-        f"the queue at {row.returns_at}, or release it now: `{row.recovery}`"
+        f"the queue at {row.returns_at}. If Yoke should have handled this automatically, "
+        "root-cause it with a subagent and file feedback first; a nudge is a workaround. "
+        f"workaround=`{row.recovery}`"
         if isinstance(row, IdleHostHold)
         else f"Test Machine {row.test_machine}: reset owed after {row.execution_id}"
         if row.execution_id

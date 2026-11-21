@@ -14,11 +14,8 @@ def waiting_case(
         if len(wait.get("test_machines") or ()) > 1
         else f"QA host {wait.get('test_machine') or 'its Test Machine'}"
     )
-    place = (
-        f", position {wait['position']} of {wait['queue_length']}"
-        if wait.get("position") and wait.get("queue_length")
-        else ""
-    )
+    position = wait.get("position_text")
+    place = f", {position}" if position else ""
     because = f" ({wait['rationale']})" if wait.get("rationale") else ""
     return {
         "requirement_id": requirement_id,
