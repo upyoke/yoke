@@ -15,9 +15,13 @@ from yoke_core.engines.doctor_hc_launcher_authority import (
 )
 
 
-@pytest.fixture(autouse=True)
-def shell_context_probe(monkeypatch):
-    # These unit tests supply canonical/login resolution rather than real shells.
+@pytest.fixture
+def posix_launcher(monkeypatch):
+    # These cases supply POSIX login resolution. Native Windows PATH cases
+    # use the separate fixture in engines/test_doctor_launcher_authority.py.
+    monkeypatch.setattr(
+        "yoke_core.engines.doctor_hc_launcher_authority._WINDOWS", False
+    )
     monkeypatch.setattr(
         "yoke_cli.config.path_doctor.diagnose",
         lambda **kw: SimpleNamespace(contexts=()),
@@ -33,7 +37,7 @@ class _Rec:
 
 
 def test_hc_fails_when_login_shell_misses_canonical(
-    monkeypatch, tmp_path: Path
+    posix_launcher, monkeypatch, tmp_path: Path
 ) -> None:
     canon = tmp_path / "yoke"
     monkeypatch.setattr(
@@ -67,7 +71,9 @@ def test_hc_fails_when_login_shell_misses_canonical(
     assert "not canonical" in rec.rows[0][2]
 
 
-def test_hc_passes_when_login_matches_canonical(monkeypatch, tmp_path: Path) -> None:
+def test_hc_passes_when_login_matches_canonical(
+    posix_launcher, monkeypatch, tmp_path: Path
+) -> None:
     canon = tmp_path / "yoke"
     monkeypatch.setattr(
         "yoke_core.engines.doctor_hc_launcher_authority.canonical_shim_path",
@@ -98,7 +104,7 @@ def test_hc_passes_when_login_matches_canonical(monkeypatch, tmp_path: Path) -> 
     assert rec.rows[0][1] == "PASS"
 
 
-def test_hc_fix_calls_converge_machine(monkeypatch, tmp_path: Path) -> None:
+def test_hc_fix_calls_converge_machine(posix_launcher, monkeypatch, tmp_path: Path) -> None:
     called = {}
     canon = tmp_path / "yoke"
     monkeypatch.setattr(
@@ -260,7 +266,7 @@ def test_machine_probe_ignores_operator_source_opt_in(monkeypatch):
 
 
 def test_doctor_reports_non_login_failure_even_when_canonical_login_matches(
-    monkeypatch, tmp_path
+    posix_launcher, monkeypatch, tmp_path
 ):
     from yoke_core.engines import doctor_hc_launcher_authority as check
 
