@@ -334,7 +334,7 @@ def test_sharing_violation_names_a_merge_retry_that_removes_the_lane(
             item_id=ref, run_git=_run_git, emit=lambda *_a, **_kw: None,
         )
     assert landed_lane.worktree.is_dir()
-    assert "the worktree folder is in use" in warning
+    assert "lane cleanup deferred" in warning
     assert (command := f"yoke merge item {ref}") in warning
 
     item = {
