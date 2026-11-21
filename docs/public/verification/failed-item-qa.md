@@ -136,18 +136,33 @@ A notice is evidence to reread, not proof that all current blockers cleared.
 On any notice or manual resume, reread the dependency list, current run and
 requirement evidence. Check every remaining blocker, including QA outside the
 cleared dependency. Then identify the qualifying deployed run, stage, member
-and target. With no explicit plan, item QA selects the newest member run,
-Stage or production, whose status is `executing` and whose `current_stage`
-is the named stage:
+and target. Item QA resolves to the live run (created, queued or executing)
+whose open requirement rows name the item at that stage, wherever those rows
+point now, a takeover successor included. Rows count while they are not
+waived, superseded, retracted or passed; a shared plan's memberless rows never
+select a run for the item form. The run must be executing the stage:
 
 ```text
 yoke watch qa-plan -- --item ITEM --stage STAGE --project P
 ```
 
-If no member run is at that stage, `qa_item_stage_unavailable` gives the
-steering handoff and a concrete create command. Ask steering or the release
-driver to select the Stage-capable flow and create a Stage run that enrolls
-the item; run creation remains the driver's responsibility:
+With no open rows yet, a run executing the stage qualifies when one of the
+item's cases targets that run's environment, read from each case's own
+`target_envs` rather than its plan's header. When more than one run
+qualifies, `qa_item_stage_ambiguous` lists each run's id, environment and
+open requirement ids; name one with `--deployment-run-id RUN` beside
+`--item ITEM --stage STAGE`. The same flag works on `qa plan materialize` and
+`qa plan rematerialize`; the server refuses a run the item is not a member
+of, or one holding none of its stage QA. Stage wakes and refresh recipes
+already name their run.
+
+When a live run holds the item's requirements but has not reached the stage,
+`qa_item_stage_unavailable` names that run, its status and its current
+stage. Wait for its stage wake; do not ask for a new deployment. Only when no
+live run holds or is executing the stage does the refusal give the steering
+handoff and a concrete create command. Ask steering or the release driver to
+select the Stage-capable flow and create a Stage run that enrolls the item;
+run creation remains the driver's responsibility:
 
 ```text
 yoke deployment-runs create P FLOW --environment stage --idempotency-key KEY
@@ -155,9 +170,9 @@ yoke deployment-runs create P FLOW --environment stage --idempotency-key KEY
 
 The driver confirms enrollment and drives the run to `item-qa`. Then the
 holder runs QA with `--item ITEM --stage item-qa`. To select an attached plan
-explicitly, use `yoke qa plan run --item ITEM --stage item-qa --plan PLAN`;
-its environment selects the corresponding qualifying member run. A finished
-run cannot execute QA again; arrange a new qualifying run before retrying.
+explicitly, use `yoke qa plan run --item ITEM --stage item-qa --plan PLAN`.
+A finished run cannot execute QA again; arrange a new qualifying run before
+retrying.
 
 A dependency-cleared notice cannot retarget an old frozen run. If the correction
 is absent from that run's lineage, have the driver arrange a later candidate
