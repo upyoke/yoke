@@ -3,7 +3,7 @@
  "title": "Retry cleanup after a Windows process lets go of a landed lane",
  "status": "observed",
  "trigger": "Merge closes the item, but Windows keeps the lane folder because a shell stands in it or another program holds a file in it (WinError 5 or 32) for longer than the 2-second retry.",
- "need": "Read the merge warning \"merged; lane cleanup deferred: <path> in use by another program\": the item is closed and only cleanup waits. Close programs holding the folder or move their working directories out of the lane. The relay's lane sweep, every 15 minutes, then retires the lane; to finish now, rerun the yoke merge item command named in the warning from the main checkout.",
- "sources": ["packages/yoke-core/src/yoke_core/engines/merge_landed_lane_cleanup.py", "packages/yoke-core/src/yoke_core/engines/worktree_removal.py", "runtime/api/engines/test_worktree_removal_in_use.py"],
+ "need": "Read the merge warning \"merged; lane cleanup deferred: <path> in use by another program\": the item is closed and only cleanup waits. Close the shells and programs using the lane; a Windows shell that only changed directory out of it still holds it. For a project with a remote, the relay's lane sweep, every 15 minutes, then retires the lane; a project with no remote is not swept. To finish now, rerun the yoke merge item command named in the warning from the main checkout. The embedded Postgres always starts from its own root, so a hook that starts it inside a lane never pins that lane.",
+ "sources": ["packages/yoke-core/src/yoke_core/engines/merge_lane_in_use_deferral.py", "packages/yoke-core/src/yoke_core/engines/worktree_removal.py", "packages/yoke-core/src/yoke_core/domain/postgres_cluster.py", "runtime/api/engines/test_worktree_removal_in_use.py", "runtime/api/domain/test_postgres_cluster_start_cwd.py"],
  "topics": ["merging"]
 }
