@@ -24,11 +24,12 @@ from yoke_core.tools import session_relay_release_install as relay_install
 from yoke_core.tools.session_relay_release import RelayReleaseError, relay_runtime_python
 from yoke_core.tools.session_relay_runtime_install import ensure_relay_runtime
 from yoke_core.tools.session_relay_release_retention import release_install_lock
-from yoke_contracts.machine_config.relay_instance import WINDOWS_RELAY_RUNNER_ENV, WINDOWS_RELAY_RESTART_CODE
+from yoke_contracts.machine_config.relay_instance import WINDOWS_RELAY_RUNNER_ENV
 from yoke_contracts.designed_wait import announce_designed_wait
 from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.platform_process import process_command_lines
 from yoke_core.tools.session_relay_task_stop import wait_relay_task_stopped
+from yoke_core.tools.session_relay_task_runner import relay_task_runner_source
 
 Runner = Callable[..., subprocess.CompletedProcess[str]]
 TASK_NS = "http://schemas.microsoft.com/windows/2004/02/mit/task"
@@ -96,33 +97,13 @@ def _account(runner: Runner) -> tuple[str, str]:
     return rows[0][1], rows[0][0]
 
 
-#: Task Scheduler's End stops only the task's own process, so the runner joins
-#: a kill-on-close job first: ending or deleting the task then also stops the
-#: relay it started, as systemd stops a unit's whole control group on Linux.
-_CONTAIN_RUNNER = """\
-if globals().get("__name__") == "__main__":
-    import ctypes
-    from ctypes import wintypes
-    class _Basic(ctypes.Structure):
-        _fields_ = [("a", ctypes.c_int64), ("b", ctypes.c_int64), ("flags", wintypes.DWORD),
-                    ("c", ctypes.c_size_t), ("d", ctypes.c_size_t), ("e", wintypes.DWORD),
-                    ("f", ctypes.c_size_t), ("g", wintypes.DWORD), ("h", wintypes.DWORD)]
-    class _Extended(ctypes.Structure):
-        _fields_ = [("basic", _Basic), ("io", ctypes.c_uint64 * 6),
-                    ("limits", ctypes.c_size_t * 4)]
-    _k = ctypes.WinDLL("kernel32", use_last_error=True)
-    _k.CreateJobObjectW.restype = wintypes.HANDLE
-    _k.GetCurrentProcess.restype = wintypes.HANDLE
-    _k.SetInformationJobObject.argtypes = [wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD]
-    _k.AssignProcessToJobObject.argtypes = [wintypes.HANDLE, wintypes.HANDLE]
-    _job = _k.CreateJobObjectW(None, None)
-    _info = _Extended()
-    _info.basic.flags = 0x2000  # JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
-    if not (_job and _k.SetInformationJobObject(_job, 9, ctypes.byref(_info), ctypes.sizeof(_info))
-            and _k.AssignProcessToJobObject(_job, _k.GetCurrentProcess())):
-        raise SystemExit(f"relay_task_containment_failed: {ctypes.WinError(ctypes.get_last_error())}; "
-                         "retry `yoke relay install`")
-"""
+def relay_task_command(state_dir: Path) -> Path:
+    """The windowless interpreter the task runs: the venv's ``pythonw.exe``.
+
+    stdlib ``venv`` writes it beside ``python.exe``. An interactive task
+    running ``python.exe`` gets a console window, and closing it kills the relay.
+    """
+    return relay_runtime_python(state_dir).with_name("pythonw.exe")
 
 
 def relay_task_document(instance: RelayInstance, *, user_sid: str) -> str:
@@ -155,7 +136,7 @@ def relay_task_document(instance: RelayInstance, *, user_sid: str) -> str:
     node(restart, "Interval", "PT1M")
     node(restart, "Count", "999")
     action = node(node(root, "Actions", Context="RelayUser"), "Exec")
-    node(action, "Command", str(relay_runtime_python(instance.state_dir)))
+    node(action, "Command", str(relay_task_command(instance.state_dir)))
     node(action, "Arguments", subprocess.list2cmdline(["-I", str(instance.state_dir / "task-runner.py")]))
     node(action, "WorkingDirectory", str(instance.state_dir))
     return ET.tostring(root, encoding="unicode")
@@ -286,15 +267,10 @@ def install_relay_task(*, instance=None, home=None, environ: Mapping[str, str] |
                 "--env", selected.environment, "relay", "serve"]
     else:
         argv = [str(launcher), "--env", selected.environment, "relay", "serve"]
-    body = ("import os, subprocess\n"
-            + (_CONTAIN_RUNNER if os.name == "nt" else "")
-            + f"os.environ.update({environment!r})\n"
-            f"with open({str(selected.stdout_log)!r}, 'ab', buffering=0) as out, "
-            f"open({str(selected.stderr_log)!r}, 'ab', buffering=0) as err:\n"
-            "    while True:\n"
-            f"        code = subprocess.call({argv!r}, stdout=out, stderr=err)\n"
-            f"        if code != {WINDOWS_RELAY_RESTART_CODE}:\n"
-            "            raise SystemExit(code)\n")
+    body = relay_task_runner_source(
+        environment=environment, argv=argv, stdout_log=selected.stdout_log,
+        stderr_log=selected.stderr_log, contain=os.name == "nt",
+    )
     write_owner_private(selected.state_dir / "task-runner.py", body)
     path = selected.state_dir / "task.xml"
     write_owner_private(path, relay_task_document(selected, user_sid=sid).encode("utf-16"))

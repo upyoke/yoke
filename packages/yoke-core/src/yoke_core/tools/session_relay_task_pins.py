@@ -62,7 +62,7 @@ def task_pins(document: ET.Element, label: str) -> TaskPins:
     digest = label.removeprefix(RELAY_LABEL_PREFIX)
     if (not state.is_absolute()
             or state.name != digest or state.parent.name != RELAY_STATE_ROOT_NAME
-            or Path(action.findtext("t:Command", "", namespace)) != scheduler.relay_runtime_python(state)
+            or Path(action.findtext("t:Command", "", namespace)) != scheduler.relay_task_command(state)
             or action.findtext("t:Arguments", "", namespace) != subprocess.list2cmdline(["-I", str(path)])
             or path.is_symlink()):
         raise ValueError("task does not run the Yoke relay launcher")

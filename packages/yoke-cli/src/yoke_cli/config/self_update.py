@@ -19,7 +19,7 @@ from typing import Any, Mapping
 
 from yoke_cli.config import distribution, github_repo_helper_reconnect, install_binding
 from yoke_cli.self_host import release_target
-from yoke_cli.config import project_update
+from yoke_cli.config import project_update, relay_service_upkeep
 from yoke_cli.project_install.files import ProjectInstallError
 from yoke_contracts.engine_version import compare_engine_versions
 
@@ -179,6 +179,8 @@ def _with_project_refresh(yoke_bin: str, result: dict[str, Any]) -> dict[str, An
         result["project_refresh"] = project_update.refresh_current(yoke_bin)
     except ProjectInstallError as exc:
         raise SelfUpdateError(str(exc)) from exc
+    # The updated CLI judges each relay service against the document it writes.
+    result["relay_services"] = relay_service_upkeep.converge_relays(yoke_bin=yoke_bin)
     return result
 
 

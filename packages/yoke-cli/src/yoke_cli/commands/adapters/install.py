@@ -212,7 +212,7 @@ def project_refresh(args: List[str]) -> int:
             json_mode=parsed.json_mode,
             config_path=parsed.config_path,
         )
-    return _run(
+    code = _run(
         lambda: _project_install_domain().refresh(
             parsed.repo_root,
             project_id=parsed.project_id,
@@ -225,6 +225,22 @@ def project_refresh(args: List[str]) -> int:
         json_mode=parsed.json_mode,
         config_path=parsed.config_path,
     )
+    return code or _converge_relay_services(parsed.config_path)
+
+
+def _converge_relay_services(config_path) -> int:
+    """Reinstall relay services this release's document no longer matches."""
+    import shutil
+    import sys
+
+    from yoke_cli.config import relay_service_upkeep
+
+    outcomes = relay_service_upkeep.converge_relays(
+        yoke_bin=shutil.which("yoke") or sys.argv[0], config_path=config_path
+    )
+    for line in relay_service_upkeep.summary_lines(outcomes):
+        print(line, file=sys.stderr)
+    return 1 if relay_service_upkeep.failed(outcomes) else 0
 
 
 def project_uninstall(args: List[str]) -> int:

@@ -12,7 +12,7 @@ import argparse
 import json
 from typing import List
 
-from yoke_cli.config import self_update, update_check
+from yoke_cli.config import relay_service_upkeep, self_update, update_check
 
 __all__ = ["UPDATE_USAGE", "update"]
 
@@ -64,9 +64,11 @@ def update(args: List[str]) -> int:
             print(f"yoke update: {exc}")
         return 1
     credential_error = result["credential_helper_error"]
+    relay_failed = relay_service_upkeep.failed(result.get("relay_services") or [])
+    failed = bool(credential_error or relay_failed)
     if parsed.json_mode:
-        print(json.dumps({"ok": credential_error is None, **result}))
-        return 1 if credential_error else 0
+        print(json.dumps({"ok": not failed, **result}))
+        return 1 if failed else 0
     print(_summary(result))
     if result.get("project_refresh", {}).get("status") == "refreshed":
         print("Refreshed the current checkout’s installed Yoke operating layer.")
@@ -74,9 +76,11 @@ def update(args: List[str]) -> int:
         print("Rebuilt the git credential helper bundle for this release.")
     for root in result.get("credential_helper_rewritten") or []:
         print(f"Pointed {root} at the current git credential helper.")
+    for line in relay_service_upkeep.summary_lines(result.get("relay_services") or []):
+        print(line)
     if credential_error:
         print(f"warning: git credential helper repair failed: {credential_error}")
-    return 1 if credential_error else 0
+    return 1 if failed else 0
 
 
 def _summary(result: dict) -> str:
