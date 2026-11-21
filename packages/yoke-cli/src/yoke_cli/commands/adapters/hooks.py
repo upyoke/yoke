@@ -40,6 +40,7 @@ __all__ = ["HOOK_EVALUATE_USAGE", "hook_evaluate"]
 HOOK_EVALUATE_USAGE = (
     "yoke hook evaluate <event> [--dry-run] [--harness ID] [--config-owner OWNER]"
 )
+_HARNESS_HELP = "Harness whose Windows hook set root and identity (Windows form)."
 # Below this much remaining budget an in-process fallback cannot finish, so
 # the hook allows with the degraded warning instead of starting one.
 MINIMUM_FALLBACK_MS = 2000
@@ -132,8 +133,10 @@ def _dispatch_hook(args: List[str], stdin_data: str | None = None) -> int:
         action="store_true",
         help="Print the ordered hook chain and exit.",
     )
-    parser.add_argument("--harness", choices=sorted(HOOK_ROOT_VARIABLES))
-    parser.add_argument("--config-owner")
+    parser.add_argument(
+        "--harness", choices=sorted(HOOK_ROOT_VARIABLES), help=_HARNESS_HELP
+    )
+    parser.add_argument("--config-owner", help="Hook config owner (Windows form).")
     try:
         parsed = parser.parse_args(args)
     except SystemExit as exc:
