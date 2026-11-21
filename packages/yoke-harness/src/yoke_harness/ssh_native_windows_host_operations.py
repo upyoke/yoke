@@ -8,9 +8,44 @@ from yoke_harness.native_windows.console import verify_console
 from yoke_harness.native_windows.desktop import capture_desktop
 from yoke_harness.native_windows.journal import journal_operation
 from yoke_harness.native_windows.features import feature_states, features_absent
-from yoke_contracts.machine_qa_failures import HostControlLocalError
+from yoke_contracts.machine_qa_failures import (
+    HostControlLocalError,
+    bounded_machine_qa_diagnostic,
+)
 from yoke_harness.native_windows.mission import WindowsMissionOperations
-from yoke_harness.native_windows.transport import WindowsTransport
+from yoke_harness.native_windows.transport import (
+    HOST_RESOURCES_EXHAUSTED,
+    HOST_RESOURCES_RECOVERY,
+    WindowsTransport,
+)
+
+
+MINIMUM_FREE_COMMIT_BYTES = 1024**3
+# GetPerformanceInfo works under the standard SSH user. WMI performance
+# counters on the labs require permissions that account does not have.
+COMMIT_MEMORY_PROBE = r"""
+Add-Type @'
+using System;
+using System.Runtime.InteropServices;
+public static class CommitMemory {
+    [StructLayout(LayoutKind.Sequential)]
+    public struct Info {
+        public uint Size;
+        public UIntPtr Total, Limit, Peak, Physical, Available, Cache,
+            Kernel, Paged, Nonpaged, PageSize;
+        public uint Handles, Processes, Threads;
+    }
+    [DllImport("psapi.dll")]
+    public static extern bool GetPerformanceInfo(out Info info, uint size);
+}
+'@
+$info=New-Object 'CommitMemory+Info'
+if(![CommitMemory]::GetPerformanceInfo([ref]$info,[Runtime.InteropServices.Marshal]::SizeOf($info))){
+    throw 'GetPerformanceInfo failed'
+}
+$page=$info.PageSize.ToUInt64()
+@{commit_limit_bytes=$info.Limit.ToUInt64()*$page;committed_bytes=$info.Total.ToUInt64()*$page} | ConvertTo-Json -Compress
+"""
 
 
 class SshNativeWindowsHostOperations(WindowsMissionOperations, WindowsTransport):
@@ -42,6 +77,51 @@ class SshNativeWindowsHostOperations(WindowsMissionOperations, WindowsTransport)
                 recovery_hint="Acquire and bind a fresh serial machine QA lease before checking native readiness.",
             )
         wsl_absent = features_absent(self.native_features)
+        commit = self._run(COMMIT_MEMORY_PROBE, timeout=20)
+        try:
+            counters = json.loads(commit.stdout)
+        except ValueError:
+            counters = None
+        if not isinstance(counters, dict):
+            counters = {}
+        limit = counters.get("commit_limit_bytes")
+        used = counters.get("committed_bytes")
+        if (
+            commit.returncode
+            or type(limit) is not int or limit <= 0
+            or type(used) is not int or used < 0
+        ):
+            return HostActionResult(
+                False,
+                {
+                    "reason": "Windows commit memory could not be measured.",
+                    "recovery": "Check PowerShell and GetPerformanceInfo on the host, then rerun test-machine verify.",
+                    "exit_code": commit.returncode,
+                    "stdout": bounded_machine_qa_diagnostic(commit.stdout, self.secret_values),
+                    "stderr": bounded_machine_qa_diagnostic(commit.stderr, self.secret_values),
+                },
+                "native_windows_commit_memory_unverified",
+            )
+        headroom = max(0, limit - used)
+        memory_evidence = {
+            "commit_limit_bytes": limit,
+            "committed_bytes": used,
+            "free_commit_bytes": headroom,
+            "minimum_free_commit_bytes": MINIMUM_FREE_COMMIT_BYTES,
+        }
+        if headroom < MINIMUM_FREE_COMMIT_BYTES:
+            return HostActionResult(
+                False,
+                {
+                    **memory_evidence,
+                    "reason": (
+                        "Windows has less than "
+                        f"{MINIMUM_FREE_COMMIT_BYTES // 1024**3} GiB of free commit memory."
+                    ),
+                    "recovery": HOST_RESOURCES_RECOVERY,
+                },
+                HOST_RESOURCES_EXHAUSTED,
+            )
         facts = self._run(
             r"""$release=if(Get-Command yoke.cmd -ErrorAction SilentlyContinue){(& yoke.cmd --version) -join ' '}else{'absent'}
 @{yoke_release=$release} | ConvertTo-Json -Compress
@@ -60,6 +140,7 @@ class SshNativeWindowsHostOperations(WindowsMissionOperations, WindowsTransport)
         return HostActionResult(
             ok,
             {
+                **memory_evidence,
                 "transport": "ssh",
                 "os": "windows",
                 "edition": self.windows_facts["edition"],

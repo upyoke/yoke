@@ -40,3 +40,14 @@ Native Windows SSH and SFTP explicitly disable multiplexing on every controller,
 including macOS and Linux. A local master can answer `ssh -O check` while its
 session requests stall after VM power cycles; local master liveness does not
 prove guest connectivity. Never replay a command after an ambiguous failure.
+
+## Commit memory
+
+Native Windows verification reports the system commit limit, committed bytes
+and remaining commit headroom in the connection check. It fails below 1 GiB
+of free commit memory. This is the headroom for new committed allocations.
+
+If PowerShell fails to load or returns no host-facts object, Yoke retries that
+read once. For `native_windows_host_resources_exhausted`, free memory or
+enlarge the Windows page file, then rerun the command. A returned host-facts
+object with invalid fields still reports `native_windows_host_facts_invalid`.
