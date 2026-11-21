@@ -15,8 +15,12 @@ from yoke_cli.project_install import hooks as hooks_layer
 from yoke_cli.project_install import git_hooks as git_hooks_layer
 from yoke_cli.project_install import strategy as strategy_layer
 from yoke_cli.project_install.files import ProjectInstallError
+from yoke_cli.transport.installed_cli_staleness import update_recovery
+from yoke_contracts.engine_version import local_handshake_version
 from yoke_contracts.project_contract.install_bundle import BUNDLE_SCHEMA
 from yoke_contracts.project_contract.install_policy import SEED_IF_MISSING
+from yoke_contracts.refusal_recovery import compose_refusal
+from yoke_contracts.release_version import release_version
 
 
 def _validate_bundle(bundle: Dict[str, Any]) -> None:
@@ -159,4 +163,28 @@ def validate_bundle_for_project(
         )
 
 
-__all__ = ["_validate_bundle", "validate_bundle_for_project"]
+def validate_cli_release(bundle: Dict[str, Any]) -> None:
+    """Refuse setup with a bundle built for a different installed CLI."""
+    served = bundle.get("yoke_version")
+    if not isinstance(served, str) or not served:
+        raise ProjectInstallError(
+            "setup_bundle_version_missing: the install bundle has no release "
+            "version. Ask the server operator to rebuild it, then resume setup."
+        )
+    running = local_handshake_version()
+    if not running or served == running:
+        return
+    try:
+        target = release_version(served)
+    except ValueError:
+        recovery = "ask the server operator to serve a downloadable CLI release, then resume setup"
+    else:
+        recovery = f"{update_recovery(target)}, then resume this setup run"
+    raise ProjectInstallError(compose_refusal(
+        f"setup_bundle_version_mismatch: this CLI is {running}, but the "
+        f"server supplied a {served!r} project layer.",
+        recovery=f"{recovery}.",
+    ))
+
+
+__all__ = ["_validate_bundle", "validate_bundle_for_project", "validate_cli_release"]

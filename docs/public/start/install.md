@@ -216,12 +216,17 @@ or a fork's own plane: each time that connection's relay observes its server
 serving a new release it restarts on that release and installs exactly that
 version as this machine's CLI. The relay also refreshes and publishes each
 registered checkout on the active connection, recording outcomes and failed
-checkouts in `operator-cli-follow.json` in the relay's state directory. Relays for other
-connections never touch the CLI, and nothing runs on a schedule. When the CLI
-is still older than the release the active connection serves, commands sent to
-it print one warning naming `yoke update --version VERSION`; they never update
-or refuse on their own. A local universe needs none of this: its server is the
-installed CLI.
+checkouts in `operator-cli-follow.json` in the relay's state directory. While
+setup is applying, the relay records `deferred_setup_active` and retries on
+each upkeep cycle until setup releases the lock. Only the active connection's
+relay follows releases for the installed CLI. A local universe serves from the
+installed CLI itself.
+
+If a release changes before setup fetches the project layer, setup stops before
+writing the layer and names the exact `yoke update --version VERSION` command
+to run. Then use the resume command in the setup report to continue the same
+run. Other commands sent to the active connection warn when the installed CLI
+is older than the served release.
 `yoke update --version VERSION` pins that exact release, older or newer: it
 prints `Downgraded` when the pin is older than the installed CLI, and names
 `pinned` (plus the channel's latest on a downgrade) instead of the channel.

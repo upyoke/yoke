@@ -93,6 +93,7 @@ def finish_after_dispatch(
         project_id=project_id,
         config_path=config_path,
         operation=install_operation(scaffold_action),
+        require_cli_release=True,
         # Reviewed apply; the folder may be a just-cloned or
         # just-inited tree with leftover install dirt.
         force=True,
