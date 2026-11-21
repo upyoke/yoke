@@ -97,10 +97,17 @@ def prepare_mission(
         if owed is not None:
             preparation["evidence"]["owed_reset"] = owed
             if not owed["ok"]:
+                evidence = owed.get("evidence") or {}
+                cause = evidence.get("reason") or owed.get("diagnostic") or ""
                 raise HostControlLocalError(
                     code="machine_needs_repair",
                     phase=phase,
-                    detail="The owed host reset failed; do not walk this mission",
+                    detail="The owed host reset failed; do not walk this mission: "
+                    f"{owed.get('error_code')}: {cause}",
+                    exit_code=evidence.get("exit_code"),
+                    stdout=evidence.get("stdout", ""),
+                    stderr=evidence.get("stderr", ""),
+                    secrets=secrets,
                     recovery_hint=owed["recovery"],
                 )
 
