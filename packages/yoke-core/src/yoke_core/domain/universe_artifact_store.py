@@ -140,12 +140,6 @@ def shared_sources(
                         }
 
 
-def publish_imported_shared_files(conn: Any, generation: str) -> None:
-    from yoke_core.domain.shared_file_storage import set_shared_storage_generation
-
-    set_shared_storage_generation(conn, generation)
-
-
 def imported_file_key(key: str, project: str, generation: str) -> str:
     """Place restored files outside every previously published generation."""
     from yoke_core.domain.shared_file_storage import shared_storage_root
@@ -165,12 +159,11 @@ def imported_file_key(key: str, project: str, generation: str) -> str:
 
 def write_file(
     path: Path,
-    key: str,
+    destination_key: str,
     *,
     project: str,
     store: dict,
     content_type: str | None = None,
-    destination_key: str,
     client_factory: Callable[[str, dict], Any] | None = None,
 ) -> dict:
     """Write through captured destination routing, ignoring imported settings."""
@@ -196,9 +189,9 @@ def write_file(
 
     root = machine_config.yoke_home()
     target = root / (
-        destination_key
-        if key.startswith("shared-files/")
-        else "artifacts/" + destination_key.removeprefix("qa-artifacts/")
+        "artifacts/" + destination_key.removeprefix("qa-artifacts/")
+        if destination_key.startswith("qa-artifacts/")
+        else destination_key
     )
     try:
         _write_local(target, path.read_bytes())

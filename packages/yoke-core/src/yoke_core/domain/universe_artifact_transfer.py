@@ -14,6 +14,7 @@ from yoke_core.domain import universe_artifact_store as storage
 from yoke_core.domain.db_savepoint import savepoint
 from yoke_core.domain.qa_artifact_handle import parse_handle, serialize_handle
 from yoke_core.domain.qa_artifact_owner import requirement_storage_owner
+from yoke_core.domain.shared_file_storage import set_shared_storage_generation
 from yoke_core.domain.universe_archive import UniverseArchiveError
 from yoke_core.domain.universe_archive_artifacts import MANIFEST, safe_key
 
@@ -217,7 +218,7 @@ def restore_artifacts(
     generation = uuid4().hex
     with savepoint(conn, "restored_artifact_files", owns=False):
         storage.apply_destination_settings(conn, stores)
-        storage.publish_imported_shared_files(conn, generation)
+        set_shared_storage_generation(conn, generation)
         for entry in manifest["entries"]:
             if entry["status"] == "missing":
                 missing += 1
@@ -248,11 +249,10 @@ def restore_artifacts(
                     )
             handle = storage.write_file(
                 dump.parent / "artifacts" / key,
-                key,
+                storage.imported_file_key(key, project, generation),
                 project=project,
                 store=stores.get(project, {}),
                 content_type=original.get("content_type"),
-                destination_key=storage.imported_file_key(key, project, generation),
                 client_factory=client_factory,
             )
             if question:

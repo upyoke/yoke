@@ -221,7 +221,7 @@ def test_internal_cli_names_destination_database_failure(monkeypatch, capsys):
         raise psycopg.errors.LockNotAvailable("do not print raw database errors")
 
     monkeypatch.setattr(importer, "import_from_stream", fail_import)
-    assert importer.main([]) == 1
+    assert importer.main(["--stdin"]) == 1
     output = capsys.readouterr()
     assert output.out == ""
     assert "LockNotAvailable (SQLSTATE 55P03)" in output.err

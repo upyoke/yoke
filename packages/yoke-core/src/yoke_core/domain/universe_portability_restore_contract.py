@@ -40,7 +40,10 @@ MIGRATION_EVIDENCE_TABLE = "migration_content_adoptions"
 
 
 # These server diagnostics identify constraints or locks, without COPY values.
-_SAFE_PRIMARY_STATES = {"23502", "23503", "23505", "23514", "40P01", "55P03", "57014"}
+_SAFE_PRIMARY_STATES = {
+    "23502", "23503", "23505", "23514", "25006", "3F000", "40P01",
+    "42501", "42704", "42P01", "55P03", "57014",
+}
 
 
 def restore_error_description(error: BaseException) -> str:
