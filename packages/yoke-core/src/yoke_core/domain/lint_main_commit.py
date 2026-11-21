@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import PureWindowsPath
+
 from yoke_contracts.hook_runner.repo_paths import normalize_repo_path
 from yoke_core.domain.lint_session_cwd_path_authority import repo_root_from_worktree_path
 from yoke_core.hooks.decision_render import render_codex_decision
@@ -58,14 +60,19 @@ def _active_worktree_items(repo_root: str) -> Optional[list[str]]:
         rows = (response.result or {}).get("rows") or []
     except Exception:
         return None
+    windows_path = bool(PureWindowsPath(repo_root).drive)
+    repo_key = repo_root.casefold() if windows_path else repo_root
     rendered = []
     for row in rows:
         if not row.get("worktrees") or row.get("terminal"):
             continue
-        if not any(
-            repo_root_from_worktree_path(str(lane.get("path") or "")) == repo_root
+        lane_roots = (
+            repo_root_from_worktree_path(str(lane.get("path") or "")) or ""
             for lane in row["worktrees"]
-        ):
+        )
+        if windows_path:
+            lane_roots = (root.casefold() for root in lane_roots)
+        if repo_key not in lane_roots:
             continue
         ref = str(row.get("public_ref") or "")
         rendered.append(f"{ref}|{row.get('title') or ''}")

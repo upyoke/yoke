@@ -28,16 +28,25 @@ from yoke_core.domain.lint_lane_main_write_messages import (
     SUPPRESSION_TOKEN,
 )
 from yoke_core.domain.lint_lane_main_write_lanes import matching_claim_for_main_target
+from yoke_core.domain.lint_shell_path_use import analyze_shell_path_use, git_state_change
+from yoke_core.domain.lint_session_cwd_git_read_forms import git_subcommand_index
 from yoke_core.domain.lint_session_cwd_home import expand_machine_home
 from yoke_core.domain.lint_session_cwd_path_authority import (
     repo_root_from_worktree_path,
 )
 from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 from yoke_core.domain.lint_session_cwd_target_extract import (
+    _split_redirect_targets,
     analyze_payload_write_targets,
     extract_payload_command,
     payload_has_embedded_python_write,
 )
+from yoke_core.domain.lint_session_cwd_target_extract_shell import (
+    STDOUT_REPORTERS,
+    without_heredoc_operators,
+)
+from yoke_core.domain.lint_shell_target_tokens import resolve_path_operands, segment_variable_bindings
+from yoke_core.domain.path_claim_bash_parser import split_git_global_options
 from yoke_core.domain.session_claimed_worktrees import ClaimedWorktree
 
 _WRITE_TOOLS = frozenset({"Write", "Edit", "apply_patch"})
@@ -174,8 +183,6 @@ def is_write_operation(
     analysis = analyze_payload_write_targets(payload, shell=parsed)
     if analysis.targets or analysis.unresolved_variable:
         return True
-    from yoke_core.domain.lint_shell_path_use import analyze_shell_path_use
-
     return analyze_shell_path_use(parsed).direct_write
 
 
@@ -226,11 +233,12 @@ def collect_main_write_targets(
 ) -> list[derivation.MainWriteHit]:
     """Return the refusable targets plus the derivation behind each one.
 
-    Cwd alone is never a write target. Fallback to cwd only when a real
-    Bash write shape has no extractable path (relative ``touch file``);
-    the hit records that fallback so the refusal can name it instead of
-    presenting cwd as a path the call itself asked for.
+    A shell write with no explicit target can affect its working directory.
+    Keep the derivation so the refusal can distinguish Git state changes
+    from computed destinations.
     """
+    if shell is None and tool_name == "Bash":
+        shell = parse_for_shell(extract_payload_command(payload), payload_shell_kind(payload))
     if not is_write_operation(tool_name, payload, shell):
         return []
 
@@ -240,32 +248,48 @@ def collect_main_write_targets(
         shell=shell,
         segment_cwds=segment_cwds,
     )
-    raw_targets = list(analysis.targets)
-    fell_back_to_cwd = False
-    if (
-        not raw_targets
-        and not analysis.unresolved_variable
-        and tool_name == "Bash"
-        and fallback_cwd.strip()
-    ):
-        # A body whose only write operand was an unresolvable variable is
-        # excluded — cwd would answer for a path we already established we
-        # cannot resolve.
-        raw_targets = [fallback_cwd]
-        fell_back_to_cwd = True
+    targets: list[tuple[str, str, str]] = []
+    unreadable = bool(analysis.unresolved_writes)
+    if shell is not None:
+        bindings = segment_variable_bindings([segment.text for segment in shell.segments])
+        for index, segment in enumerate(shell.segments):
+            if analysis.unresolved_variable and segment.program in STDOUT_REPORTERS | {"echo"}:
+                # A direct output command declares its write through the
+                # redirect. Capturing another tool's output does not locate
+                # that tool's writes in the checkout.
+                _, redirects = _split_redirect_targets(without_heredoc_operators(segment.tokens))
+                _, unresolved_redirect = resolve_path_operands(redirects, bindings[index])
+                unreadable = unreadable or unresolved_redirect
 
-    context = derivation.derivation_context(
-        fallback_cwd,
-        is_write_tool_name(tool_name),
-        fell_back_to_cwd,
-        analysis.unresolved_writes,
-    )
+            argv = list(segment.argv)
+            subcommand = git_state_change(argv)
+            if not subcommand:
+                continue
+            options, unresolved_options = resolve_path_operands(
+                argv[1:git_subcommand_index(argv)], bindings[index]
+            )
+            if unresolved_options:
+                continue
+            segment_cwd = segment_cwds[index] if index < len(segment_cwds) else ""
+            cwd = segment_cwd or fallback_cwd
+            git_cwd, _ = split_git_global_options(options, cwd, shell=shell.shell)
+            git_cwd = git_cwd or cwd
+            if git_cwd:
+                targets.append((git_cwd, git_cwd, subcommand))
+    targets.extend((raw, fallback_cwd, "") for raw in analysis.targets)
+
+    fell_back_to_cwd = not targets and shell is not None and bool(fallback_cwd.strip())
+    if fell_back_to_cwd and (not analysis.unresolved_variable or unreadable):
+        targets.append((fallback_cwd, fallback_cwd, ""))
+
     hits: list[derivation.MainWriteHit] = []
     seen: set[str] = set()
-    for raw in raw_targets:
+    for raw, cwd, git_subcommand in targets:
         if not isinstance(raw, str) or not raw.strip():
             continue
-        target, ignored = _client_target(payload, raw, fallback_cwd, shell_kind=payload_shell_kind(payload) if tool_name == "Bash" else "powershell")
+        target, ignored = _client_target(
+            payload, raw, cwd, shell_kind=shell.shell if shell is not None else "powershell"
+        )
         claim = matching_claim_for_main_target(target, claims, repo_roots)
         if claim is None:
             continue
@@ -278,6 +302,14 @@ def collect_main_write_targets(
         if display in seen:
             continue
         seen.add(display)
+        context = derivation.derivation_context(
+            cwd,
+            is_write_tool_name(tool_name),
+            fell_back_to_cwd,
+            analysis.unresolved_writes,
+            unreadable=unreadable,
+            git_subcommand=git_subcommand,
+        )
         hits.append(derivation.build_hit(display, claim, raw, root, context))
     return hits
 

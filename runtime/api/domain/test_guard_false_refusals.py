@@ -57,7 +57,7 @@ def test_main_git_state(lanes, verb, allowed):
     result = verdict(lint_lane_main_write, f"git -C {Path(main).as_posix()} {verb}", own)
     assert result.allow is allowed
     if not allowed:
-        assert "source write to the main checkout" in result.reason
+        assert "git pull changes the main checkout" in result.reason
 
 
 @pytest.mark.parametrize(
