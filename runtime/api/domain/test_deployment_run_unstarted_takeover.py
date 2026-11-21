@@ -37,11 +37,18 @@ def test_set_aside_qa_is_adopted_by_next_enrolling_run(test_db, monkeypatch):
     from yoke_core.domain.merge_queue_landing_attempt import record_attempt
     from yoke_core.domain import deployment_landing_guard as guard
     from runtime.api.domain.merge_queue_observer_test_helpers import open_unarmed
+    from runtime.api.domain.observe_test_helpers import seed_session
 
     cases = _seed_old(test_db, run_qa=False)
+    seed_session(test_db, DRIVER_SESSION)
     execution = begin_plan_execution(test_db, deployment_run_id=OLD,
         deployment_stage="item-qa", deployment_member_item_id=WAITING,
         actor_id="1", session_id=DRIVER_SESSION)
+    # The owner ended before the sweep settled its execution.
+    test_db.execute(
+        "UPDATE harness_sessions SET ended_at=now() WHERE session_id=%s",
+        (DRIVER_SESSION,),
+    )
     before = select_plan_execution(test_db, execution["id"], lock=False)
     record_attempt(test_db, WAITING, "43", enqueued_at=None)
     monkeypatch.setattr(guard, "read_pr_landing_state", open_unarmed)
