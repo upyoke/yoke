@@ -9,6 +9,7 @@ each case is.
 
 from __future__ import annotations
 
+import functools
 from typing import Any
 
 from yoke_core.domain.db_helpers import query_rows
@@ -163,14 +164,17 @@ def case_failures(
     )
 
     # A live execution of this subject's target (a member's own walk, or the
-    # plan group's driver execution) already owns every case it has not passed.
-    live = covering_execution(
-        conn,
-        run_id=run_id,
-        stage_name=stage_name,
-        member_item_id=member_item_id,
-        execution_target_digest=execution_target_digest,
-    )
+    # plan group's driver execution) already owns every case it has not
+    # passed. Asked only once a case is unpassed, and then once.
+    @functools.cache
+    def live():
+        return covering_execution(
+            conn,
+            run_id=run_id,
+            stage_name=stage_name,
+            member_item_id=member_item_id,
+            execution_target_digest=execution_target_digest,
+        )
     if not rows and shared_plan_id is None:
         from yoke_core.domain.deployment_qa_presentation_facts import (
             subject_requirement_rows,
@@ -240,7 +244,7 @@ def case_failures(
                 "",
                 FAILURE_UNRUN,
                 NO_CASES_FAILURE.detail
-                + case_next_step(conn, verdict="", review=None, live=live, recipe=command),
+                + case_next_step(conn, verdict="", review=None, live=live(), recipe=command),
             )
         ]
     # The accepted verdict, the execution results behind it, and which runs
@@ -299,7 +303,7 @@ def case_failures(
                             conn,
                             verdict=verdict,
                             review=reviewing.get(int(row["id"])),
-                            live=live,
+                            live=live(),
                             recipe=(
                                 f"yoke qa plan run --deployment-run-id {run_id} "
                                 f"--stage {stage_name} --plan {shared_plan_id}"

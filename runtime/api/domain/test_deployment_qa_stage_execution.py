@@ -69,7 +69,11 @@ def test_done_members_keep_independent_stage_executions_and_gates(test_db) -> No
         member_item_id=9702,
     )
     assert not blocked["accepted"]
-    assert any("yoke qa case run --requirement-id" in reason for reason in blocked["reasons"])
+    # The second member's own execution is still live, so its case names that
+    # execution rather than a run recipe.
+    owned = f"plan execution {executions[1]['id']} (active) already owns it"
+    assert any(owned in reason for reason in blocked["reasons"])
+    assert not any("yoke qa case run" in reason for reason in blocked["reasons"])
 
 
 def test_frozen_plan_survives_edit_and_a_newer_receipt_keeps_writing(

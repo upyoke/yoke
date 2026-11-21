@@ -110,7 +110,7 @@ class DeploymentRunProgress:
     #: whether its owner was woken. The per-requirement detail stays on
     #: ``yoke deployment-runs stages RUN``.
     member_lines: tuple[str, ...] = ()
-    #: "item QA members 8 open: 2 walking, 5 queued, 1 not started, 0 red".
+    #: "item QA: 8 open: 2 walking, 5 queued, 1 not started, 0 red".
     member_counts: str = ""
     completion: CompletionPreview = CompletionPreview()
     #: Open manual-wake requirements of waiting members: the stage driver

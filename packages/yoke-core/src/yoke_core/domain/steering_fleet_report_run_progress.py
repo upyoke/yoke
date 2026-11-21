@@ -141,7 +141,7 @@ def _counts_line(activity: dict[int, str]) -> str:
         for kind, count in counts.items()
         if count or kind != "awaiting review"
     ]
-    return f"item QA members {len(activity)} open: " + ", ".join(shown)
+    return f"item QA: {len(activity)} open: " + ", ".join(shown)
 
 
 @composition_operation

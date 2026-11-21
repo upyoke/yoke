@@ -142,7 +142,7 @@ def test_walking_and_queued_members_are_counted_not_flagged(test_db) -> None:
     progress = _progress(test_db)
 
     assert progress.member_counts == (
-        "item QA members 2 open: 1 walking, 1 queued, 0 not started, 0 red"
+        "item QA: 2 open: 1 walking, 1 queued, 0 not started, 0 red"
     )
     assert not progress.qa_notice_stalled
     assert not progress.needs_action
@@ -166,7 +166,7 @@ def test_a_red_member_still_raises_the_mark(test_db) -> None:
     progress = _progress(test_db)
 
     assert progress.member_counts == (
-        "item QA members 2 open: 0 walking, 1 queued, 0 not started, 1 red"
+        "item QA: 2 open: 0 walking, 1 queued, 0 not started, 1 red"
     )
     assert progress.needs_action
 
@@ -177,7 +177,7 @@ def test_an_unwakeable_idle_member_raises_the_mark(test_db) -> None:
     progress = _progress(test_db)
 
     assert progress.member_counts == (
-        "item QA members 1 open: 0 walking, 0 queued, 1 not started, 0 red"
+        "item QA: 1 open: 0 walking, 0 queued, 1 not started, 0 red"
     )
     assert "not woken: no addressable holder" in _member_line(progress, IDLE)
     assert progress.qa_notice_stalled and progress.needs_action
