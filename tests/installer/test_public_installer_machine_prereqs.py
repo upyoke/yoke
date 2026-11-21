@@ -198,7 +198,7 @@ def test_product_boundary_audit_accepts_fresh_machine_status() -> None:
     assert runner.commands == [["yoke", "status", "--json"]]
 
 
-def test_product_boundary_audit_rejects_unexpected_status_error() -> None:
+def test_product_boundary_audit_rejects_missing_package_versions() -> None:
     installer_mod = load_installer()
     status = subprocess.CompletedProcess(
         ["yoke", "status", "--json"],
@@ -218,7 +218,6 @@ def test_product_boundary_audit_rejects_unexpected_status_error() -> None:
     try:
         installer._product_boundary_audit()
     except installer_mod.InstallError as exc:
-        assert "unexpected errors" in str(exc)
-        assert "database_corrupt" in str(exc)
+        assert "did not report runtime package versions" in str(exc)
     else:
         raise AssertionError("expected product-boundary audit failure")

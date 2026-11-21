@@ -15,18 +15,19 @@ import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Callable, Mapping
 
 from yoke_contracts.api_urls import (
     RELEASE_CHANNEL_ENV,
 )
+from yoke_cli.config.cli_release_runtime import operator_launcher_path
 from yoke_contracts.engine_version import local_handshake_version
 from yoke_contracts.install_binding import source_checkout_root
 from yoke_cli.config.server_image_repository import image_for_release
 from yoke_contracts.release_version import commit_version
 from yoke_contracts.shell_path_state import tool_bin_dir
 from yoke_contracts.terminal_detached_process import run as _RUN
-from yoke_cli.config.cli_release_runtime import operator_launcher_path
 
 DEFAULT_RELEASE_CHANNEL = "stable"
 FETCH_TIMEOUT_SECONDS = 60.0
