@@ -1,4 +1,4 @@
-"""Apply machine-local runtime directories, posture, relay, and registry."""
+"""Apply machine-local runtime directories, posture, registry, and relay."""
 
 from __future__ import annotations
 
@@ -33,6 +33,7 @@ def apply(
     setup = harness_posture_install.apply_reported(progress=progress)
     report["harness_setup"] = setup.payload()
     onboard_apply_progress.emit(progress, *step, "failed" if setup.failed else "done")
+    onboard_machine_registry.apply(config_path, progress=progress, report=report)
     onboard_session_relay.apply(
         progress,
         report,
@@ -40,7 +41,6 @@ def apply(
         config_path=config_path,
         environment=environment,
     )
-    onboard_machine_registry.apply(config_path, progress=progress, report=report)
     onboard_global_skill.apply(progress=progress, report=report)
     # Last, so the first harness session meets a warm evaluator.
     onboard_hook_resident.apply(progress=progress, report=report)

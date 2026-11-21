@@ -176,7 +176,10 @@ def test_review_excludes_deterministic_setup_and_keeps_choice_dependent_steps(tm
     assert "machine-github-connection" in actions
     assert "register-machine" in actions
     assert "install-yoke-global-skill" in actions
-    assert any(action.startswith("install-session-relay") for action in actions)
+    relay_action = next(
+        action for action in actions if action.startswith("install-session-relay")
+    )
+    assert actions.index("register-machine") < actions.index(relay_action)
 
 
 def test_onboard_wsl_reuses_setup_and_reports_restart(monkeypatch):
@@ -248,6 +251,39 @@ def test_apply_rechecks_wsl_before_relay(monkeypatch, tmp_path):
         environment="prod",
     )
     assert events == ["wsl", "relay"]
+
+
+@pytest.mark.parametrize("reused", [False, True], ids=["install", "reuse"])
+def test_apply_registers_machine_before_relay(monkeypatch, tmp_path, reused):
+    from yoke_cli.config import onboard_apply_runtime as runtime
+
+    events = []
+    relay = runtime.onboard_session_relay
+    monkeypatch.setattr(setup, "setup_directories", lambda *a, **kw: None)
+    monkeypatch.setattr(setup, "setup_wsl", lambda *a, **kw: events.append("wsl"))
+    monkeypatch.setattr(setup, "setup_browser", lambda *a, **kw: None)
+    monkeypatch.setattr(
+        runtime.onboard_machine_registry,
+        "register_this_machine",
+        lambda config_path: events.append("register") or {"registered": True},
+    )
+
+    def install_relay(**kwargs):
+        events.append("relay")
+        return relay.RelayInstallOutcome(installed=True, reused=reused, connected=True)
+
+    monkeypatch.setattr(relay, "install", install_relay)
+    report = {}
+    runtime.apply(
+        config_path=tmp_path / "config.json",
+        reuse={},
+        progress=None,
+        report=report,
+        local_destination=False,
+        environment="prod",
+    )
+    assert events == ["wsl", "register", "relay"]
+    assert report["session_relay"]["reused"] is reused
 
 
 def test_apply_finishes_with_an_old_wsl_warning(monkeypatch, capsys):

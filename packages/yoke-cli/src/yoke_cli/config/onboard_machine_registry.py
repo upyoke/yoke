@@ -1,11 +1,8 @@
 """Put this machine in the control-plane machine registry as onboarding applies.
 
-Apply reaches this step with the connection written and verified and the
-machine relay installed, so the plane is answering by the time the call goes
-out — which is what lets a freshly onboarded machine hold its ``machines`` row
-without waiting for someone to run ``yoke status`` on it. A machine with no row
-is refused by name at launch, so "set up but unregistered" is not a state
-onboarding should leave behind.
+Apply writes and verifies the connection, registers this machine, then
+installs or reuses the relay. Successful registration makes the machine row
+available for the relay's first poll and for session launches.
 
 Registration is idempotent, and a refusal is reported on the Apply summary with
 its recovery rather than failing the apply: a machine that connected is set up,
