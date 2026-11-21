@@ -252,9 +252,17 @@ def _hooks_block() -> Dict[str, Any]:
         render_cursor_hooks_block,
     )
 
+    # The installing client composes each OS's Windows form itself
+    # (project_install.hook_platform), so an older CLI never receives a
+    # Windows command its own ``yoke hook evaluate`` cannot parse.
+    codex = render_codex_hooks_block()
+    for entries in codex.values():
+        for entry in entries:
+            for handler in entry["hooks"]:
+                handler.pop("commandWindows", None)
     return {
         "claude_settings_hooks": render_claude_hooks_block(),
-        "codex_hooks": render_codex_hooks_block(),
+        "codex_hooks": codex,
         "cursor_hooks": render_cursor_hooks_block()["hooks"],
     }
 

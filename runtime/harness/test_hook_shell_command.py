@@ -53,25 +53,41 @@ def test_hook_shell_rejects_unquoted_source() -> None:
 
 @pytest.mark.windows
 @pytest.mark.parametrize("harness", ["claude-code", "codex", "cursor"])
-def test_windows_commands_are_shell_safe_and_keep_context(harness):
+@pytest.mark.parametrize("owner", [None, "machine"])
+def test_windows_commands_are_bare_and_keep_the_posix_context(
+    tmp_path, monkeypatch, harness, owner
+):
+    """The bare form sets what the POSIX ``env`` prefix sets, for every harness."""
+    from yoke_cli.commands.adapters.hook_invocation_context import (
+        apply_hook_invocation_context,
+    )
     from yoke_contracts.hook_shell_command import (
-        hook_command_source,
+        hook_command_owner,
         windows_hook_command,
     )
+    from yoke_contracts.machine_hooks_render import evaluate_hook_command
 
-    command = windows_hook_command(
-        harness, "PreToolUse", "machine", resilient=harness == "cursor"
+    command = windows_hook_command(harness, "PreToolUse", owner)
+    suffix = f" --config-owner {owner}" if owner else ""
+    assert command == f"yoke hook evaluate PreToolUse --harness {harness}{suffix}"
+    assert not any(mark in command for mark in ("powershell", "Encoded", "$", "|", "'"))
+    argv = shlex.split(command)
+    assert argv == command.split()
+
+    posix = evaluate_hook_command(harness, "PreToolUse", config_owner=owner)
+    expected = dict(
+        pair.split("=", 1)
+        for pair in posix.split(" env ", 1)[1].split(" yoke ", 1)[0].split()
     )
-    source = hook_command_source(command)
-    assert command.startswith(
-        "powershell.exe -NoLogo -NoProfile -NonInteractive -EncodedCommand "
+    expected["YOKE_ROOT"] = str(tmp_path)
+    monkeypatch.chdir(tmp_path)
+    environ = {"CLAUDE_PROJECT_DIR": str(tmp_path), "CURSOR_PROJECT_DIR": str(tmp_path)}
+    apply_hook_invocation_context(
+        argv[argv.index("--harness") + 1], argv[3], owner, environ
     )
-    assert len(shlex.split(command)) == 6
-    assert "$" not in command and "|" not in command
-    assert "$env:YOKE_ROOT=$root" in source
-    assert "$env:YOKE_HOOK_CONFIG_OWNER='machine'" in source
-    assert "& yoke hook evaluate PreToolUse; exit $LASTEXITCODE" in source
-    assert "Set-Location -LiteralPath" in source if harness == "cursor" else True
+    stamped = {k: v for k, v in environ.items() if k.startswith("YOKE_")}
+    assert stamped == expected
+    assert hook_command_owner(command) == hook_command_owner(posix) == owner
 
 
 @pytest.mark.windows
@@ -86,7 +102,7 @@ def test_codex_renders_windows_command_and_hashes_the_selected_command(
     document = {"hooks": render_codex_hooks_block()}
     handler = document["hooks"]["Stop"][0]["hooks"][0]
     assert handler["command"].startswith("/bin/sh")
-    assert handler["commandWindows"].startswith("powershell.exe")
+    assert handler["commandWindows"] == "yoke hook evaluate Stop --harness codex"
     monkeypatch.setattr(trust.os, "name", host_os)
     native_hash = trust.codex_hook_hashes_from_document(document)
     monkeypatch.setattr(trust.os, "name", "posix")
@@ -95,8 +111,8 @@ def test_codex_renders_windows_command_and_hashes_the_selected_command(
     windows_hash = trust.codex_hook_hashes_from_document(document)
     assert windows_hash != posix_hash
     assert native_hash == (windows_hash if host_os == "nt" else posix_hash)
-    assert "yoke hook evaluate Stop" in shell.hook_command_source(
-        handler["commandWindows"]
+    assert shell.hook_command_source(handler["commandWindows"]).startswith(
+        "yoke hook evaluate Stop"
     )
 
 
@@ -106,11 +122,11 @@ def test_doctor_selects_windows_command_and_names_missing_shell(monkeypatch):
 
     monkeypatch.setattr(shell.os, "name", "nt")
     monkeypatch.setattr(
-        shell.shutil, "which", lambda name: name if name == "powershell.exe" else None
+        shell.shutil, "which", lambda name: name if name == "yoke" else None
     )
     handler = {
         "command": "/bin/sh -c yoke",
-        "commandWindows": "powershell.exe -NoProfile",
+        "commandWindows": shell.windows_hook_command("codex", "Stop", None),
     }
     assert shell.hook_command_start_problem(handler, codex=True) == ""
     assert "hook_command_unstartable" in shell.hook_command_start_problem(handler)
@@ -147,12 +163,14 @@ def test_codex_trust_remints_when_the_windows_command_changes(tmp_path):
 def test_windows_install_renders_linux_server_bundle_without_changing_policy(
     monkeypatch,
 ):
+    import json
     from copy import deepcopy
     from yoke_cli.project_install import hook_platform
     from yoke_core.domain.install_bundle import _hooks_block
-    from yoke_contracts.hook_shell_command import hook_command_source
+    from yoke_contracts.hook_shell_command import hook_command_owner
 
     bundle = {"hooks": _hooks_block(), "files": [{"path": "unchanged"}]}
+    assert "commandWindows" not in json.dumps(bundle)  # The client composes it.
     owners = {
         "claude_settings_hooks": "claude",
         "codex_hooks": None,
@@ -175,20 +193,12 @@ def test_windows_install_renders_linux_server_bundle_without_changing_policy(
                         if key == "codex_hooks"
                         else handler["command"]
                     )
-                    source = hook_command_source(command)
-                    assert command.startswith("powershell.exe -NoLogo -NoProfile")
-                    assert "yoke hook evaluate" in source
-                    assert "$env:XDG_BIN_HOME" in source
-                    owner = owners[key]
-                    assert (
-                        f"$env:YOKE_HOOK_CONFIG_OWNER='{owner}'" in source
-                        if owner
-                        else "YOKE_HOOK_CONFIG_OWNER" not in source
+                    verb = old.get("hooks", [old])[0]["command"].split()[-1]
+                    assert command.startswith(
+                        f"yoke hook evaluate {verb.strip(chr(39))} --harness "
                     )
-                    # Cursor stop/sessionEnd peel a deleted worktree root.
-                    assert ("Set-Location -LiteralPath $root" in source) == (
-                        key == "cursor_hooks" and event in {"stop", "sessionEnd"}
-                    )
+                    assert "powershell" not in command
+                    assert hook_command_owner(command) == owners[key]
 
 
 @pytest.mark.windows
@@ -216,12 +226,13 @@ def test_refresh_replaces_codex_entry_when_only_windows_command_changes(tmp_path
 
 
 @pytest.mark.windows
-@pytest.mark.windows_only(reason='executes native Windows PowerShell')
+@pytest.mark.windows_only(reason="executes native Windows hook shells")
 @pytest.mark.parametrize("harness", ["claude-code", "codex", "cursor"])
-@pytest.mark.parametrize("shell", ["native", "git-bash"])
-def test_native_windows_command_keeps_stdin_paths_and_exit_status(
+@pytest.mark.parametrize("shell", ["cmd", "powershell", "git-bash"])
+def test_native_windows_command_keeps_stdin_args_and_exit_status(
     tmp_path, harness, shell
 ):
+    """The exact rendered text resolves the bin shim in every hook shell."""
     import json
     import shutil
     import sys
@@ -233,20 +244,25 @@ def test_native_windows_command_keeps_stdin_paths_and_exit_status(
     project.mkdir()
     probe = bin_dir / "probe.py"
     probe.write_text(
-        "import json, os, sys\n"
-        "print(json.dumps({'root': os.environ['YOKE_ROOT'], 'stdin': sys.stdin.read(), "
-        "'args': sys.argv[1:]}))\nsys.exit(7)\n",
+        "import json, sys\n"
+        "print(json.dumps({'stdin': sys.stdin.read(), 'args': sys.argv[1:]}))\n"
+        "sys.exit(7)\n",
         encoding="utf-8",
     )
     (bin_dir / "yoke.cmd").write_text(
         f'@"{sys.executable}" "{probe}" %*\r\n@exit /b %errorlevel%\r\n',
         encoding="utf-8",
     )
-    command = windows_hook_command(
-        harness, "PreToolUse", "machine", resilient=harness == "cursor"
+    (bin_dir / "yoke").write_text(
+        f'#!/bin/sh\nexec "{Path(sys.executable).as_posix()}" "{probe.as_posix()}" "$@"\n',
+        encoding="utf-8",
     )
-    argv = command.split()
-    if shell == "git-bash":
+    command = windows_hook_command(harness, "PreToolUse", "machine")
+    if shell == "cmd":
+        argv = [os.environ.get("COMSPEC", "cmd.exe"), "/d", "/s", "/c", command]
+    elif shell == "powershell":
+        argv = ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", command]
+    else:
         git = shutil.which("git")
         configured = os.environ.get("YOKE_CI_GIT_BASH")
         candidates = [Path(configured)] if configured else [
@@ -261,21 +277,13 @@ def test_native_windows_command_keeps_stdin_paths_and_exit_status(
         capture_output=True,
         text=True,
         cwd=project,
-        env={
-            **os.environ,
-            "XDG_BIN_HOME": str(bin_dir),
-            "YOKE_ROOT": str(project),
-            "CLAUDE_PROJECT_DIR": str(project),
-            "CURSOR_PROJECT_DIR": str(project),
-        },
+        env={**os.environ, "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}"},
         check=False,
     )
     assert result.returncode == 7, result.stderr
-    observed = json.loads(result.stdout)
-    assert observed == {
-        "root": str(project),
+    assert json.loads(result.stdout) == {
         "stdin": '{"hook":"input"}',
-        "args": ["hook", "evaluate", "PreToolUse"],
+        "args": command.split()[1:],
     }
 
 
@@ -305,4 +313,7 @@ def test_tracked_project_hooks_stay_posix_while_machine_hooks_go_native(monkeypa
             for entry in event_entries
             for handler in entry.get("hooks", [entry])
         ]
-        assert commands and all(" -EncodedCommand " in c for c in commands)
+        assert commands and all(
+            c.startswith("yoke hook evaluate ") and f"--harness {harness}" in c
+            for c in commands
+        )

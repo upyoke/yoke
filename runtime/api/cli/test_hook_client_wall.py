@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 import threading
 import time
 from types import SimpleNamespace
@@ -86,6 +87,16 @@ def test_timer_origin_is_not_later_than_entry() -> None:
         assert timer.started_monotonic == hook_client_wall._IMPORT_MONOTONIC
     else:
         assert timer.elapsed_ms() >= max(0, int(process_age * 1000) - 10)
+
+
+@pytest.mark.windows
+def test_client_wall_starts_at_process_creation_on_every_os() -> None:
+    """Windows reads GetProcessTimes, so its origin is no longer module import."""
+    if not sys.platform.startswith(("linux", "darwin", "win32")):
+        pytest.skip(f"no process-start source on {sys.platform}")
+    age = _process_age()
+    assert age is not None and 0 < age < 3600
+    assert HookClientWall.start().started_monotonic < hook_client_wall._IMPORT_MONOTONIC
 
 
 @pytest.mark.parametrize(

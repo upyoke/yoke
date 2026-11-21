@@ -152,12 +152,12 @@ def _shims(root: Path, python: Path, bin_dir: Path) -> dict[Path, str]:
     launcher = root / "launcher"
     if WINDOWS and any(mark in f"{python}{launcher}" for mark in '%"'):
         raise RuntimeError(f"cli_launcher_path_unsupported: % or quote in {launcher}")
-    run = "#!/bin/sh\nexec " + shlex.join([python.as_posix(), launcher.as_posix()])
+    run = "#!/bin/sh\nexec " + shlex.join([python.as_posix(), "-I", "-S", launcher.as_posix()])
     shims = {bin_dir / "yoke": f'{run} "$@"\n'}
     shims[root / "python"] = f'{run} --python "$@"\n'
     if WINDOWS:
-        # Leave the batch frame so Python can delete the shim and supply the exit code.
-        shims[operator_launcher_path(bin_dir)] = f'@(goto) 2>nul & "{python}" "{launcher}" %*\r\n'
+        # Leave the batch frame so Python can delete the shim; -I -S: stdlib-only launcher.
+        shims[operator_launcher_path(bin_dir)] = f'@(goto) 2>nul & "{python}" -I -S "{launcher}" %*\r\n'
     return shims
 
 def _remove_tree(path: Path) -> None:

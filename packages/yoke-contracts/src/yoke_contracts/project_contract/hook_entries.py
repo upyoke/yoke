@@ -7,12 +7,10 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 from yoke_contracts.project_contract.hook_schema import HOOK_FORMAT_CURSOR, HOOK_FORMAT_NESTED
-from yoke_contracts.hook_runner.config_owner import CONFIG_OWNER_ENV_VAR
-from yoke_contracts.hook_shell_command import hook_command_source
+from yoke_contracts.hook_shell_command import hook_command_owner, hook_command_source
 from yoke_contracts.machine_hooks_render import YOKE_HOOK_EVALUATE
 
 _EVALUATE = re.compile(rf"{re.escape(YOKE_HOOK_EVALUATE)} (\w+)")
-_OWNER = re.compile(rf"{re.escape(CONFIG_OWNER_ENV_VAR)}=['\"]?([\w-]+)")
 
 
 CURSOR_HOOKS_REL = ".cursor/hooks.json"
@@ -50,8 +48,7 @@ def _command_identity(command: str) -> Any:
     verb = _EVALUATE.search(source)
     if verb is None:
         return command
-    owner = _OWNER.search(source)
-    return (verb.group(1), owner.group(1) if owner else None)
+    return (verb.group(1), hook_command_owner(command))
 
 
 def form_neutral_key(entry: Dict[str, Any]) -> Tuple[Any, Tuple[Any, ...], Any]:

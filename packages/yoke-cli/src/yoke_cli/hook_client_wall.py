@@ -78,11 +78,51 @@ def _darwin_process_age() -> float | None:
         return None
 
 
+def _windows_process_age() -> float | None:
+    """Age from kernel32 ``GetProcessTimes`` creation against the system clock.
+
+    Both FILETIMEs count 100 ns ticks since 1601 UTC, so their difference is
+    the time since this interpreter process was created.
+    """
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32.GetCurrentProcess.restype = wintypes.HANDLE
+        kernel32.GetProcessTimes.argtypes = [wintypes.HANDLE] + [
+            ctypes.POINTER(wintypes.FILETIME)
+        ] * 4
+        kernel32.GetProcessTimes.restype = wintypes.BOOL
+        kernel32.GetSystemTimeAsFileTime.argtypes = [ctypes.POINTER(wintypes.FILETIME)]
+        created, exited, kernel, user, now = (wintypes.FILETIME() for _ in range(5))
+        if not kernel32.GetProcessTimes(
+            kernel32.GetCurrentProcess(),
+            ctypes.byref(created),
+            ctypes.byref(exited),
+            ctypes.byref(kernel),
+            ctypes.byref(user),
+        ):
+            return None
+        kernel32.GetSystemTimeAsFileTime(ctypes.byref(now))
+
+        def ticks(value: "wintypes.FILETIME") -> int:
+            return (value.dwHighDateTime << 32) | value.dwLowDateTime
+
+        if not ticks(created):
+            return None
+        return max(0.0, (ticks(now) - ticks(created)) / 10_000_000)
+    except (AttributeError, OSError, TypeError, ValueError):
+        return None
+
+
 def _process_age() -> float | None:
     if sys.platform.startswith("linux"):
         return _linux_process_age()
     if sys.platform == "darwin":
         return _darwin_process_age()
+    if sys.platform == "win32":
+        return _windows_process_age()
     return None
 
 

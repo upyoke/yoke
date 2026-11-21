@@ -93,8 +93,10 @@ def test_generated_hook_commands_use_non_login_shell_with_launcher_path() -> Non
     assert all(command.startswith("/bin/sh -c '") for command in commands)
     assert all("/bin/zsh" not in command for command in commands)
     assert all("${XDG_BIN_HOME:-$HOME/.local/bin}" in c for c in commands)
-    assert all("-NoProfile" in command for command in windows)
-    assert all("$env:XDG_BIN_HOME" in hook_command_source(c) for c in windows)
+    assert all(
+        command.startswith("yoke hook evaluate ") and command.endswith(" --harness codex")
+        for command in windows
+    )
 
 
 def test_no_hook_is_wired_inside_the_token_stream() -> None:

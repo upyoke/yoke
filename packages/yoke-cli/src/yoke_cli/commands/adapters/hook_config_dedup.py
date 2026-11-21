@@ -28,7 +28,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Optional
 
-from yoke_contracts.hook_shell_command import hook_command_source
+from yoke_contracts.hook_shell_command import hook_command_owner, hook_command_source
 from yoke_contracts.harness_machine_hooks import (
     HARNESS_BY_USER_OWNER,
     HARNESS_MACHINE_HOOKS,
@@ -46,10 +46,6 @@ from yoke_contracts.hook_runner.config_owner import (
     is_cursor_imported_claude_hook,
 )
 
-_USER_OWNER_PATTERN = re.compile(
-    rf"(?<![\w-]){re.escape(CONFIG_OWNER_ENV_VAR)}=[\'\"]?"
-    rf"(?:{'|'.join(re.escape(owner) for owner in HARNESS_BY_USER_OWNER)})(?![\w-])"
-)
 _FOLDER_ENV_VARS = ("CLAUDE_PROJECT_DIR", "CURSOR_PROJECT_DIR")
 
 
@@ -118,23 +114,12 @@ def _config_owns(
     if hooks is None:
         return False
     evaluate = _evaluate_pattern(verb)
-    marker = (
-        re.compile(
-            rf"{re.escape(CONFIG_OWNER_ENV_VAR)}=['\"]?{re.escape(owner)}(?![\w-])"
-        )
-        if owner
-        else None
-    )
 
     def counts(command: str) -> bool:
-        command = hook_command_source(command)
-        if not evaluate.search(command):
+        if not evaluate.search(hook_command_source(command)):
             return False
-        return (
-            bool(marker.search(command))
-            if marker
-            else not _USER_OWNER_PATTERN.search(command)
-        )
+        carried = hook_command_owner(command)
+        return carried == owner if owner else carried not in HARNESS_BY_USER_OWNER
 
     return all(
         any(
