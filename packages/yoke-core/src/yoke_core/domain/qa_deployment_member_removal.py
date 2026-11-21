@@ -8,7 +8,6 @@ from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.qa_host_turns import cancel_host_waits
 from yoke_core.domain.qa_plan_execution_abort_reason import MEMBER_REMOVED_REASON
 from yoke_core.domain.qa_plan_execution_abort_state import (
-    MISSION_WALK_STATES,
     mission_walk_owed,
     owed_host_abort,
     record_abort_request,
@@ -41,8 +40,9 @@ def abort_removed_member_executions(
     its waits, turns, leases and heartbeat authority under a recorded
     cooperative abort, and its walk-end teardown frees them. It owes one when
     its held host may be dirty (`removal_cleanup_request`) or when it is
-    walking a mission while holding any host, a lease or a reserved turn: a
-    host passed on mid-walk would run the next waiter under the live walk.
+    `walking` without every walk-end restore recorded while holding any host,
+    a lease or a reserved turn: a host passed on mid-walk would run the next
+    waiter under the live walk.
     Returns the removed members whose QA this call stopped, and those whose
     stopped execution still holds its host for cleanup. A shared execution
     counts for every removed member.
@@ -121,9 +121,13 @@ def _owners(executions: list[dict], removed: list[int]) -> frozenset[int]:
 
 def _walk_end_owed(conn: Any, execution: dict) -> dict | None:
     """The abort a removed execution records instead of ending, or None."""
+    from yoke_core.domain.agent_mission_restore import mission_restores_recorded
+
     request = removal_cleanup_request(conn, execution)
-    if request is not None or execution["state"] not in MISSION_WALK_STATES:
-        return request
+    if request is not None or execution["state"] != "walking":
+        return request  # A walk in review has already handed its walk-end back.
+    if mission_restores_recorded(conn, execution):
+        return None
     if held_host_leases(conn, execution) or _reserved_turn(conn, execution):
         return {"reason": MEMBER_REMOVED_REASON, "ordinal": _walked_mission(execution)}
     return None
