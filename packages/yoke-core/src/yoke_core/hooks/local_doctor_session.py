@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from typing import Any
+from typing import Any, Callable
 
 from yoke_contracts.harness_shell_tools import payload_shell_kind
 from yoke_contracts.harness_unattended_posture import codex_posture_problems
@@ -14,7 +14,11 @@ from yoke_contracts.hook_tool_names import canonicalize_shell_payload
 
 
 def prepare_local_doctor_session(
-    event_name: str, executor: str, payload: dict[str, Any]
+    event_name: str,
+    executor: str,
+    payload: dict[str, Any],
+    *,
+    read_posture: Callable[..., tuple[dict | None, str]],
 ) -> None:
     """Open a stopped embedded cluster before live hook registration.
 
@@ -46,9 +50,7 @@ def prepare_local_doctor_session(
     if not (session_id and (turn_id or tool_use_id)):
         return
 
-    from yoke_harness.codex_session_posture import read_codex_session_posture
-
-    facts, _ = read_codex_session_posture(
+    facts, _ = read_posture(
         session_id, turn_id=turn_id, tool_use_id=tool_use_id
     )
     if facts is None or codex_posture_problems(facts):

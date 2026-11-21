@@ -277,7 +277,7 @@ def start_failure(spec: ClusterSpec, *, timeout_s: Optional[int] = None) -> Opti
     if failure := initdb_if_needed(spec):
         return failure
     if not is_ready(spec):
-        res = start_server(spec, timeout_s=timeout_s)
+        res = start_server(spec) if timeout_s is None else start_server(spec, timeout_s=timeout_s)
         if res.returncode != 0:
             return StartFailure("pg_ctl", res.returncode, res.stdout + res.stderr)
     return None

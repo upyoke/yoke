@@ -14,7 +14,6 @@ from yoke_core.domain import (
     universe_source_pause,
 )
 from yoke_core.hooks import local_doctor_session
-from yoke_harness import codex_session_posture
 
 
 @pytest.fixture
@@ -45,9 +44,10 @@ def test_native_full_access_prepares_the_local_authority(
         return {"approval_policy": "never", "sandbox_mode": "danger-full-access"}, ""
 
     monkeypatch.delenv("YOKE_HOOK_TOTAL_TIMEOUT_MS", raising=False)
-    monkeypatch.setattr(codex_session_posture, "read_codex_session_posture", read_posture)
     monkeypatch.setattr(local_doctor_session, "_start_owned_cluster", starts.append)
-    local_doctor_session.prepare_local_doctor_session("PreToolUse", "codex", doctor_event)
+    local_doctor_session.prepare_local_doctor_session(
+        "PreToolUse", "codex", doctor_event, read_posture=read_posture,
+    )
     assert lookups == [
         ("native-session", {"turn_id": "native-turn", "tool_use_id": "native-tool"})
     ]
@@ -59,11 +59,10 @@ def test_unproved_or_restricted_turn_does_not_start_postgres(
     monkeypatch, doctor_event, facts,
 ):
     starts = []
-    monkeypatch.setattr(
-        codex_session_posture, "read_codex_session_posture", lambda *_a, **_kw: (facts, "")
-    )
     monkeypatch.setattr(local_doctor_session, "_start_owned_cluster", starts.append)
-    local_doctor_session.prepare_local_doctor_session("PreToolUse", "codex", doctor_event)
+    local_doctor_session.prepare_local_doctor_session(
+        "PreToolUse", "codex", doctor_event, read_posture=lambda *_a, **_kw: (facts, ""),
+    )
     assert starts == []
 
 
@@ -81,9 +80,10 @@ def test_other_contexts_do_not_read_posture(monkeypatch, doctor_event, event, ex
     def unexpected_lookup(*_args, **_kwargs):
         pytest.fail("unrelated hook tried to read Codex permission state")
 
-    monkeypatch.setattr(codex_session_posture, "read_codex_session_posture", unexpected_lookup)
     doctor_event["tool_input"]["command"] = command
-    local_doctor_session.prepare_local_doctor_session(event, executor, doctor_event)
+    local_doctor_session.prepare_local_doctor_session(
+        event, executor, doctor_event, read_posture=unexpected_lookup,
+    )
 
 
 @pytest.mark.parametrize(
