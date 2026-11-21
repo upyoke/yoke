@@ -27,7 +27,7 @@ Creation pins bound sources and checks every shipped project; start revalidates
 the same composition before dispatch. Independent admission, flow, and
 attribution blockers are returned together with their identities. A stored
 record missing a recorded bound project refuses with cancel-and-recreate
-recovery. That candidate set is two sources unioned before any lock is taken.
+recovery. Commit-backed candidates come from two sources unioned before any lock is taken.
 The first is `carried_work` above — what this run adds over the run before it.
 The second (`deployment_run_unheld_candidates.unheld_candidate_ids`) exists
 because the first is a commit *range* and so has a floor at the previous
@@ -40,6 +40,14 @@ contains, and which no release holds; only definite containment enrolls;
 `not_contained` waits for a later candidate, while `undetermined` refuses with
 the item, reason, and recovery so unknown attribution cannot silently omit a
 member.
+
+Composition also enrolls a Dash at its pinned release wait when Execution
+Evidence records a no-change finding, the item selects deployment, and the run
+uses its completion flow. A live or succeeded completion membership already
+covers the finding. The same admission checks apply, including the run's QA
+target and the item's requirements. While the Dash has no completion
+membership, its done gate and next action name the command to add it to an open
+run or create one on its flow.
 
 **Custody there is asked of a landing, not of an item**
 (`delivery_landing_custody.landing_custody`): an item may land several times and

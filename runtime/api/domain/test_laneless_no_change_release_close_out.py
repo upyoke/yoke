@@ -8,6 +8,8 @@ its lifecycle transition is the ceremony. Every other done gate still runs.
 
 from __future__ import annotations
 
+import json
+
 from runtime.api.domain.dash_posture_deployment_containment_test_support import (dash_db_path as dash_db_path)
 
 from runtime.api.domain.dash_posture_deployment_containment_test_support import (
@@ -192,3 +194,121 @@ def test_deployment_posture_holds_a_no_change_member_until_its_run_succeeds(
     assert held is not None
     assert held["error_code"] == "GATE_DASH_DEPLOYMENT_REQUIRED"
     assert delivered is None
+
+
+def _select_deployment(conn, item_id: int, flow: str) -> None:
+    conn.execute(
+        "UPDATE items SET deployment_flow=%s, workflow_posture=%s WHERE id=%s",
+        (flow, '{"deployment": true}', item_id),
+    )
+    conn.commit()
+
+
+def _assert_missing_membership(conn, item_id, command):
+    from yoke_core.domain.next_actor import item_next_actor
+    from yoke_core.domain.next_actor_facts import next_actor_facts
+
+    held = evaluate(item_id=item_id, target_status="done", db_path="")
+    assert held["error_code"] == "GATE_DASH_DEPLOYMENT_REQUIRED"
+    assert "No completion run lists" in held["error"]
+    assert command in held["remediation_hint"]
+    _, items = next_actor_facts(conn, item_ids=(item_id,))
+    next_actor = item_next_actor(items[item_id])
+    assert next_actor["reason"] == "release_membership_required"
+    assert next_actor["recovery"] == held["remediation_hint"]
+    assert held["error"] in next_actor["sentence"]
+
+
+def test_no_change_dash_is_enrolled_by_the_next_release_run(
+    test_db, monkeypatch, tmp_path
+):
+    from runtime.api.domain.no_obligation_member_close_out_test_support import _no_obligation
+    from runtime.api.fixtures.carried_release_candidate import (
+        release_repository,
+        serve_repository,
+        stage_environment,
+    )
+    from yoke_core.domain.deployment_run_create_write import create_run
+    from yoke_core.domain.deployment_runs_crud_mutate import cmd_update
+    from yoke_core.domain.flow_create import cmd_create
+    from yoke_core.domain.project_identity import render_item_ref
+
+    item_id, session_id = 7122, "ll-c"
+    actor = _at_release_wait(
+        test_db, monkeypatch, item_id=item_id, session_id=session_id
+    )
+    flow = "no-change-release-flow"
+    stage_environment(test_db)
+    cmd_create(
+        test_db,
+        flow,
+        "yoke",
+        "Release with no changes",
+        "",
+        json.dumps(
+            [
+                {
+                    "name": "deploy",
+                    "step_runner": "auto",
+                    "stage_kind": "execution",
+                    "scope": "run",
+                }
+            ]
+        ),
+        target_tier="persistent",
+        environment="stage",
+    )
+    _select_deployment(test_db, item_id, flow)
+    _assert_missing_membership(
+        test_db, item_id, f"yoke deployment-runs create yoke {flow}"
+    )
+    assert not _close(
+        test_db, item_id=item_id, session_id=session_id, actor_id=actor
+    ).primary_success
+
+    provisional = "run-open"
+    insert_deployment_run(test_db, id=provisional, flow=flow)
+    ref = render_item_ref(test_db, item_id)
+    _assert_missing_membership(
+        test_db, item_id, f"yoke deployment-runs add-item {provisional} {ref}"
+    )
+    test_db.execute(
+        "UPDATE deployment_runs SET status='cancelled' WHERE id=%s", (provisional,)
+    )
+    test_db.commit()
+
+    someone_else = 7123
+    insert_item(
+        test_db,
+        id=someone_else,
+        workflow_id="dash",
+        status="release",
+        title="Other flow",
+    )
+    _record_no_change(test_db, someone_else)
+    _select_deployment(test_db, someone_else, "different-flow")
+
+    repo, _, tip = release_repository(tmp_path, ref)
+    serve_repository(monkeypatch, repo)
+    _no_obligation(test_db, item_id, reason="No post-deploy validation is owed.")
+    test_db.commit()
+    run = create_run("yoke", flow, release_lineage=tip)
+    members = test_db.execute(
+        "SELECT item_id FROM deployment_run_items WHERE run_id=%s", (run.run_id,)
+    ).fetchall()
+    assert [row[0] for row in members] == [item_id]
+    assert evaluate(item_id=item_id, target_status="done", db_path="") is not None
+
+    test_db.execute(
+        "UPDATE deployment_runs SET status='executing', current_stage='deploy' WHERE id=%s",
+        (run.run_id,),
+    )
+    test_db.commit()
+    refusal = cmd_update(run.run_id, "status", "succeeded")
+    assert refusal is None, refusal
+    assert (
+        test_db.execute("SELECT status FROM items WHERE id=%s", (item_id,)).fetchone()[
+            0
+        ]
+        == "done"
+    )

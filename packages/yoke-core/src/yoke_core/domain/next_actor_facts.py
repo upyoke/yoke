@@ -8,6 +8,7 @@ from typing import Any, Iterable
 from yoke_core.domain.audiences import member_matches_for_audiences
 from yoke_core.domain.actor_render import render_actor_names
 from yoke_core.domain.next_actor import action
+from yoke_core.domain.no_change_dash_delivery import missing_membership_recoveries
 from yoke_core.domain.project_identity import placeholder
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.merge_queue_landing_attempt import (
@@ -194,6 +195,13 @@ def next_actor_facts(
                     run_id=row["id"],
                     stage=row["current_stage"],
                 ),
+            )
+        for iid, (message, recovery) in missing_membership_recoveries(conn, items).items():
+            by_item[iid]["deployment_wait"] = action(
+                "parent_or_steering",
+                "release_membership_required",
+                sentence=f"{message} {recovery}",
+                recovery=recovery,
             )
     if items:
         for row in _rows(

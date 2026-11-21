@@ -39,6 +39,7 @@ from yoke_core.domain.deploy_pipeline_environment import watch_deploy_command
 from yoke_core.domain.qa_workflow_binding_validation import (
     ITEM_POSTURE_VERIFICATION_TRANSITION,
 )
+from yoke_core.domain.no_change_dash_delivery import missing_membership_recoveries
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 
@@ -197,6 +198,10 @@ def _deployment_gate(
             "fail the same way.",
         )
     if not evidence_verdict.discharged:
+        if no_changes and not evidence_verdict.run_id:
+            recovery = missing_membership_recoveries(conn, (item_id,)).get(item_id)
+            if recovery:
+                return _failure("GATE_DASH_DEPLOYMENT_REQUIRED", *recovery)
         row = latest_completion_run(conn, int(item_id))
         prepared = row is not None and str(row["status"]) == "created"
         return _failure(
