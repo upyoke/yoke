@@ -300,6 +300,7 @@ project operator to repair the named definition or target if it persists.
 - [Test Machine desktop](test-machine-desktop.md) — View remote desktops and recover cleanup or disk-space refusals.
 - [Linux golden home](linux-golden-home.md) — Read Linux baseline capture, restore and timeout recovery.
 - [Linux desktop applications](linux-desktop-apps.md) — Detect installed desktop versions without starting the apps.
+- [Windows desktop applications](windows-desktop-apps.md) — Detect installed Windows desktop versions from the registry.
 - [Product smoke](product-smoke.md) — Find the source-maintainer smoke procedure and project plan entry.
 - [Real harness QA](real-harness.md) — Find real-harness Machine checks and their subject identity contract.
 <!-- /yoke:contents -->

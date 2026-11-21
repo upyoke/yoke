@@ -22,7 +22,7 @@ from yoke_harness.session_relay_health import observe_relay_health
 from yoke_harness.session_relay_credentials import observe_credential_presence
 from yoke_harness.session_relay_surface_identity import cached_surface_state
 from yoke_harness.session_relay_surface_probes import (
-    APP_SURFACE_PROBES,
+    APP_SURFACES,
     CLI_SURFACE_PROBES,
     ResolvedNativeCli,
     probe_cli_surface,
@@ -91,7 +91,7 @@ def probe_surface_version(surface: str) -> str | None:
     """Return one locally observed surface version without full inventory."""
     if surface in CLI_SURFACE_PROBES:
         return probe_cli_version(CLI_SURFACE_PROBES[surface])
-    if surface in APP_SURFACE_PROBES:
+    if surface in APP_SURFACES:
         return probe_app_version(surface)
     return None
 
@@ -159,7 +159,7 @@ def collect_inventory(
         version = cli_probe(command)
         if version:
             versions[surface] = version
-    for surface in APP_SURFACE_PROBES:
+    for surface in APP_SURFACES:
         version = app_probe(surface)
         if version:
             versions[surface] = version

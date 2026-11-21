@@ -18,16 +18,18 @@ from yoke_contracts.harness_cli_manifest import (
 from yoke_contracts.path_harness_clis import ResolvedNativeCli, resolve_native_cli_source
 from yoke_contracts.machine_config.relay_instance import strip_relay_owned_python_state
 from yoke_harness.linux_desktop_apps import read_linux_desktop_version
+from yoke_harness.windows_desktop_apps import read_windows_desktop_version
 
 SURFACE_PROBE_TIMEOUT_SECONDS = 30.0
 _VERSION_PATTERN = re.compile(r"\d+(?:\.\d+)+(?:[-+._A-Za-z0-9]*)?")
 CLI_SURFACE_PROBES = harness_cli_probe_commands()
-APP_SURFACE_PROBES = {
+APP_SURFACES = ("claude-desktop", "codex-desktop", "cursor-desktop")
+MACOS_APP_BUNDLE_PLISTS = {
     "claude-desktop": Path("/Applications/Claude.app/Contents/Info.plist"),
     "codex-desktop": Path("/Applications/ChatGPT.app/Contents/Info.plist"),
     "cursor-desktop": Path("/Applications/Cursor.app/Contents/Info.plist"),
 }
-KNOWN_SURFACE_PROBES = tuple((*CLI_SURFACE_PROBES, *APP_SURFACE_PROBES))
+KNOWN_SURFACE_PROBES = (*CLI_SURFACE_PROBES, *APP_SURFACES)
 
 
 @dataclass(frozen=True)
@@ -147,49 +149,52 @@ def probe_cli_surface(
     )
 
 
-def probe_app_surface(
+def _installed_metadata_result(
+    surface: str,
+    reader: Callable[[str], tuple[str, str]],
+    started_at: float,
+    observed_at: float,
+    monotonic: Callable[[], float],
+) -> SurfaceProbeResult:
+    """Map a Linux or Windows installed-metadata read onto a probe verdict."""
+    source = "file"
+    try:
+        source, raw_version = reader(surface)
+        version = _version_token(raw_version)
+        verdict = "ok" if version else "invalid_output"
+        error = None if version else "desktop_version_invalid: reinstall the app"
+    except FileNotFoundError as exc:
+        verdict, version, error = "missing", None, str(exc)
+    except subprocess.TimeoutExpired:
+        verdict, version, error = (
+            "timeout",
+            None,
+            "desktop_metadata_timeout: retry the probe after checking package-manager health",
+        )
+    except (OSError, ValueError, RuntimeError) as exc:
+        verdict, version, error = (
+            "error",
+            None,
+            f"desktop_metadata_unreadable: {exc}; check install permissions and retry",
+        )
+    return SurfaceProbeResult(
+        surface,
+        source,
+        verdict,
+        version,
+        _duration_ms(started_at, monotonic),
+        error,
+        observed_at,
+    )
+
+
+def _macos_bundle_result(
     surface: str,
     path: Path,
-    *,
-    monotonic: Callable[[], float] = time.monotonic,
-    clock: Callable[[], float] = time.time,
+    started_at: float,
+    observed_at: float,
+    monotonic: Callable[[], float],
 ) -> SurfaceProbeResult:
-    started_at = monotonic()
-    observed_at = clock()
-    if sys.platform == "linux" and surface in ("claude-desktop", "cursor-desktop"):
-        source = "file"
-        try:
-            source, raw_version = read_linux_desktop_version(surface)
-            version = _version_token(raw_version)
-            verdict = "ok" if version else "invalid_output"
-            error = None if version else "desktop_version_invalid: reinstall the app"
-        except FileNotFoundError as exc:
-            verdict, version, error = "missing", None, str(exc)
-        except subprocess.TimeoutExpired:
-            verdict, version, error = (
-                "timeout",
-                None,
-                (
-                    "desktop_metadata_timeout: retry the probe after checking package-manager health"
-                ),
-            )
-        except (OSError, ValueError, RuntimeError) as exc:
-            verdict, version, error = (
-                "error",
-                None,
-                (
-                    f"desktop_metadata_unreadable: {exc}; check install permissions and retry"
-                ),
-            )
-        return SurfaceProbeResult(
-            surface,
-            source,
-            verdict,
-            version,
-            _duration_ms(started_at, monotonic),
-            error,
-            observed_at,
-        )
     try:
         with path.open("rb") as handle:
             payload = plistlib.load(handle)
@@ -214,11 +219,43 @@ def probe_app_surface(
     )
 
 
+def probe_app_surface(
+    surface: str,
+    macos_bundle_plist: Path | None = None,
+    *,
+    monotonic: Callable[[], float] = time.monotonic,
+    clock: Callable[[], float] = time.time,
+) -> SurfaceProbeResult:
+    """Read one desktop app's installed version for this machine's platform."""
+    started_at = monotonic()
+    observed_at = clock()
+    if sys.platform == "darwin":
+        path = macos_bundle_plist or MACOS_APP_BUNDLE_PLISTS[surface]
+        return _macos_bundle_result(surface, path, started_at, observed_at, monotonic)
+    if sys.platform == "linux":
+        reader = read_linux_desktop_version
+    elif sys.platform == "win32":
+        reader = read_windows_desktop_version
+    else:
+        return SurfaceProbeResult(
+            surface,
+            "file",
+            "unsupported",
+            None,
+            _duration_ms(started_at, monotonic),
+            f"desktop_platform_unsupported: {sys.platform} has no desktop app probe",
+            observed_at,
+        )
+    return _installed_metadata_result(
+        surface, reader, started_at, observed_at, monotonic
+    )
+
+
 def probe_surface(surface: str) -> SurfaceProbeResult:
     if surface in CLI_SURFACE_PROBES:
         return probe_cli_surface(surface, CLI_SURFACE_PROBES[surface])
-    if surface in APP_SURFACE_PROBES:
-        return probe_app_surface(surface, APP_SURFACE_PROBES[surface])
+    if surface in APP_SURFACES:
+        return probe_app_surface(surface)
     return SurfaceProbeResult(
         surface,
         "unknown",
@@ -243,7 +280,7 @@ def _probe_safely(
             "exec"
             if surface in CLI_SURFACE_PROBES
             else "file"
-            if surface in APP_SURFACE_PROBES
+            if surface in APP_SURFACES
             else "unknown"
         )
         return SurfaceProbeResult(
@@ -272,9 +309,10 @@ def probe_surfaces(
 
 
 __all__ = [
-    "APP_SURFACE_PROBES",
+    "APP_SURFACES",
     "CLI_SURFACE_PROBES",
     "KNOWN_SURFACE_PROBES",
+    "MACOS_APP_BUNDLE_PLISTS",
     "SURFACE_PROBE_TIMEOUT_SECONDS",
     "ResolvedNativeCli",
     "SurfaceProbeResult",

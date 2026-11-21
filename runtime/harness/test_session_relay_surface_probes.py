@@ -39,6 +39,13 @@ def test_macos_desktop_still_reads_bundle(monkeypatch, tmp_path: Path) -> None:
     assert result.version == "3.18.2"
 
 
+def test_linux_codex_desktop_reads_missing_without_macos_path(monkeypatch) -> None:
+    monkeypatch.setattr(probes.sys, "platform", "linux")
+    result = probes.probe_surface("codex-desktop")
+    assert result.verdict == "missing"
+    assert "Info.plist" not in result.error
+
+
 def test_linux_metadata_timeout_retains_probe_diagnostic(monkeypatch) -> None:
     monkeypatch.setattr(probes.sys, "platform", "linux")
 
