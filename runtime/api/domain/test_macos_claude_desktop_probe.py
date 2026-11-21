@@ -9,6 +9,7 @@ import time
 
 import pytest
 
+from yoke_contracts.testing.real_home_isolation import set_home
 from yoke_harness.baseline_probe_failure_causes import PROBE_EXIT_CODES
 from yoke_harness.macos_claude_desktop_probe import (
     _AUTHENTICATION_SWIFT,
@@ -136,7 +137,7 @@ def test_sealed_swift_program_type_checks(tmp_path):
     ],
 )
 def test_program_maps_swift_exits_to_named_causes(monkeypatch, tmp_path, swift_exit, cause):
-    monkeypatch.setenv("HOME", str(tmp_path))
+    set_home(monkeypatch, tmp_path)
 
     def fake_run(argv, **_kwargs):
         assert argv[0] == "/usr/bin/swift"
@@ -199,7 +200,7 @@ def _record_swift_session(monkeypatch, seen, swift_exit=0, after=None):
     ],
 )
 def test_the_app_session_cookie_selects_the_signal(monkeypatch, tmp_path, cookies, session):
-    monkeypatch.setenv("HOME", str(tmp_path))
+    set_home(monkeypatch, tmp_path)
     _cookie_store(
         tmp_path, [(host, name, _chromium_time(offset)) for host, name, offset in cookies]
     )
@@ -210,7 +211,7 @@ def test_the_app_session_cookie_selects_the_signal(monkeypatch, tmp_path, cookie
 
 
 def test_a_missing_or_unreadable_store_falls_back_to_the_sidebar(monkeypatch, tmp_path):
-    monkeypatch.setenv("HOME", str(tmp_path))
+    set_home(monkeypatch, tmp_path)
     seen = []
     _record_swift_session(monkeypatch, seen)
     assert _run_program() == 0
@@ -222,7 +223,7 @@ def test_a_missing_or_unreadable_store_falls_back_to_the_sidebar(monkeypatch, tm
 
 
 def test_a_session_dropped_while_the_app_ran_is_signed_out(monkeypatch, tmp_path):
-    monkeypatch.setenv("HOME", str(tmp_path))
+    set_home(monkeypatch, tmp_path)
     _cookie_store(tmp_path, [(".claude.ai", "sessionKey", _chromium_time(3600))])
     seen = []
     _record_swift_session(
@@ -288,7 +289,7 @@ def test_an_unreadable_app_version_is_named_not_dropped(stdout):
 
 
 def test_an_unrecognized_layout_prints_the_app_version(monkeypatch, tmp_path, capsys):
-    monkeypatch.setenv("HOME", str(tmp_path))
+    set_home(monkeypatch, tmp_path)
     _record_swift_session(monkeypatch, [], swift_exit=14)
     assert _run_program() == PROBE_EXIT_CODES["probe_layout_unrecognized"]
     record = json.loads(capsys.readouterr().out)
