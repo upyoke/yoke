@@ -189,7 +189,8 @@ def idle_holder_alarms(current: FleetSnapshot, state: DeltaState) -> list[str]:
             f"items={','.join(row.claimed_items) or 'none'} idle={idle}m "
             f"mode={row.mode or 'none'} reason={reason} "
             f"delivery={row.message_delivery!r} surface={row.executor_surface} "
-            f"reach={address_recipe(row.session_id, current)!r}"
+            f"workaround={address_recipe(row.session_id, current)!r} "
+            "If Yoke should have handled this automatically, root-cause it with a subagent and file feedback first; a nudge is a workaround."
         )
         if dependents:
             line += f" dependents={','.join(dependents)}"

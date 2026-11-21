@@ -5,9 +5,8 @@ place: the earliest ``queued_at`` of any wait it ever recorded, or the place of
 an aborted shared walk it recovers (``qa_host_turn_inheritance``), so the one
 queue (``qa_host_queue``) orders each execution once, whichever machine serves
 it. A walk any one of several eligible machines serves waits on each of them
-as one need. An unconsumed reservation held by an execution still waiting for another host passes to an older live
-waiter on its host (:func:`pass_to_older_waiter`), so the oldest set-waiter is
-reserved each host in turn and no cycle of partial reservations can form. A
+as one need. A set can reserve hosts only while it is first on every host it needs.
+A partial reservation is returned to the queue if the set loses that place. A
 holder reserved its whole set was woken and takes or releases it. The
 execution is woken when its last host is reserved and takes the set at once.
 """
@@ -47,7 +46,9 @@ def execution_place(
         f"WHERE qa_plan_execution_id={_p(conn)}",
         (str(execution["id"]),),
     )
-    places = [parse_instant(row["place"])] if row is not None and row["place"] else []
+    if row is not None and row["place"]:
+        return parse_instant(row["place"])
+    places = []
     for name in machines:
         inherited = inherited_host_place(conn, execution, name)
         if inherited is not None:
@@ -74,28 +75,91 @@ def reserved_wait(conn: Any, claim: Any) -> dict[str, Any] | None:
     return dict(row) if row is not None else None
 
 
-def pass_to_older_waiter(conn: Any, claim: Any) -> None:
-    """Hand a partial set's reservation to an older live waiter on its host.
+def execution_waits(conn: Any, execution_id: str) -> list[dict[str, Any]]:
+    """Current host waits, including reservations and alternative rows."""
+    return [
+        dict(row)
+        for row in query_rows(
+            conn,
+            "SELECT * FROM qa_test_machine_waits "
+            f"WHERE qa_plan_execution_id={_p(conn)} AND state IN {_LIVE} "
+            "ORDER BY test_machine,id",
+            (execution_id,),
+        )
+    ]
 
-    The younger wait goes back to ``waiting`` at its own place before the
-    reservation is released, so the release neither cancels it nor aborts its
-    execution; the release then reserves the host for the oldest waiter it can serve.
-    """
-    from yoke_core.domain.coordination_claims import release
+
+def set_at_front(
+    conn: Any,
+    wait: Mapping[str, Any],
+    *,
+    exclude_host: str | None = None,
+) -> bool:
+    """No earlier serving waiter on any required host of a simultaneous set."""
     from yoke_core.domain.qa_host_idle_waiters import serving_waiters
 
+    execution_id = wait["qa_plan_execution_id"]
+    if not execution_id or wait["need_id"]:
+        return True
+    waits = execution_waits(conn, str(execution_id))
+    if len(waits) < 2:
+        return True
+    for row in waits:
+        host = str(row["test_machine"])
+        if host == exclude_host:
+            continue
+        if any(
+            earlier["qa_plan_execution_id"] != execution_id
+            and line_key(earlier) < line_key(row)
+            for earlier in serving_waiters(conn, host)
+        ):
+            return False
+    return True
+
+
+def return_reservations(
+    conn: Any, waits: Iterable[Mapping[str, Any]], reason: str
+) -> None:
+    """Return reserved waits together before releasing any of their claims."""
+    from yoke_core.domain.coordination_claims import release
+    from yoke_core.domain.db_savepoint import savepoint
+
+    claims = []
+    p = _p(conn)
+    with savepoint(conn, "qa_return_reservations", owns=False):
+        for wait in waits:
+            if wait["state"] != "reserved":
+                continue
+            rows = query_rows(
+                conn,
+                f"UPDATE qa_test_machine_waits SET state='waiting',claim_id=NULL "
+                f"WHERE id={p} AND state='reserved' AND claim_id={p} RETURNING id",
+                (str(wait["id"]), wait["claim_id"]),
+            )
+            if rows:
+                claims.append(int(wait["claim_id"]))
+        for claim_id in claims:
+            release(conn, claim_id, reason, commit=False)
+
+
+def pass_blocked_set_reservations(conn: Any, claim: Any) -> None:
+    """Serve other waiters when this partial set loses the front on any host."""
     holder = reserved_wait(conn, claim)
-    if holder is None or not awaits_other_hosts(conn, holder):
+    if (
+        holder is None
+        or not awaits_other_hosts(conn, holder)
+        or set_at_front(conn, holder)
+    ):
         return
-    line = serving_waiters(conn, str(claim.target.test_machine))
-    if not line or line_key(line[0]) >= line_key(holder):
-        return
-    conn.execute(
-        "UPDATE qa_test_machine_waits SET state='waiting',claim_id=NULL "
-        f"WHERE id={_p(conn)}",
-        (str(holder["id"]),),
+    from yoke_core.domain.qa_host_idle_waiters import returnable_reservations
+
+    return_reservations(
+        conn,
+        returnable_reservations(
+            conn, execution_waits(conn, holder["qa_plan_execution_id"])
+        ),
+        HOST_TURN_PASSED_REASON,
     )
-    release(conn, claim.id, HOST_TURN_PASSED_REASON, commit=False)
 
 
 def awaits_other_hosts(conn: Any, wait: Mapping[str, Any]) -> bool:
@@ -187,12 +251,12 @@ def record_host_wait(
     Every new wait takes the execution's one place.
     """
     from yoke_core.domain.machine_qa_capability import host_claim_target
-    from yoke_core.domain.qa_host_queue import new_need_id
+    from yoke_core.domain.qa_host_idle_waiters import recheck_host_sets
+    from yoke_core.domain.qa_host_queue import lock_host_queue, new_need_id
     from yoke_core.domain.qa_host_turns import (
         cancel_host_waits,
         host_wait_view,
         join_host_queue,
-        lock_host_turn,
         reserve_host_turn,
     )
     from yoke_core.domain.qa_plan_execution_lifecycle import finish_plan_execution
@@ -202,6 +266,7 @@ def record_host_wait(
     any_of = len(alternatives) > 1
     machines = alternatives if any_of else sorted({test_machine, *test_machines})
     need_id = new_need_id() if any_of else None
+    lock_host_queue(conn)
     live = query_rows(
         conn,
         "SELECT DISTINCT test_machine FROM qa_test_machine_waits "
@@ -209,8 +274,6 @@ def record_host_wait(
         (execution_id,),
     )
     left = {str(row["test_machine"]) for row in live} - set(machines)
-    for name in sorted(set(machines) | left):
-        lock_host_turn(conn, host_claim_target(name))
     if left:
         cancel_host_waits(conn, execution_ids=[execution_id], test_machines=left)
     place = execution_place(conn, execution, machines) or utc_now()
@@ -239,6 +302,7 @@ def record_host_wait(
         reason=f"waiting for QA host {test_machine}",
         commit=False,
     )
+    recheck_host_sets(conn, machines)
     for name in machines:
         reserve_host_turn(conn, host_claim_target(name))
     if commit:
@@ -258,7 +322,6 @@ __all__ = [
     "awaits_other_hosts",
     "execution_place",
     "line_key",
-    "pass_to_older_waiter",
     "record_host_wait",
     "require_host_set_turn",
     "reserved_wait",

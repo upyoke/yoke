@@ -108,7 +108,7 @@ def test_release_passes_over_a_moved_execution_before_its_stage_opens(
     assert parse_instant(queued["host_wait"]["queued_at"]) == parse_instant(
         wait["queued_at"]
     )
-    assert queued["host_wait"]["position"] == 1
+    assert queued["host_wait"]["position"] == 2
 
     release(test_db, active_claim(test_db, TARGET).id, "not needed")
 

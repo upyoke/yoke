@@ -1,15 +1,8 @@
-"""Turns on Test Machines, served from the one queue in ``qa_test_machine_waits``.
+"""Serve exclusive Test Machine turns from the shared host queue.
 
-A session refused a ``QA_HOST:<machine>`` claim, or a scoped QA plan whose
-host is leased or unhealthy, joins the queue (``qa_host_queue``); a host's
-next release reserves it for the oldest live waiter it can serve and wakes
-that session, and the waiter's next acquire consumes the reservation. Scoped
-QA plan executions and manual acquires share the queue, ordered by when each
-first queued; a walk recovering an aborted shared walk takes that walk's place
-(``qa_host_turn_inheritance``). A plan execution waits on every host of its
-case at one place, and an unconsumed reservation passes to an older waiter
-that joins later (``qa_host_set_turns``). A session that just used a host
-keeps it for a short same-session hold-over (``qa_host_holdover``).
+A waiter's next acquire consumes its reservation. Plans wait at one place
+across all their required hosts, and a recently used host can stay reserved
+briefly as a same-session hold-over.
 """
 
 from __future__ import annotations
@@ -25,7 +18,8 @@ from yoke_core.domain.db_helpers import instant_parameter, query_one, query_rows
 from yoke_core.domain.qa_host_queue import (
     lock_host_queue,
     machine_waiters as queue_machine_waiters,
-    queue_place,
+    queue_entry,
+    position_text,
     settle_need,
     waits_for_text,
 )
@@ -34,7 +28,6 @@ from yoke_core.domain.qa_test_machine_wait_schema import (
     QA_TEST_MACHINE_WAIT_TABLE,
 )
 from yoke_core.domain.schema_common import _table_exists
-from yoke_core.domain.work_claim_targets import make_qa_admission_target
 
 HOST_TURN_REASON = "qa-host-turn:"
 HOST_WAIT_CANCELLED_REASON = "qa-host-wait-cancelled"
@@ -86,17 +79,23 @@ def host_wait_view(conn: Any, wait_id: str) -> dict[str, Any]:
         conn, f"SELECT * FROM qa_test_machine_waits WHERE id={_p(conn)}", (wait_id,)
     )
     assert row is not None
-    entry, length = queue_place(conn, wait_id)
+    entry = queue_entry(conn, wait_id)
+    places = entry["places"] if entry else {}
+    position, length = places.get(str(row["test_machine"]), (None, 0))
     return {
         "id": str(row["id"]),
         "test_machine": str(row["test_machine"]),
-        "test_machines": entry["test_machines"] if entry else [str(row["test_machine"])],
+        "test_machines": entry["test_machines"]
+        if entry
+        else [str(row["test_machine"])],
         "waits_for": waits_for_text(entry) if entry else str(row["test_machine"]),
         "state": str(row["state"]),
         "queued_at": format_instant(row["queued_at"]),
         "resume_command": _resume_command(conn, row),
         "rationale": str(row["rationale"] or ""),
-        "position": entry["position"] if entry else None,
+        "position": position,
+        "places": places,
+        "position_text": position_text(places),
         "queue_length": length,
     }
 
@@ -170,7 +169,6 @@ def reserve_host_turn(conn: Any, target: Any) -> None:
     A set-waiter away past the idle hold keeps its place but is passed over
     (``qa_host_idle_waiters``).
 
-    A host reserved for a younger waiter passes to the older one first.
     An unhealthy host keeps its waiters waiting and stays free for the operator
     verify or golden capture that heals it; that operation's release serves
     the queue.
@@ -180,23 +178,32 @@ def reserve_host_turn(conn: Any, target: Any) -> None:
     from yoke_core.domain.coordination_claims import active_claim, acquire
     from yoke_core.domain.qa_host_health import host_unhealthy
     from yoke_core.domain.qa_host_holdover import expire_holdover
-    from yoke_core.domain.qa_host_set_turns import pass_to_older_waiter
+    from yoke_core.domain.qa_host_set_turns import (
+        pass_blocked_set_reservations,
+        set_at_front,
+    )
 
     held = active_claim(conn, target)
     if held is not None:
         # Releasing a lapsed hold-over or a passed reservation serves the
         # queue through this function.
         if not expire_holdover(conn, held):
-            pass_to_older_waiter(conn, held)
+            pass_blocked_set_reservations(conn, held)
         return
     if host_unhealthy(conn, target.test_machine) is not None:
         return
     from yoke_core.domain.qa_host_idle_waiters import serving_waiters
 
-    line = serving_waiters(conn, target.test_machine)
-    if not line:
+    first = next(
+        (
+            wait
+            for wait in serving_waiters(conn, target.test_machine)
+            if set_at_front(conn, wait)
+        ),
+        None,
+    )
+    if first is None:
         return
-    first = line[0]
     claim = acquire(
         conn,
         target,
@@ -252,7 +259,13 @@ def _wake_waiter(conn: Any, wait: dict[str, Any], claim: Any) -> None:
 
 def reservation_for(conn: Any, claim: Any, session_id: str) -> bool:
     """Consume the caller's own unconsumed reservation of *claim*."""
-    if claim.session_id != session_id or not _has_line(conn):
+    from yoke_core.domain.qa_host_turn_borrow import turn_in_operation
+
+    if (
+        claim.session_id != session_id
+        or not _has_line(conn)
+        or turn_in_operation(claim)
+    ):
         return False
     p = _p(conn)
     rows = query_rows(
@@ -315,6 +328,7 @@ def cancel_host_waits(
         params = (*params, *machines)
     if not _has_line(conn):
         return
+    lock_host_queue(conn)
     rows = query_rows(
         conn,
         f"SELECT id,test_machine,claim_id,state FROM qa_test_machine_waits "
@@ -323,8 +337,6 @@ def cancel_host_waits(
     )
     if not rows:
         return
-    for test_machine in sorted({str(row["test_machine"]) for row in rows}):
-        lock_host_turn(conn, make_qa_admission_target(test_machine))
     now = instant_parameter(conn, utc_now())
     for row in rows:
         conn.execute(

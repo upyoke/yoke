@@ -78,6 +78,9 @@ def _release(
         if operation != "case"
         else None
     )
+    from yoke_core.domain.qa_host_queue import lock_host_queue
+
+    lock_host_queue(conn)
     lease, _contract = validate_operation_submission(
         conn,
         project=project,
@@ -95,6 +98,7 @@ def _release(
         conn,
         lease,
         mission=mission,
+        contract_digest=contract_digest,
         reason=f"host-control-{reason.replace('_', '-')}",
     )
     return {

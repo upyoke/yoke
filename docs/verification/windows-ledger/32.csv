@@ -36,6 +36,7 @@ windows-38adedf73281178febb2,yoke session control session terminate,cli,local,mu
 windows-00dd417458fd63833df2,yoke session-control launch retry,cli,local,must-pass,,
 windows-50b458d41d4f31638ff2,yoke session-control launch retry,cli,hosted-client,must-pass,,
 windows-6f8e4719bddd14150b72,yoke sessions create,cli,self-hosted-client,must-pass,,
+windows-65f71bb043b682f16332,yoke test machine queue place,cli,hosted-client,must-pass,,
 windows-7db7019ac2c1ab0e58b2,yoke test-machine delete,cli,hosted-client,must-pass,,
 windows-25a67d112c9f429d1132,yoke test-machine golden-capture,cli,hosted-client,must-pass,,
 windows-2aeed25ea28e7d9164f2,yoke tokens revoke,cli,self-hosted-client,must-pass,,

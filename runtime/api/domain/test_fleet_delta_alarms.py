@@ -302,7 +302,11 @@ def test_an_alarm_names_the_item_address_that_reaches_the_holder() -> None:
     stale = NOW - timedelta(minutes=DEFAULT_SESSION_IDLE_MINUTES + 1)
     snapshot = _snapshot(sessions={SESSION_ID: _session(SESSION_ID, activity_at=stale)})
     line = idle_holder_alarms(snapshot, DeltaState())[0]
-    assert "reach='yoke say --item YOK-1 --stdin'" in line
+    assert "workaround='yoke say --item YOK-1 --stdin'" in line
+    assert (
+        "root-cause it with a subagent and file feedback first; a nudge is a workaround."
+        in line
+    )
 
 
 def test_a_holderless_session_is_addressed_by_its_whole_id() -> None:

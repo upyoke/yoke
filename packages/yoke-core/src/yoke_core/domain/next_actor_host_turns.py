@@ -14,7 +14,7 @@ from typing import Any, Callable, Sequence
 from yoke_core.domain.item_ref_render import render_item_ref_lookup
 from yoke_core.domain.next_actor import action
 from yoke_core.domain.project_identity import placeholder
-from yoke_core.domain.qa_host_queue import queue_entries, waits_for_text
+from yoke_core.domain.qa_host_queue import position_text, queue_entries, waits_for_text
 from yoke_core.domain.qa_test_machine_wait_schema import (
     LIVE_TEST_MACHINE_WAIT_STATES,
     QA_TEST_MACHINE_WAIT_TABLE,
@@ -41,7 +41,7 @@ def host_turn_waits(conn: Any, sessions: Sequence[str], rows: Rows) -> dict[str,
         conn,
         "SELECT id,test_machine,session_id,state,queued_at FROM qa_test_machine_waits "
         f"WHERE session_id IN ({_slots(conn, sessions)}) "
-        f"AND state IN ({_slots(conn, states)}) ORDER BY queued_at,state,id",
+        f"AND state IN ({_slots(conn, states)}) ORDER BY CASE WHEN state='waiting' THEN 0 ELSE 1 END,queued_at,id",
         (*sessions, *states),
     )
     if not waits:
@@ -79,6 +79,12 @@ def host_turn_waits(conn: Any, sessions: Sequence[str], rows: Rows) -> dict[str,
         sid, machine = str(row["session_id"]), str(row["test_machine"])
         if sid in found:
             continue
+        entry = queue.get(str(row["id"]))
+        places = entry["places"] if entry else {}
+        position, _length = places.get(machine, (None, 0))
+        place = f" ({position_text(places)})" if places else ""
+        if entry is None and row["state"] == "waiting":
+            continue
         if row["state"] == "reserved":
             found[sid] = action(
                 "this_session",
@@ -86,14 +92,14 @@ def host_turn_waits(conn: Any, sessions: Sequence[str], rows: Rows) -> dict[str,
                 row["queued_at"],
                 sentence=(
                     f"The {machine} turn is reserved for this session; "
-                    "its wake message resumes it."
+                    f"its wake message resumes it{place}."
                 ),
                 test_machine=machine,
                 wait_id=str(row["id"]),
+                position=position,
+                places=places,
             )
             continue
-        entry = queue.get(str(row["id"]))
-        position = entry["position"] if entry else None
         waits_for = waits_for_text(entry) if entry else machine
         holder = holders.get(machine) if waits_for == machine else None
         item = holder_items.get(holder) if holder else None
@@ -105,7 +111,6 @@ def host_turn_waits(conn: Any, sessions: Sequence[str], rows: Rows) -> dict[str,
             if holder
             else ""
         )
-        place = f" (position {position})" if position else ""
         found[sid] = action(
             "another_item",
             "qa_host_turn_waiting",
@@ -115,6 +120,7 @@ def host_turn_waits(conn: Any, sessions: Sequence[str], rows: Rows) -> dict[str,
             waits_for=waits_for,
             wait_id=str(row["id"]),
             position=position,
+            places=places,
             holder_session_id=holder,
             holder_item=holder_item,
         )

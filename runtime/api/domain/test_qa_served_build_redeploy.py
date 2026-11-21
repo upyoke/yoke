@@ -69,7 +69,9 @@ def test_heartbeat_and_host_operation_survive_a_redeploy(test_db, monkeypatch, w
     calls = []
     _serve(monkeypatch, OTHER, calls)
     heartbeat_plan_execution(test_db, walk)
-    assert finish_operation_execution(test_db, None, mission=walk, reason="done") is False
+    assert finish_operation_execution(
+        test_db, None, mission=walk, reason="done", contract_digest="mission-operation",
+    ) is False
     assert calls == []
 
 

@@ -140,7 +140,6 @@ def refuse_browser_profile_capture(payload: Any) -> HandlerOutcome | Any:
 
 
 def handle_operation_begin(request: FunctionCallRequest) -> HandlerOutcome:
-    """Take the machine's lease and issue the contract for one operation."""
     payload = refuse_browser_profile_capture(request.payload)
     if isinstance(payload, HandlerOutcome):
         return payload
@@ -177,6 +176,7 @@ def handle_operation_begin(request: FunctionCallRequest) -> HandlerOutcome:
                 golden_destination=destination,
             ),
         )
+        conn.commit()
     except (
         MachineQaProtocolError,
         TestMachineCapabilityError,
@@ -225,6 +225,9 @@ def handle_operation_submit(request: FunctionCallRequest) -> HandlerOutcome:
             baselines=shape["baselines"],
             plan_execution_id=parsed.plan_execution_id,
         )
+        from yoke_core.domain.qa_host_queue import lock_host_queue
+
+        lock_host_queue(conn)
         lease, contract = validate_operation_submission(
             conn,
             project=parsed.project,
@@ -297,6 +300,7 @@ def handle_operation_submit(request: FunctionCallRequest) -> HandlerOutcome:
                 conn,
                 lease,
                 mission=mission,
+                contract_digest=parsed.contract_digest,
                 reason=f"test-machine-{parsed.operation.replace('_', '-')}-complete",
             )
         else:

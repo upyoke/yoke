@@ -53,6 +53,10 @@ def holder_lines(holders: tuple[ClaimHolder, ...], *, idle: bool = False) -> lis
             line += "  hand-started (operator origin)"
         line += f"  {holder.message_delivery}"
         if idle:
-            line += f"  message it `yoke say --item {holder.public_ref} --stdin`"
+            line += (
+                "  If Yoke should have handled this automatically, root-cause it with "
+                "a subagent and file feedback first; a nudge is a workaround."
+                f"  workaround=`yoke say --item {holder.public_ref} --stdin`"
+            )
         lines.append(line)
     return capped(lines, len(holders))

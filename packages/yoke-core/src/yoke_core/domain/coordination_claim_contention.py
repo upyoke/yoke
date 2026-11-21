@@ -50,6 +50,7 @@ class ClaimContention:
     #: The refused session's place in the Test Machine queue, once it joined.
     queue_position: int | None = None
     queue_length: int | None = None
+    queue_position_text: str = ""
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "acquired_at", as_utc(self.acquired_at))
@@ -79,11 +80,11 @@ class ClaimContention:
 
     @property
     def _queue_sentence(self) -> str:
-        if self.queue_position is None:
+        if not self.queue_position_text:
             return ""
         return (
-            f" This session is number {self.queue_position} of {self.queue_length} "
-            "in the Test Machine queue: the next release of a machine it can use "
+            f" This session is {self.queue_position_text} in the Test Machine queue: "
+            "the next release of a machine it can use "
             "reserves that machine for the oldest live waiter it can serve and "
             "wakes it with the command that takes the turn. Park until then; "
             "write no hold of your own."
@@ -92,7 +93,10 @@ class ClaimContention:
     def in_line(self, wait: dict[str, Any]) -> "ClaimContention":
         """Return this report with the refused session's place in the queue."""
         return replace(
-            self, queue_position=wait["position"], queue_length=wait["queue_length"]
+            self,
+            queue_position=wait["position"],
+            queue_length=wait["queue_length"],
+            queue_position_text=wait["position_text"],
         )
 
     def claim_evidence(self) -> dict[str, Any]:

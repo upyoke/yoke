@@ -153,6 +153,8 @@ FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
     "test_machine.power_stopped": "next-release",
     "test_machine.reset": "next-release",
     "test_machine.screenshot": "next-release",
+    "test_machine.queue.hand_over": "next-release",
+    "test_machine.queue.place": "next-release",
     "test_machine.settings_replace": "next-release",
     "test_machine.verify": "next-release",
     "universe.level_capacity.get": "next-release",

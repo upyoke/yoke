@@ -80,6 +80,8 @@ WRAPPED_ROWS = (
     _w("yoke test-machine get", "test_machine"),
     _w("yoke test-machine golden-capture", "test_machine"),
     _w("yoke test-machine list", "test_machine"),
+    _w("yoke test-machine queue hand-over", "test_machine"),
+    _w("yoke test-machine queue place", "test_machine"),
     _w("yoke test-machine reset", "test_machine"),
     _w("yoke test-machine screenshot", "test_machine"),
     _w("yoke test-machine delete", "test_machine"),

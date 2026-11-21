@@ -68,7 +68,9 @@ def _walk(conn, session_id, *, eligible=(), test_machine=None):
         "VALUES(%s,%s,%s,'1',%s,'[]',0,'active',now(),now())",
         (execution_id, str(uuid4()), session_id, roster_digest([])),
     )
-    row = query_one(conn, "SELECT * FROM qa_plan_executions WHERE id=%s", (execution_id,))
+    row = query_one(
+        conn, "SELECT * FROM qa_plan_executions WHERE id=%s", (execution_id,)
+    )
     execution = {**row, "roster": []}
     record_host_wait(
         conn,
@@ -122,7 +124,11 @@ def test_a_freed_host_goes_to_the_oldest_waiter_it_can_serve(test_db, monkeypatc
     # win-1 is served, so the next Windows host goes to win-2.
     release(test_db, first.id, "done")
     assert _reserved_for(test_db, WINDOWS[0]) == "win-2"
-    assert [e["session_id"] for e in queue_entries(test_db)] == ["mac-walk"]
+    assert [e["session_id"] for e in queue_entries(test_db)] == [
+        "mac-walk",
+        "win-1",
+        "win-2",
+    ]
 
 
 def test_a_pinned_walk_waits_for_its_own_host(test_db, monkeypatch):
@@ -137,7 +143,7 @@ def test_a_pinned_walk_waits_for_its_own_host(test_db, monkeypatch):
     release(test_db, second.id, "done")
 
     assert _reserved_for(test_db, WINDOWS[1]) == "any"
-    assert [e["session_id"] for e in queue_entries(test_db)] == ["pinned"]
+    assert [e["session_id"] for e in queue_entries(test_db)] == ["pinned", "any"]
 
 
 def test_no_waiter_waits_while_an_eligible_host_is_idle(test_db, monkeypatch):
@@ -182,7 +188,8 @@ def test_a_reserved_walk_does_not_take_a_second_host(test_db, monkeypatch):
     assert _reserved_for(test_db, WINDOWS[1]) == "second"
 
 
-def test_the_fleet_report_shows_each_waiter_position_and_need(test_db):
+def test_the_fleet_report_shows_each_waiter_position_and_need(test_db, monkeypatch):
+    _notices(monkeypatch)
     _register_hosts(test_db)
     seed_qa_session(test_db, "h-mac", "h-w1", "h-w2", "mac-walk", "win-walk")
     _hold(test_db, MAC, "h-mac")
@@ -190,11 +197,15 @@ def test_the_fleet_report_shows_each_waiter_position_and_need(test_db):
     _hold(test_db, WINDOWS[1], "h-w2")
     mac = _walk(test_db, "mac-walk", eligible=(MAC,))
     windows = _walk(test_db, "win-walk", eligible=WINDOWS)
+    seed_qa_session(test_db, "mac-behind")
+    release(test_db, active_claim(test_db, make_qa_admission_target(MAC)).id, "done")
+    later = _walk(test_db, "mac-behind", eligible=(MAC,))
 
     lines = reset_debt_lines(read_queue(test_db))
 
     assert [line.split(" since ")[0] for line in lines] == [
-        f"Test Machine queue #1: session mac-walk (execution {mac}) waits for {MAC}",
-        f"Test Machine queue #2: session win-walk (execution {windows}) waits for "
-        f"any of {WINDOWS[0]}, {WINDOWS[1]}",
+        f"Test Machine queue: session mac-walk (execution {mac}) waits for {MAC} (1st for {MAC})",
+        f"Test Machine queue: session win-walk (execution {windows}) waits for "
+        f"any of {WINDOWS[0]}, {WINDOWS[1]} (1st for {WINDOWS[0]}, 1st for {WINDOWS[1]})",
+        f"Test Machine queue: session mac-behind (execution {later}) waits for {MAC} (2nd for {MAC})",
     ]

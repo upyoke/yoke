@@ -87,6 +87,8 @@ Read [envelope and authority](index.md) first. `none` means no dispatcher work-c
 | `test_machine.plan_case.submit` | `qa_subject` |
 | `test_machine.power_started` | The current host lease holder records a Yoke start. |
 | `test_machine.power_stopped` | The current host lease holder clears the marker after a confirmed stop. |
+| `test_machine.queue.hand_over` | Requires a covering steering seat and an unstarted host turn. |
+| `test_machine.queue.place` | Requires a covering steering seat and a live wait. |
 | `test_machine.reset` | `none` |
 | `test_machine.screenshot` | `none` |
 | `test_machine.settings_replace` | `none` |
