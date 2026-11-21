@@ -106,6 +106,7 @@ def _execute(
     session_id: str | None,
     json_mode: bool,
 ) -> int:
+    ensure_handlers_loaded()
     response = _run(
         operation=operation, test_machine=test_machine, baseline=baseline,
         destination=destination, probes_document=probes_document,
@@ -119,7 +120,6 @@ def _run(
     *, operation, test_machine, baseline, actor, destination=None,
     probes_document=None, relay_env=None, automatic_reset=False,
 ) -> FunctionCallResponse:
-    ensure_handlers_loaded()
     dispatch = partial(call_dispatcher, actor=actor, relay_env=relay_env)
     begin = dispatch(
         function_id="test_machine.operation.begin",

@@ -63,6 +63,7 @@ def _release(
     from yoke_core.domain.machine_qa_operation_lease import (
         operation_mission,
         finish_operation_execution,
+        holds_plan_turn,
     )
 
     mission = (
@@ -94,7 +95,13 @@ def _release(
         cases=cases,
         golden_destination=golden_destination,
     )
-    if operation == "reset" and reason != "client_cancelled":
+    # Borrowed operations leave their host lease in the plan's custody.
+    if (
+        operation == "reset"
+        and reason != "client_cancelled"
+        and mission is None
+        and not holds_plan_turn(conn, lease, request.actor)
+    ):
         from yoke_core.domain.machine_operation_recording import (
             record_test_machine_operation,
         )
