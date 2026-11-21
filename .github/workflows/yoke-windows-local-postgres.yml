@@ -39,5 +39,6 @@ jobs:
           runtime/api/domain/test_postgres_windows.py
           runtime/api/domain/test_universe_archive_output_windows.py
           runtime/api/cli/test_yoke_universe_ui_daemon.py
+          runtime/api/cli/test_yoke_universe_ui_daemon_windows.py
           runtime/api/cli/test_yoke_universe_ui_restart.py
           runtime/api/cli/test_universe_ui_daemon_process_identity.py
