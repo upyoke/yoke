@@ -108,6 +108,7 @@ def stub_machine_relay_services(monkeypatch):
     monkeypatch.setattr(relay_service_upkeep, "converge_relays", lambda **kw: [])
     monkeypatch.setattr(status_relay, "_relay_rows", lambda: [])
     monkeypatch.setattr(status_relay, "_processes", lambda: [])
+    monkeypatch.setattr(status_relay, "_service_installed", lambda instance: False)
 
 
 @pytest.fixture(autouse=True)

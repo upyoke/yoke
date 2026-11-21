@@ -8,9 +8,9 @@ scan can tell apart, so only its heartbeat is judged. The control plane's
 relay list shows whether this machine's relay heartbeat is current; it goes
 silent within two poll intervals of the relay stopping.
 
-A relay this machine is known to run (a registered relay row, or a running
-process) that is not running or not heartbeating is a ``relay_down`` error,
-so status never reports ``ok`` with a dead relay. ``yoke relay status`` and
+A relay this machine is known to run (its native service document is on
+disk, a registered relay row, or a running process) that is not running or
+not heartbeating is a ``relay_down`` error, so status never reports ``ok`` with a dead relay. ``yoke relay status`` and
 ``yoke doctor`` read the native supervisor itself.
 """
 
@@ -64,6 +64,19 @@ def _processes() -> Iterable[Any]:
     from yoke_contracts.platform_process import process_command_lines
 
     return process_command_lines()
+
+
+def _service_installed(instance: Any) -> bool:
+    """Whether this relay's native service document is on disk.
+
+    Install writes it and uninstall removes it, so it proves an installed
+    relay even when the control plane's relay list cannot show this machine.
+    """
+    if sys.platform == "win32":
+        return (Path(instance.state_dir) / _TASK_RUNNER).is_file()
+    if sys.platform == "darwin":
+        return (Path.home() / "Library/LaunchAgents" / f"{instance.label}.plist").is_file()
+    return (Path.home() / ".config/systemd/user" / f"{instance.label}.service").is_file()
 
 
 def _running_from(state_dir: Path, processes: Processes) -> bool:
@@ -124,7 +137,12 @@ def attach_relay(
     }
     block["last_seen_at" if connected else "heartbeat_reason"] = detail
     report["relay"] = block
-    known = running is True or connected is not None
+    try:
+        installed = _service_installed(instance)
+    except OSError:
+        installed = False
+    block["installed"] = installed
+    known = installed or running is True or connected is not None
     problems = []
     if known and running is False:
         problems.append("no relay process is running from its state directory")
