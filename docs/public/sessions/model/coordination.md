@@ -49,17 +49,13 @@ positions by host, counting the reserved turn first. Steering commands:
 ```text
 yoke test-machine queue place --execution ID --host H --position N --reason TEXT
 yoke test-machine queue hand-over --from ID --to ID --host H --reason TEXT
-yoke test-machine queue withdraw --execution ID --reason TEXT
-yoke test-machine queue withdraw --session S --host H --reason TEXT
 ```
 
 `place` moves the execution before N on H, or last if N exceeds the line. Its
 place applies to all its hosts and survives resume. `hand-over` gives the turn
 to a waiter first on its other hosts and keeps the former holder queued.
-`withdraw` aborts a waiting execution with no held host, or cancels one manual
-wait on the named host. Its released reservation passes to the next eligible
-waiter. Each command needs a covering steering seat. Active use, including
-reset and verify, prevents handover.
+Active use, including reset and verify, prevents handover. A covering steering
+seat can place, hand over, or [withdraw a wait](../../functions/qa.md#withdraw-a-test-machine-wait).
 
 Deployment runs take no coordination claim. `deploy_serialization` is the
 retired per-project deploy lock: nothing takes one, a `DEPLOY:` key refuses
