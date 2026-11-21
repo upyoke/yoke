@@ -25,6 +25,7 @@ from pathlib import Path
 
 from yoke_contracts.harness_lane_cleanup import worktree_cleanup_warning
 from yoke_contracts.doctor_budget import pause_check_budget, remaining_budget
+from yoke_contracts.filesystem_safety import retry_sharing_violations
 
 TOMBSTONE_PREFIX = ".removing-"
 # git steps are bounded on their own clock, never the caller's deadline.
@@ -32,6 +33,10 @@ GIT_TIMEOUT_S = 60.0
 # A doctor check starts a removal only with at least this much budget left.
 REMOVAL_MIN_BUDGET_S = 10.0
 MANAGED_ROOTS = (Path(".worktrees"), Path(".claude") / "worktrees")
+# Windows refuses to rename a folder another program holds open: a file handle
+# inside it is ERROR_SHARING_VIOLATION (32), a shell standing in it as its
+# working directory is ERROR_ACCESS_DENIED (5).
+IN_USE_WINERRORS = frozenset({5, 32})
 
 
 @dataclass(frozen=True)
@@ -92,10 +97,9 @@ def remove_stray_folder(
     name = f"{TOMBSTONE_PREFIX}{path.name}-{uuid.uuid4().hex[:8]}"
     tombstone = _tombstone_home(repo.resolve(), path.resolve()) / name
     with pause_check_budget():
-        try:
-            path.rename(tombstone)
-        except OSError as exc:
-            return WorktreeRemoval(False, f"folder rename refused for {path}: {exc}")
+        refused = _rename_to_tombstone(path, tombstone, "folder")
+        if refused is not None:
+            return refused
         [result] = _finish(repo, [tombstone])
     return result
 
@@ -149,16 +153,33 @@ def _remove(repo_root: Path, path: Path) -> WorktreeRemoval:
         return WorktreeRemoval(False, warning)
     name = f"{TOMBSTONE_PREFIX}{path.name}-{uuid.uuid4().hex[:8]}"
     tombstone = _tombstone_home(repo_root.resolve(), path.resolve()) / name
-    try:
-        path.rename(tombstone)
-    except OSError as exc:
-        if getattr(exc, "winerror", None) == 32:  # ERROR_SHARING_VIOLATION
-            return WorktreeRemoval(False, "the worktree folder is in use", in_use=True)
-        return WorktreeRemoval(False, f"worktree rename refused for {path}: {exc}")
+    refused = _rename_to_tombstone(path, tombstone, "worktree")
+    if refused is not None:
+        return refused
     [result] = _finish(repo_root, [tombstone])
     if result.removed:
         _remove_empty_parent(path.parent)
     return result
+
+
+def _rename_to_tombstone(
+    path: Path, tombstone: Path, kind: str
+) -> WorktreeRemoval | None:
+    """Rename ``path`` aside; ``None`` once renamed, else why it stays.
+
+    A program briefly holding the folder (an editor save, an antivirus scan)
+    is outlasted by the shared sharing-violation retry; one still holding it
+    afterwards is reported ``in_use`` so the caller defers cleanup.
+    """
+    try:
+        retry_sharing_violations(lambda: path.rename(tombstone))
+    except OSError as exc:
+        if getattr(exc, "winerror", None) in IN_USE_WINERRORS:
+            return WorktreeRemoval(
+                False, f"{path} in use by another program", in_use=True
+            )
+        return WorktreeRemoval(False, f"{kind} rename refused for {path}: {exc}")
+    return None
 
 
 def _admin_dir(tree: Path) -> Path | None:
