@@ -126,3 +126,25 @@ def test_a_non_windows_permission_refusal_is_named_not_deferred(
     removal = remove_worktree(landed_lane.repo, landed_lane.worktree)
     assert removal.in_use is False
     assert "worktree rename refused" in removal.reason
+
+
+@pytest.mark.parametrize("ref", [REF, None])
+def test_a_local_only_lane_names_the_rerun_and_promises_no_sweep(ref):
+    from yoke_core.engines.merge_lane_in_use_deferral import in_use_deferral
+
+    deferral = in_use_deferral(Path("lane"), ref, swept=False)
+    assert deferral.startswith(f"merged; {DEFERRED}: lane in use by another program")
+    assert "Close the shells and programs using the lane" in deferral
+    assert "lane sweep (every" not in deferral
+    assert "a project with no remote is not swept" in deferral
+    rerun = f"rerun `yoke merge item {REF}`" if ref else "rerun the merge"
+    assert rerun in deferral
+
+
+def test_a_swept_lane_names_the_sweep_and_the_rerun():
+    from yoke_core.engines.merge_lane_in_use_deferral import in_use_deferral
+
+    deferral = in_use_deferral(Path("lane"), REF, swept=True)
+    assert "the relay's lane sweep (every 15 minutes) then finishes cleanup" in deferral
+    assert f"or rerun `yoke merge item {REF}` from the main checkout" in deferral
+    assert "only changed directory out of it still holds it" in deferral

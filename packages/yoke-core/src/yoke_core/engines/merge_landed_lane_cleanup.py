@@ -40,10 +40,7 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 
 from yoke_contracts.harness_lane_cleanup import worktree_cleanup_warning
-from yoke_contracts.public_ref import parse_public_item_ref
-from yoke_contracts.refusal_recovery import compose_refusal
-from yoke_core.domain.project_identity_item_ref import item_subject_ref
-from yoke_core.tools.session_relay_lane_sweep import SWEEP_INTERVAL_SECONDS
+from yoke_core.engines.merge_lane_in_use_deferral import in_use_deferral
 from yoke_core.domain.public_item_target import public_item_target
 from yoke_core.engines.branch_landed_evidence import (
     BranchLandedEvidence,
@@ -232,24 +229,6 @@ def assess_landed_lane(
     )
 
 
-def _in_use_deferral(worktree_path: Path, item_id: Any) -> str:
-    """The merge stands; name the program-held lane and who finishes it."""
-    ref = item_subject_ref(item_id) if item_id is not None else ""
-    rerun = (
-        f", or rerun `yoke merge item {ref}` from the main checkout to finish now"
-        if parse_public_item_ref(ref)[0]
-        else ""
-    )
-    return compose_refusal(
-        f"merged; lane cleanup deferred: {worktree_path} in use by another program",
-        recovery=(
-            "Close the programs using the lane or move them out of it; the "
-            f"relay's lane sweep (every {SWEEP_INTERVAL_SECONDS // 60} minutes) "
-            f"then finishes cleanup{rerun}"
-        ),
-    )
-
-
 def prune_landed_lane(
     *,
     repo_root: str,
@@ -312,7 +291,11 @@ def prune_landed_lane(
         removal = remove_worktree(repo_root, worktree_path)
         if not removal.removed:
             if removal.in_use:
-                return (_in_use_deferral(worktree_path, item_id),)
+                return (
+                    in_use_deferral(
+                        worktree_path, item_id, swept=assessment.has_remote
+                    ),
+                )
             return (
                 f"lane {branch} preserved: worktree {worktree_path} ({removal.reason})",
             )

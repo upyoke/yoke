@@ -246,7 +246,11 @@ def start_server(spec: ClusterSpec) -> subprocess.CompletedProcess:
             server_options(spec),
             "-w",
             "start",
-        ]
+        ],
+        # On Windows pg_ctl keeps a cmd.exe wrapper alive beside the server,
+        # and it holds the starting directory open: started from a lane, it
+        # would pin that lane until the server stops. Start from the root.
+        cwd=str(spec.root),
     )
 
 
