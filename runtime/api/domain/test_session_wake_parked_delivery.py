@@ -14,6 +14,7 @@ from yoke_core.domain.session_message_types import timestamp
 from yoke_core.domain.session_relay_jobs import claim_wake_job
 from yoke_core.domain.session_relay_types import RelayHeartbeat
 from yoke_harness import session_relay_claude as claude
+from yoke_harness import session_relay_claude_native as native
 from yoke_harness.session_relay_native_spawn import SupervisedNative
 from runtime.api.domain.session_message_support_test_support import (
     NATIVE_WAKE_SESSION_ID,
@@ -80,10 +81,11 @@ def test_each_message_resumes_stored_native_identity_and_is_injected(monkeypatch
         assert job.target_liveness == "stale"
         monkeypatch.setattr(delivery, "utc_now", lambda: sent_at + timedelta(seconds=1))
 
-        def spawn(context, invocation):
-            resumed.append(invocation.session_id)
-            assert "--resume" in invocation.argv
-            assert job.native_instruction in invocation.argv
+        def spawn(argv, *, instruction, native_session_id, **kwargs):
+            resumed.append(native_session_id)
+            assert argv[argv.index("--resume") + 1] == native_session_id
+            assert job.native_instruction not in argv
+            assert instruction == job.native_instruction.encode()
             lease = delivery.lease_for_hook(
                 conn,
                 session_id=NATIVE_WAKE_SESSION_ID,
@@ -106,6 +108,7 @@ def test_each_message_resumes_stored_native_identity_and_is_injected(monkeypatch
                 format_instant(sent_at),
             )
 
+        monkeypatch.setattr(native, "spawn_supervised_native", spawn)
         result = claude.run_claude_cli_adapter(
             _context(
                 job_kind="wake",
@@ -120,7 +123,6 @@ def test_each_message_resumes_stored_native_identity_and_is_injected(monkeypatch
             ),
             executable_finder=lambda _: CLAUDE,
             version_gate=_allow,
-            wake_spawner=spawn,
         )
         assert result.result_code == RESUMED_RUNNING_RESULT
         conn.execute(
