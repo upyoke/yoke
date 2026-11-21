@@ -30,6 +30,10 @@ def test_failed_setup_keeps_project_discoverable(tmp_path, monkeypatch, failure)
         fail if failure == "binding" else lambda *a, **k: None,
     )
     monkeypatch.setattr(project_onboard_apply.install_runner, "install", fail)
+    monkeypatch.setattr(
+        project_onboard_apply, "resolve_bundle",
+        lambda *a, **k: ({"yoke_version": "test"}, "test"),
+    )
     with pytest.raises(ProjectInstallError, match="fixture install refused"):
         project_onboard_apply.finish_after_dispatch(
             operation="project.create",

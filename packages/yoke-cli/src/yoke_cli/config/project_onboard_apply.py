@@ -10,6 +10,7 @@ from yoke_cli.config import onboard_apply_progress
 from yoke_cli.config import onboard_publication
 from yoke_cli.config import project_onboard_progress as progress_steps
 from yoke_cli.config import project_git_prerequisite
+from yoke_cli.config import project_onboard_installed_layer
 from yoke_cli.config import writer as machine_writer
 from yoke_cli.config.project_onboard_support import (
     applied_report,
@@ -20,6 +21,8 @@ from yoke_cli.config.project_onboard_support import (
 from yoke_cli.project_install import publication
 from yoke_cli.project_install import publication_outcome
 from yoke_cli.project_install import runner as install_runner
+from yoke_cli.project_install.transport import resolve_bundle
+from yoke_cli.project_install.validate import validate_cli_release
 
 
 def ensure_git_available() -> None:
@@ -41,12 +44,18 @@ def finish_after_dispatch(
     scaffold_action: str,
     reuse_github_auth: bool,
     clone_outcome: Any | None = None,
+    remove_existing_layer: bool = False,
     persist_sync_mode: bool = False,
     service_api_url: str | None = None,
     local_connection_selected: bool = False,
 ) -> dict[str, Any]:
     project = project_from_result(result)
     project_id = int(project["id"])
+    scaffold = resolve_bundle(project_id, explicit_env=None, config_path=config_path)
+    # Refuse before claiming the mapping so a resumed install can own it.
+    validate_cli_release(scaffold[0])
+    if remove_existing_layer:
+        project_onboard_installed_layer.remove_layer(root, progress=progress)
     wrote_mapping = project_mapping_needs_write(root, project_id, config_path)
     if wrote_mapping:
         with onboard_apply_progress.step(
@@ -93,7 +102,7 @@ def finish_after_dispatch(
         project_id=project_id,
         config_path=config_path,
         operation=install_operation(scaffold_action),
-        require_cli_release=True,
+        resolved_bundle=scaffold,
         # Reviewed apply; the folder may be a just-cloned or
         # just-inited tree with leftover install dirt.
         force=True,
@@ -142,6 +151,7 @@ def install_existing_project(
     progress: onboard_apply_progress.ProgressCallback | None,
     github_auth_target: str,
     clone_outcome: Any | None = None,
+    remove_existing_layer: bool = False,
     scaffold_action: str = "project-install-scaffold",
     reuse_github_auth: bool = False,
     service_api_url: str | None = None,
@@ -160,6 +170,7 @@ def install_existing_project(
             scaffold_action=scaffold_action,
             reuse_github_auth=reuse_github_auth,
             clone_outcome=clone_outcome,
+            remove_existing_layer=remove_existing_layer,
             persist_sync_mode=True,
             service_api_url=service_api_url,
             local_connection_selected=local_connection_selected,

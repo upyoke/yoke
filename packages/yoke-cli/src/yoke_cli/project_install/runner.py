@@ -39,7 +39,7 @@ from yoke_cli.project_install.files import (
     ProjectInstallError,
 )
 from yoke_cli.project_install.uninstall import uninstall
-from yoke_cli.project_install.validate import validate_bundle_for_project, validate_cli_release
+from yoke_cli.project_install.validate import validate_bundle_for_project
 from yoke_cli.project_install.transport import resolve_bundle as _resolve_bundle
 
 
@@ -56,7 +56,7 @@ def install(
     require_default_branch: bool = True,
     publish_skip_reason: str = "",
     owns_registration: bool = False,
-    require_cli_release: bool = False,
+    resolved_bundle: Tuple[Dict[str, Any], str] | None = None,
 ) -> Dict[str, Any]:
     """Install (or refresh — same code path) the project-local layer.
 
@@ -70,6 +70,7 @@ def install(
     converges before upstream reads and publication on every install or refresh.
     ``owns_registration`` says the caller wrote the checkout mapping for this
     install, so uninstall may retire it like one install registered itself.
+    Setup passes the bundle it already checked before registering the checkout.
     """
     root = files_layer.resolve_repo_root(repo_root)
     if not (root / ".git").exists() or not checkout_gate.is_git_checkout(root):
@@ -84,11 +85,9 @@ def install(
     )
     git_hooks_layer.assert_pre_commit_runtime_available()
     resolved_id, explicit_given = _resolve_project_id(root, project_id, config_path)
-    bundle, source = _resolve_bundle(
+    bundle, source = resolved_bundle or _resolve_bundle(
         resolved_id, explicit_env=explicit_env, config_path=config_path
     )
-    if require_cli_release:
-        validate_cli_release(bundle)
     validate_bundle_for_project(bundle, resolved_id)
     assert_install_repository(root, resolved_id, config_path=config_path, explicit_env=explicit_env)
     raw_branch = bundle.get("default_branch")

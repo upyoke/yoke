@@ -240,6 +240,10 @@ def test_final_apply_binding_keeps_the_selected_connection_scope(
         lambda *_args, **_kwargs: {"machine_config_newly_registered": False},
     )
     monkeypatch.setattr(
+        project_onboard_apply, "resolve_bundle",
+        lambda *a, **k: ({"yoke_version": "test"}, "test"),
+    )
+    monkeypatch.setattr(
         project_onboard_apply.machine_config,
         "github_config",
         lambda _path: {},

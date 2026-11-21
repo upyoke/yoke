@@ -230,8 +230,8 @@ def import_project(
 
     if outcome is not None and outcome.github_repo:
         record_destination(root, outcome.github_repo)
-    project_onboard_installed_layer.apply_decision(
-        root, plan.existing_layer_decision, progress=progress,
+    remove_existing_layer = project_onboard_installed_layer.removal_requested(
+        root, plan.existing_layer_decision,
     )
     if outcome is not None and outcome.github_repo is not None:
         github_repo = outcome.github_repo
@@ -256,6 +256,7 @@ def import_project(
             progress=progress,
             github_auth_target=github_auth_target,
             clone_outcome=outcome,
+            remove_existing_layer=remove_existing_layer,
             scaffold_action=scaffold_action,
             reuse_github_auth=reuse_github_auth,
             service_api_url=service_api_url,
@@ -274,6 +275,7 @@ def import_project(
             scaffold_action=scaffold_action,
             reuse_github_auth=reuse_github_auth,
             clone_outcome=outcome,
+            remove_existing_layer=remove_existing_layer,
             service_api_url=service_api_url,
             local_connection_selected=local_connection_selected,
         )
