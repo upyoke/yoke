@@ -65,13 +65,14 @@ CHECK_UNMET = ProbeFailureCause(
 
 LAYOUT_UNRECOGNIZED = ProbeFailureCause(
     "probe_layout_unrecognized",
-    "the app window opened but showed neither a signed-in Chat, Code or Cowork "
-    "layout nor the first-run or Sign In screen",
+    "the app's cookie store held no readable claude.ai session and the window "
+    "showed neither a signed-in Chat, Code or Cowork layout nor the first-run "
+    "or Sign In screen",
     "Do not sign in again or recapture the golden. Open Claude for Mac in the "
     "test user's GUI session: if it is signed in on Chat, Code or Cowork, the "
-    "probe does not know this app version's layout, so report it as a Yoke "
-    "defect with the app version; if a dialog covers the window, dismiss it, "
-    "quit Claude and retry.",
+    "probe could not read the app's stored session or this app version's "
+    "layout, so report it as a Yoke defect with the app version; if a dialog "
+    "covers the window, dismiss it, quit Claude and retry.",
 )
 APP_OPEN_FAILED = ProbeFailureCause(
     "probe_app_open_failed",

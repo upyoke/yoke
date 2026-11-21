@@ -1,8 +1,15 @@
 """A sealed native Claude window probe. Screen contents stay on the fixture.
 
-The probe passes on any signed-in tab (Chat, Code or Cowork), reports the
-first-run and Sign In screens as signed out, and names a window it cannot
-classify as an unrecognized layout rather than telling the operator to sign in.
+The signed-in decision rests on the app's own authenticated state: an unexpired
+claude.ai `sessionKey` cookie in the app's cookie store, read by name and expiry
+only, never by value. With that session the probe passes once the window has
+rendered and stayed off the first-run and Sign In screens for a settle period,
+whatever the sidebar says, so an app update that renames sidebar text cannot
+fail it. Without a readable session it falls back to sidebar OCR markers. The
+first-run and Sign In screens are signed out either way, and a session dropped
+while the app ran fails after quit. A window neither path classifies is an
+unrecognized layout, not a reason to sign in again.
+
 It only launches and quits the app; it never clicks or types. An `open` that
 fails and an app that will not quit afterwards each exit with their own code:
 a quit held open by a sheet means a previous session left the app running, not
@@ -32,7 +39,8 @@ func isChatSidebar(_ sidebar: Set<String>) -> Bool {
 }
 
 func isCodeSidebar(_ sidebar: Set<String>) -> Bool {
-    ["new", "search", "artifacts", "customize"].allSatisfy { hasLabel($0, in: sidebar) }
+    // 6.6395.1 renamed the Code tab's Customize entry to Plugins; neither is required.
+    ["new", "search", "artifacts"].allSatisfy { hasLabel($0, in: sidebar) }
 }
 
 func isCoworkSidebar(_ sidebar: Set<String>) -> Bool {
@@ -65,15 +73,41 @@ let signedOut: Int32 = 10
 let openFailed: Int32 = 11
 let layoutUnrecognized: Int32 = 14
 let quitBlocked: Int32 = 15
+/// A signed-in verdict must hold this long, so a stored session the server has
+/// revoked gets time to redirect to the Sign In screen first.
+let settleSeconds: Double = 5
+
+/// A loading window shows placeholder shapes; a rendered one shows text.
+func isRendered(_ text: Set<String>) -> Bool { text.count >= 3 }
 
 /// Classify one window frame; nil means no known layout yet, so keep looking.
-/// A tab's sidebar markers prove its layout; the account footer or the mode
-/// switcher proves the account, so unreadable footer text alone cannot fail it.
-func classify(text: Set<String>, sidebar: Set<String>, footer: () -> Set<String>) -> Int32? {
+/// The first-run and Sign In screens are signed out whatever else holds. With
+/// the app's stored session, any other rendered window is signed in. Without
+/// it, a tab's sidebar markers prove its layout and the account footer or the
+/// mode switcher proves the account, so unreadable footer text cannot fail it.
+func classify(
+    session: Bool, text: Set<String>, sidebar: Set<String>, footer: () -> Set<String>
+) -> Int32? {
     if isSignedOutScreen(text) { return signedOut }
+    if session { return isRendered(text) ? signedIn : nil }
     guard isChatSidebar(sidebar) || isCodeSidebar(sidebar) || isCoworkSidebar(sidebar)
     else { return nil }
     return hasModeSwitcher(text) || hasAccountFooter(footer()) ? signedIn : nil
+}
+
+/// Folds frame verdicts over time: signed out ends at once, signed in only
+/// after it held for the settle period, and anything else restarts the wait.
+struct Verdicts {
+    var signedInSince: Double? = nil
+    mutating func add(_ outcome: Int32?, at now: Double) -> Int32? {
+        guard outcome == signedIn else {
+            signedInSince = nil
+            return outcome
+        }
+        let since = signedInSince ?? now
+        signedInSince = since
+        return now - since >= settleSeconds ? signedIn : nil
+    }
 }
 """
 
@@ -88,6 +122,7 @@ import Vision
 let appPath = "/Applications/Claude.app"
 let bundleID = "com.anthropic.claudefordesktop"
 let screenshot = URL(fileURLWithPath: CommandLine.arguments[1])
+let session = CommandLine.arguments[2] == "session"
 // The account footer sits at the bottom of the sidebar on every tab.
 let footerRegion = CGRect(x: 0, y: 0, width: 0.32, height: 0.12)
 
@@ -164,14 +199,16 @@ func observe() -> Int32 {
     guard run("/usr/bin/open", ["-a", appPath]) else { return openFailed }
     let deadline = ProcessInfo.processInfo.systemUptime + 35
     var observedWindow = false
+    var verdicts = Verdicts()
     while ProcessInfo.processInfo.systemUptime < deadline {
         if let app = claude(), let window = windowNumber(of: app), let frame = frame(of: window) {
             observedWindow = true
             // A second, cropped pass reads small footer text the full frame missed.
-            let outcome = classify(text: frame.text, sidebar: frame.sidebar) {
+            let outcome = classify(session: session, text: frame.text, sidebar: frame.sidebar) {
                 frame.footer.union(recognizeText(in: footerRegion).map(recognized) ?? [])
             }
-            if let outcome { return outcome }
+            let now = ProcessInfo.processInfo.systemUptime
+            if let outcome = verdicts.add(outcome, at: now) { return outcome }
         }
         Thread.sleep(forTimeInterval: 1)
     }
@@ -195,13 +232,35 @@ exit(outcome)
 
 
 CLAUDE_DESKTOP_PROBE_PROGRAM = f"""
-import pathlib, subprocess, sys, tempfile
+import json, pathlib, plistlib, sqlite3, subprocess, sys, tempfile, time
+def claude_session():
+    # True or False from the app's cookie store; None when it cannot be read.
+    # Reads only the cookie's name and expiry, never its value.
+    store = pathlib.Path.home() / 'Library/Application Support/Claude/Cookies'
+    if not store.exists():
+        return False
+    try:
+        db = sqlite3.connect(store.as_uri() + '?mode=ro', uri=True, timeout=5)
+        try:
+            rows = db.execute(
+                "SELECT expires_utc FROM cookies WHERE name = 'sessionKey'"
+                " AND host_key IN ('.claude.ai', 'claude.ai')"
+            ).fetchall()
+        finally:
+            db.close()
+    except sqlite3.Error:
+        return None
+    # Chromium counts microseconds from 1601; zero marks a browser-session cookie.
+    now = (time.time() + 11644473600) * 1000000
+    return any(expires == 0 or expires > now for (expires,) in rows)
+session = claude_session()
 with tempfile.TemporaryDirectory(prefix='yoke-claude-desktop-') as workspace:
     script = pathlib.Path(workspace, 'probe.swift')
     script.write_text({_SWIFT!r}, encoding='utf-8')
     try:
         probe = subprocess.run(
-            ['/usr/bin/swift', str(script), str(pathlib.Path(workspace, 'window.png'))],
+            ['/usr/bin/swift', str(script), str(pathlib.Path(workspace, 'window.png')),
+             'session' if session else 'no-session'],
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=100,
         )
     except subprocess.TimeoutExpired:
@@ -218,5 +277,17 @@ with tempfile.TemporaryDirectory(prefix='yoke-claude-desktop-') as workspace:
         14: 'probe_layout_unrecognized',
         15: 'probe_app_quit_blocked',
     }}
-    sys.exit(0 if probe.returncode == 0 else EXIT[cause.get(probe.returncode, 'probe_launch_failed')])
+    if probe.returncode == 14:
+        # Name the app version an unknown layout came from, for the defect report.
+        try:
+            info = pathlib.Path('/Applications/Claude.app/Contents/Info.plist').read_bytes()
+            version = plistlib.loads(info).get('CFBundleShortVersionString')
+        except (OSError, ValueError):
+            version = None
+        print(json.dumps({{'app_version': version if isinstance(version, str) else None}}))
+    if probe.returncode != 0:
+        sys.exit(EXIT[cause.get(probe.returncode, 'probe_launch_failed')])
+    # The app writes its cookies on quit: a session it dropped while running
+    # (a revoked sign-in) means signed out, even if the window looked fine.
+    sys.exit(EXIT['probe_check_unmet'] if session and claude_session() is False else 0)
 """

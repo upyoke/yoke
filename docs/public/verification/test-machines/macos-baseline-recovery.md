@@ -27,12 +27,17 @@ requires account/workspace permission. [Cursor auth](https://cursor.com/docs/cli
 is separate from app presence. A login-status line or credential file is
 insufficient: every harness must answer a real request without tool calls.
 Open Claude for Mac as the test user, finish its first-run prompts, sign in,
-and quit it normally. The Mac golden probe opens the native app, passes on a
-signed-in Chat, Code or Cowork tab, and quits it; it never clicks or types.
-The first-run and Sign In screens fail `probe_check_unmet` (sign in again).
-Any other window fails `probe_layout_unrecognized`: do not sign in again or
-recapture; report the app version as a Yoke defect. It leaves screen text and
-images on the fixture only for the duration of the check. For other
+and quit it normally. The Mac golden probe opens the native app and quits it;
+it never clicks or types. It decides signed-in from the app's own stored
+session, an unexpired claude.ai `sessionKey` cookie read by name and expiry
+only: with it, any rendered window that stays off the first-run and Sign In
+screens for five seconds passes, whatever the sidebar says. Without a readable
+session it falls back to the signed-in Chat, Code or Cowork sidebar markers.
+The first-run and Sign In screens, or a session the app dropped while it ran,
+fail `probe_check_unmet` (sign in again). Any other window fails
+`probe_layout_unrecognized`: do not sign in again or recapture; report the app
+version as a Yoke defect. It leaves screen text and images on the fixture only
+for the duration of the check. For other
 desktop surfaces, verify Codex in the ChatGPT app and Cursor independently
 after the golden reset.
 
