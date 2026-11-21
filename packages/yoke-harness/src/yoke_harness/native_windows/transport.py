@@ -3,6 +3,7 @@
 import base64
 import json
 import subprocess
+import time
 from pathlib import PureWindowsPath
 from types import SimpleNamespace
 
@@ -10,6 +11,11 @@ from yoke_contracts.machine_qa_failures import HostControlLocalError
 from yoke_harness.native_windows.powershell import encoded, quote
 from yoke_harness.native_windows.standard_staging import verified_payload
 from yoke_harness.ssh_test_machine_transport import SshTestMachineTransport
+
+
+HOST_RESOURCES_EXHAUSTED = "native_windows_host_resources_exhausted"
+HOST_RESOURCES_RECOVERY = "Free memory or enlarge the Windows page file, then retry."
+HOST_FACTS_RETRY_DELAY_SECONDS = 1
 
 
 def command(argv) -> str:
@@ -95,6 +101,15 @@ class WindowsTransport(SshTestMachineTransport):
             return result
 
     def _host_facts(self):
+        try:
+            return self._probe_host_facts()
+        except HostControlLocalError as error:
+            if error.code != HOST_RESOURCES_EXHAUSTED:
+                raise
+        time.sleep(HOST_FACTS_RETRY_DELAY_SECONDS)
+        return self._probe_host_facts()
+
+    def _probe_host_facts(self):
         result = self._run(
             r"""$identity=[Security.Principal.WindowsIdentity]::GetCurrent()
 $admin=([Security.Principal.WindowsPrincipal]::new($identity)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -107,33 +122,44 @@ $version=Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion'
         code = "native_windows_host_facts_failed"
         detail = "Native Windows host-facts command failed."
         recovery = "Repair the named SSH or PowerShell failure, then retry host facts."
-        if not result.returncode:
-            code = "native_windows_host_facts_invalid"
-            detail = "Native Windows host facts are not valid JSON."
-            recovery = "Repair the host-facts probe output and retry; it must describe Windows, an absolute home and a boolean admin field."
+        output = f"{result.stdout}\n{result.stderr}".casefold()
+        startup_failed = (
+            "paging file is too small" in output
+            or (
+                "system.management.automation" in output
+                and ("could not load" in output or "failed to load" in output)
+            )
+        )
+        facts = None
+        if not result.returncode and not startup_failed:
             try:
                 facts = json.loads(result.stdout)
             except ValueError:
                 pass
-            else:
-                detail = "Native Windows host facts have an invalid schema."
-                if (
-                    isinstance(facts, dict)
-                    and facts.get("os") == "Windows"
-                    and type(facts.get("admin")) is bool
-                    and isinstance(facts.get("home"), str)
-                    and PureWindowsPath(facts["home"]).is_absolute()
-                    and facts.get("shell") == "powershell.exe"
-                    and all(isinstance(facts.get(key), str) and facts[key]
-                            for key in ("edition", "build", "user"))
-                    and facts["build"].isascii() and facts["build"].isdigit()
-                ):
-                    if facts["admin"] is False or self.os == "wsl":
-                        self.windows_facts = facts
-                        return facts
-                    code = "native_windows_test_user_required"
-                    detail = "Native Windows QA requires a standard Windows SSH user; this token is an administrator."
-                    recovery = "Select the provisioned standard test user and retry; do not grant it administrator privileges."
+        if startup_failed or (not result.returncode and not isinstance(facts, dict)):
+            code = HOST_RESOURCES_EXHAUSTED
+            detail = "PowerShell could not start or returned no Windows host-facts object."
+            recovery = HOST_RESOURCES_RECOVERY
+        elif isinstance(facts, dict):
+            code = "native_windows_host_facts_invalid"
+            detail = "Native Windows host facts have an invalid schema."
+            recovery = "Repair the host-facts probe output and retry; it must describe Windows, an absolute home and a boolean admin field."
+            if (
+                facts.get("os") == "Windows"
+                and type(facts.get("admin")) is bool
+                and isinstance(facts.get("home"), str)
+                and PureWindowsPath(facts["home"]).is_absolute()
+                and facts.get("shell") == "powershell.exe"
+                and all(isinstance(facts.get(key), str) and facts[key]
+                        for key in ("edition", "build", "user"))
+                and facts["build"].isascii() and facts["build"].isdigit()
+            ):
+                if facts["admin"] is False or self.os == "wsl":
+                    self.windows_facts = facts
+                    return facts
+                code = "native_windows_test_user_required"
+                detail = "Native Windows QA requires a standard Windows SSH user; this token is an administrator."
+                recovery = "Select the provisioned standard test user and retry; do not grant it administrator privileges."
         raise HostControlLocalError(
             code=code,
             phase="host_facts_ssh",
