@@ -1,3 +1,15 @@
+def report_setup_exit(status: int, version: str, resume: str, stdout) -> int:
+    if status == 0:
+        return 0
+    display = _display_version(version)
+    installed = f"Yoke v{display} is installed" if display else "Yoke is installed"
+    if status == 130:
+        print(f"setup_skipped: {installed}; setup was skipped; resume with {resume}.", file=stdout)
+        return 0
+    print(f"setup_failed: {installed}; setup stopped, see above; resume with {resume}.", file=stdout)
+    return 2
+
+
 class Installer(InstallerVerification, InstallerResolution):
     def __init__(
         self,
@@ -74,7 +86,7 @@ class Installer(InstallerVerification, InstallerResolution):
         return f"{self.options.base_url}/simple/"
 
 
-    def run(self) -> None:
+    def run(self) -> int:
         require_native_windows_python()
         libc = (
             platform.libc_ver()[0].lower() if sys.platform.startswith("linux") else ""
@@ -108,7 +120,7 @@ class Installer(InstallerVerification, InstallerResolution):
                 "that installation would succeed.",
                 file=self.stdout,
             )
-            return
+            return 0
         print(self._say("Setting up Yoke…"), file=self.stdout)
         config_path = self._write_uv_index_config()
         try:
@@ -158,9 +170,17 @@ class Installer(InstallerVerification, InstallerResolution):
             if self.options.yes or not sys.stdin.isatty():
                 print(self._say("Run yoke setup in a new terminal."), file=self.stdout)
             else:
-                setup = self.terminal_runner([yoke_bin, "setup", "--post-install"])
-                if setup.returncode:
-                    raise InstallError("setup_incomplete: run yoke setup in a new terminal, then retry.")
+                try:
+                    status = self.terminal_runner([yoke_bin, "setup", "--post-install"]).returncode
+                except KeyboardInterrupt:
+                    status = 130
+                except OSError as exc:
+                    print(self._say(_sanitize_diagnostic(str(exc))), file=self.stdout)
+                    status = 1
+                return report_setup_exit(
+                    status, installed_version, "yoke setup in a new terminal", self.stdout
+                )
+        return 0
 
 
     def _prove_hook_evaluator(self, yoke_bin: str) -> None:

@@ -59,9 +59,12 @@ try {
     # Judge install.py by its exit code: under 'Stop', Windows PowerShell 5.1
     # turns its first redirected stderr line (a warning) into a terminating error.
     & uv @pythonArgs $helper @installerArgs
-    if ($LASTEXITCODE -ne 0) { throw "yoke_install_failed: Python installer exited $LASTEXITCODE; follow its recovery above, then retry." }
+    $installExit = $LASTEXITCODE
+    if ($installExit -ne 0 -and $installExit -ne 2) { throw "yoke_install_failed: Python installer exited $installExit; follow its recovery above, then retry." }
     $ErrorActionPreference = 'Stop'
     $env:PATH = [Environment]::GetEnvironmentVariable('PATH', 'User') + ';' + $env:PATH
+    # The helper already printed setup_failed with the installed version and recovery.
+    if ($installExit -eq 2) { exit 2 }
 } finally {
     Remove-Item -LiteralPath $temporary -Recurse -Force -ErrorAction SilentlyContinue
 }

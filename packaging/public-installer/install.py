@@ -148,14 +148,31 @@ class InstallOptions:
 
 
 def main(argv: Iterable[str] | None = None) -> int:
+    args = list(sys.argv[1:] if argv is None else argv)
+    if args[:1] == ["--report-setup-exit"]:
+        parser = argparse.ArgumentParser(prog="install.py --report-setup-exit")
+        parser.add_argument("status", type=int)
+        parser.add_argument("version")
+        parser.add_argument("launcher")
+        report = parser.parse_args(args[1:])
+        return report_setup_exit(
+            report.status,
+            report.version,
+            f"{shlex.quote(report.launcher)} setup",
+            sys.stdout,
+        )
     try:
         require_native_windows_python()
-        Installer(parse_args(argv)).run()
+        try:
+            options = parse_args(args)
+        except SystemExit as exc:
+            # argparse uses 2 for invalid options; reserve it for setup failures.
+            return 1 if exc.code else 0
+        return Installer(options).run()
     except InstallError as exc:
         gutter = Installer._gutter(sys.stderr)
         print(f"{gutter} {_sanitize_diagnostic(str(exc))}", file=sys.stderr)
         return 1
-    return 0
 
 
 def parse_args(argv: Iterable[str] | None = None) -> InstallOptions:
@@ -1301,6 +1318,24 @@ class InstallerResolution:
         print(f"  {retry}", file=self.stdout, flush=True)
 
 
+def report_setup_exit(status: int, version: str, resume: str, stdout) -> int:
+    if status == 0:
+        return 0
+    display = _display_version(version)
+    installed = f"Yoke v{display} is installed" if display else "Yoke is installed"
+    if status == 130:
+        print(
+            f"setup_skipped: {installed}; setup was skipped; resume with {resume}.",
+            file=stdout,
+        )
+        return 0
+    print(
+        f"setup_failed: {installed}; setup stopped, see above; resume with {resume}.",
+        file=stdout,
+    )
+    return 2
+
+
 class Installer(InstallerVerification, InstallerResolution):
     def __init__(
         self,
@@ -1371,7 +1406,7 @@ class Installer(InstallerVerification, InstallerResolution):
     def index_url(self) -> str:
         return f"{self.options.base_url}/simple/"
 
-    def run(self) -> None:
+    def run(self) -> int:
         require_native_windows_python()
         libc = (
             platform.libc_ver()[0].lower() if sys.platform.startswith("linux") else ""
@@ -1413,7 +1448,7 @@ class Installer(InstallerVerification, InstallerResolution):
                 "that installation would succeed.",
                 file=self.stdout,
             )
-            return
+            return 0
         print(self._say("Setting up Yoke…"), file=self.stdout)
         config_path = self._write_uv_index_config()
         try:
@@ -1463,11 +1498,22 @@ class Installer(InstallerVerification, InstallerResolution):
             if self.options.yes or not sys.stdin.isatty():
                 print(self._say("Run yoke setup in a new terminal."), file=self.stdout)
             else:
-                setup = self.terminal_runner([yoke_bin, "setup", "--post-install"])
-                if setup.returncode:
-                    raise InstallError(
-                        "setup_incomplete: run yoke setup in a new terminal, then retry."
-                    )
+                try:
+                    status = self.terminal_runner(
+                        [yoke_bin, "setup", "--post-install"]
+                    ).returncode
+                except KeyboardInterrupt:
+                    status = 130
+                except OSError as exc:
+                    print(self._say(_sanitize_diagnostic(str(exc))), file=self.stdout)
+                    status = 1
+                return report_setup_exit(
+                    status,
+                    installed_version,
+                    "yoke setup in a new terminal",
+                    self.stdout,
+                )
+        return 0
 
     def _prove_hook_evaluator(self, yoke_bin: str) -> None:
         """Prove the installed evaluator, then stop it, so no resident outlives the install.

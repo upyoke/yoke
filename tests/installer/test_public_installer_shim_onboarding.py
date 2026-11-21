@@ -8,6 +8,7 @@ import pytest
 
 from public_installer_helpers import (
     FAKE_INSTALL_PY,
+    FAKE_INSTALL_WITH_SETUP_REPORT,
     INSTALL_SHIM_PATH,
     linux_stub_bin,
     run_shim,
@@ -218,3 +219,65 @@ def test_shim_hands_off_adoption_to_the_harness() -> None:
                 "the shim may only print the /yoke onboard handoff, "
                 f"never run it: {line.strip()}"
             )
+
+
+@SHIM_BRANCH
+@pytest.mark.parametrize("os_name", ["Darwin", "Linux"])
+@pytest.mark.parametrize("path_loaded", [False, True])
+@pytest.mark.parametrize(
+    "status, exit_code, token", [(130, 0, "setup_skipped"), (1, 2, "setup_failed")]
+)
+def test_shim_reports_post_install_setup_exit(
+    tmp_path, os_name, path_loaded, status, exit_code, token
+):
+    bin_dir = _bin(tmp_path)
+    write_executable(bin_dir / "uname", f"#!/bin/sh\nprintf '%s\\n' {os_name}\n")
+    install_bin = bin_dir if path_loaded else tmp_path / "tool bin"
+    install_bin.mkdir(exist_ok=True)
+    write_uv_stub(
+        bin_dir,
+        install_py_body=FAKE_INSTALL_WITH_SETUP_REPORT,
+        tool_bin_dir=install_bin,
+    )
+    yoke_bin = install_bin / "yoke"
+    write_executable(
+        yoke_bin,
+        "#!/bin/sh\n"
+        "if [ \"$1\" = --version ]; then printf '1.2.3\\n'; exit 0; fi\n"
+        f"exit {status}\n",
+    )
+    result = run_shim(
+        bin_dir,
+        args=(),
+        env_extra={
+            "YOKE_INSTALL_PROMPT_IN": "/dev/null",
+            "YOKE_INSTALL_PROMPT_OUT": "/dev/null",
+        },
+    )
+    output = result.stdout + result.stderr
+    assert result.returncode == exit_code, output
+    assert f"{token}: Yoke v1.2.3 is installed" in output
+    assert (
+        "resume with yoke setup" if path_loaded else f"resume with '{yoke_bin}' setup"
+    ) in output
+    assert "setup_incomplete" not in output
+    assert "yoke_install_failed" not in output
+    assert "did not finish" not in output
+    assert ("setup_failed" in output) == (exit_code == 2)
+    assert "Next: bring your existing work into Yoke" not in output
+
+
+@SHIM_BRANCH
+def test_shim_preserves_install_failure_without_starting_setup(tmp_path):
+    bin_dir = _bin(tmp_path)
+    write_uv_stub(
+        bin_dir, install_py_body="print('install_failure_fixture'); raise SystemExit(1)"
+    )
+    write_executable(bin_dir / "yoke", "#!/bin/sh\nprintf 'UNEXPECTED_SETUP\\n'\n")
+
+    result = run_shim(bin_dir, args=())
+    assert result.returncode == 1
+    assert "install_failure_fixture" in result.stdout
+    assert "UNEXPECTED_SETUP" not in result.stdout
+    assert "setup_skipped" not in result.stdout
+    assert "setup_failed" not in result.stdout
