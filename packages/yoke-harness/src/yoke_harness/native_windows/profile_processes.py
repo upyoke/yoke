@@ -1,6 +1,7 @@
 """Quiesce the test user's profile and packaged apps for a Windows reset."""
 
 import json
+import re
 import subprocess
 from pathlib import PureWindowsPath
 
@@ -10,6 +11,16 @@ DISCOVERY_MARKER = "YOKE_RESET_PROCESS_DISCOVERY "
 STOPPED_MARKER = "YOKE_RESET_PROCESSES_STOPPED "
 TARGETS_MARKER = "YOKE_RESET_DESKTOP_TARGETS "
 RELAUNCHED_MARKER = "YOKE_RESET_DESKTOP_RELAUNCHED "
+
+# Shell packages Windows restarts on its own within seconds of a stop. Stopping
+# them cannot hold, and the Widgets board has no window to relaunch. Their state
+# lives under the preserved AppData/Local/Packages, so they hold no files in the
+# mirrored profile; a lock there would still fail robocopy loudly.
+SHELL_RESTARTED_PACKAGES = (
+    ("MicrosoftWindows.Client.WebExperience", "cw5n1h2txyewy"),
+    ("Microsoft.WidgetsPlatformRuntime", "8wekyb3d8bbwe"),
+    ("Microsoft.StartExperiencesApp", "8wekyb3d8bbwe"),
+)
 
 # The SSH test user has no WMI namespace grant. Limited process handles can
 # read the owner's token and image without elevation or reading process memory.
@@ -61,6 +72,7 @@ function Get-YokeProfileProcesses {
   $packaged=$exe.StartsWith($windowsApps+'\',[StringComparison]::OrdinalIgnoreCase)
   if(!$packaged -and !$exe.StartsWith($profileRoot+'\',[StringComparison]::OrdinalIgnoreCase)){continue}
   if(@($stopPreserved | Where-Object {$exe.StartsWith($_+'\',[StringComparison]::OrdinalIgnoreCase)}).Count){continue}
+  if($packaged -and $exe.Substring($windowsApps.Length+1).Split('\')[0] -match $shellRestarted){continue}
   [pscustomobject]@{process=$proc;path=$exe;packaged=$packaged}
  }
 }
@@ -164,7 +176,18 @@ _RELAUNCH_RESULT = r"""function Write-YokeRelaunchResult($target,$failure){
 
 def _preamble(home, preserved):
     skipped = ",".join(quote(str(PureWindowsPath(home) / p)) for p in preserved)
-    return f"$stopPreserved=@({skipped})\n" + _PROCESS_IDENTITY + _LIST
+    return (
+        f"$stopPreserved=@({skipped})\n$shellRestarted={quote(_shell_restarted_pattern())}\n"
+        + _PROCESS_IDENTITY + _LIST
+    )
+
+
+def _shell_restarted_pattern():
+    # A WindowsApps directory is Name_Version_Arch_ResourceId_PublisherId.
+    names = "|".join(
+        f"{re.escape(name)}_.+_{publisher}" for name, publisher in SHELL_RESTARTED_PACKAGES
+    )
+    return f"^(?:{names})$"
 
 
 def profile_process_stop_script(home, preserved, *, desktop=False):

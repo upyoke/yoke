@@ -38,6 +38,7 @@ jobs:
           runtime/api/domain/test_native_windows_harness_clis.py
           runtime/api/domain/test_native_windows_baseline.py
           runtime/api/domain/test_native_windows_profile_links.py
+          runtime/api/domain/test_native_windows_shell_packages.py
           runtime/api/domain/test_native_windows_console_reader.py
           runtime/api/domain/test_native_windows_framed_process.py
           runtime/api/domain/test_native_windows_admin_staging.py
