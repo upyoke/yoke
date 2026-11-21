@@ -4,6 +4,7 @@
  "status": "draft-copy",
  "commands": ["yoke projects checkout-context"],
  "functions": ["projects.checkout_context.run"],
+ "summary": "Checkout-context help lists separate commands to read the slug, ID and public item prefix.",
  "page": "context",
  "position": 3
 }

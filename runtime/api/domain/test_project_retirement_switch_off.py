@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+import shlex
 
 import pytest
 
 from runtime.api.fixtures.file_test_db import apply_test_schema, init_test_db
+from runtime.api.fixtures.operator_recipe import assert_shell_neutral
 from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.project_github_binding_state import (
     BindingPersistenceState,
@@ -20,6 +23,8 @@ from yoke_core.domain.project_retirement_switch_off import (
 )
 
 NOW = "2026-01-01T00:00:00Z"
+SETUP_SETTINGS = '{  "command": "echo ready" }'
+SETUP_DIGEST = hashlib.sha256(SETUP_SETTINGS.encode()).hexdigest()
 
 
 def _seed_project(c, project_id: int, slug: str) -> None:
@@ -73,8 +78,8 @@ def conn(tmp_path):
         c.execute(
             "INSERT INTO project_capabilities (project_id, type, settings, "
             "created_at) VALUES (30, 'github', '{}', %s), "
-            "(30, 'setup_command', '{}', %s)",
-            (NOW, NOW),
+            "(30, 'setup_command', %s, %s)",
+            (NOW, SETUP_SETTINGS, NOW),
         )
         c.execute(
             "INSERT INTO capability_secrets (project_id, type, key, value, "
@@ -150,13 +155,10 @@ def test_retire_switches_off_and_reports_remaining_attachments(conn):
     unbind = "yoke projects github-binding unbind --project fixture"
     assert by_kind["capability_settings"]["commands"] == [
         unbind,
-        "base=$(yoke projects capability-settings get --project fixture "
-        "--cap-type setup_command)",
         "yoke projects capability-settings remove --project fixture "
-        '--cap-type setup_command --base "$base"',
+        f"--cap-type setup_command --base-digest {SETUP_DIGEST}",
     ]
-    # Yoke's agent hooks refuse a quoted "$(...)" substitution; no recipe uses one.
-    assert not any('"$(' in c for e in report for c in e["commands"])
+    assert_shell_neutral(*(c for entry in report for c in entry["commands"]))
     assert by_kind["github_binding"]["commands"] == [unbind]
     assert by_kind["qa_plans"]["commands"] == [
         "yoke qa plan retire smoke --project fixture --reason 'Project retired'"
@@ -295,4 +297,34 @@ def test_cli_prints_credentials_first_with_commands(conn, monkeypatch):
     assert first < text.index("capability settings: 2")
     assert NO_SECRET_COMMAND in text
     assert "run: yoke --env prod projects github-binding unbind --project fixture" in text
-    assert "run: base=$(yoke --env prod projects capability-settings get" in text
+    assert (
+        "run: yoke --env prod projects capability-settings remove --project fixture "
+        f"--cap-type setup_command --base-digest {SETUP_DIGEST}"
+    ) in text
+    assert_shell_neutral(*(line for line in text.splitlines() if "run:" in line))
+
+
+def test_reported_command_removes_capability(conn, monkeypatch, capsys):
+    from yoke_cli.commands.adapters.projects_capability_settings import (
+        projects_capability_settings_remove,
+    )
+    from runtime.api.fixtures.actor_roles import seed_human_reviewer
+
+    actor_id = seed_human_reviewer(conn, 30)
+    monkeypatch.setenv("YOKE_ACTOR_ID", str(actor_id))
+    result = set_retirement(conn, "fixture", retired=True, reason="QA finished")
+    conn.commit()
+    command = next(
+        cmd
+        for entry in result["remaining_attachments"]
+        for cmd in entry["commands"]
+        if "--cap-type setup_command" in cmd
+    )
+    argv = shlex.split(command)
+    assert argv[:4] == ["yoke", "projects", "capability-settings", "remove"]
+    assert projects_capability_settings_remove(argv[4:]) == 0
+    assert "Removed capability 'setup_command'" in capsys.readouterr().out
+    assert conn.execute(
+        "SELECT 1 FROM project_capabilities WHERE project_id=%s AND type=%s",
+        (30, "setup_command"),
+    ).fetchone() is None

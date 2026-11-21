@@ -12,7 +12,7 @@ from yoke_contracts.api.function_call import (
     HandlerOutcome,
 )
 from yoke_core.domain.pydantic_validation_safety import safe_validation_message
-from yoke_core.domain.settings_cas import SettingsConflictError
+from yoke_core.domain.settings_cas import SettingsConflictError, settings_digest
 
 
 class CapabilitySettingsGetRequest(BaseModel):
@@ -53,7 +53,8 @@ class CapabilitySettingsRemoveRequest(BaseModel):
 
     project: str
     cap_type: str
-    base_settings_json: str
+    base_settings_json: Optional[str] = None
+    base_digest: Optional[str] = None
 
 
 class CapabilitySettingsResponse(BaseModel):
@@ -61,6 +62,7 @@ class CapabilitySettingsResponse(BaseModel):
     cap_type: str
     settings_json: Optional[str] = None
     changed_paths: Optional[list[str]] = None
+    base_digest: Optional[str] = None
     message: Optional[str] = None
 
 
@@ -98,7 +100,12 @@ def handle_capability_settings_get(
                 "capability-settings merge` or `set --new`"
             ),
         )
-    return _success(parsed.project, parsed.cap_type, settings_json)
+    return _success(
+        parsed.project,
+        parsed.cap_type,
+        settings_json,
+        base_digest=settings_digest(settings_json),
+    )
 
 
 def _require_capability_prerequisites(project_ref: str, cap_type: str) -> None:
@@ -214,9 +221,11 @@ def handle_capability_settings_remove(
             _authorized_project_ref(request, parsed.project),
             parsed.cap_type,
             base_settings_json=parsed.base_settings_json,
+            base_digest=parsed.base_digest,
         )
     except SettingsConflictError as exc:
-        return _failure("settings_conflict", str(exc), "$.payload.base_settings_json")
+        field = "base_digest" if parsed.base_digest is not None else "base_settings_json"
+        return _failure("settings_conflict", str(exc), f"$.payload.{field}")
     except LookupError as exc:
         return _failure("not_found", str(exc), "$.payload")
     except ValueError as exc:
@@ -231,6 +240,7 @@ def _success(
     *,
     message: Optional[str] = None,
     changed_paths: Optional[list[str]] = None,
+    base_digest: Optional[str] = None,
 ) -> HandlerOutcome:
     return HandlerOutcome(
         primary_success=True,
@@ -240,6 +250,7 @@ def _success(
             "settings_json": settings_json,
             "message": message,
             "changed_paths": changed_paths,
+            **({"base_digest": base_digest} if base_digest is not None else {}),
         },
     )
 

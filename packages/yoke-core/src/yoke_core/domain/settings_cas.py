@@ -18,6 +18,7 @@ writers touching different keys compose instead of erasing each other.
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 from typing import Any, Callable, Dict, Optional, Sequence
 
@@ -33,6 +34,11 @@ SETTINGS_CONFLICT_TAG = "settings_conflict"
 
 class SettingsConflictError(RuntimeError):
     """A CAS settings write was refused: the row moved past the base."""
+
+
+def settings_digest(settings_json: str) -> str:
+    """Return the SHA-256 token for the exact as-read settings text."""
+    return hashlib.sha256(settings_json.encode("utf-8")).hexdigest()
 
 
 def base_required_teaching(*, get_recipe: str, merge_recipe: str) -> str:

@@ -2,6 +2,7 @@
  "id": "capability-settings",
  "title": "Capability settings",
  "status": "draft-copy",
+ "summary": "The JSON envelope from capability-settings get reports base_digest. Pass that digest to remove --base-digest to remove the capability only while its settings match.",
  "page": "capabilities",
  "position": 3
 }

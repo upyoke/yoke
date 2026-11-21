@@ -30,3 +30,15 @@ into subprocess env without printing secret values. A bare cloud command such
 as `aws ...` reads only ambient shell credentials, so it may fail or reach the
 wrong account. To check a credential, verify that the key exists or show
 redacted evidence; never print the value.
+
+
+To remove an ordinary capability, read `yoke projects capability-settings get
+--project P --cap-type TYPE --json` and use `result.base_digest` with:
+
+```text
+yoke projects capability-settings remove --project P --cap-type TYPE --base-digest SHA256
+```
+
+If its stored settings have changed, read them again and review them before
+retrying with the fresh digest. `yoke projects retire` prints this command with
+the project's capability type and digest filled in.

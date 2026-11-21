@@ -13,6 +13,7 @@ from typing import Any
 
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.project_github_auth_models import GITHUB_CAPABILITY_TYPE
+from yoke_core.domain.settings_cas import settings_digest
 
 NO_SECRET_COMMAND = (
     "No yoke command removes a stored capability secret; "
@@ -55,14 +56,12 @@ def remaining_attachments(conn: Any, project_id: int) -> list[dict[str, Any]]:
         "ORDER BY type, key",
         (project_id,),
     )
-    capabilities = [
-        str(row["type"])
-        for row in query_rows(
-            conn,
-            "SELECT type FROM project_capabilities WHERE project_id=%s ORDER BY type",
-            (project_id,),
-        )
-    ]
+    capabilities = query_rows(
+        conn,
+        "SELECT type, COALESCE(settings, '{}') AS settings FROM project_capabilities "
+        "WHERE project_id=%s ORDER BY type",
+        (project_id,),
+    )
     binding = conn.execute(
         "SELECT github_repo FROM project_github_repo_bindings WHERE project_id=%s",
         (project_id,),
@@ -91,8 +90,11 @@ def remaining_attachments(conn: Any, project_id: int) -> list[dict[str, Any]]:
             "capability_settings",
             len(capabilities),
             label="capability settings",
-            names=capabilities,
-            commands=[c for t in capabilities for c in _capability_commands(t, proj)],
+            names=[row["type"] for row in capabilities],
+            commands=[
+                _capability_command(row["type"], row["settings"], proj)
+                for row in capabilities
+            ],
         ),
         _entry(
             "github_binding",
@@ -151,17 +153,13 @@ def remaining_attachments(conn: Any, project_id: int) -> list[dict[str, Any]]:
     ]
 
 
-def _capability_commands(cap_type: str, proj: str) -> list[str]:
-    q = shlex.quote
+def _capability_command(cap_type: str, settings_json: str, proj: str) -> str:
     if cap_type == GITHUB_CAPABILITY_TYPE:
-        return [f"yoke projects github-binding unbind --project {proj}"]
-    # Two steps: Yoke's agent hooks refuse a quoted "$(...)" substitution.
-    return [
-        f"base=$(yoke projects capability-settings get --project {proj} "
-        f"--cap-type {q(cap_type)})",
+        return f"yoke projects github-binding unbind --project {proj}"
+    return (
         f"yoke projects capability-settings remove --project {proj} "
-        f'--cap-type {q(cap_type)} --base "$base"',
-    ]
+        f"--cap-type {shlex.quote(cap_type)} --base-digest {settings_digest(settings_json)}"
+    )
 
 
 def _counted(conn, kind, table, project_id, no_command):

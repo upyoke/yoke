@@ -190,11 +190,10 @@ def projects_checkout_context(args: List[str]) -> int:
             "server refuses missing project context. Connection and its source follow."
         ),
         epilog=(
-            "Example (the strategize/feed preamble):\n"
-            "  _project=$(yoke projects checkout-context --field slug)\n"
-            "  _project_id=$(yoke projects checkout-context --field id)\n"
-            "  _prefix=$(yoke projects checkout-context "
-            "--field public_item_prefix)"
+            "Read each value separately for the strategize/feed preamble:\n"
+            "  yoke projects checkout-context --field slug\n"
+            "  yoke projects checkout-context --field id\n"
+            "  yoke projects checkout-context --field public_item_prefix"
         ),
     )
     parser.add_argument(

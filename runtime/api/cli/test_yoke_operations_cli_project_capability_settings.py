@@ -151,3 +151,33 @@ def test_remove_usage_names_capability_row_removal():
     assert "removes the capability row" in usage
     assert "CAS against the document as read" in usage
     assert "--base AS_READ_JSON" in usage
+
+
+
+def test_remove_dispatches_digest_without_a_json_base():
+    digest = "be" * 32
+    rc, _out, _err, calls = _run(
+        "projects", "capability-settings", "remove",
+        "--project", "platform", "--cap-type", "ephemeral-env",
+        "--base-digest", digest,
+    )
+    assert rc == 0
+    assert calls[0].payload == {
+        "project": "platform",
+        "cap_type": "ephemeral-env",
+        "base_digest": digest,
+    }
+
+
+def test_checkout_context_help_recipe_is_shell_neutral(capsys):
+    import pytest
+
+    from runtime.api.fixtures.operator_recipe import assert_shell_neutral
+    from yoke_cli.commands.adapters.projects import projects_checkout_context
+
+    with pytest.raises(SystemExit) as exc:
+        projects_checkout_context(["--help"])
+    assert exc.value.code == 0
+    help_text = capsys.readouterr().out
+    assert "yoke projects checkout-context --field slug" in help_text
+    assert_shell_neutral(help_text)

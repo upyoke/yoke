@@ -139,22 +139,20 @@ OPERATIONAL_COMMANDS: list[dict] = [
         "topic": "core",
         "purpose": "Branch / commit / CI inspection (read-only)",
         "recipe": (
-            "git -C $(git rev-parse --show-toplevel) status --short --branch\n"
-            "git -C $(git rev-parse --show-toplevel) log --oneline -20\n"
-            "yoke github-actions check-ci "
-            "$(yoke projects github-binding status --project P "
-            "--field github_repo) "
-            "ci.yml --branch main --project P\n"
-            "git -C $(git rev-parse --show-toplevel)/.worktrees/PREFIX-N "
-            "status --porcelain\n"
-            "git -C $(git rev-parse --show-toplevel)/.worktrees/PREFIX-N "
-            "rev-parse HEAD\n"
+            "git rev-parse --show-toplevel\n"
+            'git -C "REPO_ROOT" status --short --branch\n'
+            'git -C "REPO_ROOT" log --oneline -20\n'
+            "yoke projects github-binding status --project P --field github_repo\n"
+            "yoke github-actions check-ci REPO ci.yml --branch main --project P\n"
+            'git -C "LANE_PATH" status --porcelain\n'
+            'git -C "LANE_PATH" rev-parse HEAD\n'
             "yoke github-actions failed-log <repo> <run-id> "
             "--project <project>"
         ),
         "notes": (
-            "Use -C with absolute path. Worktree paths under "
-            ".worktrees/<branch>. The CI advisory dispatches "
+            "Use the printed checkout root for REPO_ROOT and the binding's "
+            "github_repo for REPO. Use the absolute lane path for LANE_PATH. "
+            "The CI advisory dispatches "
             "github_actions.check_ci through gh_rest_transport; pass "
             "--head-sha for release authorization tied to one commit "
             "(bearer-token REST). After a failed CI gate the failed-log "
