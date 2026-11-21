@@ -28,10 +28,11 @@ from yoke_contracts.timestamps import parse_instant, utc_now
 from datetime import datetime
 from typing import Any, Optional
 
-from yoke_core.domain.deployment_close_out_failure_summary import (
-    close_out_failure_summary,
-)
 from yoke_core.domain.db_savepoint import SavepointLostError, savepoint
+from yoke_core.domain.deployment_qa_member_acceptance_message import (
+    item_qa_accepted_message,
+    owed_elsewhere_identities,
+)
 from yoke_core.domain.deployment_qa_run_acceptance import (
     item_qa_acceptance_blockers,
 )
@@ -45,7 +46,6 @@ from yoke_core.domain.member_close_out_blockers import (
     blocked_key,
     blocker_set_announced,
 )
-from yoke_core.domain.merge_queue_landing_notice import HOLDER
 from yoke_core.domain.release_wait_ownership import item_at_release_wait
 from yoke_core.domain.qa_plan_execution_schema import LIVE_PLAN_EXECUTION_SQL
 from yoke_core.domain.schema_common import _table_exists
@@ -74,42 +74,6 @@ def item_qa_accepted_idempotency_key(
     never refusal prose, so a blocker's status change wakes nobody.
     """
     return blocked_key(f"{item_qa_accepted_item_prefix(item_id)}{run_id}", blockers)
-
-
-def item_qa_accepted_message(
-    *, public_ref: str, run_id: str, route: str, close_out_failure: str = "", pending_credit: str = ""
-) -> str:
-    """Name what was accepted and how the release-wait owner should wait."""
-    lead = (
-        f"{public_ref}'s item-scoped QA gate is clear on deployment run "
-        f"{run_id}. The run may still be executing; the selected flow's "
-        "shared QA and approval gates decide whether sibling QA delays completion."
-    )
-    if close_out_failure:
-        lead += " " + close_out_failure_summary(public_ref, close_out_failure)
-    recovery = (
-        "Automatic close-out needs recovery before this item can finish. "
-        if close_out_failure
-        else "The completion flow will auto-close this item when its remaining delivery and QA obligations clear. "
-    )
-    if pending_credit:
-        recovery = (
-            f"{pending_credit} "
-            + (recovery if close_out_failure else "")
-            + "Automatic close-out retries when that credit arrives. "
-        )
-    if route == HOLDER:
-        return (
-            f"{lead} You hold its work claim and parked on this wait, so this "
-            f"is your re-entry. {recovery}Check the item; do not re-run merge solely for "
-            f"this acceptance. If the item is still at release wait, re-park "
-            f"with `yoke sessions touch "
-            f'--mode parked --reason "awaiting {public_ref} delivery"`.'
-        )
-    return (
-        f"{lead} Nobody holds its work claim. {recovery}Check `yoke deployment-runs get "
-        f"{run_id}` for run status and recovery."
-    )
 
 
 def _release_wait_member(conn: Any, item_id: int) -> dict[str, Any] | None:
@@ -275,8 +239,10 @@ def _close_or_notify(
     if route is None:
         return ""
     member, delivered_here = route
+    from yoke_core.domain.deployment_run_member_targeting import run_environment_name
     from yoke_core.domain.deployment_run_other_target_members import (
         close_after_other_target_acceptance,
+        owed_on_other_targets,
     )
     from yoke_core.domain.no_obligation_member_close_out import (
         close_out_satisfied_delivery_member,
@@ -301,6 +267,9 @@ def _close_or_notify(
         blockers = tuple(closed.blockers)
     if recorded_no_obligation(conn, int(item_id)) and not (close_out_failure or pending_credit):
         return ""
+    environment = run_environment_name(conn, str(run_id))
+    owed = owed_on_other_targets(conn, int(item_id), environment) if environment else ()
+    blockers = tuple(sorted({*blockers, *owed_elsewhere_identities(owed)}))
     prefix = item_qa_accepted_item_prefix(int(member["item_id"]))
     if blocker_set_announced(conn, prefix=prefix, blockers=blockers):
         return ""
@@ -317,6 +286,8 @@ def _close_or_notify(
                     route=route,
                     close_out_failure=close_out_failure,
                     pending_credit=pending_credit,
+                    environment=environment,
+                    owed=owed,
                 ),
                 idempotency_key=item_qa_accepted_idempotency_key(
                     int(member["item_id"]), str(run_id), blockers
@@ -338,7 +309,6 @@ __all__ = [
     "ITEM_QA_ACCEPTED_KEY_PREFIX",
     "item_qa_accepted_idempotency_key",
     "item_qa_accepted_item_prefix",
-    "item_qa_accepted_message",
     "notify_item_qa_accepted",
     "notify_items_qa_accepted",
 ]
