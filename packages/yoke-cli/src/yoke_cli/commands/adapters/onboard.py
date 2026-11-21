@@ -28,7 +28,7 @@ from yoke_cli.commands.adapters.onboard_build_report import (
 from yoke_cli.config import onboard as onboard_config
 from yoke_contracts import onboard_destinations as onboard_destinations
 from yoke_cli.config import github_user_tokens
-from yoke_cli.config import setup_agent_response
+from yoke_cli.config import setup_agent_response, setup_release_follow
 
 
 ONBOARD_USAGE = (
@@ -55,6 +55,13 @@ def onboard(args: List[str]) -> int:
     parsed = parse_or_usage_error(_parser(), args, ONBOARD_USAGE)
     if parsed is None:
         return 2
+    try:
+        return _onboard(parsed)
+    except setup_release_follow.ReleaseFollowed as followed:
+        return setup_release_follow.resume(followed, parsed)
+
+
+def _onboard(parsed: argparse.Namespace) -> int:
     from yoke_cli.config.onboard_native_preflight import check_setup
 
     if not check_setup(parsed):
@@ -178,10 +185,7 @@ def _run_flags_or_wizard(parsed: argparse.Namespace, *, force_wizard: bool) -> i
         return 2
     if should_prompt:
         if sum(1 for given in token_sources if given) > 1:
-            print(
-                "error: exactly one token source is required",
-                file=sys.stderr,
-            )
+            print("error: exactly one token source is required", file=sys.stderr)
             print(f"Usage: {ONBOARD_USAGE}", file=sys.stderr)
             return 2
         return _run_wizard(parsed, env_name, selected_mode, destination)
@@ -194,10 +198,7 @@ def _run_flags_or_wizard(parsed: argparse.Namespace, *, force_wizard: bool) -> i
         print(f"Usage: {ONBOARD_USAGE}", file=sys.stderr)
         return 2
     if not local_destination and sum(1 for given in token_sources if given) != 1:
-        print(
-            "error: exactly one token source is required",
-            file=sys.stderr,
-        )
+        print("error: exactly one token source is required", file=sys.stderr)
         print(f"Usage: {ONBOARD_USAGE}", file=sys.stderr)
         return 2
     token = parsed.token

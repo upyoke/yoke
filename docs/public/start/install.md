@@ -226,13 +226,20 @@ each upkeep cycle until setup releases the lock. Only the active connection's
 relay follows releases for the installed CLI. A local universe serves from the
 installed CLI itself.
 
-If a release changes before setup fetches the project layer, setup stops before
-registering the checkout or changing the layer. It names the exact
-`yoke update --version VERSION` command to run. Then use the resume command in
-the setup report to continue the same run. Other commands sent to the active
-connection warn when the installed CLI is older than the served release.
-`yoke update --version VERSION` pins that exact release, older or newer: it
-prints `Downgraded` when the pin is older than the installed CLI, and names
+If a release changes before setup fetches the project layer, setup follows the
+release itself before registering the checkout or changing the layer. Holding
+the setup lock, it installs exactly the release the server serves, then reruns
+as `yoke setup --resume RUN-ID` on the new CLI with the same mode flags. The
+setup report records `cli_followed_release` (`from`, `to`). Setup follows at
+most once per run. It stops with `setup_bundle_version_mismatch`, naming the
+exact `yoke update --version VERSION` command and the resume command, when it
+cannot follow: the served release is not a downloadable version, the install
+fails, the CLI is a source checkout, the token came from `--token-stdin`, the
+setup connection is not this machine's active connection, or the run already
+followed once. Other commands sent to the active connection warn when the
+installed CLI is older than the served release.
+`yoke update --version VERSION` installs that exact release, older or newer: it
+prints `Downgraded` when that release is older than the installed CLI, and names
 `pinned` (plus the channel's latest on a downgrade) instead of the channel.
 `--json` carries `direction` (`upgrade`, `downgrade` or `none`) and `pinned`.
 The installer builds each CLI release in its own uv tool directory and swaps

@@ -26,10 +26,14 @@ from yoke_cli.config.onboard_error_friendly import (
 from yoke_cli.config.onboard_wizard import WizardApplyError
 from yoke_cli.config import onboard_wizard_apply_prompts as prompts
 from yoke_cli.config.onboard_wizard_state import _View
+from yoke_cli.config.setup_release_follow import ReleaseFollowed
 
 
 class ApplyFlow:
     """Mixin: drive Apply off the event loop and render its result screens."""
+
+    # Set when Apply installed the served release; the shell's runner re-raises it.
+    release_followed: ReleaseFollowed | None = None
 
     # ── apply: live Applying screen driven by a worker thread ──────────
 
@@ -133,6 +137,11 @@ class ApplyFlow:
     def _finish_apply(self, report: Any, exc: BaseException | None) -> None:
         """Main-thread continuation after the apply worker finishes."""
         self._applying = False
+        if isinstance(exc, ReleaseFollowed):
+            # The shell closes (restoring the terminal); `yoke setup` resumes.
+            self.release_followed = exc
+            self.exit()
+            return
         if exc is not None:
             self._show_apply_failure(exc)
             return

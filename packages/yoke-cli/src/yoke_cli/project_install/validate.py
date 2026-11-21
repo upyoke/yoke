@@ -163,6 +163,37 @@ def validate_bundle_for_project(
         )
 
 
+class CliReleaseMismatch(ProjectInstallError):
+    """The bundle was built for a different CLI release than this one.
+
+    ``target`` is the served release as a downloadable version, or ``None``
+    when the served value names no release this CLI can install.
+    """
+
+    def __init__(self, running: str, served: str, target: str | None) -> None:
+        self.running = running
+        self.served = served
+        self.target = target
+        super().__init__(self.refusal())
+
+    def refusal(self, cause: str = "") -> str:
+        """The setup refusal, optionally naming why setup could not follow."""
+        if self.target is None:
+            recovery = (
+                "ask the server operator to serve a downloadable CLI release, "
+                "then resume setup"
+            )
+        else:
+            recovery = f"{update_recovery(self.target)}, then resume this setup run"
+        reason = (
+            f"setup_bundle_version_mismatch: this CLI is {self.running}, but the "
+            f"server supplied a {self.served!r} project layer."
+        )
+        if cause:
+            reason = f"{reason} Setup could not install that release itself: {cause}"
+        return compose_refusal(reason, recovery=f"{recovery}.")
+
+
 def validate_cli_release(bundle: Dict[str, Any]) -> None:
     """Refuse setup with a bundle built for a different installed CLI."""
     served = bundle.get("yoke_version")
@@ -175,16 +206,15 @@ def validate_cli_release(bundle: Dict[str, Any]) -> None:
     if not running or served == running:
         return
     try:
-        target = release_version(served)
+        target: str | None = release_version(served)
     except ValueError:
-        recovery = "ask the server operator to serve a downloadable CLI release, then resume setup"
-    else:
-        recovery = f"{update_recovery(target)}, then resume this setup run"
-    raise ProjectInstallError(compose_refusal(
-        f"setup_bundle_version_mismatch: this CLI is {running}, but the "
-        f"server supplied a {served!r} project layer.",
-        recovery=f"{recovery}.",
-    ))
+        target = None
+    raise CliReleaseMismatch(running, served, target)
 
 
-__all__ = ["_validate_bundle", "validate_bundle_for_project", "validate_cli_release"]
+__all__ = [
+    "CliReleaseMismatch",
+    "_validate_bundle",
+    "validate_bundle_for_project",
+    "validate_cli_release",
+]

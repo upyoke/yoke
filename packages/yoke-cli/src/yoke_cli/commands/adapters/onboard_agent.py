@@ -26,7 +26,7 @@ from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.config.onboard_input_validation import validate_prefix
 from yoke_contracts import onboard_destinations as onboard_destinations
 from yoke_cli.config import onboard_machine_setup
-from yoke_cli.config import onboard_wizard
+from yoke_cli.config import onboard_wizard, setup_release_follow
 from yoke_cli.config import setup_agent_answers as answers
 from yoke_cli.config import setup_agent_response as responses
 
@@ -196,6 +196,8 @@ def run(
             cli_answers=cli_answers,
         )
         code = setup.run()
+    except setup_release_follow.ReleaseFollowed:
+        raise  # `yoke setup` resumes this run on the installed release
     except KeyboardInterrupt:
         responses.emit(responses.interrupted())
         return responses.EXIT_CODES[responses.STATE_FAILED]

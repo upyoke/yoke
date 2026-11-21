@@ -111,6 +111,7 @@ class ApplyReportWriter:
             "credential_sources": _credential_sources(safe_kwargs),
             "input_snapshot": onboard_apply_snapshot.build(safe_kwargs),
             "created_commits": list((resume_payload or {}).get("created_commits", [])),
+            "cli_followed_release": (resume_payload or {}).get("cli_followed_release"),
             "steps": steps,
             "final_status": None,
             "failed_step": None,

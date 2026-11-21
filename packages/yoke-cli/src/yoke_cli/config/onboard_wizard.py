@@ -304,12 +304,11 @@ def run_wizard(
     # everywhere; that costs native drag-select of a URL or code, so ^y suspends
     # to selectable scrollback (on SSH, ^o shows the link there too).
     run_wizard_app(app)
+    if app.release_followed is not None:
+        raise app.release_followed
     if app.cancelled:
-        return WizardRunResult(
-            exit_code=130,
-            cancelled=True,
-            machine_github_saved=app.result.machine_github_saved,
-        )
+        saved = app.result.machine_github_saved
+        return WizardRunResult(exit_code=130, cancelled=True, machine_github_saved=saved)
     return WizardRunResult(
         exit_code=app.exit_code,
         cancelled=False,
