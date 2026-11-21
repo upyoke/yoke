@@ -11,7 +11,6 @@ from __future__ import annotations
 from yoke_contracts.github_app_tokens import github_configurations
 
 from collections.abc import Callable
-import json
 import os
 import subprocess
 import sys
@@ -19,9 +18,10 @@ from pathlib import Path
 
 from yoke_cli.config import machine_uninstall_detached, machine_uninstall_workers
 from yoke_contracts.machine_config import reader as machine_config
+from yoke_contracts.machine_config.paths import CONFIG_FILE_ENV
 from yoke_cli.config import machine_uninstall_projects, machine_uninstall_relays
 from yoke_cli.config import machine_uninstall_browsers
-from yoke_cli.config.machine_uninstall_inventory import Inventory, UninstallError
+from yoke_cli.config.machine_uninstall_inventory import Inventory, UninstallError, remove_home_except_bundle
 from yoke_cli.config.machine_config_file import remove_file
 from yoke_contracts import harness_settings_ledger, harness_settings_revert
 from yoke_contracts.machine_config.runtime import machine_id as configured_machine_id
@@ -50,7 +50,9 @@ UV_REMOVAL = (
 )
 
 
-def command(args: list[str], *, forward_stderr: bool = True) -> str:
+def command(
+    args: list[str], *, forward_stderr: bool = True, config: Path | None = None
+) -> str:
     """Run one CLI step; return its stdout, or raise its named failure.
 
     A failure always carries the child's stderr; ``forward_stderr=False``
@@ -63,8 +65,9 @@ def command(args: list[str], *, forward_stderr: bool = True) -> str:
         text=True,
         check=False,
         timeout=COMMAND_TIMEOUT_SECONDS,
+        env={**os.environ, CONFIG_FILE_ENV: str(config)} if config is not None else None,
     )
-    warnings = _project_warnings(args, result.stdout)
+    warnings = machine_uninstall_projects.warnings(args, result.stdout)
     if result.returncode:
         detail = redact_api_tokens(
             "; ".join(warnings) or (result.stderr or result.stdout).strip()[-2048:]
@@ -83,19 +86,11 @@ def command(args: list[str], *, forward_stderr: bool = True) -> str:
     if args[:2] == ["self-host", "teardown"]:
         print(redact_api_tokens(result.stdout.strip()))
     for warning in warnings:
-        print(f"project uninstall: {redact_api_tokens(warning)}")
+        print(
+            f"project uninstall: {redact_api_tokens(warning)}",
+            file=sys.stderr if config is not None else sys.stdout,
+        )
     return result.stdout
-
-
-def _project_warnings(args: list[str], stdout: str) -> list[str]:
-    """Read the named reasons from a project uninstall JSON report."""
-    if args[:2] != ["project", "uninstall"]:
-        return []
-    try:
-        report = json.loads(stdout)
-    except ValueError:
-        return []
-    return list(report.get("warnings") or []) if isinstance(report, dict) else []
 
 
 def _remove_machine_hooks(emit: Callable[[str], None]) -> None:
@@ -162,7 +157,7 @@ def remove(
         )
         return 1
     # A project step that would refuse stops everything before anything changes.
-    refusals = machine_uninstall_projects.preflight(inventory, selected, command)
+    refusals = machine_uninstall_projects.preflight(selected, inventory.config, command)
     if refusals:
         counts["failed"] += len(refusals)
         for line in refusals:
@@ -192,7 +187,7 @@ def remove(
             attempt(
                 f"project {checkout}",
                 lambda checkout=checkout: command(
-                    machine_uninstall_projects.project_args(checkout, inventory)
+                    machine_uninstall_projects.project_args(checkout, inventory.config)
                 ),
             )
         else:
@@ -288,7 +283,7 @@ def remove(
                 finish.cancel()
                 skipped("CLI", "external config removal failed")
             else:
-                attempt("machine home", lambda: _remove_home(inventory.home))
+                attempt("machine home", lambda: _remove_home(inventory))
                 if counts["failed"]:
                     finish.cancel()
                     skipped("CLI", "machine home removal failed")
@@ -343,6 +338,9 @@ def _github_skip_reason(config: Path) -> str | None:
     return None
 
 
-def _remove_home(home: Path) -> None:
-    if home.exists():
+def _remove_home(inventory: Inventory) -> None:
+    home, bundle = inventory.home, inventory.keep_bundle
+    if bundle is not None and bundle.is_dir() and bundle.is_relative_to(home.resolve()):
+        remove_home_except_bundle(home, bundle)
+    elif home.exists():
         remove_tree(home)

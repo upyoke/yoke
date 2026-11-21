@@ -37,13 +37,14 @@ def self_host_teardown(args: List[str]) -> int:
         prog="yoke self-host teardown",
         description=(
             "Take a self-host bundle off this machine. Always stops and "
-            "removes the stack; everything further is opt-in and named for "
-            "what it destroys. Without --destroy-universe the database "
+            "removes the stack. Without --destroy-universe the database "
             "volume survives, so `yoke self-host init --dir PATH "
             "--protect-existing --start` brings the same universe back. Every "
             "machine connection that reaches this bundle's server is retired "
-            "together unless --keep-connection: one at its published URL, or "
-            "one behind a TLS proxy whose own token proves an identity here. "
+            "together unless --keep-connection, after removing its relay and "
+            "registered project layers. If no connection remains, teardown runs "
+            "the full machine uninstall, including CLI removal. A connection "
+            "matches at the published URL or when its token proves its identity here. "
             "One whose probe fails is kept and named with its removal command."
         ),
     )
@@ -85,7 +86,7 @@ def self_host_teardown(args: List[str]) -> int:
     connection_choice.add_argument(
         "--keep-connection",
         action="store_true",
-        help="Leave every machine connection for this server in place.",
+        help="Keep connections, relays, project layers, and the CLI.",
     )
     connection_choice.add_argument(
         "--activate",
@@ -174,6 +175,8 @@ def _print_teardown_summary(report: Dict[str, object], *, kept: bool) -> None:
         ("bundle files removed", "bundle_files_removed"),
         ("bundle files kept (not written by Yoke)", "bundle_files_retained"),
         ("machine lock files removed", "machine_locks_removed"),
+        ("relays removed", "relays_removed"),
+        ("projects uninstalled", "projects_uninstalled"),
     ):
         values = report.get(key) or []
         if values:
@@ -199,6 +202,8 @@ def _print_teardown_summary(report: Dict[str, object], *, kept: bool) -> None:
             f"no identity at this bundle: {left.get('reason')}. If it reached "
             f"this bundle, run `yoke connection remove {env}`"
         )
+    for line in report.get("machine_uninstall") or []:
+        print(line)
 
 
 TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {

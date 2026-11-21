@@ -11,6 +11,7 @@ import pytest
 from runtime.api.cli.self_host_teardown_test_support import (  # noqa: F401
     docker,
     identity_probe,
+    installation_commands,
     machine_home,
     payload as _payload,
     seed_connection as _seed_connection,
@@ -25,7 +26,7 @@ from yoke_cli.config import (
 )
 from yoke_cli.self_host import bundle, first_boot_token, teardown
 
-pytestmark = pytest.mark.usefixtures("identity_probe")
+pytestmark = pytest.mark.usefixtures("identity_probe", "installation_commands")
 
 
 @pytest.mark.posix_only(reason="self-host server runs on Linux or WSL2")
@@ -160,7 +161,7 @@ def test_teardown_retires_the_connection_pointing_at_this_bundle(
     assert report["connection"]["removed_envs"] == ["self-host"]
     payload = _payload(machine_home)
     assert payload["connections"] == {}
-    # Retiring the last alias leaves the machine unconfigured.
+    # Config is unconfigured before the full uninstall handoff.
     assert payload.get("active_env", "") == ""
 
 

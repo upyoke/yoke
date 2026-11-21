@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from collections.abc import Callable
+from dataclasses import replace
+from pathlib import Path
 
 from yoke_cli.config.machine_uninstall_inventory import (
     Inventory,
@@ -21,8 +22,9 @@ def run(
     non_interactive: bool,
     emit: Callable[[str], None] = print,
     ask: Callable[[str], str] = input,
+    inspected: Inventory | None = None,
 ) -> int:
-    inventory = inspect()
+    inventory = inspected if inspected is not None else inspect()
 
     def choose(prompt: str) -> str:
         try:
@@ -113,3 +115,23 @@ def select_projects(value: str, inventory: Inventory) -> tuple[Path, ...]:
         if checkout not in selected:
             selected.append(checkout)
     return tuple(selected)
+
+
+def after_self_host_teardown(
+    *, config: Path, keep_bundle: Path, emit: Callable[[str], None]
+) -> int:
+    """Reuse full uninstall after Compose is down, keeping the retained bundle."""
+    inventory = replace(inspect(config), keep_bundle=keep_bundle)
+    if inventory.home.resolve() == keep_bundle:
+        raise UninstallError(
+            "uninstall_bundle_is_machine_home: the machine home is also the "
+            "self-host bundle. Move the retained bundle files into their own "
+            "directory, then retry teardown with --dir PATH."
+        )
+    return run(
+        backup=None,
+        projects="none",
+        non_interactive=True,
+        emit=emit,
+        inspected=inventory,
+    )

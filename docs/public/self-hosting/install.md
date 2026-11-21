@@ -230,35 +230,39 @@ silently repoint an unrelated remote bundle.
 
 ## Take it back off
 
-For full machine removal, use [`yoke uninstall`](../start/uninstall.md#uninstall). `yoke self-host teardown` removes the server install. It always stops and removes the
-stack; everything further is opt-in and named for what it destroys. Run it
-from anywhere; it defaults to the machine-home bundle. Name another bundle
-with `--dir PATH`:
+`yoke self-host teardown` removes the self-host stack and its machine-side
+installation. Run it from anywhere. It defaults to the machine-home bundle.
+Name another bundle with `--dir PATH`:
 
 ```bash
-yoke self-host teardown                       # stop the stack; keep the data
+yoke self-host teardown                       # remove the stack, keep its data
 yoke self-host teardown --remove-images \
-  --remove-bundle --destroy-universe          # remove everything, prompts first
+  --remove-bundle --destroy-universe          # also remove bundle, images, and data
 ```
 
-Without `--destroy-universe` the `pgdata` volume survives, so
-`yoke self-host init --protect-existing --start` brings the same universe back. With it, the volume and
-every item, event, and credential in it are gone; the command asks for consent
-unless you pass `--yes`. `--remove-images` removes the images this bundle uses
-and reports any another container still needs. `--remove-bundle` deletes the
-files Yoke wrote, `secrets/` and the admin token file included, and reports
-anything else in the directory rather than deleting it.
+Teardown finds every machine connection that reaches the bundle, using its
+published URL or verifying a proxy connection's token against the local
+server. It checks every checkout registered to those connections first. A
+refusal, such as a dirty lane, stops teardown before it changes anything.
+Teardown then uninstalls the connections' relays and project layers before it
+retires their connections and unshared token files and stops Compose. If
+cleanup fails, repair the named step and retry while the server and connection
+are still available. A connection that cannot be verified is listed under
+`connection left` with its removal command.
 
-Teardown atomically retires every machine connection that reaches this
-bundle, at its published URL or through a TLS proxy whose token it accepts,
-with each unshared token file, before stopping it. One it cannot verify is
-kept and listed under `connection left` with its removal command.
-`--keep-connection` keeps all of them; `--activate ENV` names a connection for
-another server to take over. Idle lock files retirement creates are removed.
-`yoke connection remove ENV [--activate ENV]` retires one connection on its
-own, dropping its project mappings and GitHub authorization; it keeps and
-reports a token file that lives outside `~/.yoke/secrets`. Removing your last
-connection leaves the machine unconfigured, which `yoke status` then reports.
+`--activate ENV` selects the connection to use when retiring the active one.
+Any remaining universe connection, including an embedded local universe,
+keeps the CLI installed. When the last connection goes away, teardown runs
+the full [machine uninstall](../start/uninstall.md#uninstall), including
+machine-wide hooks and CLI removal. Self-host init requires the CLI to be
+installed first. `--keep-connection` skips all machine-side removal.
+
+The `pgdata` volume survives by default. With the bundle and CLI available,
+`yoke self-host init --protect-existing --start` brings back the same universe.
+`--destroy-universe` deletes the database volume and prompts for consent unless
+you pass `--yes`. `--remove-images` removes the images this bundle uses and
+reports any still in use. `--remove-bundle` deletes the files Yoke wrote,
+including the bundle's secrets and admin token, and keeps other files.
 
 ## You own the operations
 

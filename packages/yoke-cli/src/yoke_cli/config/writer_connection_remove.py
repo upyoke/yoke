@@ -86,7 +86,7 @@ def remove_connections(
         )
     connections = payload.get("connections")
     connections = connections if isinstance(connections, dict) else {}
-    unconfigured = _resolve_active_authority(
+    unconfigured = resolve_active_authority(
         payload,
         envs=set(selected),
         activate=activate,
@@ -221,7 +221,7 @@ def _remove_github_slots(
     return refs
 
 
-def _resolve_active_authority(
+def resolve_active_authority(
     payload: dict[str, Any],
     *,
     envs: set[str],
