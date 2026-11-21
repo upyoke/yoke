@@ -15,10 +15,10 @@ for package_src in (
 ):
     sys.path.insert(0, str(package_src))
 
-from yoke_cli.main import main as yoke_main
-from yoke_cli.project_install import source_dev
-from yoke_cli.project_install.files import MODE_COPY, MODE_SOURCE_LINK
-from yoke_contracts.project_contract.install_error import ProjectInstallError
+from yoke_cli.main import main as yoke_main  # noqa: E402
+from yoke_cli.project_install import source_dev  # noqa: E402
+from yoke_cli.project_install.files import MODE_COPY, MODE_SOURCE_LINK  # noqa: E402
+from yoke_contracts.project_contract.install_error import ProjectInstallError  # noqa: E402
 
 
 def test_dev_setup_dry_run_detects_source_checkout_without_mutating(

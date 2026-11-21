@@ -65,7 +65,7 @@ def test_long_tmpdir_still_binds_a_short_evaluator_socket(monkeypatch, tmp_path)
 def test_unbindable_socket_path_refuses_with_its_recovery(monkeypatch, tmp_path):
     long_home = tmp_path / ("nested-machine-home-" * 6)
     monkeypatch.setattr(machine_config, "cache_dir", lambda: long_home)
-    monkeypatch.setattr(resident_paths, "shortest_temp_directory", lambda: None)
+    monkeypatch.setattr(hook_resident_paths, "shortest_temp_directory", lambda: None)
 
     with pytest.raises(
         lifecycle.ResidentLifecycleError,
