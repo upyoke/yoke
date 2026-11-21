@@ -5,7 +5,6 @@ from __future__ import annotations
 from contextlib import ExitStack
 import os
 import re
-import shlex
 import shutil
 import subprocess
 import sys
@@ -20,15 +19,6 @@ CLIENT_RECOVERY = "Install FreeRDP's sdl-freerdp on the executing workstation (m
 # FreeRDP SDL reports CONN_FAILED on local quit when its event-handle check
 # observes cancellation. Never accept that code without the client evidence.
 LOCAL_QUIT_CODES = {131, 145}
-# Logical window bounds; Retina uses two framebuffer pixels per logical pixel.
-INITIAL_WINDOW_BOUNDS = (1280, 800)
-MAC_WINDOW_SCALE = 2
-
-
-def _window_geometry(width, height):
-    factor = min(1, INITIAL_WINDOW_BOUNDS[0] / width, INITIAL_WINDOW_BOUNDS[1] / height)
-    density = MAC_WINDOW_SCALE if sys.platform == "darwin" else 1
-    return round(width * factor * density), round(height * factor * density)
 
 
 def _capture_output(source, destination, password, evidence):
@@ -126,47 +116,15 @@ class DesktopView:
         self._forward_closed = False
 
     @classmethod
-    def open(cls, project, test_machine, settings, password, receipt, run):
-        """View the registered XFCE display at its measured geometry."""
-        _client_executable()
+    def open(cls, project, test_machine, settings, password, receipt):
+        """Fit the measured XFCE desktop to the local screen."""
         environment = receipt["environment"]
-        probe = run(
-            shlex.join(
-                ["env", *[f"{k}={v}" for k, v in environment.items()], "xwininfo", "-root"]
-            ),
-            timeout=20,
-        )
-        values = [
-            re.search(rf"^\s*{key}:\s*(\d+)\s*$", probe.stdout, re.MULTILINE)
-            for key in ("Width", "Height", "Depth")
-        ]
-        if probe.returncode or not all(values):
-            raise DesktopAccessError(
-                "desktop_view_geometry_unavailable: repair xwininfo on the registered XFCE display and retry"
-            )
-        width, height, depth = (int(value[1]) for value in values)
-        if (
-            not 64 <= width <= 16384
-            or not 64 <= height <= 16384
-            or depth not in {16, 24, 32}
-        ):
-            raise DesktopAccessError(
-                "desktop_view_geometry_invalid: inspect the registered XFCE display before retrying"
-            )
-        window_width, window_height = _window_geometry(width, height)
-        # SDL retains /size as local window dimensions and negotiates the
-        # smart-sizing dimensions remotely. Keep the existing XFCE size.
-        display_options = [
-            f"/size:{window_width}x{window_height}",
-            f"/smart-sizing:{width}x{height}",
-            f"/bpp:{depth}",
-        ]
-        session = {
-            "desktop_session": receipt["desktop_session"],
-            "display": environment["DISPLAY"],
-        }
+        resolution = receipt["resolution"]
         return cls.start(
-            project, test_machine, settings, password, display_options, session
+            project, test_machine, settings, password,
+            ["/f", f"/smart-sizing:{resolution}", f"/bpp:{receipt['depth']}"],
+            {"desktop_session": receipt["desktop_session"],
+             "display": environment["DISPLAY"], "resolution": resolution},
         )
 
     @classmethod
@@ -222,6 +180,7 @@ class DesktopView:
             ) from None
         log = os.fdopen(descriptor, "w", encoding="utf-8")
         print(f"desktop_view_log: {log_path}", file=sys.stderr, flush=True)
+        print(f"Desktop resolution: {session['resolution']}", file=sys.stderr, flush=True)
         process = None
         reader = None
         evidence = {}
@@ -323,9 +282,9 @@ class DesktopView:
         }
 
 
-def view_desktop(project, test_machine, settings, password, receipt, run):
+def view_desktop(project, test_machine, settings, password, receipt):
     return watch_view(
-        DesktopView.open(project, test_machine, settings, password, receipt, run)
+        DesktopView.open(project, test_machine, settings, password, receipt)
     )
 
 

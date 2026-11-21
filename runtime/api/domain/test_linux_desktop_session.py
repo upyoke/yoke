@@ -36,12 +36,14 @@ def test_start_and_reuse_keep_password_only_on_stdin(host, monkeypatch, display)
     assert started == {
         "environment": session["environment"],
         "desktop_session": "started",
+        "resolution": "1920x1080",
+        "depth": 24,
     }
     assert state.ensure_desktop(None)["desktop_session"] == "reused"
     assert len(calls) == 1
     argv, kwargs = calls[0]
     assert argv[:7] == ["xrdp-sesrun", "-s", "::1", "-t", "Xorg", "-F", "0"]
-    assert argv[7:9] == ["-S", "env GDK_BACKEND=x11 /etc/xrdp/startwm.sh"]
+    assert argv[7:11] == ["-g", "1920x1080", "-S", "env GDK_BACKEND=x11 /etc/xrdp/startwm.sh"]
     assert kwargs["input"] == PASSWORD + "\n"
     assert PASSWORD not in str(argv) + str(started) + host.read_text()
     assert json.loads(host.read_text())["session"] == session
@@ -105,7 +107,7 @@ def test_gui_command_reports_startup_and_transmits_secret_only_as_input():
 
     def run(command, **kw):
         calls.append((command, kw))
-        receipt = {"environment": SESSION["environment"], "desktop_session": "started"}
+        receipt = {"environment": SESSION["environment"], "desktop_session": "started", "resolution": "1920x1080", "depth": 24}
         tokens = shlex.split(command)
         if len(tokens) == 7:
             directory = json.loads(tokens[-4])
@@ -243,7 +245,7 @@ def test_linux_desktop_access_runs_shared_startup_before_opening_route(
         assert control.desktop_password == PASSWORD
         control._run("remote-probe", input_text=PASSWORD + "\n")
         calls.append("ensure")
-        return {"desktop_session": "started"}
+        return {"desktop_session": "started", "resolution": "1920x1080"}
 
     monkeypatch.setattr(session, "ensure_desktop", ensure)
 

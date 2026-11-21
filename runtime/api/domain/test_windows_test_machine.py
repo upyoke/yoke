@@ -311,13 +311,17 @@ def test_interactive_windows_console_probe_requires_receipt(monkeypatch, wsl, re
         assert "Get-Process explorer" in script
         assert "InputDesktopReady()" in script
         assert ("wsl.exe" in script) is wsl
-        return subprocess.CompletedProcess([], 0, console.RECEIPT if ready else "", "")
+        resolution = "" if wsl else "1920x1080\n"
+        return subprocess.CompletedProcess([], 0, resolution + console.RECEIPT if ready else "", "")
 
     monkeypatch.setattr(console, "desktop_script", task)
     result = console.probe_console(control, wsl=wsl)
     assert result.ok is ready
     if ready:
-        assert result.evidence == {"desktop_session": "windows_console", "wsl_started": wsl}
+        assert result.evidence == {
+            "desktop_session": "windows_console", "wsl_started": wsl,
+            **({} if wsl else {"resolution": "1920x1080"}),
+        }
     else:
         assert result.error_code == "windows_console_not_ready"
         assert "Reboot" in result.evidence["recovery"]

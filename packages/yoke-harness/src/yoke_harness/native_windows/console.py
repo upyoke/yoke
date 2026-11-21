@@ -1,7 +1,9 @@
 """Prove the dedicated lab account owns an unlocked physical console session."""
 
 from yoke_contracts.test_machine_types import HostActionResult
+from yoke_harness.desktop_geometry import is_desktop_resolution
 from yoke_harness.native_windows.desktop import desktop_script
+from yoke_harness.native_windows.display_geometry import DEFINITION
 
 RECOVERY = (
     "Reboot the lab to start autologon, or rerun Windows desktop provisioning. "
@@ -54,17 +56,25 @@ if ($LASTEXITCODE -ne 0) {
 RECEIPT = "YOKE_WINDOWS_CONSOLE_READY"
 
 
-def probe_console(control, *, wsl=False):
-    script = PROBE + (WSL_PROBE if wsl else "") + f"\nWrite-Output '{RECEIPT}'"
+def probe_console(control, *, wsl=False, set_resolution=False):
+    method = "Ensure" if set_resolution else "Observe"
+    geometry = DEFINITION + f"Write-Output ([YokeDesktopGeometry]::{method}())\n"
+    script = PROBE + (WSL_PROBE if wsl else geometry) + f"\nWrite-Output '{RECEIPT}'"
     try:
         completed = desktop_script(control, script, timeout=30)
     except RuntimeError as exc:
         detail = str(exc)
     else:
-        if completed.returncode == 0 and RECEIPT in completed.stdout.splitlines():
-            return HostActionResult(
-                True, {"desktop_session": "windows_console", "wsl_started": wsl}
-            )
+        lines = completed.stdout.strip().splitlines()
+        resolution = lines[-2] if len(lines) >= 2 else None
+        if (
+            completed.returncode == 0 and lines[-1:] == [RECEIPT]
+            and (wsl or is_desktop_resolution(resolution))
+        ):
+            evidence = {"desktop_session": "windows_console", "wsl_started": wsl}
+            if not wsl:
+                evidence["resolution"] = resolution
+            return HostActionResult(True, evidence)
         detail = completed.stderr.strip() or "Interactive task did not return its console receipt."
     return HostActionResult(
         False,

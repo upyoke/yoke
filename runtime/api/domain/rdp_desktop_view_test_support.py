@@ -34,7 +34,7 @@ SETTINGS = {
     "desktop_user": "fixture",
 }
 
-RECEIPT = {"desktop_session": "reused", "environment": {"DISPLAY": ":10.0"}}
+RECEIPT = {"desktop_session": "reused", "environment": {"DISPLAY": ":10.0"}, "resolution": "1920x1080", "depth": 24}
 
 
 class Client:
@@ -62,10 +62,3 @@ class Client:
 
     def terminate(self):
         self.terminated = True
-
-
-def geometry(command, **kw):
-    assert "DISPLAY=:10.0" in command and "xwininfo -root" in command
-    return subprocess.CompletedProcess(
-        command, 0, "  Width: 1280\n  Height: 1024\n  Depth: 24\n", ""
-    )

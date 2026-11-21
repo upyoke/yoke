@@ -41,9 +41,13 @@ class Workstation:
 
 
 @pytest.fixture()
-def mac(monkeypatch):
+def mac(monkeypatch, tmp_path):
     events = []
     station = Workstation()
+    key = tmp_path / "key"
+    key.touch()
+    monkeypatch.setattr(sharing, "test_machine_secret_path", lambda *_: key)
+    monkeypatch.setattr(sharing, "ensure_mac_desktop", lambda run: "1920x1080")
     monkeypatch.setattr(sharing.sys, "platform", "darwin")
     monkeypatch.setattr(sharing.subprocess, "run", station.run)
 
@@ -69,6 +73,7 @@ def test_open_keeps_password_out_of_argv_and_url(mac, capsys):
         assert all(PASSWORD not in repr(argv) for argv, _ in station.calls)
         err = capsys.readouterr().err
         assert "Paste the desktop password from the clipboard" in err
+        assert "at 1920x1080" in err
         assert "Clipboard-history apps" in err
         assert PASSWORD not in err
         assert events == ["forward-open"]
@@ -127,6 +132,7 @@ def test_enter_closes_the_route(mac, monkeypatch):
         "address": "vnc://oxpecker@127.0.0.1:5555",
         "user": "oxpecker",
         "viewer": "closed",
+        "resolution": "1920x1080",
     }
     assert events[-1] == "forward-close"
     assert station.clipboard == ""

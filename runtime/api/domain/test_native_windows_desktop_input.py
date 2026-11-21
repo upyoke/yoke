@@ -72,11 +72,11 @@ def _host(monkeypatch, row=None, *, code=0, stdout=None, stderr=""):
 
 
 def test_typed_text_is_reported_only_as_its_length(monkeypatch):
-    scripts = _host(monkeypatch, {"ok": True, "result": {"typed_characters": 5}})
+    scripts = _host(monkeypatch, {"ok": True, "resolution": "1920x1080", "result": {"typed_characters": 5}})
     result = desktop_input.drive_desktop(
         object(), {"action": "type", "title": "Claude", "text": "hello"}
     )
-    assert result.ok and result.evidence == {"action": "type", "typed_characters": 5}
+    assert result.ok and result.evidence == {"action": "type", "resolution": "1920x1080", "typed_characters": 5}
     assert "hello" not in json.dumps(result.evidence)
     assert "hello" not in scripts[0]
 
@@ -147,8 +147,8 @@ def test_compile_failure_and_timeout_are_named(monkeypatch):
 
 
 def test_request_rides_base64_in_the_host_script(monkeypatch):
-    scripts = _host(monkeypatch, {"ok": True, "result": {"windows": []}})
+    scripts = _host(monkeypatch, {"ok": True, "resolution": "1920x1080", "result": {"windows": []}})
     result = desktop_input.drive_desktop(object(), {"action": "windows"})
-    assert result.ok and result.evidence == {"action": "windows", "windows": []}
+    assert result.ok and result.evidence == {"action": "windows", "resolution": "1920x1080", "windows": []}
     assert "Add-Type -ReferencedAssemblies UIAutomationClient" in scripts[0]
     assert "public static class QaDesktop" in scripts[0]

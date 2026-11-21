@@ -50,6 +50,7 @@ from yoke_harness.ssh_mac_terminal_bridge_check import (
     verify_terminal_app_control,
 )
 from yoke_contracts.test_machine_types import HostActionResult
+from yoke_harness.mac_desktop_geometry import desktop_argv
 from yoke_harness.posix_mission_operations import PosixMissionOperations
 from yoke_harness.ssh_test_machine_transport import SSH_OPTIONS, SshTestMachineTransport
 
@@ -281,7 +282,7 @@ class SshMacTransport(PosixMissionOperations, SshTestMachineTransport):
         if required_session_context == GUI_SESSION_CONTEXT:
             return run_terminal_app_command(
                 self._run,
-                argv=normalized,
+                argv=desktop_argv(normalized),
                 timeout=timeout,
             )
         if required_session_context is not None:

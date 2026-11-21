@@ -275,18 +275,14 @@ password or logs into the desktop. No secret enters a file, argv or output;
 SSH stays key-only and PAM stays enabled. `--verify` checks readiness only and
 refuses the password flag. Provisioning itself reports `desktop_session=not_started`.
 
-The serving build's registered Linux screenshot, GUI-session execution and
-desktop-access operations start or reuse the dedicated XFCE session. Their
-receipt states `desktop_session=started|reused`. Exactly one existing human
-XFCE desktop may be reused; multiple desktops refuse as ambiguous. The first
-capture waits for a valid nonblank frame while retaining `started` evidence;
-an already running desktop with a blank capture still refuses.
-The unattended route uses `xrdp-sesrun -s ::1 -t Xorg -F 0 TESTUSER`, feeding
-the registered password on stdin. On a host whose sesman listens on
-`[::1]:3350`, omitting `-s ::1` can report a connect error. Do not run a
-password-bearing workaround. If the operation refuses sesrun/startup, repair
-its named prerequisite and rerun. Human RDP login is used only by cases that
-explicitly test human login.
+Screenshot, GUI commands and desktop access start or reuse one dedicated XFCE
+session. Multiple sessions refuse as ambiguous. Capture waits for a nonblank
+frame and reports whether the desktop started or was reused.
+
+Unattended startup uses `xrdp-sesrun -s ::1 -t Xorg -F 0 -g 1920x1080 TESTUSER`
+with the fixture password on stdin. Keep `-s ::1` for sesman on `[::1]:3350`.
+If startup refuses, repair the named prerequisite and retry. Use human RDP
+login only for cases that explicitly test it.
 
 For XTEST input on the actual leased display, use xdotool without `--window`;
 delivery through the focused window needs several seconds before being judged

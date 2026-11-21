@@ -45,8 +45,15 @@ def test_os_gui_route_preserves_argv_and_uses_existing_helper(
         )
         is sentinel
     )
-    expected = argv if kind == "macos" else ["/bin/bash", "-lc", shlex.join(argv)]
-    assert calls[0][1] == {"argv": expected, "timeout": 1920}
+    [(_, call)] = calls
+    assert call["timeout"] == 1920
+    if kind == "macos":
+        shell, flag, script, label, *forwarded = call["argv"]
+        assert (shell, flag, label) == ("/bin/sh", "-c", "yoke-desktop")
+        assert "CGCompleteDisplayConfiguration" in script
+        assert forwarded == argv
+    else:
+        assert call["argv"] == ["/bin/bash", "-lc", shlex.join(argv)]
 
 
 def test_ssh_agent_is_required(monkeypatch, tmp_path):
@@ -127,7 +134,10 @@ def test_wsl_desktop_helper_goes_over_stdin_not_the_command_line(
     from yoke_harness import linux_desktop_session
 
     seen = []
-    receipt = {"desktop_session": "reused", "environment": {"DISPLAY": ":10"}}
+    receipt = {
+        "desktop_session": "reused", "environment": {"DISPLAY": ":10"},
+        "resolution": "1920x1080", "depth": 24,
+    }
     monkeypatch.setattr(
         subprocess,
         "run",

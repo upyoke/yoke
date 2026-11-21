@@ -190,7 +190,9 @@ $version=Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion'
         if required_session_context == "gui":
             from yoke_harness.native_windows.desktop import desktop_script
 
-            return desktop_script(self, script, timeout=timeout)
+            from yoke_harness.native_windows.display_geometry import ENSURE
+
+            return desktop_script(self, "$ErrorActionPreference='Stop'\n" + ENSURE + script, timeout=timeout)
         if required_session_context is not None:
             raise ValueError("unknown Windows session context")
         return self._run(script, timeout=timeout)
