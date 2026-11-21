@@ -261,8 +261,8 @@ A failed deployment run keeps open requirements and in-flight executions,
 including failed cases, until retry or takeover by a later containing release
 on the same flow and target. Requirement and execution IDs, history and host
 custody survive. A rebound target keeps its immutable `deployment.starting_run_id`.
-Cancellation aborts live executions and retracts unsettled requirements in the
-same transaction; passing proof and standing plans remain. An execution
+Cancellation aborts the live executions still on the run and retracts its
+unsettled requirements in the same transaction; passing proof and standing plans remain. An execution
 already under a recorded abort keeps its host until cleanup proof settles it.
 
 A takeover moves QA ownership without aborting or retracting it. Ordinary

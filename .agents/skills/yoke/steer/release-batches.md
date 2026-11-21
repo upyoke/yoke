@@ -19,6 +19,8 @@ commit; earlier proof does not cover it. For tip binding, see
 `.yoke/docs/deployments/cutting-runs.md#create-a-release-set`.
 
 Cut while member QA runs; keep the execution ID (`.yoke/docs/deployments/takeover.md`).
+Open walks carry intact to the successor; never hold a release for an open walk.
+The create receipt's `carried_execution_ids` names each carried execution.
 
 CONTROL_PLANE is the project-owning HTTPS connection (`--env`, or checkout routing);
 DB env refuses run creation with `use_https_env`. Both targets use the selected

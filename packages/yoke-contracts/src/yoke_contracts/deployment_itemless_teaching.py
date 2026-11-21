@@ -12,6 +12,15 @@ plane's own serving API requires control-plane operator authority.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
+#: A takeover moves each open walk to the successor before it ends the older
+#: run; the walk keeps its execution ID, state and owner.
+OPEN_WALKS_CARRY = (
+    "Open walks carry intact to the successor; never hold a release for an "
+    "open walk."
+)
+
 FINALIZATION_PENDING_PREFIX = "deploy succeeded, finalization pending"
 
 INTERRUPTED_RUN_RECOVERY = """\
@@ -165,6 +174,8 @@ CREATE_DESCRIPTION = (
     "failed, or waiting only on item QA; a deploying or settling predecessor "
     "stays live and is named in the receipt "
     "(deployments/takeover.md). "
+    f"{OPEN_WALKS_CARRY} The receipt's carried_execution_ids lists each "
+    "open execution the takeover moved; its owner keeps walking it. "
     "Whether a memberless item-QA run owes a "
     "delivery is asked by validate-composition and before execution, not "
     "here, so add-item can attach to an itemless run. "
@@ -209,11 +220,13 @@ def replayed_run_note(run_id: str, key: str) -> str:
 BASIS_RECORDED_KEY = "recorded_key"
 
 
-def takeover_note(run_id: str, superseded: str) -> str:
+def takeover_note(run_id: str, superseded: str, carried: Sequence[str] = ()) -> str:
     """Post-create stderr line when the create took over an older run."""
+    executions = ", ".join(carried) if carried else "none"
     return (
         f"note: {run_id} took over {superseded}, which was waiting only on "
         f"item QA on this target; its waiting members now ride {run_id}. "
+        f"{OPEN_WALKS_CARRY} Carried open executions: {executions}. "
         f"`yoke deployment-runs get {superseded}` shows what stayed there."
     )
 
@@ -232,6 +245,7 @@ __all__ = [
     "CREATE_RETRY_GUIDANCE",
     "FINALIZATION_PENDING_PREFIX",
     "INTERRUPTED_RUN_RECOVERY",
+    "OPEN_WALKS_CARRY",
     "ITEMLESS_RELEASE_RECIPE",
     "RESOLVE_TARGET_DESCRIPTION",
     "SCOPED_QA_WAIT_GUIDANCE",

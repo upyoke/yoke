@@ -47,8 +47,11 @@ Item-bound delivery starts from `/yoke usher PREFIX-N` or `yoke deployment-runs 
 
 Failed runs retain open QA and live executions, including red and timing
 cases, for retry or same-flow, same-target takeover. Failure releases target
-occupancy. Cancellation still aborts live executions and retracts unsettled
-requirements; cooperative aborts keep custody until cleanup. Passing proof,
+occupancy. Cancellation aborts the live executions still on the run and
+retracts its unsettled requirements; cooperative aborts keep custody until
+cleanup. A takeover moves live executions to the successor before it cancels
+the older run, so it aborts none of them: open walks carry intact to the
+successor; never hold a release for an open walk. Passing proof,
 standing plans and review bundles remain. Verdict writes link execution and
 artifacts, then re-evaluate stage acceptance. Cancelled runs cannot restart.
 

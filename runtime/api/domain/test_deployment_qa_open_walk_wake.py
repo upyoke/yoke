@@ -105,6 +105,33 @@ def test_open_walk_owner_gets_no_takeover_notice(test_db, monkeypatch, state):
     assert len(_bodies(test_db, f"deployment-qa-moved:{NEW}:{PASSED}")) == 1
 
 
+@pytest.mark.parametrize("state", ["walking", "awaiting_walk_review", "waiting"])
+def test_takeover_carries_an_open_walk_intact_and_the_receipt_names_it(
+    test_db, monkeypatch, state
+):
+    from yoke_core.domain.deployment_run_create_receipt import continuation_facts
+
+    _seed_takeover(test_db, monkeypatch, walk={"state": state, "ended": False})
+    test_db.commit()
+
+    row = test_db.execute(
+        "SELECT id,state,deployment_run_id,session_id,deployment_member_item_id "
+        "FROM qa_plan_executions WHERE id=%s",
+        (f"exec-{state}",),
+    ).fetchone()
+    assert dict(row) == {
+        "id": f"exec-{state}",
+        "state": state,
+        "deployment_run_id": NEW,
+        "session_id": WALKER,
+        "deployment_member_item_id": WAITING,
+    }
+    assert _bodies(test_db, f"deployment-qa-moved:{NEW}:{WAITING}") == []
+    facts = continuation_facts(NEW)
+    assert facts["supersedes_run_id"] == OLD
+    assert facts["carried_execution_ids"] == [f"exec-{state}"]
+
+
 def test_ended_walk_owner_is_still_told_to_wait(test_db, monkeypatch):
     _seed_takeover(test_db, monkeypatch, walk={"state": "walking", "ended": True})
 

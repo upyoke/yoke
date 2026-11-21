@@ -83,4 +83,5 @@ def test_creation_beside_deploying_predecessor_names_the_occupant(test_db, monke
     _contains(monkeypatch)
     assert _take_over(test_db) is None
     assert _run(test_db, OLD)["status"] == "executing"
-    assert continuation_facts(NEW) == {"supersedes_run_id": None, "waiting_for_run_id": OLD}
+    assert continuation_facts(NEW) == {"supersedes_run_id": None, "carried_execution_ids": [],
+                                   "waiting_for_run_id": OLD}
