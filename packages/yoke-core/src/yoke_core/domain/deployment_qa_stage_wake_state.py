@@ -10,6 +10,8 @@ record.
 
 Each member gets one line:
 
+* ``walking``, ``queued for <machine>, <place>`` or ``walk handed back`` —
+  a live execution owns its QA, so nobody is woken;
 * ``wake pending`` — the driver is live and has not sent it yet;
 * ``woken HH:MMZ`` — a notice exists, qualified by whether its recipient
   acknowledged it, has it injected, or has not received it yet;
@@ -178,17 +180,32 @@ def _describe(notice: tuple[str, datetime | None, str, str]) -> str:
     return f"woken {sent}{by}, not yet delivered"
 
 
-def stalled_qa_notice(conn: Any, run_id: str, stage_name: str) -> bool:
-    """No live driver owns the wait; an unreceived or unanswered notice still needs action."""
+def run_subject_notice_stalled(conn: Any, run_id: str, stage_name: str) -> bool:
+    """The run-level subject's wait has no live, acknowledged notice.
+
+    Upkeep wakes members, never the run-level subject (a plan group or a
+    run-scoped case), so with no live driver nothing else tells its owner.
+    Member notices are read per member by :func:`member_wake_states`.
+    """
     from yoke_core.domain.deployment_qa_manual_notice import manual_notice_rows
 
-    latest = {}
-    for row in _notice_rows(conn, run_id=run_id, stage_name=stage_name):
-        latest.setdefault(
-            str(_get(row, "idempotency_key", 1)), str(_get(row, "state", 4))
-        )
-    for row in manual_notice_rows(conn, run_id=run_id, stage_name=stage_name):
-        latest.setdefault(row["idempotency_key"], row["state"])
+    scopes = (
+        f"{DEPLOYMENT_QA_STAGE_WAIT_PREFIX}{run_id}:{stage_name}:",
+        f"{FAILURE_HANDOFF_PREFIX}{run_id}:{stage_name}:",
+    )
+    rows = [
+        (str(_get(row, "idempotency_key", 1)), str(_get(row, "state", 4)))
+        for row in _notice_rows(conn, run_id=run_id, stage_name=stage_name)
+    ]
+    rows.extend(
+        (row["idempotency_key"], row["state"])
+        for row in manual_notice_rows(conn, run_id=run_id, stage_name=stage_name)
+    )
+    latest: dict[str, str] = {}
+    for key, state in rows:
+        prefix = next((scope for scope in scopes if key.startswith(scope)), None)
+        if prefix is not None and not _member_of(key, {prefix: _WAIT}):
+            latest.setdefault(key, state)
     active = [state for state in latest.values() if state != "cancelled"]
     return not active or any(state != "acknowledged" for state in active)
 
@@ -248,23 +265,22 @@ def member_wake_states(
     project_id: int,
     driver_live: bool,
 ) -> dict[int, str]:
-    """One line per waiting member saying whether its owner was woken.
+    """One line per waiting member: what its walk is doing, or its wake.
 
-    A member with an open walk is never woken, by the driver or by upkeep
-    (``open_walk_owners``), so it reads as walking rather than wake pending.
+    A member with a live walk is never woken, by the driver or by upkeep
+    (``open_walks``), so it reads as queued, walking or handed back rather
+    than as a wake. Otherwise its newest notice names the wake.
     """
-    from yoke_core.domain.deployment_qa_plan_ownership import open_walk_owners
+    from yoke_core.domain.deployment_qa_plan_ownership import open_walks
 
     members = [int(item_id) for item_id in item_ids]
+    walks = open_walks(conn, run_id, members, stage=stage_name) if members else {}
+    states = {member: walk_state(conn, rows) for member, rows in walks.items()}
     notices = _latest_notices(conn, run_id=run_id, stage_name=stage_name)
-    states = {m: _describe(notices[m]) for m in members if m in notices}
-    unsent = [m for m in members if m not in notices]
-    walking = (
-        open_walk_owners(conn, run_id, unsent, stage=stage_name) if unsent else {}
-    )
-    for member, sessions in walking.items():
-        states[member] = f"walking under session {', '.join(sessions)}"
-    unsent = [m for m in unsent if m not in walking]
+    for member in members:
+        if member not in states and member in notices:
+            states[member] = _describe(notices[member])
+    unsent = [m for m in members if m not in states]
     if driver_live:
         states.update({m: "wake pending (driver live, not yet sent)" for m in unsent})
         return states
@@ -279,4 +295,30 @@ def member_wake_states(
     return states
 
 
-__all__ = ["driverless_wake_owed", "member_wake_states"]
+def walk_state(conn: Any, rows: list[dict[str, Any]]) -> str:
+    """A member's live walks in one phrase: walking, handed back, or queued."""
+    from yoke_core.domain.deployment_qa_live_executions import (
+        AWAITING_REVIEW,
+        WALKING_STATES,
+        activity,
+    )
+
+    walking = [row for row in rows if row["state"] in WALKING_STATES]
+    handed = [row for row in rows if row["state"] == AWAITING_REVIEW]
+    shown = walking or handed or rows
+    sessions = ", ".join(dict.fromkeys(str(row["session_id"]) for row in shown))
+    if walking:
+        machines = sorted({str(row["test_machine"]) for row in walking if row["test_machine"]})
+        where = f" on {', '.join(machines)}" if machines else ""
+        return f"walking{where} under session {sessions}"
+    if handed:
+        return f"walk handed back under session {sessions}; its review is pending"
+    return activity(conn, rows[0])
+
+
+__all__ = [
+    "driverless_wake_owed",
+    "member_wake_states",
+    "run_subject_notice_stalled",
+    "walk_state",
+]

@@ -163,6 +163,7 @@ def _run_dict(entry: DeploymentRunProgress) -> dict[str, Any]:
         "total_blocking": entry.total_blocking,
         "unresolved": list(entry.unresolved),
         "no_obligation_lines": list(entry.no_obligation_lines),
+        "member_counts": entry.member_counts,
         "member_lines": list(entry.member_lines),
         "manual_wakes": [manual_wake_dict(wake) for wake in entry.manual_wakes],
         "member_closure": list(entry.completion.lines),
