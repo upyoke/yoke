@@ -107,8 +107,14 @@ def _is_private_path(
         protected = bool(control.value & _SE_DACL_PROTECTED)
         if require_protected and not protected:
             return False
-        if not protected and not is_private_directory(selected.parent):
-            return False
+        if not protected:
+            if __package__:
+                from yoke_contracts import windows_others_unwritable_directory as parent_acl
+            else:
+                import _yoke_windows_others_unwritable_directory as parent_acl
+
+            if not parent_acl.is_others_unwritable_directory(selected.parent):
+                return False
         if _sid_string(owner.value, advapi, kernel) != user_sid:
             return False
         result = advapi.GetExplicitEntriesFromAclW(

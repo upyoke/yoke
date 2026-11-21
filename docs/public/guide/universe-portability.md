@@ -139,11 +139,15 @@ backup carries the account, so setup skips the name prompt. See
 operator exactly two things: which
 archive, and consent to replace the destination universe (`--yes` for
 non-interactive runs). Everything else — checksum, receipt verification,
-catalog compatibility — is derived from the archive. The destination is reset
-and restored through one path whether it was brand-new or held a prior
-universe; replacing the current universe is the operator's call, which is why
-the consent stays. Local import addresses only the active `local` connection;
-self-host import addresses an explicitly selected Compose bundle.
+catalog compatibility — is derived from the archive. Local and self-host
+imports build the replacement in a private schema and publish it only after
+the data and included files are ready. If import fails, the previous universe
+and the files it references remain available. If publication times out, close
+transactions using the destination and retry. Existing connections stay open
+and subsequent queries see the replacement. Queries already using the old
+tables can delay publication. On Windows, an archive can inherit trusted access from its folder when other users cannot write there.
+Local import addresses the active `local` connection. Self-host import addresses
+an explicitly selected Compose bundle.
 
 If inspection reports `archive_tool_version_unsupported`, the selected
 `pg_restore` cannot read the dump format. Set `YOKE_PG_BIN_DIR` to the bin

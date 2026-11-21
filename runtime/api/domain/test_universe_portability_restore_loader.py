@@ -29,6 +29,12 @@ class _CopySink:
 
 
 class _Cursor:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_exc):
+        return False
+
     def __init__(self, owner):
         self.owner = owner
 
@@ -67,6 +73,7 @@ def _apply_sample_restore(
     portability._apply_restore_stream(
         io.BytesIO(body),
         conn,
+        target_schema="staging",
         allowed_tables={"sample"} if allowed_tables is None else allowed_tables,
         allowed_sequences=(
             {"sample_id_seq"} if allowed_sequences is None else allowed_sequences
@@ -89,7 +96,7 @@ def test_restore_loader_discards_compatibility_preamble_and_uses_copy_api():
     )
     assert conn.copy_sink.body == b"1\tSET transaction_timeout = 0;\n"
     assert conn.copy_statement is not None
-    assert conn.setvals == [("public.sample_id_seq", 1, True)]
+    assert conn.setvals == [("staging.sample_id_seq", 1, True)]
 
 
 def test_restore_loader_accepts_catalog_columns_in_archive_order():

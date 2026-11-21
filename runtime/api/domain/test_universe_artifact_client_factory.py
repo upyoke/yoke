@@ -80,13 +80,13 @@ def test_collect_and_restore_caller_routing_without_region(tmp_path, caller_stor
             client_factory=factory,
         )
         assert result == {"included": 2, "missing": 1, "manifest": True}
-        for entry in included:
-            assert (
-                objects.objects[
-                    destination["bucket"], "tenants/destination/" + entry["key"]
-                ]
-                == files[entry["key"]].read_bytes()
-            )
+        restored_entries = list(transfer.storage.shared_sources(
+            conn, {"yoke": destination}, client_factory=factory,
+        ))
+        assert [entry["key"] for entry in restored_entries] == [shared_entry["key"]]
+        shared_handle = restored_entries[0]["original_handle"]
+        assert objects.objects[shared_handle["bucket"], shared_handle["key"]] == shared
+        assert shared_handle["key"] != "tenants/destination/" + shared_entry["key"]
         restored = parse_handle(
             conn.execute(
                 "SELECT artifact_handle FROM qa_artifacts ORDER BY id LIMIT 1"

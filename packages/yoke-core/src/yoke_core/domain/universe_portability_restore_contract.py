@@ -5,6 +5,8 @@ from __future__ import annotations
 import re
 from typing import Sequence
 
+import psycopg
+
 from yoke_core.domain.universe_portability_common import (
     ArchiveCompatibilityError,
     ArchiveInvalidError,
@@ -35,6 +37,25 @@ RESTORE_SEARCH_PATH = "SELECT pg_catalog.set_config('search_path', '', false);"
 MIGRATION_LEDGER_TABLE = "applied_migrations"
 MIGRATION_DIGEST_COLUMN = "content_sha256"
 MIGRATION_EVIDENCE_TABLE = "migration_content_adoptions"
+
+
+# These server diagnostics identify constraints or locks, without COPY values.
+_SAFE_PRIMARY_STATES = {"23502", "23503", "23505", "23514", "40P01", "55P03", "57014"}
+
+
+def restore_error_description(error: BaseException) -> str:
+    """Keep database diagnostics out of exception formatting and error logs."""
+    name = type(error).__name__
+    if not isinstance(error, psycopg.Error):
+        if isinstance(error.__cause__, psycopg.Error):
+            return f"{name}: {restore_error_description(error.__cause__)}"
+        return f"{name}: {error}"
+    state = error.sqlstate or "unavailable"
+    primary = (
+        error.diag.message_primary if state in _SAFE_PRIMARY_STATES
+        else "database message withheld because it may contain imported values"
+    )
+    return f"{name} (SQLSTATE {state}): {primary or 'database message unavailable'}"
 
 
 def unquote_identifier(value: str) -> str:
@@ -101,6 +122,7 @@ __all__ = [
     "RESTORE_SET_RE",
     "SETVAL_RE",
     "compatible_restore_columns",
+    "restore_error_description",
     "restore_target_columns",
     "restore_target_sequences",
     "unquote_identifier",

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import subprocess
 
 import pytest
 
@@ -39,10 +40,34 @@ def test_protect_existing_directory_and_its_new_children(tmp_path: Path) -> None
     assert windows_private_directory.is_private_file(child)
 
 
-def test_file_inherits_only_from_private_parent(tmp_path: Path) -> None:
-    private = tmp_path / "private"
-    private.mkdir(mode=0o700)
-    protected_file = private / "config.json.lock"
-    protected_file.touch(mode=0o600)
+@pytest.fixture
+def inherited_parent(tmp_path: Path) -> Path:
+    profile = tmp_path / "profile"
+    profile.mkdir()
+    windows_private_directory.make_private_directory(profile)
+    parent = profile / "exports"
+    parent.mkdir()
+    assert not windows_private_directory.is_private_directory(parent)
+    return parent
 
-    assert windows_private_directory.is_private_file(protected_file) is True
+
+def test_file_inherits_only_from_unwritable_parent(inherited_parent: Path) -> None:
+    archive = inherited_parent / "universe.tar"
+    archive.write_bytes(b"archive")
+    assert windows_private_directory.is_private_file(archive)
+
+
+@pytest.mark.parametrize(
+    ("target", "grant"),
+    [("file", "*S-1-1-0:(R)"), ("parent", "*S-1-5-32-545:(W)")],
+)
+def test_inherited_file_rejects_untrusted_access(
+    inherited_parent: Path, target: str, grant: str,
+) -> None:
+    archive = inherited_parent / "universe.tar"
+    archive.write_bytes(b"archive")
+    subprocess.run(
+        ["icacls", str(archive if target == "file" else inherited_parent), "/grant", grant],
+        check=True,
+    )
+    assert not windows_private_directory.is_private_file(archive)

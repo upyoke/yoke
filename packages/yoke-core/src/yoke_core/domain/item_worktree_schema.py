@@ -182,7 +182,9 @@ def ensure_epic_item_worktree_references(conn: Any) -> None:
             "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint "
             "WHERE conname = '"
             + constraint
-            + "') THEN ALTER TABLE "
+            + "' AND conrelid = '"
+            + table
+            + "'::regclass) THEN ALTER TABLE "
             + table
             + " ADD CONSTRAINT "
             + constraint

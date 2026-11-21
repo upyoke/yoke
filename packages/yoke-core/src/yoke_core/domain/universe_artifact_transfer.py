@@ -7,9 +7,11 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Callable
+from uuid import uuid4
 
 from yoke_core.domain import db_backend
 from yoke_core.domain import universe_artifact_store as storage
+from yoke_core.domain.db_savepoint import savepoint
 from yoke_core.domain.qa_artifact_handle import parse_handle, serialize_handle
 from yoke_core.domain.qa_artifact_owner import requirement_storage_owner
 from yoke_core.domain.universe_archive import UniverseArchiveError
@@ -212,10 +214,10 @@ def restore_artifacts(
         return {"included": 0, "missing": 0, "manifest": False}
     manifest = json.loads(manifest_path.read_bytes())
     included = missing = 0
-    from yoke_core.domain.db_savepoint import savepoint
-
+    generation = uuid4().hex
     with savepoint(conn, "restored_artifact_files", owns=False):
         storage.apply_destination_settings(conn, stores)
+        storage.publish_imported_shared_files(conn, generation)
         for entry in manifest["entries"]:
             if entry["status"] == "missing":
                 missing += 1
@@ -250,6 +252,7 @@ def restore_artifacts(
                 project=project,
                 store=stores.get(project, {}),
                 content_type=original.get("content_type"),
+                destination_key=storage.imported_file_key(key, project, generation),
                 client_factory=client_factory,
             )
             if question:

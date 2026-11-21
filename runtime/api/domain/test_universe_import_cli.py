@@ -193,11 +193,10 @@ def test_archive_with_control_character_org_slug_rolls_back_before_output(tmp_pa
                     importer.import_from_stream(stream, dsn=target_dsn)
             with psycopg.connect(target_dsn) as target:
                 assert target.execute(
-                    "SELECT COUNT(*) FROM organizations"
-                ).fetchone() == (0,)
-                assert target.execute("SELECT COUNT(*) FROM api_tokens").fetchone() == (
-                    0,
-                )
+                    "SELECT to_regclass('public.organizations'), "
+                    "to_regclass('public.api_tokens'), "
+                    "to_regnamespace('yoke_import_staging')"
+                ).fetchone() == (None, None, None)
         finally:
             pg_testdb.drop_test_database(target_name)
 
