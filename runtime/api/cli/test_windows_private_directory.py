@@ -15,7 +15,7 @@ pytestmark = pytest.mark.windows_only(reason='Windows DACL contract')
 
 def test_owner_private_directory_is_accepted(tmp_path: Path) -> None:
     private = tmp_path / "private"
-    private.mkdir(mode=0o700)
+    windows_private_directory.create_private_directory(private)
 
     assert windows_private_directory.is_private_directory(private) is True
 

@@ -229,7 +229,18 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     except universe_startup_lock.UniverseStartupBusy as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
-    except (OSError, psycopg.Error):
+    except psycopg.Error as exc:
+        from yoke_core.domain.universe_portability_restore_contract import (
+            restore_error_description,
+        )
+
+        print(
+            f"error: self-host database restore failed: {restore_error_description(exc)}; "
+            "check the destination database and retry",
+            file=sys.stderr,
+        )
+        return 1
+    except OSError:
         print(
             "error: the self-host destination database restore failed", file=sys.stderr
         )

@@ -214,3 +214,15 @@ def test_internal_cli_keeps_progress_off_credential_stdout(monkeypatch, capsys):
     )
     assert "trusted schema progress" not in output.out
     assert "trusted schema progress" in output.err
+
+
+def test_internal_cli_names_destination_database_failure(monkeypatch, capsys):
+    def fail_import(_stream):
+        raise psycopg.errors.LockNotAvailable("do not print raw database errors")
+
+    monkeypatch.setattr(importer, "import_from_stream", fail_import)
+    assert importer.main([]) == 1
+    output = capsys.readouterr()
+    assert output.out == ""
+    assert "LockNotAvailable (SQLSTATE 55P03)" in output.err
+    assert "do not print raw database errors" not in output.err
