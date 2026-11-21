@@ -67,6 +67,7 @@ from yoke_core.domain.deployment_run_unheld_candidates import (
     resolve_candidate_custody,
 )
 from yoke_core.domain.deployment_runs_lock import lock_run
+from yoke_core.domain.no_change_dash_delivery import enrollment_candidates
 from yoke_core.domain.workflow_item_binding_lock import (
     lock_item_workflow_bindings,
 )
@@ -114,33 +115,25 @@ def plan_carried_enrollment(
     ):
         return None
     row = conn.execute(
-        "SELECT COALESCE(release_lineage,'') FROM deployment_runs WHERE id=%s",
+        "SELECT COALESCE(release_lineage,''), project_id, flow FROM deployment_runs WHERE id=%s",
         (run_id,),
     ).fetchone()
     if row is None:
         raise LookupError(f"deployment run {run_id!r} not found")
-    if not str(row[0] or "").strip():
-        return None
-    payload = dict(carried_work or carried_work_for_enrollment(conn, run_id))
-    resolved = (custody or resolve_candidate_custody(conn, run_id)).require()
-    # An underivable carried set names no items to enroll. The refusal owner
-    # reports it, so silence here is deferral, not a waiver.
-    range_ids = {
-        int(entry["item_id"])
-        for project_set in project_carried_sets(payload)
-        if bool((project_set.get("derivation") or {}).get("contents_known"))
-        for entry in project_set.get("items") or []
-    }
-    # A held landing belongs to the release already delivering it; an unheld
-    # one below the range's floor is still this run's to deliver. Both are
-    # reconciled into one candidate set before any lock is taken.
-    # An operator's recorded removal outranks both sources: the code still
-    # ships, but this run was told the item is not its to deliver.
-    carried = sorted(
-        ((range_ids - resolved.held_ids) | set(resolved.enrollable))
-        - enrollment_removed_item_ids(conn, run_id)
+    lineage, project_id, flow = row[0], int(row[1]), str(row[2])
+    no_change = set()
+    # A source rebind is scoped to the refreshed projects, while a no-change
+    # member selects the run's own project and flow and has no source to rebind.
+    if not rebound_project_ids:
+        no_change = enrollment_candidates(conn, project_id=project_id, flow=flow)
+    removed = enrollment_removed_item_ids(conn, run_id)
+    carried = (
+        _source_candidate_ids(conn, run_id, carried_work, custody)
+        if str(lineage).strip()
+        else set()
     )
-    if not carried:
+    candidates = (carried | no_change) - removed
+    if not candidates:
         return None
     # Item workflow bindings first, then the run row: the same order
     # ``lock_run_with_stable_membership`` and ``cmd_add_item`` take, so a
@@ -150,16 +143,40 @@ def plan_carried_enrollment(
     # item this read called terminal could otherwise become deliverable
     # between the decision and the insert.
     members = member_ids(conn, run_id)
-    lock_item_workflow_bindings(conn, carried + list(members))
+    lock_item_workflow_bindings(conn, sorted(candidates | set(members)))
+    # The same item binding lock serializes automatic and manual admissions.
+    # Recheck once a competing admission can no longer change membership.
+    no_change = enrollment_candidates(
+        conn,
+        project_id=project_id,
+        flow=flow,
+        item_ids=tuple(sorted(no_change - removed)),
+    )
+    candidates = tuple(sorted((carried - removed) | no_change))
+    if not candidates:
+        return None
     basis = read_composition_basis(
         conn,
         run_id,
-        item_ids=(*carried, *members),
+        item_ids=(*candidates, *members),
         project_ids=carried_project_ids(conn, run_id),
     )
     return decide_carried_enrollment(
-        conn, run_id, basis, members, tuple(carried), rebound_project_ids
+        conn, run_id, basis, members, candidates, rebound_project_ids
     )
+
+
+def _source_candidate_ids(conn, run_id, carried_work, custody) -> set[int]:
+    payload = dict(carried_work or carried_work_for_enrollment(conn, run_id))
+    resolved = (custody or resolve_candidate_custody(conn, run_id)).require()
+    # Unknown attribution names no candidates. The refusal owner still checks it.
+    range_ids = {
+        int(entry["item_id"])
+        for project_set in project_carried_sets(payload)
+        if bool((project_set.get("derivation") or {}).get("contents_known"))
+        for entry in project_set.get("items") or []
+    }
+    return (range_ids - resolved.held_ids) | set(resolved.enrollable)
 
 
 def enroll_carried_members(
@@ -258,11 +275,7 @@ def describe_enrollment(enrolled: Iterable[str]) -> str:
     refs = [str(ref) for ref in enrolled]
     if not refs:
         return ""
-    return (
-        f"Enrolled {len(refs)} delivery-ready item(s) this candidate carries "
-        f"and no release held, into this "
-        f"release: {', '.join(refs)}"
-    )
+    return f"Enrolled {len(refs)} delivery-ready item(s) into this release: {', '.join(refs)}"
 
 
 __all__ = [

@@ -1,0 +1,7 @@
+{
+ "id": "no-change-dash-membership",
+ "title": "Deploy a Dash with a no-change finding",
+ "status": "observed",
+ "summary": "When a no-change Dash selects deployment and reaches its pinned release wait, composition enrolls it in a run of its completion flow through ordinary member admission. A live or succeeded completion membership covers the finding. Until a run lists the item, the done gate and next action name the same add-item or run-creation command. The recorded finding still needs delivery and any applicable QA or approval to close.",
+ "sources": ["docs/public/deployments/model/run-composition.md", "docs/public/deployments/settlement.md"]
+}
