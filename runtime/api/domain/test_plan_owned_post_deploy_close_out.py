@@ -187,8 +187,9 @@ def test_accepted_admitted_copies_auto_close_the_member(
                 test_db, item_id=member, source_requirement_id=source_ids[0]
             )
             assert delivery._status(test_db, member) == "release"
-    finish_plan_execution(test_db, execution, state="completed", reason="test-complete")
     assert delivery._status(test_db, member) == "release"
+    finish_plan_execution(test_db, execution, state="completed", reason="test-complete")
+    assert delivery._status(test_db, member) == "done"
     from yoke_core.domain.deployment_qa_stage_dispatch import (
         materialize_and_gate_deployment_qa_stage,
     )
