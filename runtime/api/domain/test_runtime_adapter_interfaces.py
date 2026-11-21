@@ -77,11 +77,9 @@ def test_interface_names_an_unloadable_implementation(monkeypatch):
         loader.load_port("operation", Operation)
 
 
-def test_domain_has_no_adapter_package_imports():
-    root = Path(__file__).resolve().parents[3]
-    domain = root / "packages/yoke-core/src/yoke_core/domain"
+def adapter_package_imports(paths):
     violations = []
-    for path in domain.rglob("*.py"):
+    for path in paths:
         for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
             if isinstance(node, ast.ImportFrom):
                 modules = [node.module or ""]
@@ -92,7 +90,24 @@ def test_domain_has_no_adapter_package_imports():
             for module in modules:
                 if module.split(".")[0] in {"yoke_cli", "yoke_harness"}:
                     violations.append(f"{path.name}:{node.lineno}: {module}")
-    assert violations == []
+    return violations
+
+
+def test_domain_has_no_adapter_package_imports():
+    root = Path(__file__).resolve().parents[3]
+    domain = root / "packages/yoke-core/src/yoke_core/domain"
+    assert adapter_package_imports(domain.rglob("*.py")) == []
+
+
+def test_a_planted_domain_adapter_import_is_named(tmp_path):
+    planted = tmp_path / "policy.py"
+    planted.write_text(
+        "import os\n\n\ndef decide():\n    import yoke_harness.browser_client\n",
+        encoding="utf-8",
+    )
+    assert adapter_package_imports([planted]) == [
+        "policy.py:5: yoke_harness.browser_client"
+    ]
 
 
 def test_installed_adapters_satisfy_the_published_interfaces():

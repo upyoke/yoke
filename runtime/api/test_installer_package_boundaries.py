@@ -65,11 +65,11 @@ def _literal_module_arg(node: ast.Call) -> str | None:
     return None
 
 
-def test_cli_and_contract_packages_do_not_take_direct_core_imports():
+def direct_engine_imports(paths: list[Path], root: Path = ROOT) -> list[str]:
     violations: list[str] = []
-    for path in _iter_python_files():
+    for path in paths:
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-        rel = path.relative_to(ROOT).as_posix()
+        rel = path.relative_to(root).as_posix()
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
                 for alias in node.names:
@@ -79,7 +79,23 @@ def test_cli_and_contract_packages_do_not_take_direct_core_imports():
                 module = node.module or ""
                 if _root_name(module) in ENGINE_IMPORT_BOUNDARY_ROOTS:
                     violations.append(f"{rel}:{node.lineno}: from {module} import ...")
-    assert violations == []
+    return violations
+
+
+def test_cli_and_contract_packages_do_not_take_direct_core_imports():
+    assert direct_engine_imports(_iter_python_files()) == []
+
+
+def test_a_planted_engine_import_is_named(tmp_path):
+    planted = tmp_path / "client.py"
+    planted.write_text(
+        "import json\nimport psycopg\nfrom yoke_core.domain import db_backend\n",
+        encoding="utf-8",
+    )
+    assert direct_engine_imports([planted], root=tmp_path) == [
+        "client.py:2: import psycopg",
+        "client.py:3: from yoke_core.domain import ...",
+    ]
 
 
 def test_dynamic_authority_imports_are_classified_and_bounded():
