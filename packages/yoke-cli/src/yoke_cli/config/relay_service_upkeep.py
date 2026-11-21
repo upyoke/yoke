@@ -19,6 +19,7 @@ from typing import Any, Callable, Mapping
 
 from yoke_cli.config import machine_config
 from yoke_contracts.machine_config.paths import CONFIG_FILE_ENV
+from yoke_contracts.refusal_recovery import compose_refusal
 
 STATUS_TIMEOUT_S = 120
 INSTALL_TIMEOUT_S = 600
@@ -101,8 +102,11 @@ def summary_lines(outcomes: list[dict[str, str]]) -> list[str]:
         if outcome["status"] == "refreshed":
             lines.append(f"Reinstalled the {outcome['environment']} relay service for this release.")
         elif outcome["status"] == "failed":
-            lines.append(f"error: relay_service_refresh_failed: the {outcome['environment']} relay service "
-                         f"could not be reinstalled: {outcome['detail']}. Recovery: {outcome['recovery']}.")
+            lines.append("error: " + compose_refusal(
+                f"relay_service_refresh_failed: the {outcome['environment']} relay service "
+                f"could not be reinstalled: {outcome['detail']}",
+                recovery=outcome["recovery"],
+            ))
     return lines
 
 
