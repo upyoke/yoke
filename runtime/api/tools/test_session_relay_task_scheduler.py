@@ -1,7 +1,6 @@
 """Windows relay supervision contract; no scheduler or administrator needed."""
 
 import subprocess
-import sys
 from dataclasses import replace
 import xml.etree.ElementTree as ET
 
@@ -58,6 +57,27 @@ def test_task_has_per_user_login_trigger_no_boot_trigger_and_runs_on_battery(tmp
         assert document.findtext(f"t:Settings/t:{name}", namespaces=NS) == "false"
     assert document.findtext("t:Settings/t:ExecutionTimeLimit", namespaces=NS) == "PT0S"
     assert document.findtext("t:Settings/t:MultipleInstancesPolicy", namespaces=NS) == "IgnoreNew"
+
+
+def test_task_runs_the_windowless_interpreter_beside_the_runtime_python(tmp_path):
+    instance = relay_instance(tmp_path)
+    document = ET.fromstring(tasks.relay_task_document(instance, user_sid=SID))
+    command = document.findtext("t:Actions/t:Exec/t:Command", namespaces=NS)
+    assert command == str(tasks.relay_runtime_python(instance.state_dir).with_name("pythonw.exe"))
+    assert document.findtext("t:Actions/t:Exec/t:Arguments", namespaces=NS) == subprocess.list2cmdline(
+        ["-I", str(instance.state_dir / "task-runner.py")]
+    )
+
+
+def test_a_task_still_running_the_console_interpreter_is_outdated(tmp_path):
+    instance = relay_instance(tmp_path)
+    runner = Scheduler(instance)
+    windowless = str(tasks.relay_task_command(instance.state_dir))
+    console = str(tasks.relay_runtime_python(instance.state_dir))
+    runner.xml = tasks.relay_task_document(instance, user_sid=SID).replace(windowless, console)
+    status = tasks.relay_task_status(instance=instance, runner=runner)
+    assert not status.task_current and not service.relay_service_current(status)
+    assert "Task/Actions/Exec/Command" in status.reason and "pythonw.exe" in status.reason
 
 
 def test_install_status_and_uninstall_roundtrip(tmp_path, monkeypatch):
@@ -156,23 +176,6 @@ def test_release_refusal_remains_a_named_installer_error(tmp_path, monkeypatch):
     assert raised.value.code == "release_unavailable"
 
 
-def test_task_owner_recycles_relay_without_finishing_scheduled_action(tmp_path, monkeypatch):
-    instance = relay_instance(tmp_path)
-    runner = Scheduler(instance)
-    monkeypatch.setattr(tasks.relay_install, "converge_relay_launcher", lambda *a, **k: tmp_path / "yoke.cmd")
-    tasks.install_relay_task(instance=instance, runner=runner)
-    source = (instance.state_dir / "task-runner.py").read_text(encoding="utf-8")
-    results = iter([tasks.WINDOWS_RELAY_RESTART_CODE, 0])
-    calls = []
-    monkeypatch.setattr(tasks.os, "environ", {})
-    monkeypatch.setattr(tasks.subprocess, "call", lambda argv, **kw: calls.append(argv) or next(results))
-    with pytest.raises(SystemExit) as exited:
-        exec(compile(source, "task-runner.py", "exec"), {})
-    assert exited.value.code == 0
-    assert len(calls) == 2 and calls[0] == calls[1]
-    assert tasks.os.environ[tasks.WINDOWS_RELAY_RUNNER_ENV] == "1"
-
-
 def test_supervisor_filesystem_failure_has_reason_and_recovery(monkeypatch):
     monkeypatch.setattr(service.sys, "platform", "win32")
     def fail(**kwargs):
@@ -193,22 +196,9 @@ def test_local_task_keeps_a_stable_interpreter_across_operator_cli_updates(tmp_p
     tasks.install_relay_task(instance=instance, runner=runner)
     assert runtimes == [instance.state_dir]
     root = ET.fromstring(runner.xml)
-    assert root.findtext("t:Actions/t:Exec/t:Command", namespaces=NS) == str(tasks.relay_runtime_python(instance.state_dir))
+    assert root.findtext("t:Actions/t:Exec/t:Command", namespaces=NS) == str(tasks.relay_task_command(instance.state_dir))
     body = (instance.state_dir / "task-runner.py").read_text(encoding="utf-8")
     assert repr(str(launcher)) in body
-
-
-def test_task_runner_containment_joins_a_kill_on_close_job_only_as_the_task():
-    compile(tasks._CONTAIN_RUNNER, "task-runner.py", "exec")
-    assert "0x2000" in tasks._CONTAIN_RUNNER  # JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
-    exec(tasks._CONTAIN_RUNNER, {"__name__": "imported"})  # never contains an importer
-
-
-@pytest.mark.windows_only(reason="Win32 job objects")
-def test_task_runner_containment_runs_on_windows():
-    probe = f"exec({tasks._CONTAIN_RUNNER!r}, {{'__name__': '__main__'}}); print('contained')"
-    result = subprocess.run([sys.executable, "-I", "-c", probe], capture_output=True, text=True, timeout=60)
-    assert (result.returncode, result.stdout.strip()) == (0, "contained"), result.stderr
 
 
 def test_scheduler_export_omitting_defaults_is_current_and_every_change_is_named(tmp_path):

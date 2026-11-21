@@ -119,6 +119,13 @@ def render_human(report: Mapping[str, Any]) -> str:
     doctor = report.get("doctor")
     if isinstance(doctor, Mapping) and doctor.get("summary"):
         lines.append(f"  doctor: {doctor.get('summary')}")
+    relay = report.get("relay")
+    if isinstance(relay, Mapping) and relay.get("relevant"):
+        lines.append(
+            f"  relay: env={relay.get('environment')} ok={relay.get('ok')} "
+            f"running={relay.get('running')} heartbeat_current={relay.get('heartbeat_current')}"
+            + (f" ({relay['reason']})" if relay.get("reason") else "")
+        )
     issues = list(report.get("issues") or [])
     if issues:
         lines.append("  issues:")

@@ -105,6 +105,9 @@ def relay_service_payload(status: Any) -> dict[str, Any]:
         "supported": bool(status.supported),
         "environment": str(status.environment),
         "loaded": bool(status.loaded),
+        # Supervisor-neutral facts `yoke update` and refresh read to reinstall an outdated service.
+        "service_present": relay_service_present(status),
+        "service_current": relay_service_current(status),
         "state_dir": str(status.state_dir) if status.state_dir else None,
         **document,
     }

@@ -60,6 +60,8 @@ def test_relay_lifecycle_reports_release_pin(monkeypatch, capsys) -> None:
         "release_error_code": None,
         "release_recovery": None,
         "served_build": "v0.1.1+launch.365",
+        "service_current": True,
+        "service_present": True,
         "state_dir": str(Path("/tmp/relay-instances/abc123")),
         "supported": True,
     }
