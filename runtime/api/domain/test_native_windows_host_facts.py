@@ -44,11 +44,74 @@ def test_host_facts_reject_malformed_schema(change):
     assert "schema" in str(error.value)
 
 
-@pytest.mark.parametrize("stdout", ["", "not JSON", "null", "[]", "{}"])
-def test_host_facts_reject_missing_or_non_object_output(stdout):
+@pytest.mark.parametrize("stdout", ["", "not JSON", "null", "[]"])
+def test_host_facts_reject_missing_or_non_object_output(stdout, monkeypatch):
+    monkeypatch.setattr("yoke_harness.native_windows.transport.time.sleep", lambda _: None)
     with pytest.raises(HostControlLocalError) as error:
         control(stdout)._host_facts()
-    assert error.value.code == "native_windows_host_facts_invalid"
+    assert error.value.code == "native_windows_host_resources_exhausted"
+
+
+@pytest.mark.parametrize(("returncode", "message"), [
+    (0, "The paging file is too small for this operation to complete."),
+    (1, "Could not load file or assembly 'System.Management.Automation'"),
+])
+def test_powershell_startup_failure_names_resources(returncode, message, monkeypatch):
+    monkeypatch.setattr("yoke_harness.native_windows.transport.time.sleep", lambda _: None)
+    with pytest.raises(HostControlLocalError) as error:
+        control("private-password", returncode, message + " private-password " + "x" * 800)._host_facts()
+    failure = error.value
+    assert failure.code == "native_windows_host_resources_exhausted"
+    assert failure.exit_code == returncode
+    assert "Free memory or enlarge the Windows page file" in failure.recovery_hint
+    assert failure.stdout == "[REDACTED]"
+    assert failure.stderr.startswith(message + " [REDACTED]")
+    assert len(failure.stderr) <= 512
+
+
+@pytest.mark.parametrize(("first", "failure", "attempts"), [
+    ((0, "", "The paging file is too small"), None, 2),
+    ((0, "{}", ""), "native_windows_host_facts_invalid", 1),
+    ((255, "", "Permission denied"), "native_windows_host_facts_failed", 1),
+])
+def test_host_facts_retries_only_resource_failures(first, failure, attempts, monkeypatch):
+    pauses = []
+    monkeypatch.setattr("yoke_harness.native_windows.transport.time.sleep", pauses.append)
+    results = iter([first, (0, json.dumps(FACTS), "")])
+    calls = []
+    transport = control("")
+
+    def run(script, *, timeout):
+        calls.append((script, timeout))
+        return subprocess.CompletedProcess([], *next(results))
+
+    transport._run = run
+    if failure is None:
+        assert transport._host_facts() == FACTS
+        assert calls[0] == calls[1]
+        assert len(pauses) == 1 and pauses[0] > 0
+    else:
+        with pytest.raises(HostControlLocalError) as error:
+            transport._host_facts()
+        assert error.value.code == failure
+        assert pauses == []
+    assert len(calls) == attempts
+
+
+def test_host_facts_stops_after_two_resource_failures(monkeypatch):
+    pauses = []
+    monkeypatch.setattr("yoke_harness.native_windows.transport.time.sleep", pauses.append)
+    results = iter([
+        subprocess.CompletedProcess([], 0, "", "first paging file is too small"),
+        subprocess.CompletedProcess([], 1, "", "second paging file is too small"),
+    ])
+    transport = control("")
+    transport._run = lambda *a, **kw: next(results)
+    with pytest.raises(HostControlLocalError) as error:
+        transport._host_facts()
+    assert error.value.code == "native_windows_host_resources_exhausted"
+    assert error.value.stderr.startswith("second")
+    assert len(pauses) == 1
 
 
 @pytest.mark.parametrize("key", ["edition", "build", "user"])
