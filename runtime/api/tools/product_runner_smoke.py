@@ -5,8 +5,6 @@ Every runner runs every stage in order (see :mod:`product_runner_stages`).
 
 from __future__ import annotations
 
-from yoke_contracts.venv_layout import venv_console_script
-
 import argparse
 import json
 import os
@@ -22,6 +20,7 @@ if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "packages/yoke-contracts/src"))
 
 from yoke_contracts.testing.child_environment import minimal_child_environment
+from yoke_contracts.venv_layout import venv_console_script
 
 try:
     from .product_runner_commands import Commands, SmokeFailure

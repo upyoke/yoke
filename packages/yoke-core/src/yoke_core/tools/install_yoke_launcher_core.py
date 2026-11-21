@@ -256,11 +256,11 @@ def write_launcher(
             "DEFAULT_YOKE_HOME = None",
             f"DEFAULT_YOKE_HOME = {str(default_home)!r}",
         )
-    from yoke_cli.config.install_advice import InstallOriginUnavailable, install_command
+    from yoke_contracts.runtime_ports.install_advice import get_install_advice
 
     try:
-        recovery = f"install the released CLI with `{install_command()}`, then retry"
-    except InstallOriginUnavailable as exc:
+        recovery = f"install the released CLI with `{get_install_advice().install_command()}`, then retry"
+    except get_install_advice().InstallOriginUnavailable as exc:
         recovery = f"{exc}; then install the released CLI and retry"
     text = text.replace("RELEASE_RECOVERY = None", f"RELEASE_RECOVERY = {recovery!r}")
     pinned_shebang = f"#!{python or sys.executable}"

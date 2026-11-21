@@ -65,7 +65,7 @@ class PreflightCommand:
 
 def _target(args: Sequence[str]) -> tuple[str, str, tuple[str, ...]]:
     """The project, environment and caller-local path flags the arguments name."""
-    from yoke_core.tools.preflight_arguments import parse
+    from yoke_contracts.preflight_arguments import parse
 
     try:
         parsed = parse(list(args))

@@ -157,6 +157,23 @@ def preflight_checks(ctx: MergeContext) -> Optional[Tuple[int, str]]:
         else:
             _print("  OK: Canonical integration simulation report exists")
 
+    # PF-4b: Architecture edges (epics; item lanes ask route_admission).
+    if ctx.epic_id and local_head.returncode == 0:
+        from yoke_core.domain.merge_architecture_edge_admission import architecture_edge_refusal
+
+        edge_refusal = architecture_edge_refusal(
+            item_id=int(ctx.item_id) if str(ctx.item_id or "").isdigit() else 0,
+            public_ref=ctx.public_ref or ctx.epic_id,
+            commit_sha=local_head.stdout.strip(), target=ctx.args.target,
+            repo_root=ctx.repo_root or ctx.worktree_path, project=ctx.project or "",
+            dispatch=call_dispatcher,
+        )
+        if edge_refusal:
+            _print(f"  FAIL: {edge_refusal}", err=True)
+            fail = True
+        else:
+            _print("  OK: No architecture edge outside the committed baseline")
+
     # PF-5: Integration dependency gate. The relayed evaluation replaces the
     # local ``service_client`` child process so the gate runs over an https
     # control plane. Item-bound merges use typed identity and fail closed when

@@ -16,8 +16,9 @@ yoke merge item PREFIX-N --check
 
 This read reports landing blockers and their recovery without landing.
 Readiness covers the workflow stage, work claim, committed lane, integration
-dependencies, required QA, post-deploy QA answer, candidate review, and merge
-policy. Fix each named blocker before retrying.
+dependencies, required QA, post-deploy QA answer, candidate review, new
+[architecture edges](../projects/architecture-model.md#merge-gate-and-baseline),
+and merge policy. Fix each named blocker before retrying.
 A draft landing PR is ready to land: the report says `mark PR N ready for review`
 under `merge_will`, and changes nothing.
 

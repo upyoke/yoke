@@ -19,7 +19,7 @@ from yoke_core.domain.qa_controller_candidate import (
     stamp_submission,
 )
 from yoke_core.domain.qa_plan_execution_cli import _qualify_review_dispatch
-from yoke_core.tools.qa_controller_runtime import (
+from yoke_core.domain.qa_controller_runtime import (
     ControllerRuntime,
     ControllerRuntimeError,
 )

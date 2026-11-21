@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from yoke_core.domain.launcher_locations import LAUNCHER_FILENAME
 
-from yoke_cli.config.install_advice import InstallOriginUnavailable, install_command
+from yoke_contracts.runtime_ports.install_advice import get_install_advice
 
 import argparse
 import os
@@ -157,8 +157,8 @@ def configure_session_relay(*, stream=None) -> bool:
 
 def _build_parser() -> argparse.ArgumentParser:
     try:
-        recovery = f"Install the release with `{install_command()}` first."
-    except InstallOriginUnavailable as exc:
+        recovery = f"Install the release with `{get_install_advice().install_command()}` first."
+    except get_install_advice().InstallOriginUnavailable as exc:
         recovery = f"{exc}; then install the release first."
     parser = argparse.ArgumentParser(
         prog="install_yoke_launcher",

@@ -24,7 +24,7 @@ from yoke_core.domain.architecture_context_data import (
 )
 from yoke_core.domain.architecture_model import derive_edges
 from yoke_core.domain.architecture_snapshot import require_architecture_snapshot
-from yoke_core.domain.architecture_path_context_seed import _compile
+from yoke_core.domain.architecture_path_context_seed import compile_glob
 
 
 UnclassifiedFinding = Tuple[int, str]
@@ -145,7 +145,7 @@ def cross_cutting_violations(
     if entries is None:
         entries = iter_python_entries(conn, project_id)
     exemptions = [
-        _compile(entry["glob"])
+        compile_glob(entry["glob"])
         for entry in model.get("exemptions") or []
         if isinstance(entry, Mapping) and entry.get("glob")
     ]

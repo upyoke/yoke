@@ -29,7 +29,7 @@ from yoke_core.domain.qa_controller_candidate import (
     not_candidate_refusal,
 )
 from yoke_core.domain.qa_plan_execution_result_state import QaPlanExecutionError
-from yoke_core.tools.qa_controller_runtime import (
+from yoke_core.domain.qa_controller_runtime import (
     HANDOFF_MODULE,
     ControllerRuntime,
     ControllerRuntimeError,

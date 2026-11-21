@@ -72,7 +72,7 @@ import tempfile
 from pathlib import Path
 from typing import List, Optional
 
-from yoke_core.tools.preflight_arguments import parse
+from yoke_contracts.preflight_arguments import parse
 from yoke_core.tools.preflight_engine_artifact import (
     EngineArtifactError,
     activate_engine_artifact as _activate_engine_artifact,

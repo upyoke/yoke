@@ -47,7 +47,7 @@ class SeedResult:
     operator_rows_kept: int = 0
 
 
-def _compile(pattern: str) -> Pattern[str]:
+def compile_glob(pattern: str) -> Pattern[str]:
     """Compile a map glob: ``*``/``?`` stay inside one path segment,
     ``**`` crosses segments. Self-contained so every supported runtime
     agrees on the semantics."""
@@ -76,13 +76,13 @@ def _matchers(
     List[Tuple[Pattern[str], str, str, str]],
 ]:
     exemptions = [
-        (_compile(entry["glob"]), str(entry["family"]), str(entry["glob"]))
+        (compile_glob(entry["glob"]), str(entry["family"]), str(entry["glob"]))
         for entry in model.get("exemptions") or []
         if isinstance(entry, dict) and entry.get("glob")
     ]
     patterns = [
         (
-            _compile(root["glob"]),
+            compile_glob(root["glob"]),
             str(domain.get("id") or ""),
             str(root.get("layer") or ""),
             str(root["glob"]),
@@ -244,5 +244,6 @@ def seed_architecture_path_context(
 
 __all__ = [
     "SeedResult",
+    "compile_glob",
     "seed_architecture_path_context",
 ]

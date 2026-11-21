@@ -13,7 +13,7 @@ controller needs: the run's candidate source commit
 that pin a Yoke release, that ``release_version``. This module derives the
 controller contract from those facts, compares it with the running process,
 and when they differ hands the begun execution to a disposable candidate
-runtime (:mod:`yoke_core.tools.qa_controller_runtime`). It never changes the
+runtime (:mod:`yoke_core.domain.qa_controller_runtime`). It never changes the
 machine's channel or installed CLI. A runtime that cannot be provisioned is
 refused as ``qa_controller_not_candidate`` before any host lease is taken.
 """

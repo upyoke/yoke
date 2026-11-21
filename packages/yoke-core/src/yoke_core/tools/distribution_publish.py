@@ -15,6 +15,7 @@ from typing import Iterable, Mapping, Sequence
 from urllib.parse import urljoin
 
 from yoke_core.domain import json_helper
+from yoke_contracts.public_url import join_public_url, quote_url_path
 from yoke_contracts.resilient_fetch import FetchError, fetch_bytes
 from yoke_core.tools import (
     distribution_channel,
@@ -179,7 +180,7 @@ def build_url_checks(
     # Wheels are immutable and already published; gate the mutable /simple/ index below.
     checks: list[UrlCheck] = [
         UrlCheck(
-            _join_public_url(
+            join_public_url(
                 base_url, release_artifacts.WHEELS_DIR, str(record["filename"])
             ),
             sha256=str(record["sha256"]),
@@ -193,7 +194,7 @@ def build_url_checks(
         for project in sorted({str(record["project"]) for record in records}):
             checks.append(
                 UrlCheck(
-                    _join_public_url(index_url, project) + "/",
+                    join_public_url(index_url, project) + "/",
                     cache_control_contains="max-age=60",
                 )
             )
@@ -228,14 +229,6 @@ def _load_release_records(path: Path) -> list[dict[str, object]]:
 def _optional_int(record: Mapping[str, object], key: str) -> int | None:
     value = record.get(key)
     return None if value is None else int(value)
-
-
-def _join_public_url(base: str, *parts: str) -> str:
-    return distribution_channel.join_public_url(base, *parts)
-
-
-def _quote_url_path(url: str) -> str:
-    return distribution_channel.quote_url_path(url)
 
 
 def _get_url(
@@ -337,7 +330,7 @@ def main(argv: Iterable[str] | None = None) -> int:
             )
             print(args.base_url)
         elif args.command == "encode-url":
-            print(_quote_url_path(args.url))
+            print(quote_url_path(args.url))
         else:
             raise AssertionError(args.command)
     except (OSError, ValueError, KeyError) as exc:
