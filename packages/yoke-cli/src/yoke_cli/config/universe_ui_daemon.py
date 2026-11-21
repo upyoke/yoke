@@ -25,6 +25,7 @@ from yoke_contracts.owner_private_path import write_owner_private
 
 import os
 from pathlib import Path
+import re
 import subprocess
 import time
 from typing import Any, Dict, Optional, Tuple
@@ -51,6 +52,9 @@ from yoke_cli.config.universe_ui_daemon_state import (
 READY_TIMEOUT_S = 20.0
 READY_POLL_INTERVAL_S = 0.2
 STOP_TIMEOUT_S = 10.0
+#: The env name is an argument to the launcher, which is a ``.cmd`` batch
+#: file on Windows; plain tokens are all cmd.exe passes through unchanged.
+_SERVABLE_ENV_NAME = re.compile(r"[A-Za-z0-9_-]+")
 
 
 def status() -> Dict[str, Any]:
@@ -89,6 +93,13 @@ def status() -> Dict[str, Any]:
 
 def up(*, host: str, port: int, env: str) -> Dict[str, Any]:
     """Start the detached UI daemon, or report the one already serving."""
+    if not _SERVABLE_ENV_NAME.fullmatch(env):
+        raise UiDaemonError(
+            f"ui_env_name_unsupported: the dashboard cannot serve env {env!r}; "
+            "an env name it serves uses only letters, digits, '-' and '_'. "
+            "List connections with `yoke env list`, select one named that way "
+            "with `yoke --env ENV ui up` or `yoke env use ENV`, then retry."
+        )
     current = status()
     if current.get("running"):
         return {**current, "started": False}

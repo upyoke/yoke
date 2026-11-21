@@ -27,6 +27,7 @@ import sys
 from typing import Any, Dict, List, Mapping, Optional
 
 from yoke_contracts.machine_config import reader as machine_config
+from yoke_cli.config.cli_release_runtime import operator_launcher_path
 from yoke_cli.config.local_universe_setup import ENGINE_MISSING_MESSAGE
 from yoke_contracts.machine_config.schema import ENV_OVERRIDE
 
@@ -92,16 +93,22 @@ def agent_installed() -> bool:
 
 
 def child_command(*, host: str, port: int, env: str) -> List[str]:
-    """The argv that serves the view in the foreground.
+    """The argv that serves the view in the foreground, for this platform.
 
-    The child is the ``yoke`` shim rather than this interpreter, because
-    launchd resolves it at login from an absolute path and both start
-    paths then run the identical entrypoint. The session token is never
-    an argument — ``ps`` would publish it — so the child reads it from
-    the machine state directory instead.
+    The child is the operator launcher rather than this interpreter, so
+    both start paths run the identical entrypoint. On Windows that is
+    ``yoke.cmd``: the extensionless ``yoke`` beside it is a ``sh`` script
+    that ``CreateProcess`` cannot run. The session token is never an
+    argument — ``ps`` would publish it — so the child reads it from the
+    machine state directory instead.
     """
+    launcher = operator_launcher_path(_shim_path().parent)
+    return _serve_argv(launcher, host=host, port=port, env=env)
+
+
+def _serve_argv(launcher: Path, *, host: str, port: int, env: str) -> List[str]:
     return [
-        str(_shim_path()),
+        str(launcher),
         "--env",
         env,
         "ui",
@@ -126,7 +133,8 @@ def plist_document(*, host: str, port: int, env: str, log_path: Path) -> Dict[st
     shim = _shim_path()
     return {
         "Label": UI_LAUNCHD_LABEL,
-        "ProgramArguments": child_command(host=host, port=port, env=env),
+        # launchd resolves the POSIX shim from an absolute path at login.
+        "ProgramArguments": _serve_argv(shim, host=host, port=port, env=env),
         "EnvironmentVariables": {
             "PATH": os.environ.get("PATH", "") or str(shim.parent),
             ENV_OVERRIDE: env,
