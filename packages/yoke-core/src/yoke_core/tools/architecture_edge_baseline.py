@@ -28,9 +28,9 @@ from yoke_core.domain.merge_architecture_edge_admission import (
 )
 
 
-def scan_commit(repo_root: str, commit: str, project: str, *, dispatch=call_dispatcher) -> str:
+def scan_commit(repo_root: str, commit: str, project: str, *, dispatch=None) -> str:
     """The baseline text for every forbidden edge at ``commit``."""
-    model, refusal = read_model(project, dispatch)
+    model, refusal = read_model(project, dispatch or call_dispatcher)
     if refusal:
         raise SystemExit(refusal)
     if model is None:
