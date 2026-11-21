@@ -53,6 +53,7 @@ def execute_authorized_case(
     requirement_id: int,
     *,
     base_url: str = "",
+    test_machine: str | None = None,
     expected_branch: Optional[str] = None,
     expected_sha: Optional[str] = None,
     timeout_seconds: Optional[int] = None,
@@ -81,6 +82,8 @@ def execute_authorized_case(
         "allow_tree_mismatch": allow_tree_mismatch,
         "actor": actor,
     }
+    if test_machine is not None:
+        runner_options["test_machine"] = test_machine
     if is_host_command(case):
         from yoke_core.domain.qa_case_mission_execution import execute_single_plan_case
 

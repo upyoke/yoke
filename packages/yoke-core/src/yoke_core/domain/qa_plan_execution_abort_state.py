@@ -96,22 +96,12 @@ def mission_walk_owed(conn, execution):
     A mission walk holding its machine lease without a recorded restore may
     have staged secrets and fixtures; only its walk-end teardown frees it.
     """
-    from yoke_core.domain.agent_mission_restore import mission_restores_recorded
+    from yoke_core.domain.agent_mission_restore import pending_mission_walks
 
-    if (
-        execution["state"] not in MISSION_WALK_STATES
-        or not execution.get("test_machine_lease_id")
-        or mission_restores_recorded(conn, execution)
-    ):
+    if execution["state"] not in MISSION_WALK_STATES or not execution.get("test_machine_lease_id"):
         return None
-    return next(
-        (
-            {"ordinal": ordinal}
-            for ordinal, case in enumerate(execution.get("roster") or [])
-            if case.get("runner_id") == "agent_mission" and needs_test_machine(case)
-        ),
-        None,
-    )
+    pending = pending_mission_walks(conn, execution)
+    return {"ordinal": pending[0]} if pending else None
 
 
 def mission_abort_pending(execution):

@@ -52,6 +52,7 @@ def test_item_execution_isolates_a_mission_chain_on_the_same_target(passed):
         "mac-lab",
         ("linux-lab", "mac-lab"),
         1,
+        None,
     )
 
 
@@ -59,7 +60,7 @@ def test_host_union_does_not_cross_a_plan_or_baseline_boundary():
     roster = _roster()[:2]
     for boundary in ({"plan_id": 2}, {"baseline_position": 2}):
         separated = [roster[0], {**roster[1], **boundary}]
-        assert chain_host_groups(separated)[1] == ("mac-lab", ("mac-lab",), None)
+        assert chain_host_groups(separated)[1] == ("mac-lab", ("mac-lab",), None, None)
 
 
 @pytest.mark.parametrize("trailing", [False, True])
@@ -176,8 +177,8 @@ def test_each_chain_baseline_takes_only_its_own_chain_hosts(
     assert _case_begin(execution).primary_success
     current = lock_plan_execution(test_db, execution["id"])
     old_lease = current["test_machine_lease_id"]
-    # The one-host chain holds only its driver, not a later chain's hosts.
-    assert not execution_host_leases(test_db, current)
+    # The one-host chain holds exactly its driver.
+    assert [lease.id for lease in execution_host_leases(test_db, current)] == [old_lease]
     opener = current["roster"][0]
     advance_plan_execution(
         test_db,

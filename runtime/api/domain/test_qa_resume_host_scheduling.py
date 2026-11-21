@@ -23,7 +23,7 @@ def test_resumed_platform_retains_host_and_new_platform_selects_normally(
     case = {
         "project": "example",
         "project_id": 1,
-        "runner_id": "agent_mission",
+        "runner_id": "host_control",
         "method_config": {"os": "linux"},
     }
     other = {**case, "method_config": {"os": "macos"}}
@@ -54,6 +54,7 @@ def test_resumed_platform_retains_host_and_new_platform_selects_normally(
     begin = Mock(return_value=SimpleNamespace(lease_id=9))
     monkeypatch.setattr(protocol, "begin_host_control_execution", begin)
     monkeypatch.setattr(lifecycle, "set_plan_machine_lease", Mock())
+    monkeypatch.setattr("yoke_core.domain.qa_plan_host_leases.bind_case_host", Mock())
 
     contract = begin_case_host_contract(
         conn, execution, case, ordinal=0, test_machine=pin, actor_id="1", session_id="owner"
@@ -62,7 +63,7 @@ def test_resumed_platform_retains_host_and_new_platform_selects_normally(
     assert begin.call_args.kwargs["test_machine"] == selected
     assert begin.call_args.kwargs["host_cases"] == [case]
     assert execution["test_machine_lease_id"] is None
-    released.assert_called_once_with(conn, 7, "qa-case-host-change", commit=False)
+    released.assert_called_once_with(conn, 7, "qa-case-chain-ended", commit=False)
 
 
 def test_resumed_single_platform_keeps_live_lease(monkeypatch):
@@ -83,8 +84,10 @@ def test_resumed_single_platform_keeps_live_lease(monkeypatch):
         ),
     )
     monkeypatch.setattr(protocol, "plan_case_contract_arguments", lambda *a, **k: {})
-    continuation = Mock()
+    continuation = Mock(return_value=SimpleNamespace(lease_id=7, settings={}))
     monkeypatch.setattr(protocol, "continue_plan_host_control_execution", continuation)
+    monkeypatch.setattr("yoke_core.domain.qa_plan_host_leases.bind_case_host", Mock())
+    monkeypatch.setattr("yoke_core.domain.qa_plan_execution_lifecycle.set_plan_machine_lease", Mock())
     begin_case_host_contract(
         Mock(),
         execution,

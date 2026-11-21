@@ -109,7 +109,7 @@ def register(registry) -> None:
     registry.register(
         "test_machine.case.begin",
         _case.handle_case_begin,
-        _case.TestMachineCaseExecuteRequest,
+        _case.TestMachineCaseBeginRequest,
         _case.TestMachineCaseBeginResponse,
         stability="stable",
         minimum_serving_version="next-release",

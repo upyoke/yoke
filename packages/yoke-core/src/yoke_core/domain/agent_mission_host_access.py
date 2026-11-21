@@ -10,6 +10,7 @@ from yoke_core.domain.machine_qa_plan_protocol import (
     continue_plan_host_control_execution,
     plan_case_contract_arguments,
 )
+from yoke_core.domain.qa_case_host_custody import case_host_lease_id
 from yoke_core.domain.qa_plan_host_leases import (
     execution_host_leases,
     require_case_host_leases,
@@ -27,12 +28,18 @@ def mission_host_contract(
 ) -> Any:
     """Validate the whole host set before issuing authority for one host."""
     require_case_host_leases(conn, execution, case)
+    lease_id = case_host_lease_id(conn, execution, case)
+    if lease_id is None:
+        raise ValueError(
+            "mission_case_lease_unavailable: the case has no active driver lease; "
+            "resume its scoped QA plan or abort it to recover custody"
+        )
     driver_lease, _ = _validate_lease_owner(
         conn,
         project=str(case["project"]),
         session_id=actor.session_id,
         actor_id=actor.actor_id,
-        lease_id=int(execution["test_machine_lease_id"]),
+        lease_id=lease_id,
         allow_released=False,
     )
     driver = str(driver_lease.target.test_machine)

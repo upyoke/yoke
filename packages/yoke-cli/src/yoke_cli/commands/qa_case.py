@@ -21,7 +21,7 @@ FORWARDS_CHILD_INTERRUPT = os.name != "nt"
 
 
 QA_CASE_RUN_USAGE = (
-    "yoke qa case run --requirement-id N [--base-url URL] "
+    "yoke qa case run --requirement-id N [--base-url URL] [--test-machine TEST_MACHINE] "
     "[--expected-branch BRANCH --expected-sha SHA] "
     "[--timeout-seconds N] [--checkout-path PATH] "
     "[--allow-tree-mismatch] [--session-id S]"
@@ -67,6 +67,7 @@ def qa_case_run(args: List[str]) -> int:
         QA_CASE_RUN_USAGE,
         "Requires the named immutable QA case and matching item/task work claim. "
         "A CI-backed case opens or reuses the item landing pull request. "
+        "For machine-backed cases, --test-machine selects a host that meets their OS and capability requirements. "
         "A mission starts a one-requirement plan execution; exit 12 hands its typed review to the main agent. "
         "With multiple lanes, select --checkout-path PATH --expected-branch BRANCH "
         "--expected-sha FULL_SHA; CI refuses source mismatches before publication.",

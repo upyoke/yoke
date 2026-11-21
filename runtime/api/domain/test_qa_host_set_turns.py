@@ -189,7 +189,9 @@ def _solo_case_done(conn, tmp_path, monkeypatch):
     current = lock_plan_execution(conn, execution["id"])
     # The solo baseline does not take the matrix case's companion host.
     assert active_claim(conn, _target(MACHINES[1])) is None
-    assert not execution_host_leases(conn, current)
+    assert [claim.id for claim in execution_host_leases(conn, current)] == [
+        current["test_machine_lease_id"]
+    ]
     case = current["roster"][0]
     advance_plan_execution(
         conn,

@@ -178,6 +178,7 @@ def execute_materialized_machine_case(
     case: Mapping[str, Any],
     *,
     actor: ActorContext | None = None,
+    test_machine: str | None = None,
 ) -> dict[str, Any]:
     """Rerun one immutable case through the begin/local/submit protocol.
 
@@ -192,6 +193,7 @@ def execute_materialized_machine_case(
         abort_function="test_machine.case.abort",
         requirement_id=requirement_id,
         actor=actor,
+        test_machine=test_machine,
     )
     if int(result.get("requirement_id") or 0) != requirement_id:
         raise MachineCaseDispatchError(

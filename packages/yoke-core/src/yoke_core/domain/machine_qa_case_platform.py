@@ -78,7 +78,8 @@ def platform_config(config: Mapping[str, Any]) -> dict[str, str]:
 
 
 def case_platform(
-    case: Mapping[str, Any], hosts: Mapping[str, str] | None = None
+    case: Mapping[str, Any], hosts: Mapping[str, str] | None = None,
+    *, allow_undeclared: bool = False,
 ) -> str | None:
     """Resolve declared execution inputs and registered machines to an OS."""
     from yoke_contracts.qa_case_starting_state import needs_test_machine
@@ -128,6 +129,8 @@ def case_platform(
     }
     if declared:
         return next(iter(declared)) if len(declared) == 1 else None
+    if allow_undeclared:
+        return None
     raise TestMachineCapabilityError(
         "test_machine_platform_undeclared: case "
         f"{case.get('case_key') or case.get('requirement_id') or 'unknown'} "
@@ -138,9 +141,13 @@ def case_platform(
 
 
 def required_platform(
-    cases: Sequence[Mapping[str, Any]], hosts: Mapping[str, str] | None = None
+    cases: Sequence[Mapping[str, Any]], hosts: Mapping[str, str] | None = None,
+    *, allow_undeclared: bool = False,
 ) -> str | None:
-    platforms = {platform for case in cases if (platform := case_platform(case, hosts))}
+    platforms = {
+        platform for case in cases
+        if (platform := case_platform(case, hosts, allow_undeclared=allow_undeclared))
+    }
     if len(platforms) > 1:
         raise TestMachineCapabilityError(
             "test_machine_platform_conflict: one host cannot execute cases requiring "

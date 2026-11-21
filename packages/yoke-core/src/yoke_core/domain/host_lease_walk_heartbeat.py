@@ -19,7 +19,7 @@ from yoke_core.domain.qa_plan_execution_store import (
     marker,
     same_owner,
 )
-from yoke_core.domain.qa_plan_host_leases import HOST_SET_REASON
+from yoke_core.domain.qa_case_host_custody import claim_execution_id
 from yoke_core.domain.schema_common import _table_exists
 
 #: Walk states in which a host command is walk activity (host-command's states).
@@ -31,7 +31,7 @@ def lease_execution_id(conn: Any, lease: Any) -> str | None:
     if not _table_exists(conn, "qa_plan_executions"):
         return None
     p = marker(conn)
-    companion = (lease.reason or "").removeprefix(HOST_SET_REASON)
+    companion = claim_execution_id(lease.reason)
     row = conn.execute(
         f"SELECT id FROM qa_plan_executions WHERE test_machine_lease_id={p} OR id={p}",
         (lease.id, companion),

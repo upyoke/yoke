@@ -139,15 +139,24 @@ def item_target_partition(
     from yoke_core.domain.qa_plan_chain_hosts import chain_host_groups
 
     chains = chain_host_groups(open_rows)
-    groups: dict[tuple[str, int | None], list[dict[str, Any]]] = {}
+    host_free = (None, (), None, None)
+    default_hosts = {}
     for row in open_rows:
-        key = (
-            str(row.get("execution_target_digest") or ""),
-            chains[int(row["requirement_id"])][2],
-        )
-        groups.setdefault(key, []).append(row)
+        host_group = chains[int(row["requirement_id"])]
+        if host_group != host_free and host_group[2] is None:
+            default_hosts.setdefault(str(row.get("execution_target_digest") or ""), host_group)
+    groups_by_target = {}
+    for row in open_rows:
+        digest = str(row.get("execution_target_digest") or "")
+        host_group = chains[int(row["requirement_id"])]
+        if host_group == host_free:
+            host_group = default_hosts.get(digest, host_free)
+        groups = groups_by_target.setdefault(digest, [])
+        if not groups or groups[-1][0] != host_group:
+            groups.append((host_group, []))
+        groups[-1][1].append(row)
     first_reprint = None
-    ordered = list(groups.values())
+    ordered = [rows for groups in groups_by_target.values() for _, rows in groups]
     for index, rows in enumerate(ordered):
         reprint, kept = settle(_numbered(rows))
         if kept:

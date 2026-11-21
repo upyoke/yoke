@@ -209,9 +209,11 @@ def handle_plan_case_submit(request: FunctionCallRequest) -> HandlerOutcome:
             allow_recorded_replay=True,
             **arguments,
         )
+        from yoke_core.domain.qa_case_host_custody import case_host_lease_id
+
         if (
             parsed.ordinal == int(execution["cursor_ordinal"])
-            and execution.get("test_machine_lease_id") != lease.id
+            and case_host_lease_id(conn, execution, case) != lease.id
         ):
             raise ValueError("plan case submission names the wrong machine lease")
         if len(parsed.results) != 1:

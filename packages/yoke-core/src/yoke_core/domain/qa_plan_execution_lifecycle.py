@@ -105,7 +105,7 @@ def set_plan_machine_lease(
         cursor = conn.execute(
             "UPDATE qa_plan_executions SET test_machine_lease_id="
             f"{placeholder},heartbeat_at={placeholder} WHERE id={placeholder} "
-            "AND state='active' AND test_machine_lease_id IS NULL",
+            "AND state='active'",
             (int(lease_id), instant_parameter(conn, now), str(execution["id"])),
         )
         if cursor.rowcount != 1:

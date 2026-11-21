@@ -17,6 +17,7 @@ from yoke_core.domain.qa_plan_execution_abort_reason import (
     member_removal_pending,
     member_removed,
 )
+from yoke_core.domain.qa_case_host_custody import bind_case_host, case_host_lease_id
 from yoke_core.domain.qa_plan_execution_store import same_owner
 
 
@@ -186,10 +187,10 @@ def _store_restore(
 def _finish(
     conn: Any, request: Any, parsed: Any, execution: dict, run_id: int
 ) -> HandlerOutcome | None:
-    from yoke_core.domain.coordination_claims import get_claim, release
-    from yoke_core.domain.qa_plan_execution_store import marker
+    from yoke_core.domain.coordination_claims import get_claim
 
-    lease_id = execution.get("test_machine_lease_id")
+    ordinal, case, _ = _mission(conn, execution, parsed.requirement_id)
+    lease_id = case_host_lease_id(conn, execution, case)
     if lease_id is None or parsed.lease_id != lease_id:
         raise ValueError(
             "mission_cleanup_lease_mismatch: rerun walk-end to acquire cleanup custody"
@@ -207,17 +208,15 @@ def _finish(
     from yoke_core.domain.machine_reset_debt import record_reset_owed
     from yoke_core.domain.qa_plan_execution_abort_state import case_restore_proven
 
-    _, case, _ = _mission(conn, execution, parsed.requirement_id)
     if not case_restore_proven(case, parsed.restore or {}):
         record_reset_owed(
             conn, case=case, test_machine=lease.target.test_machine, lease_id=lease.id
         )
-    release(conn, lease.id, "mission-teardown-finished", commit=False)
-    conn.execute(
-        f"UPDATE qa_plan_executions SET test_machine_lease_id=NULL WHERE id={marker(conn)}",
-        (execution["id"],),
-    )
-    execution["test_machine_lease_id"] = None
+    from yoke_core.domain.agent_mission_restore import release_restored_case_host
+
+    if release_restored_case_host(conn, execution, ordinal, lease.id):
+        conn.commit()
+        return None
     from yoke_core.domain.qa_plan_execution_abort_state import abort_request
     from yoke_core.domain.qa_plan_execution_schema import TERMINAL_PLAN_EXECUTION_STATES
     from yoke_core.domain.qa_deployment_execution_cleanup import abort_reason
@@ -282,7 +281,7 @@ def handle_cleanup(request: Any, parsed: Any) -> HandlerOutcome | None:
             raise ValueError(
                 f"mission_cleanup_run_mismatch: rerun walk-end with --run-id {run_id}"
             )
-        lease_id = execution.get("test_machine_lease_id")
+        lease_id = case_host_lease_id(conn, execution, case)
         if parsed.cleanup == "finish":
             outcome = _finish(conn, request, parsed, execution, run_id)
             if outcome is not None:
@@ -314,6 +313,7 @@ def handle_cleanup(request: Any, parsed: Any) -> HandlerOutcome | None:
                     select_any=False,
                     **arguments,
                 )
+                bind_case_host(conn, execution, case, issued.lease_id)
                 p = marker(conn)
                 conn.execute(
                     f"UPDATE qa_plan_executions SET test_machine_lease_id={p} WHERE id={p}",

@@ -8,7 +8,6 @@ from typing import Any
 from yoke_core.domain.machine_qa_case_machine import (
     resolve_case_machine,
 )
-from yoke_core.domain.machine_qa_case_hosts import case_machines
 from yoke_core.domain.qa_plan_case_chain import settled_chain_tails
 from yoke_core.domain.qa_plan_run_target_partition import (
     run_target_partition,
@@ -83,9 +82,8 @@ def member_machine_partition(
         if deployment_stage and deployment_member_item_id is None and not live_id
         else {}
     )
-    host_sets = {
-        host_group(row) for row in roster if case_machines(row) or host_group(row)[2]
-    }
+    host_free = (None, (), None, None)
+    host_sets = {host_group(row) for row in roster} - {host_free}
     if (
         not deployment_stage
         or (
@@ -93,12 +91,12 @@ def member_machine_partition(
             and not (
                 (roster[0].get("execution_target") or {}).get("deployment") or {}
             ).get("shared_plan")
-            and not any(isolated for _driver, _hosts, isolated in host_sets)
+            and not any(group[2] for group in host_sets)
         )
         or (
             len(host_sets) < 2
-            and not any(isolated for _driver, _hosts, isolated in host_sets)
-            and not any(len(hosts) > 1 for _driver, hosts, _isolated in host_sets)
+            and not any(group[2] for group in host_sets)
+            and not any(len(group[1]) > 1 for group in host_sets)
         )
     ):
         if not deployment_stage:
@@ -204,8 +202,8 @@ def member_machine_partition(
     if held and not free:
         raise StageRosterHeld(next(iter(held.values())))
     selected_hosts = next(
-        (host_group(row) for row in free if case_machines(row) or host_group(row)[2]),
-        (None, (), None),
+        (host_group(row) for row in free if host_group(row) != host_free),
+        host_free,
     )
     selected = [
         {**row, "ordinal": ordinal}
@@ -213,7 +211,7 @@ def member_machine_partition(
             row
             for row in free
             if host_group(row) == selected_hosts
-            or (selected_hosts[2] is None and host_group(row) == (None, (), None))
+            or (selected_hosts[2] is None and host_group(row) == host_free)
         )
     ]
     return selected, len(pending) - len(selected), None
