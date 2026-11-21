@@ -7,6 +7,7 @@ from typing import Any, Iterable
 
 from yoke_core.domain.audiences import member_matches_for_audiences
 from yoke_core.domain.actor_render import render_actor_names
+from yoke_core.domain.dash_posture_read import posture
 from yoke_core.domain.next_actor import action
 from yoke_core.domain.no_change_dash_delivery import missing_membership_recoveries
 from yoke_core.domain.project_identity import placeholder
@@ -170,10 +171,11 @@ def next_actor_facts(
                     run_id=row["run_id"],
                 ),
             )
-    if items and all(
+    has_deployments = bool(items) and all(
         _table_exists(conn, name)
         for name in ("deployment_runs", "deployment_run_items")
-    ):
+    )
+    if has_deployments:
         for row in _rows(
             conn,
             "SELECT m.item_id,r.id,r.created_at,r.started_at,r.current_stage "
@@ -196,17 +198,12 @@ def next_actor_facts(
                     stage=row["current_stage"],
                 ),
             )
-        for iid, (message, recovery) in missing_membership_recoveries(conn, items).items():
-            by_item[iid]["deployment_wait"] = action(
-                "parent_or_steering",
-                "release_membership_required",
-                sentence=f"{message} {recovery}",
-                recovery=recovery,
-            )
     if items:
+        deployment_dashes = []
         for row in _rows(
             conn,
             "SELECT i.id,i.merge_queue_enqueued_at,i.merge_queue_landed_at,i.merged_at,"
+            "i.workflow_id,i.workflow_posture,"
             f"{lane_head_landed_sql()} AS lane_head_landed,"
             f"{OPEN_ATTEMPT_ENQUEUED_AT},"
             "CASE WHEN open_attempt.enqueued_at IS NOT NULL "
@@ -214,6 +211,12 @@ def next_actor_facts(
             f"FROM items i {OPEN_ATTEMPT_JOIN} WHERE i.id IN ({slots(items)})",
             items,
         ):
+            if (
+                has_deployments
+                and row["workflow_id"] == "dash"
+                and posture(row).get("deployment") is True
+            ):
+                deployment_dashes.append(int(row["id"]))
             if waiting_on_landing(row):
                 by_item[int(row["id"])]["landing_wait"] = action(
                     "ci_or_deploy",
@@ -221,6 +224,15 @@ def next_actor_facts(
                     row["open_attempt_enqueued_at"] or row["merge_queue_enqueued_at"],
                     pr_number=row["pr_number"],
                 )
+        for iid, (message, recovery) in missing_membership_recoveries(
+            conn, tuple(deployment_dashes)
+        ).items():
+            by_item[iid]["deployment_wait"] = action(
+                "parent_or_steering",
+                "release_membership_required",
+                sentence=f"{message} {recovery}",
+                recovery=recovery,
+            )
     from yoke_core.domain.next_actor_host_turns import host_turn_waits
 
     for sid, wait in host_turn_waits(conn, sessions, _rows).items():
