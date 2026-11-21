@@ -61,7 +61,6 @@ def _normalize_task_num(raw: str) -> int:
 # Keep these imports below the helper definitions so sibling lazy imports can
 # resolve the shared CLI infrastructure.
 from yoke_core.engines.repair_status_item import (  # noqa: E402
-    _validate_item_target_status,
     repair_item_status,
 )
 from yoke_core.engines.repair_status_task import (  # noqa: E402
@@ -76,7 +75,6 @@ __all__ = [
     "_repo_root",
     "_connect",
     "_normalize_task_num",
-    "_validate_item_target_status",
     "repair_item_status",
     "repair_task_status",
     "parse_args",

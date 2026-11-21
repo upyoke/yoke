@@ -10,7 +10,7 @@ verdict and operator narrative client-side.
 
 Each handler is a thin wrapper over the unchanged query the engine ran
 inline (or, for the preconditions bundle, over the unchanged
-:func:`yoke_core.engines.done_transition_preconditions.evaluate_done_preconditions`
+:func:`yoke_core.domain.done_transition_preconditions.evaluate_done_preconditions`
 connection-based core). They are ``adapter_status='internal'`` (engine
 glue, never an agent CLI surface), so they carry no CLI adapter row.
 """
@@ -219,7 +219,7 @@ def handle_done_preconditions(request: FunctionCallRequest) -> HandlerOutcome:
     """Evaluate the four done-preconditions and return ``(allowed, reason)``.
 
     Wraps the unchanged connection-based
-    :func:`yoke_core.engines.done_transition_preconditions.evaluate_done_preconditions`
+    :func:`yoke_core.domain.done_transition_preconditions.evaluate_done_preconditions`
     bundle (registered-flow, deployed_to, deploy_stage, latest-run-not-failed,
     and the planning verdict checks). The exact rejection-reason strings are
     preserved; the guard banner stays engine-owned.
@@ -232,7 +232,7 @@ def handle_done_preconditions(request: FunctionCallRequest) -> HandlerOutcome:
     except Exception as exc:  # noqa: BLE001 - surface a structured payload error
         return _err("payload_invalid", f"done_preconditions payload invalid: {exc}")
 
-    from yoke_core.engines.done_transition_preconditions import (
+    from yoke_core.domain.done_transition_preconditions import (
         evaluate_done_preconditions,
     )
 

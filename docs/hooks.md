@@ -176,7 +176,7 @@ bounded attempt count, then drop. Queue length is capped. While retained,
 emits `YOKE_HOOK_TELEMETRY_DROPPED`. Disposable observations never block sessions
 or pin residents/revisions; operational state has durable owners.
 
-Evaluate and batch share `yoke_core.hooks.relayed_session_identity`. Unstamped
+Evaluate and batch share `yoke_contracts.relayed_session_identity`. Unstamped
 payloads receive conversation-alias shape checks. The client folds unmapped raw
 conversation identities to empty and sets no stamp; a valid machine-local Cursor
 mapping can legitimately use the conversation id as canonical session id.

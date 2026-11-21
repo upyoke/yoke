@@ -189,7 +189,7 @@ def test_unbound_machine_request_never_reaches_remote_entry(
         pytest.fail("unbound machine credential must be refused before remote_entry")
 
     monkeypatch.setattr(
-        "yoke_core.api.routes.hooks.evaluate_remote", unexpected_evaluation
+        "yoke_core.hooks.remote_entry.evaluate_remote", unexpected_evaluation
     )
     response = client.post(
         "/v1/hooks/evaluate",

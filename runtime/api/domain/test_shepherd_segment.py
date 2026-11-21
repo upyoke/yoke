@@ -18,7 +18,7 @@ from yoke_core.domain.workflow_runtime import (
 )
 from yoke_core.engines.doctor_hc_meta_lifecycle import hc_shepherd_lifecycle
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
-from yoke_core.engines.done_transition_preconditions import evaluate_done_preconditions
+from yoke_core.domain.done_transition_preconditions import evaluate_done_preconditions
 
 
 def _renamed_definition():

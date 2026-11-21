@@ -20,7 +20,7 @@ from yoke_core.engines.doctor_report import (
     DoctorArgs,
     RecordCollector,
 )
-from yoke_core.engines.merge_prune_authority import (
+from yoke_core.domain.merge_prune_authority import (
     item_cleanup_authority_blocks_prune,
 )
 from yoke_core.engines.remote_branch_cleanup import (

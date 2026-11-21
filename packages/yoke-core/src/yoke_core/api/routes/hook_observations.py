@@ -24,8 +24,8 @@ from yoke_core.domain.session_scope_identity import (
     HOOK_SCOPE_UNAVAILABLE,
     authorize_hook_request,
 )
-from yoke_core.hooks.observation_batch import persist_observation_batch, request_payload
-from yoke_core.hooks.relayed_session_identity import (
+from yoke_core.domain.service_runtime_ports import get_hook_service_runtime
+from yoke_contracts.relayed_session_identity import (
     refusal_text,
     stamped_identity_refusal,
 )
@@ -141,6 +141,7 @@ def post_hook_observation_batch(
             )
         stamped.append((observation, hook_request, str(payload["session_id"]).strip()))
 
+    runtime = get_hook_service_runtime()
     try:
         authority = db_helpers.connect()
     except Exception:
@@ -169,7 +170,7 @@ def post_hook_observation_batch(
                 machine_id=hook_request.machine_id,
                 actor_id=auth.actor_id,
             )
-            _, effective_payload = request_payload(hook_request.model_dump())
+            _, effective_payload = runtime.request_payload(hook_request.model_dump())
             if not is_read_only_tool_event(
                 hook_request.event_name, json.dumps(effective_payload)
             ):
@@ -183,7 +184,7 @@ def post_hook_observation_batch(
             validated.append(raw)
 
     try:
-        accepted, model_confirmations = persist_observation_batch(
+        accepted, model_confirmations = runtime.persist_observation_batch(
             validated, actor_id=auth.actor_id
         )
     except Exception as exc:

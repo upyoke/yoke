@@ -79,10 +79,8 @@ def test_front_door_reexports_canonical_repair_flows():
 
     assert repair_status.repair_item_status is repair_status_item.repair_item_status
     assert repair_status.repair_task_status is repair_status_task.repair_task_status
-    assert (
-        repair_status._validate_item_target_status
-        is repair_status_item._validate_item_target_status
-    )
+    assert not hasattr(repair_status, "_validate_item_target_status")
+    assert not hasattr(repair_status_item, "_validate_item_target_status")
     assert callable(repair_status.parse_args)
     assert callable(repair_status.main)
 

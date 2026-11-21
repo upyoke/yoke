@@ -1,8 +1,6 @@
 """Item-status repair flow.
 
-Owns lifecycle target-status validation and the item repair pipeline.
-Imported by ``yoke_core.engines.repair_status`` as the canonical owner of
-``_validate_item_target_status`` and ``repair_item_status``.
+Runs the item repair pipeline against the pinned workflow.
 """
 
 from __future__ import annotations
@@ -11,26 +9,11 @@ import os
 import sys
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.workflow_runtime import WorkflowRuntime
+from yoke_core.domain import item_status_repair_validation
 
 
 def _p(conn) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
-
-
-def _validate_item_target_status(
-    workflow: WorkflowRuntime,
-    new_status: str,
-) -> str | None:
-    """Return a human-readable validation error, or None when valid."""
-    if workflow.accepts_stage(new_status):
-        return None
-    declared = ", ".join(workflow.stage_ids)
-    return (
-        f"Error: {new_status!r} is not declared by "
-        f"{workflow.workflow_id}@{workflow.version}. Stages: {declared} "
-        "(plus blocked, stopped, failed, cancelled)."
-    )
 
 
 def repair_item_status(
@@ -74,7 +57,9 @@ def repair_item_status(
         return 3
 
     old_status = str(row["status"])
-    error = _validate_item_target_status(workflow, new_status)
+    error = item_status_repair_validation.validate_item_target_status(
+        workflow, new_status
+    )
     if error is not None:
         print(error, file=sys.stderr)
         return 2

@@ -45,7 +45,7 @@ def _read_item(item_id: int) -> Optional[Dict[str, Any]]:
     Postgres connection. Returns ``None`` when the item is not found (or
     the read is refused), matching the previous local-query contract.
     """
-    from yoke_core.engines.done_transition_item_context import (
+    from yoke_core.domain.done_transition_item_context import (
         done_item_context_from_payload,
     )
 

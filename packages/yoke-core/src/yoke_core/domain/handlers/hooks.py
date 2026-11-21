@@ -33,12 +33,12 @@ def handle_hook_evaluate(request: FunctionCallRequest) -> HandlerOutcome:
             ),
         )
 
-    from yoke_core.hooks.__main__ import main as hook_runner_main
+    from yoke_core.domain.service_runtime_ports import get_hook_runner
 
     runner_args = [event_name.strip()]
     if bool(payload.get("dry_run", False)):
         runner_args.append("--dry-run")
-    rc = int(hook_runner_main(runner_args))
+    rc = int(get_hook_runner().main(runner_args))
     return HandlerOutcome(
         result_payload={"exit_code": rc},
         primary_success=(rc == 0),

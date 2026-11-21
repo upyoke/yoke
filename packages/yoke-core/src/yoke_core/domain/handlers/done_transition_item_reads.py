@@ -138,7 +138,7 @@ def handle_item_context(request: FunctionCallRequest) -> HandlerOutcome:
     """Load the item + pinned workflow context the runner consumes.
 
     Wraps the unchanged
-    :func:`yoke_core.engines.done_transition_item_context.load_done_item_context`.
+    :func:`yoke_core.domain.done_transition_item_context.load_done_item_context`.
     A missing item (its ``None`` result) is a valid ``found=False`` answer,
     matching the runner's "item not found" branch; any other failure
     (including an incomplete workflow pin) surfaces as a structured error so
@@ -148,7 +148,7 @@ def handle_item_context(request: FunctionCallRequest) -> HandlerOutcome:
     if item_id is None:
         return _err("target_invalid", "item_context requires target.public_ref")
 
-    from yoke_core.engines.done_transition_item_context import (
+    from yoke_core.domain.done_transition_item_context import (
         load_done_item_context,
     )
 

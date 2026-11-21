@@ -16,8 +16,8 @@ while the merge engine keeps every git and filesystem operation — worktree
 removal, branch deletion, test execution — local.
 
 The prune verdict wraps the fail-closed
-:func:`yoke_core.engines.merge_prune_authority.terminal_owner` /
-:func:`~yoke_core.engines.merge_prune_authority.has_active_authority` logic;
+:func:`yoke_core.domain.merge_prune_authority.terminal_owner` /
+:func:`~yoke_core.domain.merge_prune_authority.has_active_authority` logic;
 the post-rebase read wraps
 :func:`yoke_core.domain.qa_plan_attachments.materialize_for_item`, the
 registered Command-plan reader and the project's no-tests attestation. Every
@@ -38,7 +38,7 @@ from yoke_contracts.api.function_call import (
     HandlerOutcome,
 )
 from yoke_contracts.public_ref import ITEM_NOT_FOUND
-from yoke_core.engines.prune_authority_batch import (
+from yoke_contracts.prune_authority_batch import (
     PruneBatchInvalid,
     verdicts_for_lanes,
 )
@@ -204,7 +204,7 @@ def handle_prune_authority_verdicts(request: FunctionCallRequest) -> HandlerOutc
 
 def _prune_verdict(conn: Any, lane: PruneAuthorityRequest) -> dict[str, Any]:
     from yoke_core.domain.project_identity import render_item_ref
-    from yoke_core.engines.merge_prune_authority import (
+    from yoke_core.domain.merge_prune_authority import (
         cancelled_item_owner,
         has_active_authority,
         terminal_owner,
