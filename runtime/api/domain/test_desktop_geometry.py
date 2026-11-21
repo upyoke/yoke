@@ -69,7 +69,7 @@ def test_macos_measures_console_desktop_and_refuses_an_undersized_receipt(monkey
     def task(run, *, argv, timeout):
         assert argv[:2] == ("/bin/sh", "-c")
         assert "if !largeEnough(current)" in argv[2]
-        assert "CGDisplaySetDisplayMode(display, best, nil)" in argv[2]
+        assert "CGCompleteDisplayConfiguration(configuration, .forSession)" in argv[2]
         assert "mode.width >= 1920 && mode.height >= 1080" in argv[2]
         return subprocess.CompletedProcess(argv, 0, resolution, "")
 

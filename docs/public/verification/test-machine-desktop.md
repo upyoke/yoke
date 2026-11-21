@@ -122,7 +122,7 @@ A macOS Test Machine's VNC route opens in macOS Screen Sharing instead, from a
 Mac workstation. Before opening, Yoke uses the registered SSH key and the
 signed-in Mac's Terminal bridge to measure the display. When it is below
 1920×1080, Yoke selects the smallest usable display mode that meets the minimum,
-then reports the observed resolution. The test host needs the Command Line
+keeps it for that login session, and reports the observed resolution. The test host needs the Command Line
 Tools and a display adapter with a suitable mode. `--view` opens
 `vnc://USER@HOST:PORT` with the user name only,
 copies the fixture password to the clipboard through `pbcopy` stdin, and prints

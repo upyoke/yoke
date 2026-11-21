@@ -166,7 +166,7 @@ def test_machine_assertion_declares_gui_session_context(
     assert argv[:2] == ("/bin/sh", "-c") and argv[-3:] == (
         "/usr/sbin/screencapture", "-x", "/tmp/proof.png",
     )
-    assert "CGDisplaySetDisplayMode" in argv[2]
+    assert "CGCompleteDisplayConfiguration" in argv[2]
     assert ssh_commands == []
     assert result.evidence["assertions"][0]["execution_context"] == "gui"
     assert (

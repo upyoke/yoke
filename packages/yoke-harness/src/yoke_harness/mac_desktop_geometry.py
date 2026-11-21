@@ -28,9 +28,19 @@ if !largeEnough(current) {
     guard let best = candidates.min(by: { $0.width * $0.height < $1.width * $1.height }) else {
         fail("no full-HD mode for the \(current.width)x\(current.height) display")
     }
-    let result = CGDisplaySetDisplayMode(display, best, nil)
-    guard result == .success, let observed = CGDisplayCopyDisplayMode(display), largeEnough(observed) else {
-        fail("the display did not switch to full HD (Core Graphics status \(result.rawValue))")
+    var configuration: CGDisplayConfigRef?
+    let begin = CGBeginDisplayConfiguration(&configuration)
+    guard begin == .success, let configuration = configuration else {
+        fail("cannot begin display configuration (Core Graphics status \(begin.rawValue))")
+    }
+    let change = CGConfigureDisplayWithDisplayMode(configuration, display, best, nil)
+    if change != .success {
+        CGCancelDisplayConfiguration(configuration)
+        fail("cannot stage the full-HD mode (Core Graphics status \(change.rawValue))")
+    }
+    let commit = CGCompleteDisplayConfiguration(configuration, .forSession)
+    guard commit == .success, let observed = CGDisplayCopyDisplayMode(display), largeEnough(observed) else {
+        fail("the display did not switch to full HD (Core Graphics status \(commit.rawValue))")
     }
     current = observed
 }
