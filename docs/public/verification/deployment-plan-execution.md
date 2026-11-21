@@ -60,15 +60,14 @@ plan, in its target-qualified completion run (including
 supplemental runs that recorded the delivered revision) or superseded lineage.
 Later attachers need a new group; verification passes never count post-deploy.
 
-A failed case holds its group open; retries run only failed cases.
-The driver sends back items that owe a fix, or retries, waives or removes.
-Abort notifies unless a retry is live; changed
-reports notify again, and closure withdraws its notice.
-Recording a case verdict while its stage is executing settles that stage in
-the same write; a group case settles its group. When the stage cannot settle,
-the write refuses as `qa_verdict_settlement_refused` with the cause and whether
-the verdict persisted. Record an unpersisted verdict again after repairing the
-cause. For a persisted verdict, let the runner adopt it with
+A failed case holds its group open. Retries run only failed cases. The driver
+sends back items that owe a fix, or retries, waives or removes them. Abort
+notifies unless a retry is live. Changed reports notify again. Closure
+withdraws the notice.
+Case verdicts settle the active stage or group in the same write. Verdicts
+bound to a live execution settle at completion. A failed settlement refuses as
+`qa_verdict_settlement_refused` and says whether the verdict persisted. Fix
+the cause and record an unsaved verdict again. For a saved verdict, run
 `yoke --env CONTROL-PLANE watch deploy -- RUN-ID`.
 
 Correct a wrong group check in its own plan, keeping its case key, then rerun

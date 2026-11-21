@@ -1,7 +1,7 @@
 """Settle a scoped deployment QA gate when its evidence becomes final.
 
 Saved QA evidence may receive credit immediately. The run driver adopts
-busy evidence on its next check and owns member close-out.
+busy evidence on its next check.
 """
 
 from __future__ import annotations
@@ -137,11 +137,22 @@ def settle_subject(
     conn: Any, *, run_id: str, stage: str, member: int | None
 ) -> dict[str, Any]:
     """Converge acceptance and request the existing run's continuation."""
-    status, released = settle_acceptance(
-        conn, run_id=run_id, stage=stage, member=member
+    from yoke_core.domain.deployment_qa_member_acceptance_notice import (
+        notify_items_qa_accepted,
     )
-    if str(status.get("outcome") or "") not in SETTLED_OUTCOMES:
-        return status
+    from yoke_core.domain.deployment_run_auto_completion import (
+        stage_settlement_continues,
+    )
+
+    # Acceptance and close-out both delegate run continuation to this caller.
+    with stage_settlement_continues(run_id):
+        status, released = settle_acceptance(
+            conn, run_id=run_id, stage=stage, member=member
+        )
+        if str(status.get("outcome") or "") not in SETTLED_OUTCOMES:
+            return status
+        if member is not None and status.get("accepted"):
+            notify_items_qa_accepted(conn, run_id=run_id, item_ids=(member,))
     return continue_settled_stage(
         conn,
         run_id=run_id,
@@ -157,19 +168,14 @@ def settle_acceptance(
 ) -> tuple[dict[str, Any], bool]:
     """Converge one subject's acceptance; True when a failure released its member."""
     from yoke_core.domain.deployment_qa_stage_gate import deployment_qa_stage_status
-    from yoke_core.domain.deployment_run_auto_completion import (
-        stage_settlement_continues,
-    )
 
-    # Every caller continues the run once after acceptance converges.
-    with stage_settlement_continues(run_id):
-        status = deployment_qa_stage_status(
-            conn,
-            run_id=run_id,
-            stage_name=stage,
-            member_item_id=member,
-            notify_acceptance=False,
-        )
+    status = deployment_qa_stage_status(
+        conn,
+        run_id=run_id,
+        stage_name=stage,
+        member_item_id=member,
+        notify_acceptance=False,
+    )
     outcome = str(status.get("outcome") or "")
     if outcome not in SETTLED_OUTCOMES:
         return status, False
@@ -220,8 +226,7 @@ def continue_settled_stage(
             stage_waiting(conn, run_id=run_id, stage=stage) if item_scoped else False
         )
         if waiting:
-            # One member passing is report state; notify only when the
-            # stage settles, goes red, or its continuation cannot finish.
+            # The driver only needs a notice when the stage can continue.
             return status
         if waiting is None:
             completion_failure = (

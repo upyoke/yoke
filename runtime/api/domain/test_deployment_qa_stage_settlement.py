@@ -137,6 +137,11 @@ def test_item_review_decision_reaches_the_run_driver(test_db, action):
 
 def test_item_verdict_requests_same_run_driver_once_per_outcome(monkeypatch):
     calls = []
+    close_members = mock.Mock()
+    monkeypatch.setattr(
+        "yoke_core.domain.deployment_qa_member_acceptance_notice.notify_items_qa_accepted",
+        close_members,
+    )
     monkeypatch.setattr(
         "yoke_core.domain.deployment_qa_stage_gate.deployment_qa_stage_status",
         lambda *args, **kwargs: {
@@ -165,6 +170,10 @@ def test_item_verdict_requests_same_run_driver_once_per_outcome(monkeypatch):
     conn = mock.Mock()
     for _ in range(2):
         settle_subject(conn, run_id="run-frozen", stage="item-qa", member=42)
+    assert close_members.call_args_list == [
+        mock.call(conn, run_id="run-frozen", item_ids=(42,)),
+        mock.call(conn, run_id="run-frozen", item_ids=(42,)),
+    ]
     assert len(calls) == 2
     assert calls[0]["idempotency_key"] == calls[1]["idempotency_key"]
     assert "run-frozen" in calls[0]["body_for_route"]("driver")

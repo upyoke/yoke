@@ -258,7 +258,7 @@ def test_delivering_execution_defers_both_verdict_close_out_paths(test_db, monke
     )
 
     finish_plan_execution(test_db, execution, state="completed", reason="case-complete")
-    assert _status(test_db, MEMBER_A) == "release"
+    assert _status(test_db, MEMBER_A) == "done"
     from yoke_core.domain.deployment_qa_stage_dispatch import (
         materialize_and_gate_deployment_qa_stage,
     )
