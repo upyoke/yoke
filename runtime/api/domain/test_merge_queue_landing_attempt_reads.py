@@ -9,6 +9,7 @@ previous landing's time.
 from __future__ import annotations
 
 
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -27,10 +28,19 @@ from yoke_contracts.merge_queue_status import (
 )
 from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain.actors import seed_human_actor
+from yoke_core.domain import item_merge_receipt_document, merge_github_check_runs
+from yoke_core.domain.gh_rest_transport import RestResponse
 from yoke_core.domain.handlers import done_transition_writes as writes
 from yoke_core.domain.item_detail_read import _merge_queue
+from yoke_core.domain.merge_context import MergeArgs, MergeContext
 from yoke_core.domain.merge_queue_landing_marker import point_item_at_pull_request
-from yoke_core.domain.steering_fleet_report_landings import _candidates
+from yoke_core.domain.merge_queue_read_reuse import MergeQueueReads
+from yoke_core.domain.merge_queue_readiness import read_merge_queue_readiness
+from yoke_core.domain.project_github_auth import ProjectGithubAuth
+from yoke_core.domain.steering_fleet_report import FleetReport
+from yoke_core.domain.steering_fleet_report_fingerprint import seat_payload
+from yoke_core.domain.steering_fleet_report_landings import _candidates, landing_readbacks
+from yoke_core.domain.steering_fleet_report_reads import FleetReportReads
 
 ITEM_ID = 9601
 FIRST_LANDED_AT = "2026-09-01T10:00:00.000000Z"
@@ -105,6 +115,74 @@ def test_fleet_readback_names_the_attempt_not_the_delivered_landing(conn):
         ATTEMPT_ARMED_AT
     )
     assert row["merge_queue_notified_at"] is None
+    assert row["merge_queue_landed_at"] is None
+
+
+@pytest.mark.parametrize("receipt_kind", ["valid", "missing", "malformed"])
+def test_fleet_uses_recorded_landing_and_only_reads_active_prs(conn, monkeypatch, receipt_kind):
+    landed_item, queued_item = ITEM_ID + 1, ITEM_ID + 2
+    point_item_at_pull_request(conn, ITEM_ID, "43", enqueued_at=ATTEMPT_ARMED_AT)
+    for item_id, pr in ((landed_item, "44"), (queued_item, "45")):
+        insert_item(
+            conn, id=item_id, status="release", merge_queue_pr_number=pr,
+            merge_queue_enqueued_at=FIRST_LANDED_AT,
+        )
+    conn.execute(
+        "UPDATE items SET merge_queue_landed_at=%s WHERE id=%s",
+        (FIRST_LANDED_AT, landed_item),
+    )
+    head, merge = "a" * 40, "b" * 40
+    if receipt_kind != "missing":
+        item_merge_receipt_document.record_entry(
+            conn, item_id=landed_item, branch="feature", target="main",
+            commit_sha=head, merge_sha=merge if receipt_kind == "valid" else "invalid",
+        )
+    conn.commit()
+
+    auth = ProjectGithubAuth(project="yoke", repo="owner/repo", token="fake")
+    monkeypatch.setattr(merge_github_check_runs, "resolve_auth_detail", lambda *_: (auth, None))
+    requested = []
+
+    def request(req, **_):
+        number = req.body["variables"]["number"]
+        requested.append(number)
+        merged = number == 44
+        pull_request = {
+            "merged": merged, "closed": merged, "state": "MERGED" if merged else "OPEN",
+            "autoMergeRequest": None,
+            "mergeQueueEntry": None if merged else {"state": "QUEUED"},
+            "mergeStateStatus": "UNKNOWN" if merged else "CLEAN",
+            "headRefOid": head, "mergedAt": FIRST_LANDED_AT if merged else None,
+            "mergeCommit": {"oid": merge} if merged else None,
+            "commits": {"nodes": [{"commit": {"statusCheckRollup": None}}]},
+        }
+        return RestResponse(200, {}, {"data": {"repository": {"pullRequest": pull_request}}})
+
+    project_id = _project_id(conn)
+    reads = FleetReportReads(landings=MergeQueueReads(request=request))
+    rows = landing_readbacks(conn, project_id=project_id, reads=reads)
+    assert requested == [43, 45]
+    attempt, landed, queued = rows
+    assert attempt.readiness.in_flight and queued.readiness.in_flight
+    record = landed.to_dict()
+    assert record["landing_state"] == "landed"
+    assert record["merged"] is True and record["closed"] is True
+    assert record["merged_at"] == FIRST_LANDED_AT
+    expected_shas = (head, merge) if receipt_kind == "valid" else ("", "")
+    assert (record["head_sha"], record["merge_commit_sha"]) == expected_shas
+    assert "mergeStateStatus=unreported" in landed.narrative
+
+    live = read_merge_queue_readiness(
+        MergeContext(args=MergeArgs(branch="", target="main"), project="yoke"),
+        pr_number="44", target="main", reads=reads.landings,
+    )
+    assert live.landing_state == "landed"
+    report = FleetReport(
+        project_id, parse_instant(FIRST_LANDED_AT), 0, 0,
+        (), (), (), (), (), (), (), (), (), landings=rows,
+    )
+    live_report = replace(report, landings=(attempt, replace(landed, readiness=live), queued))
+    assert seat_payload(report)["landings"] == seat_payload(live_report)["landings"]
 
 
 def test_item_read_keeps_the_landing_and_carries_the_attempt(conn):

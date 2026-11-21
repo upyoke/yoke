@@ -1,4 +1,4 @@
-"""Read outcomes for recent multi-OS suite dispatches from their exact GitHub runs."""
+"""Read recent multi-OS suite outcomes from one workflow listing per project."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from yoke_contracts.github_app_installation_permissions import GITHUB_ACTIONS_READ_PERMISSION_LEVELS
+from yoke_contracts.timestamps import format_instant, parse_instant
 from yoke_core.domain.steering_report_handler_timing import time_dependency
 from yoke_core.domain import gh_rest_transport, json_helper
 from yoke_core.domain.project_github_auth import (
@@ -37,9 +38,9 @@ class SuiteRunFinding:
 def suite_run_findings(
     conn: Any, *, project_id: int, now: datetime
 ) -> tuple[SuiteRunFinding, ...]:
-    """Join durable dispatch identity and inputs to GitHub's current verdict."""
+    """Join dispatch identities and inputs to the current listing by run ID."""
     rows = conn.execute(
-        f"SELECT repo, workflow_run_id, inputs FROM {INTENT_TABLE} "
+        f"SELECT repo, workflow_run_id, inputs, created_at FROM {INTENT_TABLE} "
         "WHERE authorization_scope = %s AND workflow = %s "
         "AND state = 'completed' AND updated_at >= %s "
         "ORDER BY updated_at DESC, request_id, attempt DESC LIMIT %s",
@@ -66,28 +67,29 @@ def suite_run_findings(
             for row in rows
         )
 
+    bound_rows = [row for row in rows if row[0].casefold() == auth.repo.casefold()]
+    listed_runs = {}
+    listing_error = ""
+    if bound_rows:
+        oldest = min(parse_instant(row[3]) for row in bound_rows)
+        try:
+            listed_runs = _list_runs(auth.repo, auth.token, oldest)
+        except (gh_rest_transport.RestTransportError, ValueError) as exc:
+            listing_error = str(exc)
+
     findings = []
     for row in rows:
-        repo, run_id, _ = row
+        repo, run_id, _, _ = row
         recovery = f"yoke github-actions wait-run {repo} {run_id} --project {project}"
         if repo.casefold() != auth.repo.casefold():
             findings.append(
                 _finding(row, "unreadable", "Restore the dispatch repository binding.")
             )
             continue
-        try:
-            body = gh_rest_transport.request_with_retry(
-                gh_rest_transport.RestRequest(
-                    method="GET", path=f"/repos/{auth.repo}/actions/runs/{run_id}"
-                ),
-                token=auth.token,
-                max_attempts=1,
-                timeout_seconds=3,
-            ).body
-            if not isinstance(body, dict) or str(body.get("id") or "") != run_id:
-                raise ValueError("GitHub returned no matching run")
-        except (gh_rest_transport.RestTransportError, ValueError) as exc:
-            findings.append(_finding(row, "unreadable", f"{exc}. Retry with {recovery}"))
+        body = listed_runs.get(run_id)
+        if body is None:
+            reason = listing_error or f"GitHub's workflow listing omitted run {run_id}"
+            findings.append(_finding(row, "unreadable", f"{reason}. Retry with {recovery}"))
             continue
 
         if body.get("status") == "completed" and body.get("conclusion") != "success":
@@ -97,10 +99,42 @@ def suite_run_findings(
     return tuple(findings)
 
 
+def _list_runs(repo: str, token: str, oldest: datetime) -> dict[str, dict[str, Any]]:
+    body = gh_rest_transport.request_with_retry(
+        gh_rest_transport.RestRequest(
+            method="GET",
+            path=f"/repos/{repo}/actions/workflows/{_WORKFLOW}/runs",
+            query={
+                "event": "workflow_dispatch",
+                "per_page": "100",
+                "created": f">={format_instant(oldest)}",
+            },
+        ),
+        token=token,
+        max_attempts=1,
+        timeout_seconds=3,
+    ).body
+    runs = body.get("workflow_runs") if isinstance(body, dict) else None
+    if not isinstance(runs, list):
+        raise ValueError("GitHub returned an invalid workflow run listing")
+    by_id = {}
+    for run in runs:
+        if (
+            not isinstance(run, dict)
+            or not str(run.get("id", "")).isdecimal()
+            or not isinstance(run.get("status"), str)
+            or not run["status"]
+            or (run.get("conclusion") is not None and not isinstance(run["conclusion"], str))
+        ):
+            raise ValueError("GitHub returned an invalid workflow run in the listing")
+        by_id[str(run["id"])] = run
+    return by_id
+
+
 def _finding(
     row: Any, conclusion: str, recovery: str, run: dict[str, Any] | None = None
 ) -> SuiteRunFinding:
-    repo, run_id, raw_inputs = row
+    repo, run_id, raw_inputs, _ = row
     # The workflow definition's head_sha can differ from the commit under test.
     inputs = (
         raw_inputs

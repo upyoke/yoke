@@ -1,16 +1,20 @@
-"""Live queue-entry facts for open landings in a fleet report."""
+"""Recorded landings and live queue-entry facts for the fleet report."""
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any, Mapping, Optional, Sequence
 
 from yoke_contracts.public_ref import format_item_ref
+from yoke_contracts.timestamps import InvalidInstant, parse_instant
 from yoke_core.domain.steering_report_handler_timing import time_dependency
-from yoke_core.domain import db_backend
+from yoke_core.domain import db_backend, item_merge_receipt_document
 from yoke_core.domain.workflow_status_queries import exclude_terminal_items
+from yoke_core.domain.merge_landing_state import PrLandingState
 from yoke_core.domain.merge_queue_readiness import (
     MergeQueueReadiness,
+    classify_readiness,
     read_merge_queue_readiness,
 )
 from yoke_core.domain.steering_fleet_report_reads import FleetReportReads
@@ -21,7 +25,7 @@ from yoke_core.domain.merge_context import MergeArgs, MergeContext
 
 @dataclass(frozen=True)
 class FleetLandingReadback:
-    """One item row joined to its live GitHub landing facts."""
+    """One item row joined to its recorded or live landing facts."""
 
     item_id: int
     public_ref: str
@@ -70,6 +74,8 @@ def _candidates(conn: Any, *, project_id: int) -> list[dict[str, Any]]:
         "ELSE a.enqueued_at END AS merge_queue_enqueued_at, "
         "CASE WHEN a.item_id IS NULL THEN i.merge_queue_notified_at END "
         "AS merge_queue_notified_at, "
+        "CASE WHEN a.item_id IS NULL THEN i.merge_queue_landed_at END "
+        "AS merge_queue_landed_at, "
         "p.slug, p.public_item_prefix, "
         "p.default_branch FROM items i JOIN projects p ON p.id=i.project_id "
         "LEFT JOIN merge_queue_landing_attempts a "
@@ -81,6 +87,28 @@ def _candidates(conn: Any, *, project_id: int) -> list[dict[str, Any]]:
         (int(project_id), *terminal_params),
     ).fetchall()
     return [row_dict(row) for row in rows]
+
+
+def _recorded_landing(conn: Any, item_id: int, landed_at: Any) -> PrLandingState:
+    entries = item_merge_receipt_document.read_entries(conn, item_id)
+    try:
+        receipt = next(iter(item_merge_receipt_document.newest_first(entries)), {})
+    except InvalidInstant:
+        receipt = {}
+    head_sha, merge_sha = receipt.get("commit_sha"), receipt.get("merge_sha")
+    if not all(
+        isinstance(sha, str) and re.fullmatch(r"[0-9a-fA-F]{40}", sha)
+        for sha in (head_sha, merge_sha)
+    ):
+        head_sha = merge_sha = ""
+    return PrLandingState(
+        merged=True,
+        closed=True,
+        auto_merge_active=False,
+        merged_at=parse_instant(landed_at),
+        head_sha=head_sha,
+        merge_commit_sha=merge_sha,
+    )
 
 
 @time_dependency("landing_reads")
@@ -95,8 +123,9 @@ def landing_readbacks(
     """Read admitted handoffs and inline waits in the seat's item scope.
 
     ``reads`` is the request this readback belongs to: the project's open
-    landing rows are read once for it, and every distinct PR's landing,
-    queue entry and checks share one memoized GitHub projection.
+    landing rows are read once for it. Stamped landings use their receipts.
+    Each unresolved PR's landing, queue entry and checks share one memoized
+    GitHub projection.
     """
     request = reads if reads is not None else FleetReportReads()
     result: list[FleetLandingReadback] = []
@@ -114,16 +143,24 @@ def landing_readbacks(
             # a live inline merge wait proves the landing call is in progress.
             continue
         target = str(row.get("default_branch") or "main")
-        ctx = MergeContext(
-            args=MergeArgs(branch="", target=target),
-            project=str(row["slug"]),
-        )
-        readiness = read_merge_queue_readiness(
-            ctx,
-            pr_number=str(row["merge_queue_pr_number"]),
-            target=target,
-            reads=request.landings,
-        )
+        pr_number = str(row["merge_queue_pr_number"])
+        if landed_at := row["merge_queue_landed_at"]:
+            readiness = request.cached(
+                ("recorded_landing", item_id),
+                lambda: classify_readiness(
+                    pr_number=pr_number,
+                    target=target,
+                    state=_recorded_landing(conn, item_id, landed_at),
+                ),
+            )
+        else:
+            ctx = MergeContext(
+                args=MergeArgs(branch="", target=target),
+                project=str(row["slug"]),
+            )
+            readiness = read_merge_queue_readiness(
+                ctx, pr_number=pr_number, target=target, reads=request.landings
+            )
         result.append(
             FleetLandingReadback(
                 item_id=item_id,
