@@ -24,12 +24,15 @@ class _PostureRecord(BufferedJsonRecord):
         return row
 
 
-def read_codex_session_posture(session_id: str) -> tuple[dict | None, str]:
+def read_codex_session_posture(
+    session_id: str, *, turn_id: str = "", tool_use_id: str = ""
+) -> tuple[dict | None, str]:
     """Return only permission metadata, bounded to the newest transcript's tail.
 
     Identity is checked inside the native artifact as well as in its filename.
     Missing, truncated or oversized evidence never falls back to saved config,
     another transcript, or an older turn's permission statement.
+    Hook callers can bind the lookup to the active turn or its native tool ID.
     """
     try:
         if str(UUID(session_id)) != session_id:
@@ -46,14 +49,38 @@ def read_codex_session_posture(session_id: str) -> tuple[dict | None, str]:
             or metadata.get("id") != session_id
         ):
             return None, "native session metadata does not match this session"
+        matched_tool = False
         for row in tail_rows_newest_first(transcript, record_factory=_PostureRecord):
             if row.get("type") == "posture_unreadable":
                 return None, "newest transcript evidence is incomplete or unreadable"
+            if turn_id or tool_use_id:
+                payload = row.get("payload")
+                if isinstance(payload, dict):
+                    if row.get("type") == "event_msg" and payload.get("type") in {
+                        "task_started",
+                        "task_complete",
+                        "turn_aborted",
+                    }:
+                        return None, "the active turn's permission statement is unavailable"
+                    if (
+                        tool_use_id
+                        and row.get("type") == "response_item"
+                        and payload.get("type") in {"function_call", "custom_tool_call"}
+                        and payload.get("call_id") == tool_use_id
+                    ):
+                        matched_tool = True
             if row.get("type") != "turn_context":
                 continue
             context = row.get("payload")
             if not isinstance(context, dict):
                 return None, "newest turn has no permission metadata"
+            recorded_turn = context.get("turn_id")
+            if turn_id and recorded_turn and recorded_turn != turn_id:
+                return None, "newest permission statement belongs to a different turn"
+            if (turn_id or tool_use_id) and not (
+                (turn_id and turn_id == recorded_turn) or matched_tool
+            ):
+                return None, "the tool call is not recorded in the newest turn"
             sandbox = context.get("sandbox_policy")
             sandbox = sandbox if isinstance(sandbox, dict) else {}
             return {

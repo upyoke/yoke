@@ -104,3 +104,35 @@ def test_archived_transcripts_are_supported(tmp_path, monkeypatch):
     facts, reason = read_codex_session_posture(SESSION)
     assert facts["approval_policy"] == "never"
     assert not reason
+
+
+def test_hook_cannot_use_an_earlier_turns_permissions(tmp_path, monkeypatch):
+    transcript(tmp_path, monkeypatch, {**PERMISSIONS, "turn_id": "earlier"})
+    facts, _ = read_codex_session_posture(SESSION, turn_id="current")
+    assert facts is None
+    facts, _ = read_codex_session_posture(SESSION, turn_id="earlier")
+    assert facts["sandbox_mode"] == "danger-full-access"
+
+
+def test_hook_can_bind_a_tool_id_when_turn_id_is_absent(tmp_path, monkeypatch):
+    target = transcript(tmp_path, monkeypatch, PERMISSIONS)
+    with target.open("a") as handle:
+        handle.write(json.dumps({
+            "type": "response_item",
+            "payload": {"type": "custom_tool_call", "call_id": "native-call"},
+        }) + "\n")
+    facts, _ = read_codex_session_posture(SESSION, tool_use_id="mismatched")
+    assert facts is None
+    facts, _ = read_codex_session_posture(SESSION, tool_use_id="native-call")
+    assert facts["sandbox_mode"] == "danger-full-access"
+
+
+@pytest.mark.parametrize("boundary", ["task_started", "task_complete", "turn_aborted"])
+def test_hook_cannot_reuse_permissions_across_a_turn_boundary(tmp_path, monkeypatch, boundary):
+    target = transcript(tmp_path, monkeypatch, {**PERMISSIONS, "turn_id": "earlier"})
+    with target.open("a") as handle:
+        handle.write(json.dumps({
+            "type": "event_msg", "payload": {"type": boundary},
+        }) + "\n")
+    facts, _ = read_codex_session_posture(SESSION, turn_id="earlier")
+    assert facts is None

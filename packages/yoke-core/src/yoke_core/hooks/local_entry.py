@@ -9,11 +9,14 @@ from __future__ import annotations
 
 import os
 import sys
+import time
 from typing import Optional
 
 from yoke_contracts.hook_runner.failures import render_failure_warning
+from yoke_contracts.hook_observation_age import hook_age_ms, stamp_hook_age
 from yoke_contracts.hook_runner.project_scope import resolve_hook_project_scope
 from yoke_core.hooks.capability_resolve import resolve_capability
+from yoke_core.hooks.local_doctor_session import prepare_local_doctor_session
 from yoke_core.hooks.remote_policy import RunControls
 from yoke_core.hooks.runner import run_event
 from yoke_core.hooks.session_model_attestation_write import confirmed_served_model
@@ -44,9 +47,15 @@ def evaluate_local_hook(
 ) -> int:
     """Run one installed hook against the active local universe."""
     payload = parse_hook_payload(stdin_data)
+    observed_age = hook_age_ms(payload)
+    observed_monotonic = (
+        time.monotonic() - observed_age / 1000 if observed_age is not None else None
+    )
     record_client_anchor(payload, session_start=event_name == "SessionStart")
     executor = detect_executor()
     original_stdin = stdin_data
+    prepare_local_doctor_session(event_name, canonical_harness_id(executor), payload)
+    stdin_data = stamp_hook_age(stdin_data, observed_monotonic)
     stdin_data, launch_projection = stamp_hook_input(
         payload, stdin_data, executor, event_name
     )
