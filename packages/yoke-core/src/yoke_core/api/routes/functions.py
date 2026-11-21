@@ -282,9 +282,9 @@ def get_cli_manifest() -> JSONResponse:
     machine-installed CLI can detect server-side commands its build
     predates (Project install contract help/capability compatibility).
     """
-    from yoke_cli.manifest import build_manifest
+    from yoke_contracts.runtime_ports.manifest import get_manifest
 
-    return JSONResponse(content=build_manifest())
+    return JSONResponse(content=get_manifest().build_manifest())
 
 
 __all__ = ["router"]

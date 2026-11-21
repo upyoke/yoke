@@ -12,17 +12,10 @@ Postgres):
   ``release_entries`` row, all inside ONE transaction, and
 * the pre-flight ``items.merged_at`` population.
 
-These handlers relay both writes server-side (dispatched in-process
-against a local Postgres connection, or over https server-side) while the
-engine keeps every git and filesystem operation local. Each handler is a
-thin wrapper over the UNCHANGED engine/domain write: the finalize handler
-runs the exact
-:func:`yoke_core.engines.done_transition_finalize._resolve_deployed_to`
-resolution, the same conditional ``deployed_to`` update, and the unchanged
-:func:`~yoke_core.engines.done_transition_finalize._insert_release_note`
-release-note upsert on a SINGLE connection with the same explicit commit,
-so the whole finalization stays ATOMIC in one relay. The engine keeps its
-operator narratives; these handlers return only the raw write result.
+These handlers run both writes over a control-plane connection, whether
+called in-process or over HTTPS. The engine keeps Git, filesystem operations
+and operator output local. The finalize handler owns destination resolution,
+the conditional item update and the release note upsert in one transaction.
 
 These are ``adapter_status='internal'`` (merge finalize glue, never an agent
 CLI surface) and ``ambient_session_required=False``: the done transition
@@ -49,6 +42,7 @@ from yoke_contracts.api.function_call import (
     HandlerOutcome,
 )
 from yoke_contracts.public_ref import ITEM_NOT_FOUND
+from yoke_core.domain import db_backend
 
 
 class FinalizeLocalSideEffectsRequest(BaseModel):
@@ -87,8 +81,6 @@ def _connect_rw() -> Any:
 
 
 def _placeholder(conn: Any) -> str:
-    from yoke_core.domain import db_backend
-
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
@@ -98,18 +90,60 @@ def _require_item_id(request: FunctionCallRequest) -> Optional[int]:
     return int(request.target.item_id)
 
 
+def _resolve_deployed_to(conn, item_id: int, env_name: str) -> str:
+    if env_name:
+        return env_name
+    try:
+        p = _placeholder(conn)
+        row = conn.execute(
+            "SELECT COALESCE(i.deployment_flow, ''), "
+            "COALESCE(e.name, f.target_tier, '') "
+            "FROM items i "
+            "LEFT JOIN deployment_flows f ON f.id = i.deployment_flow "
+            "LEFT JOIN environments e ON e.id = f.target_environment_id "
+            f"WHERE i.id = {p}",
+            (item_id,),
+        ).fetchone()
+    except db_backend.operational_error_types(conn):
+        return ""
+    if not row:
+        return ""
+    deploy_flow, environment = str(row[0] or ""), str(row[1] or "")
+    if deploy_flow and deploy_flow != "null" and environment and environment != "null":
+        return environment
+    return ""
+
+
+def _insert_release_note(
+    conn,
+    item_id: int,
+    category: str,
+    title: str,
+    item_project: str,
+) -> bool:
+    from yoke_core.domain import release_notes as _release_notes
+
+    try:
+        _release_notes.cmd_insert(
+            conn,
+            int(item_id),
+            category,
+            title,
+            project=item_project or None,
+        )
+    except db_backend.operational_error_types(conn):
+        return False
+    return True
+
+
 def handle_finalize_local_side_effects(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
     """Run the collapsed local done finalization inside ONE transaction.
 
-    Wraps the unchanged single-connection sequence the engine ran inline:
-    :func:`yoke_core.engines.done_transition_finalize._resolve_deployed_to`,
-    the conditional ``items.deployed_to`` update, and
-    :func:`~yoke_core.engines.done_transition_finalize._insert_release_note`,
-    then the explicit commit. Keeping all three on one connection with one
-    commit preserves the finalize atomicity — the caller relays this once
-    rather than splitting deployed_to and release-note into separate writes.
+    Resolves the destination, conditionally updates ``items.deployed_to``,
+    upserts the release note and commits once. The caller relays the sequence
+    as one operation so the destination and release note are written atomically.
     Any DB-level failure surfaces as a structured error so the engine can
     degrade exactly as its inline ``except`` clauses did (the item still
     reaches done; finalization is advisory).
@@ -124,11 +158,6 @@ def handle_finalize_local_side_effects(
         body = FinalizeLocalSideEffectsRequest.model_validate(request.payload)
     except ValidationError as exc:
         return _err("payload_invalid", f"finalize payload invalid: {exc}")
-
-    from yoke_core.engines.done_transition_finalize import (
-        _insert_release_note,
-        _resolve_deployed_to,
-    )
 
     try:
         with _connect_rw() as conn:

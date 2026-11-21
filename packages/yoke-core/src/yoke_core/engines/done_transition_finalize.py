@@ -9,13 +9,8 @@ from typing import Callable, Optional
 
 from yoke_contracts.public_ref import unresolved_item_ref
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
-from yoke_core.domain import db_backend
 from yoke_core.engines import done_transition_github_sync
 from yoke_core.engines.done_transition_item_context import format_workflow_route
-
-
-def _p(conn) -> str:
-    return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
 def _record_finalization(result, note: str) -> None:
@@ -95,52 +90,6 @@ def _finalize_done_local_side_effects(
     print(f"Local finalization: {deploy_msg}; {note_msg}.")
     _record_finalization(result, "")
     return ""
-
-
-def _resolve_deployed_to(conn, item_id: int, env_name: str) -> str:
-    if env_name:
-        return env_name
-    try:
-        p = _p(conn)
-        row = conn.execute(
-            "SELECT COALESCE(i.deployment_flow, ''), "
-            "COALESCE(e.name, f.target_tier, '') "
-            "FROM items i "
-            "LEFT JOIN deployment_flows f ON f.id = i.deployment_flow "
-            "LEFT JOIN environments e ON e.id = f.target_environment_id "
-            f"WHERE i.id = {p}",
-            (item_id,),
-        ).fetchone()
-    except db_backend.operational_error_types(conn):
-        return ""
-    if not row:
-        return ""
-    deploy_flow, environment = str(row[0] or ""), str(row[1] or "")
-    if deploy_flow and deploy_flow != "null" and environment and environment != "null":
-        return environment
-    return ""
-
-
-def _insert_release_note(
-    conn,
-    item_id: int,
-    category: str,
-    title: str,
-    item_project: str,
-) -> bool:
-    from yoke_core.domain import release_notes as _release_notes
-
-    try:
-        _release_notes.cmd_insert(
-            conn,
-            int(item_id),
-            category,
-            title,
-            project=item_project or None,
-        )
-    except db_backend.operational_error_types(conn):
-        return False
-    return True
 
 
 def _report_closeout_failure(

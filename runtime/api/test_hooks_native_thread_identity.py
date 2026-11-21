@@ -25,7 +25,7 @@ def test_route_preserves_native_thread_id(monkeypatch) -> None:
         lambda *_: (HookScopeDecision(project_id=1, project_slug="example"), None),
     )
     monkeypatch.setattr(
-        routes,
+        remote_entry,
         "evaluate_remote",
         lambda **kwargs: (
             captured.update(kwargs)

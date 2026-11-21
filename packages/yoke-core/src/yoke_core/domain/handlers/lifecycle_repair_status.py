@@ -111,11 +111,11 @@ def handle_repair_status(request: FunctionCallRequest) -> HandlerOutcome:
             f"not {payload.source_status!r}.",
         )
 
-    from yoke_core.engines.repair_status_item import (
-        _validate_item_target_status,
+    from yoke_core.domain.item_status_repair_validation import (
+        validate_item_target_status,
     )
 
-    validation_error = _validate_item_target_status(
+    validation_error = validate_item_target_status(
         workflow,
         payload.target_status,
     )

@@ -42,13 +42,15 @@ from yoke_core.domain.session_scope_identity import (
     authorize_hook_request,
 )
 from yoke_core.domain.hook_runner_deadline import resolve_total_timeout_ms
-from yoke_core.hooks.relayed_session_identity import (
+from yoke_contracts.relayed_session_identity import (
     refusal_text,
     stamped_identity_refusal,
 )
-from yoke_core.hooks.remote_entry import evaluate_remote
-from yoke_core.hooks.session_model_attestation_write import confirmed_served_model
-from yoke_core.hooks.session_title import confirmed_title
+from yoke_core.domain.service_runtime_ports import (
+    get_hook_denial,
+    get_hook_service_runtime,
+    get_remote_hook_evaluator,
+)
 from yoke_core.api.routes.hooks_denial_audit import router as _denial_audit_router
 from yoke_core.api.routes.hooks_wire_contract import (
     HOOK_WIRE_SCHEMA,
@@ -104,11 +106,8 @@ def post_hooks_evaluate(
     observed_at = datetime.now(timezone.utc)
     scope, auth_error = _authorize_scope(auth, request)
     if auth_error is not None:
-        from yoke_core.hooks.session_turn_posture_tail import (
-            persist_authorization_denied_turn_end,
-        )
-
-        posture_error = persist_authorization_denied_turn_end(
+        runtime = get_hook_service_runtime()
+        posture_error = runtime.persist_authorization_denied_turn_end(
             event_name=request.event_name,
             session_id=str(_stdin_payload(request).get("session_id") or ""),
             actor_id=auth.actor_id,
@@ -120,7 +119,7 @@ def post_hooks_evaluate(
             content["degraded"].append(posture_error)
             return JSONResponse(content=content, status_code=auth_error.status_code)
         return auth_error
-    result = evaluate_remote(
+    result = get_remote_hook_evaluator().evaluate_remote(
         event_name=request.event_name,
         stdin_data=request.stdin,
         executor=request.executor,
@@ -142,6 +141,7 @@ def post_hooks_evaluate(
     attributes = {"event": request.event_name, "outcome": result.outcome}
     record_histogram("yoke.hook.wait_ms", result.wait_ms, attributes=attributes)
     record_counter("yoke.hook.requests", attributes=attributes)
+    runtime = get_hook_service_runtime()
     response = JSONResponse(
         content=_with_provenance(
             HookEvaluateResponse(
@@ -152,11 +152,11 @@ def post_hooks_evaluate(
                 registration_outcome=result.registration_outcome,
                 outcome=result.outcome,
                 message_probe=result.message_probe,
-                harness_title_confirmation=confirmed_title(
+                harness_title_confirmation=runtime.confirmed_title(
                     _stdin_payload(request).get("session_id"),
                     request.payload_extra or {},
                 ),
-                model_confirmation=confirmed_served_model(
+                model_confirmation=runtime.confirmed_served_model(
                     _stdin_payload(request).get("session_id"), request.model
                 ),
             ).model_dump()
@@ -240,7 +240,7 @@ def _emit_route_denial(
 ) -> None:
     """Record a refusal the route makes before any guard runs."""
     try:
-        from yoke_core.hooks.denial import emit_denial_event
+        emit_denial_event = get_hook_denial().emit_denial_event
     except Exception:
         return
     payload = _stdin_payload(request)

@@ -70,6 +70,11 @@ dependencies = [
 ]
 
 [project.entry-points."yoke.runtime"]
+doctor_run = "yoke_core.engines.doctor_run_service"
+hook_denial = "yoke_core.hooks.denial"
+hook_runner = "yoke_core.hooks.__main__"
+hook_service_runtime = "yoke_core.hooks.service_runtime"
+remote_hook_evaluator = "yoke_core.hooks.remote_entry"
 handler_registry = "yoke_core.api.handler_registry_runtime"
 orientation_cursor_payload = "yoke_core.hooks.cursor_payload"
 structured_dispatch = "yoke_core.api.service_client_structured_api_adapter"

@@ -47,7 +47,7 @@ def test_project_denied_turn_end_stamps_owned_session_and_preserves_refusal(
         "yoke_core.api.routes.hooks.datetime", SimpleNamespace(now=lambda _: LATER)
     )
     monkeypatch.setattr(
-        "yoke_core.api.routes.hooks.evaluate_remote",
+        "yoke_core.hooks.remote_entry.evaluate_remote",
         lambda **_: pytest.fail("project work must stay denied"),
     )
     request = HookEvaluateRequest(

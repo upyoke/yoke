@@ -46,10 +46,10 @@ def post_hooks_denial_audit(
     other ``/v1`` route; failures here never surface to the client, which
     already rendered its refusal before this call."""
     require_auth_context(http_request)
-    from yoke_core.hooks.denial import emit_denial_event
+    from yoke_core.domain.service_runtime_ports import get_hook_denial
 
     try:
-        emit_denial_event(
+        get_hook_denial().emit_denial_event(
             hook=request.hook,
             check_id=request.check_id,
             reason=request.reason,

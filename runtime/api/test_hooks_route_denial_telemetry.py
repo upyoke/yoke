@@ -184,7 +184,7 @@ def test_route_hands_the_skew_reason_to_the_run_and_records_no_second_row() -> N
             ),
         ),
         mock.patch(
-            "yoke_core.api.routes.hooks.evaluate_remote", return_value=denial
+            "yoke_core.hooks.remote_entry.evaluate_remote", return_value=denial
         ) as evaluate,
         mock.patch(
             "yoke_core.api.routes.hooks.collect_execution_provenance",

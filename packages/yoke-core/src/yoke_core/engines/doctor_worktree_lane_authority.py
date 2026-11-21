@@ -24,7 +24,7 @@ from dataclasses import dataclass
 from typing import Dict, Iterable, List, Tuple
 
 from yoke_core.domain.control_plane_transport import relay
-from yoke_core.engines.prune_authority_batch import LANE_INVALID
+from yoke_contracts.prune_authority_batch import LANE_INVALID
 
 
 ACTIVE_AUTHORITY_BLOCK = "cleanup authority is active"

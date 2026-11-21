@@ -37,9 +37,9 @@ def handle_deployment_run_start_for_item(
         or request.actor.session_id
         or "operator"
     )
-    from yoke_core.engines.runs_start_for_item import start_for_item
+    from yoke_core.domain.engine_runtime_ports import get_runs_start_for_item
 
-    result = start_for_item(
+    result = get_runs_start_for_item().start_for_item(
         int(request.target.item_id),
         project=(payload.get("project") or None),
         flow=(payload.get("flow") or None),
@@ -87,9 +87,9 @@ def handle_deployment_run_continue_for_item(
             "release_lineage must be a string when present",
             jsonpath="$.payload.release_lineage",
         )
-    from yoke_core.engines.runs_continue_for_item import continue_for_item
+    from yoke_core.domain.engine_runtime_ports import get_runs_continue_for_item
 
-    outcome = continue_for_item(
+    outcome = get_runs_continue_for_item().continue_for_item(
         int(request.target.item_id),
         release_lineage=(lineage or None),
         session_id=request.actor.session_id,

@@ -133,3 +133,9 @@ verification and named Doctor repository checks inspect both adapter and core
 surfaces as build tools. The CLI launcher and installed self-host probes are
 adapters because they invoke or exercise the installed client directly. Record
 the specific classifications and reasons in the model.
+
+Classify clients and UI adapters by the role they perform, even when they
+share a package or directory with service handlers. Service handlers use
+runtime interfaces to invoke hook runners or execute health checks, and
+import shared request data and validation directly from their lower-layer
+owners.
