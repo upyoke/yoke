@@ -78,7 +78,7 @@ def _seed(conn, members=(WALKING, QUEUED)) -> dict[int, int]:
     return cases
 
 
-def _execution(conn, execution_id, member, state, *, machine=None) -> None:
+def _execution(conn, execution_id, member, state, *, machine=None, digest=None) -> None:
     session = f"walker-{member}"
     seed_session(conn, session)
     lease = None
@@ -89,7 +89,7 @@ def _execution(conn, execution_id, member, state, *, machine=None) -> None:
             "ORDER BY id DESC LIMIT 1",
             (session,),
         ).fetchone()[0]
-    digest = conn.execute(
+    digest = digest or conn.execute(
         "SELECT execution_target_digest FROM qa_requirements WHERE deployment_run_id=%s "
         "AND deployment_member_item_id=%s AND method_id IS NOT NULL",
         (RUN_ID, member),
@@ -154,6 +154,22 @@ def test_walking_and_queued_members_are_counted_not_flagged(test_db) -> None:
     walking = _member_line(progress, WALKING)
     assert f"walking on {WALK_MACHINE} under session walker-{WALKING}" in walking
     assert "yoke qa case run" not in walking
+
+
+def test_a_carried_walk_on_its_frozen_target_still_owns_the_members_cases(
+    test_db,
+) -> None:
+    """A takeover carries a walk onto the successor run with the target it
+    froze, so its digest differs from the rebound requirement's. It still
+    owns the member's cases: no recipe beside it (run-20261121-016)."""
+    _seed(test_db, members=(WALKING,))
+    _execution(test_db, "exec-carried", WALKING, "walking", digest="predecessor-target")
+
+    progress = _progress(test_db)
+    line = _member_line(progress, WALKING)
+
+    assert "plan execution exec-carried (walking) already owns it" in line
+    assert "yoke qa case run" not in line
 
 
 def test_a_red_member_still_raises_the_mark(test_db) -> None:
