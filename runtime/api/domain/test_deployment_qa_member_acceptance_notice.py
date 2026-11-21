@@ -272,3 +272,78 @@ def test_delivering_execution_defers_both_verdict_close_out_paths(test_db, monke
     )
     assert code == -4, reason  # The sibling still owes QA.
     assert _status(test_db, MEMBER_A) == "done"
+
+
+def _holder(conn: Any, item_id: int) -> None:
+    import json
+
+    from runtime.api.domain.deployment_qa_stage_wake_delivery_test_support import (
+        _claim,
+        seed_session,
+    )
+    from runtime.api.fixtures.actor_roles import seed_project_role
+    from yoke_core.domain.actor_permissions import seed_roles_and_permissions
+
+    seed_roles_and_permissions(conn)
+    seed_project_role(conn, actor_id=1, project_id=1, role_name="owner")
+    seed_session(conn, "owed-elsewhere-holder", project_id=1)
+    scope = json.dumps({"item_id": item_id})
+    _claim(conn, session_id="owed-elsewhere-holder", target_kind="item", scope_json=scope)
+
+
+def test_a_stage_run_never_calls_qa_clear_while_a_prod_plan_is_owed(
+    test_db: Any, monkeypatch
+) -> None:
+    """PLAT-412: the only obligation is a prod-bound plan nothing materialized."""
+    from runtime.api.domain.run_settles_plan_on_other_target_test_support import (
+        ITEM,
+        _isolate_status_effects,
+        _plan_only_pair,
+    )
+
+    _isolate_status_effects(monkeypatch)
+    _plan_only_pair(test_db, plan_environment="prod")
+    test_db.execute("UPDATE deployment_runs SET status='executing' WHERE id='run-stage'")
+    _holder(test_db, ITEM)
+    test_db.commit()
+
+    assert notice.notify_item_qa_accepted(test_db, run_id="run-stage", item_id=ITEM)
+    owed = ("owed:plan-other-target-plan@prod",)
+    [body] = _bodies(test_db, item_qa_accepted_idempotency_key(ITEM, "run-stage", owed))
+    assert "gate is clear" not in body
+    assert "owes nothing more" in body
+    assert "post-deploy plan other-target-plan still owed on prod" in body
+
+
+def test_a_member_removed_from_the_run_is_not_told_its_qa_was_accepted(
+    test_db: Any,
+) -> None:
+    """95121: a waived post-deploy row and a never-passed plan, after removal."""
+    from runtime.api.domain.satisfied_delivery_member_close_out_test_support import (
+        _waived_item_requirement,
+    )
+    from yoke_core.domain.deployment_qa_stage_materialization import (
+        materialize_deployment_qa_stage,
+    )
+    from yoke_core.domain.deployment_run_member_removal import remove_member_on
+
+    run_id = "run-item-qa-removed"
+    _executing_run(test_db, run_id, (MEMBER_A,), plan_slug="wake-removed")
+    materialize_deployment_qa_stage(
+        test_db,
+        deployment_run_id=run_id,
+        deployment_stage="item-qa",
+        deployment_member_item_id=MEMBER_A,
+    )
+    _waived_item_requirement(test_db, MEMBER_A)
+    remove_member_on(test_db, run_id, MEMBER_A, reason="QA waits for another release")
+    test_db.commit()
+
+    [blocker] = item_qa_acceptance_blockers(test_db, run_id=run_id, item_id=MEMBER_A)
+    assert "is not an attached member" in blocker
+    assert notice.notify_item_qa_accepted(test_db, run_id=run_id, item_id=MEMBER_A) == ""
+    sent = test_db.execute(
+        "SELECT count(*) FROM session_messages WHERE idempotency_key LIKE %s",
+        (notice.item_qa_accepted_item_prefix(MEMBER_A) + "%",),
+    ).fetchone()[0]
+    assert sent == 0

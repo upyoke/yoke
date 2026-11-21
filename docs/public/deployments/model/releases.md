@@ -161,7 +161,12 @@ natively wakeable surface; on a surface whose wake authority is operator
 the notice stays pending until the operator types, which the merge
 close-out block already told that owner. The notice fires once per
 member per run on the acceptance transition. A re-read of an
-already-accepted subject sends nothing.
+already-accepted subject sends nothing. A run answers only its own
+environment: when the member still owes QA on another one, the notice never
+calls the gate clear. It says the run owes nothing more, then names each owed
+requirement or post-deploy plan, its target and its recovery, and a changed
+owed set sends a new notice. A member removed from the run gets no
+acceptance notice from it.
 
 Run-scoped QA and human-approval stages keep every member at release until all
 item and shared gates pass. Settlement then closes all members atomically

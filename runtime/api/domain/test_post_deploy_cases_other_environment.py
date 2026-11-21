@@ -129,3 +129,40 @@ def test_prod_targeted_direct_case_is_still_owed(monkeypatch):
 
 def test_untargeted_direct_case_is_owed_everywhere(monkeypatch):
     assert _member(monkeypatch, [None]).verdict == ANSWERED
+
+
+def _notice(owed):
+    from yoke_core.domain.deployment_qa_member_acceptance_message import (
+        item_qa_accepted_message,
+    )
+    from yoke_core.domain.merge_queue_landing_notice import HOLDER
+
+    return item_qa_accepted_message(
+        public_ref="PLAT-412", run_id="run-stage", route=HOLDER,
+        environment="stage", owed=owed,
+    )
+
+
+def test_a_discharged_stage_answer_still_names_the_plan_owed_on_prod():
+    from yoke_core.domain.deployment_qa_member_acceptance_message import (
+        owed_elsewhere_identities,
+    )
+    from yoke_core.domain.deployment_run_other_target_members import OwedRequirement
+
+    plan = OwedRequirement(None, "post_deploy", "prod", "plan-19273", "run it on prod")
+    case = OwedRequirement(41, "post_deploy", "prod")
+    body = _notice((plan, case))
+    assert "gate is clear" not in body
+    assert "owes nothing more for PLAT-412 on stage" in body
+    assert "- post-deploy plan plan-19273 still owed on prod: run it on prod" in body
+    assert "- requirement 41 still owed on prod\n" in body
+    assert owed_elsewhere_identities((plan, case)) == (
+        "owed:plan-plan-19273@prod",
+        "owed:requirement-41@prod",
+    )
+
+
+def test_a_member_owing_no_other_environment_keeps_the_clear_notice():
+    body = _notice(())
+    assert body.startswith("PLAT-412's item-scoped QA gate is clear on deployment run run-stage.")
+    assert "owes nothing more" not in body

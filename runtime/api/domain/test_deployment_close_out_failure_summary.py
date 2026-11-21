@@ -8,7 +8,7 @@ from yoke_contracts.hook_inline_context import inline_context_bytes_for_harness
 from yoke_core.domain.deployment_close_out_failure_summary import (
     close_out_failure_summary,
 )
-from yoke_core.domain.deployment_qa_member_acceptance_notice import (
+from yoke_core.domain.deployment_qa_member_acceptance_message import (
     item_qa_accepted_message,
 )
 from yoke_core.domain.deployment_delivery_close_out_notice import (
