@@ -1,0 +1,11 @@
+{
+ "id": "setup-exit",
+ "title": "Resume setup after the installer has installed Yoke",
+ "status": "observed",
+ "audience": "human",
+ "when": "Quitting setup or seeing a setup error after a public install",
+ "need": "Quitting prints setup_skipped and exits 0. A setup error prints setup_failed and exits 2. Both name the installed version and the command to resume setup. Windows directs the user to a new terminal. On macOS and Linux, the command uses the absolute launcher path when the original shell has not reloaded PATH.",
+ "disclosure": "at setup exit",
+ "surface": "Public installer terminal output",
+ "sources": ["packaging/public-installer/install", "packaging/public-installer/install.ps1", "packaging/public-installer/source/installation.py.inc"]
+}

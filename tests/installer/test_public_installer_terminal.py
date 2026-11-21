@@ -13,13 +13,13 @@ import pytest
 
 from installer_terminal_support import TerminalShell
 from public_installer_helpers import (
-    FAKE_INSTALL_PY,
+    FAKE_INSTALL_WITH_SETUP_REPORT,
     INSTALL_SHIM_PATH,
     write_executable,
     write_uv_stub,
 )
 
-pytestmark = pytest.mark.posix_only(reason='POSIX job control')
+pytestmark = pytest.mark.posix_only(reason="POSIX job control")
 
 
 def assert_restored(output):
@@ -41,10 +41,16 @@ def test_pipe_install_restores_terminal_on_interrupt_and_suspend(tmp_path, actio
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     (bin_dir / "python3").symlink_to(sys.executable)
-    write_uv_stub(bin_dir, install_py_body=FAKE_INSTALL_PY)
+    write_uv_stub(bin_dir, install_py_body=FAKE_INSTALL_WITH_SETUP_REPORT)
     write_executable(
         bin_dir / "yoke",
-        f"#!{sys.executable}\nfrom installer_terminal_support import wizard\nwizard()\n",
+        f"#!{sys.executable}\n"
+        "import sys\n"
+        "if sys.argv[1:] == ['--version']:\n"
+        "    print('1.2.3')\n"
+        "    raise SystemExit(0)\n"
+        "from installer_terminal_support import wizard\n"
+        "wizard()\n",
     )
     evidence = tmp_path / "terminal.json"
     # Only uv's install/download side effects are stubbed. The real curl,
@@ -93,14 +99,18 @@ def test_pipe_install_restores_terminal_on_interrupt_and_suspend(tmp_path, actio
         else:
             shell.send(b"\x03")
         shell.wait_for(shell.prompt, after=len(shell.output))
-        assert_restored(bytes(shell.output[start:]))
+        output = bytes(shell.output[start:])
+        assert_restored(output)
+        assert b"setup_skipped: Yoke v1.2.3 is installed" in output
         # A shell command can read and echo after both cancellation and resume.
         checked = len(shell.output)
         shell.send(
-            f"stty -g > {shlex.quote(str(restored))}; printf 'TERMINAL_%s\\n' CLEAN\n".encode()
+            f"printf 'INSTALL_EXIT_%s\\n' \"$?\"; stty -g > {shlex.quote(str(restored))}; "
+            "printf 'TERMINAL_%s\\n' CLEAN\n".encode()
         )
         shell.wait_for(b"TERMINAL_CLEAN", after=checked)
         shell.wait_for(shell.prompt, after=checked)
+        assert b"INSTALL_EXIT_0" in shell.output[checked:]
         assert termios.tcgetattr(shell.fd)[3] & termios.ISIG
         assert restored.read_text() == baseline.read_text()
     finally:

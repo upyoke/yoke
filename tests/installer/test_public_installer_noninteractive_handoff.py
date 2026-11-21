@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from public_installer_helpers import (
-    FAKE_INSTALL_PY,
+    FAKE_INSTALL_WITH_SETUP_REPORT,
     linux_stub_bin,
     run_shim,
     write_executable,
@@ -22,7 +22,7 @@ QUESTION = {"setup": "agent", "version": 1, "state": "question", "key": "connect
 
 def _agent_yoke(tmp_path: Path, *, status: int = 0) -> tuple[Path, Path, Path]:
     bin_dir = linux_stub_bin(tmp_path)
-    write_uv_stub(bin_dir, install_py_body=FAKE_INSTALL_PY)
+    write_uv_stub(bin_dir, install_py_body=FAKE_INSTALL_WITH_SETUP_REPORT)
     onboard_log = tmp_path / "onboard.log"
     stdin_log = tmp_path / "stdin.log"
     onboard_log.write_text("", encoding="utf-8")
@@ -30,6 +30,7 @@ def _agent_yoke(tmp_path: Path, *, status: int = 0) -> tuple[Path, Path, Path]:
     write_executable(
         bin_dir / "yoke",
         "#!/bin/sh\n"
+        "if [ \"$1\" = --version ]; then printf '1.2.3\\n'; exit 0; fi\n"
         f"printf 'yoke %s\\n' \"$*\" >> '{onboard_log}'\n"
         f"cat > '{stdin_log}'\n"
         f"printf '%s\\n' '{line}'\n"
@@ -55,13 +56,22 @@ def test_without_a_terminal_setup_starts_in_agent_mode(tmp_path: Path) -> None:
 
 
 @SHIM_BRANCH
-@pytest.mark.parametrize("status", [1, 2])
-def test_the_install_exit_status_follows_agent_setup(tmp_path: Path, status: int) -> None:
+@pytest.mark.parametrize(
+    "status, exit_code, token",
+    [(1, 2, "setup_failed"), (2, 2, "setup_failed"), (130, 0, "setup_skipped")],
+)
+def test_agent_setup_exit_preserves_installation(
+    tmp_path: Path, status: int, exit_code: int, token: str
+) -> None:
     bin_dir, _, _ = _agent_yoke(tmp_path, status=status)
 
     result = run_shim(bin_dir, args=())
 
-    assert result.returncode == status
+    assert result.returncode == exit_code
+    assert f"{token}: Yoke v1.2.3 is installed" in result.stdout
+    assert "resume with" in result.stdout
+    json_lines = [line for line in result.stdout.splitlines() if line.startswith("{")]
+    assert [json.loads(line) for line in json_lines] == [QUESTION]
 
 
 @SHIM_BRANCH

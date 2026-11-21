@@ -143,14 +143,28 @@ class InstallOptions:
 
 
 def main(argv: Iterable[str] | None = None) -> int:
+    args = list(sys.argv[1:] if argv is None else argv)
+    if args[:1] == ["--report-setup-exit"]:
+        parser = argparse.ArgumentParser(prog="install.py --report-setup-exit")
+        parser.add_argument("status", type=int)
+        parser.add_argument("version")
+        parser.add_argument("launcher")
+        report = parser.parse_args(args[1:])
+        return report_setup_exit(
+            report.status, report.version, f"{shlex.quote(report.launcher)} setup", sys.stdout
+        )
     try:
         require_native_windows_python()
-        Installer(parse_args(argv)).run()
+        try:
+            options = parse_args(args)
+        except SystemExit as exc:
+            # argparse uses 2 for invalid options; reserve it for setup failures.
+            return 1 if exc.code else 0
+        return Installer(options).run()
     except InstallError as exc:
         gutter = Installer._gutter(sys.stderr)
         print(f"{gutter} {_sanitize_diagnostic(str(exc))}", file=sys.stderr)
         return 1
-    return 0
 
 
 def parse_args(argv: Iterable[str] | None = None) -> InstallOptions:

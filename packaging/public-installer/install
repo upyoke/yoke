@@ -213,10 +213,10 @@ fi
 
 run_prompt_command() {
   if [ "$prompt_in" = "-" ]; then
-    "$command_shell" -c "$1"
+    "$@"
     return $?
   fi
-  "$command_shell" -c "$1" < "$prompt_in"
+  "$@" < "$prompt_in"
 }
 
 onboard_disabled() {
@@ -308,8 +308,8 @@ print_path_guidance_after_onboard() {
 # wizard by absolute path so the launch does not depend on a not-yet-reloaded
 # shell — no extra consent prompt; the wizard leads with the PATH step, so
 # quitting it is always safe. Without a terminal (an agent ran the installer),
-# setup starts in agent mode: its first JSON question goes straight to the
-# agent and the install exits with setup's status. A --yes run prints the next
+# setup starts in agent mode and its first JSON question goes straight to the
+# agent. Both setup modes use the helper's exit policy. A --yes run prints the next
 # command instead; --no-setup suppresses the launch entirely.
 offer_onboard() {
   [ -n "$dry_run" ] && return 0
@@ -323,19 +323,32 @@ offer_onboard() {
     return 0
   fi
   yoke_bin=$(command -v yoke)
-  if ! onboard_terminal_ready; then
-    agent_status=0
-    "$yoke_bin" setup --agent --post-install < /dev/null || agent_status=$?
-    [ "$agent_status" -eq 0 ] || exit "$agent_status"
-    return 0
-  fi
-  if plain_glyphs; then
-    printf '%sStarting Yoke setup...\n' "$(gutter)"
+  setup_status=0
+  setup_interrupted=0
+  # A terminal interrupt can reach the shim as well as the wizard.
+  trap 'setup_interrupted=1' INT
+  if onboard_terminal_ready; then
+    if plain_glyphs; then
+      printf '%sStarting Yoke setup...\n' "$(gutter)"
+    else
+      printf '%sStarting Yoke setup…\n' "$(gutter)"
+    fi
+    run_prompt_command "$yoke_bin" setup --post-install || setup_status=$?
+    onboard_launched=1
   else
-    printf '%sStarting Yoke setup…\n' "$(gutter)"
+    "$yoke_bin" setup --agent --post-install < /dev/null || setup_status=$?
   fi
-  run_prompt_command "\"$yoke_bin\" setup --post-install" || fail "Yoke setup did not finish; see the summary above."
-  onboard_launched=1
+  trap - INT
+  [ "$setup_interrupted" -eq 0 ] || setup_status=130
+  if [ "$setup_status" -ne 0 ]; then
+    resume_bin="$yoke_bin"
+    if inherited_shell_has_bin_dir; then
+      resume_bin=yoke
+    fi
+    installed_version=$("$yoke_bin" --version)
+    $python_runner "$installer_py" --report-setup-exit "$setup_status" "$installed_version" "$resume_bin"
+    exit "$?"
+  fi
 }
 
 # The install command named in recovery messages is the official Astral
@@ -643,7 +656,7 @@ else
 fi
 
 tmp_dir=$($python_runner -c 'import tempfile; print(tempfile.mkdtemp(prefix="yoke-install-"))') || fail "could not create temp directory"
-# The downloaded helper is needed only while it runs; leave no temp folder behind.
+# Keep the downloaded helper through setup so it can report the setup outcome.
 trap 'rm -rf "$tmp_dir"' EXIT
 installer_py="$tmp_dir/install.py"
 

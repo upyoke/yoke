@@ -17,6 +17,12 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 INSTALLER_PATH = REPO_ROOT / "packaging" / "public-installer" / "install.py"
 INSTALL_SHIM_PATH = REPO_ROOT / "packaging" / "public-installer" / "install"
 FAKE_INSTALL_PY = "import sys\nprint('FAKE_INSTALL_RAN ' + ' '.join(sys.argv[1:]))\n"
+FAKE_INSTALL_WITH_SETUP_REPORT = (
+    "import runpy, sys\n"
+    "if sys.argv[1:2] == ['--report-setup-exit']:\n"
+    f"    runpy.run_path({str(INSTALLER_PATH)!r}, run_name='__main__')\n"
+    + FAKE_INSTALL_PY
+)
 PUBLISHED_RELEASE_RECORD = (
     b'[{"project":"yoke-cli","name":"yoke-cli","version":"1.2.3",'
     b'"filename":"yoke_cli-1.2.3-py3-none-any.whl","sha256":"ab","size":1}]'
