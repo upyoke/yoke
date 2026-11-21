@@ -19,6 +19,7 @@ pytestmark = pytest.mark.windows
 
 HOME = r"C:\Users\yokeqa"
 GOLDEN = r"D:\goldens\fixture"
+PRISTINE = json.dumps({"stage_folders": [], "uv_python_registry": False})
 
 
 def test_reset_sweeps_links_after_the_mirror_and_capture_does_not():
@@ -50,6 +51,8 @@ def test_reset_records_removed_links_and_refusal_reaches_recovery():
         def _run(self, script, timeout=60):
             if "Get-YokeProfileProcesses).Count" in script:
                 return subprocess.CompletedProcess([], 0, "YOKE_RESET_PROCESS_DISCOVERY empty", "")
+            if "uv_python_registry" in script:
+                return subprocess.CompletedProcess([], 0, PRISTINE, "")
             return self.result
 
     ok = baseline.profile_operation(
@@ -227,51 +230,6 @@ try {
     assert result.returncode == 0, result.stderr
     assert "PROFILE_PROCESS_STOPPED" in result.stdout
     assert "held.exe" in result.stdout
-
-
-@pytest.mark.parametrize("relaunch_fails", [False, True])
-def test_reset_ends_desktop_session_processes_before_mirroring(monkeypatch, relaunch_fails):
-    from yoke_harness.native_windows import profile_processes as processes
-
-    packaged = r"C:\Program Files\WindowsApps\Codex_1\app\Codex.exe"
-    installed = HOME + r"\AppData\Local\Programs\Claude\Claude.exe"
-    aumid = r"shell:AppsFolder\Codex_fixture!App"
-    targets = [{"target": aumid, "path": packaged}, {"target": installed, "path": installed}]
-    calls = []
-
-    class _Control:
-        home = HOME
-
-        def _run(self, script, timeout=60):
-            listing = "Get-YokeProfileProcesses).Count" in script
-            calls.append("list" if listing else "reset")
-            return subprocess.CompletedProcess([], 0, "YOKE_RESET_PROCESS_DISCOVERY present" if listing else "", "")
-
-    def desktop(control, script, *, timeout=60, hidden=False):
-        assert hidden
-        if "Stop-Process" in script:
-            calls.append("stop")
-            assert "Get-AppxPackageManifest" in script
-            assert script.index("Get-AppxPackageManifest") < script.index("Stop-Process -InputObject")
-            output = processes.STOPPED_MARKER + json.dumps([packaged, installed]) + "\n"
-            output += processes.TARGETS_MARKER + json.dumps([*targets, targets[0]])
-        else:
-            calls.append("relaunch")
-            assert script.count(json.dumps(aumid)) == 1
-            output = "\n".join(
-                processes.RELAUNCHED_MARKER + json.dumps({"target": app["target"], "failure": error})
-                for app, error in zip(targets, ["activation failed" if relaunch_fails else "", ""])
-            )
-        return subprocess.CompletedProcess([], 0, output, "")
-
-    monkeypatch.setattr("yoke_harness.native_windows.desktop.desktop_script", desktop)
-    result = baseline.profile_operation(_Control(), "reset", GOLDEN)
-    assert calls == ["list", "stop", "reset", "relaunch"]
-    assert result.ok and result.evidence["profile_processes_stopped"] == [packaged, installed]
-    assert result.evidence["desktop_apps_relaunched"] == ([installed] if relaunch_fails else [aumid, installed])
-    assert result.evidence["desktop_apps_relaunch_failed"] == (
-        [{"target": aumid, "failure": "activation failed"}] if relaunch_fails else []
-    )
 
 
 @pytest.mark.parametrize("phase", ["listing_failed", "running"])

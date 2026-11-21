@@ -16,6 +16,9 @@ from yoke_harness.native_windows.profile_processes import (
 from yoke_harness.native_windows.profile_links import (
     link_sweep_record, stale_link_sweep_script,
 )
+from yoke_harness.native_windows.pristine import (
+    RESIDUE_CLEANUP, STAGE_COPY_EXCLUSION, residue_refusal,
+)
 
 
 # Windows services and signed-in apps keep this state live outside the mirror.
@@ -97,7 +100,7 @@ foreach($root in @($source,$target)){{
   }}
  }}
 }}
-# /MIR purges target links its source lacks, and goldens hold none (/XJ), so
+{STAGE_COPY_EXCLUSION}# /MIR purges target links its source lacks, and goldens hold none (/XJ), so
 # exclude Windows' own System-marked profile compatibility junctions.
 $walk=New-Object System.Collections.Generic.Stack[string]; $walk.Push($target)
 while($walk.Count){{
@@ -181,6 +184,7 @@ $source=Join-Path $golden 'profile'; $target=$profileRoot
             str(PureWindowsPath(control.home) / WINDOWS_MISSION_SCRATCH_DIRECTORY),
             tuple(getattr(control, "baseline_preserved_temp_paths", ())),
         )
+        + RESIDUE_CLEANUP
         + r"""$pathKey=[Microsoft.Win32.Registry]::CurrentUser.CreateSubKey('Environment')
 try {Restore-YokeUserPath $pathKey $state.user_path_snapshot} finally {$pathKey.Dispose()}
 $env:Path=[Environment]::GetEnvironmentVariable('Path','Machine')+';'+[Environment]::GetEnvironmentVariable('Path','User')
@@ -203,6 +207,8 @@ def profile_operation(control, operation, path):
     try:
         script = profile_script(control, operation, path)
         desktop_stopped, targets = [], []
+        if operation == "capture" and (refused := residue_refusal(control, operation)):
+            return refused
         if operation == "reset":
             refused, desktop_stopped, targets = stop_desktop_profile_processes(
                 control, PRESERVED_DIRECTORIES
@@ -219,8 +225,10 @@ def profile_operation(control, operation, path):
             False, {"recovery": str(exc)}, "windows_golden_path_unsafe"
         )
     ok = result.returncode == 0
+    # The fresh-host absence proof: no stage folder or uv registry survives reset.
+    residue = residue_refusal(control, operation) if ok and operation == "reset" else None
     relaunch = relaunch_desktop_apps(control, targets) if ok and operation == "reset" else {}
-    return HostActionResult(
+    restored = HostActionResult(
         ok,
         {
             "operation": operation,
@@ -249,6 +257,9 @@ def profile_operation(control, operation, path):
         },
         None if ok else "windows_profile_" + operation + "_failed",
     )
+    if residue:
+        return HostActionResult(False, {**restored.evidence, **residue.evidence}, residue.error_code)
+    return restored
 
 
 INSTALL_OUTPUT_LINES = 40

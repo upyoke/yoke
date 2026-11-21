@@ -166,6 +166,10 @@ console install keeps the last 40 lines of its stdout and stderr in `recovery`.
 Reset also removes `AppData/Local/YokeQaMission` scratch that the running
 execution does not own, so a mission aborted before walk-end leaves nothing
 behind; a removal it cannot finish refuses `windows_reset_mission_scratch_left`.
+Goldens hold no `.yoke-stage-*` folders or uv's `HKCU\Software\Python\Astral`
+key. Capture refuses `windows_profile_not_pristine` while either exists; reset
+removes both, keeping its own stage folder, and fails with that code and
+`profile_residue` if either survives. For an older golden: reset, then recapture.
 
 ## Verified standard-user transfer
 
