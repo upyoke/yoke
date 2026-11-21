@@ -8,7 +8,7 @@ import os
 import pytest
 
 from yoke_cli.config import machine_config, project_onboard_apply, writer
-from yoke_cli.project_install import files, runner, uninstall_commit
+from yoke_cli.project_install import files, uninstall_commit, validate
 from yoke_cli.project_install.uninstall import uninstall
 from yoke_core.domain.project_install_test_helpers import (
     DEFAULT_CONTRACT_FILES,
@@ -21,6 +21,7 @@ IGNORE_POLICY = (
     "BOARD.md\nBOARD.md.ts\nBOARD.md.lock/\nstrategy/\n"
     "install-manifest.json\ninstall-pending.json\n"
 )
+BUNDLE_RELEASE = "0.2.0.202611202031"
 
 
 @pytest.fixture
@@ -44,7 +45,9 @@ def machine(tmp_path, monkeypatch):
             contract_entry(".yoke/.gitignore", IGNORE_POLICY),
         ]
     )
-    monkeypatch.setattr(runner, "_resolve_bundle", lambda *a, **k: (bundle, "test"))
+    bundle["yoke_version"] = BUNDLE_RELEASE
+    monkeypatch.setattr(project_onboard_apply, "resolve_bundle", lambda *a, **k: (bundle, "test"))
+    monkeypatch.setattr(validate, "local_handshake_version", lambda: BUNDLE_RELEASE)
     config = tmp_path / "machine/config.json"
     writer.set_connection(
         "local",
@@ -85,8 +88,18 @@ def onboard(root, config, monkeypatch):
     assert not git(root, "status", "--porcelain")
 
 
-def test_onboarded_checkout_uninstalls_completely(machine, monkeypatch):
+@pytest.mark.parametrize("release_change", [False, True])
+def test_onboarded_checkout_uninstalls_completely(machine, monkeypatch, release_change):
     root, config = machine
+    if release_change:
+        head = git(root, "rev-parse", "HEAD")
+        monkeypatch.setattr(validate, "local_handshake_version", lambda: "0.2.0.202611201926")
+        with pytest.raises(files.ProjectInstallError, match="setup_bundle_version_mismatch"):
+            onboard(root, config, monkeypatch)
+        assert machine_config.project_id(root, config) is None
+        assert not files.manifest_path(root).exists()
+        assert git(root, "rev-parse", "HEAD") == head
+        monkeypatch.setattr(validate, "local_handshake_version", lambda: BUNDLE_RELEASE)
     onboard(root, config, monkeypatch)
     (root / ".yoke/BOARD.md.ts").write_text("1\n")
     (root / ".yoke/BOARD.md.lock").mkdir()
