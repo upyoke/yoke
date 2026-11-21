@@ -5,6 +5,7 @@ on:
       - '**/postgres_cluster*.py'
       - '**/postgres_binaries.py'
       - '**/universe_ui_daemon*.py'
+      - '**/universe_ui_launchd.py'
       - '**/universe_archive_output.py'
       - '**/universe_import_cli.py'
       - '**/test_postgres_windows.py'
