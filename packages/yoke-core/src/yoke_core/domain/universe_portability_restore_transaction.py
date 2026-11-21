@@ -28,7 +28,7 @@ from yoke_core.domain.universe_portability_restore_stream import (
 from yoke_core.domain.universe_portability_restore_contract import (
     restore_error_description,
 )
-from yoke_core.domain.universe_portability_restore_schema import (
+from yoke_core.domain.universe_portability_staging import (
     bounded_dsn,
     publish_restore_schema,
 )

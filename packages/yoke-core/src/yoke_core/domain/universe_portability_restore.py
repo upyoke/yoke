@@ -25,7 +25,7 @@ from yoke_core.domain.universe_portability_common import (
 from yoke_core.domain.universe_portability_inspection import (
     inspect_archive_with_catalog,
 )
-from yoke_core.domain.universe_portability_restore_schema import (
+from yoke_core.domain.universe_portability_staging import (
     IMPORT_SCHEMA,
     staged_restore_schema,
 )

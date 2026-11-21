@@ -19,7 +19,7 @@ from yoke_core.domain.schema_fingerprint_postgres_rows import _postgres_schema_r
 from yoke_core.domain.shared_file_storage import put_shared_file, read_shared_file
 from yoke_core.domain.universe_archive_artifacts import MANIFEST
 from yoke_core.domain.universe_artifact_transfer import restore_artifacts
-from yoke_core.domain.universe_portability_restore_schema import (
+from yoke_core.domain.universe_portability_staging import (
     IMPORT_SCHEMA,
     bounded_dsn,
     publish_restore_schema,
