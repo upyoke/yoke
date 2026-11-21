@@ -108,6 +108,7 @@ def test_already_current_skips_reinstall_but_repairs_helper_in_process(monkeypat
         "credential_helper_rewritten": [],
         "credential_helper_error": None,
         "project_refresh": {"status": "not_installed"},
+        "relay_services": [],
     }
 
 

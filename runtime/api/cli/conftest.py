@@ -101,6 +101,20 @@ def stub_onboard_hook_resident(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def stub_machine_relay_services(monkeypatch):
+    """Generic status, update and refresh tests must not read or reinstall a real relay."""
+    from types import SimpleNamespace
+
+    from yoke_cli.config import relay_service_upkeep, status_relay
+
+    monkeypatch.setattr(relay_service_upkeep, "converge_relays", lambda **kw: [])
+    monkeypatch.setattr(
+        status_relay, "_service_status",
+        lambda instance: (SimpleNamespace(supported=True, loaded=False, reason=""), False),
+    )
+
+
+@pytest.fixture(autouse=True)
 def stub_onboard_relay_status(monkeypatch):
     """Generic onboarding tests must not run the real relay installer's status."""
     from yoke_cli.config import onboard_machine_reuse
