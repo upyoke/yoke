@@ -146,7 +146,6 @@ def test_cursor_resume_replays_current_selection_on_exact_chat() -> None:
         "/opt/cursor-agent",
         resume_session_id=port.request.target_session_id,
         checkout=str(port.request.checkout),
-        instruction=port.request.native_instruction,
         model=port.request.requested_model,
     )
     pairs = tuple(zip(command, command[1:]))

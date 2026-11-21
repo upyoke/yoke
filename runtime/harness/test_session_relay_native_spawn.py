@@ -86,6 +86,7 @@ def test_resume_spawn_supervises_detaches_redirects_and_records_custody(
     )
     result = spawn_supervised_native(
         ["/opt/claude", "-p", "--resume", SESSION_ID],
+        instruction=b"test instruction",
         checkout=tmp_path,
         environment={"SAFE": "1"},
         attempt_id=ATTEMPT_ID,
@@ -145,6 +146,7 @@ def test_retry_replaces_an_old_exit_before_the_supervisor_starts(
 
     started = spawn_supervised_native(
         ["/opt/claude"],
+        instruction=b"test instruction",
         checkout=tmp_path,
         environment={},
         attempt_id=ATTEMPT_ID,
@@ -164,6 +166,7 @@ def test_spawn_failure_removes_the_initialized_capture(tmp_path: Path) -> None:
 
     started = spawn_supervised_native(
         ["/opt/claude"],
+        instruction=b"test instruction",
         checkout=tmp_path,
         environment={},
         attempt_id=ATTEMPT_ID,
@@ -196,6 +199,7 @@ def test_resume_spawn_stops_native_when_custody_record_cannot_be_written(
 
     result = spawn_supervised_native(
         ["/opt/claude"],
+        instruction=b"test instruction",
         checkout=tmp_path,
         environment={},
         attempt_id=ATTEMPT_ID,
@@ -215,6 +219,7 @@ def test_resume_spawn_refuses_an_untrusted_attempt_filename(tmp_path: Path) -> N
     calls = []
     result = spawn_supervised_native(
         ["/opt/claude"],
+        instruction=b"test instruction",
         checkout=tmp_path,
         environment={},
         attempt_id="../../escape",
@@ -237,8 +242,9 @@ def test_supervisor_records_a_running_capture_and_then_the_exit_status(
         [
             sys.executable,
             "-c",
-            "import sys; print('out'); print('bad', file=sys.stderr); sys.exit(3)",
+            "import sys; sys.stdin.buffer.read(); print('out'); print('bad', file=sys.stderr); sys.exit(3)",
         ],
+        b"test instruction",
     )
 
     assert exit_code == 0
@@ -252,7 +258,7 @@ def test_supervisor_records_a_running_capture_and_then_the_exit_status(
 def test_supervisor_records_a_native_that_never_started(tmp_path: Path) -> None:
     capture = tmp_path / "nd-missing.capture"
 
-    assert supervisor.supervise(capture, ["/nonexistent/native"]) == 1
+    assert supervisor.supervise(capture, ["/nonexistent/native"], b"test instruction") == 1
     payload = capture.read_bytes()
     assert b"exit-code: unknown" in payload
     assert b"YOKE_NATIVE_START_FAILED" in payload
@@ -319,6 +325,7 @@ def test_a_launch_spawn_drops_an_inherited_resume_attempt(
 
     spawn_supervised_native(
         ["/opt/claude"],
+        instruction=b"test instruction",
         checkout=tmp_path,
         environment={RESUME_ATTEMPT_ENV: "stale-parent"},
         attempt_id=ATTEMPT_ID,

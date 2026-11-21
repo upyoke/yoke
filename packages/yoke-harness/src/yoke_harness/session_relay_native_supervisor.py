@@ -40,6 +40,7 @@ from threading import Thread
 
 from yoke_contracts.timestamps import format_instant, parse_instant, utc_now
 from yoke_contracts.machine_config.relay_instance import strip_relay_owned_python_state
+from yoke_harness.session_relay_detached_worker import MAX_HANDOFF_BYTES
 from yoke_harness.session_relay_native_capture_format import (
     STATE_EXITED,
     STATE_RUNNING,
@@ -102,30 +103,45 @@ def _write(
             )
 
 
-def supervise(capture: Path, native: Sequence[str]) -> int:
+def record_start_refusal(
+    capture: Path, reason: str, *, streams: BoundedStreams | None = None
+) -> int:
+    if streams is None:
+        streams = BoundedStreams()
+    started = utc_now()
+    streams.append(
+        STDERR,
+        (
+            f"{format_instant(started)} ERROR: YOKE_NATIVE_START_FAILED: "
+            f"{reason}; class=native_start_failed outcome=exited\n"
+        ).encode(),
+    )
+    _write(capture, streams, state=STATE_EXITED, exit_code=None, now=started)
+    return 1
+
+
+def supervise(capture: Path, native: Sequence[str], instruction: bytes) -> int:
     """Run ``native`` to completion, keeping ``capture`` current throughout."""
+    if not instruction or len(instruction) > MAX_HANDOFF_BYTES:
+        return record_start_refusal(
+            capture,
+            f"native_instruction_invalid: expected 1 to {MAX_HANDOFF_BYTES} bytes; "
+            "supply a valid instruction before retrying",
+        )
     streams = BoundedStreams()
     _write(capture, streams, state=STATE_RUNNING)
     try:
         process = subprocess.Popen(
             list(native),
             env=strip_relay_owned_python_state(),
-            stdin=subprocess.DEVNULL,
+            stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
     except (OSError, subprocess.SubprocessError) as exc:
-        started = utc_now()
-        streams.append(
-            STDERR,
-            (
-                f"{format_instant(started)} ERROR: YOKE_NATIVE_START_FAILED: "
-                f"native did not start: {exc}; class=native_start_failed "
-                "outcome=exited; the capture is the account of the spawn refusal\n"
-            ).encode(),
+        return record_start_refusal(
+            capture, f"native did not start: {exc}; check the native command before retrying"
         )
-        _write(capture, streams, state=STATE_EXITED, exit_code=None, now=started)
-        return 1
     drains = tuple(
         started
         for started in (
@@ -135,6 +151,21 @@ def supervise(capture: Path, native: Sequence[str]) -> int:
         if started is not None
     )
     _install_stop_handler(process)
+    try:
+        assert process.stdin is not None
+        with process.stdin as stdin:
+            stdin.write(instruction)
+    except OSError as exc:
+        process.kill()
+        process.wait()
+        for drain in drains:
+            drain.join(_DRAIN_JOIN_SECONDS)
+        return record_start_refusal(
+            capture,
+            f"native_instruction_write_failed: {exc}; check that the native CLI "
+            "accepts stdin in print mode before retrying",
+            streams=streams,
+        )
     retain_native_capture(capture, process, streams, drains)
     return 0
 
@@ -229,7 +260,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     # if the parent exits before it can persist custody and release this pipe.
     if parsed.await_custody and sys.stdin.buffer.readline(len(CUSTODY_READY) + 1) != CUSTODY_READY:
         return 1
-    return supervise(capture, native)
+    instruction = sys.stdin.buffer.read(MAX_HANDOFF_BYTES + 1)
+    return supervise(capture, native, instruction)
 
 
 if __name__ == "__main__":  # pragma: no cover - process entrypoint

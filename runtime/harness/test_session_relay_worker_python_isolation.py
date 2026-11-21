@@ -126,6 +126,7 @@ def test_the_relay_python_reaches_the_supervisor_and_stops_at_the_native(
     supervisors: list[subprocess.Popen[bytes]] = []
     started = session_relay_native_spawn.spawn_supervised_native(
         native,
+        instruction=b"test instruction",
         checkout=tmp_path,
         environment=environment,
         attempt_id=str(uuid4()),

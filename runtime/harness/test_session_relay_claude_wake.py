@@ -77,7 +77,6 @@ def test_waiting_wake_spawns_exact_yoke_session_and_returns_running(
         CLAUDE_LOCAL_SETTINGS_JSON,
         "--resume",
         TARGET_ID,
-        CHECK_INBOX,
         "--output-format",
         "json",
     )

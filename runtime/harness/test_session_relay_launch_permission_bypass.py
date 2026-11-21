@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pytest
 
+from yoke_contracts.path_harness_clis import ResolvedNativeCli
 from yoke_contracts.executor_labels import CANONICAL_HARNESS_IDS
 from yoke_contracts.session_control.launch_permission_bypass import (
     CLAUDE_BYPASS_DISCLAIMER_RECOVERY,
@@ -117,7 +118,7 @@ def test_cursor_cli_routes_auto_approve_commands(
 ) -> None:
     spawns: list[list[str]] = []
     monkeypatch.setattr(
-        cursor_cli_module, "resolve_native_cli", lambda _name: "/opt/cursor-agent"
+        cursor_cli_module, "resolve_native_cli_source", lambda _name: ResolvedNativeCli("/opt/cursor-agent", "bundled")
     )
     local_supervision(monkeypatch, tmp_path)
 

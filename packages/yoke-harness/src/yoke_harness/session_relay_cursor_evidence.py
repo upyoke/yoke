@@ -44,6 +44,8 @@ def cursor_evidence(
     for source, reported in (
         ("diagnostic_ref", "native_diagnostic_ref"),
         ("capture_path", "native_capture_path"),
+        ("native_binary", "native_binary"),
+        ("native_binary_source", "native_binary_source"),
     ):
         value = getattr(native, source, None)
         if isinstance(value, str) and value:

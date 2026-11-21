@@ -56,7 +56,8 @@ def test_current_native_exit_replaces_the_initialized_capture(tmp_path: Path, mo
         return process
 
     started = spawn_supervised_native(
-        [sys.executable, "-c", "import sys; print('current refusal', file=sys.stderr); sys.exit(7)"],
+        [sys.executable, "-c", "import sys; sys.stdin.buffer.read(); print('current refusal', file=sys.stderr); sys.exit(7)"],
+        instruction=b"test instruction",
         checkout=tmp_path,
         # Windows asyncio needs SystemRoot to load Winsock: CPython issue #118234.
         environment={"SystemRoot": os.environ["SystemRoot"]} if os.name == "nt" else {},
@@ -80,16 +81,79 @@ def test_current_native_exit_replaces_the_initialized_capture(tmp_path: Path, mo
     assert b"current refusal" in refusal.stderr
 
 
-@pytest.mark.parametrize("token", [b"", b"invalid\n", supervisor.CUSTODY_READY])
+@pytest.mark.parametrize("token", [b"", b"invalid\n", supervisor.CUSTODY_READY + b"example"])
 def test_supervisor_starts_native_only_after_custody_token(tmp_path, monkeypatch, token):
     started = []
     monkeypatch.setattr(supervisor.sys, "stdin", SimpleNamespace(buffer=BytesIO(token)))
     monkeypatch.setattr(supervisor, "supervise", lambda *args: started.append(args) or 7)
     capture = tmp_path / "capture"
     result = supervisor.main(["--capture", str(capture), "--await-custody", "--", "native"])
-    if token == supervisor.CUSTODY_READY:
+    if token.startswith(supervisor.CUSTODY_READY):
         assert result == 7
-        assert started == [(capture, ["native"])]
+        assert started == [(capture, ["native"], b"example")]
     else:
         assert result == 1
         assert not started
+
+
+def test_supervisor_delivers_instruction_bytes_after_custody(tmp_path, monkeypatch):
+    tmp_path = create_owner_private_directory(tmp_path / "private-relay")
+    instruction = b'Read "<x>" & | ^ %PATH%\nsecond line\r\nlast line'
+    monkeypatch.setattr(
+        supervisor.sys, "stdin", SimpleNamespace(buffer=BytesIO(supervisor.CUSTODY_READY + instruction))
+    )
+    capture = tmp_path / "capture"
+    result = supervisor.main([
+        "--capture", str(capture), "--await-custody", "--", sys.executable, "-c",
+        "import sys; sys.stdout.buffer.write(sys.stdin.buffer.read())",
+    ])
+
+    assert result == 0
+    settled = immediate_native_refusal(capture, window_seconds=0)
+    assert settled is not None and settled.exit_code == 0
+    assert settled.stdout == instruction
+
+
+@pytest.mark.parametrize("instruction", [b"", b"x" * (supervisor.MAX_HANDOFF_BYTES + 1)])
+def test_supervisor_refuses_invalid_instruction_before_native_spawn(tmp_path, monkeypatch, instruction):
+    tmp_path = create_owner_private_directory(tmp_path / "private-relay")
+    monkeypatch.setattr(
+        supervisor.sys, "stdin", SimpleNamespace(buffer=BytesIO(supervisor.CUSTODY_READY + instruction))
+    )
+
+    def unexpected_spawn(*args, **kwargs):
+        pytest.fail("native spawned")
+
+    monkeypatch.setattr(supervisor.subprocess, "Popen", unexpected_spawn)
+    capture = tmp_path / "capture"
+
+    assert supervisor.main(["--capture", str(capture), "--await-custody", "--", "native"]) == 1
+    settled = immediate_native_refusal(capture, window_seconds=0)
+    assert settled is not None and settled.exit_code is None
+    assert b"native_instruction_invalid" in settled.stderr
+
+
+def test_supervisor_settles_failed_instruction_write(tmp_path, monkeypatch):
+    tmp_path = create_owner_private_directory(tmp_path / "private-relay")
+
+    class ClosedPipe(BytesIO):
+        def write(self, data):
+            raise BrokenPipeError("stdin closed")
+
+    stopped = []
+    process = SimpleNamespace(
+        stdin=ClosedPipe(),
+        stdout=None,
+        stderr=None,
+        kill=lambda: stopped.append("killed"),
+        wait=lambda: stopped.append("reaped"),
+    )
+    monkeypatch.setattr(supervisor.subprocess, "Popen", lambda *args, **kwargs: process)
+    monkeypatch.setattr(supervisor, "_install_stop_handler", lambda child: None)
+    capture = tmp_path / "capture"
+
+    assert supervisor.supervise(capture, ["native"], b"test instruction") == 1
+    assert stopped == ["killed", "reaped"]
+    settled = immediate_native_refusal(capture, window_seconds=0)
+    assert settled is not None and settled.exit_code is None
+    assert b"native_instruction_write_failed" in settled.stderr

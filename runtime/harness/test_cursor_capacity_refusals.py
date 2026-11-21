@@ -4,6 +4,7 @@ from dataclasses import replace
 
 import pytest
 
+from yoke_contracts.path_harness_clis import ResolvedNativeCli
 from yoke_contracts.machine_config.native_capacity import NativeCapacity
 from yoke_harness import session_launch_admission as admission
 from yoke_harness import session_relay_cursor_cli as cli
@@ -33,7 +34,7 @@ def test_cursor_guarded_refusal_has_no_process_or_capture(
     local_supervision(monkeypatch, tmp_path)
     monkeypatch.setattr(admission, "_LAST_SPAWN", None)
     monkeypatch.setattr(admission, "observe_native_capacity", lambda: reading)
-    monkeypatch.setattr(cli, "resolve_native_cli", lambda _: "/opt/cursor-agent")
+    monkeypatch.setattr(cli, "resolve_native_cli_source", lambda _: ResolvedNativeCli("/opt/cursor-agent", "bundled"))
     starts = []
     transport = cli.CursorCliTransport(
         process_factory=lambda *a, **kw: starts.append(True)
@@ -62,7 +63,7 @@ def test_healthy_cursor_resume_keeps_exact_session_and_supervision(
     monkeypatch.setattr(
         admission, "observe_native_capacity", lambda: NativeCapacity(2 * 1024**3, 0, 0)
     )
-    monkeypatch.setattr(cli, "resolve_native_cli", lambda _: "/opt/cursor-agent")
+    monkeypatch.setattr(cli, "resolve_native_cli_source", lambda _: ResolvedNativeCli("/opt/cursor-agent", "bundled"))
     starts = []
 
     def start(argv, **kwargs):
