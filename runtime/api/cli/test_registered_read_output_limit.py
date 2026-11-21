@@ -215,3 +215,29 @@ def test_deadline_recovery_omits_shared_section(capsys):
     assert "--section" not in hint
     assert "yoke qa activity list --full" in hint
     assert "yoke qa activity list --json" in hint
+
+
+def test_read_route_catalog_matches_cli_registry():
+    from runtime.api.tools.read_function_catalog import registered_read_routes
+    from yoke_contracts.registered_reads import READ_COMMAND_ROUTES
+
+    assert READ_COMMAND_ROUTES == registered_read_routes()
+    assert {("sessions", "get"), ("messages", "get"), ("steering", "report", "get")} <= (
+        READ_COMMAND_ROUTES
+    )
+    assert ("packs", "get") not in READ_COMMAND_ROUTES
+
+
+def test_no_read_route_prefixes_a_write_route():
+    """The park keeps reads by route prefix, so a read must not shadow a write."""
+    from yoke_cli.commands.registry import SUBCOMMAND_ALIAS_REGISTRY, SUBCOMMAND_REGISTRY
+    from yoke_contracts.registered_reads import READ_COMMAND_ROUTES
+
+    routes = {**SUBCOMMAND_REGISTRY, **SUBCOMMAND_ALIAS_REGISTRY}
+    shadowed = [
+        (read, route)
+        for read in READ_COMMAND_ROUTES
+        for route, (function_id, _) in routes.items()
+        if route[: len(read)] == read and function_id not in READ_FUNCTION_IDS
+    ]
+    assert shadowed == []
