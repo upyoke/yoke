@@ -8,6 +8,7 @@ from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.qa_host_turns import cancel_host_waits
 from yoke_core.domain.qa_plan_execution_abort_reason import MEMBER_REMOVED_REASON
 from yoke_core.domain.qa_plan_execution_abort_state import (
+    MISSION_WALK_STATES,
     mission_walk_owed,
     owed_host_abort,
     record_abort_request,
@@ -18,6 +19,7 @@ from yoke_core.domain.qa_plan_execution_schema import (
     TERMINAL_PLAN_EXECUTION_STATES,
 )
 from yoke_core.domain.qa_plan_execution_store import lock_plan_execution
+from yoke_core.domain.qa_plan_host_leases import held_host_leases
 from yoke_core.domain.schema_common import _table_exists
 
 
@@ -35,9 +37,12 @@ def abort_removed_member_executions(
     must never grant it to another cursor of the same removed members.
     Existing terminal evidence and other members' executions survive.
 
-    An execution whose held host may be dirty is not finished here: it keeps
-    custody and heartbeat authority under a recorded cooperative abort, and
-    releases its host only after cleanup proof (`removal_cleanup_request`).
+    An execution that still owes a walk end is not finished here: it keeps
+    its waits, turns, leases and heartbeat authority under a recorded
+    cooperative abort, and its walk-end teardown frees them. It owes one when
+    its held host may be dirty (`removal_cleanup_request`) or when it is
+    walking a mission while holding any host, a lease or a reserved turn: a
+    host passed on mid-walk would run the next waiter under the live walk.
     Returns the removed members whose QA this call stopped, and those whose
     stopped execution still holds its host for cleanup. A shared execution
     counts for every removed member.
@@ -83,14 +88,18 @@ def abort_removed_member_executions(
     executions = [
         e for e in executions if e["state"] not in TERMINAL_PLAN_EXECUTION_STATES
     ]
-    cancel_host_waits(conn, execution_ids=[str(e["id"]) for e in executions])
-    cleaning = []
+    cleaning: list[tuple[dict, dict]] = []
+    ending = []
     for execution in executions:
-        request = removal_cleanup_request(conn, execution)
-        if request is not None:
-            record_abort_request(conn, execution, request)
-            cleaning.append(execution)
-            continue
+        request = _walk_end_owed(conn, execution)
+        if request is None:
+            ending.append(execution)
+        else:
+            cleaning.append((execution, request))
+    cancel_host_waits(conn, execution_ids=[str(e["id"]) for e in ending])
+    for execution, request in cleaning:
+        record_abort_request(conn, execution, request)
+    for execution in ending:
         finish_plan_execution(
             conn,
             execution,
@@ -98,7 +107,8 @@ def abort_removed_member_executions(
             reason=MEMBER_REMOVED_REASON,
             commit=False,
         )
-    return _owners(executions, ids), _owners(cleaning, ids)
+    held = [execution for execution, _request in cleaning]
+    return _owners(executions, ids), _owners(held, ids)
 
 
 def _owners(executions: list[dict], removed: list[int]) -> frozenset[int]:
@@ -107,6 +117,43 @@ def _owners(executions: list[dict], removed: list[int]) -> frozenset[int]:
     if None in owners:
         return frozenset(removed)
     return frozenset(int(owner) for owner in owners)
+
+
+def _walk_end_owed(conn: Any, execution: dict) -> dict | None:
+    """The abort a removed execution records instead of ending, or None."""
+    request = removal_cleanup_request(conn, execution)
+    if request is not None or execution["state"] not in MISSION_WALK_STATES:
+        return request
+    if held_host_leases(conn, execution) or _reserved_turn(conn, execution):
+        return {"reason": MEMBER_REMOVED_REASON, "ordinal": _walked_mission(execution)}
+    return None
+
+
+def _walked_mission(execution: dict) -> int:
+    """The first mission case of the walk, the case its abort names."""
+    roster = execution.get("roster") or []
+    missions = [
+        ordinal
+        for ordinal, case in enumerate(roster)
+        if case.get("runner_id") == "agent_mission"
+    ]
+    if missions:
+        return missions[0]
+    return min(int(execution["cursor_ordinal"]), max(len(roster) - 1, 0))
+
+
+def _reserved_turn(conn: Any, execution: dict) -> bool:
+    """Whether a host turn is reserved for this execution in the waiting line."""
+    if not _table_exists(conn, "qa_test_machine_waits"):
+        return False
+    return bool(
+        query_rows(
+            conn,
+            "SELECT 1 FROM qa_test_machine_waits WHERE qa_plan_execution_id=%s "
+            "AND state='reserved' LIMIT 1",
+            (str(execution["id"]),),
+        )
+    )
 
 
 def removal_cleanup_request(conn: Any, execution: dict) -> dict | None:

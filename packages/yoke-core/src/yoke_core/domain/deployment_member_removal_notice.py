@@ -50,7 +50,8 @@ def red_requirement_ids(conn: Any, requirement_ids: Iterable[int]) -> tuple[int,
 
 #: A removed execution whose host may be dirty keeps it until cleanup proof.
 HOST_CLEANUP_PENDING = (
-    " Its running QA execution keeps its Test Machine until that host is clean: "
+    " Its running QA execution keeps its Test Machine and any reserved host "
+    "turn until that host is clean: "
     "a host-control runner stops and records restore proof on its own; a "
     "mission walk's session runs its dispatched `yoke qa mission walk-end`. "
     "No other QA gets that machine before then."
