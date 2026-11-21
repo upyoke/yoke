@@ -35,7 +35,7 @@ import json
 from pathlib import Path
 from typing import Any, Callable, Dict
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 
 #: Machine-local receipt naming the build that last converged each universe.
 #: Beside the machine config rather than inside it: this is bookkeeping the

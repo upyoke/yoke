@@ -40,7 +40,7 @@ def test_an_admin_env_with_no_plane_refuses_instead_of_running_here(monkeypatch)
 
 
 def test_an_unreadable_connection_configuration_refuses(monkeypatch):
-    from yoke_cli.config import machine_config
+    from yoke_contracts.machine_config import reader as machine_config
     from yoke_cli.transport import https as https_transport
 
     monkeypatch.setattr(
@@ -77,7 +77,7 @@ def test_an_admin_connection_routes_to_the_plane_it_administers(monkeypatch):
         "resolve_https_connection",
         lambda *a, **k: None,
     )
-    from yoke_cli.config import machine_config
+    from yoke_contracts.machine_config import reader as machine_config
 
     monkeypatch.setattr(
         machine_config,
@@ -99,7 +99,7 @@ def test_an_admin_connection_routes_to_the_plane_it_administers(monkeypatch):
 
 def test_a_local_universe_serves_itself(monkeypatch):
     from yoke_cli.transport import https as https_transport
-    from yoke_cli.config import machine_config
+    from yoke_contracts.machine_config import reader as machine_config
 
     monkeypatch.setattr(
         https_transport,

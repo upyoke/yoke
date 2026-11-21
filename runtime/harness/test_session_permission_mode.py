@@ -94,7 +94,7 @@ def test_write_failure_invalidates_previous_mode(monkeypatch, capsys):
 )
 def test_every_hook_route_records_mode_before_evaluation(monkeypatch, route):
     from yoke_cli.commands.adapters import hook_inprocess
-    from yoke_cli.config import machine_config
+    from yoke_contracts.machine_config import reader as machine_config
     from yoke_cli.transport.https import HttpsConnection
     from yoke_core.hooks import local_entry
     from yoke_harness.hooks import relay

@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from yoke_cli.config.path_harness_clis import resolve_harness_clis
+from yoke_contracts.path_harness_clis import resolve_harness_clis
 from yoke_contracts import harness_cli_manifest as registry
 from yoke_contracts.harness_cli_manifest import HARNESS_CLI_MANIFESTS
 

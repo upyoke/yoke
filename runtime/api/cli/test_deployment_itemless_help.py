@@ -147,7 +147,7 @@ def test_create_note_names_only_proven_execution_authority(host, expected) -> No
         ),
         patch(f"{authority}._run", **run_read),
         patch(
-            "yoke_cli.config.machine_config.load_config",
+            "yoke_contracts.machine_config.reader.load_config",
             return_value={
                 "connections": {"prod-db-admin": {"transport": "local-postgres"}}
             },

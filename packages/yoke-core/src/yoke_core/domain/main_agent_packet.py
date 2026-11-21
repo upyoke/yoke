@@ -6,15 +6,13 @@ Project rules own command discovery and connection guidance.
 
 from __future__ import annotations
 
-from yoke_contracts.runtime_ports.install_advice import get_install_advice
+from yoke_contracts.install_advice import InstallOriginUnavailable, install_command
 from yoke_contracts.session_control.launch_context import LAUNCH_CONTEXT_ENV
 from yoke_contracts.session_control.resume import RESUME_ATTEMPT_ENV
 
 import os
 import shutil
 
-install_command = get_install_advice().install_command
-InstallOriginUnavailable = get_install_advice().InstallOriginUnavailable
 
 MAIN_AGENT_ROLE = "main_agent"
 

@@ -9,7 +9,8 @@ from typing import Any, Callable, Mapping
 
 from yoke_cli.config import github_app_public_profile_discovery as discovery
 from yoke_cli.config import github_app_public_profile_values as profile_values
-from yoke_cli.config import machine_config, github_service_profile_proof
+from yoke_contracts.machine_config import reader as machine_config
+from yoke_cli.config import github_service_profile_proof
 from yoke_cli.config.github_app_public_profile_discovery import (
     GitHubAppPublicProfileError,
 )

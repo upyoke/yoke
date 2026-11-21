@@ -7,7 +7,7 @@ import pytest
 from yoke_cli.commands.adapters import doctor
 from yoke_cli.config import status_doctor, universe_export_download
 from yoke_cli.project_install import runner
-from yoke_cli.project_install.files import ProjectInstallError
+from yoke_contracts.project_contract.install_error import ProjectInstallError
 from yoke_contracts.project_defaults import MissingProjectError
 from yoke_core.domain import machine_config_status
 from yoke_core.domain.universe_export_destination import resolve_export_destination

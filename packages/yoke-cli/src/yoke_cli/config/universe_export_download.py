@@ -202,7 +202,7 @@ def _response_filename(value: Any) -> str:
 
 def _destination(out: str | None, filename: str) -> Path:
     if out is None:
-        from yoke_cli.config.machine_config import yoke_home
+        from yoke_contracts.machine_config.reader import yoke_home
 
         from yoke_contracts.machine_config.schema import DEFAULT_EXPORT_DIR_NAME
 

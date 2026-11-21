@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import pytest
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.transport.dispatcher import build_actor
 from yoke_contracts import session_identity
 

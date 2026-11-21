@@ -7,7 +7,7 @@ from typing import Any, Mapping
 from yoke_cli.config import existing_project_lookup
 from yoke_cli.config import onboard_machine_reuse
 from yoke_cli.config import onboard_project
-from yoke_cli.config import project_installed_layer as installed_layer
+from yoke_contracts.project_contract import installed_layer_scan as installed_layer
 from yoke_contracts.machine_config.schema import POSTGRES_TRANSPORTS
 
 _GROUP_ORDER = ("machine", "core", "repo", "admin")

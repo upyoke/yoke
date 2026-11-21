@@ -263,7 +263,7 @@ def _evaluate_confirming_orientation(evaluate: Callable[[], int]) -> int:
 def _active_local_universe() -> bool:
     """Return whether the active connection is non-production Postgres."""
     try:
-        from yoke_cli.config import machine_config
+        from yoke_contracts.machine_config import reader as machine_config
         from yoke_contracts.machine_config.schema import (
             POSTGRES_TRANSPORTS,
             connection_is_protected,

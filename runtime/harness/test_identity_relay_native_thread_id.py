@@ -9,7 +9,7 @@ from yoke_contracts.testing.real_home_isolation import HOME_ENVS
 from pathlib import Path
 from unittest import mock
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_contracts.cursor_session_map import (
     CURSOR_SESSION_MAP_DIR_NAME,
     record_conversation_session,

@@ -71,8 +71,8 @@ def _hooks_block(path: Path, harness_id: str) -> Optional[dict[str, Any]]:
         return None  # Outside a project this is the whole cost of the rule.
     # Only a present config pays for the installer's schema validator.
     from yoke_contracts.filesystem_safety import first_symlink_component
-    from yoke_cli.project_install.files import ProjectInstallError
-    from yoke_cli.project_install.hook_schema import (
+    from yoke_contracts.project_contract.install_error import ProjectInstallError
+    from yoke_contracts.project_contract.hook_schema import (
         HOOK_FORMAT_CURSOR,
         HOOK_FORMAT_NESTED,
         validate_hooks_subtree,

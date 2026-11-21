@@ -6,7 +6,7 @@ import sys
 import pytest
 
 from yoke_cli import command_router
-from yoke_cli.config import machine_config as client
+from yoke_contracts.machine_config import reader as client
 from yoke_contracts.machine_config import runtime, schema
 
 

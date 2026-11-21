@@ -104,7 +104,7 @@ def _mapped_checkout(item: dict[str, Any]) -> str:
     project_id = (item.get("project") or {}).get("id")
     if project_id is None:
         return ""
-    from yoke_cli.config.machine_config import configured_projects
+    from yoke_contracts.machine_config.reader import configured_projects
 
     try:
         target = int(project_id)

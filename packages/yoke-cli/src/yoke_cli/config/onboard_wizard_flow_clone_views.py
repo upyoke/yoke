@@ -24,7 +24,7 @@ class CloneOutcomeFlow:
 
             remote_root = Path(self.result.project_checkout).expanduser()
             self.result.project_remote_url = remote
-            from yoke_cli.config import project_installed_layer
+            from yoke_contracts.project_contract import installed_layer_scan as project_installed_layer
 
             self._show_checkout_inspection(project_installed_layer.scan(remote_root))
             return

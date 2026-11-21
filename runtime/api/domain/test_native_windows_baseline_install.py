@@ -46,7 +46,7 @@ class _Control:
 
 @pytest.fixture
 def console(monkeypatch):
-    from yoke_cli.config import distribution, machine_config
+    from yoke_contracts.machine_config import distribution, reader as machine_config
 
     monkeypatch.setattr(machine_config, "active_connection", lambda: "prod")
     monkeypatch.setattr(

@@ -10,7 +10,8 @@ import subprocess
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from yoke_cli.config import install_binding, local_universe_setup, machine_config
+from yoke_cli.config import install_binding, local_universe_setup
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.config.local_universe_connection import stored_dsn
 from yoke_cli.config import machine_uninstall_detached
 from yoke_cli.project_install.files import MANIFEST_REL

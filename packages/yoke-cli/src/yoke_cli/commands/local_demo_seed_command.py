@@ -84,7 +84,7 @@ def _seed_demo_items(
     count: int,
     config_path: str | None,
 ) -> Dict[str, Any]:
-    from yoke_cli.config import machine_config
+    from yoke_contracts.machine_config import reader as machine_config
     from yoke_cli.project_install.transport import _local_postgres_env
     from yoke_contracts.machine_config import schema as contract
 

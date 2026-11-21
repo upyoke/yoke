@@ -7,7 +7,7 @@ from yoke_contracts.timestamps import utc_now
 from pathlib import Path
 from typing import Callable
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_contracts.engine_version import local_handshake_version
 from yoke_contracts.machine_config.machine_capacity import observe_machine_capacity
 from yoke_contracts.machine_config.machine_name import machine_display_name

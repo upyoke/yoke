@@ -137,7 +137,7 @@ def client_project_context(explicit: Optional[str] = None) -> Optional[str]:
     if env_project:
         return env_project
     try:
-        from yoke_cli.config import machine_config
+        from yoke_contracts.machine_config import reader as machine_config
         from yoke_cli.config.checkout_context import resolve_repo_root_from_cwd
 
         repo_root = resolve_repo_root_from_cwd()

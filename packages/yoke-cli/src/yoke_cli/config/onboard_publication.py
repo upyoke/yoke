@@ -11,7 +11,8 @@ from pathlib import Path
 import shlex
 from typing import Any, Mapping
 
-from yoke_cli.config import github_credentials, machine_config
+from yoke_cli.config import github_credentials
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.config.project_git_transport import (
     https_remote,
     is_configured_github_remote,

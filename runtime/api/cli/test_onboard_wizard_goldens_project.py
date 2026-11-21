@@ -137,7 +137,7 @@ def test_project_owner_picker_long() -> None:
 
 
 def test_project_private_repo_empty(monkeypatch) -> None:
-    from yoke_cli.config import machine_config
+    from yoke_contracts.machine_config import reader as machine_config
 
     monkeypatch.setattr(
         machine_config,

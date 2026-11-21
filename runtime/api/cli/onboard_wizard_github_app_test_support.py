@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any, Iterable
 
 from yoke_contracts import github_app_installation_permissions
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.config import onboard_wizard_flow_github as github_flow
 from yoke_cli.config import onboard_wizard_flow_publish as publish_flow
 from yoke_cli.config import onboard_wizard_github_state as github_state

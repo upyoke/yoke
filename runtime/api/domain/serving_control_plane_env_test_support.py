@@ -10,7 +10,7 @@ from yoke_core.domain import control_plane_transport
 
 def stub_machine_connections(monkeypatch, *, active: str, connections: dict):
     """Present one machine's configured connections to the resolver."""
-    from yoke_cli.config import machine_config
+    from yoke_contracts.machine_config import reader as machine_config
     from yoke_cli.transport import https as https_transport
 
     monkeypatch.setattr(

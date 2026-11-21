@@ -176,7 +176,7 @@ def test_the_directory_is_the_machine_cache_and_owner_only(
     tmp_path: Path, monkeypatch
 ) -> None:
     """The unpatched resolver reads the machine cache, not a relay state dir."""
-    from yoke_cli.config import machine_config
+    from yoke_contracts.machine_config import reader as machine_config
 
     cache = tmp_path / "machine-cache"
     monkeypatch.setattr(machine_config, "cache_dir", lambda _path=None: cache)

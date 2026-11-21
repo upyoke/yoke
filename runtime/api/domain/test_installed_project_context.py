@@ -10,7 +10,8 @@ from runtime.api.cli import project_onboarding_api_handler as https_handler
 from runtime.api.tools.source_project_bundle import build_source_bundle
 from yoke_cli.project_install import instruction_discovery, install_recovery
 from yoke_cli.project_install.bundle_apply import apply_bundle
-from yoke_cli.project_install.files import ProjectInstallError, sha256_text
+from yoke_contracts.project_contract.install_error import ProjectInstallError
+from yoke_cli.project_install.files import sha256_text
 from yoke_cli.project_install.transport import resolve_bundle
 from yoke_contracts.project_contract.install_bundle import BUNDLE_SCHEMA
 from yoke_core.domain.install_bundle_sources import (

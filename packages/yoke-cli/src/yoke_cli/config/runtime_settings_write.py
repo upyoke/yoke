@@ -23,7 +23,7 @@ def write_setting(
     if not unset:
         value = MACHINE_SETTING_KEYS[key].validate(key, value)
         if key == "distribution":
-            from yoke_cli.config.distribution import validate
+            from yoke_contracts.machine_config.distribution import validate
 
             value = validate(**value)
     payload, cfg_path = mutation.load_payload(path)

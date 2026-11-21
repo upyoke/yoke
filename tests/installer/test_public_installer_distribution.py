@@ -12,7 +12,7 @@ from public_installer_helpers import (
     load_installer,
 )
 from yoke_cli.commands.adapters.settings import set_value
-from yoke_cli.config import distribution
+from yoke_contracts.machine_config import distribution
 
 
 def _installer(*, runner, dry_run=False):

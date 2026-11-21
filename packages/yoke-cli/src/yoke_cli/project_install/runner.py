@@ -14,7 +14,7 @@ from yoke_contracts.machine_config.checkout import main_checkout
 
 from yoke_cli.project_repository_identity import assert_install_repository
 from yoke_cli.config import github_project_setup
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.config import project_publication_destination
 from yoke_cli.config import writer as machine_config_writer
 from yoke_cli.commands.adapters.project_snapshot import (
@@ -32,12 +32,8 @@ from yoke_cli.project_install import publication
 from yoke_cli.project_install import publication_outcome
 from yoke_cli.project_install.preflight import preflight_apply
 from yoke_cli.project_install import source_dev
-from yoke_cli.project_install.files import (
-    MODE_COPY,
-    MODE_KEY,
-    MODE_SOURCE_LINK,
-    ProjectInstallError,
-)
+from yoke_cli.project_install.files import MODE_COPY, MODE_KEY, MODE_SOURCE_LINK
+from yoke_contracts.project_contract.install_error import ProjectInstallError
 from yoke_cli.project_install.uninstall import uninstall
 from yoke_cli.project_install.validate import validate_bundle_for_project
 from yoke_cli.project_install.transport import resolve_bundle as _resolve_bundle

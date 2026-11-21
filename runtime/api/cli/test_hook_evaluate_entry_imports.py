@@ -66,7 +66,7 @@ import yoke_cli.commands.adapters.hooks
 assert not any(name in sys.modules for name in (
     "yoke_cli.command_router", "yoke_cli.commands.registry", "pydantic",
     "httpx", "ssl", "urllib.request", "textual", "boto3", "sqlalchemy",
-    "importlib.metadata", "yoke_cli.config.machine_config",
+    "importlib.metadata", "yoke_contracts.machine_config.reader",
     "yoke_contracts.hook_runner.safety",
 ))
 """],

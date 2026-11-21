@@ -15,7 +15,7 @@ from runtime.api.cli.hook_transport_test_support import (
 )
 
 from yoke_cli import hook_client_wall
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.hook_client_wall import HookClientWall, _process_age
 from yoke_cli.hook_resident_client import _round_trip
 from yoke_contracts.machine_config.schema import PROTECTED_FLAG_KEY

@@ -17,7 +17,6 @@ class ProjectInstallFiles(Protocol):
     MODE_COPY: Any
     MODE_KEY: Any
     MODE_SOURCE_LINK: Any
-    ProjectInstallError: type[Any]
     apply_contract_files: Callable[..., Any]
     apply_files: Callable[..., Any]
     assert_file_targets_plannable: Callable[..., Any]

@@ -9,7 +9,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Callable, Sequence
 
-from yoke_cli.config.machine_config import all_registered_checkouts
+from yoke_contracts.machine_config.reader import all_registered_checkouts
 from yoke_contracts import harness_unattended_posture as posture
 from yoke_contracts.codex_hook_trust_store import (
     inspect_hook_file_trust,

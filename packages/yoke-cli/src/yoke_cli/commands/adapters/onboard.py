@@ -20,7 +20,7 @@ from yoke_cli.commands.adapters.onboard_github_requests import (
     project_needs_github_user_access_token as _project_needs_github_user_access_token,
     project_publish as _project_publish,
 )
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.commands.adapters.onboard_build_report import (
     MachineConfigWriteError,  # noqa: F401 — re-exported adapter surface
     build_report as _build_report,  # module global, so a test can patch it

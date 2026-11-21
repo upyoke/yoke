@@ -13,7 +13,7 @@ from yoke_cli.config import db_admin_dsn_exec
 from yoke_cli.config import db_admin_setup as db_admin_setup_config
 from yoke_cli.config import dev_setup as dev_setup_config
 from yoke_cli.config.writer import MachineConfigWriteError
-from yoke_cli.project_install.files import ProjectInstallError
+from yoke_contracts.project_contract.install_error import ProjectInstallError
 
 from yoke_cli.commands.adapters.dev_parser import (
     build_db_admin_setup_parser,

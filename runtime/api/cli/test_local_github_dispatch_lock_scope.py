@@ -5,7 +5,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 
 from yoke_cli.config import github_machine_operation
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.transport import local_github_dispatch
 from yoke_contracts.api.function_call import (
     ActorContext,

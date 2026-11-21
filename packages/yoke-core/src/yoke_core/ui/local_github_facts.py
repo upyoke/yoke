@@ -16,7 +16,7 @@ UNREADABLE_NOTICE = (
 
 
 def machine_github_facts() -> dict[str, Any]:
-    from yoke_cli.config import machine_config
+    from yoke_contracts.machine_config import reader as machine_config
 
     try:
         github = machine_config.github_config()

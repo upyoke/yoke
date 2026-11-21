@@ -8,7 +8,7 @@ from typing import Any, Mapping
 from yoke_cli.config import onboard_apply_progress
 from yoke_cli.config import github_machine
 from yoke_cli.config import github_binding_auth
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.config.project_github_adoption import (
     GITHUB_ADOPTION_APP_BINDING,
     ProjectGithubAdoptionError,

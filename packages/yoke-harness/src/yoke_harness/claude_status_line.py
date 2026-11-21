@@ -51,7 +51,7 @@ def record_path(session_id: str) -> Optional[Path]:
     """
     if not _safe_session_id(session_id):
         return None
-    from yoke_cli.config import machine_config
+    from yoke_contracts.machine_config import reader as machine_config
 
     return machine_config.yoke_home() / RECORD_DIR_NAME / session_id
 

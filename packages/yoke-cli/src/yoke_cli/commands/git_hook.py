@@ -28,7 +28,7 @@ Transport honesty:
 
 from __future__ import annotations
 
-from yoke_cli.config.install_advice import InstallOriginUnavailable, install_command
+from yoke_contracts.install_advice import InstallOriginUnavailable, install_command
 
 import os
 import pathlib
@@ -211,7 +211,7 @@ def _moves_nothing(hook_name: str, args: List[str]) -> bool:
 
 def _checkout_project() -> str:
     """Use the committing checkout, independently of inherited task context."""
-    from yoke_cli.config import machine_config
+    from yoke_contracts.machine_config import reader as machine_config
     from yoke_cli.config.checkout_context import resolve_repo_root_from_cwd
 
     root = resolve_repo_root_from_cwd(cwd=os.getcwd())

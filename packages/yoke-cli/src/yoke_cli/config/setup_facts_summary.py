@@ -75,7 +75,8 @@ def read_project(
     orientation: bool = False,
 ) -> dict[str, Any]:
     from yoke_cli.commands._helpers import ensure_handlers_loaded
-    from yoke_cli.config import machine_config, onboard_setup_facts
+    from yoke_contracts.machine_config import reader as machine_config
+    from yoke_cli.config import onboard_setup_facts
     from yoke_cli.transport.dispatcher import call_dispatcher
 
     from yoke_cli.config.project_onboard_support import machine_config_path

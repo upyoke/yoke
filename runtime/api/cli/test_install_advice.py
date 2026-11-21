@@ -5,7 +5,7 @@ import subprocess
 
 import pytest
 
-from yoke_cli.config import install_advice
+from yoke_contracts import install_advice
 from yoke_cli.commands.adapters.onboard_hosted_authorization import usage_error
 from yoke_contracts.api_urls import (
     DISTRIBUTION_PROD_URL,

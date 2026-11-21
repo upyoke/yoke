@@ -5,7 +5,7 @@ import subprocess
 import pytest
 
 from yoke_cli.project_install.uninstall import uninstall
-from yoke_cli.project_install.files import ProjectInstallError
+from yoke_contracts.project_contract.install_error import ProjectInstallError
 from yoke_core.domain.project_install_test_helpers import make_bundle
 from yoke_cli.project_install.bundle_apply import apply_bundle
 from yoke_cli.project_install import uninstall_commit

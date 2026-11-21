@@ -20,7 +20,7 @@ from yoke_cli.config.onboard_wizard import (  # noqa: E402
 from yoke_cli.config.onboard_wizard_flow_board_art import BoardArtFlow  # noqa: E402
 from yoke_cli.project_install import checkout_gate  # noqa: E402
 from yoke_cli.project_install import files as files_layer  # noqa: E402
-from yoke_cli.project_install.files import ProjectInstallError  # noqa: E402
+from yoke_contracts.project_contract.install_error import ProjectInstallError  # noqa: E402
 
 
 def test_rebuild_board_forces_rebuild_and_requires_file(

@@ -6,10 +6,7 @@ import re
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
-from yoke_cli.project_install.hook_schema import (
-    HOOK_FORMAT_CURSOR,
-    HOOK_FORMAT_NESTED,
-)
+from yoke_contracts.project_contract.hook_schema import HOOK_FORMAT_CURSOR, HOOK_FORMAT_NESTED
 from yoke_contracts.hook_runner.config_owner import CONFIG_OWNER_ENV_VAR
 from yoke_contracts.hook_shell_command import hook_command_source
 from yoke_contracts.machine_hooks_render import YOKE_HOOK_EVALUATE

@@ -193,7 +193,7 @@ def _resolve_begin_project_id(explicit: str | None, workspace: str):
     try:
         from pathlib import Path
 
-        from yoke_cli.config import machine_config
+        from yoke_contracts.machine_config import reader as machine_config
 
         return machine_config.project_id(Path(workspace))
     except Exception:

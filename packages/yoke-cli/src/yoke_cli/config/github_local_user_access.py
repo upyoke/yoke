@@ -10,7 +10,7 @@ import urllib.error
 from yoke_cli.config import github_app_public_profile
 from yoke_cli.config import github_git_credential_file
 from yoke_cli.config import github_user_tokens
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.config import github_machine_operation
 from yoke_contracts.github_auth_transience import (
     GITHUB_AUTH_RETRY_RECIPE,

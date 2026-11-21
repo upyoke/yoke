@@ -36,7 +36,7 @@ from yoke_cli.browser_node_archive import unpack_release
 from yoke_contracts.machine_config.directories import create_private_directory
 from yoke_contracts.refusal_recovery import compose_refusal
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_contracts.resilient_fetch import (
     FetchError,
     FetchVerificationError,

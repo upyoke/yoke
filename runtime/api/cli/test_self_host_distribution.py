@@ -1,5 +1,6 @@
 """Self-host setup and upgrades obey the recorded install authority."""
 
+from yoke_contracts import distribution_target
 import json
 
 import pytest
@@ -153,5 +154,5 @@ def test_release_resolvers_require_an_explicit_origin():
                      release_target.channel_release_target):
         with pytest.raises(TypeError, match="base_url"):
             resolver()
-    with pytest.raises(release_target.ReleaseTargetError):
-        release_target.distribution_base_url("")
+    with pytest.raises(distribution_target.ReleaseTargetError):
+        distribution_target.distribution_base_url("")

@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_harness import artifact_scan
 from yoke_harness.artifact_scan import MAX_TAIL_BYTES
 from yoke_harness.hooks import identity_codex_runtime

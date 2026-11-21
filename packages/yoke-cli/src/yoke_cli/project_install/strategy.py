@@ -5,11 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Dict, Iterable, List, Tuple
 
-from yoke_cli.project_install.files import (
-    ProjectInstallError,
-    assert_resolved_targets_within,
-    sha256_text,
-)
+from yoke_contracts.project_contract.install_error import ProjectInstallError
+from yoke_cli.project_install.files import assert_resolved_targets_within, sha256_text
 from yoke_cli.project_install.line_endings import fold_newlines
 from yoke_contracts.project_contract.strategy_docs_header import (
     StrategyHeaderError,

@@ -38,11 +38,8 @@ from yoke_cli.project_install.cursor_permissions_plan import (
     changed as _changed,
     plan as _plan,
 )
-from yoke_cli.project_install.files import (
-    ProjectInstallError,
-    assert_resolved_targets_within,
-    remove_empty_parents,
-)
+from yoke_contracts.project_contract.install_error import ProjectInstallError
+from yoke_cli.project_install.files import assert_resolved_targets_within, remove_empty_parents
 from yoke_contracts.cursor_permissions import (
     CURSOR_CONFIG_REGIONS,
     CURSOR_CONFIG_RELS,

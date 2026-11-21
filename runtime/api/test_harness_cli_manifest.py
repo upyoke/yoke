@@ -10,7 +10,7 @@ from pathlib import Path
 import shutil
 import sys
 
-from yoke_cli.config.path_harness_clis import resolve_harness_clis
+from yoke_contracts.path_harness_clis import resolve_harness_clis
 from yoke_contracts.harness_cli_manifest import (
     HARNESS_CLI_MANIFESTS,
     HarnessCliManifest,
@@ -91,7 +91,7 @@ def test_setup_relay_and_doctor_share_path_and_bundled_resolution(
     monkeypatch, tmp_path
 ):
     from dataclasses import replace
-    from yoke_cli.config import path_harness_clis as resolver
+    from yoke_contracts import path_harness_clis as resolver
     from yoke_core.engines import doctor_install
 
     manifest = next(row for row in HARNESS_CLI_MANIFESTS if row.harness_id == "codex")
@@ -142,7 +142,7 @@ def test_codex_app_bundle_is_resolved_from_the_declared_path(tmp_path, monkeypat
 
 def test_versioned_claude_bundles_choose_the_newest_executable(tmp_path, monkeypatch):
     from dataclasses import replace
-    from yoke_cli.config.path_harness_clis import managed_path_directories
+    from yoke_contracts.path_harness_clis import managed_path_directories
 
     manifest = next(m for m in HARNESS_CLI_MANIFESTS if m.harness_id == "claude-code")
     set_home(monkeypatch, str(tmp_path))

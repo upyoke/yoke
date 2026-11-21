@@ -8,7 +8,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from yoke_cli.commands.universe_ui_connection import UniverseUiError
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_contracts.onboard_destinations import is_hosted_url
 from yoke_contracts.bounded_json_http import (
     BoundedJsonHttpError,

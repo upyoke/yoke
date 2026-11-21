@@ -48,6 +48,7 @@ from yoke_contracts.filesystem_safety import (
 )
 from yoke_contracts.cursor_permissions import CURSOR_PERMISSIONS_MANIFEST_KEY
 from yoke_contracts.project_contract.source_installed_views import refresh_source_installed_views
+from yoke_contracts.project_contract.install_error import ProjectInstallError
 from yoke_contracts.runtime_ports.project_install_files import get_project_install_files
 from yoke_contracts.runtime_ports.project_install_git_hooks import get_project_install_git_hooks
 
@@ -57,7 +58,6 @@ files_layer = get_project_install_files()
 MODE_COPY = files_layer.MODE_COPY
 MODE_KEY = files_layer.MODE_KEY
 MODE_SOURCE_LINK = files_layer.MODE_SOURCE_LINK
-ProjectInstallError = files_layer.ProjectInstallError
 GIT_HOOK_NAMES = get_project_install_git_hooks().GIT_HOOK_NAMES
 BootstrapResult = get_project_install_git_hooks().BootstrapResult
 install_git_hooks = get_project_install_git_hooks().install_git_hooks

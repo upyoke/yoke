@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import shlex
 
-from yoke_cli.config import distribution, machine_config
+from yoke_contracts.machine_config import distribution, reader as machine_config
 from yoke_contracts.api_urls import DISTRIBUTION_BASE_URL_ENV
 from yoke_contracts.machine_qa_execution import (
     HOST_TEST_COMMAND,

@@ -32,7 +32,7 @@ from yoke_cli.transport.dispatcher import call_dispatcher
 
 def _same_universe_admin_env(env: str) -> str:
     try:
-        from yoke_cli.config import machine_config
+        from yoke_contracts.machine_config import reader as machine_config
         from yoke_contracts.machine_config.schema import same_universe_db_admin_env
 
         return same_universe_db_admin_env(machine_config.load_config(), env)

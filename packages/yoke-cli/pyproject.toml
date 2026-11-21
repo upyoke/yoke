@@ -33,6 +33,9 @@ yoke = "yoke_cli.main:main"
 images = ["Pillow>=10.0,<12"]
 
 [project.entry-points."yoke.runtime"]
+universe_ui_daemon_state = "yoke_cli.config.universe_ui_daemon_state"
+instruction_discovery = "yoke_cli.project_install.instruction_discovery"
+pack_prerequisites = "yoke_cli.packs.prerequisites"
 command_targets = "yoke_cli.commands._helpers"
 help_invocation = "yoke_cli.commands.help_invocation"
 browser_node_toolchain = "yoke_cli.browser_node_toolchain"
@@ -45,7 +48,6 @@ credentialed_git = "yoke_cli.config.credentialed_git"
 github_project_setup = "yoke_cli.config.github_project_setup"
 github_publish = "yoke_cli.config.github_publish"
 hosted_machine_browser = "yoke_cli.config.hosted_machine_browser"
-install_advice = "yoke_cli.config.install_advice"
 onboard_project_github_inputs = "yoke_cli.config.onboard_project_github_inputs"
 operator_cli_release_follow = "yoke_cli.config.operator_cli_release_follow"
 launcher_path_doctor = "yoke_cli.config.path_doctor"

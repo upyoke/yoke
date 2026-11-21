@@ -6,7 +6,8 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Callable
 
-from yoke_cli.config import github_local_user_access, github_publish, machine_config
+from yoke_cli.config import github_local_user_access, github_publish
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.config import github_fork_access
 from yoke_cli.config import project_clone_fork_resume
 from yoke_cli.config.project_clone_resume import existing_clone_matches

@@ -6,7 +6,7 @@ import argparse
 
 from yoke_cli.config import onboard as onboard_config
 from yoke_cli.config import onboard_github_copy
-from yoke_cli.config.project_installed_layer import (
+from yoke_contracts.project_contract.installed_layer_scan import (
     LAYER_DECISIONS,
     LAYER_DECISION_HELP,
 )

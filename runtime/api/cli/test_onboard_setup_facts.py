@@ -8,7 +8,7 @@ from yoke_cli.config.onboard_setup_facts import collect
 from yoke_cli.commands.adapters import onboard_checklist_get as read_adapter
 from yoke_contracts.api.function_call import FunctionCallResponse, TargetRef
 from yoke_contracts.api.function_call import FunctionError
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 
 
 def test_missing_identity_stays_unchecked(tmp_path):

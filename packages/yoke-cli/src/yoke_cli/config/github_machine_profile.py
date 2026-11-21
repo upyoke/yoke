@@ -7,7 +7,7 @@ from typing import Any, Callable
 
 from yoke_cli.config import github_app_public_profile
 from yoke_cli.config import github_machine_state as state
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 
 
 def resolve(

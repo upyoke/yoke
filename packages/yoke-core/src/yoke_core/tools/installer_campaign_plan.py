@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Sequence
 
 from yoke_core.domain import pack_catalog
-from yoke_cli.config import repo_upstream_git as source_git
+from yoke_contracts.runtime_ports.repo_upstream_git import get_repo_upstream_git
 
 
 # Plans whose cases this build generates; boot converges them when source-bound.
@@ -32,6 +32,7 @@ def _remote_tracking_default_branch(root: str) -> tuple[str, str, int]:
     one git records as tracking that branch. A single remote, or only a
     push default, keeps the same resolution as before.
     """
+    source_git = get_repo_upstream_git()
     listed = source_git.git(root, "remote")
     names = source_git.out(listed).split() if listed.returncode == 0 else []
     for name in names:
@@ -49,6 +50,7 @@ def _remote_tracking_default_branch(root: str) -> tuple[str, str, int]:
 def export_source_revision() -> str:
     """Only landed, clean source may feed the shared saved-plan sync."""
     root = str(pack_catalog.server_tree_root())
+    source_git = get_repo_upstream_git()
     recovery = (
         "sync after merge from a clean checkout of the repository's default "
         "branch; use item-scoped or run-bound correction cases for lane proof."

@@ -6,7 +6,7 @@ import pytest
 
 from yoke_cli import command_router
 from yoke_cli import main as cli_main
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_contracts.control_plane_locality import (
     RemoteControlPlaneConnectionError,
     refuse_direct_connection,

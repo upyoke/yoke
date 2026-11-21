@@ -35,7 +35,7 @@ from yoke_cli.config.project_github_adoption import (
     ProjectGithubAdoptionError,
 )
 from yoke_cli.config.project_publish_support import PublishRequest
-from yoke_cli.project_install.files import ProjectInstallError
+from yoke_contracts.project_contract.install_error import ProjectInstallError
 
 
 def project_inputs(

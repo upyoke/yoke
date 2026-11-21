@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
 from yoke_contracts import platform_process
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_contracts.process_ancestry import process_start_time
 from yoke_contracts.session_identity import ANCHORS_DIR_NAME
 from yoke_harness import session_launch_handles

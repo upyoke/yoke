@@ -69,7 +69,7 @@ def test_the_reading_the_dead_native_stated_rides_its_report(
     for this session, so the tokens its result states are this session's,
     whatever conversation identity the vendor prints inside the result.
     """
-    from yoke_cli.config import machine_config
+    from yoke_contracts.machine_config import reader as machine_config
     from yoke_contracts.session_usage_facts import usage_from_document
     from yoke_harness.session_relay_native_capture_format import compose_capture
     from yoke_harness.session_relay_native_diagnostics import (
@@ -111,7 +111,7 @@ def test_a_death_with_nothing_measured_carries_no_reading(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    from yoke_cli.config import machine_config
+    from yoke_contracts.machine_config import reader as machine_config
 
     home = tmp_path / "yoke-home"
     home.mkdir()

@@ -22,7 +22,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Iterator, Mapping
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_contracts.process_ancestry import process_start_time
 from yoke_contracts.process_start_snapshot import process_start_reader
 from yoke_harness.session_process_custody import custody_state

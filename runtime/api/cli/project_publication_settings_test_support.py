@@ -7,7 +7,8 @@ import pytest
 
 from pathlib import Path
 
-from yoke_cli.config import machine_config, writer_projects
+from yoke_contracts.machine_config import reader as machine_config
+from yoke_cli.config import writer_projects
 
 from yoke_contracts.machine_config import schema_projects
 

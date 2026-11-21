@@ -14,7 +14,7 @@ from typing import Any, Dict
 from yoke_cli.project_install import hooks as hooks_layer
 from yoke_cli.project_install import git_hooks as git_hooks_layer
 from yoke_cli.project_install import strategy as strategy_layer
-from yoke_cli.project_install.files import ProjectInstallError
+from yoke_contracts.project_contract.install_error import ProjectInstallError
 from yoke_cli.transport.installed_cli_staleness import update_recovery
 from yoke_contracts.engine_version import local_handshake_version
 from yoke_contracts.project_contract.install_bundle import BUNDLE_SCHEMA

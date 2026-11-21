@@ -11,7 +11,7 @@ from pathlib import Path
 import uuid
 from typing import Any, Callable, Dict, Optional
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.transport import function_version_skew
 from yoke_cli.transport import https as https_transport
 from yoke_cli.transport import local_github_dispatch

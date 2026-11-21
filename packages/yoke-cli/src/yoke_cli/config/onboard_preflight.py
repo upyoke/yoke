@@ -290,7 +290,7 @@ def windows_vc_runtime_problem(result: _ResultLike) -> str | None:
     """Refuse a native Windows local universe whose MSVC runtime has no source."""
     if platform.system() != "Windows":
         return None
-    from yoke_cli.config import machine_config
+    from yoke_contracts.machine_config import reader as machine_config
 
     home = machine_config.config_path(getattr(result, "config_path", None)).parent
     source, missing = windows_vc_runtime.runtime_source(

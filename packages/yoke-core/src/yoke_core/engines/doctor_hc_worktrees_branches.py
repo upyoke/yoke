@@ -14,7 +14,7 @@ from yoke_core.domain.project_checkout_locations import checkout_for_project_id
 
 import yoke_core.engines.doctor_report as _base
 
-from yoke_cli.config import credentialed_git as _credentialed_git
+from yoke_contracts.runtime_ports.credentialed_git import get_credentialed_git
 
 from yoke_core.engines.doctor_report import (
     DoctorArgs,
@@ -26,6 +26,8 @@ from yoke_core.engines.merge_prune_authority import (
 from yoke_core.engines.remote_branch_cleanup import (
     delete_remote_branch_if_merged,
 )
+
+_credentialed_git = get_credentialed_git()
 
 # A credentialed remote read either authenticates or refuses by name, so the
 # bound is a slow network rather than the wait for a prompt nobody answers.

@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 from uuid import uuid4
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.config.onboard_checklist_files import write_json as _write_json
 from yoke_cli.config.onboard_checklist_files import write_text as _write_text
 from yoke_cli.config.onboard_checklist_model import (

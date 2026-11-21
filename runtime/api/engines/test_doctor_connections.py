@@ -6,7 +6,8 @@ import json
 import pytest
 from yoke_contracts.machine_config.runtime import write_config
 
-from yoke_cli.config import machine_config, writer
+from yoke_contracts.machine_config import reader as machine_config
+from yoke_cli.config import writer
 from yoke_core.engines import doctor_hc_connections as checks
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 

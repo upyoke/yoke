@@ -7,7 +7,7 @@ import pytest
 
 from yoke_cli.commands.adapters import settings
 from yoke_cli.commands.adapters.settings_store import SettingsStore
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.config.runtime_settings_write import write_setting
 from yoke_contracts.setting_spec import SettingSpec
 from yoke_contracts.settings_catalog import (

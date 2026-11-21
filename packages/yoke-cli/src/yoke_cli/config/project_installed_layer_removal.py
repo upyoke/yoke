@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import Any
 
 from yoke_contracts.project_contract.managed_block import block_span
-from yoke_cli.config import project_installed_layer as layer
+from yoke_contracts.project_contract import installed_layer_scan as layer
 from yoke_cli.config.project_git_transport import non_interactive_git_env
 from yoke_cli.project_install.checkout_gate import commit_identity_args
 from yoke_contracts import terminal_detached_process

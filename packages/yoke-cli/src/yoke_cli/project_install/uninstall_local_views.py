@@ -11,7 +11,7 @@ import shutil
 from pathlib import Path
 
 from yoke_cli.project_install import checkout_gate
-from yoke_cli.project_install.files import ProjectInstallError
+from yoke_contracts.project_contract.install_error import ProjectInstallError
 
 YOKE_DIR = ".yoke"
 STRATEGY_DIR = ".yoke/strategy/"

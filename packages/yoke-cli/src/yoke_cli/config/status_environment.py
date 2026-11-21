@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_contracts import owner_private_path
 from yoke_contracts.machine_config import schema as contract
 

@@ -14,6 +14,7 @@ so credentials live in host-opened stdin handoffs to private runtime files, neve
 
 from __future__ import annotations
 
+from yoke_contracts import distribution_target
 from yoke_contracts.self_host_paths import default_bundle_dir
 
 import secrets
@@ -22,7 +23,7 @@ from importlib import resources
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from yoke_cli.config import distribution
+from yoke_contracts.machine_config import distribution
 from yoke_cli.self_host import first_boot_token
 from yoke_cli.self_host import protection
 from yoke_cli.self_host import release_target
@@ -122,7 +123,7 @@ def write_bundle(
             raise SelfHostBundleError(
                 f"{exc}. Repair with `{distribution.SELECT_COMMAND}`, then retry."
             ) from exc
-        except release_target.ReleaseTargetError as exc:
+        except distribution_target.ReleaseTargetError as exc:
             raise SelfHostBundleError(
                 "could not select the server image matched to this CLI: "
                 f"{exc}. Restore distribution access and retry, or pass "

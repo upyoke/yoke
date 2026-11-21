@@ -13,7 +13,7 @@ from __future__ import annotations
 from pathlib import Path
 import pytest
 
-from yoke_cli.config.machine_config import ConfiguredProject
+from yoke_contracts.machine_config.reader import ConfiguredProject
 from yoke_harness import session_relay_runtime as runtime
 from yoke_harness import session_relay_working_directory as directories
 

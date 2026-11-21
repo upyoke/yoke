@@ -13,11 +13,12 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
 )
 from yoke_cli.transport.human_values import write_local
-from yoke_cli.config import machine_config, onboard_github_copy
+from yoke_contracts.machine_config import reader as machine_config
+from yoke_cli.config import onboard_github_copy
 from yoke_cli.config import project_onboard
 from yoke_cli.config.onboard_error_friendly import friendly_permission_error
 from yoke_cli.config.project_clone_support import ClonePlan
-from yoke_cli.config.project_installed_layer import (
+from yoke_contracts.project_contract.installed_layer_scan import (
     LAYER_DECISIONS,
     LAYER_DECISION_HELP,
 )
@@ -25,7 +26,7 @@ from yoke_cli.config.project_github_adoption import (
     GITHUB_ADOPTION_INPUT_CHOICES,
     ProjectGithubAdoptionError,
 )
-from yoke_cli.project_install.files import ProjectInstallError
+from yoke_contracts.project_contract.install_error import ProjectInstallError
 
 GITHUB_ADOPTION_FLAGS = "[--github-adoption app-binding|disabled]"
 PROJECT_CREATE_USAGE = (

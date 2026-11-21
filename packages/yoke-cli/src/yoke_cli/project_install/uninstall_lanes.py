@@ -11,9 +11,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.project_install import checkout_gate, owned_cleanup
-from yoke_cli.project_install.files import ProjectInstallError
+from yoke_contracts.project_contract.install_error import ProjectInstallError
 
 
 def settle(root: Path, config_path, *, remove: bool, check: bool = False) -> dict:

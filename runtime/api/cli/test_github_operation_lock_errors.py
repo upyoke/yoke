@@ -13,7 +13,8 @@ from yoke_contracts.owner_private_path import (
     is_owner_private_directory,
 )
 
-from yoke_cli.config import github_binding_auth, machine_config, machine_config_file, writer
+from yoke_cli.config import github_binding_auth, machine_config_file, writer
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.config import github_git_credential_file as credential_file
 from yoke_cli.config import github_git_credential_helper
 from yoke_cli.config import github_git_credential_store as credential_store

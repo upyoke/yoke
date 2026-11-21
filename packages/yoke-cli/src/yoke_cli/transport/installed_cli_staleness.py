@@ -14,7 +14,7 @@ from __future__ import annotations
 import sys
 from typing import TextIO
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_contracts.engine_version import (
     compare_engine_versions,
     local_handshake_version,

@@ -37,7 +37,7 @@ def conn() -> sqlite3.Connection:
 def test_a_terminal_hook_fills_identity_without_registering(
     conn, monkeypatch, tmp_path, event_name: str
 ) -> None:
-    from yoke_cli.config import machine_config
+    from yoke_contracts.machine_config import reader as machine_config
 
     monkeypatch.setattr(machine_config, "yoke_home", lambda: tmp_path / "yoke-home")
     monkeypatch.setenv("CLAUDE_CODE_ENTRYPOINT", "cli")

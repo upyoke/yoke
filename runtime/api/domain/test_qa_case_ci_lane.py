@@ -187,7 +187,7 @@ def test_authority_under_a_db_admin_connection_uses_its_own_https_plane(
         lambda *a, **k: None,
     )
     monkeypatch.setattr(
-        "yoke_cli.config.machine_config.load_config",
+        "yoke_contracts.machine_config.reader.load_config",
         lambda *a, **k: {
             "connections": {
                 "prod": {"transport": "https"},
@@ -197,7 +197,7 @@ def test_authority_under_a_db_admin_connection_uses_its_own_https_plane(
         },
     )
     monkeypatch.setattr(
-        "yoke_cli.config.machine_config.active_env",
+        "yoke_contracts.machine_config.reader.active_env",
         lambda *a, **k: "prod-db-admin",
     )
 

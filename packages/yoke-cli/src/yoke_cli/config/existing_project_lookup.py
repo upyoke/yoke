@@ -53,9 +53,9 @@ def find_local_project_reference(
     config_path: str | Path | None,
 ) -> LocalProjectReference | None:
     """Return the local project id from manifest or machine config, if present."""
-    from yoke_cli.config import machine_config
+    from yoke_contracts.machine_config import reader as machine_config
     from yoke_cli.project_install import files as install_files
-    from yoke_cli.project_install.files import ProjectInstallError
+    from yoke_contracts.project_contract.install_error import ProjectInstallError
 
     root = Path(checkout).expanduser()
     try:
@@ -234,8 +234,8 @@ def _call_local_function(
     function: str,
     payload: Mapping[str, Any],
 ) -> Mapping[str, Any]:
-    from yoke_cli.config import machine_config
-    from yoke_cli.project_install.files import ProjectInstallError
+    from yoke_contracts.machine_config import reader as machine_config
+    from yoke_contracts.project_contract.install_error import ProjectInstallError
     from yoke_cli.project_install.transport import _local_postgres_env
     from yoke_cli.transport.dispatcher import call_dispatcher
     from yoke_contracts.api.function_call import ActorContext, TargetRef

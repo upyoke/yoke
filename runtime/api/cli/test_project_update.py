@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_cli.config import project_update, self_update
-from yoke_cli.project_install.files import ProjectInstallError
+from yoke_contracts.project_contract.install_error import ProjectInstallError
 
 
 def test_update_outside_installed_project_does_not_refresh(tmp_path, monkeypatch):

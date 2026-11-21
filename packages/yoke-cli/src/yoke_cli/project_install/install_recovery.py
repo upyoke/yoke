@@ -17,8 +17,8 @@ from yoke_contracts.project_contract.installed_layer import (
 )
 
 from yoke_cli.project_install import checkout_gate
+from yoke_contracts.project_contract.install_error import ProjectInstallError
 from yoke_cli.project_install.files import (
-    ProjectInstallError,
     assert_safe_bundle_paths,
     assert_resolved_targets_within,
     sha256_text,

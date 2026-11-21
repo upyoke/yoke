@@ -7,12 +7,8 @@ from pathlib import Path
 import pytest
 
 from runtime.api.cli.setup_agent_test_support import AgentDriver, isolate_agent_setup
-from yoke_cli.config import (
-    hosted_machine_authorization,
-    machine_config,
-    writer,
-    yoke_token_verify,
-)
+from yoke_cli.config import hosted_machine_authorization, writer, yoke_token_verify
+from yoke_contracts.machine_config import reader as machine_config
 
 pytest.importorskip("textual")
 

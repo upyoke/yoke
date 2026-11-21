@@ -17,7 +17,7 @@ import time
 from pathlib import Path
 from typing import Any, Mapping
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_contracts.executor_labels import canonical_harness_id
 from yoke_contracts.session_context_window_sources import records_window_separately
 from yoke_contracts.session_served_effort_sources import (

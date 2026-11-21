@@ -10,6 +10,7 @@ and returns the published wheel hashes; it stores nothing.
 
 from __future__ import annotations
 
+from yoke_contracts import distribution_target
 import urllib.parse
 from typing import Any
 
@@ -49,7 +50,7 @@ def verify_installed(
             f"Yoke {version} release records",
             list,
         )
-    except release_target.ReleaseTargetError as exc:
+    except distribution_target.ReleaseTargetError as exc:
         raise ReleaseBuildError(
             f"release_record_unavailable: {exc}. Check this machine's "
             f"distribution origin ({base_url}) with `yoke settings get "

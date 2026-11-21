@@ -1,5 +1,6 @@
 """Verify production publishes the candidate credential-helper implementation."""
 
+from yoke_contracts import distribution_target
 import io
 import os
 from pathlib import Path
@@ -46,7 +47,7 @@ def main() -> int:
         ValueError,
         KeyError,
         zipfile.BadZipFile,
-        release_target.ReleaseTargetError,
+        distribution_target.ReleaseTargetError,
     ) as exc:
         print(
             f"cli_helper_publication_unverified: {exc}; finish publishing this candidate's CLI wheel, then rerun the case",

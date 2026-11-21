@@ -23,7 +23,7 @@ def resolve_tools(value: str):
 
 def diagnose_windows(env: dict[str, str], *, home: Path | None = None):
     from yoke_cli.config.path_doctor import PathDiagnosis
-    from yoke_cli.config.path_harness_clis import resolve_harness_clis
+    from yoke_contracts.path_harness_clis import resolve_harness_clis
 
     if home is not None:
         env = dict(env, HOME=str(home))

@@ -74,7 +74,7 @@ def test_external_task_commit_records_head_and_accepts_review(
         seen_roots.append(root)
         return "external" if root == str(repo.resolve()) else "yoke"
 
-    monkeypatch.setattr("yoke_cli.config.machine_config.project_id", mapped_project)
+    monkeypatch.setattr("yoke_contracts.machine_config.reader.project_id", mapped_project)
     monkeypatch.setenv("YOKE_PROJECT_ID", "yoke")
     monkeypatch.setenv("YOKE_PROJECT", "yoke")
     monkeypatch.setenv("YOKE_RESOLVE_CWD", str(tmp_path))
@@ -106,7 +106,7 @@ def test_external_task_commit_records_head_and_accepts_review(
 
 
 def test_missing_checkout_registration_teaches_repair(monkeypatch, capsys):
-    monkeypatch.setattr("yoke_cli.config.machine_config.project_id", lambda _root: None)
+    monkeypatch.setattr("yoke_contracts.machine_config.reader.project_id", lambda _root: None)
     monkeypatch.delenv(git_hook.HEAD_RECORDING_SKIP_ENV, raising=False)
     assert cli_main(["git", "post-commit"]) == 0
     diagnostic = capsys.readouterr().err

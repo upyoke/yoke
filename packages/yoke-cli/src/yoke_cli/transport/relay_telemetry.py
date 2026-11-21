@@ -77,7 +77,7 @@ _flushing = False
 
 def spool_path() -> Path:
     """The machine-local spool file: records still waiting to be sent."""
-    from yoke_cli.config.machine_config import yoke_home
+    from yoke_contracts.machine_config.reader import yoke_home
 
     return yoke_home() / SPOOL_FILE_NAME
 
@@ -89,7 +89,7 @@ def quarantine_path() -> Path:
     refused, so nothing here is ever retried — bounded diagnostic custody,
     not a queue.
     """
-    from yoke_cli.config.machine_config import yoke_home
+    from yoke_contracts.machine_config.reader import yoke_home
 
     return yoke_home() / QUARANTINE_FILE_NAME
 

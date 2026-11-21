@@ -5,7 +5,8 @@ from __future__ import annotations
 import argparse
 
 from yoke_contracts import github_origin
-from yoke_cli.config import github_local_user_access, github_user_tokens, machine_config
+from yoke_cli.config import github_local_user_access, github_user_tokens
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.config.project_clone_support import (
     CLONE_OUTCOME_FORK,
     CLONE_OUTCOME_MAKE_IT_MINE,

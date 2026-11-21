@@ -19,7 +19,8 @@ from pathlib import Path
 from yoke_harness import session_launch_containment as custody
 from yoke_harness import session_relay_termination
 
-from yoke_cli.config import machine_config
+from yoke_contracts.relay_release_layout import SUPERVISION_DIRECTORY_NAME
+from yoke_contracts.machine_config import reader as machine_config
 
 
 def test_the_default_custody_directory_is_not_the_real_machine_cache() -> None:
@@ -38,7 +39,7 @@ def test_every_custody_resolver_still_agrees_on_one_directory() -> None:
     """
     written = custody._directory()
     read = session_relay_termination.local_state_root(None) / (
-        custody.SUPERVISION_DIRECTORY_NAME
+        SUPERVISION_DIRECTORY_NAME
     )
 
     assert written == read
@@ -68,5 +69,5 @@ def test_an_explicit_directory_still_resolves_where_production_puts_it(
 ) -> None:
     """Isolation replaces only the default; a passed directory is untouched."""
     assert custody._directory(tmp_path) == (
-        tmp_path / custody.SUPERVISION_DIRECTORY_NAME
+        tmp_path / SUPERVISION_DIRECTORY_NAME
     )

@@ -15,7 +15,7 @@ from typing import Dict, List, Tuple
 from yoke_cli.commands.git_hook import AdapterFn
 from yoke_cli.board import rebuild as board_rebuild_flow
 from yoke_cli.board.outcome import printed as _printed_outcome
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.commands.board_rebuild_output import (
     board_payload,
     coerce_rebuild_outcome,

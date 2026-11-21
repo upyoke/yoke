@@ -5,15 +5,16 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from yoke_cli.packs.prerequisites import (
-    collect_installed_pack_prerequisites,
-    unsatisfied_prerequisites,
-)
+from yoke_contracts.runtime_ports.pack_prerequisites import get_pack_prerequisites
 from yoke_contracts.packs import PACK_RECEIPT_REL
 from yoke_contracts.refusal_recovery import compose_refusal
 
 from yoke_core.engines.doctor_context import resolve_context
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
+
+
+collect_installed_pack_prerequisites = get_pack_prerequisites().collect_installed_pack_prerequisites
+unsatisfied_prerequisites = get_pack_prerequisites().unsatisfied_prerequisites
 
 SLUG = "pack-prerequisites"
 TITLE = "Installed Pack tool prerequisites"

@@ -128,5 +128,8 @@ to each item's pinned workflow, including completed and cancelled items.
 Runtime orchestration calls adapter effects through the declared interfaces in
 `yoke_contracts.runtime_ports`; installed packages provide their implementations
 through `yoke.runtime` entry points. Pure shared helpers belong in contracts.
-Product inspection tools and Doctor checks may deliberately inspect adapter code;
-record those findings explicitly rather than moving every tool into a new layer.
+Classify repository inspection tools by what they do. Atlas, taught recipe
+verification and named Doctor repository checks inspect both adapter and core
+surfaces as build tools. The CLI launcher and installed self-host probes are
+adapters because they invoke or exercise the installed client directly. Record
+the specific classifications and reasons in the model.

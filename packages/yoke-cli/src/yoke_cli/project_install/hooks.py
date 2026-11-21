@@ -19,11 +19,9 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List
 
-from yoke_cli.project_install.files import (
-    ProjectInstallError,
-    assert_resolved_targets_within,
-)
-from yoke_cli.project_install.hook_entries import (
+from yoke_contracts.project_contract.install_error import ProjectInstallError
+from yoke_cli.project_install.files import assert_resolved_targets_within
+from yoke_contracts.project_contract.hook_entries import (
     CURSOR_HOOKS_REL,
     converge_event_entries,
     entry_key as _entry_key,
@@ -32,7 +30,7 @@ from yoke_cli.project_install.hook_entries import (
     record as _record,
     record_key,
 )
-from yoke_cli.project_install.hook_schema import validate_hooks_subtree
+from yoke_contracts.project_contract.hook_schema import validate_hooks_subtree
 from yoke_contracts.filesystem_safety import (
     atomic_replace_bytes,
     first_symlink_component,

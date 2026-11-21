@@ -125,7 +125,7 @@ def test_checkout_failed_identity_is_diagnosed(monkeypatch, failure):
 
 
 def test_authority_detection_failure_does_not_choose_local(monkeypatch):
-    from yoke_cli.config import machine_config
+    from yoke_contracts.machine_config import reader as machine_config
     from yoke_core.domain.worktree_create_db import item_worktree_authority_is_https
 
     def fail():

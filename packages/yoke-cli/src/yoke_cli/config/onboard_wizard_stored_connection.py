@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Protocol
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.config import onboard_wizard_stored_github
 from yoke_contracts.onboard_destinations import (
     DEFAULT_SIGN_IN_ENV,

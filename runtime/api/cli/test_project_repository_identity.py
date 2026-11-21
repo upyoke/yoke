@@ -102,7 +102,7 @@ def test_install_refuses_before_checkout_or_repository_changes(repo, bound, monk
 
 def test_register_warns_without_binding_read(repo, monkeypatch, capsys):
     from yoke_cli.config import writer_projects as writer
-    from yoke_cli.config import machine_config
+    from yoke_contracts.machine_config import reader as machine_config
     from runtime.api.domain.machine_config_writer_projects_test_support import _seed_https
 
     machine_home = repo / "machine-home"

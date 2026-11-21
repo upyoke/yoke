@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_cli.config import onboard_project
-from yoke_cli.config import project_installed_layer as installed_layer
+from yoke_contracts.project_contract import installed_layer_scan as installed_layer
 from yoke_cli.config.project_onboard_installed_layer import REMOVE_LAYER_ACTION
 from yoke_cli.config.project_clone_support import (
     CLONE_OUTCOME_FORK,

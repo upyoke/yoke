@@ -139,7 +139,7 @@ def test_a_relayed_reading_is_preferred_over_reading_the_artifact_here() -> None
 def test_a_local_payload_without_a_reading_takes_one_from_the_artifact(
     tmp_path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from yoke_cli.config import machine_config
+    from yoke_contracts.machine_config import reader as machine_config
 
     home = tmp_path / "yoke-home"
     home.mkdir()

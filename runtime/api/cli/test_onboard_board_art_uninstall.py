@@ -11,7 +11,7 @@ from yoke_cli.config import onboard_wizard_board_art_apply as art_apply
 from yoke_cli.project_install import files as files_layer
 from yoke_cli.project_install import uninstall_commit
 from yoke_cli.project_install.bundle_apply import apply_bundle
-from yoke_cli.project_install.files import ProjectInstallError
+from yoke_contracts.project_contract.install_error import ProjectInstallError
 from yoke_cli.project_install.uninstall import uninstall
 from yoke_contracts.project_contract.board_art import generate_default_variants
 from yoke_core.domain.project_install_test_helpers import make_bundle

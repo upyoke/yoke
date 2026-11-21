@@ -24,7 +24,7 @@ def test_local_bootstrap_routes_through_durable_typed_dispatch(
 ) -> None:
     monkeypatch.setattr(workflow_adapter, "ensure_handlers_loaded", lambda: None)
     monkeypatch.setattr(
-        "yoke_cli.config.machine_config.github_config", lambda: {},
+        "yoke_contracts.machine_config.reader.github_config", lambda: {},
     )
     monkeypatch.setattr(
         "yoke_core.domain.project_github_auth.resolve_project_github_auth",

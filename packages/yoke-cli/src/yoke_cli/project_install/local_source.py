@@ -26,7 +26,7 @@ from yoke_cli.project_install.local_source_preview import (
     preview_report,
 )
 from yoke_cli.project_install.validate import _validate_bundle
-from yoke_cli.project_install.files import ProjectInstallError
+from yoke_contracts.project_contract.install_error import ProjectInstallError
 from yoke_contracts import terminal_detached_process
 
 

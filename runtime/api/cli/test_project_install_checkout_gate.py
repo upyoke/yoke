@@ -10,7 +10,7 @@ import pytest
 
 from yoke_cli.main import main as cli_main
 from yoke_cli.project_install import checkout_gate
-from yoke_cli.project_install.files import ProjectInstallError
+from yoke_contracts.project_contract.install_error import ProjectInstallError
 from yoke_core.domain.project_install_test_helpers import make_bundle
 
 

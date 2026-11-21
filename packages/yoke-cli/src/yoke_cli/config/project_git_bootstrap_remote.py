@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Mapping
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.config import onboard_project_github_inputs
 from yoke_cli.config import project_clone_resume
 from yoke_cli.config import project_onboard_progress

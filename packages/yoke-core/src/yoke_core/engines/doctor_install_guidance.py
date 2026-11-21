@@ -5,10 +5,11 @@ from __future__ import annotations
 from pathlib import Path
 
 from yoke_contracts.machine_config.schema import mapped_checkouts
-from yoke_cli import operating_layer_drift
-from yoke_cli.config import machine_config, project_installed_layer
-from yoke_cli.project_install import instruction_discovery
-from yoke_cli.project_install.files import load_manifest
+from yoke_contracts.runtime_ports.operating_layer_drift import get_operating_layer_drift
+from yoke_contracts.machine_config import reader as machine_config
+from yoke_contracts.project_contract import installed_layer_scan as project_installed_layer
+from yoke_contracts.runtime_ports.instruction_discovery import get_instruction_discovery
+from yoke_contracts.runtime_ports.project_install_files import get_project_install_files
 from yoke_core.engines.doctor_hc_launcher_authority import (
     _machine_launcher_env,
     hook_config_yoke_problems,
@@ -17,6 +18,10 @@ from yoke_core.tools.install_yoke_launcher_sweep import (
     canonical_shim_path,
     enumerate_shadow_installs,
 )
+
+
+load_manifest = get_project_install_files().load_manifest
+operating_layer_drift = get_operating_layer_drift()
 
 
 def project_root(args) -> Path:
@@ -114,7 +119,7 @@ def hc_instruction_discovery(conn, args, rec) -> None:
             raise ValueError(
                 "canonical instructions or their discovery pointer are missing"
             )
-        instruction_discovery.preflight(root)
+        get_instruction_discovery().preflight(root)
     except Exception as exc:
         rec.record(
             "instruction-discovery",

@@ -19,7 +19,7 @@ import pytest
 @pytest.fixture(autouse=True)
 def machine_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Keep each test's resume watermarks out of the real machine home."""
-    from yoke_cli.config import machine_config
+    from yoke_contracts.machine_config import reader as machine_config
 
     home = tmp_path / "yoke-home"
     home.mkdir()

@@ -87,7 +87,7 @@ _MAY_SQL_RE = re.compile(r"slug\s*(?:=|<>|!=)\s*'|'\s+as\s+\w*proj", re.IGNORECA
 
 RECOVERY = (
     "For a fixed hosted authority, use yoke_contracts.api_urls or "
-    "yoke_cli.config.install_advice.install_command; docs links are exempt. "
+    "yoke_contracts.install_advice.install_command; docs links are exempt. "
     "Replace the literal with the declared fact it stands in for: a project "
     "capability or environment setting, the installation's self project "
     "(yoke_core.engines.doctor_context.resolve_self_project), the checkout's "

@@ -284,7 +284,7 @@ def test_cli_prints_credentials_first_with_commands(conn, monkeypatch):
     from types import SimpleNamespace
 
     from yoke_cli.commands.adapters.projects_retirement import _write_result
-    from yoke_cli.config import machine_config
+    from yoke_contracts.machine_config import reader as machine_config
 
     monkeypatch.setattr(machine_config, "active_env", lambda: "prod")
 

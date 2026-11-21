@@ -1,5 +1,6 @@
 """Open Yoke lanes settle before project uninstall changes anything (feedback 97659)."""
 
+from yoke_contracts.project_contract.install_error import ProjectInstallError
 from runtime.api.cli.project_uninstall_owned_cleanup_test_support import (
     installed as installed,
 )
@@ -25,7 +26,7 @@ def test_open_lane_refuses_before_any_change_or_commit(installed):
     root, _, config = installed
     lane = _lane(root)
     before = _snapshot(root)
-    with pytest.raises(files.ProjectInstallError, match="project_uninstall_open_lanes"):
+    with pytest.raises(ProjectInstallError, match="project_uninstall_open_lanes"):
         uninstall(root, config_path=config)
     assert _snapshot(root) == before
     assert lane.is_dir()
@@ -36,7 +37,7 @@ def test_dirty_lane_refuses_even_when_removal_is_allowed(installed):
     lane = _lane(root)
     (lane / "work.txt").write_text("uncommitted\n")
     before = _snapshot(root)
-    with pytest.raises(files.ProjectInstallError, match="project_uninstall_lane_dirty"):
+    with pytest.raises(ProjectInstallError, match="project_uninstall_lane_dirty"):
         uninstall(root, config_path=config, remove_lanes=True)
     assert _snapshot(root) == before
     assert (lane / "work.txt").is_file()
@@ -70,6 +71,6 @@ def test_check_runs_the_lane_refusals_and_changes_nothing(installed):
     assert report["operation"] == "uninstall-check"
     assert _snapshot(root) == before and lane.is_dir()
     (lane / "work.txt").write_text("uncommitted\n")
-    with pytest.raises(files.ProjectInstallError, match="project_uninstall_lane_dirty"):
+    with pytest.raises(ProjectInstallError, match="project_uninstall_lane_dirty"):
         uninstall(root, config_path=config, remove_lanes=True, check=True)
     assert _snapshot(root) == before

@@ -11,6 +11,7 @@ from yoke_contracts.runtime_ports.loader import load_port
 class Dispatcher(Protocol):
     """Operations and values supplied by the executing adapter."""
 
+    build_actor: Callable[..., Any]
     build_request: Callable[..., Any]
 
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from yoke_cli.config.install_advice import InstallOriginUnavailable, install_command
+from yoke_contracts.install_advice import InstallOriginUnavailable, install_command
 
 from typing import Any, List
 
@@ -213,7 +213,7 @@ def git_hook_specs_from_bundle(bundle: dict[str, Any]) -> List[dict[str, str]]:
     try:
         specs = validate_git_hook_specs(raw)
     except ValueError as exc:
-        from yoke_cli.project_install.files import ProjectInstallError
+        from yoke_contracts.project_contract.install_error import ProjectInstallError
 
         raise ProjectInstallError(str(exc)) from exc
     carried = {spec["name"] for spec in specs}
@@ -228,7 +228,7 @@ def assert_pre_commit_runtime_available() -> None:
     try:
         from yoke_harness.git_hooks.pre_commit import run as _run
     except ImportError as exc:
-        from yoke_cli.project_install.files import ProjectInstallError
+        from yoke_contracts.project_contract.install_error import ProjectInstallError
 
         raise ProjectInstallError(
             "project install requires the yoke-harness product package before "
@@ -236,7 +236,7 @@ def assert_pre_commit_runtime_available() -> None:
             f"the public installer ({exc})"
         ) from exc
     if not callable(_run):
-        from yoke_cli.project_install.files import ProjectInstallError
+        from yoke_contracts.project_contract.install_error import ProjectInstallError
 
         raise ProjectInstallError(
             "the installed yoke-harness pre-commit entrypoint is not callable; "

@@ -11,15 +11,16 @@ import pytest
 from yoke_contracts import platform_process
 from yoke_cli import hook_resident_client as client
 from yoke_cli import hook_resident_lifecycle as lifecycle
-from yoke_cli import hook_resident_paths as resident_paths
+from yoke_contracts import hook_resident_paths
+from yoke_contracts.machine_config import reader as machine_config
 
 
 @pytest.mark.windows
 def test_restart_warms_a_real_evaluator_and_replaces_same_version(
     monkeypatch, tmp_path
 ):
-    monkeypatch.setattr(client.machine_config, "cache_dir", lambda: tmp_path)
-    paths = client.resident_paths()
+    monkeypatch.setattr(machine_config, "cache_dir", lambda: tmp_path)
+    paths = hook_resident_paths.resident_paths()
     try:
         lifecycle.restart_resident()
         first = lifecycle._resident_processes(paths)
@@ -45,10 +46,10 @@ def test_long_tmpdir_still_binds_a_short_evaluator_socket(monkeypatch, tmp_path)
     long_home = tmp_path / ("nested-machine-home-" * 6)
     long_tmpdir = long_home / "tmp"
     long_tmpdir.mkdir(parents=True)
-    monkeypatch.setattr(client.machine_config, "cache_dir", lambda: long_home)
+    monkeypatch.setattr(machine_config, "cache_dir", lambda: long_home)
     monkeypatch.setenv("TMPDIR", str(long_tmpdir))
     monkeypatch.setattr(tempfile, "tempdir", None)
-    paths = client.resident_paths()
+    paths = hook_resident_paths.resident_paths()
     assert len(os.fsencode(long_tmpdir / paths.socket.name)) > 100
     assert paths.socket.parent == Path("/tmp")
     try:
@@ -63,8 +64,8 @@ def test_long_tmpdir_still_binds_a_short_evaluator_socket(monkeypatch, tmp_path)
 @pytest.mark.posix_only(reason='POSIX socket path limit')
 def test_unbindable_socket_path_refuses_with_its_recovery(monkeypatch, tmp_path):
     long_home = tmp_path / ("nested-machine-home-" * 6)
-    monkeypatch.setattr(client.machine_config, "cache_dir", lambda: long_home)
-    monkeypatch.setattr(resident_paths, "shortest_temp_directory", lambda: None)
+    monkeypatch.setattr(machine_config, "cache_dir", lambda: long_home)
+    monkeypatch.setattr(hook_resident_paths, "shortest_temp_directory", lambda: None)
 
     with pytest.raises(
         lifecycle.ResidentLifecycleError,
@@ -79,13 +80,13 @@ def test_unbindable_socket_path_refuses_with_its_recovery(monkeypatch, tmp_path)
 
 @pytest.mark.windows
 def test_missing_evaluator_is_a_successful_stop(monkeypatch, tmp_path):
-    monkeypatch.setattr(client.machine_config, "cache_dir", lambda: tmp_path)
+    monkeypatch.setattr(machine_config, "cache_dir", lambda: tmp_path)
     lifecycle.stop_resident()
 
 
 @pytest.mark.posix_only(reason='Windows uses named pipes')
 def test_unsupported_transport_stops_cleanly_and_refuses_restart(monkeypatch, tmp_path):
-    monkeypatch.setattr(client.machine_config, "cache_dir", lambda: tmp_path)
+    monkeypatch.setattr(machine_config, "cache_dir", lambda: tmp_path)
     monkeypatch.delattr(client.socket, "AF_UNIX", raising=False)
 
     lifecycle.stop_resident()
@@ -99,8 +100,8 @@ def test_unsupported_transport_stops_cleanly_and_refuses_restart(monkeypatch, tm
 def test_process_discovery_requires_exact_module_and_machine_socket(
     monkeypatch, tmp_path
 ):
-    monkeypatch.setattr(client.machine_config, "cache_dir", lambda: tmp_path)
-    paths = client.resident_paths()
+    monkeypatch.setattr(machine_config, "cache_dir", lambda: tmp_path)
+    paths = hook_resident_paths.resident_paths()
 
     def process(pid, *argv):
         return SimpleNamespace(pid=pid, start_time=float(pid), cmdline=tuple(argv))
@@ -154,7 +155,7 @@ def test_process_discovery_requires_exact_module_and_machine_socket(
 
 @pytest.mark.windows
 def test_stop_does_not_signal_reused_pid(monkeypatch, tmp_path):
-    monkeypatch.setattr(client.machine_config, "cache_dir", lambda: tmp_path)
+    monkeypatch.setattr(machine_config, "cache_dir", lambda: tmp_path)
     monkeypatch.setattr(lifecycle, "_resident_processes", lambda paths: [(123, 1.0)])
     monkeypatch.setattr(platform_process, "handle_from_pid", lambda *args: None)
     monkeypatch.setattr(platform_process, "pid_alive", lambda *args: False)
@@ -166,7 +167,7 @@ def test_stop_does_not_signal_reused_pid(monkeypatch, tmp_path):
 
 @pytest.mark.windows
 def test_unreleased_lock_refuses_instead_of_claiming_stopped(monkeypatch, tmp_path):
-    monkeypatch.setattr(client.machine_config, "cache_dir", lambda: tmp_path)
+    monkeypatch.setattr(machine_config, "cache_dir", lambda: tmp_path)
     monkeypatch.setattr(lifecycle, "_resident_processes", lambda paths: [])
     monkeypatch.setattr(lifecycle.startup, "_open_start_lock", lambda path: None)
     monkeypatch.setattr(lifecycle, "_STOP_SECONDS", 0.001)
@@ -180,7 +181,7 @@ def test_unreleased_lock_refuses_instead_of_claiming_stopped(monkeypatch, tmp_pa
 
 @pytest.mark.windows
 def test_stop_delegates_escalation_with_start_time_custody(monkeypatch, tmp_path):
-    monkeypatch.setattr(client.machine_config, "cache_dir", lambda: tmp_path)
+    monkeypatch.setattr(machine_config, "cache_dir", lambda: tmp_path)
     monkeypatch.setattr(lifecycle, "_resident_processes", lambda paths: [(123, 1.0)])
     handle = object()
     rebuild, stop = Mock(return_value=handle), Mock()
@@ -194,7 +195,7 @@ def test_stop_delegates_escalation_with_start_time_custody(monkeypatch, tmp_path
 
 @pytest.mark.windows
 def test_an_unkillable_resident_is_named_with_its_pid(monkeypatch, tmp_path):
-    monkeypatch.setattr(client.machine_config, "cache_dir", lambda: tmp_path)
+    monkeypatch.setattr(machine_config, "cache_dir", lambda: tmp_path)
     monkeypatch.setattr(lifecycle, "_resident_processes", lambda paths: [(123, 1.0)])
     monkeypatch.setattr(platform_process, "handle_from_pid", lambda *args: object())
     monkeypatch.setattr(platform_process, "stop_group", lambda *args, **kwargs: None)
@@ -207,7 +208,7 @@ def test_an_unkillable_resident_is_named_with_its_pid(monkeypatch, tmp_path):
 
 @pytest.mark.windows
 def test_restart_accepts_a_resident_a_live_hook_relaunched(monkeypatch, tmp_path):
-    monkeypatch.setattr(client.machine_config, "cache_dir", lambda: tmp_path)
+    monkeypatch.setattr(machine_config, "cache_dir", lambda: tmp_path)
     monkeypatch.setattr(lifecycle, "_resident_processes", lambda paths: [])
     # A live hook's new resident holds the start lock once the old one exits.
     monkeypatch.setattr(lifecycle.startup, "_open_start_lock", lambda path: None)
@@ -217,7 +218,7 @@ def test_restart_accepts_a_resident_a_live_hook_relaunched(monkeypatch, tmp_path
 
 @pytest.mark.windows
 def test_nonzero_health_refuses_readiness(monkeypatch, tmp_path):
-    monkeypatch.setattr(client.machine_config, "cache_dir", lambda: tmp_path)
+    monkeypatch.setattr(machine_config, "cache_dir", lambda: tmp_path)
     monkeypatch.setattr(lifecycle, "stop_resident", lambda paths, **_: None)
     monkeypatch.setattr(client, "_start_resident", lambda *_: None)
     monkeypatch.setattr(
@@ -236,7 +237,7 @@ def test_nonzero_health_refuses_readiness(monkeypatch, tmp_path):
     "error", [FileNotFoundError(), BrokenPipeError(), OSError("pipe busy"), EOFError()]
 )
 def test_restart_retries_a_pipe_that_is_not_ready(monkeypatch, tmp_path, error):
-    monkeypatch.setattr(client.machine_config, "cache_dir", lambda: tmp_path)
+    monkeypatch.setattr(machine_config, "cache_dir", lambda: tmp_path)
     monkeypatch.setattr(lifecycle, "stop_resident", Mock())
     monkeypatch.setattr(client, "_start_resident", Mock())
     monkeypatch.setattr(client, "uses_named_pipe", lambda: True)
@@ -252,7 +253,7 @@ def test_restart_retries_a_pipe_that_is_not_ready(monkeypatch, tmp_path, error):
         Mock(return_value={"status": "ok", "stdout": "", "stderr": "", "exit_code": 0}),
     )
 
-    lifecycle._restart_locked(client.resident_paths())
+    lifecycle._restart_locked(hook_resident_paths.resident_paths())
 
     assert [call.args[1] for call in attempt.call_args_list] == [
         lifecycle._START_SECONDS,
@@ -263,7 +264,7 @@ def test_restart_retries_a_pipe_that_is_not_ready(monkeypatch, tmp_path, error):
 
 @pytest.mark.windows
 def test_start_timeout_names_log_and_recovery(monkeypatch, tmp_path):
-    monkeypatch.setattr(client.machine_config, "cache_dir", lambda: tmp_path)
+    monkeypatch.setattr(machine_config, "cache_dir", lambda: tmp_path)
     monkeypatch.setattr(lifecycle, "stop_resident", lambda paths, **_: None)
     monkeypatch.setattr(client, "_start_resident", lambda *_: None)
     monkeypatch.setattr(lifecycle, "_START_SECONDS", 0)
@@ -271,7 +272,7 @@ def test_start_timeout_names_log_and_recovery(monkeypatch, tmp_path):
         lifecycle.ResidentLifecycleError, match="YOKE_HOOK_RESIDENT_START_TIMEOUT"
     ) as failure:
         lifecycle.restart_resident()
-    assert str(client.resident_paths().log) in str(failure.value)
+    assert str(hook_resident_paths.resident_paths().log) in str(failure.value)
     assert "yoke hook resident restart" in str(failure.value)
 
 
@@ -283,7 +284,7 @@ def test_cli_reports_unwritable_cache_without_retrying_path_creation(
         raise PermissionError("cache is not writable")
 
     monkeypatch.setattr(lifecycle, "restart_resident", fail)
-    monkeypatch.setattr(client, "resident_paths", fail)
+    monkeypatch.setattr(hook_resident_paths, "resident_paths", fail)
     assert lifecycle.resident_lifecycle(["restart"]) == 1
     assert "YOKE_HOOK_RESIDENT_LIFECYCLE_FAILED" in capsys.readouterr().out
 
@@ -292,8 +293,8 @@ def test_cli_reports_unwritable_cache_without_retrying_path_creation(
 def test_verify_proves_a_real_evaluator_then_leaves_no_resident(
     monkeypatch, tmp_path, capsys
 ):
-    monkeypatch.setattr(client.machine_config, "cache_dir", lambda: tmp_path)
-    paths = client.resident_paths()
+    monkeypatch.setattr(machine_config, "cache_dir", lambda: tmp_path)
+    paths = hook_resident_paths.resident_paths()
     try:
         assert lifecycle.resident_lifecycle(["verify"]) == 0
         assert "Hook evaluator: verified, stopped" in capsys.readouterr().out
@@ -312,7 +313,7 @@ def test_verify_proves_a_real_evaluator_then_leaves_no_resident(
 def test_failed_verify_still_stops_and_names_the_readiness_failure(
     monkeypatch, tmp_path
 ):
-    monkeypatch.setattr(client.machine_config, "cache_dir", lambda: tmp_path)
+    monkeypatch.setattr(machine_config, "cache_dir", lambda: tmp_path)
     stops = []
     monkeypatch.setattr(lifecycle, "stop_resident", lambda paths, **kw: stops.append(kw))
     monkeypatch.setattr(client, "_start_resident", lambda *_: None)
@@ -329,7 +330,7 @@ def test_failed_verify_still_stops_and_names_the_readiness_failure(
 def test_failed_verify_names_a_resident_its_stop_could_not_retire(
     monkeypatch, tmp_path
 ):
-    monkeypatch.setattr(client.machine_config, "cache_dir", lambda: tmp_path)
+    monkeypatch.setattr(machine_config, "cache_dir", lambda: tmp_path)
     calls = []
 
     def stop(paths, **_):

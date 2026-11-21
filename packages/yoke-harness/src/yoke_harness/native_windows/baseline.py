@@ -293,7 +293,7 @@ def reach_baseline(control, name):
     reset = {**restored.evidence, "user_equivalence": proven.evidence}
     if not proven.ok or name == "fresh-host":
         return HostActionResult(proven.ok, reset, proven.error_code)
-    from yoke_cli.config import distribution, machine_config
+    from yoke_contracts.machine_config import distribution, reader as machine_config
 
     origin = distribution.origin_for_connection(machine_config.active_connection())
     script = (

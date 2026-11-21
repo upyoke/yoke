@@ -21,6 +21,13 @@ dependencies = [
 ]
 
 [project.entry-points."yoke.runtime"]
+session_process_custody = "yoke_harness.session_process_custody"
+session_relay_termination = "yoke_harness.session_relay_termination"
+python_venv_dependencies = "yoke_harness.python_venv_dependencies"
+machine_hooks_inspect = "yoke_harness.hooks.machine_hooks_inspect"
+session_relay_surface_probes = "yoke_harness.session_relay_surface_probes"
+session_permission_mode = "yoke_harness.hooks.session_permission_mode"
+codex_session_posture = "yoke_harness.codex_session_posture"
 hook_session_lifecycle = "yoke_harness.hooks.session_lifecycle"
 hook_client_facts = "yoke_harness.hooks.client_facts"
 hook_decision_render = "yoke_harness.hooks.decision_render"

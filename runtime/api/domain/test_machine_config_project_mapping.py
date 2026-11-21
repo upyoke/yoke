@@ -5,7 +5,8 @@ import json
 import pytest
 from yoke_contracts.machine_config import schema as contract
 from yoke_contracts.machine_config import runtime
-from yoke_cli.config import machine_config, writer
+from yoke_contracts.machine_config import reader as machine_config
+from yoke_cli.config import writer
 from yoke_core.domain.project_checkout_locations import checkout_for_project_id
 from runtime.api.fixtures.machine_config_test import select_machine_config_file
 

@@ -113,7 +113,7 @@ def record_client_wall(event_id: str, client_wall_ms: int) -> None:
     try:
         import urllib.request
 
-        from yoke_cli.config import machine_config
+        from yoke_contracts.machine_config import reader as machine_config
         from yoke_contracts.machine_config.schema import (
             POSTGRES_TRANSPORTS,
             connection_is_protected,

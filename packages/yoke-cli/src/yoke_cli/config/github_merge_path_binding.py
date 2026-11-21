@@ -18,7 +18,7 @@ from yoke_contracts.timestamps import format_instant
 from typing import Any, Mapping
 
 from yoke_cli.config import github_app_public_profile
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_contracts.github_auth_transience import GITHUB_AUTH_RETRY_RECIPE
 from yoke_contracts.github_origin import (
     GitHubApiEndpoint,

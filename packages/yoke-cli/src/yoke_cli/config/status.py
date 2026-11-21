@@ -8,12 +8,8 @@ from importlib.metadata import PackageNotFoundError, version as metadata_version
 from pathlib import Path
 from typing import Any, Mapping
 
-from yoke_cli.config import (
-    install_binding,
-    machine_config,
-    status_release_lineage,
-    status_server,
-)
+from yoke_cli.config import install_binding, status_release_lineage, status_server
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.config.status_credentials import credential_status as _credential_status
 from yoke_cli.config.status_environment import ambient_env_status, permission_issues
 from yoke_cli.config.status_render import dumps_json, render_human

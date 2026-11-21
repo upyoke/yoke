@@ -54,7 +54,7 @@ def _claude_session(monkeypatch, tmp_path) -> None:
     transcript.write_text(
         json.dumps({"type": "assistant", "message": {"model": MODEL}}) + "\n"
     )
-    monkeypatch.setattr("yoke_cli.config.machine_config.yoke_home", lambda: tmp_path)
+    monkeypatch.setattr("yoke_contracts.machine_config.reader.yoke_home", lambda: tmp_path)
     monkeypatch.setattr(
         "yoke_harness.hooks.relay.detect_executor", lambda: "claude-code"
     )

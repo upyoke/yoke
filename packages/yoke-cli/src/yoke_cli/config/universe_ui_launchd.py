@@ -26,7 +26,7 @@ import plistlib
 import sys
 from typing import Any, Dict, List, Mapping, Optional
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.config.local_universe_setup import ENGINE_MISSING_MESSAGE
 from yoke_contracts.machine_config.schema import ENV_OVERRIDE
 

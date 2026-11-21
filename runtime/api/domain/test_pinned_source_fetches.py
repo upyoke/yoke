@@ -94,7 +94,7 @@ def test_unavailable_stored_authorization_refuses_before_subprocess(
 ):
     fetch, error, _ = fetch_source
     monkeypatch.setattr(
-        "yoke_cli.config.machine_config.github_config",
+        "yoke_contracts.machine_config.reader.github_config",
         lambda _path: {"authorization": {"status": "authorized"}},
     )
 

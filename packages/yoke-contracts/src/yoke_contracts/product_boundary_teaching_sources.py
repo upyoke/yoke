@@ -1,4 +1,4 @@
-"""Source selection and generated help recipes for teaching audits."""
+"""Source selection for teaching audits."""
 
 from __future__ import annotations
 
@@ -24,18 +24,10 @@ TEACHING_GLOBS: Tuple[str, ...] = (
 )
 
 
-def help_usage_recipes() -> tuple[str, ...]:
-    """Return the deduplicated usage lines rendered by live CLI help."""
-    from yoke_cli.commands.adapters.usage import ADAPTER_USAGE
-    from yoke_cli.commands.tool_shaped import TOOL_SHAPED_USAGE
-
-    return tuple(sorted(set(ADAPTER_USAGE.values()) | set(TOOL_SHAPED_USAGE.values())))
-
-
 def command_path_is_template(argv: Sequence[str]) -> bool:
     """Recognize namespace examples that intentionally contain metavariables."""
     metacharacters = ("<", "{", "|", "*", "…")
     return any(any(marker in token for marker in metacharacters) for token in argv[:3])
 
 
-__all__ = ["TEACHING_GLOBS", "command_path_is_template", "help_usage_recipes"]
+__all__ = ["TEACHING_GLOBS", "command_path_is_template"]

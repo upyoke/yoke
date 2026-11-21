@@ -11,6 +11,8 @@ from yoke_contracts.runtime_ports.loader import load_port
 class OperatingLayerDrift(Protocol):
     """Operations and values supplied by the executing adapter."""
 
+    RUNNING_EQUAL: Any
+    running_identity: Callable[..., Any]
     compare_installed_layer: Callable[..., Any]
     refresh_command: Callable[..., Any]
 

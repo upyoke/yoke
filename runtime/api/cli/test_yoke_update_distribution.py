@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from yoke_contracts import distribution_target
 import json
 import os
 import subprocess
@@ -11,7 +12,8 @@ import pytest
 
 from yoke_cli.commands.adapters import self_update as update_command
 from yoke_cli.commands.tool_shaped import resolve_tool_shaped
-from yoke_cli.config import distribution, machine_config, self_update
+from yoke_contracts.machine_config import distribution, reader as machine_config
+from yoke_cli.config import distribution_write, self_update
 from yoke_cli.self_host import release_target
 from yoke_contracts.install_binding import KIND_PACKAGED_WHEEL
 
@@ -110,12 +112,12 @@ def test_update_without_recorded_origin_refuses_before_network(
 )
 def test_invalid_selection_writes_nothing(config_file, origin, channel):
     with pytest.raises(distribution.DistributionError):
-        distribution.save(origin=origin, channel=channel)
+        distribution_write.save(origin=origin, channel=channel)
     assert not config_file.exists()
 
 
 def test_fresh_process_update_uses_recorded_origin_and_channel(config_file):
-    distribution.save(origin="https://fork.example", channel="preview")
+    distribution_write.save(origin="https://fork.example", channel="preview")
     # Retain import paths, but remove all distribution environment overrides:
     # the child has no process-local state from the selection command.
     env = dict(os.environ)
@@ -163,7 +165,7 @@ print(json.dumps({"result": self_update.run_update(), "seen": seen}))
 
 
 def test_explicit_update_channel_keeps_recorded_origin(config_file, monkeypatch):
-    distribution.save(origin="https://fork.example", channel="preview")
+    distribution_write.save(origin="https://fork.example", channel="preview")
     monkeypatch.setattr(
         self_update.install_binding,
         "detect",
@@ -176,7 +178,7 @@ def test_explicit_update_channel_keeps_recorded_origin(config_file, monkeypatch)
 
     def resolve(**kwargs):
         assert kwargs == {"base_url": "https://fork.example", "channel": "beta"}
-        raise release_target.ReleaseTargetError("stop after resolving selection")
+        raise distribution_target.ReleaseTargetError("stop after resolving selection")
 
     monkeypatch.setattr(release_target, "channel_release_target", resolve)
     with pytest.raises(self_update.SelfUpdateError, match="stop after resolving"):

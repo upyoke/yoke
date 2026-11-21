@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from yoke_core.domain.launcher_locations import LAUNCHER_FILENAME
 
-from yoke_contracts.runtime_ports.install_advice import get_install_advice
+from yoke_contracts.install_advice import InstallOriginUnavailable, install_command
 
 import argparse
 import os
@@ -98,9 +98,8 @@ def write_launcher(
 
 
 def reconcile_harness_setup(*, stream=None) -> list:
-    from yoke_harness.harness_setup_reconcile import (
-        reconcile_harness_setup as reconcile,
-    )
+    from yoke_contracts.runtime_ports.harness_setup_reconcile import get_harness_setup_reconcile
+    reconcile = get_harness_setup_reconcile().reconcile_harness_setup
 
     lines = reconcile().lines()
     for line in lines:
@@ -157,8 +156,8 @@ def configure_session_relay(*, stream=None) -> bool:
 
 def _build_parser() -> argparse.ArgumentParser:
     try:
-        recovery = f"Install the release with `{get_install_advice().install_command()}` first."
-    except get_install_advice().InstallOriginUnavailable as exc:
+        recovery = f"Install the release with `{install_command()}` first."
+    except InstallOriginUnavailable as exc:
         recovery = f"{exc}; then install the release first."
     parser = argparse.ArgumentParser(
         prog="install_yoke_launcher",

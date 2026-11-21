@@ -5,10 +5,11 @@ import subprocess
 
 import pytest
 
-from yoke_cli.config import writer, machine_config
+from yoke_cli.config import writer
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.project_install import uninstall_commit
 from yoke_cli.project_install.uninstall import uninstall
-from yoke_cli.project_install.files import ProjectInstallError
+from yoke_contracts.project_contract.install_error import ProjectInstallError
 
 
 def git(root, *args):

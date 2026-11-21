@@ -17,10 +17,7 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
-from yoke_cli.commands.adapters.deployment_execution_authority import (
-    execution_connection_error,
-    self_deploy_door,
-)
+from yoke_contracts.runtime_ports.deployment_execution_authority import get_deployment_execution_authority
 from yoke_contracts.deployment_itemless_teaching import (
     FINALIZATION_PENDING_PREFIX,
     ITEMLESS_RELEASE_RECIPE,
@@ -53,6 +50,10 @@ from yoke_core.domain.deploy_pipeline_pinned_driver import (
     pinned_driver_cwd,
     pinned_driver_command,
 )
+
+
+execution_connection_error = get_deployment_execution_authority().execution_connection_error
+self_deploy_door = get_deployment_execution_authority().self_deploy_door
 
 WRAPPER_MODULE = "yoke_core.tools.watch_deploy"
 KIND = DEPLOY_WATCH_KIND

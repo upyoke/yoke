@@ -48,7 +48,7 @@ from yoke_contracts.machine_config import schema as machine_contract
 from yoke_contracts.machine_config.directories import create_private_directory
 from yoke_cli.config.project_selection import required_project_context
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.config.project_slug_lookup import resolve_project_slug
 
 

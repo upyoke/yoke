@@ -7,7 +7,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from yoke_cli.config import install_advice
+from yoke_contracts import install_advice
 
 
 @pytest.fixture(autouse=True)

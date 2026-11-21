@@ -3,7 +3,8 @@
 from pathlib import Path
 import re
 
-from yoke_cli.config import machine_config, machine_config_mutation as mutation
+from yoke_contracts.machine_config import reader as machine_config
+from yoke_cli.config import machine_config_mutation as mutation
 from yoke_contracts.server_image import (
     PUBLISHED_SERVER_IMAGE_REPOSITORY,
     canonical_server_image_tag,

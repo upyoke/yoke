@@ -55,7 +55,7 @@ def serving_control_plane_env() -> str:
         return str(https.env or "")
 
     try:
-        from yoke_cli.config import machine_config
+        from yoke_contracts.machine_config import reader as machine_config
 
         config = machine_config.load_config()
         active = str(machine_config.active_env() or "")

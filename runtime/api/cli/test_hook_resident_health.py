@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.machine_config import reader as machine_config
+
 import io
 import os
 import subprocess
@@ -20,13 +22,13 @@ from runtime.api.cli.hook_transport_test_support import (
 from yoke_cli.commands.adapters import hooks
 from yoke_cli import hook_resident_client as client
 from yoke_cli.hook_resident_client import ResidentUnavailable
-from yoke_cli import hook_resident_health as health
+from yoke_contracts import hook_resident_health as health
 
 
 def test_warning_claim_survives_separate_hook_processes(tmp_path):
     script = (
         "from pathlib import Path; "
-        "from yoke_cli.hook_resident_health import claim_fallback_warning; "
+        "from yoke_contracts.hook_resident_health import claim_fallback_warning; "
         "import sys; print(claim_fallback_warning(Path(sys.argv[1])))"
     )
     answers = [
@@ -148,7 +150,7 @@ def test_warning_state_failure_preserves_hook_fallback(monkeypatch, tmp_path, ca
     reason="POSIX AF_UNIX transport absence; Windows uses named pipes"
 )
 def test_missing_unix_socket_transport_uses_named_fallback(monkeypatch, tmp_path):
-    monkeypatch.setattr(client.machine_config, "cache_dir", lambda: tmp_path)
+    monkeypatch.setattr(machine_config, "cache_dir", lambda: tmp_path)
     monkeypatch.delattr(client.socket, "AF_UNIX", raising=False)
 
     with pytest.raises(ResidentUnavailable) as failure:
@@ -178,7 +180,7 @@ def test_missing_unix_socket_transport_reaches_canonical_fallback(
     # A fresh hook process: the budget counts from process start.
     monkeypatch.setattr("yoke_cli.hook_client_wall._process_age", lambda: 0.0)
     monkeypatch.setattr(sys, "stdin", io.StringIO("{}"))
-    monkeypatch.setattr(client.machine_config, "cache_dir", lambda: tmp_path)
+    monkeypatch.setattr(machine_config, "cache_dir", lambda: tmp_path)
     monkeypatch.delattr(client.socket, "AF_UNIX", raising=False)
     calls = []
     monkeypatch.setattr(

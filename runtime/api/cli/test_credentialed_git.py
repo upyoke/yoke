@@ -154,7 +154,7 @@ def test_an_ssh_origin_is_rewritten_onto_https_so_the_token_serves_it(
 
 def test_no_credential_refuses_by_name_with_its_recovery(monkeypatch):
     monkeypatch.setattr(
-        "yoke_cli.config.machine_config.github_config",
+        "yoke_contracts.machine_config.reader.github_config",
         lambda _path: {"authorization": {"status": "authorized"}},
     )
     monkeypatch.setattr(cg, "configured_web_url", lambda: WEB_URL)
@@ -178,7 +178,7 @@ def test_no_credential_refuses_by_name_with_its_recovery(monkeypatch):
 
 def test_an_empty_credential_refuses_rather_than_running_uncredentialed(monkeypatch):
     monkeypatch.setattr(
-        "yoke_cli.config.machine_config.github_config",
+        "yoke_contracts.machine_config.reader.github_config",
         lambda _path: {"authorization": {"status": "authorized"}},
     )
     monkeypatch.setattr(cg, "configured_web_url", lambda: WEB_URL)
@@ -230,7 +230,7 @@ def test_the_credential_comes_from_the_store_the_git_helper_reads(monkeypatch):
 
 def test_run_reports_a_refusal_as_a_failed_command_not_a_crash(monkeypatch):
     monkeypatch.setattr(
-        "yoke_cli.config.machine_config.github_config",
+        "yoke_contracts.machine_config.reader.github_config",
         lambda _path: {"authorization": {"status": "authorized"}},
     )
     monkeypatch.setattr(cg, "configured_web_url", lambda: WEB_URL)
@@ -248,7 +248,7 @@ def test_run_reports_a_refusal_as_a_failed_command_not_a_crash(monkeypatch):
 
 def test_run_with_check_raises_the_refusal_for_callers_that_want_it(monkeypatch):
     monkeypatch.setattr(
-        "yoke_cli.config.machine_config.github_config",
+        "yoke_contracts.machine_config.reader.github_config",
         lambda _path: {"authorization": {"status": "authorized"}},
     )
     monkeypatch.setattr(cg, "configured_web_url", lambda: WEB_URL)

@@ -5,9 +5,9 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_contracts import onboard_destinations as onboard_destinations
-from yoke_cli.config.install_advice import hosted_connect_url
+from yoke_cli.config.onboard_wizard_flow_hosted_machine import platform_url_for_connection as hosted_connect_url
 
 
 def add_token_arguments(parser: argparse.ArgumentParser) -> None:

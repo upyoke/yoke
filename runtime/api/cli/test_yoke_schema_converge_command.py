@@ -64,7 +64,7 @@ def test_schema_converge_calls_boot_convergence_and_emits_json() -> None:
             clear=False,
         ),
         patch(
-            "yoke_cli.config.machine_config.active_env",
+            "yoke_contracts.machine_config.reader.active_env",
             return_value="stage-db-admin",
         ),
         patch(
@@ -107,7 +107,7 @@ def test_schema_converge_failure_redacts_exception_message() -> None:
             clear=False,
         ),
         patch(
-            "yoke_cli.config.machine_config.active_env",
+            "yoke_contracts.machine_config.reader.active_env",
             return_value="stage-db-admin",
         ),
         patch(
@@ -151,7 +151,7 @@ def test_schema_converge_redacts_strict_catalog_reseed_failure() -> None:
             clear=False,
         ),
         patch(
-            "yoke_cli.config.machine_config.active_env",
+            "yoke_contracts.machine_config.reader.active_env",
             return_value="stage-db-admin",
         ),
         patch(
@@ -280,7 +280,7 @@ def test_schema_converge_global_env_is_selected_then_restored() -> None:
             os.environ, {name: os.environ[name] for name in HOME_ENVS}, clear=True
         ),
         patch(
-            "yoke_cli.config.machine_config.active_env",
+            "yoke_contracts.machine_config.reader.active_env",
             side_effect=lambda *, explicit_env: explicit_env,
         ),
         patch(

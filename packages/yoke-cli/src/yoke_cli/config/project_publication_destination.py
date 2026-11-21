@@ -21,7 +21,8 @@ def push_urls(root: str | Path, remote: str = "origin") -> tuple[str, ...]:
 
 def migrate_legacy(root: str | Path, *, config_path=None) -> bool:
     """Persist the legacy origin choice before removing only sentinel entries."""
-    from yoke_cli.config import machine_config, writer_projects
+    from yoke_contracts.machine_config import reader as machine_config
+    from yoke_cli.config import writer_projects
 
     entry = machine_config.project_entry(root, config_path)
     origin_read_only = LEGACY_READ_ONLY_PUSH_URL in push_urls(root)
@@ -62,7 +63,7 @@ def migrate_legacy(root: str | Path, *, config_path=None) -> bool:
 
 
 def read_only(root: str | Path, remote: str = "origin") -> bool:
-    from yoke_cli.config import machine_config
+    from yoke_contracts.machine_config import reader as machine_config
 
     entry = machine_config.project_entry(root)
     return entry.get("publication_read_only", False) or LEGACY_READ_ONLY_PUSH_URL in push_urls(root)

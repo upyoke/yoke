@@ -8,7 +8,7 @@ from importlib.metadata import version
 from pathlib import Path
 from typing import Any
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.packs.receipt import PackReceiptError, load_receipt
 from yoke_contracts.machine_config.schema import MachineConfigContractError
 from yoke_contracts.machine_config.runtime import (
@@ -26,7 +26,8 @@ def collect(
     machine_only: bool = False,
 ) -> dict[str, Any]:
     # Project installation imports the onboarding dispatcher during bootstrap.
-    from yoke_cli.project_install.files import ProjectInstallError, load_manifest
+    from yoke_contracts.project_contract.install_error import ProjectInstallError
+    from yoke_cli.project_install.files import load_manifest
 
     selected = machine_config.config_path(config_path)
     try:

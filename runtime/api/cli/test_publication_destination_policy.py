@@ -315,7 +315,8 @@ def test_failed_policy_persistence_preserves_legacy_git_guard(checkout, monkeypa
 
 
 def test_legacy_policy_read_never_mutates_config(checkout, monkeypatch):
-    from yoke_cli.config import machine_config, writer_projects
+    from yoke_contracts.machine_config import reader as machine_config
+    from yoke_cli.config import writer_projects
 
     root, _ = checkout
     git(root, "config", "remote.origin.pushurl", destination.LEGACY_READ_ONLY_PUSH_URL)

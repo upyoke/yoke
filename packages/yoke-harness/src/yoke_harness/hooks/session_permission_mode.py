@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 from uuid import UUID
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_contracts.executor_labels import canonical_harness_id
 from yoke_contracts.refusal_recovery import compose_refusal
 

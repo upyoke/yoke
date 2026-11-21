@@ -15,7 +15,7 @@ from yoke_contracts.doctor_budget import (
 )
 
 from yoke_cli.api_urls import FUNCTIONS_CALL_PATH, join_api_url
-from yoke_cli.config.machine_config import active_connection
+from yoke_contracts.machine_config.reader import active_connection
 from yoke_contracts.bounded_http_open_policy import (
     HttpOpenPolicyError,
     open_bounded_request,

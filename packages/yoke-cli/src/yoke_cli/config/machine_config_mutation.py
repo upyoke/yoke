@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Callable, TypeVar
 import uuid
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.config import machine_config_file
 from yoke_contracts.machine_config import runtime as machine_runtime
 from yoke_contracts.machine_config import schema as contract

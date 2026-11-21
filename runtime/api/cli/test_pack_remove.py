@@ -209,7 +209,7 @@ def test_invalid_receipt_refuses_with_a_named_reason(tmp_path):
 def test_recovery_commands_keep_the_active_environment(tmp_path, monkeypatch, env):
     import shlex
 
-    monkeypatch.setattr("yoke_cli.config.machine_config.active_env", lambda: env)
+    monkeypatch.setattr("yoke_contracts.machine_config.reader.active_env", lambda: env)
     prefix = f"yoke --env {shlex.quote(env)}" if env else "yoke"
     with pytest.raises(remove.PackClientError) as missing:
         remove.run_pack_remove(tmp_path, project="sample", pack="app")

@@ -48,5 +48,5 @@ def source_checkout(tmp_path, monkeypatch):
     assert git(root, "push", "origin", "stable").returncode == 0
     assert git(root, "remote", "set-head", "origin", "--auto").returncode == 0
     monkeypatch.setattr(sync.pack_catalog, "server_tree_root", lambda: root)
-    monkeypatch.setattr(sync.source_git, "git", git)
+    monkeypatch.setattr(sync.get_repo_upstream_git(), "git", git)
     return root, git

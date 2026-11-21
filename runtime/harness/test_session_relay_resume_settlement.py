@@ -109,7 +109,7 @@ def test_default_spawn_settles_usage_across_custody_and_relay_directories(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    from yoke_cli.config import machine_config
+    from yoke_contracts.machine_config import reader as machine_config
     from yoke_contracts.session_usage_facts import usage_from_document
     from yoke_harness.cursor_native_result_usage import session_usage_document
     from runtime.harness.cursor_native_result_usage_test_support import (

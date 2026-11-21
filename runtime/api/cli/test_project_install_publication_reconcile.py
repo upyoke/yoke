@@ -19,7 +19,7 @@ from yoke_cli.project_install import publication_outcome
 from yoke_cli.project_install import publication_reconcile as reconcile
 from yoke_cli.project_install import repository_layer
 from yoke_cli.project_install import runner
-from yoke_cli.project_install.files import ProjectInstallError
+from yoke_contracts.project_contract.install_error import ProjectInstallError
 
 from runtime.api.cli.project_install_publication_test_support import (
     MANAGED_BLOCK,

@@ -2,8 +2,9 @@
 
 import pytest
 
-from yoke_cli.config import machine_config, writer, project_onboard_apply
-from yoke_cli.project_install.files import ProjectInstallError
+from yoke_contracts.machine_config import reader as machine_config
+from yoke_cli.config import writer, project_onboard_apply
+from yoke_contracts.project_contract.install_error import ProjectInstallError
 
 
 @pytest.mark.parametrize("failure", ["binding", "install"])

@@ -9,8 +9,8 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Dict, Iterator, Mapping, Optional, Tuple
 
-from yoke_cli.config import machine_config
-from yoke_cli.project_install.files import ProjectInstallError
+from yoke_contracts.machine_config import reader as machine_config
+from yoke_contracts.project_contract.install_error import ProjectInstallError
 from yoke_cli.project_install.hook_platform import native_bundle_hooks
 from yoke_contracts.bounded_json_http import (
     BoundedJsonHttpError,

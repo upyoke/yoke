@@ -9,7 +9,8 @@ import pytest
 
 pytest.importorskip("textual")
 
-from yoke_cli.config import github_publish, machine_config, onboard_wizard_flow
+from yoke_cli.config import github_publish, onboard_wizard_flow
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.config.onboard_wizard_flow_publish import PublishFlow
 
 

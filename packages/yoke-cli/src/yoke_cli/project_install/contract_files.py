@@ -7,12 +7,12 @@ from typing import Callable, Dict, List, Tuple, TypeVar
 
 from yoke_cli.project_install.files import (
     MANIFEST_REL,
-    ProjectInstallError,
     assert_resolved_targets_within,
     load_manifest,
     sha256_text,
     write_manifest,
 )
+from yoke_contracts.project_contract.install_error import ProjectInstallError
 
 _Result = TypeVar("_Result")
 

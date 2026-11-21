@@ -11,7 +11,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_core.ui import function_proxy, local_github_facts, proxy_transport, server
 
 

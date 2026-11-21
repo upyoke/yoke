@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from yoke_cli.config import dev_setup_machine_config
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_contracts.machine_config import secret_files as machine_secrets
 from yoke_cli.config import writer
 from yoke_cli.config import source_checkout_activation

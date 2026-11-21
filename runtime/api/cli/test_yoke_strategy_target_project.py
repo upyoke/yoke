@@ -23,7 +23,7 @@ def _isolated_machine_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> N
 
 
 def _register(checkout: Path, project_id: int, *, create: bool = True) -> None:
-    from yoke_cli.config import machine_config
+    from yoke_contracts.machine_config import reader as machine_config
 
     if create:
         checkout.mkdir(parents=True, exist_ok=True)

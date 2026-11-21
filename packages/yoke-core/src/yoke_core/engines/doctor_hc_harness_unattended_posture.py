@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import os
 
-from yoke_cli.config.path_harness_clis import resolve_harness_clis
+from yoke_contracts.path_harness_clis import resolve_harness_clis
 from yoke_contracts.harness_unattended_posture import (
     CLAUDE_FAMILY,
     CODEX_FAMILY,

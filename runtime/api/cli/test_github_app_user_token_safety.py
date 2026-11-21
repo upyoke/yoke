@@ -12,7 +12,8 @@ from runtime.api.cli.github_user_token_test_support import (
     configured_credential,
 )
 from yoke_cli.config import github_git_credential_file as credential_file
-from yoke_cli.config import github_user_tokens, machine_config
+from yoke_cli.config import github_user_tokens
+from yoke_contracts.machine_config import reader as machine_config
 
 
 def test_credential_temp_is_removed_on_keyboard_interrupt(

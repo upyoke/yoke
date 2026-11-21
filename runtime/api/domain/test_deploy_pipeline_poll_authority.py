@@ -34,7 +34,7 @@ def _mock_admin_derived_plane(monkeypatch, *, active: str, https_envs) -> None:
         lambda *a, **k: None,
     )
     monkeypatch.setattr(
-        "yoke_cli.config.machine_config.load_config",
+        "yoke_contracts.machine_config.reader.load_config",
         lambda *a, **k: {
             "connections": {
                 **{env: {"transport": "https"} for env in https_envs},
@@ -43,7 +43,7 @@ def _mock_admin_derived_plane(monkeypatch, *, active: str, https_envs) -> None:
         },
     )
     monkeypatch.setattr(
-        "yoke_cli.config.machine_config.active_env",
+        "yoke_contracts.machine_config.reader.active_env",
         lambda *a, **k: active,
     )
 
@@ -55,11 +55,11 @@ def _mock_no_connection(monkeypatch) -> None:
         lambda *a, **k: None,
     )
     monkeypatch.setattr(
-        "yoke_cli.config.machine_config.load_config",
+        "yoke_contracts.machine_config.reader.load_config",
         lambda *a, **k: {},
     )
     monkeypatch.setattr(
-        "yoke_cli.config.machine_config.active_env",
+        "yoke_contracts.machine_config.reader.active_env",
         lambda *a, **k: "",
     )
 

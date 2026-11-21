@@ -36,7 +36,7 @@ from typing import Any, Callable
 from yoke_cli.config import repo_upstream_git as upstream_git
 from yoke_cli.project_install import checkout_gate
 from yoke_cli.project_install import publication_commit_ownership as ownership
-from yoke_cli.project_install.files import ProjectInstallError
+from yoke_contracts.project_contract.install_error import ProjectInstallError
 
 
 NOT_A_GIT_CHECKOUT = "not_a_git_checkout"

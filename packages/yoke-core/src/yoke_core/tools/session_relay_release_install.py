@@ -14,7 +14,7 @@ from pathlib import Path
 from yoke_contracts.platform_fs import remove_tree
 from yoke_core.domain.relay_release_path import relay_venv_python, relay_venv_executable
 from yoke_core.tools.session_relay_links import activate_link, remove_link
-from yoke_cli import manifest
+from yoke_contracts.runtime_ports.manifest import get_manifest
 from yoke_contracts.machine_config.relay_instance import RelayInstance, resolve_relay_instance
 from yoke_core.tools.session_relay_links import create_relay_directory as create_private_directory
 from yoke_contracts.refusal_recovery import compose_refusal
@@ -47,7 +47,7 @@ def pin_relay_release(
     *,
     instance: RelayInstance | None = None,
     served_build: str | None = None,
-    fetch_manifest: ManifestFetcher = manifest.fetch_env_manifest,
+    fetch_manifest: ManifestFetcher = get_manifest().fetch_env_manifest,
     create_venv: VenvCreator | None = None,
     create_runtime: VenvCreator | None = None,
     runner: Runner = subprocess.run,

@@ -19,11 +19,7 @@ from runtime.api.cli.github_stable_helper_runtime_test_support import (
     _write_refresh_sitecustomize,
 )
 from runtime.api.cli import github_stable_helper_test_support as helper_support
-from yoke_cli.config import (
-    distribution,
-    github_git_credentials,
-    github_repo_helper_reconnect,
-)
+from yoke_cli.config import distribution_write, github_git_credentials, github_repo_helper_reconnect
 from yoke_contracts.api_urls import DISTRIBUTION_PROD_URL
 
 INSTALLER_PATH = (
@@ -73,7 +69,7 @@ def _configured_repo_with_wiped_bundle(
     }
     config.write_text(json.dumps(payload), encoding="utf-8")
     monkeypatch.setenv("YOKE_MACHINE_CONFIG_FILE", str(config))
-    distribution.save(origin=DISTRIBUTION_PROD_URL, channel="stable", path=config)
+    distribution_write.save(origin=DISTRIBUTION_PROD_URL, channel="stable", path=config)
     site = tmp_path / "site"
     monkeypatch.setattr(github_git_credentials, "_helper_dir", lambda: site)
     github_git_credentials.configure_repo_helper(repo, config_path=config)
@@ -154,7 +150,7 @@ def _in_process_repair_runner(config: Path, yoke_bin: str):
             result = github_repo_helper_reconnect.restore_missing_bundle(config)
             return subprocess.CompletedProcess(cmd, 0, json.dumps(result), "")
         if cmd[:4] == [yoke_bin, "settings", "set", "distribution"]:
-            result = distribution.save(
+            result = distribution_write.save(
                 origin=json.loads(cmd[4])["origin"],
                 channel=json.loads(cmd[4])["channel"],
                 path=config,

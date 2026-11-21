@@ -9,7 +9,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_contracts.api_urls import (
     DISTRIBUTION_BASE_URL_ENV,
     DISTRIBUTION_PROD_URL,

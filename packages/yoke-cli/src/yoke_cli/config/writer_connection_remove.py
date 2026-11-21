@@ -7,7 +7,8 @@ import os
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
-from yoke_cli.config import github_machine_operation, machine_config, writer_github
+from yoke_cli.config import github_machine_operation, writer_github
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.config.machine_config_mutation import (
     MachineConfigWriteError,
     load_payload,

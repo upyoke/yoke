@@ -9,7 +9,7 @@ import sys
 
 import pytest
 from dataclasses import replace
-from yoke_cli.config import path_harness_clis as cli_resolution
+from yoke_contracts import path_harness_clis as cli_resolution
 
 from yoke_contracts.machine_config.machine_capacity import (
     CAP_SOURCE_DERIVED,

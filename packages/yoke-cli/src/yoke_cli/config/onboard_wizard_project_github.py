@@ -9,7 +9,7 @@ from yoke_cli.config.onboard_wizard_state import CopyTarget
 
 from yoke_contracts import github_app_installation_permissions, github_origin
 from yoke_cli.config import github_machine
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.config import onboard_github_copy
 from yoke_cli.config import onboard_wizard_github_state as github_state
 from yoke_cli.config import onboard_wizard_steps as steps

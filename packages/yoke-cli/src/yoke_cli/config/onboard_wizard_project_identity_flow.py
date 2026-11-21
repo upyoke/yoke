@@ -301,7 +301,7 @@ class ProjectIdentityFlow:
         checkout = self.result.project_checkout
         if checkout and not self.result.project_clone_outcome and destination.read_only(checkout):
             self.result.project_remote_url = remote_url(checkout, "origin")
-            from yoke_cli.config.project_installed_layer import LAYER_DECISION_KEEP
+            from yoke_contracts.project_contract.installed_layer_scan import LAYER_DECISION_KEEP
 
             self.result.project_clone_existing_layer_decision = LAYER_DECISION_KEEP
             self._goto_clone_outcome()

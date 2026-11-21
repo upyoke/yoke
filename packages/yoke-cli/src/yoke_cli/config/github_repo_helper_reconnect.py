@@ -6,7 +6,8 @@ from pathlib import Path
 import shlex
 import urllib.parse
 
-from yoke_cli.config import github_git_credentials, github_repo_config, machine_config
+from yoke_cli.config import github_git_credentials, github_repo_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_contracts import github_origin
 
 

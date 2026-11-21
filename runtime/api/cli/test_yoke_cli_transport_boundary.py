@@ -229,7 +229,8 @@ def test_local_dispatch_binds_lazy_machine_github_authorization(
 ) -> None:
     from types import SimpleNamespace
 
-    from yoke_cli.config import github_local_user_access, machine_config
+    from yoke_cli.config import github_local_user_access
+    from yoke_contracts.machine_config import reader as machine_config
     from yoke_cli.transport.dispatcher import call_dispatcher
     from yoke_contracts.api.function_call import FunctionCallResponse, TargetRef
     from yoke_core.domain.github_app_dispatch_context import (
@@ -286,7 +287,7 @@ def test_local_dispatch_binds_lazy_machine_github_authorization(
 def test_invalid_machine_github_endpoint_does_not_block_unrelated_dispatch(
     monkeypatch,
 ) -> None:
-    from yoke_cli.config import machine_config
+    from yoke_contracts.machine_config import reader as machine_config
     from yoke_cli.transport.dispatcher import call_dispatcher
     from yoke_contracts.api.function_call import FunctionCallResponse, TargetRef
     from yoke_core.domain.github_app_dispatch_context import LOCAL_USER_TOKEN_PROVIDER

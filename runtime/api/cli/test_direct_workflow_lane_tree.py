@@ -182,7 +182,7 @@ def test_mapped_checkout_reads_this_machine_project_mapping(monkeypatch, tmp_pat
         checkout = mapped
 
     monkeypatch.setattr(
-        "yoke_cli.config.machine_config.configured_projects",
+        "yoke_contracts.machine_config.reader.configured_projects",
         lambda existing_only=False: [_Configured()],
     )
     assert lane_tree._mapped_checkout({"project": {"id": 2, "slug": "platform"}}) == str(

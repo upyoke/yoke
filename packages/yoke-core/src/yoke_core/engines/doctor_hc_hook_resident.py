@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from yoke_cli.hook_resident_client import resident_paths
-from yoke_cli.hook_resident_health import resident_revision_problem
+from yoke_contracts.hook_resident_paths import resident_paths
+from yoke_contracts.hook_resident_health import resident_revision_problem
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
 

@@ -11,7 +11,7 @@ from yoke_contracts.timestamps import iso8601_now
 from pathlib import Path
 from typing import Any, Mapping
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 
 STATE_DIR_NAME = "local-core"
 STATE_FILE_NAME = "state.json"

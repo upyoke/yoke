@@ -67,11 +67,11 @@ class TestBuildManifest:
 def https_env(monkeypatch, tmp_path):
     cache_root = tmp_path / "cache"
     monkeypatch.setattr(
-        "yoke_cli.config.machine_config.cache_dir",
+        "yoke_contracts.machine_config.reader.cache_dir",
         lambda path=None: cache_root,
     )
     monkeypatch.setattr(
-        "yoke_cli.config.machine_config.active_env",
+        "yoke_contracts.machine_config.reader.active_env",
         lambda path=None, explicit_env=None: "stage",
     )
     monkeypatch.setattr(

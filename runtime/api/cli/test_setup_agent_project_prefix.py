@@ -12,8 +12,8 @@ from pathlib import Path
 import pytest
 
 from runtime.api.cli.setup_agent_test_support import AgentDriver, isolate_agent_setup
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.config import (
-    machine_config,
     onboard_preflight,
     onboard_project_create_permission,
     onboard_project_prefixes,

@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+from yoke_cli.self_host import release_target
+from yoke_contracts import distribution_target
 import json
 
 import pytest
 
 from yoke_cli.config import release_build
-from yoke_cli.self_host import release_target
 
 VERSION = "0.2.0.202610192204"
 BASE = "https://distribution.example"
@@ -29,7 +30,7 @@ def _serve(monkeypatch, *, published=COMMIT, records=RECORDS, missing=()):
 
     def fetch(url: str) -> bytes:
         if url in missing or url not in documents:
-            raise release_target.ReleaseTargetError(f"could not fetch {url}: 404")
+            raise distribution_target.ReleaseTargetError(f"could not fetch {url}: 404")
         return json.dumps(documents[url]).encode()
 
     monkeypatch.setattr(release_target, "_FETCH_BYTES", fetch)

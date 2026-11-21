@@ -6,7 +6,8 @@ import hashlib
 import json
 from functools import cache
 from importlib.resources import files
-from yoke_cli.project_install.files import ProjectInstallError, sha256_text
+from yoke_contracts.project_contract.install_error import ProjectInstallError
+from yoke_cli.project_install.files import sha256_text
 
 from yoke_cli.project_install import checkout_gate
 from yoke_contracts.install_binding import source_checkout_root

@@ -2,18 +2,21 @@
 
 from yoke_contracts.harness_machine_hooks import installed_machine_hooks
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
-from yoke_harness.harness_setup_reconcile import (
-    inspect_harness_setup,
-    reconcile_harness_setup,
-)
-from yoke_harness.session_relay_harness_reconcile import (
-    read_reconcile_state,
-    remember_reconcile_result,
-)
-from yoke_harness.session_relay_surface_probes import (
-    probe_surface,
-    resolve_native_cli,
-)
+from yoke_contracts.runtime_ports.harness_setup_reconcile import get_harness_setup_reconcile
+from yoke_contracts.runtime_ports.session_relay_harness_reconcile import get_session_relay_harness_reconcile
+from yoke_contracts.runtime_ports.session_relay_surface_probes import get_session_relay_surface_probes
+
+
+probe_surface = get_session_relay_surface_probes().probe_surface
+resolve_native_cli = get_session_relay_surface_probes().resolve_native_cli
+
+
+read_reconcile_state = get_session_relay_harness_reconcile().read_reconcile_state
+remember_reconcile_result = get_session_relay_harness_reconcile().remember_reconcile_result
+
+
+inspect_harness_setup = get_harness_setup_reconcile().inspect_harness_setup
+reconcile_harness_setup = get_harness_setup_reconcile().reconcile_harness_setup
 
 SLUG = "harness-setup"
 TITLE = "Every registered checkout and lane has its harness configuration set up"

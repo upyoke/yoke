@@ -11,9 +11,7 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from yoke_cli.project_install.files import (
-    ProjectInstallError,
-)
+from yoke_contracts.project_contract.install_error import ProjectInstallError
 from yoke_contracts.machine_config.checkout import main_checkout
 from yoke_contracts.harness_cli_manifest import (
     HARNESS_CLI_MANIFESTS,

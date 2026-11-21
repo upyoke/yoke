@@ -21,11 +21,11 @@ from runtime.api.cli.setup_agent_test_support import (
 from yoke_cli.config import (
     existing_project_lookup,
     local_universe_setup,
-    machine_config,
     onboard_wizard,
     project_onboard_clone,
     yoke_dev_detect,
 )
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.config.onboard_wizard_flow_clone_source import (
     CloneRemoteCheck,
     CloneSourceFlow,

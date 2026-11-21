@@ -62,7 +62,7 @@ def test_dash_forwards_the_callers_selection(
         "yoke_cli.config.checkout_context.resolve_repo_root_from_cwd", lambda: "/mapped"
     )
     monkeypatch.setattr(
-        "yoke_cli.config.machine_config.project_id", lambda _p: int(bound)
+        "yoke_contracts.machine_config.reader.project_id", lambda _p: int(bound)
     )
     monkeypatch.setattr(
         items_create, "client_project_context", _helpers.client_project_context

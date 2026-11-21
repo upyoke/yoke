@@ -7,7 +7,7 @@ import pytest
 
 from yoke_cli.project_install import instruction_discovery as instructions
 from yoke_cli.project_install import skill_discovery as skills
-from yoke_cli.project_install.files import ProjectInstallError
+from yoke_contracts.project_contract.install_error import ProjectInstallError
 from yoke_contracts.project_contract.managed_block import render_block
 
 pytestmark = pytest.mark.windows

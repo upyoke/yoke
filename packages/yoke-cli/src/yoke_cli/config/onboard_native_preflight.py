@@ -37,7 +37,7 @@ def _local_selected(parsed) -> bool:
 
 
 def check_setup(parsed) -> bool:
-    from yoke_cli.config import machine_config
+    from yoke_contracts.machine_config import reader as machine_config
 
     facts = collect_facts(
         home=machine_config.config_path(parsed.config_path).parent,

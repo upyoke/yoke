@@ -6,8 +6,9 @@ import os
 import shlex
 from pathlib import Path
 
-from yoke_cli.config import distribution, machine_config
+from yoke_contracts.machine_config import distribution, reader as machine_config
 from yoke_contracts.api_urls import DISTRIBUTION_BASE_URL_ENV
+from yoke_contracts.distribution_target import distribution_base_url
 
 
 class InstallOriginUnavailable(RuntimeError):
@@ -24,8 +25,6 @@ def install_command(*, path: str | Path | None = None) -> str:
     try:
         origin = os.environ.get(DISTRIBUTION_BASE_URL_ENV)
         if origin:
-            from yoke_cli.self_host.release_target import distribution_base_url
-
             origin = distribution_base_url(origin)
         else:
             config = machine_config.load_config(path)
@@ -41,12 +40,3 @@ def install_command(*, path: str | Path | None = None) -> str:
             "install_origin_unavailable: restore settings.distribution.origin "
             f"and channel with {distribution.SELECT_COMMAND}, then retry"
         ) from exc
-
-
-def hosted_connect_url(api_url: object = None, env_name: object = None) -> str:
-    """Fresh onboarding follows the requested hosted authority."""
-    from yoke_cli.config.onboard_wizard_flow_hosted_machine import (
-        platform_url_for_connection,
-    )
-
-    return platform_url_for_connection(api_url, env_name)

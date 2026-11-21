@@ -4,7 +4,7 @@ import json
 from types import SimpleNamespace
 import pytest
 
-from yoke_cli.config import distribution
+from yoke_cli.config import distribution_write
 from yoke_cli.config import server_image_repository as repository
 from yoke_cli.config import onboard_self_host_server as server
 from yoke_cli.config import onboard_wizard_image_repository as wizard
@@ -102,7 +102,7 @@ def test_configured_repository_selects_upgrade_and_initial_image(tmp_path, monke
     monkeypatch.setattr(
         upgrade, "_CHECK_DOCKER", lambda: server.DockerPrerequisites("docker")
     )
-    distribution.save(origin="https://dist.example", channel="stable")
+    distribution_write.save(origin="https://dist.example", channel="stable")
     plan = upgrade.plan_upgrade(directory=str(target))
     assert plan.target.image == f"{value}:0.2.0.202610140941"
 

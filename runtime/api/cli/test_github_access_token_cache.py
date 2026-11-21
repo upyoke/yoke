@@ -11,7 +11,8 @@ import urllib.parse
 
 import pytest
 
-from yoke_cli.config import github_user_tokens, machine_config
+from yoke_cli.config import github_user_tokens
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.config import github_git_credential_store as credential_store
 from yoke_contracts import github_app_tokens as token_contract
 from yoke_contracts.owner_private_path import is_owner_private_file

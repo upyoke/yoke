@@ -7,6 +7,8 @@ before it loads the evaluator, so a cold one is waited on, not duplicated.
 
 from __future__ import annotations
 
+from yoke_contracts import hook_resident_paths
+
 import io
 import json
 import os
@@ -41,7 +43,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 @pytest.fixture
 def paths(monkeypatch):
     with resident_test_paths(monkeypatch) as resident:
-        monkeypatch.setattr(client, "resident_paths", lambda: resident)
+        monkeypatch.setattr(hook_resident_paths, "resident_paths", lambda: resident)
         monkeypatch.setenv("YOKE_HOOK_TOTAL_TIMEOUT_MS", "1000")
         yield resident
 

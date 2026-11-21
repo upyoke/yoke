@@ -201,7 +201,8 @@ def _retire_connections(
     still up: a client behind a TLS proxy holds a token this universe minted.
     A connection whose probe fails is kept and returned as left, named.
     """
-    from yoke_cli.config import machine_config, writer
+    from yoke_contracts.machine_config import reader as machine_config
+    from yoke_cli.config import writer
 
     retire = remove or writer.remove_connections
     payload = machine_config.load_config(config_path)
@@ -259,9 +260,9 @@ def _remove_machine_lock_files(config_path: str | None) -> list[str]:
     from yoke_cli.config import (
         github_git_credential_file,
         github_machine_operation,
-        machine_config,
         machine_config_file,
     )
+    from yoke_contracts.machine_config import reader as machine_config
 
     targets = (
         machine_config_file.config_lock_path(machine_config.config_path(config_path)),

@@ -19,6 +19,7 @@ launch handle's job, in :mod:`session_relay_termination`.
 
 from __future__ import annotations
 
+from yoke_contracts.relay_release_layout import SUPERVISION_DIRECTORY_NAME as _SUPERVISION_DIRECTORY_NAME
 from yoke_contracts.owner_private_path import create_owner_private_directory
 
 from contextlib import contextmanager
@@ -39,10 +40,9 @@ from yoke_harness.session_process_custody import (
     write_record,
 )
 from yoke_contracts.session_control.resume import RESUME_ATTEMPT_ENV
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 
 
-SUPERVISION_DIRECTORY_NAME = "session-launch-supervision"
 
 
 def _directory(state_dir: Path | None = None) -> Path:
@@ -54,7 +54,7 @@ def _directory(state_dir: Path | None = None) -> Path:
         ancestor = ancestor.parent
     for ancestor in reversed(missing):
         create_owner_private_directory(ancestor)
-    directory = root / SUPERVISION_DIRECTORY_NAME
+    directory = root / _SUPERVISION_DIRECTORY_NAME
     create_owner_private_directory(directory)
     return directory
 
@@ -242,7 +242,6 @@ def _read_records(directory: Path) -> Iterator[tuple[Path, dict[str, object]]]:
 __all__ = [
     "MAX_RECORD_BYTES",
     "supervision_record_path",
-    "SUPERVISION_DIRECTORY_NAME",
     "record_supervised_native",
     "release_supervised_native",
     "supervised_records",

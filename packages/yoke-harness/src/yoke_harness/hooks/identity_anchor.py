@@ -19,7 +19,7 @@ import time
 from collections import OrderedDict
 from typing import Optional
 
-from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_contracts.session_identity import (
     ANCHORS_DIR_NAME,
     ContenderIsLive,

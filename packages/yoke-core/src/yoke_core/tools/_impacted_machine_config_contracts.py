@@ -7,7 +7,7 @@ MACHINE_CONFIG_CONTRACTS = (
             {
                 "packages/yoke-contracts/src/yoke_contracts/machine_config/paths.py",
                 "packages/yoke-contracts/src/yoke_contracts/machine_config/runtime.py",
-                "packages/yoke-cli/src/yoke_cli/config/machine_config.py",
+                "packages/yoke-contracts/src/yoke_contracts/machine_config/reader.py",
                 "packages/yoke-cli/src/yoke_cli/config/machine_config_mutation.py",
                 "packages/yoke-cli/src/yoke_cli/config/_editable_loader_template.py",
                 "packages/yoke-cli/src/yoke_cli/config/project_onboard_support.py",

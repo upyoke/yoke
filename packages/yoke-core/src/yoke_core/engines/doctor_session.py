@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from yoke_contracts.executor_labels import canonical_harness_id
 from yoke_contracts.harness_cli_manifest import harness_cli_manifest
-from yoke_cli.transport.dispatcher import build_actor
+from yoke_contracts.runtime_ports.dispatcher import get_dispatcher
 from yoke_core.domain.control_plane_transport import relay
 from yoke_core.engines.doctor_session_posture import session_posture
 from yoke_core.engines.doctor_install import (
@@ -25,6 +25,9 @@ from yoke_core.engines.doctor_install import (
 from yoke_core.engines.doctor_applicability import NOT_APPLICABLE
 from yoke_core.engines.doctor_registry_types import HealthCheck
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
+
+
+build_actor = get_dispatcher().build_actor
 
 AUTH_SLUG = "session-harness-cli-auth"
 AUTH_TITLE = "This session's harness CLI is signed in"

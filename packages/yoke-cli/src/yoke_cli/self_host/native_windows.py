@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sys
 
-from yoke_cli.config.install_advice import InstallOriginUnavailable, install_command
+from yoke_contracts.install_advice import InstallOriginUnavailable, install_command
 from yoke_contracts.refusal_recovery import compose_refusal
 
 

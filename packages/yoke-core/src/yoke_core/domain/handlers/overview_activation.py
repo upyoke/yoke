@@ -11,7 +11,7 @@ a dismissal never hides state from other actors.
 
 from __future__ import annotations
 
-from yoke_contracts.runtime_ports.install_advice import get_install_advice
+from yoke_contracts.install_advice import InstallOriginUnavailable, install_command
 
 from typing import Any, Dict, List, Optional
 
@@ -107,11 +107,10 @@ def handle_overview_activation_get(
         result = compute_activation(conn, machine_connected, _actor_id(request))
     finally:
         conn.close()
-    install_command = get_install_advice().install_command
 
     try:
         result["install_command"] = install_command()
-    except get_install_advice().InstallOriginUnavailable:
+    except InstallOriginUnavailable:
         result["install_command"] = None
     return HandlerOutcome(result_payload=result, primary_success=True)
 

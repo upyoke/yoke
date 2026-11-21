@@ -58,7 +58,7 @@ def _active_connection_is_protected_postgres() -> bool:
     register in-process handlers against it.
     """
     try:
-        from yoke_cli.config import machine_config
+        from yoke_contracts.machine_config import reader as machine_config
         from yoke_contracts.machine_config.schema import (
             connection_is_protected,
             POSTGRES_TRANSPORTS,

@@ -20,7 +20,6 @@ from yoke_cli.config import (
     github_machine,
     hosted_machine_authorization,
     local_universe_setup,
-    machine_config,
     onboard_backup,
     onboard_docker_prerequisites,
     onboard_self_host_server,
@@ -28,6 +27,7 @@ from yoke_cli.config import (
     writer,
     yoke_token_verify,
 )
+from yoke_contracts.machine_config import reader as machine_config
 
 pytest.importorskip("textual")
 
