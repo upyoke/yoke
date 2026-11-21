@@ -6,6 +6,6 @@
  "commands": ["yoke local demo seed", "yoke path check", "yoke path fix", "yoke path verify"],
  "page": "installation",
  "position": 4,
- "text": "PATH check, fix and verify report actual winning Yoke executables against the canonical launcher for each installed shell context. Any required unresolved or shadowed context fails verification. Repair changes only owned blocks; later user overrides need manual correction in the named startup files, not repeated unchanged repair.",
- "sources": ["packages/yoke-cli/src/yoke_cli/config/path_shell_contexts.py", "packages/yoke-cli/src/yoke_cli/commands/adapters/path_doctor.py", "tests/installer/test_path_context_reporting.py"]
+ "text": "PATH check, fix and verify report actual winning Yoke executables against the canonical launcher for each installed shell context. Any required unresolved or shadowed context fails verification. Doctor uses the registered Windows PATH diagnosis and yoke.cmd on native Windows. Repair changes only owned blocks; later user overrides need manual correction in the named startup files, not repeated unchanged repair.",
+ "sources": ["packages/yoke-cli/src/yoke_cli/config/path_shell_contexts.py", "packages/yoke-cli/src/yoke_cli/commands/adapters/path_doctor.py", "tests/installer/test_path_context_reporting.py", "docs/public/operations/doctor.md"]
 }
