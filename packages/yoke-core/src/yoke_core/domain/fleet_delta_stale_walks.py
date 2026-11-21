@@ -1,15 +1,12 @@
-"""Alarm when a QA walk stops heartbeating before the stale sweep aborts it.
+"""Alarm when an active or walking QA execution has gone quiet.
 
-The sweep aborts an ``active`` or ``walking`` execution whose heartbeat is 30
-minutes old unless its live owner is parked, and the next waiter then takes
-and resets the host. The roster serves each session's heartbeat-governed walks
-(``silent_walks``); one silent past the owner-mail line raises one
-``fleet ALARM stale-walk`` line and clears once it heartbeats or ends.
+The roster serves the same activity clock as the stale sweep and owner
+notice: the latest walk heartbeat or tool call by its owner or subagents.
+A live, unparked owner's walk alarms at the warning threshold and clears
+when it resumes activity or ends. The stale sweep aborts it at 30 minutes.
 
 An owner that already has an idle-holder line carries the walk there as
-``stale_walk=<id>:<N>m`` instead, so one silence is one line. The separate
-line remains for an owner making tool calls while its walk does not heartbeat,
-which idle-holder never flags.
+``stale_walk=<id>:<N>m`` instead.
 """
 
 from __future__ import annotations
@@ -25,6 +22,7 @@ from yoke_core.domain.fleet_delta_alarms import (
     idle_holder_candidates,
 )
 from yoke_core.domain.fleet_delta_snapshot import FleetSnapshot, SessionRow, WalkRow
+from yoke_core.domain.qa_plan_execution_authority import walk_silent_seconds
 from yoke_core.domain.qa_plan_execution_silence_notice import SILENT_WALK_WARN_SECONDS
 
 _FOLDED = "stale-walk-folded"
@@ -52,10 +50,8 @@ def stale_walks(row: SessionRow, now: datetime) -> list[tuple[WalkRow, int]]:
         return []
     found: list[tuple[WalkRow, int]] = []
     for walk in row.walks:
-        if walk.heartbeat_at is None:
-            continue
-        silent = (now - walk.heartbeat_at).total_seconds()
-        if silent >= SILENT_WALK_WARN_SECONDS:
+        silent = walk_silent_seconds(walk.activity_at, now)
+        if silent is not None and silent >= SILENT_WALK_WARN_SECONDS:
             found.append((walk, int(silent // 60)))
     return found
 

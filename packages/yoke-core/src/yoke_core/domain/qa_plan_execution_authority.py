@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime
+from typing import Any, Mapping, NoReturn, Sequence
 
-from yoke_contracts.timestamps import as_utc, parse_instant, utc_now
-from typing import Any, Mapping, NoReturn
-
-from yoke_core.domain.project_identity import render_item_ref
+from yoke_contracts.timestamps import as_utc, utc_now
 from yoke_core.domain import db_backend
+from yoke_core.domain.db_helpers import query_rows
+from yoke_core.domain.project_identity import render_item_ref
+from yoke_core.domain.schema_common import _table_exists
+from yoke_core.domain.session_reclaim_progress import (
+    newest_activity_stamp,
+    tool_activity_stamp,
+)
 
 
 PLAN_EXECUTION_STALE_SECONDS = 30 * 60
@@ -56,22 +61,53 @@ def _fail(message: str) -> NoReturn:
     raise QaPlanExecutionStateError(message)
 
 
+def walk_activity_rows(
+    conn: Any, walks: Sequence[Mapping[str, Any]]
+) -> list[dict[str, Any]]:
+    """Add each walk's latest heartbeat or owner/child tool call.
+
+    Batch the owner read for sweep and fleet roster pages. A walk without
+    an owner row uses its own heartbeat.
+    """
+    owners = sorted({str(walk["session_id"]) for walk in walks if walk.get("session_id")})
+    activity_by_owner = {}
+    if owners and _table_exists(conn, "harness_sessions"):
+        p = "%s" if db_backend.connection_is_postgres(conn) else "?"
+        rows = query_rows(
+            conn,
+            "SELECT session_id, last_tool_call_at, last_child_tool_call_at "
+            f"FROM harness_sessions WHERE session_id IN ({','.join([p] * len(owners))})",
+            tuple(owners),
+        )
+        activity_by_owner = {str(row["session_id"]): tool_activity_stamp(row) for row in rows}
+    return [
+        {
+            **walk,
+            "activity_at": newest_activity_stamp(
+                walk.get("heartbeat_at"), activity_by_owner.get(str(walk.get("session_id")))
+            ),
+        }
+        for walk in walks
+    ]
+
+
+def walk_silent_seconds(activity_at: datetime | None, now: datetime) -> float | None:
+    """Seconds since the walk's latest activity, if any was recorded."""
+    return None if activity_at is None else (as_utc(now) - activity_at).total_seconds()
+
+
 def plan_execution_is_stale(
+    conn: Any,
     execution: Mapping[str, Any],
     *,
     now: datetime | None = None,
 ) -> bool:
-    """Report whether an execution has stopped reporting progress.
-
-    A missing heartbeat counts as stale. Supplied invalid evidence refuses
-    rather than authorizing abandonment by guessing its timezone.
-    """
+    """Report whether an execution has stopped reporting progress."""
     observed = as_utc(now) if now is not None else utc_now()
-    value = execution.get("heartbeat_at")
-    if value is None:
-        return True
-    elapsed = observed - parse_instant(value)
-    return elapsed > timedelta(seconds=PLAN_EXECUTION_STALE_SECONDS)
+    if "activity_at" not in execution:
+        (execution,) = walk_activity_rows(conn, [execution])
+    silent = walk_silent_seconds(execution["activity_at"], observed)
+    return silent is None or silent >= PLAN_EXECUTION_STALE_SECONDS
 
 
 def owning_session_is_parked(conn: Any, execution: Mapping[str, Any]) -> bool:
@@ -82,7 +118,6 @@ def owning_session_is_parked(conn: Any, execution: Mapping[str, Any]) -> bool:
     is still there, so a session that has ended stops shielding whatever it
     owned no matter what mode its last row recorded.
     """
-    from yoke_core.domain.schema_common import _table_exists
     from yoke_core.domain.session_mode import session_is_parked
 
     session_id = str(execution.get("session_id") or "")
@@ -101,7 +136,6 @@ def owning_session_is_parked(conn: Any, execution: Mapping[str, Any]) -> bool:
 
 def owning_session_has_ended(conn: Any, execution: Mapping[str, Any]) -> bool:
     """Require durable session-end evidence before abandoning a queued walk."""
-    from yoke_core.domain.schema_common import _table_exists
 
     session_id = str(execution.get("session_id") or "")
     if not session_id or not _table_exists(conn, "harness_sessions"):
@@ -124,12 +158,12 @@ def plan_execution_is_abandoned(
 
     Nothing heartbeats a walk that is waiting or awaiting walk review, and a
     wake can change the owner's mode. Only an explicit session end abandons
-    a held execution. Other states keep the heartbeat rule and the live
+    a held execution. Other states use the activity clock and the live
     parked-owner exemption.
     """
     if execution.get("state") in HELD_PLAN_EXECUTION_STATES:
         return owning_session_has_ended(conn, execution)
-    if not plan_execution_is_stale(execution, now=now):
+    if not plan_execution_is_stale(conn, execution, now=now):
         return False
     return not owning_session_is_parked(conn, execution)
 
@@ -240,8 +274,8 @@ def plan_execution_abort_authority(
     """Name how this caller may stop an execution, or refuse.
 
     ``owner``: the owning session stops its own walk. ``abandon``: nobody is
-    holding the execution any more -- its owner stopped heartbeating and did
-    not park, or its held owner ended -- so a caller may settle it. ``steering``: a
+    holding the execution any more. The walk went silent without a park, or
+    its held owner ended. Any caller may settle it. ``steering``: a
     live steering seat stops a walk another session still drives; the stop
     goes through the runner, which cleans up its host and settles it.
     """
@@ -282,7 +316,7 @@ def plan_execution_abort_authority(
         "at its next case or heartbeat. Without a seat, ask the owning session "
         "to abort its own execution. A walk that is waiting or awaiting walk "
         "review may be abandoned only after its owning session ends; other walks may be abandoned after "
-        f"{PLAN_EXECUTION_STALE_SECONDS // 60} minutes without a heartbeat "
+        f"{PLAN_EXECUTION_STALE_SECONDS // 60} minutes without a heartbeat or owner tool activity "
         "unless its owner is parked"
     )
 
@@ -296,4 +330,6 @@ __all__ = [
     "plan_execution_is_stale",
     "require_plan_execution_owner",
     "require_plan_execution_subject",
+    "walk_activity_rows",
+    "walk_silent_seconds",
 ]

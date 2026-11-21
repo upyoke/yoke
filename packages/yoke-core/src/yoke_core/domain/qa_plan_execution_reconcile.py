@@ -156,7 +156,7 @@ def reconcile_execution(
     if (
         not terminal
         and not reconcile_pending(execution)
-        and not plan_execution_is_stale(execution)
+        and not plan_execution_is_stale(conn, execution)
     ):
         raise QaPlanExecutionStateError(
             f"qa_reconcile_execution_live: execution {execution_id} is still "
@@ -164,7 +164,7 @@ def reconcile_execution(
             "Stop a live walk with `yoke qa plan abort "
             f"{flag} --execution-id {execution_id} --reason TEXT`, or retry "
             f"reconciliation after {PLAN_EXECUTION_STALE_SECONDS // 60} minutes "
-            "without a heartbeat. Nothing changed."
+            "without a heartbeat or owner tool activity. Nothing changed."
         )
     reconciliation_id = str(uuid4())
     settle_reason = (

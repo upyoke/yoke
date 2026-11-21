@@ -59,7 +59,7 @@ class WalkRow:
     execution_id: str
     item: str
     test_machine: str
-    heartbeat_at: datetime | None
+    activity_at: datetime | None
 
 
 @dataclass(frozen=True)
@@ -214,7 +214,8 @@ def session_rows(result: Mapping[str, Any]) -> dict[str, SessionRow]:
                     execution_id=str(walk.get("execution_id") or ""),
                     item=str(walk.get("item") or "none"),
                     test_machine=str(walk.get("test_machine") or "none"),
-                    heartbeat_at=parse_timestamp(walk.get("heartbeat_at")),
+                    # Older servers calculate sweep liveness from the heartbeat.
+                    activity_at=parse_timestamp(walk.get("activity_at", walk.get("heartbeat_at"))),
                 )
                 for walk in raw.get("silent_walks") or []
                 if isinstance(walk, Mapping) and walk.get("execution_id")

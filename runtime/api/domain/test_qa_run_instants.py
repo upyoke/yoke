@@ -126,19 +126,19 @@ def test_invalid_clock_refuses_before_any_lock_or_database_call(bad):
     with pytest.raises(InvalidInstant):
         update_qa_run(conn, 1, {"verdict": "pass"}, default_completed_at=bad)
     with pytest.raises(InvalidInstant):
-        plan_execution_is_stale({"heartbeat_at": bad})
+        plan_execution_is_stale(conn, {"heartbeat_at": bad})
 
 
-def test_missing_heartbeat_is_stale_but_exact_boundary_retains_authority():
+def test_missing_activity_and_the_exact_inactivity_boundary_are_stale():
     now = parse_instant("1969-12-31T23:59:59.999999Z")
     endpoint = now - timedelta(seconds=PLAN_EXECUTION_STALE_SECONDS)
-    assert plan_execution_is_stale({"heartbeat_at": None}, now=now)
-    assert not plan_execution_is_stale({"heartbeat_at": endpoint}, now=now)
-    assert plan_execution_is_stale(
-        {"heartbeat_at": endpoint - timedelta(microseconds=1)}, now=now
+    assert plan_execution_is_stale(None, {"heartbeat_at": None}, now=now)
+    assert plan_execution_is_stale(None, {"heartbeat_at": endpoint}, now=now)
+    assert not plan_execution_is_stale(
+        None, {"heartbeat_at": endpoint + timedelta(microseconds=1)}, now=now
     )
     with pytest.raises(InvalidInstant):
-        plan_execution_is_stale({"heartbeat_at": endpoint}, now=datetime(1970, 1, 1))
+        plan_execution_is_stale(None, {"heartbeat_at": endpoint}, now=datetime(1970, 1, 1))
 
 
 def test_host_fifo_orders_equivalent_offsets_by_instant_and_keeps_id_ties(test_db):

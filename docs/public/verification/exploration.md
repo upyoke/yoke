@@ -253,8 +253,9 @@ the session's mode or heartbeat age. A walk is held while it is queued in
 state. Only the owner's recorded session end makes one abandoned; the sweep
 settles it with the existing `stale-heartbeat` reason.
 
-Active and `walking` walks keep the 30-minute heartbeat rule. At 20 silent minutes the
-sweep mails the live, unparked owner once per silence, naming the execution, item, Test
+For `active` and `walking` executions, inactivity starts at the latest walk
+heartbeat or tool call by the owner or one of its subagents. At 20 silent
+minutes the sweep mails the live, unparked owner once per silence, naming the execution, item, Test
 Machine, abort time and fix: run the next step through `yoke qa mission host-command`,
 which heartbeats the walk, or cancel it with `yoke qa plan abort` (holder release
 refuses `qa_execution_holds_lease`). `yoke watch fleet` prints it as `stale-walk`.
