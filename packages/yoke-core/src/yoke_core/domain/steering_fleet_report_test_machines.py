@@ -69,7 +69,7 @@ def _holding_execution(conn: Any, test_machine: str) -> str | None:
     from yoke_core.domain.machine_qa_capability import host_claim_target
     from yoke_core.domain.qa_plan_execution_schema import LIVE_PLAN_EXECUTION_SQL
     from yoke_core.domain.qa_plan_execution_store import marker
-    from yoke_core.domain.qa_plan_host_leases import HOST_SET_REASON
+    from yoke_core.domain.qa_case_host_custody import claim_execution_id
 
     if not _table_exists(conn, "work_claims") or not _table_exists(
         conn, "qa_plan_executions"
@@ -81,8 +81,8 @@ def _holding_execution(conn: Any, test_machine: str) -> str | None:
     p = marker(conn)
     row = conn.execute(
         f"SELECT id FROM qa_plan_executions WHERE state IN ({LIVE_PLAN_EXECUTION_SQL}) "
-        f"AND (test_machine_lease_id={p} OR {p}={p} || id) LIMIT 1",
-        (lease.id, lease.reason or "", HOST_SET_REASON),
+        f"AND (test_machine_lease_id={p} OR id={p}) LIMIT 1",
+        (lease.id, claim_execution_id(lease.reason)),
     ).fetchone()
     return str(row[0]) if row else None
 

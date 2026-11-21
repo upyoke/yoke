@@ -142,7 +142,7 @@ def test_failed_contract_issue_rolls_back_partial_acquisitions(
     _seed(test_db, tmp_path, monkeypatch, simultaneous=True)
     execution = _begin(test_db)
     with mock.patch(
-        "yoke_core.domain.machine_qa_execution_protocol._issue",
+        "yoke_core.domain.machine_qa_plan_protocol._issue",
         side_effect=ValueError("contract failed"),
     ):
         response = _case_begin(execution)

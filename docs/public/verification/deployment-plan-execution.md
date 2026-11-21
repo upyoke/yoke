@@ -94,9 +94,10 @@ a later attacher gets a new group.
 
 ## Machine partitions
 
-When a deployment member's cases require several Test Machines, the scoped
-command executes one immutable roster per machine group, each with its own
-lease in that host's FIFO and the same run, stage and frozen target. Sessions
+Item and deployment member plan runs group cases by pinned machine or by
+their declared operating system. OS-only cases form a separate group from
+pinned cases, even when the same host can serve both. Each group runs an
+immutable roster with its own lease and the same frozen target. Sessions
 walk separate plans concurrently, one live execution per session and target. Begin skips held
 groups and aborts abandoned holders. Plan order holds across machine groups.
 A waiting host or independent review stops the command. Re-enter the same
@@ -118,9 +119,11 @@ execution refuses it. The
 runner takes the set in sorted name order once every host is free or reserved
 for it, and retains it through case execution and mission review. Completion
 or abort releases it; [completed captures remain reviewable](requirement-state.md).
-A set is the case's hosts plus its own `inherit` chain's, never another
-chain's. Each chain baseline holds exactly its set, releasing extra hosts or
-reacquiring an uncovered set; a retry inside a chain never reacquires lost custody. Definition-time validation
+A case and its `inherit` chain retain their declared hosts. When multiple
+walks in one execution need different hosts, Yoke acquires the combined set
+at the execution's single queue place before preparing the walks. Each walk
+uses its own recorded driver at walk-start and walk-end. Walk one mission
+at a time. A retry inside a chain never reacquires lost custody. Definition-time validation
 refuses `inherited_driver_mismatch` for a changed driver: use the predecessor's
 `method_config.test_machine`, or start a new chain from a named baseline.
 
@@ -209,7 +212,12 @@ dependency. The name puts the local Command under that host's queue lease.
 `method_config.test_machine` selects that registered host even when this direct
 requirement has only the generic <!-- qa:test-machine-capability -->`test-machine` capability. Deployment
 requirements retain the pin; omitting `--test-machine` does not permit another
-host, and a conflicting run pin is refused before a lease is acquired.
+host, and a conflicting run pin is refused before a lease is acquired. To
+choose a host for one machine-backed requirement, run
+`yoke qa case run --requirement-id N --test-machine NAME`. The host must
+match the required OS and `method_config.capability_tags`. For example,
+require `arch:arm64` on a macOS case that launches an arm64 app and set the
+architecture tag on each registered Mac.
 
 Before a plan's first golden reset on each Test Machine, Yoke compares the
 harness CLI versions recorded beside that golden with each vendor's latest

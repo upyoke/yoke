@@ -109,6 +109,7 @@ def run(args: List[str]) -> int:
             "direct run-attached row that omits method_config.requires_base_url"
         ),
     )
+    parser.add_argument("--test-machine", help="Run this machine-backed case on the named host.")
     parser.add_argument(
         "--expected-branch",
         help="Selected registered lane branch; CI checks it before publication.",
@@ -157,6 +158,7 @@ def run(args: List[str]) -> int:
             checkout_path=parsed.checkout_path,
             allow_tree_mismatch=parsed.allow_tree_mismatch,
             actor=actor,
+            **({"test_machine": parsed.test_machine} if parsed.test_machine else {}),
         )
     except QaCaseExecutionError as exc:
         print(f"yoke qa case run: {exc}", file=sys.stderr)

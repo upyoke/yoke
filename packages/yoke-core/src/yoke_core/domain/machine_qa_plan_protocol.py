@@ -62,6 +62,7 @@ def continue_plan_host_control_execution(
     case_position: int,
     baseline_position: int,
     test_machine: str | None = None,
+    selection_reason: str | None = None,
 ) -> HostControlExecutionContract:
     """Issue the next plan-case contract under its active host lease."""
     lease, selected = _validate_lease_owner(
@@ -108,6 +109,7 @@ def continue_plan_host_control_execution(
         selected,
         lease,
         operation="plan_case",
+        selection_reason=selection_reason,
         checks=(),
         baselines=baselines,
         cases=cases,

@@ -115,9 +115,11 @@ def held_qa_hosts_csv(value: Any) -> list[str]:
 def _live_executions_holding_lease(lease_id: str, reason: str, prefix: str) -> str:
     from yoke_core.domain.qa_plan_execution_schema import LIVE_PLAN_EXECUTION_SQL
 
+    wildcard = "%%" if prefix == "%s" else "%"
     return (
         f"state IN ({LIVE_PLAN_EXECUTION_SQL}) AND "
-        f"(test_machine_lease_id={lease_id} OR {reason}={prefix} || CAST(id AS TEXT))"
+        f"(test_machine_lease_id={lease_id} OR "
+        f"({reason} || ':') LIKE {prefix} || CAST(id AS TEXT) || ':{wildcard}')"
     )
 
 

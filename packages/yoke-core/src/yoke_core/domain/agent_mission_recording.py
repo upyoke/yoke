@@ -92,9 +92,11 @@ def handle_agent_mission_ready(request: FunctionCallRequest) -> HandlerOutcome:
             allow_recorded_replay=True,
             **arguments,
         )
+        from yoke_core.domain.qa_case_host_custody import case_host_lease_id
+
         if (
             parsed.ordinal == int(execution["cursor_ordinal"])
-            and execution.get("test_machine_lease_id") != lease.id
+            and case_host_lease_id(conn, execution, case) != lease.id
         ):
             raise ValueError("mission preparation names the wrong machine lease")
         recorded = _recorded_result(
@@ -244,10 +246,13 @@ def handle_agent_mission_access(request: FunctionCallRequest) -> HandlerOutcome:
             if int(case["requirement_id"]) == parsed.requirement_id
             and case.get("runner_id") == "agent_mission"
         ]
-        if len(matches) != 1 or execution.get("test_machine_lease_id") is None:
+        if len(matches) != 1:
             raise ValueError("mission case has no active plan machine lease")
         ordinal, case = matches[0]
         _assert_current_snapshot(conn, case)
+        run_id = _mission_run_id(conn, str(execution["id"]), parsed.requirement_id)
+        if parsed.cleanup == "begin" and parsed.run_id != run_id:
+            raise ValueError(f"mission_cleanup_run_mismatch: rerun walk-end with --run-id {run_id}")
         contract = mission_host_contract(
             conn,
             execution,
@@ -257,7 +262,6 @@ def handle_agent_mission_access(request: FunctionCallRequest) -> HandlerOutcome:
             test_machine=parsed.test_machine,
         )
         heartbeat_plan_execution(conn, execution)
-        run_id = _mission_run_id(conn, str(execution["id"]), parsed.requirement_id)
         from yoke_core.domain.qa_plan_execution_abort_state import (
             mission_abort_pending,
             mission_stop_notice,

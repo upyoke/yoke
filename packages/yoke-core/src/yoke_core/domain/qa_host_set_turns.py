@@ -189,7 +189,8 @@ def awaits_other_hosts(conn: Any, wait: Mapping[str, Any]) -> bool:
 
 
 def require_host_set_turn(
-    conn: Any, execution: Mapping[str, Any], names: tuple[str, ...]
+    conn: Any, execution: Mapping[str, Any], names: tuple[str, ...],
+    *, held_leases: Mapping[str, int] | None = None,
 ) -> None:
     """Refuse unless every host is free, reserved for *execution*, or held
     over for its session.
@@ -218,6 +219,8 @@ def require_host_set_turn(
             unhealthy = TestMachineHostUnhealthy(health)
             unhealthy.test_machines = names
             raise unhealthy
+        if held_leases and held_leases.get(name) == claim.id:
+            continue
         wait = reserved_wait(conn, claim)
         if wait is not None and wait["qa_plan_execution_id"] == str(execution["id"]):
             continue

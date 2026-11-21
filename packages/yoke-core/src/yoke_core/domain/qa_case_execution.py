@@ -194,6 +194,7 @@ def execute_case_context(
     case: dict,
     *,
     base_url: str = "",
+    test_machine: str | None = None,
     expected_branch: Optional[str] = None,
     expected_sha: Optional[str] = None,
     timeout_seconds: Optional[int] = None,
@@ -207,6 +208,13 @@ def execute_case_context(
         runner_id = str(required_field(case, "runner_id"))
     except ControlPlanePayloadError as exc:
         raise QaCaseExecutionError(str(exc)) from exc
+    from yoke_contracts.qa_case_starting_state import needs_test_machine
+
+    if test_machine and not needs_test_machine(case):
+        raise QaCaseExecutionError(
+            "test_machine_not_used: this case runs on the controller; omit --test-machine"
+        )
+    host_options = {"test_machine": test_machine} if test_machine else {}
     if runner_id == "worktree_run":
         from yoke_core.domain.qa_case_worktree_run import execute_worktree_case
 
@@ -241,10 +249,14 @@ def execute_case_context(
         )
     if runner_id == "host_control":
         from yoke_core.domain.machine_qa_case_execution import (
+            MachineCaseDispatchError,
             execute_materialized_machine_case,
         )
 
-        return execute_materialized_machine_case(case, actor=actor)
+        try:
+            return execute_materialized_machine_case(case, actor=actor, **host_options)
+        except MachineCaseDispatchError as exc:
+            raise QaCaseExecutionError(str(exc)) from exc
     if runner_id == "agent_mission":
         from yoke_core.domain.qa_case_mission_execution import execute_mission_case
 
@@ -257,6 +269,7 @@ def execute_case_context(
             checkout_path=checkout_path,
             allow_tree_mismatch=allow_tree_mismatch,
             actor=actor,
+            **host_options,
         )
     raise QaCaseExecutionError(
         f"runner {runner_id!r} is not supported by shared case execution"

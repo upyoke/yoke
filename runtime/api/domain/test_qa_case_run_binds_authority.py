@@ -121,3 +121,18 @@ def test_begin_pins_the_sessions_claim_onto_the_contract() -> None:
     assert outcome.result_payload["case"][PAYLOAD_KEY] == _CLAIM
     assert resolve.call_args.kwargs["item_id"] == _ITEM
     assert resolve.call_args.kwargs["session_id"] == _SESSION
+
+
+def test_case_run_passes_a_machine_pin_to_the_selected_runner(monkeypatch, capsys):
+    from yoke_core.domain import machine_qa_case_execution, qa_case_execution_cli
+
+    machine_case = {**_case(_CLAIM), "runner_id": "host_control", "method_id": "machine-state-check"}
+    monkeypatch.setattr(qa_case_execution, "fetch_case_execution_context", lambda *a, **k: machine_case)
+    execute = mock.Mock(return_value={"verdict": "pass", "case_outcome": "passed"})
+    monkeypatch.setattr(machine_qa_case_execution, "execute_materialized_machine_case", execute)
+
+    assert qa_case_execution_cli.run(
+        ["--requirement-id", str(_REQUIREMENT), "--test-machine", "arm-mac"]
+    ) == 0
+    assert execute.call_args.kwargs["test_machine"] == "arm-mac"
+    assert "verdict=pass" in capsys.readouterr().err

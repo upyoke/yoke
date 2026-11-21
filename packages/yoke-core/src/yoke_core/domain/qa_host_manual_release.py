@@ -51,8 +51,8 @@ def release_host_claim(
     """
     from yoke_core.domain.coordination_claims import get_claim, release
     from yoke_core.domain.qa_plan_execution_lifecycle import finish_plan_execution
+    from yoke_core.domain.qa_case_host_custody import claim_execution_id
     from yoke_core.domain.qa_plan_host_leases import (
-        HOST_SET_REASON,
         execution_host_leases,
         release_execution_hosts,
     )
@@ -61,11 +61,7 @@ def release_host_claim(
         claim = get_claim(conn, claim_id)
         executions = []
         if claim.target.test_machine and _table_exists(conn, "qa_plan_executions"):
-            companion = (
-                str(claim.reason)[len(HOST_SET_REASON) :]
-                if str(claim.reason or "").startswith(HOST_SET_REASON)
-                else ""
-            )
+            companion = claim_execution_id(claim.reason)
             rows = query_rows(
                 conn,
                 "SELECT id FROM qa_plan_executions "

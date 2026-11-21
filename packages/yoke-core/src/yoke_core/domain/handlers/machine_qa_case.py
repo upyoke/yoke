@@ -48,6 +48,10 @@ class TestMachineCaseExecuteResponse(BaseModel):
     lease_context: dict[str, Any] | None = None
 
 
+class TestMachineCaseBeginRequest(TestMachineCaseExecuteRequest):
+    test_machine: str | None = None
+
+
 class TestMachineCaseBeginResponse(BaseModel):
     state: Literal["ready", "waiting"]
     execution: HostControlExecutionContract | None = None
@@ -139,6 +143,10 @@ def handle_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
         begin_host_control_execution,
     )
 
+    try:
+        parsed = TestMachineCaseBeginRequest.model_validate(request.payload or {})
+    except ValidationError as exc:
+        return _failure("payload_invalid", str(exc))
     conn = connect()
     try:
         case = _load_case(
@@ -161,7 +169,7 @@ def handle_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
                 project=str(case["project"]),
                 session_id=request.actor.session_id,
                 operation="case",
-                test_machine=resolve_case_machine(case, None),
+                test_machine=resolve_case_machine(case, parsed.test_machine),
                 baselines=tuple(contract_baseline(case)),
                 cases=(case,),
             )
