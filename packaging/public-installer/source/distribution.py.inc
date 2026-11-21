@@ -222,24 +222,6 @@ def run_command_capture(command: Sequence[str]) -> subprocess.CompletedProcess[s
     )
 
 
-def _unexpected_status_error_codes(status: object) -> list[str]:
-    if not isinstance(status, dict):
-        return ["status_not_object"]
-    issues = status.get("issues")
-    if not isinstance(issues, list):
-        return ["issues_missing"]
-    unexpected: list[str] = []
-    for issue in issues:
-        if not isinstance(issue, dict):
-            unexpected.append("issue_not_object")
-            continue
-        severity = str(issue.get("severity") or "")
-        code = str(issue.get("code") or "")
-        if severity == "error" and code not in FRESH_STATUS_ERROR_CODES:
-            unexpected.append(code or "missing_code")
-    return unexpected
-
-
 def _loads_json(data: bytes, label: str) -> dict[str, object]:
     try:
         value = json.loads(data.decode("utf-8"))

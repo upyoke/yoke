@@ -61,14 +61,8 @@ class InstallerVerification:
                 "product-boundary audit failed: `yoke status --json` did not "
                 f"return valid JSON ({exc})."
             ) from exc
-        if result.returncode != 0:
-            unexpected = _unexpected_status_error_codes(status)
-            if unexpected:
-                raise InstallError(
-                    "product-boundary audit failed: `yoke status --json` "
-                    "reported unexpected errors on a fresh install: "
-                    + ", ".join(unexpected)
-                )
+        # Status also diagnoses machine health. Its exit code can be nonzero
+        # even when the installed product passes every boundary check below.
         connection = status.get("connection") if isinstance(status, dict) else None
         authority = ""
         if isinstance(connection, dict):

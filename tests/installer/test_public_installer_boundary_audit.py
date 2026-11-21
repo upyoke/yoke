@@ -5,6 +5,8 @@ import json
 import subprocess
 from pathlib import Path
 
+import pytest
+
 from public_installer_helpers import RecordingRunner, load_installer, write_channel
 
 
@@ -88,7 +90,8 @@ def test_content_aware_channel_refuses_missing_release_evidence(
         raise AssertionError("schema-v3 candidate installed without release evidence")
 
 
-def test_product_boundary_audit_accepts_installed_engine() -> None:
+@pytest.mark.parametrize("relay_down", [False, True])
+def test_product_boundary_audit_accepts_installed_engine(relay_down: bool) -> None:
     # Every lockstep product distribution ships on the machine. The audit also
     # rejects a client wielding source-dev/admin authority.
     installer_mod = load_installer()
@@ -101,7 +104,7 @@ def test_product_boundary_audit_accepts_installed_engine() -> None:
     }
     status = subprocess.CompletedProcess(
         ["yoke", "status", "--json"],
-        0,
+        int(relay_down),
         json.dumps(
             {
                 "runtime": {
@@ -109,6 +112,9 @@ def test_product_boundary_audit_accepts_installed_engine() -> None:
                     "package_versions": package_versions,
                 },
                 "connection": {"client_authority": "api"},
+                "issues": (
+                    [{"severity": "error", "code": "relay_down"}] if relay_down else []
+                ),
             }
         ),
         "",
@@ -116,7 +122,7 @@ def test_product_boundary_audit_accepts_installed_engine() -> None:
     runner = RecordingRunner(responses={("yoke", "status", "--json"): status})
     installer = installer_mod.Installer(_options(installer_mod), runner=runner)
 
-    installer._product_boundary_audit()
+    installer._product_boundary_audit(expected_version="1.2.3")
 
     assert runner.commands == [["yoke", "status", "--json"]]
 

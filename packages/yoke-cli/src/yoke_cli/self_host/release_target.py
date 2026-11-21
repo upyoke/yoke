@@ -24,7 +24,9 @@ from yoke_contracts.engine_version import local_handshake_version
 from yoke_contracts.install_binding import source_checkout_root
 from yoke_cli.config.server_image_repository import image_for_release
 from yoke_contracts.release_version import commit_version
+from yoke_contracts.shell_path_state import tool_bin_dir
 from yoke_contracts.terminal_detached_process import run as _RUN
+from yoke_cli.config.cli_release_runtime import operator_launcher_path
 
 DEFAULT_RELEASE_CHANNEL = "stable"
 FETCH_TIMEOUT_SECONDS = 60.0
@@ -146,6 +148,22 @@ def fetch_installer(target: ReleaseTarget) -> bytes:
     if not target.installer_url:
         raise distribution_target.ReleaseTargetError("release target has no installer endpoint")
     return _FETCH_BYTES(target.installer_url)
+
+
+def installed_cli_version() -> str | None:
+    """Probe the active launcher, which may differ from the running CLI."""
+    launcher = operator_launcher_path(Path(tool_bin_dir()))
+    try:
+        completed = _RUN(
+            (str(launcher), "--version"),
+            capture_output=True,
+            text=True,
+            timeout=5.0,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired, UnicodeError):
+        return None
+    return (completed.stdout.strip() or None) if completed.returncode == 0 else None
 
 
 def run_installer(

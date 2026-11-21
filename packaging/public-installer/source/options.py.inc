@@ -115,17 +115,6 @@ RESOLVER_SOURCE_ENV_VARS = frozenset(
 DIAGNOSTIC_MAX_CHARS = 4000
 FAILURE_REASON_MAX_CHARS = 600
 _URL_RE = re.compile(r"https?://[^\s'\"<>]+", re.IGNORECASE)
-FRESH_STATUS_ERROR_CODES = frozenset(
-    {
-        "machine_not_set_up",
-        "schema_version",
-        "connections_required",
-        "active_env_required",
-        "active_env",
-        "temp_root_not_writable",
-        "cache_dir_not_writable",
-    }
-)
 
 
 class InstallError(RuntimeError):

@@ -198,9 +198,11 @@ Setup `--image` skips resolution.
 Source-checkout CLIs refuse upgrades; update with git and rebuild with
 `yoke core upgrade --from-checkout /path/to/yoke --build`.
 Checkout images carry Git HEAD and setuptools-scm version for readiness checks.
-Failures name the stage and exact retry. The pin is unchanged when CLI install
-fails; after the CLI and pin advance, a pull or restart failure leaves both
-durable identities on the target and prints the two Compose recovery commands.
+Failures name the stage and exact retry. If the CLI installer fails, the upgrade
+reports the active launcher's version or says it is unknown. It leaves the
+bundle pin and server untouched. After the CLI and pin advance, a pull or
+restart failure leaves both durable identities on the target and prints the
+two Compose recovery commands.
 On every boot the entrypoint converges additive schema before serving;
 data-transforming changes still use Yoke's governed migration runner. Foreign
 keys onto `environments.id` match its live type so a universe still on text
