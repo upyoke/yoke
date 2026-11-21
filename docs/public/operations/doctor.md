@@ -21,6 +21,12 @@ Doctor watchers emit a filtered stream with progress metadata, not a bare JSON
 document. QA probes retain explicit raw captures and read the single
 `doctor.run.run` envelope from that capture before judging completeness.
 
+In a native Codex thread, bare `yoke doctor` checks the current turn's
+permissions before it opens the database. If the turn is restricted, select
+Full Access in the thread and rerun in a new turn. With Full Access on a
+machine-local universe, the tool hook can start an initialized, stopped
+Postgres so it can register the current turn before Doctor checks the session.
+
 Checks declare applicability (project scope, capabilities, runtime). Results
 are pass, warning, fail, or not-applicable — N/A is not a silent pass.
 On Linux, Doctor warns about project checkouts under `/mnt/<drive>`; inside

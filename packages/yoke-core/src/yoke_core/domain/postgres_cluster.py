@@ -234,7 +234,8 @@ def server_options(spec: ClusterSpec) -> str:
     return " ".join(parts)
 
 
-def start_server(spec: ClusterSpec) -> subprocess.CompletedProcess:
+def start_server(spec: ClusterSpec, *, timeout_s: Optional[int] = None) -> subprocess.CompletedProcess:
+    wait_options = ["-t", str(timeout_s)] if timeout_s is not None else []
     return _run(
         [
             binary(spec, "pg_ctl"),
@@ -244,13 +245,13 @@ def start_server(spec: ClusterSpec) -> subprocess.CompletedProcess:
             str(spec.log_file),
             "-o",
             server_options(spec),
+            *wait_options,
             "-w",
             "start",
         ],
-        # On Windows pg_ctl keeps a cmd.exe wrapper alive beside the server,
-        # and it holds the starting directory open: started from a lane, it
-        # would pin that lane until the server stops. Start from the root.
+        # Start at the cluster root so the Windows pg_ctl wrapper cannot pin a lane.
         cwd=str(spec.root),
+        timeout=timeout_s if timeout_s is not None else 90,
     )
 
 
@@ -265,7 +266,7 @@ def ensure_started(spec: ClusterSpec) -> int:
     return failure.returncode
 
 
-def start_failure(spec: ClusterSpec) -> Optional[StartFailure]:
+def start_failure(spec: ClusterSpec, *, timeout_s: Optional[int] = None) -> Optional[StartFailure]:
     """Initdb if new and start if down; name the tool that failed, if any."""
     create_private_directory(spec.root.parent)
     if _WINDOWS:
@@ -276,7 +277,7 @@ def start_failure(spec: ClusterSpec) -> Optional[StartFailure]:
     if failure := initdb_if_needed(spec):
         return failure
     if not is_ready(spec):
-        res = start_server(spec)
+        res = start_server(spec) if timeout_s is None else start_server(spec, timeout_s=timeout_s)
         if res.returncode != 0:
             return StartFailure("pg_ctl", res.returncode, res.stdout + res.stderr)
     return None
