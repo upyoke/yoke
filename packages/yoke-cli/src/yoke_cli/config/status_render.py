@@ -10,6 +10,7 @@ from yoke_cli.config.machine_registration import REGISTER_RECOVERY_COMMAND
 from yoke_cli.config import status_release_lineage
 from yoke_contracts.machine_config import schema as contract, setup_status
 from yoke_contracts.runtime_identity import human_identity_line
+from yoke_contracts.machine_config.schema_transport import display_transport
 
 
 #: A local install's engine and workbench answer on this machine alone.
@@ -71,7 +72,7 @@ def render_human(report: Mapping[str, Any]) -> str:
         lines.append(
             "  connection: "
             f"env={connection.get('env') or '<missing>'} "
-            f"transport={connection.get('transport') or '<missing>'} "
+            f"transport={display_transport(connection) or '<missing>'} "
             f"protected={protected_label} "
             f"credential={connection.get('credential_source', {}).get('kind') or '<missing>'} "
             f"envs={','.join(connection.get('envs') or []) or '<none>'}"

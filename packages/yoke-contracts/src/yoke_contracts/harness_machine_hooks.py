@@ -145,7 +145,8 @@ HARNESS_MACHINE_HOOKS: Mapping[str, HarnessMachineHooks] = {
             MachineHookEvent("SessionEnd", "SessionEnd"),
         ),
         trust="none",
-        # Claude Code's default command-hook timeout; Yoke writes none.
+        # Claude Code's 600 s default; SessionEnd 1.5 s unless the entry sets
+        # timeout, so Yoke writes CLAUDE_SESSION_END_HOOK_TIMEOUT_S there.
         hook_timeout_seconds=600,
     ),
     "codex": HarnessMachineHooks(

@@ -55,6 +55,21 @@ _IDENTITY_ENV: Mapping[str, str] = {
 #: a slow transport from meeting an undocumented platform default.
 CURSOR_HOOK_TIMEOUT_S = HARNESS_MACHINE_HOOKS["cursor"].hook_timeout_seconds
 
+#: Claude gives SessionEnd hooks 1.5 s before cancelling them ("Hook
+#: cancelled") unless an entry sets ``timeout``, which Claude caps at 60 s.
+#: Claude waits only as long as the hook runs, so a fast exit is unchanged.
+CLAUDE_SESSION_END_HOOK_TIMEOUT_S = 15
+CLAUDE_SESSION_END_EVENT = "SessionEnd"
+
+
+def claude_hook_handler(command: str, native_event: str) -> dict[str, Any]:
+    """One Claude command handler; SessionEnd carries its explicit budget."""
+    handler: dict[str, Any] = {"command": command, "type": "command"}
+    if native_event == CLAUDE_SESSION_END_EVENT:
+        handler["timeout"] = CLAUDE_SESSION_END_HOOK_TIMEOUT_S
+    return handler
+
+
 # Worktree path segments the Cursor fallback peels, held in variables so the
 # rendered command never spells a JSONC comment delimiter.
 _WORKTREE_SEGMENT = "/.worktrees/"
@@ -146,7 +161,10 @@ def _user_entry(spec: HarnessMachineHooks, event: MachineHookEvent) -> dict[str,
     entry: dict[str, Any] = {}
     if event.matcher is not None:
         entry["matcher"] = event.matcher
-    handler = {"type": "command", "command": command}
+    if spec.harness_id == "claude-code":
+        handler = claude_hook_handler(command, event.native_event)
+    else:
+        handler = {"type": "command", "command": command}
     if spec.harness_id == "codex":
         handler["commandWindows"] = windows_hook_command(
             "codex", event.verb, spec.config_owner
@@ -174,10 +192,12 @@ def is_machine_hook_entry(entry: object, spec: HarnessMachineHooks) -> bool:
 
 
 __all__ = [
+    "CLAUDE_SESSION_END_HOOK_TIMEOUT_S",
     "CURSOR_HOOK_TIMEOUT_S",
     "HOOK_ROOT_EXPRESSIONS",
     "ROOT_VARIABLE",
     "YOKE_HOOK_EVALUATE",
+    "claude_hook_handler",
     "cwd_resilient_hook_command",
     "evaluate_hook_command",
     "is_machine_hook_entry",

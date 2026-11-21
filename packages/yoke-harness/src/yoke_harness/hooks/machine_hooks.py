@@ -62,8 +62,18 @@ class MachineHookResult:
         return self.outcome in (MALFORMED, TRUST_FAILED)
 
     def line(self) -> str:
-        text = f"{self.harness_id}: {self.outcome} {self.path}"
+        action = _REMOVAL_TEXT.get(self.outcome, f"{self.outcome} {{}}")
+        text = f"{self.harness_id}: {action.format(self.path)}"
         return f"{text} ({self.detail})" if self.detail else text
+
+
+# Removal outcomes say whether the file itself survived; "removed PATH" alone
+# reads as a deleted file when only Yoke's entries left it.
+_REMOVAL_TEXT = {
+    REMOVED: "removed Yoke hooks from {} (file kept)",
+    DELETED: "deleted {} (Yoke created it; nothing else was in it)",
+    ABSENT: "no Yoke hooks in {}",
+}
 
 
 class MachineHooksError(RuntimeError):

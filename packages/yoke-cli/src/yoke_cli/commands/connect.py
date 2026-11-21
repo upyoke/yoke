@@ -17,10 +17,6 @@ from yoke_cli.config import hosted_machine_authorization
 from yoke_cli.config import server_connect, team_server_authorization, setup_browser
 from yoke_cli.transport.dispatcher import _resolve_session_id
 from yoke_cli.config import teammate_invite_redemption
-from yoke_cli.config.local_reachability import (
-    active_connection_is_local,
-    LOCAL_REACHABILITY_NOTICE,
-)
 from yoke_contracts.api_urls import (
     HOSTED_PLATFORM_URL,
     HOSTED_PUBLIC_SITE_URLS,
@@ -68,7 +64,8 @@ def connect(args: List[str]) -> int:
             "person's terminal the approval link opens after a notice; agent, "
             "non-terminal and --json runs only print it. With --json, the link, "
             "code and instructions arrive as JSON lines on stderr before "
-            "waiting; show them to the person."
+            "waiting; show them to the person. --json never prompts; pass "
+            "--invite-code-stdin to redeem an invite."
         ),
     )
     parser.add_argument(
@@ -169,8 +166,6 @@ def connect(args: List[str]) -> int:
             parsed.url
         ).scheme == "http" and not server_connect._is_loopback(parsed.url):
             print(PRIVATE_HTTP_WARNING, file=sys.stderr)
-    if active_connection_is_local(parsed.config_path):
-        print(LOCAL_REACHABILITY_NOTICE, file=sys.stderr)
     offer_invite = False
     if not explicit_token and parsed.self_host:
         try:
@@ -188,7 +183,7 @@ def connect(args: List[str]) -> int:
     try:
         parsed.invite_code = teammate_invite_redemption.choose_code(
             from_stdin=parsed.invite_code_stdin,
-            offer_choice=offer_invite,
+            offer_choice=offer_invite and not parsed.json_mode,
         )
     except hosted_machine_authorization.HostedMachineAuthorizationCancelled:
         return 0

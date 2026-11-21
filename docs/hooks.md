@@ -104,11 +104,11 @@ normal, and the next hook restarts it.
 
 ### Deadlines and degradation
 
-One hook process has one budget: `YOKE_HOOK_TOTAL_TIMEOUT_MS` (default 10000ms)
-from the process's own start, capped 5 seconds below the shortest manifest
-`machine_hooks.hook_timeout_seconds` (`yoke_contracts.hook_budget`). Connecting,
-starting, restart handshakes and the answer all spend it; the resident evaluates
-inside what is left. A launched resident that exits before listening ends the
+One hook process has one budget: `YOKE_HOOK_TOTAL_TIMEOUT_MS` (default 10000ms) from
+its start, capped 5 s below the shortest manifest `machine_hooks.hook_timeout_seconds`
+and Claude's SessionEnd `timeout` (15 s; without it Claude cancels SessionEnd after
+1.5 s) (`yoke_contracts.hook_budget`). Connecting, starting, restart handshakes and
+the answer all spend it; the resident evaluates inside what is left. A launched resident that exits before listening ends the
 wait (`YOKE_HOOK_RESIDENT_START_FAILED`). Under two seconds left skips the fallback.
 A hook never locks a harness: budget (`hook_budget_exhausted`), resident, relay,
 transport, scope or config failures and crashed guards allow every event; only a
