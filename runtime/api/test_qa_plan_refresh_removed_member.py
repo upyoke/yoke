@@ -88,7 +88,8 @@ def test_item_plan_filter_is_refused_before_lookup():
 def test_removed_member_has_no_refresh_recipe(member_in_run):
     row = _row()
     assert refresh_invocation(None, row) == (
-        f"yoke qa plan rematerialize --item YOK-{MEMBER} --stage item-qa --plan 9"
+        f"yoke qa plan rematerialize --item YOK-{MEMBER} --deployment-run-id {RUN} "
+        "--stage item-qa --plan 9"
     )
     member_in_run.clear()
     assert refresh_invocation(None, row) == ""

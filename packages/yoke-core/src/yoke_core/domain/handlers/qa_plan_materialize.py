@@ -73,9 +73,7 @@ def handle_materialize(request: FunctionCallRequest) -> HandlerOutcome:
 
     try:
         with connect() as conn:
-            from yoke_core.domain.qa_item_deployment_request import (
-                resolve_item_deployment_request,
-            )
+            from yoke_core.domain.qa_item_deployment_request import resolve_item_deployment_request
 
             try:
                 request = resolve_item_deployment_request(conn, request)
@@ -173,6 +171,7 @@ def handle_materialize(request: FunctionCallRequest) -> HandlerOutcome:
                             commit=not payload.replacements,
                             replacement_scopes=replacement_scopes,
                         )
+                        result["deployment_run_id"] = str(run_id)
                     except QaPlanError:
                         raise
                     except (LookupError, ValueError) as exc:

@@ -25,10 +25,13 @@ def failure_handoff_key(
     )
 
 
-def item_stage_retry_command(*, item_ref: str, stage: str, project: str) -> str:
-    """The item-scoped retry. A deployment-run id refuses an item stage."""
+def item_stage_retry_command(
+    *, item_ref: str, stage: str, project: str, run_id: str
+) -> str:
+    """The item-scoped retry, naming the run so a sibling run cannot answer."""
     return (
-        f"yoke qa plan run --item {item_ref} --stage {stage} --project {project}"
+        f"yoke qa plan run --item {item_ref} --stage {stage} "
+        f"--deployment-run-id {run_id} --project {project}"
     )
 
 
@@ -54,7 +57,8 @@ def retry_command_for_stage(
         ).fetchone()
         project = "" if row is None else str(row["slug"] if hasattr(row, "keys") else row[0])
     return item_stage_retry_command(
-        item_ref=str(member_ref), stage=stage, project=str(project or "")
+        item_ref=str(member_ref), stage=stage, project=str(project or ""),
+        run_id=run_id,
     )
 
 
@@ -75,7 +79,7 @@ def failure_handoff_message(
     )
     if retry:
         command = item_stage_retry_command(
-            item_ref=item_ref, stage=stage, project=project
+            item_ref=item_ref, stage=stage, project=project, run_id=run_id
         )
         return (
             f"{head}, recorded before this release took over. The current "

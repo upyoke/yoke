@@ -117,7 +117,10 @@ def _miss(
         from yoke_core.domain.project_identity import render_item_ref
 
         if plan_owners(conn, run_id).get(plan_id) is not None:
-            command = f"yoke qa plan run --item {render_item_ref(conn, item_id)} --stage {stage}"
+            command = (
+                f"yoke qa plan run --item {render_item_ref(conn, item_id)} "
+                f"--stage {stage} --deployment-run-id {run_id}"
+            )
     if run and not carried_ids and (current := run.get("current_stage")):
         names = [entry.get("name") for entry in _stages(conn, run)]
         if (

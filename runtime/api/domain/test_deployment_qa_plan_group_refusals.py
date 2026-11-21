@@ -77,7 +77,8 @@ def test_member_owned_plan_refusal_names_holder_command(test_db, function, selec
     assert f"plan {plan} ({SLUG})" in response.error.message
     assert f"belongs to {ref}; its claim holder runs it" in response.error.message
     assert (
-        f"yoke qa plan run --item {ref} --stage item-qa --project yoke"
+        f"yoke qa plan run --item {ref} --stage item-qa "
+        f"--deployment-run-id {RUN} --project yoke"
         in response.error.message
     )
     subject = stage_subject(

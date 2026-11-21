@@ -91,15 +91,16 @@ USAGE_BY_FUNCTION_ID = {
     "qa.item_plan.retract": QA_ITEM_PLAN_RETRACT_USAGE,
     "qa.plan.materialize": (
         "yoke qa plan materialize "
-        "(--item PREFIX-N (--transition T | --stage STAGE [--plan PLAN]) "
-        "[--project P] | --deployment-run-id RUN --project P "
+        "(--item PREFIX-N (--transition T | --stage STAGE [--plan PLAN] "
+        "[--deployment-run-id RUN]) [--project P] | --deployment-run-id RUN --project P "
         "(--plan PLAN [--stage STAGE] | --stage STAGE)) "
         f"[--replaces {REPLACES_METAVAR} ...] "
         "[--replaces-requirement REQUIREMENT_ID ...] [--session-id S] [--json]"
     ),
     "qa.plan.rematerialize": (
         "yoke qa plan rematerialize "
-        "(--item PREFIX-N (--transition T | --stage STAGE [--plan PLAN]) | "
+        "(--item PREFIX-N (--transition T | --stage STAGE [--plan PLAN] "
+        "[--deployment-run-id RUN]) | "
         "--deployment-run-id RUN --stage STAGE [--plan PLAN]) "
         "[--project P] [--session-id S] [--json]"
     ),

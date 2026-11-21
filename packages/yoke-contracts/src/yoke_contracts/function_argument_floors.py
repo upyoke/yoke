@@ -160,6 +160,21 @@ FUNCTION_ARGUMENT_MINIMUM_SERVING_VERSIONS: dict[str, dict[str, ArgumentFloor]] 
             "next-release", "upgrade the serving Yoke release before retrying the idle stop"
         ),
     },
+    **{
+        function_id: {
+            "deployment_run_id": ArgumentFloor(
+                "next-release",
+                "`--item PREFIX-N --stage S` without --deployment-run-id, after "
+                "confirming with `yoke deployment-runs get RUN` that only that run "
+                "is executing S for the item",
+            ),
+        }
+        for function_id in (
+            "qa.plan.materialize",
+            "qa.plan.rematerialize",
+            "qa.plan_execution.begin",
+        )
+    },
     "session_control.launch.preview": {
         "level": ArgumentFloor(
             "next-release", "an exact selection with --surface S [--model M]"
