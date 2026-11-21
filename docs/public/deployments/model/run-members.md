@@ -57,9 +57,11 @@ artifacts, then re-evaluate stage acceptance. Cancelled runs cannot restart.
 
 Predecessor removals record transferred members with `transferred_to_run_id`.
 They keep admission and QA during rework; only new members need readiness.
-At execution context and resume, open landings or implementing/reviewing members
-are set aside, preserving unfinished QA and executions for the next enrolling
-run on that flow and target. Remaining members keep frozen source containment.
+At execution context and resume, members with open landings or implementing
+or reviewing work are set aside, preserving QA for the next enrolling run
+on that flow and target. A member with live item QA stays attached so its
+execution can finish. The next pass sets it aside if it is still reworking
+and has no live item QA. Remaining members keep frozen source containment.
 
 Creating a run (`deployment_runs.create`, `deployment_runs.start_for_item`) and executing one take no claim. Creation serializes against other creation for the same project under a transaction-scoped advisory lock that covers only the database re-check and insert (composition's repository reads finish before it is taken), and what used to need a project-wide hold is answered by the run itself:
 
