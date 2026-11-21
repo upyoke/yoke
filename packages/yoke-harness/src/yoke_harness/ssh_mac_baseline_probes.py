@@ -21,8 +21,8 @@ from yoke_harness.ssh_mac_gui_session import (
 from yoke_harness.standard_baseline_probes import (
     prove_current_standard,
     read_error_event_count,
-    standard_probe_failure,
 )
+from yoke_harness.standard_probe_failures import standard_probe_failure
 from yoke_contracts.test_machine_types import HostActionResult
 
 
@@ -233,7 +233,7 @@ def run_baseline_probes(
             failure = with_reply_rejection(
                 _bridge_failure(classified.error_code, classified.reason)
                 if classified is not None
-                else standard_probe_failure(probe.name, exit_code)
+                else standard_probe_failure(probe.name, exit_code, stdout)
                 or classify_declared_failure(
                     probe.name, exit_code, request=request, stdout=stdout, stderr=stderr
                 ),
