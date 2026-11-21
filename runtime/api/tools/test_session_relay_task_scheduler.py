@@ -1,7 +1,6 @@
 """Windows relay supervision contract; no scheduler or administrator needed."""
 
 import subprocess
-import sys
 from dataclasses import replace
 import xml.etree.ElementTree as ET
 
