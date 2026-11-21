@@ -77,6 +77,30 @@ Doctor reports breaks, and each finding names its repair:
 | `HC-architecture-forbidden-edge` | A dependency the model does not allow. |
 | `HC-architecture-cross-cutting-entrypoint` | A guarded import outside the approved modules. |
 
+## Merge gate and baseline
+
+`yoke merge item` and `--check` (standalone, merge-queue and epic lanes) refuse
+a lane that adds a forbidden dependency. The gate reads the model live and scans
+only the lane's changed Python files at the lane head and at the merge base. An
+edge is refused when it is forbidden at the head, absent at the base, and not
+frozen in the committed baseline `.yoke/architecture/forbidden-edge-baseline.json`.
+Each refusal names the file, imported module, both layers and the rule, and the
+two fixes: change the import, or change the model through Project Structure.
+
+The baseline lists existing edges, one per line, and only shrinks: a lane whose
+baseline gains an entry the target's lacks is refused. After removing edges or
+changing the model, regenerate it from a full scan and commit it with `git add -f`
+(stealth checkouts ignore `.yoke/`):
+
+```bash
+python -m yoke_core.tools.architecture_edge_baseline --project P
+python -m yoke_core.tools.architecture_edge_baseline --project P --check
+```
+
+A project with no model or no committed baseline merges unchanged with a note; an
+unreadable model refuses the merge. GitHub UI merges and direct pushes bypass the
+gate; Doctor still reports their edges from the stored snapshot.
+
 ## Item architecture impact
 
 Every item declares `architecture_impact`:
