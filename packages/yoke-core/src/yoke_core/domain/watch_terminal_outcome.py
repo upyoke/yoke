@@ -101,22 +101,28 @@ def format_terminal_outcome(
     exit_code: int,
     raw_capture: Path,
     result_summary: str | None = None,
-) -> str:
-    """Render one final result after the watched child has exited."""
+) -> tuple[str, int]:
+    """Render the final result and resolve the watcher exit status."""
     if exit_code == 0:
         result = _compact(result_summary) if result_summary else ""
         detail = f"; result: {result}" if result else ""
         return (
             f"# watch_{kind} outcome: completed successfully{detail}; "
-            f"exit=0; raw={raw_capture}\n"
+            f"exit=0; raw={raw_capture}\n",
+            0,
         )
 
     wait = designed_wait(kind=kind, exit_code=exit_code, raw_capture=raw_capture)
     if wait is not None:
+        watch_exit = 0 if kind == DEPLOY_WATCH_KIND else exit_code
+        exit_detail = f"exit={watch_exit}"
+        if watch_exit != exit_code:
+            exit_detail += f"; child_exit={exit_code}"
         return (
             f"# watch_{kind} outcome: waiting — {wait.cause}; "
-            f"exit={exit_code}; continue: {wait.continuation}; "
-            f"raw={raw_capture}\n"
+            f"{exit_detail}; continue: {wait.continuation}; "
+            f"raw={raw_capture}\n",
+            watch_exit,
         )
 
     cause = _terminal_cause(raw_capture)
@@ -141,7 +147,8 @@ def format_terminal_outcome(
         )
     return (
         f"# watch_{kind} failure: {cause}; exit={exit_code}; "
-        f"recovery: {recovery}; raw={raw_capture}\n"
+        f"recovery: {recovery}; raw={raw_capture}\n",
+        exit_code,
     )
 
 
@@ -159,20 +166,21 @@ def emit_terminal_outcome(
     progress_f: TextIO,
     out: TextIO,
     result_summary: str | None = None,
-) -> None:
-    """Write the final result and required exit sentinel to both streams."""
+) -> int:
+    """Write the final result and exit sentinel and return the watcher status."""
     raw_f.flush()
-    outcome = format_terminal_outcome(
+    outcome, watch_exit = format_terminal_outcome(
         kind=kind,
         exit_code=exit_code,
         raw_capture=raw_capture,
         result_summary=result_summary,
     )
-    for line in (outcome, f"# watch_{kind} exit={exit_code} raw={raw_capture}\n"):
+    for line in (outcome, f"# watch_{kind} exit={watch_exit} raw={raw_capture}\n"):
         progress_f.write(line)
         progress_f.flush()
         out.write(line)
         out.flush()
+    return watch_exit
 
 
 def emit_terminal_failure(

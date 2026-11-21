@@ -30,11 +30,13 @@ def test_stages_complete_awaiting_qa_is_a_wait_naming_its_continuation(
 ) -> None:
     capture = _capture(tmp_path, awaiting_qa_report_lines(RUN_ID, [OBLIGATION]))
 
-    outcome = format_terminal_outcome(
+    outcome, watch_exit = format_terminal_outcome(
         kind="deploy", exit_code=EXIT_AWAITING_QA, raw_capture=capture
     )
 
+    assert watch_exit == 0
     assert "outcome: waiting" in outcome
+    assert f"child_exit={EXIT_AWAITING_QA}" in outcome
     assert "failure" not in outcome
     assert "terminal cause not diagnosed" not in outcome
     assert "blocking QA unresolved" in outcome
@@ -47,11 +49,13 @@ def test_a_final_stage_held_before_it_ran_is_the_same_wait(tmp_path: Path) -> No
         tmp_path, held_stage_report_lines(RUN_ID, "hosted-release", [OBLIGATION])
     )
 
-    outcome = format_terminal_outcome(
+    outcome, watch_exit = format_terminal_outcome(
         kind="deploy", exit_code=EXIT_AWAITING_QA, raw_capture=capture
     )
 
+    assert watch_exit == 0
     assert "outcome: waiting" in outcome
+    assert f"child_exit={EXIT_AWAITING_QA}" in outcome
     assert "final stage held" in outcome
     assert f"yoke deployment-runs get {RUN_ID}" in outcome
     assert "yoke deployment-runs remove-item --help" in outcome
@@ -64,10 +68,11 @@ def test_a_resume_refused_for_skipping_qa_stays_a_failure(tmp_path: Path) -> Non
         ["Error: resume cannot skip required scoped QA: item-qa is unsettled"],
     )
 
-    outcome = format_terminal_outcome(
+    outcome, watch_exit = format_terminal_outcome(
         kind="deploy", exit_code=EXIT_AWAITING_QA, raw_capture=capture
     )
 
+    assert watch_exit == EXIT_AWAITING_QA
     assert "outcome: waiting" not in outcome
     assert "failure: Error: resume cannot skip required scoped QA" in outcome
 
@@ -93,8 +98,9 @@ def test_a_deploy_failure_exit_is_never_read_as_the_qa_wait(tmp_path: Path) -> N
 def test_a_successful_deploy_still_reports_completion(tmp_path: Path) -> None:
     capture = _capture(tmp_path, awaiting_qa_report_lines(RUN_ID, [OBLIGATION]))
 
-    outcome = format_terminal_outcome(kind="deploy", exit_code=0, raw_capture=capture)
+    outcome, watch_exit = format_terminal_outcome(kind="deploy", exit_code=0, raw_capture=capture)
 
+    assert watch_exit == 0
     assert "completed successfully" in outcome
 
 
@@ -118,10 +124,11 @@ def test_merge_wait_requires_landing_report_and_queue_exit(
         ],
     )
 
-    outcome = format_terminal_outcome(
+    outcome, watch_exit = format_terminal_outcome(
         kind="merge", exit_code=exit_code, raw_capture=capture
     )
 
+    assert watch_exit == exit_code
     if report and exit_code == 9:
         assert "outcome: waiting" in outcome
         assert "failure" not in outcome

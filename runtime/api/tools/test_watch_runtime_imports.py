@@ -4,6 +4,8 @@ import builtins
 import io
 import sys
 
+import pytest
+
 from yoke_core.domain.deploy_pipeline import EXIT_AWAITING_QA
 from yoke_core.domain.deployment_run_completion_preconditions import (
     awaiting_qa_report_lines,
@@ -12,7 +14,10 @@ from yoke_core.domain import watch_runner as _watch_runner
 from yoke_core.domain.watch_throttle import Classification, LineClass, ThrottlePolicy
 
 
-def test_terminal_wait_uses_modules_loaded_before_child_started(tmp_path, monkeypatch):
+@pytest.mark.parametrize("has_hold_report", [True, False])
+def test_terminal_outcome_uses_modules_loaded_before_child_started(
+    tmp_path, monkeypatch, has_hold_report
+):
     original_import = builtins.__import__
     original_launch = _watch_runner._launch_watched_child
     protected = {
@@ -31,7 +36,12 @@ def test_terminal_wait_uses_modules_loaded_before_child_started(tmp_path, monkey
         return child
 
     monkeypatch.setattr(_watch_runner, "_launch_watched_child", launch)
-    report = "\n".join(awaiting_qa_report_lines("run-fixture", ["pending QA"]))
+    refusal = "Error: resume cannot skip required scoped QA: item-qa is unsettled"
+    report = (
+        "\n".join(awaiting_qa_report_lines("run-fixture", ["pending QA"]))
+        if has_hold_report
+        else refusal
+    )
     output = io.StringIO()
     raw = tmp_path / "raw.log"
     progress = tmp_path / "progress.log"
@@ -49,8 +59,16 @@ def test_terminal_wait_uses_modules_loaded_before_child_started(tmp_path, monkey
         policy=ThrottlePolicy(),
         outcome_only=True,
     )
-    assert result == EXIT_AWAITING_QA
-    assert "outcome: waiting" in output.getvalue()
-    assert "run-fixture" in output.getvalue()
-    assert f"exit={EXIT_AWAITING_QA}" in output.getvalue()
+    terminal = output.getvalue()
+    if has_hold_report:
+        assert result == 0
+        assert "outcome: waiting" in terminal
+        assert f"child_exit={EXIT_AWAITING_QA}" in terminal
+        assert "run-fixture" in terminal
+    else:
+        assert result == EXIT_AWAITING_QA
+        assert f"failure: {refusal}" in terminal
+        assert "outcome: waiting" not in terminal
+    assert terminal.splitlines()[-1] == f"# watch_deploy exit={result} raw={raw}"
+    assert terminal == progress.read_text(encoding="utf-8")
     assert report in raw.read_text(encoding="utf-8")

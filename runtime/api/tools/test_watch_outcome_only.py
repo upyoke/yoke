@@ -205,7 +205,7 @@ def test_deploy_terminal_diagnostics_are_preserved_as_the_final_cause(
     raw = tmp_path / "diagnostic.raw"
     raw.write_text(diagnostic + "\n", encoding="utf-8")
 
-    outcome = format_terminal_outcome(kind="deploy", exit_code=2, raw_capture=raw)
+    outcome, _ = format_terminal_outcome(kind="deploy", exit_code=2, raw_capture=raw)
 
     assert diagnostic in outcome
     assert "terminal cause not diagnosed" not in outcome
@@ -232,7 +232,7 @@ def test_specific_deploy_error_survives_later_generic_stage_failure(
         encoding="utf-8",
     )
 
-    outcome = format_terminal_outcome(kind="deploy", exit_code=1, raw_capture=raw)
+    outcome, _ = format_terminal_outcome(kind="deploy", exit_code=1, raw_capture=raw)
 
     assert terminal_error in outcome
     assert (
@@ -263,7 +263,7 @@ def test_preflight_failure_survives_later_runner_and_stage_summaries(
         encoding="utf-8",
     )
 
-    outcome = format_terminal_outcome(kind="deploy", exit_code=1, raw_capture=raw)
+    outcome, _ = format_terminal_outcome(kind="deploy", exit_code=1, raw_capture=raw)
 
     assert f"# watch_deploy failure: {diagnostic};" in outcome
     assert "Step runner diagnostic:" not in outcome
