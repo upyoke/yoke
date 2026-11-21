@@ -145,21 +145,18 @@ private robocopy log under `AppData/Local/YokeQa`.
 Goldens also retain raw User PATH values, registry types and absence. Reset
 validates that metadata before mirroring the profile and verifies it afterward;
 older goldens without it require recapture rather than guessing a registry type.
-Before mirroring, reset stops test-user processes that run from the resettable
-profile or from WindowsApps. Executables in preserved profile directories stay
-running. Reset also leaves running the Widgets shell packages Windows restarts
-on its own (`MicrosoftWindows.Client.WebExperience`,
-`Microsoft.WidgetsPlatformRuntime` and `Microsoft.StartExperiencesApp`): it does
-not stop, wait on or relaunch them. Their state lives under the preserved
-`AppData/Local/Packages`, so they hold no files in the mirrored profile. Reset checks process ownership under the standard test-user account.
-If SSH process discovery fails, check the session named in the refusal before
-retrying. Desktop processes are stopped from the signed-in session. A process
-that will not exit refuses with `windows_reset_profile_process_running`.
-After a successful restore, reset reopens the stopped desktop apps in that same
-session. The receipt reports `profile_processes_stopped` and
-`desktop_apps_relaunched`. If a desktop app fails to reopen, reset still succeeds
-and `desktop_apps_relaunch_failed` names the app. If robocopy reports a sharing
-or memory-mapped-file error under `.codex`, close Codex and retry the reset.
+Before mirroring, reset stops the test user's processes that run from the
+resettable profile or WindowsApps, checking ownership under that account. It
+leaves running executables in preserved directories and the Widgets packages
+Windows restarts itself (`MicrosoftWindows.Client.WebExperience`,
+`Microsoft.WidgetsPlatformRuntime`, `Microsoft.StartExperiencesApp`), whose
+state lives in preserved `AppData/Local/Packages`. A failed SSH process
+discovery names the session to check. Desktop processes stop from the signed-in
+session; one that will not exit refuses `windows_reset_profile_process_running`.
+After restore, reset reopens them there and reports `profile_processes_stopped`
+and `desktop_apps_relaunched`; an app that fails to reopen is named in
+`desktop_apps_relaunch_failed` without failing reset. For a sharing or
+memory-mapped-file error under `.codex`, close Codex and retry the reset.
 Goldens hold no links (`/XJ`) and `/MIR` purges profile links the golden lacks,
 so the mirror excludes Windows' own System-marked profile compatibility
 junctions (`My Music`, `Application Data` and similar). After the mirror, reset
