@@ -120,9 +120,9 @@ call repeats one warning: guard rules are NOT enforced, the cause, the operator
 subfolders use `yoke folder disable PATH`; `yoke folder enable PATH` restores.
 [What Yoke sends](public/agents/harness-discovery.md#what-yoke-sends) owns scope and privacy.
 
-`yoke hook resident stop`/`restart`/`verify` SIGTERM, then after ten seconds SIGKILL, residents
-proven by start time; a loading one exits at once. Failures name a running pid or held
-start lock with recovery; a restart accepts a resident a live hook launched meanwhile.
+`yoke hook resident stop`/`restart`/`verify` SIGTERM, then after ten seconds SIGKILL, residents proven by
+start time; a loading one exits at once. Failures name a running pid or held start lock with recovery;
+a restart accepts a resident a live hook launched meanwhile. A failed Windows pipe accept is logged and retried after 100ms; five in a row end the resident, and the next hook cold-starts one.
 
 The shared `hook_runner_total_timeout_ms` ceiling (default 10000ms;
 `yoke_core.domain.hook_runner_deadline`) spans both chain halves. Client policies

@@ -100,8 +100,11 @@ def _resolve(raw: str, cwd: str, shell: str = "bash") -> str:
 
 
 def _repo_root(path: str) -> str:
+    # ``os.path.exists`` answers False on any OSError, so a data string that
+    # is too long to name a file (ENAMETOOLONG) has no repository rather
+    # than raising and losing the whole fact; ``Path.exists`` re-raises it.
     for candidate in (Path(path), *Path(path).parents):
-        if (candidate / ".git").exists():
+        if os.path.exists(os.path.join(candidate, ".git")):
             return str(candidate)
     return ""
 
@@ -184,7 +187,13 @@ def write_targets_fact(payload: Mapping[str, object], shell: ShellParse) -> dict
         for token in segment.argv
         if _path_shaped(token)
     )
-    resolved = {raw: _resolve(raw, cwd, shell.shell if shell.command else "powershell") for raw in dict.fromkeys(operands)}
+    # No OS call can name a path containing NUL, and ``os.path.realpath``
+    # raises ValueError on one, so such an operand gets no answer.
+    resolved = {
+        raw: _resolve(raw, cwd, shell.shell if shell.command else "powershell")
+        for raw in dict.fromkeys(operands)
+        if "\0" not in raw
+    }
     mount_paths = {raw: path for raw, path in resolved.items() if raw.startswith("/")}
     if os.name == "nt":
         from yoke_contracts.free_paths import STATIC_FREE_PATH_PREFIXES
