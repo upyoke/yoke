@@ -126,6 +126,7 @@ def test_doctor_missing_launcher(tmp_path, monkeypatch):
     from yoke_core.engines import doctor_hc_launcher_authority as doctor
     from yoke_cli.config import path_doctor
 
+    monkeypatch.setattr(doctor, "_WINDOWS", False)
     monkeypatch.setattr(doctor, "canonical_shim_path", lambda: tmp_path / "yoke")
     monkeypatch.setattr(doctor, "_login_shell_yoke", lambda: "")
     monkeypatch.setattr(doctor, "enumerate_shadow_installs", lambda **kw: [])

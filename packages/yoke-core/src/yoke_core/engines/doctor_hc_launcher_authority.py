@@ -1,4 +1,4 @@
-"""Doctor health check — login-shell yoke is the canonical launcher.
+"""Doctor health check — the native PATH resolves the canonical launcher.
 
 FAIL when a login shell resolves anything but the canonical shim, when
 shadow installs sit on PATH, or when the interactive shell and the
@@ -32,6 +32,8 @@ _HOOK_CONFIG_RELATIVE = (
     Path(".codex/hooks.json"),
 )
 
+
+_WINDOWS = sys.platform == "win32"
 
 SLUG = "launcher-authority"
 TITLE = "Machine launcher resolves to the released CLI"
@@ -147,7 +149,7 @@ def hook_config_yoke_problems(root: Path, canonical: Path) -> list[str]:
             ):
                 if not (
                     Path(token).is_absolute()
-                    and Path(token).name in {"yoke", "yoke.exe"}
+                    and Path(token).name in {"yoke", "yoke.cmd", "yoke.exe"}
                 ):
                     continue
                 try:
@@ -163,40 +165,55 @@ def hook_config_yoke_problems(root: Path, canonical: Path) -> list[str]:
 
 def hc_launcher_authority(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     """HC-launcher-authority: login-shell yoke is the canonical shim."""
-    canonical = canonical_shim_path()
-    if args.fix:
-        checkout = _resolve_checkout(args)
-        if checkout is not None:
-            try:
-                converge_machine(checkout, stream=None)
-            except Exception as exc:  # noqa: BLE001 — report, do not crash doctor
-                rec.record(SLUG, TITLE, "FAIL", f"--fix repair failed: {exc}")
-                return
-    login = _login_shell_yoke()
-    machine_env = _machine_launcher_env()
-    interactive = (
-        shutil.which("yoke", path=machine_env["PATH"])
-        if machine_env.get("PATH") != os.environ.get("PATH")
-        else shutil.which("yoke")
-    ) or ""
-    shadows = enumerate_shadow_installs(canonical=canonical, env=machine_env)
-    problems: list[str] = []
-    from yoke_cli.config.path_doctor import diagnose
+    from yoke_cli.config import path_doctor
 
-    diagnosis = diagnose(env=machine_env)
+    machine_env = _machine_launcher_env()
+    checkout = _resolve_checkout(args)
+    if args.fix:
+        try:
+            if _WINDOWS:
+                path_doctor.update_shell(env=machine_env)
+            elif checkout is not None:
+                converge_machine(checkout, stream=None)
+        except Exception as exc:  # noqa: BLE001 — report, do not crash doctor
+            rec.record(SLUG, TITLE, "FAIL", f"--fix repair failed: {exc}")
+            return
+
+    diagnosis = path_doctor.diagnose(env=machine_env)
+    if _WINDOWS:
+        canonical = Path(diagnosis.preferred_yoke_path)
+        login = next(
+            (tool.path for tool in diagnosis.future_resolved if tool.name == "yoke"),
+            None,
+        )
+        interactive = next(
+            (tool.path for tool in diagnosis.current_resolved if tool.name == "yoke"),
+            None,
+        )
+        # The Windows installer ships an extensionless POSIX shim alongside
+        # yoke.cmd. The native PATH diagnosis identifies actual shadowing.
+        shadows = []
+    else:
+        canonical = canonical_shim_path()
+        login = _login_shell_yoke()
+        interactive = shutil.which("yoke", path=machine_env.get("PATH"))
+        shadows = enumerate_shadow_installs(canonical=canonical, env=machine_env)
+
+    problems: list[str] = []
     for context in diagnosis.contexts:
         if context["needs_fix"]:
             problems.append(
                 f"{context['shell']} {context['context']}: {context['reason']}; "
                 + context["recovery"]
             )
+    path_context = "fresh Windows PATH" if _WINDOWS else "fresh login shell"
     if not login:
         problems.append(
-            "fresh login shell resolved no yoke; run `yoke path fix --yes`, then open a new terminal"
+            f"{path_context} resolved no yoke; run `yoke path fix --yes`, then open a new terminal"
         )
     elif Path(login).resolve() != canonical.resolve():
         problems.append(
-            f"login shell resolved {login!r}, not canonical {str(canonical)!r}"
+            f"{path_context} resolved {login!r}, not canonical {str(canonical)!r}"
         )
     else:
         release_problem = _release_problem(login, machine_env)
@@ -209,30 +226,37 @@ def hc_launcher_authority(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         problems.append(
             f"interactive yoke ({interactive}) differs from login-shell yoke ({login})"
         )
-    checkout = _resolve_checkout(args)
     if checkout is not None:
         problems.extend(hook_config_yoke_problems(checkout, canonical))
     if problems:
-        try:
-            recovery = f"Install the release: {install_command()}."
-        except InstallOriginUnavailable as exc:
-            recovery = f"{exc}; then install the release."
+        if _WINDOWS:
+            recovery = (
+                "Repair the installed launcher with `yoke update`, then run "
+                "`yoke path fix --yes` and open a new terminal."
+            )
+        else:
+            try:
+                recovery = f"Install the release: {install_command()}."
+            except InstallOriginUnavailable as exc:
+                recovery = f"{exc}; then install the release."
+            recovery += (
+                " Then repair: python3 -m yoke_core.tools.install_yoke_launcher --repair"
+                " (or `yoke doctor run --quick --fix`). Shadows are quarantined, never deleted."
+            )
         rec.record(
             SLUG,
             TITLE,
             "FAIL",
             "Machine launcher is not canonical.\n  "
             + "\n  ".join(problems)
-            + f"\n  {recovery}"
-            + " Then repair: python3 -m yoke_core.tools.install_yoke_launcher --repair"
-            + "  (or `yoke doctor run --quick --fix`). Shadows are quarantined, never deleted.",
+            + f"\n  {recovery}",
         )
         return
     rec.record(
         SLUG,
         TITLE,
         "PASS",
-        f"Login-shell yoke is the canonical shim ({canonical}).",
+        f"The {path_context} resolves the canonical shim ({canonical}).",
     )
 
 
