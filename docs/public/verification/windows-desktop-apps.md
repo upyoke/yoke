@@ -1,7 +1,7 @@
 # Windows desktop version detection
 
 <!-- yoke:breadcrumbs -->
-[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Verification](index.md) > Windows desktop applications
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Verification](index.md) > Windows desktop apps
 <!-- /yoke:breadcrumbs -->
 
 On native Windows the machine relay detects Claude Desktop, the Codex desktop

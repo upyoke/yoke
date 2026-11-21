@@ -233,7 +233,7 @@ root:
       - {title: "Test Machine desktop", summary: "View remote desktops and recover cleanup or disk-space refusals.", path: "verification/test-machine-desktop.md"}
       - {title: "Linux golden home", summary: "Read Linux baseline capture, restore and timeout recovery.", path: "verification/linux-golden-home.md"}
       - {title: "Linux desktop applications", summary: "Detect installed desktop versions without starting the apps.", path: "verification/linux-desktop-apps.md"}
-      - {title: "Windows desktop applications", summary: "Detect installed Windows desktop versions from the registry.", path: "verification/windows-desktop-apps.md"}
+      - {title: "Windows desktop apps", summary: "Read installed app versions.", path: "verification/windows-desktop-apps.md"}
       - {title: "Product smoke", summary: "Find the source-maintainer smoke procedure and project plan entry.", path: "verification/product-smoke.md"}
       - {title: "Real harness QA", summary: "Find real-harness Machine checks and their subject identity contract.", path: "verification/real-harness.md"}
     - title: "Operations"

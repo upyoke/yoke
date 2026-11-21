@@ -29,7 +29,7 @@ the download filename.
 
 Both relay inventory and single-surface checks use this probe and feed the
 existing surface version floors. macOS continues to read app bundle plists, and
-native Windows reads the registry ([Windows desktop applications](windows-desktop-apps.md)).
+native Windows reads the registry ([Windows desktop apps](windows-desktop-apps.md)).
 The Linux probe does not reach into Windows from WSL. The Codex desktop app has
 no Linux build, so `codex-desktop` reads `missing` on Linux.
 
