@@ -32,7 +32,9 @@ driver: `stage-db-admin` for Stage ownership, `prod-db-admin` for Production. Re
 
 The owner runs member QA (its post-deploy item cases) and keeps its claim.
 The driver logs `Still waiting for scoped QA` per minute, exits 5 at timeout,
-then re-drives; longer silence is stuck. Stop with `yoke qa plan abort`, never kill the runner.
+then re-drives; longer silence is stuck. A recognised scoped-QA hold makes
+`watch deploy` exit 0 and report `outcome: waiting` with `child_exit=5`.
+Stop with `yoke qa plan abort`, never kill the runner.
 
 ```text
 yoke watch qa-plan -- --item PREFIX-N --stage STAGE --project {_project}

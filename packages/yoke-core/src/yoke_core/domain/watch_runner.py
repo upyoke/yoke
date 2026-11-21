@@ -286,7 +286,7 @@ def run_watcher(
         # Completion always flushes: a run that ended mid-window still
         # owes the follower the motion it accumulated.
         if outcome_only:
-            emit_terminal_outcome(
+            return emit_terminal_outcome(
                 kind=kind,
                 exit_code=rc,
                 raw_capture=raw_capture,
@@ -295,7 +295,6 @@ def run_watcher(
                 out=out,
                 result_summary=last_summary,
             )
-            return rc
         else:
             flush_digest()
             if rc:
