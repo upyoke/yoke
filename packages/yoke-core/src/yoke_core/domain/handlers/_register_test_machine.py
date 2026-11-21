@@ -13,10 +13,10 @@ from yoke_core.domain import agent_mission_recording as _agent_mission
 
 
 def register(registry) -> None:
-    from yoke_core.domain.handlers import machine_power_ownership, test_machine_queue
+    from yoke_core.domain.handlers import machine_power_ownership, machine_qa_queue
 
     machine_power_ownership.register(registry)
-    test_machine_queue.register(registry)
+    machine_qa_queue.register(registry)
     from yoke_core.domain.handlers.machine_qa_delete import register as register_delete
 
     register_delete(registry)

@@ -38,6 +38,8 @@ windows-1a2e98d43669eeb8e79e,yoke schema converge,cli,self-hosted-client,must-pa
 windows-78cd73de41661fd7f91e,yoke session control keepalive hold,cli,self-hosted-client,must-pass,,
 windows-c47874c322ebc36ae95e,yoke session control launch preview,cli,local,must-pass,,
 windows-d1b12040d5ce56bb4bde,yoke session control surface policy disable,cli,hosted-client,must-pass,,
+windows-da3cfe9a5c74b973f4de,yoke test machine queue hand over,cli,local,must-pass,,
+windows-d74ccc3b54ea419e215e,yoke test machine queue place,cli,self-hosted-client,must-pass,,
 windows-e78e7940fdec05ccde5e,yoke workflow execution-instruction delete,cli,self-hosted-client,must-pass,,
 windows-285618975f07d0182e5e,yoke workflow item epic dispatch chain refresh activation,cli,self-hosted-client,must-pass,,
 windows-cb4bb64c21a72195d7de,yoke workflow item epic task scope-reopen,cli,local,must-pass,,

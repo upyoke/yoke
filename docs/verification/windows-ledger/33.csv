@@ -31,6 +31,7 @@ windows-0f756be92586710e8d33,yoke strategy doc-claim acquire,cli,hosted-client,m
 windows-faa26b081941040d1433,yoke strategy execution get,cli,self-hosted-client,must-pass,,
 windows-532cc386fd59542d1773,yoke test machine bridge diagnose,cli,hosted-client,must-pass,,
 windows-d9dfe24f903bb906fc33,yoke test machine desktop-access,cli,self-hosted-client,must-pass,,
+windows-d18993c2715287f50933,yoke test machine queue hand-over,cli,hosted-client,must-pass,,
 windows-09b6694ddd6ddd6fd773,yoke workflow item epic dispatch chain refresh activation,cli,hosted-client,must-pass,,
 windows-d2299a82036168b63df3,yoke workflow item epic task review get,cli,local,must-pass,,
 windows-28403934e0ed9f0bd533,yoke workflow item epic task scope-reopen,cli,self-hosted-client,must-pass,,

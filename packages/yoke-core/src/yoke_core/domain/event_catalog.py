@@ -185,6 +185,8 @@ _SPECS: tuple[EventSpec, ...] = (
     EventSpec("QARequirementTargetRebound", "lifecycle", "qa_lifecycle", "qa-db", "STATUS", "QA requirement rebound to the live declaration of the same environment identity, preserving recorded evidence"),
     EventSpec("QARequirementUpdated", "lifecycle", "qa_lifecycle", "qa-db", "INFO", "QA requirement field updated via qa requirement-update"),
     EventSpec("QARequirementWaived", "lifecycle", "qa_lifecycle", "qa-db", "STATUS", "QA requirement waived with rationale"),
+    EventSpec("QaHostTurnHandedOver", "system", "lease_lifecycle", "yoke_core.domain.handlers.machine_qa_queue", "INFO", "A steering seat gave a waiting QA execution an unstarted host turn. Carries actor, host, both execution IDs, position and reason."),
+    EventSpec("QaHostWaiterPlaced", "system", "lease_lifecycle", "yoke_core.domain.handlers.machine_qa_queue", "INFO", "A steering seat moved a waiting execution across its Test Machine lines. Carries actor, execution ID, host, position and reason."),
     EventSpec("QARunCaptured", "lifecycle", "qa_execution", "yoke_core.domain.qa_execution", "INFO", "QA run captured with only an execution_status set (no verdict yet); sibling of QARunCompleted. Stamped with the resolved acting session and actor; when no session exists, session_id and actor_id stay empty."),
     EventSpec("QARunCompleted", "lifecycle", "qa_execution", "yoke_core.domain.qa_events", "INFO", "QA run completed with a verdict and stamped with the resolved acting session and actor; when no session exists, session_id and actor_id stay empty."),
     EventSpec("QARunStarted", "lifecycle", "qa_execution", "qa-db", "INFO", "QA run started (no verdict yet)"),

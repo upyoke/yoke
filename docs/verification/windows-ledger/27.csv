@@ -50,6 +50,7 @@ windows-6959cfb6db6d1c08c7a7,yoke strategy surface list,cli,hosted-client,must-p
 windows-5a03b4be5e984eb45b27,yoke test-machine bridge-diagnose,cli,hosted-client,must-pass,,
 windows-a965c25cf9559be33e67,yoke test-machine delete,cli,self-hosted-client,must-pass,,
 windows-c9a4e65bd807c40b76a7,yoke test-machine desktop-access,cli,local,must-pass,,
+windows-f30576db1b208f26c267,yoke test-machine queue place,cli,local,must-pass,,
 windows-3c099c07eaf779b40b27,yoke universe resume,cli,self-hosted-client,must-pass,,
 windows-634678406696336df2e7,yoke workflow execution instruction resolve,cli,hosted-client,must-pass,,
 windows-7f8e04da466c11b78727,yoke workflow item epic progress note list,cli,self-hosted-client,must-pass,,

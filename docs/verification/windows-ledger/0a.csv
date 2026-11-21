@@ -45,6 +45,7 @@ windows-7da6ae86f1ecbdfa59ca,yoke session-control session wake,cli,self-hosted-c
 windows-a5155e0e7968dc74330a,yoke shepherd caveat disposition,cli,local,must-pass,,
 windows-0f58ff3f94f8ae83e64a,yoke strategy carry summary,cli,self-hosted-client,must-pass,,
 windows-08485e33112ff80bc74a,yoke test machine reset,cli,local,must-pass,,
+windows-d042109a1d0138986f0a,yoke test-machine queue place,cli,self-hosted-client,must-pass,,
 windows-880fd333cfd2edbe388a,yoke watch qa-case,cli,hosted-client,must-pass,,
 windows-e50355817f69cf4a43ca,yoke workflow item epic task review-insert,cli,local,must-pass,,
 windows-6ddabbed62418febccca,yoke workflow-item epic-progress-note list,cli,hosted-client,must-pass,,

@@ -15,7 +15,7 @@ from yoke_contracts.api.function_call import (
 )
 from yoke_core.domain.coordination_claims import acquire, active_claim, release
 from yoke_core.domain.db_helpers import query_one
-from yoke_core.domain.handlers.test_machine_queue import (
+from yoke_core.domain.handlers.machine_qa_queue import (
     HandOverRequest,
     PlaceRequest,
     _edit,

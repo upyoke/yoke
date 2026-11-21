@@ -24,6 +24,7 @@ windows-95c03ec2066d2e71a6ec,yoke session-control launch retry,cli,self-hosted-c
 windows-921a7c1f62dea528bc2c,yoke sessions list,cli,self-hosted-client,must-pass,,
 windows-347ee44579f202c03b2c,yoke strategy carry mark,cli,local,must-pass,,
 windows-2806ee745c78a477a5ac,yoke strategy carry summary,cli,hosted-client,must-pass,,
+windows-774c78c2550611d8c42c,yoke test machine queue hand over,cli,hosted-client,must-pass,,
 windows-91e513bfdc4ebac7606c,yoke test machine reset,cli,hosted-client,must-pass,,
 windows-7f2a4b684837e04b35ac,yoke test-machine get,cli,local,must-pass,,
 windows-454765b4eca3c6c113ac,yoke workflow execution instruction resolve,cli,local,must-pass,,

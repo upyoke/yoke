@@ -32,6 +32,7 @@ windows-ee4d5c892e5a10d1b0b1,yoke strategy carry register-new,cli,self-hosted-cl
 windows-6ef99f5d4e611e4d1e71,yoke strategy doc claim list,cli,local,must-pass,,
 windows-83d9ad0f5fc6bf2fcd31,yoke test-machine delete,cli,local,must-pass,,
 windows-91fc7559e38afdfc5231,yoke test-machine get,cli,self-hosted-client,must-pass,,
+windows-afadcadf4260850b92b1,yoke test-machine queue hand-over,cli,hosted-client,must-pass,,
 windows-c4455f3c4f800cdc1f31,yoke workflow item epic task metadata update,cli,self-hosted-client,must-pass,,
 windows-d0b67851b70610647071,yoke workflow item epic task reassign,cli,self-hosted-client,must-pass,,
 windows-fe4aefe36dd47b4fd231,yoke workflow item epic task scope finalize,cli,self-hosted-client,must-pass,,

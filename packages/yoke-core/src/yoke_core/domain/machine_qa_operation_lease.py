@@ -155,17 +155,17 @@ def begin_operation_execution(
             plan_execution_id=plan_execution_id,
         )
     )
-    if mission is None:
-        lock_host_queue(conn)
-        lease = active_claim(
-            conn, host_claim_target(candidate.settings["resource_name"])
-        )
     if mission is None and plan_execution_id is not None:
         raise MachineQaProtocolError(
             f"plan_golden_refresh_lease_missing: plan {plan_execution_id} does "
             f"not hold the lease on {candidate.settings['resource_name']}; its "
             "machine case must begin before it refreshes that host's golden. "
             "Rerun the QA plan"
+        )
+    if mission is None:
+        lock_host_queue(conn)
+        lease = active_claim(
+            conn, host_claim_target(candidate.settings["resource_name"])
         )
     if mission is None and holds_plan_turn(conn, lease, actor):
         # Consuming the reservation would release the plan's turn on submit.
