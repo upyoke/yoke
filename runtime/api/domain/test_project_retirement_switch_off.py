@@ -313,6 +313,7 @@ def test_reported_command_removes_capability(conn, monkeypatch, capsys):
     actor_id = seed_human_reviewer(conn, 30)
     monkeypatch.setenv("YOKE_ACTOR_ID", str(actor_id))
     result = set_retirement(conn, "fixture", retired=True, reason="QA finished")
+    conn.commit()
     command = next(
         cmd
         for entry in result["remaining_attachments"]
