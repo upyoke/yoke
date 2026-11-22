@@ -47,7 +47,7 @@ CORE_LAYERS = {
     "migrations": """
         migration_content_adoption migration_content_schema
         migration_content_schema_ownership migration_content_transition_guard
-        migration_fleet_ownership
+        migration_fleet_ownership migration_history
     """.split(),
 }
 ALLOWED_CORE = {

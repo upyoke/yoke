@@ -62,7 +62,7 @@ class RunTerminalizationRejected(ValueError):
     """The requested run cannot be terminalized."""
 
 
-def append_terminalization_event(
+def _append_event(
     conn: Any,
     *,
     run_id: str,
@@ -169,7 +169,7 @@ def terminalize_run_on(
         withdraw_deployment_qa_wait_wakes(
             conn, run_id=run_id, reason=f"run_terminal:{final_status}"
         )
-    event_id = append_terminalization_event(
+    event_id = _append_event(
         conn,
         run_id=run_id,
         project=str(run["project"]),

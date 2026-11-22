@@ -30,12 +30,11 @@ finished executions are untouched. Only changed entries are replaced, a null
 ``method_config`` or kinds list stays null, and a second run finds nothing.
 """
 
+import json
+import uuid
 from pathlib import Path
 
-from yoke_contracts.timestamps import utc_now
-from yoke_core.domain.deployment_run_terminalization import (
-    append_terminalization_event,
-)
+from yoke_contracts.timestamps import format_instant, utc_now
 from yoke_core.domain.migration_history import load_migration_module
 
 MINIMUM_SERVING_VERSION = "next-release"
@@ -141,6 +140,34 @@ def _pending(conn):
     return (cases, requirements, executions), runs, items
 
 
+def _audit(conn, run_id, project_id, project, stage):
+    """The ``DeploymentRunTerminalized`` row ``deployment-runs terminalize`` writes."""
+    now = utc_now()
+    event_id = str(uuid.uuid4())
+    session = f"migration:{_NAME}"
+    envelope = {
+        "event_id": event_id, "event_name": "DeploymentRunTerminalized",
+        "event_kind": "lifecycle", "event_type": "deployment_run",
+        "source_type": "backend", "session_id": session, "actor_id": None,
+        "severity": "STATUS", "event_outcome": "completed", "service": "cli",
+        "project": project, "agent": session, "created_at": format_instant(now),
+        "context": {
+            "run_id": run_id, "prior_status": "failed", "final_status": "cancelled",
+            "current_stage": stage, "reason": _CANCEL_REASON,
+            "terminalized_at": format_instant(now), "terminalized_by_actor_id": None,
+            "terminalized_by_session_id": session,
+        },
+    }
+    conn.execute(
+        "INSERT INTO events(event_id,event_name,event_kind,event_type,source_type,"
+        "session_id,severity,event_outcome,service,project_id,agent,envelope,created_at) "
+        "VALUES (%s,%s,'lifecycle','deployment_run','backend',%s,'STATUS','completed',"
+        "'cli',%s,%s,%s,%s)",
+        (event_id, envelope["event_name"], session, project_id, session,
+         json.dumps(envelope), now),
+    )
+
+
 def _cancel_old_model_runs(conn):
     """Close failed runs no current plan-group retry can resume."""
     for (run_id,) in conn.execute(_OLD_MODEL_FAILED_RUNS).fetchall():
@@ -152,12 +179,7 @@ def _cancel_old_model_runs(conn):
         conn.execute(
             "UPDATE deployment_runs SET status='cancelled' WHERE id=%s", (run_id,)
         )
-        append_terminalization_event(
-            conn, run_id=str(run_id), project=str(project), project_id=int(project_id),
-            prior_status="failed", final_status="cancelled", current_stage=str(stage),
-            reason=_CANCEL_REASON, actor_id=None, session_id=f"migration:{_NAME}",
-            terminalized_at=utc_now(),
-        )
+        _audit(conn, str(run_id), int(project_id), str(project), str(stage))
 
 
 def apply(conn):
