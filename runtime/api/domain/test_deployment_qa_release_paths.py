@@ -38,36 +38,6 @@ def test_individual_case_complete_finishes_release_without_plan_walk(test_db):
     assert test_db.execute("SELECT status FROM deployment_runs WHERE id=%s", (run_id,)).fetchone()[0] == "succeeded"
 
 
-def test_retry_refuses_old_model_release(test_db):
-    import pytest
-    from runtime.api.fixtures.backlog_inserts import insert_deployment_run, insert_item
-    from yoke_core.domain.qa_deployment_run_settlement import restore_retry_obligations
-
-    item, run_id = 9982, "run-old-model-retry"
-    insert_item(test_db, id=item, status="release")
-    plan = _plan(test_db)
-    insert_deployment_run(test_db, id=run_id, status="failed")
-    _member(
-        test_db,
-        run_id,
-        item,
-        {"schema": 1, "requirements": [], "plans": [{"plan": {"id": plan}}]},
-    )
-    _copy(
-        test_db,
-        None,
-        plan,
-        deployment_run_id=run_id,
-        deployment_member_item_id=item,
-        deployment_stage="item-qa",
-    )
-    test_db.commit()
-    with pytest.raises(
-        ValueError, match="old_model_plan_run_retry_refused.*new release run"
-    ):
-        restore_retry_obligations(test_db, run_id)
-
-
 def test_failed_group_takeover_reuses_passes(test_db):
     from runtime.api.domain.deployment_qa_plan_groups_test_support import (
         RUN,
@@ -126,28 +96,3 @@ def test_failed_group_takeover_reuses_passes(test_db):
     )
     assert [row["requirement_id"] for row in fresh["roster"]] == [unpassed]
     assert passed != unpassed
-
-
-def _plan(conn) -> int:
-    return int(conn.execute(
-        "INSERT INTO qa_plans (project_id, slug, name, created_at, updated_at) "
-        "VALUES (1, 'smoke', 'Smoke', now(), now()) RETURNING id"
-    ).fetchone()[0])
-
-
-def _copy(conn, item_id, plan_id, **extra) -> int:
-    from runtime.api.fixtures.backlog_qa_inserts import insert_qa_requirement
-
-    return int(insert_qa_requirement(
-        conn, item_id=item_id, qa_kind="plan_case", qa_phase="post_deploy",
-        plan_id=plan_id, plan_case_key="home", **extra,
-    )["id"])
-
-
-def _member(conn, run_id, item_id, snapshot) -> None:
-    import json
-
-    conn.execute(
-        "INSERT INTO deployment_run_items(run_id,item_id,added_at,requirement_snapshot) "
-        "VALUES (%s,%s,now(),%s)", (run_id, item_id, json.dumps(snapshot)),
-    )

@@ -41,7 +41,9 @@ Record tags in each host's non-secret settings as comma-separated text, using
 Edit settings or `yoke test-machine settings-replace`. Every case tag must be
 present on the selected host; slotted cases apply them to every slot. Test
 Machines of one kind are identical, so a case never names a host: authoring
-refuses one with `test_machine_name_forbidden`.
+refuses one with `test_machine_name_forbidden`. Frozen deployment run snapshots were
+converted to OS form like other stored cases, so a stage never refuses a case
+only because its frozen copy once named a host.
 
 A replacement case starts with no inherited machine preference. A resumed QA
 execution keeps the host from its own execution history or continuation chain,

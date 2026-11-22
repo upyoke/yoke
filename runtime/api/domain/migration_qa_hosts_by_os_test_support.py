@@ -1,4 +1,4 @@
-"""Temporary stored-QA tables and seeding for migration 0119's tests."""
+"""Temporary stored-QA tables and seeding for migrations 0119 and 0120's tests."""
 
 from __future__ import annotations
 
@@ -27,7 +27,8 @@ _SCHEMA = (
     "method_config TEXT, host_baselines TEXT, starting_state TEXT, updated_at TEXT)",
     "CREATE TEMP TABLE qa_requirements(id INTEGER, runner_id TEXT, method_config TEXT, "
     "capability_requirements TEXT, host_baseline TEXT, starting_state TEXT, retracted_at TEXT, "
-    "superseded_by_requirement_id INTEGER, waived_at TEXT)",
+    "superseded_by_requirement_id INTEGER, waived_at TEXT, deployment_run_id TEXT, "
+    "deployment_member_item_id INTEGER, plan_id INTEGER, execution_target_json TEXT)",
     "CREATE TEMP TABLE qa_plan_executions(id TEXT, roster_json TEXT, roster_digest TEXT, "
     "cursor_ordinal INTEGER, session_id TEXT, state TEXT, release_reason TEXT, "
     "test_machine_lease_id INTEGER)",
@@ -37,11 +38,15 @@ _SCHEMA = (
     "CREATE UNIQUE INDEX temp_live_wait ON qa_test_machine_waits(test_machine, session_id) "
     "WHERE state IN ('waiting','reserved')",
     "CREATE TEMP TABLE qa_runs(id INTEGER, method_config TEXT)",
+    "CREATE TEMP TABLE deployment_runs(id TEXT, project_id INTEGER, status TEXT, "
+    "current_stage TEXT, requirement_snapshot TEXT)",
+    "CREATE TEMP TABLE deployment_run_items(run_id TEXT, item_id INTEGER, "
+    "requirement_snapshot TEXT)",
 )
 
 
-def migration():
-    path = Path(migrations.__file__).parent / f"{MIGRATION}.py"
+def migration(name=MIGRATION):
+    path = Path(migrations.__file__).parent / f"{name}.py"
     return load_migration_module(path, path.stem)
 
 
@@ -50,7 +55,7 @@ def _table(statement):
 
 
 def add_tables(conn, backend, names):
-    """Create the temporary tables 0119 reads that *names* lists."""
+    """Create the temporary tables 0119 and 0120 read that *names* lists."""
     for statement in _SCHEMA:
         if _table(statement) not in names:
             continue

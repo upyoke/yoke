@@ -12734,7 +12734,6 @@
   "runtime/api/domain/test_deployment_qa_release_version.py::test_unpublished_pinned_release_refuses_with_named_reason": 0.17922,
   "runtime/api/domain/test_deployment_qa_release_version.py::test_unreadable_candidate_source_refuses_with_recovery": 0.168237,
   "runtime/api/domain/test_deployment_qa_release_version.py::test_unreadable_installer_origin_refuses_as_unverified": 0.171232,
-  "runtime/api/domain/test_deployment_qa_repaired_snapshots.py::test_reviewed_images_keep_whole_run_contract_and_acceptance_read_only": 0.008847,
   "runtime/api/domain/test_deployment_qa_result_notice.py::test_a_later_rejection_is_its_own_event": 0.131777,
   "runtime/api/domain/test_deployment_qa_result_notice.py::test_a_role_audience_reaches_its_holders_only": 0.114083,
   "runtime/api/domain/test_deployment_qa_result_notice.py::test_a_run_scoped_result_reports_the_whole_batch": 0.084747,
