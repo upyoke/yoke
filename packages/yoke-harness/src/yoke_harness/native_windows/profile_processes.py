@@ -76,6 +76,9 @@ function Get-YokeProfileProcesses {
   [pscustomobject]@{process=$proc;path=$exe;packaged=$packaged}
  }
 }
+function Get-YokeSessionProfileProcesses {
+ Get-YokeProfileProcesses | Where-Object {$_.process.SessionId -eq $stopSession}
+}
 """
 
 _TARGETS = r"""$packages=@()
@@ -115,20 +118,34 @@ $targets=@(foreach($entry in $stopped){
 Write-Output ('YOKE_RESET_DESKTOP_TARGETS '+(ConvertTo-Json -Compress -InputObject $targets))
 """
 
-_STOP = r"""# Stop selected processes individually so preserved children stay live.
-foreach($entry in $stopped){
- Stop-Process -InputObject $entry.process -Force -ErrorAction SilentlyContinue
+_STOP = r"""function Test-YokeProcessRunning($entry){
+ try {!$entry.process.HasExited} catch {
+  (Get-YokeOwnedExecutable $entry.process.Id) -eq $entry.path
+ }
 }
+# Stop selected processes individually so preserved children stay live.
+# A stop can bring up a replacement, so relist until the session is clear.
+$stopping=$stopped
+$clear=$false
 $deadline=[DateTime]::UtcNow.AddSeconds(20)
 do {
- $alive=@($stopped | Where-Object {
-  $entry=$_
-  try {!$entry.process.HasExited} catch {
-   (Get-YokeOwnedExecutable $entry.process.Id) -eq $entry.path
-  }
- })
- if(!$alive.Count){break}; Start-Sleep -Milliseconds 250
+ foreach($entry in $stopping){
+  Stop-Process -InputObject $entry.process -Force -ErrorAction SilentlyContinue
+ }
+ $stopping=@()
+ $alive=@($stopped | Where-Object {Test-YokeProcessRunning $_})
+ if($alive.Count){Start-Sleep -Milliseconds 250; continue}
+ $stopping=@(Get-YokeSessionProfileProcesses | Where-Object {Test-YokeProcessRunning $_})
+ if(!$stopping.Count){$clear=$true; break}
+ $stopped+=$stopping
 } while([DateTime]::UtcNow -lt $deadline)
+if(!$clear){
+ $alive=@($stopped | Where-Object {Test-YokeProcessRunning $_})
+ $aliveIds=@($alive | ForEach-Object {$_.process.Id})
+ $alive+=@(Get-YokeSessionProfileProcesses | Where-Object {
+  (Test-YokeProcessRunning $_) -and ($aliveIds -notcontains $_.process.Id)
+ })
+}
 """
 
 _REFUSE = r"""if($alive.Count){
@@ -195,7 +212,7 @@ def profile_process_stop_script(home, preserved, *, desktop=False):
     return (
         "$ErrorActionPreference='Stop'\n"
         + _preamble(home, preserved)
-        + "$stopped=@(Get-YokeProfileProcesses | Where-Object {$_.process.SessionId -eq $stopSession})\n"
+        + "$stopped=@(Get-YokeSessionProfileProcesses)\n"
         + (_TARGETS if desktop else "")
         + _STOP
         + ("" if desktop else "$alive=@($alive)+@(Get-YokeProfileProcesses)\n")
