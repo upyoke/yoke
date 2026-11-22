@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from yoke_cli.commands import self_host as commands
-from yoke_cli.config import server_connect, writer
+from yoke_cli.config import machine_uninstall, machine_uninstall_steps, server_connect, writer
 from yoke_cli.self_host import first_boot_token, teardown
 
 
@@ -78,3 +78,23 @@ def seed_connection(
 
 def payload(machine_home: Path) -> dict:
     return json.loads((machine_home / "config.json").read_text(encoding="utf-8"))
+
+
+@pytest.fixture()
+def installation_commands(monkeypatch) -> list[tuple]:
+    """Stub the local removal commands, keeping config retirement real."""
+    calls: list[tuple] = []
+
+    def command(args, *, config):
+        calls.append(("yoke", *args))
+        assert config.is_file()
+        return ""
+
+    def finish(*, config, keep_bundle, emit):
+        calls.append(("uninstall", config, keep_bundle))
+        emit("CLI: handed off")
+        return 0
+
+    monkeypatch.setattr(machine_uninstall_steps, "command", command)
+    monkeypatch.setattr(machine_uninstall, "after_self_host_teardown", finish)
+    return calls

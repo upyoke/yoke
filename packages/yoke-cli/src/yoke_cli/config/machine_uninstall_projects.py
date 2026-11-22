@@ -9,19 +9,18 @@ relay, a hook or a server that the project step's retry still needs.
 from __future__ import annotations
 
 from collections.abc import Callable
+import json
 from pathlib import Path
 
-from yoke_cli.config.machine_uninstall_inventory import Inventory
 
-
-def project_args(checkout: Path, inventory: Inventory, *, check: bool = False) -> list[str]:
+def project_args(checkout: Path, config: Path, *, check: bool = False) -> list[str]:
     """The project uninstall command machine uninstall runs for *checkout*."""
     return [
         "project",
         "uninstall",
         str(checkout),
         "--config",
-        str(inventory.config),
+        str(config),
         "--remove-lanes",
         *(["--check"] if check else []),
         "--json",
@@ -29,17 +28,26 @@ def project_args(checkout: Path, inventory: Inventory, *, check: bool = False) -
 
 
 def preflight(
-    inventory: Inventory,
-    selected: tuple[Path, ...],
+    checkouts: tuple[Path, ...],
+    config: Path,
     command: Callable[[list[str]], str],
 ) -> list[str]:
     """Return one ``project PATH: refused (...)`` line per checkout that would refuse."""
     refusals = []
-    for checkout in inventory.projects:
-        if checkout not in selected:
-            continue
+    for checkout in checkouts:
         try:
-            command(project_args(checkout, inventory, check=True))
+            command(project_args(checkout, config, check=True))
         except Exception as exc:  # noqa: BLE001 — every refusal is reported by name
             refusals.append(f"project {checkout}: refused ({exc})")
     return refusals
+
+
+def warnings(args: list[str], stdout: str) -> list[str]:
+    """Read the named reasons from a project uninstall JSON report."""
+    if args[:2] != ["project", "uninstall"]:
+        return []
+    try:
+        report = json.loads(stdout)
+    except ValueError:
+        return []
+    return list(report.get("warnings") or []) if isinstance(report, dict) else []

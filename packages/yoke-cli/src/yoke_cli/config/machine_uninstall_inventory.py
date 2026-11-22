@@ -18,6 +18,7 @@ from yoke_cli.project_install.files import MANIFEST_REL
 from yoke_cli.self_host import bundle, teardown
 from yoke_contracts import owner_private_path
 from yoke_contracts.machine_config import schema
+from yoke_contracts.platform_fs import remove_tree
 
 
 # Native Windows hosts no self-host server: one Docker shows here runs in WSL2.
@@ -40,13 +41,14 @@ class Inventory:
     discovery_error: str = ""
     # Seen from native Windows, a self-host server runs in WSL2 and is torn down there.
     wsl_bundles: tuple[str, ...] = ()
+    keep_bundle: Path | None = None
 
     @property
     def owns_data(self) -> bool:
         return self.local_universe or bool(self.bundles)
 
 
-def inspect() -> Inventory:
+def inspect(config_path: Path | None = None) -> Inventory:
     binding = install_binding.detect()
     if binding["kind"] == install_binding.KIND_SOURCE_CHECKOUT:
         raise UninstallError(
@@ -55,7 +57,7 @@ def inspect() -> Inventory:
             "retire that checkout; run uninstall only from a packaged install."
         )
     home = machine_config.yoke_home().expanduser().absolute()
-    config = machine_config.config_path().absolute()
+    config = machine_config.config_path(config_path).absolute()
     payload = machine_config.load_config(config)
     registered = machine_config.all_registered_checkouts(config)
     _assert_safe_home(home, registered)
@@ -242,3 +244,17 @@ def _self_host_directories() -> tuple[tuple[str, ...], str]:
             (),
             f"uninstall_docker_inventory_failed: {type(exc).__name__}; repair Docker and retry.",
         )
+
+
+def remove_home_except_bundle(home: Path, bundle: Path) -> None:
+    """Remove machine state around a retained bundle inside the machine home."""
+    directory = home
+    for part in bundle.relative_to(home.resolve()).parts:
+        for entry in directory.iterdir():
+            if entry.name == part:
+                continue
+            if entry.is_symlink() or not entry.is_dir():
+                entry.unlink()
+            else:
+                remove_tree(entry)
+        directory /= part

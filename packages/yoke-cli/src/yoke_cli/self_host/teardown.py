@@ -7,9 +7,8 @@ machine config whose active authority pointed at a server that no longer
 answers — none of it reachable through any Yoke command, so the only way out
 was editing ``~/.yoke/config.json`` by hand.
 
-Every step past stopping the stack is opt-in and named for what it destroys.
-The database volume is the universe itself, so it takes both its own flag and
-consent.
+The database volume is the universe itself, so removal takes its own flag
+and consent.
 """
 
 from __future__ import annotations
@@ -68,8 +67,10 @@ def tear_down(
     connection_report = None
     connections_left: list[dict[str, str]] = []
     machine_locks_removed: list[str] = []
+    relays_removed: list[str] = []
+    projects_uninstalled: list[str] = []
     if not keep_connection:
-        connection_report, connections_left = _retire_connections(
+        connection_report, connections_left, relays_removed, projects_uninstalled = _retire_connections(
             target,
             activate=activate,
             config_path=config_path,
@@ -103,10 +104,26 @@ def tear_down(
         "connection": connection_report,
         "connections_left": connections_left,
         "machine_locks_removed": machine_locks_removed,
+        "relays_removed": relays_removed,
+        "projects_uninstalled": projects_uninstalled,
+        "machine_uninstall": [],
     }
     for image in images:
         removed = _remove_image(docker, target, image)
         report["images_removed" if removed else "images_retained"].append(image)
+    if not keep_connection:
+        from yoke_contracts.machine_config import reader as machine_config
+        from yoke_cli.self_host.teardown_installation import finish_machine
+
+        try:
+            report["machine_uninstall"] = finish_machine(
+                machine_config.config_path(config_path).absolute(), target
+            )
+        except (OSError, RuntimeError, ValueError) as exc:
+            raise SelfHostTeardownError(
+                f"Stack removed, but machine uninstall failed: {exc}. "
+                "Repair the reported step and retry self-host teardown."
+            ) from exc
     if remove_bundle:
         _remove_bundle_files(target, report)
     return report
@@ -187,27 +204,10 @@ def _remove_bundle_files(target: Path, report: dict[str, Any]) -> None:
             break
 
 
-def _retire_connections(
-    target: Path,
-    *,
-    activate: str | None,
-    config_path: str | None,
-    remove: Callable[..., dict[str, Any]] | None,
-) -> tuple[dict[str, Any] | None, list[dict[str, str]]]:
-    """Atomically remove every connection that reaches this bundle.
-
-    A connection reaches it when its URL is the bundle's published URL, or
-    when its own token proves an identity at that URL while the stack is
-    still up: a client behind a TLS proxy holds a token this universe minted.
-    A connection whose probe fails is kept and returned as left, named.
-    """
-    from yoke_contracts.machine_config import reader as machine_config
-    from yoke_cli.config import writer
-
-    retire = remove or writer.remove_connections
-    payload = machine_config.load_config(config_path)
-    connections = payload.get("connections")
-    connections = connections if isinstance(connections, dict) else {}
+def _bundle_connections(
+    target: Path, connections: dict[str, Any]
+) -> tuple[list[str], list[dict[str, str]]]:
+    """Match the published URL or prove that the bundle issued the alias's token."""
     url = bundle_connect_url(target)
     selected: list[str] = []
     left: list[dict[str, str]] = []
@@ -223,19 +223,46 @@ def _retire_connections(
                 selected.append(str(name))
             else:
                 left.append({"env": str(name), "api_url": api_url, "reason": refusal})
+    return selected, left
+
+
+def _retire_connections(
+    target: Path,
+    *,
+    activate: str | None,
+    config_path: str | None,
+    remove: Callable[..., dict[str, Any]] | None,
+) -> tuple[dict[str, Any] | None, list[dict[str, str]], list[str], list[str]]:
+    from yoke_contracts.machine_config import reader as machine_config
+    from yoke_cli.config import writer
+    from yoke_cli.config.writer_connection_remove import resolve_active_authority
+    from yoke_cli.self_host.teardown_installation import remove_layers
+
+    config = machine_config.config_path(config_path).absolute()
+    payload = machine_config.load_config(config)
+    entries = payload.get("connections")
+    connections = entries if isinstance(entries, dict) else {}
+    selected, left = _bundle_connections(target, connections)
     if not selected:
         if activate is not None:
             raise SelfHostTeardownError(
                 f"--activate {activate} has no effect because no machine "
-                f"connection reaches {url}; omit --activate and re-run"
+                f"connection reaches {bundle_connect_url(target)}; omit --activate and re-run"
             )
-        return None, left
+        return None, left, [], []
     try:
-        return retire(selected, activate=activate, path=config_path), left
+        resolve_active_authority(
+            dict(payload), envs=set(selected), activate=activate, connections=connections
+        )
+        relays, projects = remove_layers(selected, payload, config)
+        retired = (remove or writer.remove_connections)(
+            selected, activate=activate, path=config
+        )
+        return retired, left, relays, projects
     except Exception as exc:  # noqa: BLE001 - reported as a teardown refusal
         raise SelfHostTeardownError(
-            f"connection retirement refused before the stack was touched: {exc}. "
-            "Correct the connection choice or machine-config state, then re-run"
+            f"teardown refused before stopping the stack: {exc}. "
+            "Repair the reported step and retry self-host teardown"
         ) from exc
 
 
