@@ -62,7 +62,7 @@ function Get-YokeTaskFolder($path) {
  }
  return $folder
 }
-function New-YokeInteractiveTask($name,$arguments,$seconds) {
+function New-YokeInteractiveTask($name,$path,$arguments,$seconds) {
  if(Get-YokeTask $name){throw 'windows_task_exists: preserve the existing task and choose a fresh task name'}
  $definition=$schedule.NewTask(0)
  $definition.Principal.UserId=$taskIdentity.User.Value
@@ -73,7 +73,7 @@ function New-YokeInteractiveTask($name,$arguments,$seconds) {
  $definition.Settings.StopIfGoingOnBatteries=$false
  $definition.Settings.AllowDemandStart=$true
  $action=$definition.Actions.Create(0)
- $action.Path='powershell.exe'; $action.Arguments=$arguments
+ $action.Path=$path; $action.Arguments=$arguments
  # TASK_CREATE, INTERACTIVE_TOKEN; never update a colliding task or elevate.
  $schedule.GetFolder('\').RegisterTaskDefinition($name,$definition,2,$taskIdentity.User.Value,$null,3,$null)
 }
@@ -97,8 +97,8 @@ def start_fixed_task(name):
     return HELPERS + f"$task=Get-YokeTask {quote(name)}; if(!$task){{throw 'windows_task_missing: provision the fixed recovery task'}}; $task.Run($null) | Out-Null"
 
 
-def create_interactive_task(name, arguments, seconds):
-    return HELPERS + f"$task=New-YokeInteractiveTask {quote(name)} {quote(arguments)} {int(seconds)}; $task.Run($null) | Out-Null"
+def create_interactive_task(name, path, arguments, seconds):
+    return HELPERS + f"$task=New-YokeInteractiveTask {quote(name)} {quote(path)} {quote(arguments)} {int(seconds)}; $task.Run($null) | Out-Null"
 
 
 def remove_owned_task(name):

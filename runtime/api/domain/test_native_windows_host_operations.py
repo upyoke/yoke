@@ -99,8 +99,8 @@ def test_desktop_task_uses_interactive_user_and_is_cleaned(hidden):
     assert "Principal.LogonType=3" in scripts[0]
     assert "Principal.RunLevel=0" in scripts[0]
     assert "Remove-YokeTask 'YokeQa-" in scripts[-1]
-    expected = "-WindowStyle Hidden" if hidden else "-WindowStyle Normal"
-    assert expected in scripts[0] and expected in scripts[-1]
+    path, args = ("conhost.exe", "'--headless powershell.exe -NoLogo -NoProfile -File ") if hidden else ("powershell.exe", "'-NoLogo -NoProfile -WindowStyle Normal -File ")
+    assert f"'{path}' {args}" in scripts[0] and f"Path -ne '{path}' -or" in scripts[-1] and f"Arguments -ne {args}" in scripts[-1] and ("-WindowStyle" in scripts[0]) is not hidden
     assert uploads[0][1] == "exit 7"
 
 

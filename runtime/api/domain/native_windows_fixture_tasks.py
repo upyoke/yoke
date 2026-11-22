@@ -83,7 +83,7 @@ Assert-Denied 'delete_directory' {[IO.Directory]::Delete('C:\ProgramData\YokeQa\
     restore_path = "$null" if saved_path is None else quote(saved_path)
     try:
         created = control._run(HELPERS + f"""
-$task=New-YokeInteractiveTask {quote(name)} '-NoProfile -Command exit' 60
+$task=New-YokeInteractiveTask {quote(name)} 'powershell.exe' '-NoProfile -Command exit' 60
 if(!(Test-YokeTaskOwner $task) -or $task.Definition.Principal.LogonType -ne 3 -or $task.Definition.Principal.RunLevel -ne 0){{throw 'owned limited interactive task not established'}}
 $folder=$schedule.GetFolder('\').CreateFolder({quote(folder_name)},$null)
 $folder.RegisterTaskDefinition('nested',$task.Definition,2,$taskIdentity.User.Value,$null,3,$null) | Out-Null
@@ -100,7 +100,7 @@ Set-Content -LiteralPath {quote(sealed)} -Value fixture
 $task=Get-YokeTask {quote(name)}
 $definition=$task.Definition; $definition.Actions.Item(1).Arguments='-NoProfile -Command wrong'
 $schedule.GetFolder('\').RegisterTaskDefinition({quote(name)},$definition,4,$taskIdentity.User.Value,$null,3,$null) | Out-Null
-New-YokeInteractiveTask {quote(extra)} '-NoProfile -Command exit' 60 | Out-Null
+New-YokeInteractiveTask {quote(extra)} 'powershell.exe' '-NoProfile -Command exit' 60 | Out-Null
 $schedule.GetFolder({quote(chr(92) + folder_name)}).DeleteTask('nested',0)
 $schedule.GetFolder('\').DeleteFolder({quote(folder_name)},0)
 [Environment]::SetEnvironmentVariable('Path','fixture-path-change','User')
