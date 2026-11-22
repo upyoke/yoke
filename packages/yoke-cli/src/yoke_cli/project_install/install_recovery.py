@@ -277,6 +277,43 @@ def recoverable_checkout(root: Path) -> bool:
     return True
 
 
+def unclaimed_dirt(root: Path, recovery_accepted: bool) -> list[str]:
+    """Dirty paths an interrupted install's rejected recovery may leave behind."""
+    if recovery_accepted or not pending(root):
+        return []
+    paths = [
+        checkout_gate._porcelain_path(line) for line in checkout_gate.porcelain(root)
+    ]
+    return [rel for rel in paths if rel != PENDING_REL]
+
+
+def refuse_unclaimed_dirt(root: Path, before: list[str]) -> None:
+    """Never report success over paths a rejected recovery left uncommitted."""
+    if not before:
+        return
+    dirty = [
+        checkout_gate._porcelain_path(line) for line in checkout_gate.porcelain(root)
+    ]
+    left = sorted(
+        rel
+        for rel in dirty
+        if rel != PENDING_REL
+        and any(
+            rel == old or rel.startswith(old.rstrip("/") + "/")
+            or old.startswith(rel.rstrip("/") + "/")
+            for old in before
+        )
+    )
+    if left:
+        listed = "\n".join(f"  {rel}" for rel in left)
+        raise ProjectInstallError(
+            "install_recovery_incomplete: an interrupted install left these "
+            f"paths uncommitted, and this install could not prove they are its own:\n{listed}\n"
+            "recipe: review them with `git status`, commit or restore them, then "
+            "rerun or resume this install; the interrupted apply record was retained."
+        )
+
+
 def removed_owned_paths(root: Path, existing: list[str]) -> list[str]:
     """Recover positively owned deletions after an earlier apply lost its record."""
     from yoke_cli.project_install import checkout_gate

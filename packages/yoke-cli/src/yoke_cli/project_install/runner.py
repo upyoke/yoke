@@ -100,6 +100,8 @@ def install(
     from yoke_cli.project_install.install_recovery import (
         pending,
         recoverable_checkout,
+        refuse_unclaimed_dirt,
+        unclaimed_dirt,
         PENDING_REL,
     )
 
@@ -115,6 +117,7 @@ def install(
         if recovery_checkout
         else []
     )
+    unclaimed = unclaimed_dirt(root, recovery_checkout)
     checkout = checkout_gate.assert_ready_for_write(
         root,
         default_branch=default_branch,
@@ -189,6 +192,7 @@ def install(
     onboard_publication_receipts.record_created(root, report["commit"])
     if commit:
         checkout_gate.assert_paths_committed(root, recovered_paths)
+        refuse_unclaimed_dirt(root, unclaimed)
     # After the commit: a just-cloned empty repository has no HEAD to read
     # until the installer's first commit exists.
     report["snapshot_sync"] = sync_local_snapshot_for_write(
