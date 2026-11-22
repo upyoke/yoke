@@ -6,7 +6,8 @@ from typing import Any
 
 
 ACQUIRE_HOST = (
-    "Declare method_config.test_machine on your QA case and run its scoped plan "
+    "Declare method_config.os or OS slots in method_config.test_machines on "
+    "your QA case and run its scoped plan "
     "to acquire the host lease before retrying the operation"
 )
 

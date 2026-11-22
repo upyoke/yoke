@@ -53,9 +53,9 @@ mission operations update the last receipt; identical retries reuse evidence.
 Golden-capture contracts bind their destination and omit the baseline pointers
 they update, so recording a capture does not invalidate its submission retry.
 
-A local Command case that drives a specific host declares `method_config.test_machine`
-with the dependency in `test_machine_reason`.
-The plan acquires that machine through the existing host line before running
+A local Command case that drives a host declares `method_config.os` (or OS
+slots) and `host_baselines` or `inherit`.
+The plan acquires a matching machine through the existing host line before running
 the command, heartbeats the plan during execution, and retains custody until
 the plan settles. The command runs locally; this declaration grants host
 custody, not remote shell execution. Nested `yoke test-machine` operations

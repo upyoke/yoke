@@ -57,9 +57,7 @@ PROOF = {
 
 
 def _cases() -> list[dict]:
-    return installer_campaign_cases_for_target(
-        _target("prod"), primary_machine="primary", joining_machine="joining"
-    )
+    return installer_campaign_cases_for_target(_target("prod"), os="macos")
 
 
 def _admission() -> list[dict]:
@@ -71,11 +69,12 @@ def test_eight_journeys_follow_the_original_cases_unchanged() -> None:
     original = [case["case_key"] for case in INSTALLER_CAMPAIGN_CASES]
     original += [
         case["case_key"]
-        for case in recovery_cases(primary_machine="primary", joining_machine="joining")
+        for case in recovery_cases(os="macos")
     ]
     assert [case["case_key"] for case in cases] == [*original, *KEYS]
     assert [case["position"] for case in cases[-8:]] == list(range(30, 38))
-    assert all(case["method_config"]["test_machine"] == "primary" for case in cases[-8:])
+    assert all(case["method_config"]["os"] == "macos" for case in cases[-8:])
+    assert not any("test_machine" in case["method_config"] for case in cases)
 
 
 def test_each_journey_validates_and_proves_the_servers_real_rows() -> None:

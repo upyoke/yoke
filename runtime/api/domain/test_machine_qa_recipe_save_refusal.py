@@ -41,7 +41,7 @@ def _terminal_case(**fields) -> dict:
         "method_id": "terminal-check",
         "instructions": "Connect the machine to the hosted service.",
         "expected_outcome": "Setup reaches the GitHub question.",
-        "method_config": _terminal_recipe(),
+        "method_config": {**_terminal_recipe(), "os": "macos"},
         "host_baselines": ["fresh-host"],
         **fields,
     }

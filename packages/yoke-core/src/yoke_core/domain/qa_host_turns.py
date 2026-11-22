@@ -178,10 +178,7 @@ def reserve_host_turn(conn: Any, target: Any) -> None:
     from yoke_core.domain.coordination_claims import active_claim, acquire
     from yoke_core.domain.qa_host_health import host_unhealthy
     from yoke_core.domain.qa_host_holdover import expire_holdover
-    from yoke_core.domain.qa_host_set_turns import (
-        pass_blocked_set_reservations,
-        set_at_front,
-    )
+    from yoke_core.domain.qa_host_set_turns import pass_blocked_set_reservations
 
     held = active_claim(conn, target)
     if held is not None:
@@ -192,16 +189,10 @@ def reserve_host_turn(conn: Any, target: Any) -> None:
         return
     if host_unhealthy(conn, target.test_machine) is not None:
         return
-    from yoke_core.domain.qa_host_idle_waiters import serving_waiters
+    from yoke_core.domain.qa_host_slot_turns import front_waiter
 
-    first = next(
-        (
-            wait
-            for wait in serving_waiters(conn, target.test_machine)
-            if set_at_front(conn, wait)
-        ),
-        None,
-    )
+    # A slotted set's front waiter takes a host for every slot at once.
+    first = front_waiter(conn, target)
     if first is None:
         return
     claim = acquire(

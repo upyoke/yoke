@@ -22,7 +22,6 @@ from yoke_core.domain.qa_requirement_pass_currency import METHOD_CONFIG_REVISION
 from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain.item_ref_render import render_item_refs
 from yoke_contracts.machine_config.capability_secrets import TEST_MACHINE_CAPABILITY
-from yoke_core.domain.machine_qa_case_machine import test_machine_requirement_kind
 
 class QaCaseExecutionError(ValueError):
     """A requirement cannot be executed through the shared case runner."""
@@ -168,7 +167,6 @@ def get_case_execution_context(
             machines = conn.execute("SELECT name FROM test_machines").fetchall()
             if machines:
                 available_capabilities.add(TEST_MACHINE_CAPABILITY)
-                available_capabilities.update(test_machine_requirement_kind(machine[0]) for machine in machines)
         missing_capabilities = missing_capability_kinds(
             required_capabilities,
             available_capabilities,

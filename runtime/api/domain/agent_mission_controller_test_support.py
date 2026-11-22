@@ -64,7 +64,6 @@ def _mission(conn, *, with_host=False):
                 "method_config": {
                     "assertions": [{"argv": ["/usr/bin/true"]}],
                     "os": "macos",
-                    "test_machine": "mac-mini-lab",
                 },
             },
         )

@@ -2,7 +2,7 @@
 
 from typing import NamedTuple
 
-from yoke_contracts.qa_case_starting_state import needs_test_machine
+from yoke_contracts.qa_case_starting_state import declares_starting_state
 from yoke_contracts.machine_qa_host_control import RESET_OWED_OPERATION
 from yoke_core.domain.machine_operation_recording import (
     _marker,
@@ -199,9 +199,7 @@ def record_execution_reset_debt(conn, execution, leases):
     ordinal = int(abort.get("ordinal", execution["cursor_ordinal"]))
     case = None
     for candidate in reversed(roster[: ordinal + 1]):
-        if needs_test_machine(candidate) or (
-            candidate.get("method_config") or {}
-        ).get("test_machine"):
+        if declares_starting_state(candidate):
             case = candidate
             break
     if case is None:

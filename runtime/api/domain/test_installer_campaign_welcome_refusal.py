@@ -8,9 +8,7 @@ from yoke_core.domain.installer_campaign_execution_target import (
 
 def test_welcome_mission_preserves_the_isolated_refusal_proof():
     case = next(
-        case for case in installer_campaign_cases_for_target(
-            _target("prod"), primary_machine="primary-test", joining_machine="joining-test"
-        ) if case["case_key"] == "welcome-frame"
+        case for case in installer_campaign_cases_for_target(_target("prod"), os="macos") if case["case_key"] == "welcome-frame"
     )
     assert case["method_id"] == "exploratory-mission"
     assert case["host_baselines"] == ["fresh-host"]

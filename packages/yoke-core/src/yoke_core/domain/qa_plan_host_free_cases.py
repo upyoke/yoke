@@ -13,6 +13,8 @@ from __future__ import annotations
 
 from typing import Any, Callable, Mapping
 
+from yoke_contracts.qa_case_starting_state import is_host_command
+
 from yoke_core.domain.qa_method_definitions import BUILTIN_QA_METHODS
 
 #: Runners whose cases need no host and whose verdict is the run itself.
@@ -26,8 +28,8 @@ HOST_FREE_RUNNERS = frozenset(
 def is_host_free_case(case: Mapping[str, Any]) -> bool:
     """Whether a roster case may run and record ahead of the plan cursor."""
     return str(case.get("runner_id") or "") in HOST_FREE_RUNNERS and not (
-        case.get("method_config") or {}
-    ).get("test_machine")
+        is_host_command(case)
+    )
 
 
 def run_host_free_cases_while_waiting(

@@ -21,7 +21,7 @@ from yoke_core.domain.qa_plan_management import (
 from yoke_core.domain.qa_workflow_binding_validation import item_transition_for_gate
 from yoke_core.domain.workflow_gate_catalog import GATE_QA_VERIFICATION
 
-_ASSERTIONS = {"assertions": [{"argv": ["/usr/bin/true"]}]}
+_ASSERTIONS = {"os": "macos", "assertions": [{"argv": ["/usr/bin/true"]}]}
 
 
 def _machine_case(key: str, position: int, **start) -> dict:

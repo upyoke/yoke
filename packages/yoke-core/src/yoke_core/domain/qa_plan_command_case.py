@@ -5,6 +5,8 @@ from __future__ import annotations
 from typing import Any
 import time
 
+from yoke_contracts.qa_case_starting_state import is_host_command
+
 from yoke_core.domain.machine_qa_plan_case_execution import (
     MachinePlanCaseDispatchError,
     _dispatch,
@@ -31,9 +33,20 @@ class CommandPlanLiveness(SessionLivenessPump):
 
 
 def begin_command_host(
-    case: dict[str, Any], *, execution_id: str, ordinal: int, target: Any, actor: Any
+    case: dict[str, Any],
+    *,
+    execution_id: str,
+    ordinal: int,
+    target: Any,
+    actor: Any,
+    test_machine: str | None = None,
 ) -> dict[str, Any] | None:
-    """Acquire the plan host or return the existing durable queue response."""
+    """Acquire the plan host or return the existing durable queue response.
+
+    The case names no host: the server selects one by the case's OS and tags,
+    or keeps the execution's bound lease, and *test_machine* is only the
+    operator's per-run pin.
+    """
     begun = _dispatch(
         "test_machine.plan_case.begin",
         target=target,
@@ -42,7 +55,7 @@ def begin_command_host(
             "execution_id": execution_id,
             "ordinal": ordinal,
             "requirement_id": int(case["requirement_id"]),
-            "test_machine": case["method_config"]["test_machine"],
+            **({"test_machine": test_machine} if test_machine else {}),
         },
         host_contact_possible=False,
     )
@@ -109,8 +122,6 @@ def reset_command_host(raw_contract: dict[str, Any]) -> dict[str, Any] | None:
 
 def command_liveness(requirement, check_in):
     """Supply plan heartbeats only for Commands declaring host custody."""
-    if requirement.get("runner_id") == "worktree_run" and (
-        requirement.get("method_config") or {}
-    ).get("test_machine"):
+    if is_host_command(requirement):
         return {"liveness": CommandPlanLiveness(check_in)}
     return {}

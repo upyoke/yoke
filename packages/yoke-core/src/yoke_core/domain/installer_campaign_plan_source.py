@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 from yoke_contracts.qa_case_starting_state import BASELINE
 from yoke_core.domain.installer_campaign_execution_target import installer_campaign_cases_for_target
+from yoke_core.domain.installer_campaign_plan_common import CAMPAIGN_OS
 
 _CASE_DEFAULTS: dict[str, Any] = {
     "case_key": None,
@@ -41,22 +42,11 @@ def _authored(case: dict[str, Any], field: str) -> Any:
 
 
 
-def _source_cases(
-    plan: dict[str, Any], primary_machine=None, joining_machine=None
-) -> list[dict]:
+def _source_cases(plan: dict[str, Any]) -> list[dict]:
     slug = plan["slug"]
     if slug == "installer-campaign":
-        configured = {case["case_key"]: case for case in plan["cases"]}
-        primary_machine = primary_machine or configured.get("path-on-shell", {}).get(
-            "method_config", {}
-        ).get("test_machine")
-        joining_machine = joining_machine or configured.get(
-            "second-machine-join", {}
-        ).get("method_config", {}).get("test_machine")
         return installer_campaign_cases_for_target(
-            plan["execution_target"],
-            primary_machine=primary_machine,
-            joining_machine=joining_machine,
+            plan["execution_target"], os=CAMPAIGN_OS
         )
     if slug == "installer-exploration":
         return json.loads(
@@ -73,11 +63,9 @@ def _source_cases(
 
 
 
-def compare_plan(
-    plan: dict[str, Any], *, primary_machine=None, joining_machine=None
-) -> tuple[list[dict], dict]:
+def compare_plan(plan: dict[str, Any]) -> tuple[list[dict], dict]:
     """Compare authored fields, excluding row identity and historical proof."""
-    cases = _source_cases(plan, primary_machine, joining_machine)
+    cases = _source_cases(plan)
     installed = {case["case_key"]: case for case in plan["cases"]}
     generated = {case["case_key"]: case for case in cases}
     if len(installed) != len(plan["cases"]):

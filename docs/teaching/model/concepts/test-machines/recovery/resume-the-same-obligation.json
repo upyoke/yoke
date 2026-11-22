@@ -4,6 +4,6 @@
  "status": "observed",
  "page": "test-machine-recovery",
  "position": 4,
- "description": "Host-wait and settled-mission continuation commands omit --test-machine. Simultaneous cases retain their declared driver and full host set. For single-host cases the scheduler recovers each platform’s host from execution leases and runs, including continuation sources; a new platform selects a fresh eligible host. A new execution for a corrected case selects an eligible host from its own constraints. Explicit case or run pins take precedence over recorded affinity. Finish or abort a case that still holds host state before moving it to a different driver.",
+ "description": "Host-wait and settled-mission continuation commands omit --test-machine. Simultaneous cases resume on the driver and companions their execution's leases hold. For single-host cases the scheduler recovers each platform’s host from execution leases and runs, including continuation sources; a new platform selects a fresh eligible host. A new execution for a corrected case selects an eligible host from its own constraints. An explicit run pin (--test-machine) takes precedence over recorded affinity. Finish or abort a case that still holds host state before moving it to a different driver.",
  "sources": ["docs/public/verification/exploration.md", "packages/yoke-cli/src/yoke_cli/commands/qa_case.py"]
 }

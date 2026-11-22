@@ -14,7 +14,6 @@ from uuid import uuid4
 import pytest
 
 from runtime.api.domain.machine_qa_host_test_support import (
-    TEST_MACHINE_SETTINGS,
     _terminal_recipe,
     configure_test_machine,
 )
@@ -23,6 +22,7 @@ from runtime.api.domain.qa_host_turns_test_support import _notices
 from runtime.api.domain.qa_member_machine_partitions_test_support import (
     MACHINES,
     MEMBER,
+    OSES,
     RUN,
     SESSION,
     _begin,
@@ -30,11 +30,12 @@ from runtime.api.domain.qa_member_machine_partitions_test_support import (
     _seed,
     _seed_run,
     _stages,
+    host_slots,
+    register_second_host,
 )
 from yoke_contracts.timestamps import utc_now
 from yoke_core.domain.coordination_claims import acquire, active_claim, release
 from yoke_core.domain.db_helpers import query_one
-from yoke_core.domain.machine_qa_capability import replace_test_machine_settings
 from yoke_core.domain.machine_qa_execution_protocol import MachineQaProtocolLeaseHeld
 from yoke_core.domain.qa_host_set_turns import record_host_wait, require_host_set_turn
 from yoke_core.domain.qa_host_turn_release import HOST_TURN_RELEASED_REASON
@@ -103,16 +104,24 @@ def test_busy_host_queues_the_whole_set_and_keeps_the_free_host_reserved(
     response = _case_begin(execution)
     assert response.primary_success, response.error
     assert response.result_payload["state"] == "waiting"
-    assert response.result_payload["host_wait"]["test_machine"] == MACHINES[1]
     assert not execution_host_leases(test_db, execution)
     waits = _waits(test_db, execution["id"])
-    # Nothing is acquired; the free host is reserved and both share one place.
+    # Nothing is acquired or reserved: each OS slot is its own need, and
+    # both share one place until every slot can be served at once.
     assert [(name, state) for name, state, _ in waits] == [
-        (MACHINES[0], "reserved"),
+        (MACHINES[0], "waiting"),
         (MACHINES[1], "waiting"),
     ]
     assert waits[0][2] == waits[1][2]
+    needs = test_db.execute(
+        "SELECT DISTINCT need_id FROM qa_test_machine_waits WHERE qa_plan_execution_id=%s",
+        (execution["id"],),
+    ).fetchall()
+    assert len(needs) == 2 and all(row[0] for row in needs)
     release(test_db, held.id, "ready")
+    assert [state for _, state, _ in _waits(test_db, execution["id"])] == [
+        "reserved", "reserved",
+    ]
     resumed = _begin(test_db)
     assert resumed["id"] == execution["id"]
     response = _case_begin(resumed)
@@ -131,15 +140,9 @@ def _seed_solo_then_matrix(conn, tmp_path, monkeypatch):
     from yoke_core.domain.qa_plan_management import create_plan, replace_plan_cases
 
     configure_test_machine(conn, tmp_path, monkeypatch)
-    replace_test_machine_settings(
-        conn,
-        power_project="yoke",
-        test_machine=MACHINES[1],
-        settings={**TEST_MACHINE_SETTINGS, "resource_name": MACHINES[1]},
-        base_settings=None,
-    )
+    register_second_host(conn)
     plan = create_plan(conn, project="yoke", slug="solo-matrix", infer_target_environment=False)
-    sets = {"solo": {}, "matrix": {"test_machines": list(MACHINES)}}
+    sets = {"solo": {"os": OSES[MACHINES[0]]}, "matrix": {"test_machines": host_slots()}}
     replace_plan_cases(
         conn,
         plan_id=int(plan["id"]),
@@ -152,7 +155,6 @@ def _seed_solo_then_matrix(conn, tmp_path, monkeypatch):
                 "expected_outcome": "The check passes.",
                 "method_config": {
                     **_terminal_recipe(),
-                    "test_machine": MACHINES[0],
                     **sets[key],
                 },
                 "entry_surface": "printf done",

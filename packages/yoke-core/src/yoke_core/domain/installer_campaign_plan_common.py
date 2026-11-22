@@ -21,6 +21,7 @@ from yoke_core.domain.machine_qa_fixture_constants import (
 )
 
 
+CAMPAIGN_OS = "macos"
 FRESH_HOST = "fresh-host"
 SHELL_PRECONFIGURED = "shell-preconfigured"
 DUAL_HOST_BASELINES = [FRESH_HOST, SHELL_PRECONFIGURED]
@@ -200,7 +201,7 @@ def terminal_case(
         "method_id": method_id,
         "instructions": instructions,
         "expected_outcome": expected_outcome,
-        "method_config": {"os": "macos", **method_config},
+        "method_config": {"os": CAMPAIGN_OS, **method_config},
         "host_baselines": list(host_baselines),
         "starting_state": starting_state,
         "starting_state_reason": starting_state_reason,
@@ -227,7 +228,7 @@ def machine_case(
         "method_id": "machine-state-check",
         "instructions": instructions,
         "expected_outcome": expected_outcome,
-        "method_config": {"os": "macos", **method_config},
+        "method_config": {"os": CAMPAIGN_OS, **method_config},
         "host_baselines": list(host_baselines),
         "starting_state": starting_state,
         "starting_state_reason": starting_state_reason,

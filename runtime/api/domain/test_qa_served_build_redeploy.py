@@ -46,7 +46,7 @@ def walk(test_db, tmp_path, monkeypatch):
     replace_plan_cases(test_db, plan_id=plan["id"], cases=[{
         "case_key": "host-check", "method_id": "terminal-check",
         "instructions": "Run a host check.", "expected_outcome": "The check passes.",
-        "method_config": {**_terminal_recipe(), "test_machine": MACHINE},
+        "method_config": {**_terminal_recipe(), "os": TEST_MACHINE_SETTINGS["os"]},
         "entry_surface": "printf done", "required_completion": "complete",
         "host_baselines": ["fresh-host"],
     }])
@@ -95,3 +95,20 @@ def test_machine_only_result_records_both_shas(test_db, monkeypatch, walk):
     assert tuple(row[:2]) == (OTHER, "served_build_changed")
     assert json.loads(row[2])["served_build_changed"] == {"began_sha": SHA, "served_sha": OTHER}
 
+
+
+HOST_COMMAND = {
+    "runner_id": "worktree_run",
+    "method_config": {"command": "true", "os": "windows"},
+    "host_baselines": ["fresh-host"],
+}
+LOCAL_COMMAND = {"runner_id": "worktree_run", "method_config": {"command": "true"}}
+HOST_CONTROL = {"runner_id": "host_control", "method_config": {"os": "macos"}}
+
+
+def test_machine_only_counts_host_commands_until_a_local_command_joins():
+    from yoke_core.domain.qa_environment_served_build import machine_only
+
+    assert machine_only({"roster": [HOST_COMMAND, HOST_CONTROL]})
+    assert not machine_only({"roster": [HOST_COMMAND, HOST_CONTROL, LOCAL_COMMAND]})
+    assert not machine_only({"roster": []})

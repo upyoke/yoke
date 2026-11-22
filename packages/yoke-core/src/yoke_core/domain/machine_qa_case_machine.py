@@ -1,8 +1,14 @@
-"""Durable Test Machine constraints for materialized QA plan cases."""
+"""Test Machine selection rules for QA cases: by OS and tag, never by host name.
+
+Test Machines of one kind are identical, so a case selects its host by
+``method_config.os``, OS slots in ``method_config.test_machines`` and
+``method_config.capability_tags``. Only an operator's per-run
+``--test-machine`` names a host, and it is never stored on the case.
+"""
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
 from yoke_contracts.machine_config.test_machine import (
@@ -17,19 +23,6 @@ from yoke_core.domain.machine_qa_host_rows import (
 from yoke_core.domain.qa_method_capabilities import capability_kinds
 
 
-_MACHINE_REQUIREMENT_PREFIX = "test-machine:"
-
-
-def test_machine_requirement_kind(name: str) -> str:
-    return _MACHINE_REQUIREMENT_PREFIX + validate_test_machine_resource_name(name)
-
-
-def requirement_machine_name(kind: str) -> str | None:
-    if kind.startswith(_MACHINE_REQUIREMENT_PREFIX):
-        return validate_test_machine_resource_name(kind[len(_MACHINE_REQUIREMENT_PREFIX):])
-    return None
-
-
 MACHINE_CONFIG_CONTRACTS = frozenset(
     {
         "command",
@@ -40,23 +33,72 @@ MACHINE_CONFIG_CONTRACTS = frozenset(
     }
 )
 MACHINE_CONSTRAINT_MISMATCH = "test_machine_constraint_mismatch"
+TEST_MACHINE_NAME_FORBIDDEN = "test_machine_name_forbidden"
+_NAME_FORBIDDEN_MESSAGE = (
+    f"{TEST_MACHINE_NAME_FORBIDDEN}: Test Machines of one kind are identical; "
+    "select by method_config.os and capability_tags, or list "
+    "method_config.test_machines as OS slots such as "
+    '[{"os":"linux"},{"os":"macos","driver":true}]'
+)
+_STORED_NAME_RECOVERY = (
+    "; rewrite the case with `yoke qa plan edit PLAN_SLUG --project P` or "
+    "`yoke qa plan-cases replace --project P --plan-id N --stdin`, then "
+    "rematerialize its requirements"
+)
 
 
 class MachineConstraintError(ValueError):
-    """A run pin or plan roster cannot satisfy a case machine constraint."""
+    """A case or run pin cannot satisfy the Test Machine selection rules."""
 
 
-def normalize_config_machine(config_contract_id: str, config: dict) -> str | None:
-    """Validate and normalize an optional ``method_config.test_machine`` value."""
+def _names_host(config: Mapping[str, Any], kinds: Iterable[Any]) -> bool:
+    return (
+        "test_machine" in config
+        or "test_machine_reason" in config
+        or any(isinstance(slot, str) for slot in config.get("test_machines") or [])
+        or any(str(kind).startswith("test-machine:") for kind in kinds)
+    )
+
+
+def refuse_host_names(config: Mapping[str, Any], kinds: Iterable[Any] = ()) -> None:
+    """Refuse any case declaration that names a specific Test Machine."""
+    if _names_host(config, kinds):
+        raise MachineConstraintError(_NAME_FORBIDDEN_MESSAGE)
+
+
+def refuse_stored_host_names(case: Mapping[str, Any]) -> None:
+    """Refuse at begin a stored case that still names a Test Machine.
+
+    Such a row was written before hosts were selected by OS; it never runs,
+    locally or on a host, until its case is rewritten.
+    """
+    import json
+
+    config = case.get("method_config") or {}
+    if isinstance(config, str):
+        config = json.loads(config)
+    kinds: list[Any] = []
+    for field in ("required_capability_kinds", "capability_requirements"):
+        value = case.get(field) or []
+        kinds.extend(json.loads(value) if isinstance(value, str) else value)
+    if _names_host(config, kinds):
+        key = case.get("case_key") or case.get("requirement_id") or "unknown"
+        raise MachineConstraintError(
+            f"{_NAME_FORBIDDEN_MESSAGE}; stored case {key!r} still names one"
+            + _STORED_NAME_RECOVERY
+        )
+
+
+def normalize_config_machine(config_contract_id: str, config: dict) -> None:
+    """Validate a case's host selection: OS slots and capability tags."""
     from yoke_core.domain.machine_qa_case_hosts import normalize_config_machines
 
+    refuse_host_names(config)
     normalize_config_machines(config)
     if "capability_tags" in config:
-        if config_contract_id not in MACHINE_CONFIG_CONTRACTS or (
-            config_contract_id == "command" and not config.get("test_machine")
-        ):
+        if config_contract_id not in MACHINE_CONFIG_CONTRACTS:
             raise MachineConstraintError(
-                "method_config.capability_tags requires a Machine QA case"
+                "method_config.capability_tags requires a Command or Machine QA case"
             )
         try:
             config["capability_tags"] = list(
@@ -64,29 +106,13 @@ def normalize_config_machine(config_contract_id: str, config: dict) -> str | Non
             )
         except TestMachineCapabilityError as exc:
             raise MachineConstraintError(str(exc)) from exc
-    if "test_machine_reason" in config:
-        reason = config["test_machine_reason"]
-        if not config.get("test_machine") or not isinstance(reason, str) or not reason.strip():
-            raise MachineConstraintError(
-                "method_config.test_machine_reason must state why the case requires "
-                "the named test_machine; use method_config.os for any host of that type"
-            )
-        config["test_machine_reason"] = reason.strip()
-    if "test_machine" not in config:
-        return None
-    if config_contract_id not in MACHINE_CONFIG_CONTRACTS:
+    if (config.get("os") or config.get("test_machines")) and (
+        config_contract_id not in MACHINE_CONFIG_CONTRACTS
+    ):
         raise MachineConstraintError(
-            "method_config.test_machine requires a Command or Machine QA case; "
-            "choose a supported local runner before declaring a Test Machine"
+            "method_config.os and test_machines require a Command or Machine QA "
+            "case; choose a supported runner before declaring a Test Machine"
         )
-    try:
-        test_machine = validate_test_machine_resource_name(config["test_machine"])
-    except (TypeError, ValueError) as exc:
-        raise MachineConstraintError(
-            "method_config.test_machine must name a valid registered Test Machine"
-        ) from exc
-    config["test_machine"] = test_machine
-    return test_machine
 
 
 def require_registered_machine(
@@ -94,88 +120,82 @@ def require_registered_machine(
     *,
     project_id: int,
     test_machine: str | None,
-    subject: str = "case",
 ) -> None:
-    """Refuse a constraint that does not name a universe Test Machine."""
+    """Refuse a run pin that does not name a universe Test Machine."""
     if test_machine is None:
         return
     rows = test_machine_rows(conn)
     if test_machine in {row.test_machine for row in rows}:
         return
     available = ", ".join(row.test_machine for row in rows) or "none"
-    if subject == "case":
-        recovery = "Register it before saving the plan."
-    elif subject == "run pin":
-        recovery = "Pass a registered name or omit --test-machine."
-    else:
-        recovery = "Register it or update and rematerialize the plan."
     raise MachineConstraintError(
-        f"{subject} requires unregistered test machine {test_machine!r}; registered "
-        f"machines: {available}. {recovery}"
+        f"run pin requires unregistered test machine {test_machine!r}; registered "
+        f"machines: {available}. Pass a registered name or omit --test-machine."
     )
 
 
 def materialized_capability_kinds(
     required: Any, config: Mapping[str, Any]
 ) -> tuple[str, ...]:
-    """Add a case's specific machine to its immutable capability snapshot."""
-    values = list(capability_kinds(required, subject="QA plan case"))
-    test_machine = config.get("test_machine")
-    if test_machine is not None:
-        specific = test_machine_requirement_kind(test_machine)
-        if specific not in values:
-            values.append(specific)
+    """A case's immutable capability snapshot; host names are refused."""
+    values = capability_kinds(required, subject="QA plan case")
+    refuse_host_names(config, values)
     return tuple(values)
 
 
-def required_case_machine(required: Any) -> str | None:
-    """Read at most one specific Test Machine from capability requirements."""
-    machines = {
-        machine
-        for kind in capability_kinds(required, subject="QA case")
-        if (machine := requirement_machine_name(kind)) is not None
-    }
-    if len(machines) > 1:
-        raise MachineConstraintError("QA case declares multiple specific Test Machines")
-    return next(iter(machines), None)
-
-
 def resolve_case_machine(case: Mapping[str, Any], requested: str | None) -> str | None:
-    """Apply case-constraint precedence and validate an optional run pin."""
-    required = required_case_machine(
-        materialized_capability_kinds(
-            case.get("required_capability_kinds"), case.get("method_config") or {}
-        )
-    )
-    pinned = validate_test_machine_resource_name(requested) if requested else None
-    if required and pinned and required != pinned:
-        key = str(case.get("case_key") or case.get("requirement_id") or "unknown")
-        raise MachineConstraintError(
-            f"{MACHINE_CONSTRAINT_MISMATCH}: case {key!r} requires {required!r}, "
-            f"but --test-machine named {pinned!r}; rerun with --test-machine {required} or "
-            "omit the run pin"
-        )
-    return required or pinned
+    """The operator's per-run pin for this case, if any; cases name no host."""
+    del case
+    return validate_test_machine_resource_name(requested) if requested else None
 
 
 def resolve_plan_machine(
+    conn: Any,
     requirements: Sequence[Mapping[str, Any]],
     requested: str | None,
 ) -> str | None:
-    """Validate an explicit global pin; otherwise schedule each case's host."""
-    for row in requirements:
-        resolve_case_machine(row, requested)
-    return validate_test_machine_resource_name(requested) if requested else None
+    """Check a plan-run ``--test-machine`` against each host-using case."""
+    from yoke_contracts.qa_case_starting_state import declares_starting_state
+
+    from yoke_core.domain.machine_qa_case_platform import (
+        matching_platform_hosts,
+        require_host_tags,
+    )
+
+    pinned = resolve_case_machine({}, requested)
+    if pinned is None:
+        return None
+    rows = [row for row in test_machine_rows(conn) if row.test_machine == pinned]
+    if not rows:
+        return pinned
+    for case in requirements:
+        if not declares_starting_state(case):
+            continue
+        key = str(case.get("case_key") or case.get("requirement_id") or "unknown")
+        try:
+            if not matching_platform_hosts(rows, (case,)):
+                raise TestMachineCapabilityError("no matching OS")
+            require_host_tags(rows[0].settings, (case,))
+        except TestMachineCapabilityError as exc:
+            raise MachineConstraintError(
+                f"{MACHINE_CONSTRAINT_MISMATCH}: case {key!r} cannot run on "
+                f"--test-machine {pinned!r} ({rows[0].settings['os']}): {exc}; "
+                "pin a host with the case's method_config.os and "
+                "capability_tags, or omit the run pin"
+            ) from exc
+    return pinned
 
 
 __all__ = [
     "MACHINE_CONFIG_CONTRACTS",
     "MACHINE_CONSTRAINT_MISMATCH",
     "MachineConstraintError",
+    "TEST_MACHINE_NAME_FORBIDDEN",
     "materialized_capability_kinds",
     "normalize_config_machine",
+    "refuse_host_names",
+    "refuse_stored_host_names",
     "require_registered_machine",
-    "required_case_machine",
     "resolve_case_machine",
     "resolve_plan_machine",
 ]

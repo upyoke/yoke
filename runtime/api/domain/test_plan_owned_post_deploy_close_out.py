@@ -37,7 +37,7 @@ from yoke_core.domain.qa_plan_management import replace_plan_cases
 from yoke_core.domain.qa_requirement_pass_currency import stamp_executed_method_config
 
 
-_HOST_CHECK = {"assertions": [{"argv": ["/usr/bin/true"]}]}
+_HOST_CHECK = {"os": "macos", "assertions": [{"argv": ["/usr/bin/true"]}]}
 
 
 def _pass_case(conn, execution, ordinal):

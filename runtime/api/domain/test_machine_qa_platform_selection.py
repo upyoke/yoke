@@ -27,7 +27,6 @@ from yoke_core.domain.machine_qa_host_selection import (
     "case",
     [
         {"method_config": {"os": "linux"}},
-        {"method_config": {"platform": "linux"}},
         {"required_capability_kinds": ["linux-desktop"]},
         {
             "method_config": {
@@ -76,9 +75,9 @@ def test_negative_linux_instruction_uses_declared_mac():
     host = SimpleNamespace(settings={"resource_name": "test-mac", "os": "macos"})
     case = {
         "instructions": "Do not use linux-lab; do not run stat -c",
-        "method_config": {"test_machine": "test-mac"},
+        "method_config": {"os": "macos"},
     }
-    assert case_platform(case, {"test-mac": "macos"}) == "macos"
+    assert case_platform(case) == "macos"
     assert matching_platform_hosts([host], [case]) == [host]
 
 
@@ -173,29 +172,17 @@ def test_empty_fleet_still_names_the_required_platform_and_recovery():
         )
 
 
-@pytest.mark.parametrize("field", ["os", "platform"])
 @pytest.mark.parametrize("value", ["plan9", [], None])
-def test_invalid_platform_declaration_names_recovery(field, value):
+def test_invalid_platform_declaration_names_recovery(value):
     with pytest.raises(
         CapabilityError, match="test_machine_platform_invalid.*method_config.os"
     ):
-        case_platform({"method_config": {field: value}})
+        case_platform({"method_config": {"os": value}})
 
 
-@pytest.mark.parametrize(
-    "field", ["required_capability_kinds", "capability_requirements"]
-)
-@pytest.mark.parametrize(
-    "value", [["test-machine:linux-lab"], '["test-machine:linux-lab"]']
-)
-def test_machine_capability_name_uses_its_registered_os(field, value):
-    assert (
-        case_platform(
-            {field: value},
-            {"linux-lab": "macos"},
-        )
-        == "macos"
-    )
+def test_slotted_case_platform_is_its_driver_slot_os():
+    slots = [{"os": "linux"}, {"os": "macos", "driver": True}, {"os": "windows"}]
+    assert case_platform({"method_config": {"test_machines": slots}}) == "macos"
 
 
 def test_method_name_does_not_declare_platform():
@@ -232,7 +219,7 @@ def test_native_windows_case_selects_only_the_native_machine(case):
     "case",
     [
         {"method_config": {"os": "wsl"}},
-        {"method_config": {"executor": "informed_subagent", "test_machine": "windows-lab"}},
+        {"runner_id": "agent_mission", "method_config": {"executor": "informed_subagent", "os": "wsl"}},
     ],
 )
 def test_wsl_cases_keep_selecting_windows_lab(case):

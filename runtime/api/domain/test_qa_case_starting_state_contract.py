@@ -186,12 +186,32 @@ def test_inherit_refuses_a_different_driver_with_recovery(encoded):
     import json
 
     cases = [_case("open", baselines=["fresh-host"]), _case("next", state="inherit")]
-    for case, machine in zip(cases, ["mac-lab", "linux-lab"]):
-        config = {"test_machine": machine}
+    for case, os in zip(cases, ["macos", "linux"]):
+        config = {"os": os}
         case["method_config"] = json.dumps(config) if encoded else config
     with pytest.raises(StartingStateError, match="inherited_driver_mismatch") as error:
         chain_baselines(cases)
-    assert "predecessor's method_config.test_machine" in str(error.value)
+    assert "host_baselines" in str(error.value)
+
+
+def test_inherit_refuses_different_slots():
+    slots = [{"os": "linux"}, {"os": "macos", "driver": True}]
+    cases = [_case("open", baselines=["fresh-host"]), _case("next", state="inherit")]
+    cases[0]["method_config"] = {"test_machines": slots}
+    cases[1]["method_config"] = {"test_machines": [*slots, {"os": "windows"}]}
+    with pytest.raises(StartingStateError, match="inherited_driver_mismatch"):
+        chain_baselines(cases)
+    cases[1]["method_config"] = {"test_machines": slots}
+    assert chain_baselines(cases)["next"] == ["fresh-host"]
+
+
+def test_inherit_follower_without_os_keeps_its_inherit():
+    opener = _case("open", runner="worktree_run", baselines=["fresh-host"])
+    opener["method_config"] = {"os": "windows", "command": "true"}
+    follower = _case("next", runner="worktree_run", state="inherit")
+    follower["method_config"] = {"command": "true"}
+    assert _normalize(follower) == ("inherit", None)
+    assert chain_baselines([opener, follower])["next"] == ["fresh-host"]
 
 
 def test_a_mission_can_inherit_as_the_chain_tail():
@@ -200,14 +220,22 @@ def test_a_mission_can_inherit_as_the_chain_tail():
         _case("walk", runner="agent_mission", state="inherit"),
     ]
     for case in cases:
-        case["method_config"] = {"test_machine": "mac-lab"}
+        case["method_config"] = {"os": "macos"}
     assert chain_baselines(cases)["walk"] == ["fresh-host"]
     with pytest.raises(StartingStateError, match="no case may inherit after"):
         chain_baselines([*cases, _case("after", state="inherit")])
 
 
-@pytest.mark.parametrize("runner", ["browser_substrate", "worktree_run", "agent_mission"])
-@pytest.mark.parametrize("state", ["as_is", "inherit", "obsolete"])
+@pytest.mark.parametrize(
+    "runner, state",
+    [
+        (runner, state)
+        for runner in ("browser_substrate", "worktree_run", "agent_mission")
+        for state in ("as_is", "inherit", "obsolete")
+        # An inheriting Command runs on the machine its predecessor left.
+        if (runner, state) != ("worktree_run", "inherit")
+    ],
+)
 def test_non_machine_cases_ignore_stale_starting_state(runner, state):
     case = _case("controller", runner=runner, state=state, reason="old host")
     case["method_config"] = {}
@@ -219,7 +247,7 @@ def _command(runner="worktree_run", config=None, **declared):
     return normalize_starting_state(
         case_key="authorize",
         runner_id=runner,
-        method_config=config or {"test_machine": "windows-lab", "command": "true"},
+        method_config=config or {"os": "windows", "command": "true"},
         host_baselines=declared.get("baselines", []),
         starting_state=declared.get("state"),
         starting_state_reason=declared.get("reason"),
@@ -241,7 +269,7 @@ def test_host_command_resets_only_a_declared_baseline() -> None:
     ):
         with pytest.raises(StartingStateError):
             _command(**declared)
-    # A Command that names no Test Machine never starts from a baseline.
+    # A Command that declares no host OS never starts from a baseline.
     assert _command(config={"command": "true"}, baselines=["fresh-host"]) == (
         None,
         None,
@@ -249,7 +277,7 @@ def test_host_command_resets_only_a_declared_baseline() -> None:
 
 def test_plan_refuses_a_host_command_without_a_baseline():
     case = _case("command", runner="worktree_run")
-    case["method_config"] = {"test_machine": "linux-lab", "command": "true"}
+    case["method_config"] = {"os": "linux", "command": "true"}
     with pytest.raises(StartingStateError, match="declares no starting state"):
         chain_baselines([case])
 
@@ -277,9 +305,9 @@ def test_plan_refuses_as_is_even_with_a_reason():
 )
 def test_yoke_cases_require_shell_preconfigured_on_the_chain_head(runner, key, config):
     follower = _case(key, runner=runner, state="inherit")
-    follower["method_config"] = {"test_machine": "linux-lab", **config}
+    follower["method_config"] = {"os": "linux", **config}
     opener = _case("setup", baselines=["fresh-host"])
-    opener["method_config"] = {"test_machine": "linux-lab"}
+    opener["method_config"] = {"os": "linux"}
     with pytest.raises(StartingStateError, match="starting_state_lacks_yoke.*shell-preconfigured"):
         chain_baselines([opener, follower])
 

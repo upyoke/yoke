@@ -63,20 +63,20 @@ and a viewport check does not prove real-phone touch behavior.
 
 Set `method_config.os` and any required `capability_tags` so a host mission
 can use any verified, healthy match. If all matches are busy, QA takes the
-shortest eligible host line. Review each `test_machine` pin for a specific
-dependency stated in `method_config.test_machine_reason`. A pin remains a
-<!-- qa:test-machine-capability -->`test-machine:<name>` constraint even when the run omits `--test-machine`.
+shortest eligible host line. Test Machines of one kind are identical, so a
+case never names a host; authoring refuses one with `test_machine_name_forbidden`.
+`yoke qa plan run --test-machine NAME` picks a host for that run only.
 See [Machine QA host selection](test-machine-desktop.md) for platform
 inference and refusal recovery.
 
-For a mission that needs two hosts at once, also declare
-`"test_machines":["linux-example","macos-example"]` with `"test_machine":"macos-example"` naming the
-driving host. Every name must be registered and listed once. Each host uses its
-registered OS; the declared case platform must match at least one host in the
-set. Platform words in instructions do not constrain the host set. The plan runner
-acquires the complete set in sorted name order through each host's FIFO,
-only once every host is free or reserved for it; otherwise it waits on every
-host at one queue place. Both leases remain
+For a mission that needs two hosts at once, list OS slots instead of `os`:
+`"test_machines":[{"os":"linux"},{"os":"macos","driver":true}]`. Name at least
+two slots and exactly one `driver`, the host the walker drives. The case's
+`capability_tags` apply to every slot. Platform words in instructions do not
+constrain the host set. The plan runner queues each slot at the execution's one
+queue place and admits the set only when every slot has a free, verified,
+healthy host, giving each slot a distinct one in a single step; otherwise
+nothing is acquired and every slot keeps its place. Both leases remain
 held and heartbeated through the walk and independent review. Mission access
 refuses if either lease has been lost; completion or abort releases both.
 
@@ -277,7 +277,7 @@ their declared driver and full host set. For single-host cases, the scheduler
 recovers each platform's original host from the execution's recorded leases and runs,
 including its continuation source. A platform not used before selects a fresh
 eligible host; a global pin cannot represent a roster using several hosts.
-A replacement starts fresh from its own OS, tags or explicit host name.
+A replacement starts fresh from its own OS, tags or OS slots.
 
 A continuation records new runs over the same roster without resetting hosts.
 Its latest runs supersede the swept `error`; the prior runs retain their

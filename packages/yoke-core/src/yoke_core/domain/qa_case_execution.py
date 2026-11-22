@@ -208,9 +208,17 @@ def execute_case_context(
         runner_id = str(required_field(case, "runner_id"))
     except ControlPlanePayloadError as exc:
         raise QaCaseExecutionError(str(exc)) from exc
-    from yoke_contracts.qa_case_starting_state import needs_test_machine
+    from yoke_contracts.qa_case_starting_state import declares_starting_state
+    from yoke_core.domain.machine_qa_case_machine import (
+        MachineConstraintError,
+        refuse_stored_host_names,
+    )
 
-    if test_machine and not needs_test_machine(case):
+    try:
+        refuse_stored_host_names(case)
+    except MachineConstraintError as exc:
+        raise QaCaseExecutionError(str(exc)) from exc
+    if test_machine and not declares_starting_state(case):
         raise QaCaseExecutionError(
             "test_machine_not_used: this case runs on the controller; omit --test-machine"
         )

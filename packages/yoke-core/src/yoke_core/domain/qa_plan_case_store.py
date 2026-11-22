@@ -37,14 +37,29 @@ def apply_starting_states(
             ):
                 raise StartingStateError(
                     f"case {case['case_key']!r} declares a starting state, but only "
-                    "machine-run cases (host_control, missions declaring a host and "
-                    "Commands naming method_config.test_machine) start on a "
-                    "Test Machine; remove host_baselines, starting_state "
+                    "machine-run cases (host_control, and missions or Commands "
+                    "declaring method_config.os, OS slots in test_machines, or "
+                    'starting_state "inherit") start on a Test Machine; declare '
+                    "the host's os, or remove host_baselines, starting_state "
                     "and starting_state_reason"
                 )
         chain_baselines(
             [{**case, "runner_id": runner_ids[case["method_id"]]} for case in cases]
         )
+        from yoke_contracts.machine_config.test_machine import (
+            TestMachineCapabilityError,
+        )
+        from yoke_core.domain.machine_qa_case_platform import case_platform
+
+        for case in cases:
+            shaped = {**case, "runner_id": runner_ids[case["method_id"]]}
+            if shaped["runner_id"] in {"host_control", "agent_mission"} and (
+                case.get("starting_state") != "inherit"
+            ):
+                try:
+                    case_platform(shaped)
+                except TestMachineCapabilityError as exc:
+                    raise QaPlanError(str(exc)) from exc
         for case in cases:
             case["starting_state"], case["starting_state_reason"] = (
                 normalize_starting_state(

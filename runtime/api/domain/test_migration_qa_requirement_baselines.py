@@ -3,14 +3,22 @@
 Requirements materialized before ``as_is`` was removed could never begin
 again. After the pass each open head starts from the baseline 0114's
 derivation names, its inheriting followers share it, and retired rows and
-run history keep what they recorded.
-"""
+run history keep what they recorded. A case that only named a Test Machine
+runs on no host by today's meaning and gets no starting state; 0119 then
+selects it by OS, and begin refuses it until a starting state is declared."""
 
+import json
 from pathlib import Path
 import sqlite3
 
 import pytest
 
+from runtime.api.domain import migration_qa_hosts_by_os_test_support as hosts_by_os
+from yoke_contracts.qa_case_starting_state import (
+    STARTING_STATE_RECOVERY,
+    StartingStateError,
+    require_materialized_starting_state,
+)
 from yoke_core.domain import migrations
 from yoke_core.domain.migration_history import load_migration_module
 
@@ -39,7 +47,10 @@ def _connection(test_db, backend):
         + ",".join(f"{name} {'INTEGER' if name in _INTEGERS else 'TEXT'}" for name in _COLUMNS)
         + ")"
     )
-    conn.execute("CREATE TEMP TABLE qa_plan_cases(id INTEGER, starting_state TEXT)")
+    conn.execute(
+        "CREATE TEMP TABLE qa_plan_cases(id INTEGER, plan_id INTEGER, method_id TEXT, "
+        "method_config TEXT, host_baselines TEXT, starting_state TEXT, updated_at TEXT)"
+    )
     conn.execute("CREATE TEMP TABLE qa_runs(id INTEGER, historical_start TEXT)")
     conn.execute("INSERT INTO qa_runs VALUES (1,'as_is')")
     return conn
@@ -101,8 +112,8 @@ def test_open_as_is_rows_converge_and_history_stays(test_db, backend):
     migration.invariants(conn)
 
     assert _state(conn) == [
-        (1, "baseline", "fresh-host", None),
-        (2, "baseline", "shell-preconfigured", None),
+        (1, None, None, None),
+        (2, None, None, None),
         (3, "baseline", "shell-preconfigured", None),
         (4, "inherit", "shell-preconfigured", None),
         (5, "inherit", None, None),
@@ -112,6 +123,22 @@ def test_open_as_is_rows_converge_and_history_stays(test_db, backend):
         (9, "as_is", None, "old"),
     ]
     assert conn.execute("SELECT historical_start FROM qa_runs").fetchone() == ("as_is",)
+
+    hosts_by_os.add_tables(
+        conn, backend, {"test_machines", "qa_methods", "qa_plans", "qa_plan_executions"}
+    )
+    hosts_by_os.register_host(conn, backend, "windows-native-lab", "windows")
+    hosts_by_os.migration().apply(conn)
+
+    configs = dict(conn.execute("SELECT id,method_config FROM qa_requirements").fetchall())
+    assert json.loads(configs[1]) == {"os": "windows"}
+    assert json.loads(configs[2]) == {"os": "windows", "command": "yoke status"}
+    for row_id in (1, 2):
+        with pytest.raises(StartingStateError, match="declares no valid starting state") as refused:
+            require_materialized_starting_state(
+                {"requirement_id": row_id, "starting_state": None, "host_baseline": None}
+            )
+        assert STARTING_STATE_RECOVERY in str(refused.value)
 
 
 @pytest.mark.parametrize("table", ["qa_requirements", "qa_plan_cases"])

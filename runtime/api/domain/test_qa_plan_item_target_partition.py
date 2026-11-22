@@ -44,7 +44,7 @@ MISSION_CASE = {
     "method_id": "exploratory-mission",
     "instructions": "Walk the receiving path against production.",
     "expected_outcome": "Return ranked findings.",
-    "method_config": {"executor": "informed_subagent"},
+    "method_config": {"executor": "informed_subagent", "os": "macos"},
     "host_baselines": ["fresh-host"],
 }
 

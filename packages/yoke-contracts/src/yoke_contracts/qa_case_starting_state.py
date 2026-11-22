@@ -40,32 +40,28 @@ def needs_test_machine(case: Mapping[str, Any]) -> bool:
     if runner != MISSION_RUNNER_ID:
         return False
     config = _method_config(case)
-    required = []
-    for field in ("capability_requirements", "required_capability_kinds"):
-        kinds = case.get(field) or []
-        required.extend(json.loads(kinds) if isinstance(kinds, str) else kinds)
     return bool(
-        any(
-            config.get(key)
-            for key in ("test_machine", "test_machines", "os", "platform", "capability_tags")
-        )
-        or any(str(kind).startswith("test-machine:") for kind in required)
+        any(config.get(key) for key in ("test_machines", "os", "capability_tags"))
         or case.get("host_baselines")
         or case.get("host_baseline")
     )
 
 
 def is_host_command(case: Mapping[str, Any]) -> bool:
-    """Whether the case is a Command that names the Test Machine it reaches."""
+    """A Command runs on a Test Machine when it declares ``os``, OS slots or ``inherit``."""
     if case.get("runner_id") != "worktree_run":
         return False
-    config = _method_config(case)
-    return bool(config.get("test_machine"))
+    return bool(_declared_host(case) or case.get("starting_state") == INHERIT)
 
 
 def declares_starting_state(case: Mapping[str, Any]) -> bool:
     """Whether the case may carry a starting state on a Test Machine."""
     return needs_test_machine(case) or is_host_command(case)
+
+
+def _declared_host(case: Mapping[str, Any]) -> Any:
+    config = _method_config(case)
+    return config.get("test_machines") or config.get("os")
 
 
 def normalize_starting_state(
@@ -87,6 +83,7 @@ def normalize_starting_state(
         host_baselines=host_baselines,
         method_config=method_config,
         capability_requirements=capability_requirements,
+        starting_state=declared,
     )
     if not declares_starting_state(shape):
         return None, None
@@ -233,14 +230,14 @@ def chain_baselines(
                     "machine-run case"
                 )
 
-            if _method_config(case).get("test_machine") != _method_config(previous).get(
-                "test_machine"
-            ):
+            declared_host = _declared_host(case)
+            if declared_host and declared_host != _declared_host(previous):
                 raise StartingStateError(
                     f"inherited_driver_mismatch: case {key!r} inherits from "
-                    f"case {str(previous['case_key'])!r}, but their driving "
-                    "machines differ; use the predecessor's "
-                    "method_config.test_machine or declare host_baselines instead"
+                    f"case {str(previous['case_key'])!r}, but it declares other "
+                    "hosts (method_config.os or test_machines) than its "
+                    "predecessor; match the predecessor's declaration or "
+                    "declare host_baselines to open a new chain instead"
                 )
             fan_out[key] = list(fan_out[str(previous["case_key"])])
         elif state == BASELINE:

@@ -74,28 +74,26 @@ def continue_plan_host_control_execution(
         allow_released=False,
     )
     from yoke_core.domain.machine_qa_case_platform import matching_platform_hosts
-    from yoke_core.domain.machine_qa_case_hosts import case_machines
+    from yoke_core.domain.machine_qa_case_hosts import case_machines, case_slots
     from yoke_core.domain.host_control_runner import load_test_machine_contract
     from yoke_core.domain.qa_plan_host_leases import require_case_host_leases
 
     hosts = {selected.settings["resource_name"]: selected}
+    execution = {
+        "id": plan_execution_id,
+        "session_id": session_id,
+        "actor_id": actor_id,
+        "test_machine_lease_id": lease_id,
+    }
     for case in cases:
-        names = case_machines(case)
-        if len(names) > 1:
-            require_case_host_leases(
-                conn,
-                {
-                    "id": plan_execution_id,
-                    "session_id": session_id,
-                    "actor_id": actor_id,
-                    "test_machine_lease_id": lease_id,
-                },
-                case,
+        if not case_slots(case):
+            continue
+        # Before admission binds them, a slotted case has no leased set yet.
+        require_case_host_leases(conn, execution, case)
+        for name in case_machines(conn, execution, case):
+            hosts[name] = load_test_machine_contract(
+                conn, project=project, test_machine=name
             )
-            for name in names:
-                hosts[name] = load_test_machine_contract(
-                    conn, project=project, test_machine=name
-                )
     matching_platform_hosts(list(hosts.values()), cases)
     selected_name = selected.settings["resource_name"]
     if test_machine and test_machine != selected_name:

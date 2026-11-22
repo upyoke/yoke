@@ -83,10 +83,9 @@ def test_controller_mission_records_docket_and_never_owes_reset(test_db, abort):
 @pytest.mark.parametrize(
     "declaration",
     [
-        {"method_config": {"test_machine": "test-mac"}},
-        {"method_config": {"test_machines": ["test-mac"]}},
+        {"method_config": {"test_machines": [{"os": "linux"}, {"os": "macos", "driver": True}]}},
         {"method_config": {"os": "macos"}},
-        {"capability_requirements": ["test-machine:test-mac"]},
+        {"method_config": {"capability_tags": ["gpu"]}},
         {"host_baselines": ["fresh-host"]},
     ],
 )
@@ -94,12 +93,12 @@ def test_host_declarations_require_a_machine(declaration):
     assert needs_test_machine({"runner_id": "agent_mission", **declaration})
 
 
-def test_named_host_without_starting_state_refuses():
+def test_host_os_without_starting_state_refuses():
     with pytest.raises(StartingStateError):
         normalize_starting_state(
             case_key="host",
             runner_id="agent_mission",
-            method_config={"test_machine": "test-mac"},
+            method_config={"os": "macos"},
             host_baselines=[],
             starting_state=None,
             starting_state_reason=None,

@@ -15,7 +15,6 @@ from typing import Callable
 
 from yoke_contracts.browser_step_schema import step_schema_violation
 from yoke_contracts.machine_config.capability_secrets import TEST_MACHINE_CAPABILITY
-from yoke_core.domain.machine_qa_case_machine import requirement_machine_name
 
 
 @dataclass(frozen=True)
@@ -112,14 +111,7 @@ def capability_example_errors(text: str, normalize: Callable[[str], str]) -> lis
     errors = []
     for match in _CAPABILITY_EXAMPLE.finditer(text):
         value = normalize(match[1])
-        if value == TEST_MACHINE_CAPABILITY:
-            continue
-        try:
-            if requirement_machine_name(value) is not None:
-                continue
-        except ValueError:
-            pass
-        if value:
+        if value and value != TEST_MACHINE_CAPABILITY:
             line = text[: match.start()].count("\n") + 1
             errors.append(
                 f"{line}: qa_example_capability_invalid: {match[1]!r}; use the Test Machine QA requirement kind"

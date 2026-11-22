@@ -69,9 +69,14 @@ def test_each_host_has_its_own_execution_and_member_waits_for_both(
 
 def test_a_host_pin_cannot_drop_another_required_host(test_db, tmp_path, monkeypatch):
     _seed(test_db, tmp_path, monkeypatch)
-    with pytest.raises(ValueError, match="test_machine_constraint_mismatch"):
-        _begin(test_db, test_machine=MACHINES[0])
+    # The first partition is the macos case: a linux pin cannot serve it.
+    with pytest.raises(ValueError, match="test_machine_constraint_mismatch.*macos"):
+        _begin(test_db, test_machine=MACHINES[1])
     assert test_db.execute("SELECT COUNT(*) FROM qa_plan_executions").fetchone()[0] == 0
+    # A matching pin serves its own partition only; the linux case stays owed.
+    pinned = _begin(test_db, test_machine=MACHINES[0])
+    assert [case["case_key"] for case in pinned["roster"]] == [MACHINES[0]]
+    assert pinned["remaining_requirement_count"] == 1
 
 
 def test_waiting_second_host_keeps_its_partition_and_fifo(

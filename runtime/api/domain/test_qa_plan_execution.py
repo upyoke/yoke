@@ -134,7 +134,7 @@ def test_stage_order_survives_catalog_reordering_and_baseline_edits() -> None:
                     "method_id": "terminal-check",
                     "instructions": "Check the terminal on both baselines.",
                     "expected_outcome": "The terminal check passes.",
-                    "method_config": _terminal_recipe(),
+                    "method_config": {**_terminal_recipe(), "os": "macos"},
                     "entry_surface": "printf done",
                     "required_completion": "complete",
                     "host_baselines": [

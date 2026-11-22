@@ -8,6 +8,7 @@ from runtime.api.domain.machine_qa_host_test_support import (
     TEST_MACHINE_SETTINGS,
     _terminal_recipe,
     configure_test_machine,
+    verify_fixture_host,
 )
 from runtime.api.domain.machine_qa_session_seed import seed_qa_session
 from runtime.api.domain.deployment_qa_plan_groups_test_support import (
@@ -43,21 +44,27 @@ from yoke_core.domain.qa_plan_management import create_plan, replace_plan_cases
 from yoke_core.domain.qa_stage_execution_holders import StageRosterHeld
 
 MAC, STUDIO = "mac-mini-lab", "mac-studio-lab"
+#: Each fixture host is the only one of its OS, so an OS selects it.
+OSES = {MAC: "macos", STUDIO: "linux"}
 SESSIONS = ("partition-a", "partition-b", "partition-c")
 FIRST, SECOND = "hosts-0", "hosts-1"
 
 
 def _case(key, driver, *, machines=None, inherit=False):
+    hosts = (
+        {"test_machines": [
+            {"os": OSES[name], **({"driver": True} if name == driver else {})}
+            for name in machines
+        ]}
+        if machines
+        else {"os": OSES[driver]}
+    )
     return {
         "case_key": key,
         "method_id": "terminal-check",
         "instructions": "Run a host-specific check.",
         "expected_outcome": "The check passes.",
-        "method_config": {
-            **_terminal_recipe(),
-            "test_machine": driver,
-            **({"test_machines": list(machines)} if machines else {}),
-        },
+        "method_config": {**_terminal_recipe(), **hosts},
         "entry_surface": "printf done",
         "required_completion": "complete",
         "starting_state": "inherit" if inherit else "baseline",
@@ -72,9 +79,10 @@ def _seed(conn, tmp_path, monkeypatch, *plans):
         conn,
         power_project="yoke",
         test_machine=STUDIO,
-        settings={**TEST_MACHINE_SETTINGS, "resource_name": STUDIO},
+        settings={**TEST_MACHINE_SETTINGS, "resource_name": STUDIO, "os": OSES[STUDIO]},
         base_settings=None,
     )
+    verify_fixture_host(conn, STUDIO)
     seed_qa_session(conn, *SESSIONS)
     ids = []
     for index, cases in enumerate(plans):

@@ -15,7 +15,6 @@ from yoke_contracts.machine_config.test_machine import (
     TestMachineCapabilityError as MachineCapabilityError,
 )
 
-from yoke_core.domain.machine_qa_case_machine import test_machine_requirement_kind as _machine_type
 from yoke_contracts.machine_qa_execution import (
     HOST_BASELINES,
     VERIFICATION_CHECKS,

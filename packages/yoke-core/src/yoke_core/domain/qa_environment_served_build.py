@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any, Mapping
 
-from yoke_contracts.qa_case_starting_state import is_host_command, needs_test_machine
+from yoke_contracts.qa_case_starting_state import declares_starting_state
 from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_core.domain import served_revision_probe as probe
 from yoke_core.domain.qa_plan_execution_store import marker
@@ -89,9 +89,7 @@ def _refuse(code: str, detail: str) -> None:
 def machine_only(execution: Mapping[str, Any] | None) -> bool:
     """Every case walks a Test Machine, so a redeploy cannot void the walk."""
     roster = (execution or {}).get("roster") or []
-    return bool(roster) and all(
-        needs_test_machine(case) or is_host_command(case) for case in roster
-    )
+    return bool(roster) and all(declares_starting_state(case) for case in roster)
 
 
 def require_execution_access(conn: Any, execution: Mapping[str, Any]) -> None:

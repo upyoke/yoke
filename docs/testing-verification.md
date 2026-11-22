@@ -160,8 +160,8 @@ Serial resources queue while in use; that does not prevent plan attachment.
 A project may register several `test-machine:<resource_name>` rows, one per
 physical host. Resource names are global; `QA_HOST:<resource_name>` admits
 one execution at a time. Machine-backed plans prefer a free verified machine,
-then stable name, and report why. A run's machine pin is subordinate to durable
-case `method_config.test_machine` constraints.
+then stable name, and report why. Cases select hosts only by `method_config.os`,
+`capability_tags` or OS slots; a run's `--test-machine` must satisfy them.
 
 Settings and operation receipts are live capability facts. Read them with
 `yoke test-machine list --project P` or `yoke test-machine get --project P

@@ -11,12 +11,13 @@ from yoke_core.domain.qa_plan_execution_begin_validation import validate_begun_e
 
 @pytest.mark.parametrize(
     ("retained", "pin", "selected"),
-    [("linux-lab", None, "linux-lab"), (None, None, None),
-     ("test-mac", "linux-lab", "linux-lab")],
+    [("linux-lab", None, None), (None, None, None), ("test-mac", "linux-lab", "linux-lab")],
 )
-def test_resumed_platform_retains_host_and_new_platform_selects_normally(
+def test_new_chain_opener_selects_by_os_and_ignores_earlier_hosts(
     monkeypatch, retained, pin, selected
 ):
+    """An opener not yet admitted selects any matching host; only a run pin
+    names one. A held host of another OS is released first."""
     from yoke_core.domain import machine_qa_execution_protocol as protocol
     from yoke_core.domain import qa_plan_execution_lifecycle as lifecycle
 
@@ -31,6 +32,9 @@ def test_resumed_platform_retains_host_and_new_platform_selects_normally(
     conn = Mock()
     monkeypatch.setattr(
         "yoke_core.domain.qa_resume_machine.execution_machine", lambda *a: retained
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.qa_case_host_choice._serves_chain", lambda *a: False
     )
     monkeypatch.setattr(
         "yoke_core.domain.qa_plan_host_leases.execution_host_leases", lambda *a: []
@@ -66,13 +70,13 @@ def test_resumed_platform_retains_host_and_new_platform_selects_normally(
     released.assert_called_once_with(conn, 7, "qa-case-chain-ended", commit=False)
 
 
-def test_resumed_single_platform_keeps_live_lease(monkeypatch):
+def test_next_opener_keeps_a_held_host_of_its_os(monkeypatch):
     from yoke_core.domain import machine_qa_plan_protocol as protocol
 
-    execution = {"id": "single", "roster": [], "test_machine_lease_id": 7}
     case = {"project": "example", "method_config": {"os": "linux"}}
+    execution = {"id": "single", "roster": [case], "test_machine_lease_id": 7}
     monkeypatch.setattr(
-        "yoke_core.domain.qa_resume_machine.execution_machine", lambda *a: "linux-lab"
+        "yoke_core.domain.qa_case_host_choice._serves_chain", lambda *a: True
     )
     monkeypatch.setattr(
         "yoke_core.domain.qa_plan_host_leases.execution_host_leases", lambda *a: []
@@ -109,8 +113,8 @@ def test_begin_accepts_multi_host_roster_without_a_global_pin(monkeypatch):
     result = validate_begun_execution(
         {
             "requirements": [
-                {"method_config": {"test_machine": host}}
-                for host in ["linux-lab", "test-mac"]
+                {"method_config": {"os": os_name}}
+                for os_name in ["linux", "macos"]
             ],
             "execution_target": {},
         },

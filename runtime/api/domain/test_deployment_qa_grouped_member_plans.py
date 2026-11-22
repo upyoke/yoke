@@ -43,7 +43,10 @@ def _grouped_plan(conn) -> int:
                 "method_id": "machine-state-check",
                 "instructions": "Inspect the deployed release on both hosts.",
                 "expected_outcome": "The deployed release is visible.",
-                "method_config": {"assertions": [{"argv": ["/usr/bin/true"]}]},
+                "method_config": {
+                    "os": "macos",
+                    "assertions": [{"argv": ["/usr/bin/true"]}],
+                },
                 "host_baselines": ["shell-preconfigured", "fresh-host"],
             },
             {

@@ -8,6 +8,7 @@ import pytest
 from runtime.api.domain.machine_qa_host_test_support import (
     TEST_MACHINE_SETTINGS,
     configure_test_machine,
+    verify_fixture_host,
 )
 
 from runtime.api.domain.machine_qa_test_support import FakeHostControl
@@ -69,9 +70,10 @@ def mission(test_db, tmp_path, monkeypatch):
         test_db,
         power_project="yoke",
         test_machine=COMPANION,
-        settings={**TEST_MACHINE_SETTINGS, "resource_name": COMPANION},
+        settings={**TEST_MACHINE_SETTINGS, "resource_name": COMPANION, "os": "linux"},
         base_settings=None,
     )
+    verify_fixture_host(test_db, COMPANION)
     plan = create_plan(test_db, project="yoke", slug="companion-host-mission")
     replace_plan_cases(
         test_db,
@@ -85,8 +87,8 @@ def mission(test_db, tmp_path, monkeypatch):
                 "expected_outcome": "Both commands use their own leases.",
                 "method_config": {
                     "executor": "informed_subagent",
-                    "test_machine": DRIVER,
-                    "test_machines": [DRIVER, COMPANION],
+                    # The macos slot drives; the fleet's one linux host is its companion.
+                    "test_machines": [{"os": "macos", "driver": True}, {"os": "linux"}],
                 },
                 "host_baselines": ["fresh-host"],
             }

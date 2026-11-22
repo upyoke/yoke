@@ -196,7 +196,7 @@ def test_a_host_leased_by_another_session_is_refused(cli, capsys) -> None:
     err = capsys.readouterr().err
     assert "test_machine_leased" in err
     assert "session theirs for QA-1" in err
-    assert "`method_config.test_machine`" in err
+    assert "`method_config.os`" in err
     assert cli.ran == []
 
 

@@ -84,10 +84,13 @@ A case that runs on a Test Machine declares the state it starts from:
 Use shell-preconfigured when the case needs Yoke. Every host_control
 case runs on a Test Machine. Set method_config.os and optional capability_tags
 (a JSON array such as ["arch:x64"]) to select a verified, healthy match.
-For a case that needs a specific test_machine, state the dependency in
-method_config.test_machine_reason. A Command that calls a specific host also
-requires --host-baseline. An agent_mission with no declared host, OS, host tags,
-host capability or baseline runs on the controller. A replacement selects
+Test Machines of one kind are identical, so a case never names a host. A case
+needing several hosts lists OS slots in method_config.test_machines, such as
+[{"os":"linux"},{"os":"macos","driver":true}], with exactly one driver; its
+capability_tags apply to every slot. A Command that declares method_config.os
+or slots runs on a Test Machine and also requires --host-baseline. An
+agent_mission with no OS, slots, host tags or baseline runs on the controller.
+--test-machine on a run picks a host for that run only. A replacement selects
 afresh, and a resume keeps affinity within its execution history.
 A case added on its own belongs to no plan, so it cannot inherit a preceding
 case's machine; author that chain in a plan.

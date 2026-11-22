@@ -41,8 +41,6 @@ def require_runnable_case(
     case: Any,
     *,
     host_baseline: Optional[str] = None,
-    conn: Any | None = None,
-    project_id: int | None = None,
 ) -> dict:
     """Return the case config, refusing one its method could never run.
 
@@ -70,14 +68,14 @@ def require_runnable_case(
         config = validate_method_config(
             str(case["config_contract_id"]),
             raw_config,
-            conn=conn,
-            project_id=project_id,
         )
         if "DEPLOYMENT_MEMBER_REF" in str(config.get("command") or ""):
             raise ValueError(
                 "qa_plan_member_reference_unsupported: plan cases run for the whole "
                 "release. Use YOKE_QA_CANDIDATE_TREE and the candidate's detached HEAD."
             )
+        if "required_capability_kinds" in case.keys():
+            materialized_capability_kinds(case["required_capability_kinds"], config)
         from yoke_contracts.qa_continuity_fingerprint import require_continuity_state
 
         require_continuity_state({**dict(case), "method_config": config})

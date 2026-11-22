@@ -56,6 +56,7 @@ def captured_plan_review(conn, item_id: int, *, unfinished_case: bool = False):
                 "instructions": "Inspect the final review frame.",
                 "expected_outcome": "The frame summarizes the selected project.",
                 "method_config": {
+                    "os": "macos",
                     "steps": [
                         {
                             "key": "review-frame",

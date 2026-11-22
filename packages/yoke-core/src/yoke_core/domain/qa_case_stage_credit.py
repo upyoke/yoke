@@ -9,6 +9,11 @@ from typing import Any, Optional
 from yoke_contracts.api.function_call import ActorContext
 from yoke_contracts.qa_case_starting_state import is_host_command
 
+from yoke_core.domain.machine_qa_case_machine import (
+    MachineConstraintError,
+    refuse_stored_host_names,
+)
+
 
 def item_scoped_stage_plan_run_command(case: Mapping[str, Any]) -> str | None:
     """The ordered plan-group command, when this case belongs to a group.
@@ -73,6 +78,10 @@ def execute_authorized_case(
     refusal = item_scoped_stage_credit_refusal(case)
     if refusal:
         raise cases.QaCaseExecutionError(refusal)
+    try:
+        refuse_stored_host_names(case)
+    except MachineConstraintError as exc:
+        raise cases.QaCaseExecutionError(str(exc)) from exc
     runner_options = {
         "base_url": base_url,
         "expected_branch": expected_branch,
