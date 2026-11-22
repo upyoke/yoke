@@ -33,7 +33,7 @@ def apply_with_durable_report(
     report_kwargs = {
         key: value
         for key, value in kwargs.items()
-        if key not in ("resume_run_id", "resume_payload")
+        if key not in ("resume_run_id", "resume_payload", "board_art")
     }
     if not report_kwargs.get("apply"):
         return onboard_config.build_report(**report_kwargs)

@@ -26,6 +26,7 @@ from yoke_cli.config.onboard_error_friendly import (
 from yoke_cli.config.onboard_wizard import WizardApplyError
 from yoke_cli.config import onboard_wizard_apply_prompts as prompts
 from yoke_cli.config.onboard_wizard_state import _View
+from yoke_cli.config import onboard_wizard_resume_seed as resume_seed
 from yoke_cli.config.setup_release_follow import ReleaseFollowed
 
 
@@ -80,7 +81,7 @@ class ApplyFlow:
 
     def _apply_in_thread(self) -> None:
         """Worker-thread body: run the apply, then hand the outcome to the loop."""
-        kwargs = self.result.build_report_kwargs(apply=True, check_identity=True)
+        kwargs = resume_seed.apply_kwargs(self.result)
         if self._resume_run_id and self._resume_payload is not None:
             kwargs["resume_run_id"] = self._resume_run_id
             kwargs["resume_payload"] = self._resume_payload

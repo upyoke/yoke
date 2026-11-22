@@ -33,7 +33,20 @@ def build(kwargs: Mapping[str, Any]) -> dict[str, Any]:
         "machine_github": _machine_github(kwargs),
         "project": _project(kwargs, project_mode),
         "checkout_provenance": _checkout_provenance(project_mode, checkout),
+        "hosting": {
+            "choice": _text(kwargs.get("hosting_choice")),
+            "provider_note": _text(kwargs.get("hosting_provider_note")),
+        },
+        "board_art": {
+            "word": _text(_board_art(kwargs).get("word")),
+            "seed": _text(_board_art(kwargs).get("seed")),
+        },
     }
+
+
+def _board_art(kwargs: Mapping[str, Any]) -> Mapping[str, Any]:
+    art = kwargs.get("board_art")
+    return art if isinstance(art, Mapping) else {}
 
 
 def _machine_github(kwargs: Mapping[str, Any]) -> dict[str, Any]:

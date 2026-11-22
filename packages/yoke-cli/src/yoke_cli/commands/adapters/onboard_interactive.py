@@ -8,7 +8,7 @@ from typing import Any, Callable
 
 from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.config import onboard_machine_setup
-from yoke_cli.config import onboard_wizard
+from yoke_cli.config import onboard_wizard, onboard_wizard_resume_seed
 from yoke_cli.config.onboard_terminal import (
     SetupTerminalError,
     require_foreground_terminal,
@@ -71,6 +71,7 @@ def wizard_defaults(
         apply=parsed.apply,
         post_install=parsed.post_install,
         machine_github=parsed.machine_github,
+        resume_answers=onboard_wizard_resume_seed.answers(parsed),
     )
 
 

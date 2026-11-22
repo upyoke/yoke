@@ -29,6 +29,7 @@ from yoke_cli.config import onboard as onboard_config
 from yoke_contracts import onboard_destinations as onboard_destinations
 from yoke_cli.config import github_user_tokens
 from yoke_cli.config import setup_agent_response, setup_release_follow
+from yoke_cli.config import setup_release_start
 
 
 ONBOARD_USAGE = (
@@ -58,7 +59,9 @@ def onboard(args: List[str]) -> int:
     try:
         return _onboard(parsed)
     except setup_release_follow.ReleaseFollowed as followed:
-        return setup_release_follow.resume(followed, parsed)
+        return setup_release_follow.resume(followed, parsed, list(args))
+    except setup_release_start.StartFollowRefused as exc:
+        return setup_release_start.refuse(exc)
 
 
 def _onboard(parsed: argparse.Namespace) -> int:
@@ -158,6 +161,7 @@ def _run_flags_or_wizard(parsed: argparse.Namespace, *, force_wizard: bool) -> i
     if prepared.error:
         print(f"error: {prepared.error}", file=sys.stderr)
         return 2
+    setup_release_start.check_at_start(parsed, prepared.destination)
     destination, env_name = prepared.destination, prepared.env_name
     reused_connection = prepared.reused_connection
     local_destination = destination == onboard_destinations.DESTINATION_LOCAL

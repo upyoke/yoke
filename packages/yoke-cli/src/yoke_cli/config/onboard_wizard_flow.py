@@ -282,11 +282,21 @@ class WizardFlow(
             project_create_allowed=onboard_project_create_permission.probe_for(
                 self.result, self._yoke_token_for_project_lookup
             ),
-            prefix_holders=lambda: onboard_project_prefixes.read_holders(
-                self.result, self._yoke_token_for_project_lookup
+            prefix_holders=lambda: self._resumed_holders(
+                onboard_project_prefixes.read_holders(
+                    self.result, self._yoke_token_for_project_lookup
+                )
             ),
         )
         return onboard_preflight.preflight(self.result, probes=probes)
+
+    def _resumed_holders(self, holders):
+        """A resumed run already registered its own project and prefix."""
+        if not getattr(self, "_resume_seeded", False):
+            return holders
+        from yoke_cli.config.onboard_project_prefixes import without_project
+
+        return without_project(holders, self.result.project_slug)
 
     def _on_confirm(self, choice: str) -> None:
         if choice == "show-all":

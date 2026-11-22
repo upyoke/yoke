@@ -26,7 +26,7 @@ from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.config.onboard_input_validation import validate_prefix
 from yoke_contracts import onboard_destinations as onboard_destinations
 from yoke_cli.config import onboard_machine_setup
-from yoke_cli.config import onboard_wizard, setup_release_follow
+from yoke_cli.config import onboard_wizard, setup_release_follow, setup_release_start
 from yoke_cli.config import setup_agent_answers as answers
 from yoke_cli.config import setup_agent_response as responses
 
@@ -181,6 +181,7 @@ def run(
         prepared = onboard_resume.prepare_run(parsed)
         if prepared.error:
             return _usage(prepared.error)
+        setup_release_start.check_at_start(parsed, prepared.destination)
         onboard_machine_setup.prepare(machine_config.config_path(parsed.config_path))
         selected_mode = "advanced" if parsed.advanced else "quick"
         wizard_defaults = onboard_interactive.wizard_defaults(

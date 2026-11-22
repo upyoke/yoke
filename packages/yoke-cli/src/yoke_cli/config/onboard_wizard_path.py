@@ -50,6 +50,8 @@ class PathFlow:
             self._history.pop()
         if error:
             self._goto_path_apply_error(error)
+        elif getattr(self, "_resume_seeded", False):
+            self._goto_finish()
         else:
             if (
                 not self._project_mode_preset

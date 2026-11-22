@@ -278,6 +278,7 @@ class WizardDefaults:
     post_install: bool = False
     machine_github: str | None = None
     project_public_item_prefix: str | None = None
+    resume_answers: dict | None = None  # a resumed run's answers; opens at Review
 
 
 def run_wizard(

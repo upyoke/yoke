@@ -15,7 +15,7 @@ from typing import Any, Mapping
 from uuid import uuid4
 
 from yoke_cli.config import onboard_apply_snapshot, onboard_checkout_ownership
-from yoke_cli.config import onboard_checklist
+from yoke_cli.config import onboard_checklist, setup_release_marker
 from yoke_cli.config.onboard_apply_report_metadata import (
     RESUME_COMMAND,
     credential_sources as _credential_sources,
@@ -111,7 +111,7 @@ class ApplyReportWriter:
             "credential_sources": _credential_sources(safe_kwargs),
             "input_snapshot": onboard_apply_snapshot.build(safe_kwargs),
             "created_commits": list((resume_payload or {}).get("created_commits", [])),
-            "cli_followed_release": (resume_payload or {}).get("cli_followed_release"),
+            "cli_followed_release": setup_release_marker.recorded(resume_payload),
             "steps": steps,
             "final_status": None,
             "failed_step": None,

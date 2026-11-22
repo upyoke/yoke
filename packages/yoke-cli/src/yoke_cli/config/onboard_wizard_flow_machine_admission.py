@@ -4,6 +4,7 @@ from yoke_cli.config import hosted_machine_authorization as authorization
 from yoke_cli.config import local_reachability, teammate_invite_redemption
 from yoke_cli.config import writer, yoke_token_verify
 from yoke_cli.config import onboard_wizard_run_connection as run_connection
+from yoke_cli.config import setup_release_start
 
 
 def approval_hint(code: str) -> str:
@@ -25,11 +26,18 @@ def save_machine_credential(credential, verification, config_path):
         path=config_path,
     )
     token_file = str(connection["connection"]["credential_source"]["path"])
-    return credential, verification, token_file
+    # The first moment a fresh setup knows its server: move onto its release
+    # before any project question (the rerun reuses this saved connection).
+    followed = setup_release_start.follow_after_sign_in(credential.api_url)
+    return credential, verification, token_file, followed
 
 
 def accept_machine_credential(shell, value):
-    credential, verification, token_file = value
+    credential, verification, token_file, followed = value
+    if followed is not None:
+        shell.release_followed = followed
+        shell.exit()
+        return
     shell.result.env_name = credential.org
     shell.result.api_url = credential.api_url
     shell.result.token = None
