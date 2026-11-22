@@ -63,7 +63,7 @@ def _after_custody(script: str, custody: Path) -> str:
     """Finish only after the parent has persisted this native's identity."""
     path = supervision_record_path(ATTEMPT_ID, custody)
     return (
-        "import time\nfrom pathlib import Path\n"
+        "import sys, time\nfrom pathlib import Path\nsys.stdin.buffer.read()\n"
         "deadline = time.monotonic() + 30\n"
         f"while not Path({str(path)!r}).is_file():\n"
         "    if time.monotonic() >= deadline: raise SystemExit('custody_not_persisted')\n"
@@ -74,6 +74,7 @@ def _after_custody(script: str, custody: Path) -> str:
 def _spawn(tmp_path: Path, script: str):
     return spawn_supervised_native(
         [sys.executable, "-c", _after_custody(script, tmp_path)],
+        instruction=b"test instruction",
         checkout=tmp_path,
         environment=dict(os.environ),
         attempt_id=ATTEMPT_ID,
@@ -130,6 +131,7 @@ def test_default_spawn_settles_usage_across_custody_and_relay_directories(
             "-c",
             _after_custody(f"print({NATIVE_RESULT_LINE!r})", custody),
         ],
+        instruction=b"test instruction",
         checkout=tmp_path,
         environment=dict(os.environ),
         attempt_id=ATTEMPT_ID,

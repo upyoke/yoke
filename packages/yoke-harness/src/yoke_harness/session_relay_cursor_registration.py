@@ -69,6 +69,8 @@ def _as_native(native: object) -> CursorNativeResult:
         diagnostic_ref=getattr(native, "diagnostic_ref", None),
         capture_path=getattr(native, "capture_path", None),
         native_pid=getattr(native, "native_pid", None),
+        native_binary=getattr(native, "native_binary", None),
+        native_binary_source=getattr(native, "native_binary_source", None),
     )
 
 

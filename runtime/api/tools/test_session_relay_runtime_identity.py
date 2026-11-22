@@ -214,6 +214,7 @@ def test_release_updates_keep_one_runtime_and_supervised_children_on_the_pin(
     supervisors: list[subprocess.Popen[bytes]] = []
     started = session_relay_native_spawn.spawn_supervised_native(
         ["/usr/bin/true"],
+        instruction=b"test instruction",
         checkout=tmp_path,
         environment=child_environment,
         attempt_id=str(uuid4()),

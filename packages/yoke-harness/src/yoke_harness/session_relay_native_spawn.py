@@ -40,7 +40,7 @@ from yoke_harness.session_launch_admission import (
 )
 from yoke_harness import session_relay_native_supervisor
 from yoke_harness.session_launch_containment import record_supervised_native
-from yoke_harness.session_relay_detached_worker import reap_in_background
+from yoke_harness.session_relay_detached_worker import MAX_HANDOFF_BYTES, reap_in_background
 from yoke_harness.session_relay_native_capture_format import (
     STATE_RUNNING,
     compose_capture,
@@ -116,6 +116,7 @@ def _stop_uncontained(process: subprocess.Popen[bytes]) -> None:
 def spawn_supervised_native(
     argv: Sequence[str],
     *,
+    instruction: bytes,
     checkout: Path,
     environment: Mapping[str, str],
     attempt_id: str,
@@ -196,10 +197,16 @@ def spawn_supervised_native(
             raise OSError("native supervisor custody pipe unavailable")
         with process.stdin as gate:
             gate.write(session_relay_native_supervisor.CUSTODY_READY)
-            gate.flush()
+            # One excess byte lets the supervisor distinguish a refusal from
+            # a valid instruction at the limit, without sending an unbounded body.
+            gate.write(instruction[: MAX_HANDOFF_BYTES + 1])
     except (OSError, subprocess.SubprocessError):
         _stop_uncontained(process)
-        capture_path.unlink(missing_ok=True)
+        session_relay_native_supervisor.record_start_refusal(
+            capture_path,
+            "native_instruction_handoff_failed: supervisor stopped accepting the "
+            "instruction; inspect relay health before retrying",
+        )
         return None
     reap_in_background(process)
     return SupervisedNative(

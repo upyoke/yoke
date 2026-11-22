@@ -56,7 +56,8 @@ def test_a_launch_is_supervised_as_a_launch_not_a_resume(tmp_path: Path) -> None
     a lease no wake ever took.
     """
     started = spawn_supervised_native(
-        [CLAUDE, "-p", "hello"],
+        [CLAUDE, "-p"],
+        instruction=b"hello",
         checkout=tmp_path,
         environment={},
         attempt_id=LAUNCH_ID,
@@ -79,6 +80,7 @@ def test_a_launch_is_supervised_as_a_launch_not_a_resume(tmp_path: Path) -> None
 def test_a_resume_remains_the_default_supervision_kind(tmp_path: Path) -> None:
     started = spawn_supervised_native(
         [CLAUDE, "-p", "--resume", NATIVE_ID],
+        instruction=b"test instruction",
         checkout=tmp_path,
         environment={},
         attempt_id=LAUNCH_ID,
@@ -155,6 +157,7 @@ def test_create_environment_carries_the_launch_context_not_the_parent(
     )
 
     assert spawn_claude_create(invocation) is None
+    assert calls[0]["instruction"] == b"instruction"
     environment = calls[0]["environment"]
     assert "CODEX_SESSION_ID" not in environment
     assert json.loads(environment[LAUNCH_CONTEXT_ENV]) == {
@@ -186,6 +189,7 @@ def test_wake_environment_carries_no_launch_context(
     )
 
     assert spawn_claude_wake(context, invocation) is None
+    assert calls[0]["instruction"] == b"wake up"
     assert LAUNCH_CONTEXT_ENV not in calls[0]["environment"]
     assert calls[0]["native_session_id"] == NATIVE_ID
     assert "supervision_kind" not in calls[0]

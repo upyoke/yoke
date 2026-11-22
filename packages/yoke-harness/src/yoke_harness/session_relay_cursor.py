@@ -75,6 +75,8 @@ class CursorNativeResult:
     diagnostic_ref: str | None = None
     capture_path: str | None = None
     native_pid: int | None = None
+    native_binary: str | None = None
+    native_binary_source: str | None = None
 
 
 class CursorSubprocessPort(Protocol):

@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import replace
 from pathlib import Path
 
+from yoke_contracts.path_harness_clis import ResolvedNativeCli
+from yoke_harness.session_relay_cursor_evidence import cursor_evidence
 from yoke_harness import session_relay_cursor_cli as cli_module
 from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
 from yoke_harness.session_relay_cursor import (
@@ -40,7 +42,7 @@ def test_cli_create_uses_native_new_chat_without_resume(
     monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "parent-session")
     monkeypatch.setenv("YOKE_EXECUTOR", "claude-code")
     monkeypatch.setattr(
-        cli_module, "resolve_native_cli", lambda _name: "/opt/cursor-agent"
+        cli_module, "resolve_native_cli_source", lambda _name: ResolvedNativeCli("/opt/cursor-agent", "bundled")
     )
     local_supervision(monkeypatch, tmp_path)
     monkeypatch.setattr(
@@ -69,7 +71,8 @@ def test_cli_create_uses_native_new_chat_without_resume(
     # Nobody is watching this terminal, so an approval prompt is a stall.
     assert "--force" in command
     assert command[command.index("--model") + 1] == "composer-2"
-    assert command[-1] == BOOTSTRAP
+    assert BOOTSTRAP not in supervised
+    assert result.native_binary_source == "bundled"
     assert options["env"]["YOKE_EXECUTOR"] == "cursor"
     assert options["env"]["YOKE_MODEL"] == "composer-2"
     assert "CLAUDE_CODE_SESSION_ID" not in options["env"]
@@ -85,7 +88,7 @@ def test_cli_create_reports_a_native_that_refused_its_own_invocation(
     tmp_path: Path,
 ) -> None:
     monkeypatch.setattr(
-        cli_module, "resolve_native_cli", lambda _name: "/opt/cursor-agent"
+        cli_module, "resolve_native_cli_source", lambda _name: ResolvedNativeCli("/opt/cursor-agent", "bundled")
     )
     local_supervision(monkeypatch, tmp_path)
     monkeypatch.setattr(
@@ -105,6 +108,9 @@ def test_cli_create_reports_a_native_that_refused_its_own_invocation(
 
     assert result.result_code == "not_created"
     assert result.exit_code == 2
+    evidence = cursor_evidence("not_created", result)
+    assert evidence["native_binary"] == "/opt/cursor-agent"
+    assert evidence["native_binary_source"] == "bundled"
     assert b"does not support effort max" in result.native_stderr
 
 
@@ -113,7 +119,7 @@ def test_cli_create_refuses_before_spawn_without_a_native(
     tmp_path: Path,
 ) -> None:
     spawns = []
-    monkeypatch.setattr(cli_module, "resolve_native_cli", lambda _name: None)
+    monkeypatch.setattr(cli_module, "resolve_native_cli_source", lambda _name: None)
 
     result = CursorCliTransport(
         process_factory=lambda *args, **kwargs: spawns.append((args, kwargs))
@@ -131,7 +137,7 @@ def test_cli_wake_spawns_the_exact_session_with_no_launch_identity(
     monkeypatch.setenv("CODEX_SESSION_ID", "parent-session")
     monkeypatch.setenv("YOKE_EXECUTOR", "codex")
     monkeypatch.setattr(
-        cli_module, "resolve_native_cli", lambda _name: "/opt/cursor-agent"
+        cli_module, "resolve_native_cli_source", lambda _name: ResolvedNativeCli("/opt/cursor-agent", "bundled")
     )
     local_supervision(monkeypatch, tmp_path)
 
@@ -155,7 +161,7 @@ def test_cli_wake_spawns_the_exact_session_with_no_launch_identity(
     # The one channel cursor-agent honors: without it the turn silently runs
     # the machine default, whatever the launch asked for.
     assert command[command.index("--model") + 1] == "composer-2"
-    assert command[-1] == CHECK_INBOX
+    assert CHECK_INBOX not in supervised
     assert "CODEX_SESSION_ID" not in options["env"]
     assert options["env"]["YOKE_EXECUTOR"] == "cursor"
     assert options["env"]["YOKE_PROVIDER"] == "cursor"
@@ -174,7 +180,7 @@ def test_cli_wake_names_no_model_when_the_relay_asked_for_none(
     # model the relay did not ask for would override the session's own.
     spawns = []
     monkeypatch.setattr(
-        cli_module, "resolve_native_cli", lambda _name: "/opt/cursor-agent"
+        cli_module, "resolve_native_cli_source", lambda _name: ResolvedNativeCli("/opt/cursor-agent", "bundled")
     )
     local_supervision(monkeypatch, tmp_path)
     request = replace(wake_request(tmp_path), requested_model=None)
@@ -196,7 +202,7 @@ def test_cli_wake_refuses_an_inexact_session_before_spawn(
 ) -> None:
     spawns = []
     monkeypatch.setattr(
-        cli_module, "resolve_native_cli", lambda _name: "/opt/cursor-agent"
+        cli_module, "resolve_native_cli_source", lambda _name: ResolvedNativeCli("/opt/cursor-agent", "bundled")
     )
     request = replace(wake_request(tmp_path), target_session_id="not-an-id")
 

@@ -39,6 +39,7 @@ import time
 from typing import Callable
 from uuid import UUID
 
+from yoke_contracts.path_harness_clis import ResolvedNativeCli, resolve_native_cli_source
 from yoke_contracts.session_control.launch_permission_bypass import (
     CURSOR_CLI_BYPASS_ARGUMENTS,
 )
@@ -48,7 +49,6 @@ from yoke_harness.session_relay_cursor import (
     CursorWakeRequest,
 )
 from yoke_harness.session_relay_environment import native_session_environment
-from yoke_harness.session_relay_inventory import resolve_native_cli
 from yoke_harness.session_relay_native_create import immediate_native_refusal
 from yoke_harness.session_relay_native_spawn import (
     SupervisedNative,
@@ -99,7 +99,6 @@ def cursor_turn_command(
     *,
     resume_session_id: str | None,
     checkout: str,
-    instruction: str,
     model: str | None,
 ) -> list[str]:
     """Return a native new-chat or exact-resume print-mode invocation.
@@ -129,7 +128,6 @@ def cursor_turn_command(
     )
     if model:
         command.extend(("--model", model))
-    command.append(instruction)
     return command
 
 
@@ -145,13 +143,10 @@ class CursorCliTransport:
         self.binary = binary
         self.process_factory = process_factory
 
-    def _binary(self) -> str | None:
-        return resolve_native_cli(self.binary)
-
     def _start_turn(
         self,
         request: CursorCreateRequest | CursorWakeRequest,
-        binary: str,
+        binary: ResolvedNativeCli,
         resume_session_id: str | None,
         *,
         supervision_kind: str,
@@ -160,17 +155,17 @@ class CursorCliTransport:
     ) -> SupervisedNative | None:
         return spawn_supervised_native(
             cursor_turn_command(
-                binary,
+                binary.path,
                 resume_session_id=resume_session_id,
                 checkout=str(request.checkout),
-                instruction=request.native_instruction,
                 model=request.requested_model,
             ),
+            instruction=request.native_instruction.encode(),
             checkout=request.checkout,
             environment=cursor_environment(request),
             attempt_id=attempt_id,
             native_session_id=resume_session_id,
-            binary_source="path",
+            binary_source=binary.source,
             supervision_kind=supervision_kind,
             lease_id=lease_id,
             process_factory=self.process_factory,
@@ -179,7 +174,7 @@ class CursorCliTransport:
     def new_session(self, request: CursorCreateRequest) -> CursorNativeResult:
         """Start the launch's first turn through Cursor's native new-chat path."""
         started = time.monotonic()
-        binary = self._binary()
+        binary = resolve_native_cli_source(self.binary)
         if binary is None or not request.checkout.is_dir():
             return CursorNativeResult("not_created")
         spawned = self._start_turn(
@@ -191,7 +186,12 @@ class CursorCliTransport:
             lease_id="",
         )
         if spawned is None:
-            return CursorNativeResult("not_created", duration_ms=_elapsed_ms(started))
+            return CursorNativeResult(
+                "not_created",
+                duration_ms=_elapsed_ms(started),
+                native_binary=binary.path,
+                native_binary_source=binary.source,
+            )
         refusal = immediate_native_refusal(spawned.capture_path)
         if refusal is not None and refusal.exit_code != 0:
             output = refusal.stderr + b"\n" + refusal.stdout
@@ -204,6 +204,8 @@ class CursorCliTransport:
                 diagnostic_ref=spawned.diagnostic_ref,
                 capture_path=str(spawned.capture_path),
                 native_pid=spawned.pid,
+                native_binary=spawned.binary,
+                native_binary_source=spawned.binary_source,
             )
         return CursorNativeResult(
             "native_created",
@@ -212,6 +214,8 @@ class CursorCliTransport:
             diagnostic_ref=spawned.diagnostic_ref,
             capture_path=str(spawned.capture_path),
             native_pid=spawned.pid,
+            native_binary=spawned.binary,
+            native_binary_source=spawned.binary_source,
         )
 
     def resume_chat(self, request: CursorWakeRequest) -> CursorNativeResult:
@@ -223,7 +227,7 @@ class CursorCliTransport:
         turns it into this attempt's terminal result on a later poll.
         """
         started = time.monotonic()
-        binary = self._binary()
+        binary = resolve_native_cli_source(self.binary)
         session_id = _session_id(request.target_session_id)
         if binary is None or session_id is None or not request.checkout.is_dir():
             return CursorNativeResult("not_found")

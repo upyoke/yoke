@@ -30,7 +30,6 @@ def _command(**overrides) -> list[str]:
         overrides.pop("binary", "cursor-agent"),
         resume_session_id=overrides.pop("resume_session_id", None),
         checkout=overrides.pop("checkout", "/checkouts/alpha"),
-        instruction=overrides.pop("instruction", "do the thing"),
         model=overrides.pop("model", None),
     )
 
@@ -115,7 +114,7 @@ def test_an_unmeasurable_silence_is_absent_rather_than_zero() -> None:
 
 def _silent_native(seconds: float) -> list[str]:
     """A native that says nothing and takes its time about it."""
-    return [sys.executable, "-c", f"import time; time.sleep({seconds})"]
+    return [sys.executable, "-c", f"import sys, time; sys.stdin.buffer.read(); time.sleep({seconds})"]
 
 
 def test_a_silent_native_still_refreshes_its_capture(
@@ -139,7 +138,7 @@ def test_a_silent_native_still_refreshes_its_capture(
     monkeypatch.setattr(supervisor, "_write", counted)
 
     assert (
-        supervisor.supervise(tmp_path / "nd-silent.capture", _silent_native(0.4)) == 0
+        supervisor.supervise(tmp_path / "nd-silent.capture", _silent_native(0.4), b"test instruction") == 0
     )
 
     running = [state for state in writes if state == "running"]
@@ -152,7 +151,7 @@ def test_a_silent_native_records_when_it_last_spoke(tmp_path: Path) -> None:
     """A turn that never speaks is silent from its spawn, and says so."""
     capture_path = tmp_path / "nd-quiet.capture"
 
-    assert supervisor.supervise(capture_path, _silent_native(0.05)) == 0
+    assert supervisor.supervise(capture_path, _silent_native(0.05), b"test instruction") == 0
 
     capture = parse_capture(capture_path.read_bytes())
     assert capture is not None

@@ -72,7 +72,7 @@ class ClaudeNativeInvocation:
                 arguments.extend(("--effort", self.reasoning_effort))
             if self.session_name:
                 arguments.extend(("--name", self.session_name))
-        arguments.extend((self.instruction, "--output-format", "json"))
+        arguments.extend(("--output-format", "json"))
         return tuple(arguments)
 
 

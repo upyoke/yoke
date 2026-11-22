@@ -172,6 +172,7 @@ def test_supervised_spawn_refusal_starts_no_process(monkeypatch, tmp_path):
     ):
         spawn_supervised_native(
             ["vendor"],
+            instruction=b"test instruction",
             checkout=tmp_path,
             environment={},
             attempt_id=str(uuid4()),

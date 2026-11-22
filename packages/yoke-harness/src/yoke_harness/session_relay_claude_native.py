@@ -86,6 +86,7 @@ def spawn_claude_create(
     """Start the session's first turn as a process this relay owns."""
     started = spawn_supervised_native(
         invocation.argv,
+        instruction=invocation.instruction.encode(),
         checkout=invocation.cwd,
         environment=_environment(invocation),
         attempt_id=str(invocation.launch_id or ""),
@@ -110,6 +111,7 @@ def spawn_claude_wake(
     """
     return spawn_supervised_native(
         invocation.argv,
+        instruction=invocation.instruction.encode(),
         checkout=invocation.cwd,
         environment=_environment(invocation),
         attempt_id=context.job_id,

@@ -89,10 +89,10 @@ def test_wake_resumes_the_conversation_and_carries_the_prompt(monkeypatch) -> No
         LOCAL_SETTINGS,
         "--resume",
         TARGET_ID,
-        CHECK_INBOX,
         "--output-format",
         "json",
     )
+    assert kwargs["instruction"] == CHECK_INBOX.encode()
     assert kwargs["native_session_id"] == TARGET_ID
     assert wake.result_code == RESUMED_RUNNING_RESULT
     assert wake.evidence["native_pid"] == 4321

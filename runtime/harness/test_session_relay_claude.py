@@ -67,7 +67,6 @@ def test_create_starts_a_relay_owned_process_under_the_id_it_chose() -> None:
         "claude-opus-4-1",
         "--name",
         "Session display name",
-        BOOTSTRAP,
         "--output-format",
         "json",
     )

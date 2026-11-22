@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from yoke_contracts.path_harness_clis import ResolvedNativeCli
 from yoke_harness import session_relay_codex_cli_process as codex_process
 from yoke_harness import session_relay_cursor_cli as cursor_cli
 from yoke_harness.session_relay_cursor import CursorWakeRequest
@@ -32,7 +33,7 @@ def test_a_cursor_resume_runs_supervised_instead_of_discarding_its_output(
     class _Process:
         pid = 4321
 
-    monkeypatch.setattr(cursor_cli, "resolve_native_cli", lambda _name: "/opt/cursor")
+    monkeypatch.setattr(cursor_cli, "resolve_native_cli_source", lambda _name: ResolvedNativeCli("/opt/cursor", "bundled"))
     monkeypatch.setattr(
         cursor_cli,
         "spawn_supervised_native",
