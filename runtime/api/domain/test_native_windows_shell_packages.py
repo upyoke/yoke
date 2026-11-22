@@ -19,6 +19,7 @@ WIDGETS = (
     r"Microsoft.StartExperiencesApp_1.36.1.0_x64__8wekyb3d8bbwe\MicrosoftStartFeedProvider.exe",
 )
 TERMINAL = r"Microsoft.WindowsTerminal_1.21.10351.0_x64__8wekyb3d8bbwe\WindowsTerminal.exe"
+POSTGRES = HOME + r"\.yoke\postgres\17.11.1\bin\postgres.exe"
 
 
 def _package_directory(relative):
@@ -49,19 +50,25 @@ def test_every_reset_scan_skips_shell_restarted_packages(desktop):
         assert "-match $shellRestarted){continue}" in script
 
 
-def _fixture(desktop, relatives):
+def _fixture(desktop, relatives, restarts=None):
+    # restarts=None keeps exited entries listed, so the SSH rescan sees a survivor.
+    # Otherwise exited entries leave the listing and each of the next `restarts`
+    # stops starts a replacement; -1 restarts on every stop.
     return rf"""$profileRoot={quote(HOME)}
 $env:ProgramFiles='C:\Program Files'
 $windowsAppsRoot=Join-Path $env:ProgramFiles 'WindowsApps'
 $relatives=ConvertFrom-Json -InputObject {quote(json.dumps(relatives))}
+$hideExited=${'true' if restarts is not None else 'false'}
+$restarts={restarts or 0}
 """ + r"""
 $entries=@()
 $stops=@()
 foreach($relative in @($relatives)){
- $entries+= [pscustomobject]@{Id=$entries.Count+1;Path=(Join-Path $windowsAppsRoot $relative);SessionId=1;MainWindowHandle=1;HasExited=$false}
+ $path=if($relative -like 'C:\*'){$relative}else{Join-Path $windowsAppsRoot $relative}
+ $entries+= [pscustomobject]@{Id=$entries.Count+1;Path=$path;SessionId=1;MainWindowHandle=1;HasExited=$false}
 }
-function Get-Process($Id){if($Id -eq $PID){@{SessionId=1}}else{$entries}}
-function Get-YokeOwnedExecutable($processId){if($processId -ne $PID){$entries[$processId-1].Path}}
+function Get-Process($Id){if($Id -eq $PID){@{SessionId=1}}else{$script:entries | Where-Object {!$hideExited -or !$_.HasExited}}}
+function Get-YokeOwnedExecutable($processId){if($processId -ne $PID){$script:entries[$processId-1].Path}}
 function Get-AppxPackage {
  foreach($relative in @($relatives)){
   $directory=$relative.Split('\')[0]
@@ -72,17 +79,26 @@ function Get-AppxPackageManifest($Package) {
  $exe=@($relatives | Where-Object {(Join-Path $windowsAppsRoot $_).StartsWith($Package.InstallLocation+'\')})[0]
  [xml]('<Package><Applications><Application Id="App" Executable="'+$exe.Substring($exe.IndexOf('\')+1)+'"/></Applications></Package>')
 }
-function Stop-Process($InputObject,[switch]$Force){$script:stops+=$InputObject.Path; $InputObject.HasExited=$true}
+function Stop-Process($InputObject,[switch]$Force){
+ $script:stops+=$InputObject.Path; $InputObject.HasExited=$true
+ if($script:restarts){
+  $script:restarts--
+  $script:entries+= [pscustomobject]@{Id=$script:entries.Count+1;Path=$InputObject.Path;SessionId=1;MainWindowHandle=0;HasExited=$false}
+ }
+}
 try {
 """ + processes.profile_process_stop_script(HOME, PRESERVED_DIRECTORIES, desktop=desktop) + r"""
 } finally {Write-Output ('FIXTURE_STOPS '+(ConvertTo-Json -Compress -InputObject @($stops)))}
 """
 
 
-def _run(tmp_path, monkeypatch, desktop, relatives):
+def _run(tmp_path, monkeypatch, desktop, relatives, restarts=None):
     monkeypatch.setattr(processes, "_PROCESS_IDENTITY", "")
     script_file = tmp_path / "shell-packages.ps1"
-    script_file.write_text("$ErrorActionPreference='Stop'\n" + _fixture(desktop, relatives), encoding="utf-8-sig")
+    script_file.write_text(
+        "$ErrorActionPreference='Stop'\n" + _fixture(desktop, relatives, restarts),
+        encoding="utf-8-sig",
+    )
     result = subprocess.run(
         ["powershell.exe", "-NoProfile", "-NonInteractive", "-File", str(script_file)],
         capture_output=True, text=True, timeout=60,
@@ -120,3 +136,25 @@ def test_desktop_targets_name_no_shell_package(tmp_path, monkeypatch):
     assert [app["target"] for app in records[processes.TARGETS_MARKER]] == [
         r"shell:AppsFolder\Microsoft.WindowsTerminal_8wekyb3d8bbwe!App",
     ]
+
+
+@pytest.mark.windows_only(reason="requires Windows PowerShell")
+@pytest.mark.parametrize("desktop", [False, True])
+def test_stop_pass_also_stops_a_process_started_during_it(tmp_path, monkeypatch, desktop):
+    result, records = _run(tmp_path, monkeypatch, desktop, [POSTGRES], restarts=1)
+    assert result.returncode == 0, result.stderr
+    assert records["FIXTURE_STOPS "] == [POSTGRES, POSTGRES]
+    assert records[processes.STOPPED_MARKER] == [POSTGRES, POSTGRES]
+
+
+@pytest.mark.windows_only(reason="requires Windows PowerShell")
+@pytest.mark.parametrize("desktop", [False, True])
+def test_stop_pass_refuses_at_deadline_naming_the_latest_restart(tmp_path, monkeypatch, desktop):
+    assert "AddSeconds(20)" in processes._STOP
+    monkeypatch.setattr(processes, "_STOP", processes._STOP.replace("AddSeconds(20)", "AddSeconds(2)"))
+    result, records = _run(tmp_path, monkeypatch, desktop, [POSTGRES], restarts=-1)
+    assert result.returncode != 0
+    assert "windows_reset_profile_process_running" in result.stderr
+    latest = len(records["FIXTURE_STOPS "]) + 1
+    # PowerShell wraps long error lines, so compare without whitespace.
+    assert f"open:{latest}{POSTGRES}" in "".join(result.stderr.split())

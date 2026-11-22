@@ -151,8 +151,8 @@ leaves running executables in preserved directories and the Widgets packages
 Windows restarts itself (`MicrosoftWindows.Client.WebExperience`,
 `Microsoft.WidgetsPlatformRuntime`, `Microsoft.StartExperiencesApp`), whose
 state lives in preserved `AppData/Local/Packages`. A failed SSH process
-discovery names the session to check. Desktop processes stop from the signed-in
-session; one that will not exit refuses `windows_reset_profile_process_running`.
+discovery names the session to check. Desktop-session stops relist until clear;
+one still running at 20 seconds refuses `windows_reset_profile_process_running`.
 After restore, reset reopens them there and reports `profile_processes_stopped`
 and `desktop_apps_relaunched`; an app that fails to reopen is named in
 `desktop_apps_relaunch_failed` without failing reset. For a sharing or
