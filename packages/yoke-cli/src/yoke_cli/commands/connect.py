@@ -63,9 +63,10 @@ def connect(args: List[str]) -> int:
             "private IPs and *.ts.net, and warns that a network address sends "
             "the token unencrypted; public HTTP is refused, so use HTTPS. In a "
             "person's terminal the approval link opens after a notice; agent, "
-            "non-terminal and --json runs only print it. With --json, the link, "
-            "code and instructions arrive as JSON lines on stderr before "
-            "waiting; show them to the person. --json never prompts; pass "
+            "non-terminal and --json runs only print it. With --json, stdout is "
+            "JSON lines: the link, code and instructions arrive before waiting, "
+            "and the last line is the result; show the link and code to the "
+            "person. --json never prompts; pass "
             "--invite-code-stdin to redeem an invite."
         ),
     )
@@ -223,7 +224,7 @@ def _connect_hosted(parsed: argparse.Namespace) -> int:
         pending: hosted_machine_authorization.PendingMachineAuthorization,
         browser: hosted_machine_authorization.BrowserOpenResult,
     ) -> None:
-        stream = sys.stderr if parsed.json_mode else sys.stdout
+        stream = sys.stdout
         if pending.retired_machine_id and not parsed.json_mode:
             print(retired_identity_notice(pending.retired_machine_id), file=stream)
         if parsed.json_mode:
@@ -245,6 +246,7 @@ def _connect_hosted(parsed: argparse.Namespace) -> int:
                     "interval": pending.interval,
                 },
                 json_mode=True,
+                stream=stream,
             )
             return
         print(f"Open {pending.verification_uri_complete}", file=stream)

@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import sys
 import threading
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Mapping, TextIO
 
 from yoke_cli.config.hosted_machine_browser import BrowserOpenResult, open_url
 from yoke_cli.config import github_response_safety
@@ -67,8 +67,14 @@ def open_requested(
     )
 
 
-def render_progress(event: Mapping[str, Any], *, json_mode: bool) -> None:
-    """Flush human authorization data before polling; final stdout stays JSON."""
+def render_progress(
+    event: Mapping[str, Any], *, json_mode: bool, stream: TextIO
+) -> None:
+    """Flush authorization data before polling.
+
+    The JSON branch writes one line to ``stream``; standalone ``--json`` passes
+    stdout, which carries only JSON lines. Human text always goes to stderr.
+    """
     request = event.get("browser_action")
     if event.get("phase") == "machine_authorization" and isinstance(request, Mapping):
         from yoke_cli.config.onboard_wizard_flow_machine_admission import approval_hint
@@ -85,7 +91,7 @@ def render_progress(event: Mapping[str, Any], *, json_mode: bool) -> None:
                 "poll_interval_seconds": event.get("interval"),
                 "silence_expected": True,
             }
-        print(json.dumps(data, sort_keys=True), file=sys.stderr, flush=True)
+        print(json.dumps(data, sort_keys=True), file=stream, flush=True)
         return
     if isinstance(request, Mapping):
         print(

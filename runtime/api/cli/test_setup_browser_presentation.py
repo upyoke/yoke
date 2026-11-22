@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from types import SimpleNamespace
 
 import pytest
@@ -127,6 +128,7 @@ def test_agent_progress_is_flushed_json_and_has_no_false_open_failure(capsys):
             ),
         },
         json_mode=True,
+        stream=sys.stderr,
     )
     output = capsys.readouterr()
     assert output.out == ""

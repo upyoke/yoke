@@ -12,8 +12,11 @@ Machine authorization commands connect, disconnect and inspect access.
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from typing import List
+
+from yoke_contracts.timestamps import temporal_wire
 
 from yoke_cli.config import (
     github_app_public_profile,
@@ -62,7 +65,8 @@ def github_connect(args: List[str]) -> int:
             "own App with one complete five-field profile. "
             "This never accepts or stores manual GitHub credentials. "
             "No browser is opened; present the link and code to the person. "
-            "--json emits authorization progress as JSON lines on stderr before polling."
+            "With --json, stdout is JSON lines: the link, code and instructions "
+            "arrive before polling, and the last line is the result."
         ),
     )
     parser.add_argument(
@@ -144,7 +148,7 @@ def github_connect(args: List[str]) -> int:
             replace_profile=parsed.replace,
             add_installation=parsed.add_installation,
             notify=lambda event: setup_browser.render_progress(
-                event, json_mode=parsed.json_mode
+                event, json_mode=parsed.json_mode, stream=sys.stdout
             ),
         )
     except (
@@ -154,7 +158,7 @@ def github_connect(args: List[str]) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 1
     if parsed.json_mode:
-        print(github_machine.dumps_json(report), end="")
+        print(json.dumps(temporal_wire(report), sort_keys=True), flush=True)
     else:
         print(github_machine.render_human(report), end="")
     return 0 if report.get("ok") else 1

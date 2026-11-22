@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -245,6 +246,7 @@ def test_github_connect_retry_progress_explains_authorization_wait(capsys) -> No
             "retry_in_seconds": 1.0,
         },
         json_mode=False,
+        stream=sys.stderr,
     )
 
     assert capsys.readouterr().err == (
@@ -265,8 +267,62 @@ def test_github_connect_progress_neutralizes_terminal_controls(capsys) -> None:
             ),
         },
         json_mode=False,
+        stream=sys.stderr,
     )
 
     rendered = capsys.readouterr().err
     assert "spoof" in rendered
     assert all(ord(char) >= 32 or char == "\n" for char in rendered)
+
+
+def test_github_connect_json_stdout_is_progress_lines_then_compact_result(
+    monkeypatch, capsys
+) -> None:
+    from datetime import datetime, timezone
+
+    from yoke_cli.commands.adapters import github as github_adapter
+
+    action = github_adapter.setup_browser.action(
+        "https://github.com/login/device", "Approve access.", user_code="ABCD-EFGH"
+    )
+    polled: list[str] = []
+
+    def connect(**kwargs):
+        kwargs["notify"](
+            {"phase": "device_browser", "browser_action": action,
+             "expires_in": 900, "interval": 5}
+        )
+        polled.append(capsys.readouterr().out)
+        return {"ok": True, "ready": True,
+                "at": datetime(2026, 1, 2, tzinfo=timezone.utc)}
+
+    monkeypatch.setattr(
+        github_adapter.github_app_public_profile,
+        "selected_https_service_api_url",
+        lambda config_path=None: "https://yoke.team.example",
+    )
+    monkeypatch.setattr(github_adapter.github_machine, "connect", connect)
+
+    assert yoke_operations_cli.main(["github", "connect", "--json"]) == 0
+    progress = json.loads(polled[0])
+    assert progress["browser_action"]["user_code"] == "ABCD-EFGH"
+    assert progress["wait"]["silence_expected"] is True
+    output = capsys.readouterr()
+    assert len(output.out.splitlines()) == 1
+    assert json.loads(output.out)["at"] == "2026-01-02T00:00:00.000000Z"
+
+
+def test_github_status_and_disconnect_json_stay_pretty_printed(monkeypatch, capsys) -> None:
+    from yoke_cli.commands.adapters import github as github_adapter
+
+    report = {"ok": True, "issues": []}
+    monkeypatch.setattr(github_adapter.github_machine, "disconnect", lambda **kw: report)
+    monkeypatch.setattr(github_adapter.github_machine, "status", lambda **kw: report)
+    monkeypatch.setattr(
+        github_adapter.github_merge_path_binding,
+        "status_connection_scope",
+        lambda config_path=None: {},
+    )
+    for command in ("disconnect", "status"):
+        assert yoke_operations_cli.main(["github", command, "--json"]) == 0
+        assert capsys.readouterr().out == json.dumps(report, indent=2, sort_keys=True) + "\n"
