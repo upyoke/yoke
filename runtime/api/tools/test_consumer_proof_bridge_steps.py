@@ -8,6 +8,8 @@ commit, and hands promotion the revision it actually proved.
 from __future__ import annotations
 
 from pathlib import Path
+import os
+import subprocess
 from typing import Any, Dict, List
 
 from yoke_core.domain.yaml_helper import load_document
@@ -58,6 +60,7 @@ def test_the_release_step_receives_an_explicit_consumer_sha() -> None:
         _step_index(steps, lambda step: GATE_MODULE in str(step.get("run", "")))
     ]
 
+    assert proof["env"]["GH_TOKEN"] == "${{ github.token }}"
     assert "--consumer-sha" in str(proof.get("run", ""))
     assert proof.get("env", {}).get("CONSUMER_SHA") == "${{ inputs.consumer_sha }}"
 
@@ -109,15 +112,33 @@ def test_bridge_receives_owner_endpoint_as_a_required_input() -> None:
     )
 
 
-def test_failed_factory_stops_without_rerunning_failed_jobs() -> None:
-    steps = _bridge_steps()
+def test_current_factory_failure_still_stops_release(tmp_path) -> None:
     factory = next(
-        step for step in steps
+        step for step in _bridge_steps()
         if step.get("name") == "Await the wheel and server-image release factories"
     )
-    command = factory["run"]
-    assert "gh run rerun" not in command
-    assert "factory_failed:" in command
-    assert "fix the cause on main" in command
-    assert "if ! yoke github-actions wait-run" in command
-    assert "gh run view" not in command
+    commands = {
+        "python3": 'test "$2" = rerun-stale && echo "checked stale runs"',
+        "gh": 'echo 42',
+        "yoke": 'echo "current factory failed"; exit 1',
+    }
+    for name, script in commands.items():
+        executable = tmp_path / name
+        executable.write_text(f"#!/bin/bash\n{script}\n")
+        executable.chmod(0o755)
+    result = subprocess.run(
+        ["bash", "-e", "-c", factory["run"]],
+        capture_output=True,
+        text=True,
+        env={
+            **os.environ,
+            "PATH": f"{tmp_path}:{os.environ['PATH']}",
+            "PRODUCT_SHA": "a" * 40,
+            "RELEASE_TAG": "v0.2.0.202611221412",
+        },
+    )
+    assert result.returncode == 1
+    assert result.stdout.count("checked stale runs") == 1
+    assert "current factory failed" in result.stdout
+    assert "factory_failed: yoke-release.yml run 42 did not succeed" in result.stderr
+    assert "fix the cause on main" in result.stderr

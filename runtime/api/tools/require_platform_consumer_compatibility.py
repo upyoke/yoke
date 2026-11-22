@@ -15,8 +15,10 @@ import sys
 from typing import Any, Dict, Optional, Sequence, Tuple
 
 from runtime.api.tools.platform_consumer_run_wait import wait_run
+from yoke_core.domain.ci_run_redispatch import redispatch_request_id
+from yoke_core.tools.promote_main_artifacts import latest_run, stale_failure
 from yoke_core.domain.platform_consumer_dispatch import (
-    dispatch_pair, CONSUMER_REPO, CONSUMER_PROJECT,
+    dispatch_pair, CONSUMER_REPO, CONSUMER_PROJECT, pair_request_id,
 )
 from yoke_contracts.api_urls import validate_control_api_url
 
@@ -100,9 +102,11 @@ def bind_consumer_authority() -> str:
     return ""
 
 
-def dispatch(candidate_sha: str, consumer_sha: str) -> Tuple[str, str]:
+def dispatch(
+    candidate_sha: str, consumer_sha: str, *, request_id: str | None = None
+) -> Tuple[str, str]:
     """Start or join through the same dispatcher used by the deploy driver."""
-    return dispatch_pair(_yoke, candidate_sha, consumer_sha)
+    return dispatch_pair(_yoke, candidate_sha, consumer_sha, request_id=request_id)
 
 
 def await_verdict(run_id: str, *, timeout_sec: int) -> Tuple[Dict[str, Any], str]:
@@ -217,12 +221,21 @@ def prove_pair(
 ) -> Tuple[int, str, str]:
     """Dispatch or join the exact pair, wait and classify under bound authority."""
     run_id, dispatch_error = dispatch(candidate_sha, consumer_sha)
-    if dispatch_error:
-        return UNAVAILABLE, f"consumer compatibility unproven: {dispatch_error}", ""
-    print(f"consumer check run: {CONSUMER_REPO} run {run_id}", flush=True)
-    result, unreadable = await_verdict(run_id, timeout_sec=timeout_sec)
-    if unreadable:
-        return UNAVAILABLE, f"consumer compatibility unproven: {unreadable}", ""
+    for attempt in range(2):
+        if dispatch_error:
+            return UNAVAILABLE, f"consumer compatibility unproven: {dispatch_error}", ""
+        print(f"consumer check run: {CONSUMER_REPO} run {run_id}", flush=True)
+        result, unreadable = await_verdict(run_id, timeout_sec=timeout_sec)
+        if unreadable:
+            return UNAVAILABLE, f"consumer compatibility unproven: {unreadable}", ""
+        if attempt or result.get("status") != "completed" or result.get("conclusion") != "failure":
+            break
+        upstream = latest_run("upyoke/yoke", "yoke-build-artifacts.yml", candidate_sha, "main")
+        if not stale_failure(result, upstream):
+            break
+        print(f"Re-dispatching stale consumer check run {run_id} after wheel factory recovery", flush=True)
+        request_id = redispatch_request_id(pair_request_id(candidate_sha, consumer_sha), run_id)
+        run_id, dispatch_error = dispatch(candidate_sha, consumer_sha, request_id=request_id)
     return classify(
         result,
         candidate_sha=candidate_sha,

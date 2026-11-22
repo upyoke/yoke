@@ -70,7 +70,14 @@ the Dockerfile source builder when no attested context is supplied.
 
 Both main factory artifacts retain their provenance records for 14 days. If
 those workflow artifacts expire, rerun the exact main factory and then retry
-publication; do not rerun a tag-time build or create a cache.
+publication. Keep expired artifact recovery on the main factory; do not
+run a tag-time build or create a cache.
+
+If the main wheel factory fails, rerun it and let it finish before retrying
+the deployment. The hosted release bridge reruns failed jobs in the main
+image factory, tag wheel publication, and tag image publication in dependency
+order when they finished before their exact upstream factory recovered.
+Failures that finished at or after upstream recovery still stop the release.
 
 ## First public image publication
 

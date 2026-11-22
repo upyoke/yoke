@@ -81,7 +81,7 @@ def test_bridge_creates_or_recovers_one_annotated_release_tag() -> None:
     assert ".head_branch ==" in text and "$RELEASE_TAG" in text
 
 
-def test_bridge_stops_on_failed_factory_without_rerunning() -> None:
+def test_bridge_checks_for_stale_factories_before_waiting() -> None:
     await_step = (
         _text()
         .split("- name: Await the wheel and server-image release factories", 1)[1]
@@ -89,6 +89,8 @@ def test_bridge_stops_on_failed_factory_without_rerunning() -> None:
     )
 
     assert "GH_TOKEN: ${{ github.token }}" in await_step
+    assert await_step.count("promote_main_artifacts.py rerun-stale") == 1
+    assert await_step.index("rerun-stale") < await_step.index("for workflow")
     assert "gh run rerun" not in await_step
     assert "factory_failed:" in await_step
     assert (
