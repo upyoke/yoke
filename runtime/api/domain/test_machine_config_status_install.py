@@ -64,6 +64,8 @@ class _Distribution:
         return self._root / path
 
     def read_text(self, filename: str) -> str | None:
+        if filename == "RECORD":
+            return "".join(f"{Path(f).as_posix()},sha256=x,1\n" for f in self.files)
         return self._scm_version if filename == contract.SCM_VERSION_FILENAME else None
 
 

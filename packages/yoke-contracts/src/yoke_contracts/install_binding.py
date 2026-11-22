@@ -131,6 +131,19 @@ def _module_path(module_file: Union[str, Path, None]) -> Optional[Path]:
         return None
 
 
+def _recorded_paths(installed: Distribution) -> list[str]:
+    """RECORD's path column, without the per-file stat ``Distribution.files`` does.
+
+    ``Distribution.files`` checks every recorded file exists; a wheel records
+    about a thousand, and on Windows that stat sweep cost hundreds of
+    milliseconds on every hook.
+    """
+    import csv
+
+    text = installed.read_text("RECORD") or ""
+    return [row[0] for row in csv.reader(text.splitlines()) if row]
+
+
 def _owning_distribution(
     distribution_name: str, module_path: Path
 ) -> Optional[Distribution]:
@@ -143,18 +156,16 @@ def _owning_distribution(
         return None
     if not module_path.is_relative_to(distribution_root):
         return None
-    files = installed.files
-    if not files:
-        return None
     try:
         relative = module_path.relative_to(distribution_root)
-        # RECORD is a manifest of paths, not a request to stat the wheel's
-        # entire tree. Resolve only the matching entry to retain the physical
-        # ownership check without walking every preceding module on each hook.
+        name = relative.name.casefold()
+        # Resolve only the matching entry to retain the physical ownership
+        # check without touching every other module on each hook.
         owns_module = any(
-            Path(file) == relative
-            and Path(installed.locate_file(file)).resolve() == module_path
-            for file in files
+            entry.replace("\\", "/").rsplit("/", 1)[-1].casefold() == name
+            and Path(entry) == relative
+            and Path(installed.locate_file(entry)).resolve() == module_path
+            for entry in _recorded_paths(installed)
         )
     except (OSError, TypeError, ValueError):
         return None

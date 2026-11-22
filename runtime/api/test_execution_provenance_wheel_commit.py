@@ -24,6 +24,8 @@ class _Distribution:
         return self._root / path
 
     def read_text(self, filename: str) -> str | None:
+        if filename == "RECORD":
+            return "".join(f"{Path(f).as_posix()},sha256=x,1\n" for f in self.files)
         if filename == install_binding.SCM_VERSION_FILENAME:
             return self._scm_version
         return None
@@ -88,7 +90,7 @@ def test_wheel_ownership_resolves_only_the_recorded_module(
     assert install_binding.distribution_source_commit_for_module(
         "yoke-contracts", wheel_module,
     ) == COMMIT
-    assert located == ["", relative]
+    assert located == ["", relative.as_posix()]
 
 
 def test_wheel_ownership_refuses_unrecorded_module(
@@ -112,3 +114,38 @@ def test_wheel_ownership_refuses_recorded_symlink_outside_distribution(
     assert install_binding.distribution_source_commit_for_module(
         "yoke-contracts", wheel_module,
     ) == ""
+
+
+def test_wheel_ownership_reads_record_without_the_files_stat_sweep(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``Distribution.files`` stats every recorded file; Windows hooks paid for it."""
+    from importlib import metadata
+
+    site = tmp_path / "site-packages"
+    module = site / "yoke_contracts" / "execution_provenance.py"
+    module.parent.mkdir(parents=True)
+    module.write_text("")
+    dist_info = site / "yoke_contracts-7.8.9.dist-info"
+    dist_info.mkdir()
+    (dist_info / "METADATA").write_text("Name: yoke-contracts\nVersion: 7.8.9\n")
+    (dist_info / install_binding.SCM_VERSION_FILENAME).write_text(
+        f'{{"node": "g{COMMIT}"}}'
+    )
+    missing = "".join(f"gone/m{i}.py,sha256=x,1\n" for i in range(3000))
+    (dist_info / "RECORD").write_text(
+        missing + "yoke_contracts/execution_provenance.py,sha256=x,1\n"
+    )
+    installed = metadata.PathDistribution(dist_info)
+
+    def no_files(_self):
+        raise AssertionError("Distribution.files stats every recorded file")
+
+    monkeypatch.setattr(metadata.Distribution, "files", property(no_files))
+    monkeypatch.setattr(install_binding, "_distribution", lambda name: installed)
+    assert install_binding.distribution_source_commit_for_module(
+        "yoke-contracts", module
+    ) == COMMIT
+    assert install_binding.distribution_version_for_module(
+        "yoke-contracts", module
+    ) == "7.8.9"
