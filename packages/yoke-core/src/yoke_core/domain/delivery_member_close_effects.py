@@ -20,8 +20,7 @@ from __future__ import annotations
 import io
 from typing import Any, Callable
 
-from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import connect
+from yoke_core.domain import db_backend, db_helpers
 from yoke_core.domain.function_connection_loss import retry_dropped_connection
 from yoke_core.domain.standalone_item_merge_evidence import CLOSED_OUT_STATUS
 
@@ -30,7 +29,9 @@ def _in_short_transaction(step: Callable[[Any], None]) -> None:
     """Run *step* on a fresh connection and commit; reopen once if it drops."""
 
     def _once() -> None:
-        conn = connect()
+        # Resolved per call, never bound at import: a binding taken while
+        # db_helpers.connect was substituted would outlive that substitution.
+        conn = db_helpers.connect()
         try:
             step(conn)
             conn.commit()

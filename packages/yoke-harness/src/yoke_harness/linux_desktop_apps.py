@@ -98,7 +98,11 @@ def read_linux_desktop_version(
     home: Path | None = None,
     runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
 ) -> tuple[str, str]:
-    package = _PACKAGES[surface]
+    package = _PACKAGES.get(surface)
+    if package is None:
+        raise FileNotFoundError(
+            f"desktop_app_missing: {surface} has no Linux desktop build Yoke detects"
+        )
     version = _package_version(package, runner)
     if version:
         return "package", version

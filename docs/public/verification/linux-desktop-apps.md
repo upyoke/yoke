@@ -28,8 +28,10 @@ probe diagnostics with recovery instructions. Versions are never inferred from
 the download filename.
 
 Both relay inventory and single-surface checks use this probe and feed the
-existing surface version floors. macOS continues to read app bundle plists.
-The probe does not inspect Windows installations or reach into Windows from WSL.
+existing surface version floors. macOS continues to read app bundle plists, and
+native Windows reads the registry ([Windows desktop apps](windows-desktop-apps.md)).
+The Linux probe does not reach into Windows from WSL. The Codex desktop app has
+no Linux build, so `codex-desktop` reads `missing` on Linux.
 
 Supported vendor formats: [Claude Desktop installation](https://support.claude.com/en/articles/10065433-install-claude-desktop)
 and [Cursor Linux installation](https://cursor.com/docs/get-started/quickstart).
