@@ -113,8 +113,8 @@ def member_machine_partition(
         if holder is not None:
             raise StageRosterHeld(holder)
         return open_rows, None, None
-    for row in roster:
-        resolve_case_machine(row, test_machine)
+    # Cases name no host; only the run pin's own form is checked here.
+    resolve_case_machine({}, test_machine)
     from yoke_core.domain.deployment_qa_stage_case_failures import case_failures
 
     digest = str(roster[0]["execution_target_digest"])

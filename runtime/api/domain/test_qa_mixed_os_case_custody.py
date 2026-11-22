@@ -163,7 +163,7 @@ def test_walk_start_and_end_keep_each_cases_original_lease(test_db, mixed_missio
         assert result["starting_state_restore"]["restored"]
 
 
-def test_os_only_cases_and_pins_have_distinct_partition_keys():
+def test_os_only_cases_and_slots_have_distinct_partition_keys():
     def case(requirement_id, config):
         return {
             "requirement_id": requirement_id,
@@ -175,7 +175,7 @@ def test_os_only_cases_and_pins_have_distinct_partition_keys():
     roster = [
         case(1, {"os": "windows"}),
         case(2, {"os": "macos"}),
-        case(3, {"test_machine": ARM_MAC}),
+        case(3, {"test_machines": [{"os": "windows"}, {"os": "macos", "driver": True}]}),
         case(4, {"os": "macos"}),
     ]
     groups = chain_host_groups(roster)

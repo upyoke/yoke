@@ -125,7 +125,7 @@ def test_scoped_client_executes_each_host_roster_under_its_own_plan_lease():
                         "host_baseline": "fresh-host",
                         "starting_state": "baseline",
                         "runner_id": "host_control",
-                        "required_capability_kinds": [f"test-machine:{test_machine}"],
+                        "method_config": {"os": ("linux", "macos")[index]},
                     }
                 ],
             }
@@ -139,7 +139,9 @@ def test_scoped_client_executes_each_host_roster_under_its_own_plan_lease():
         )
 
     def run_case(case, **kwargs):
-        assert kwargs["execution_id"] == kwargs["test_machine"] == case["case_key"]
+        # Each roster's host comes from its own plan lease; no case names one.
+        assert kwargs["execution_id"] == case["case_key"]
+        assert "test_machine" not in kwargs
         return {"requirement_id": case["requirement_id"], "verdict": "pass"}
 
     with (

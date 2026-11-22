@@ -93,10 +93,11 @@ needed. A successful capture that needs visual judgment still waits for the
 independent agent review described below.
 
 Use `method_config.os` and optional `capability_tags` (a JSON array) for Machine
-QA. To use a specific registered `test_machine`, state the dependency in
-`test_machine_reason`. Materialization adds the name to the case's capabilities.
-A run-level `--test-machine` must satisfy case constraints. Explicit names beat
-recorded affinity except while an admitted case still owns host state. A resume
+QA, or OS slots in `method_config.test_machines` for a case needing several
+hosts. A case never names a host (`test_machine_name_forbidden`). A run-level
+`--test-machine` picks a host for that run only and must satisfy the case's OS
+and tags. It beats recorded affinity except while an admitted case still owns
+host state. A resume
 uses its execution's host history. A replacement starts without that history.
 
 A Command case is executed live rather than collected. `--base-url`

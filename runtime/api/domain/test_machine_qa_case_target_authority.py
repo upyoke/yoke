@@ -219,3 +219,23 @@ def test_an_item_case_refusal_names_the_rematerialize_path() -> None:
     message = str(refusal.value)
     assert "tenant.slug: target records no tenant identity" in message
     assert "yoke qa plan rematerialize --item PREFIX-N --transition release" in message
+
+
+def _command(**overrides) -> dict:
+    return _case(
+        _deployment_target(),
+        runner_id="worktree_run",
+        method_id="command",
+        method_name="Command",
+        **overrides,
+    )
+
+
+def test_an_os_command_is_admitted_without_naming_a_host() -> None:
+    case = _command(method_config={"command": "true", "os": "windows"})
+    assert MachineQaCaseContract.model_validate(case).method_config["os"] == "windows"
+
+
+def test_a_command_declaring_no_host_is_refused_host_admission() -> None:
+    with pytest.raises(ValueError, match="requires a host Command: declare method_config.os"):
+        MachineQaCaseContract.model_validate(_command(method_config={"command": "true"}))

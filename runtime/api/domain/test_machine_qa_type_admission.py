@@ -12,7 +12,10 @@ from yoke_core.domain.machine_qa_host_selection import (
     acquire_test_machine_admission,
 )
 from yoke_core.domain.machine_verification_recording import record_test_machine_verification
-from yoke_core.domain.qa_method_config_validation import validate_method_config
+from yoke_core.domain.qa_method_config_validation import (
+    QaMethodConfigError,
+    validate_method_config,
+)
 
 FIRST = "windows-native-lab"
 SECOND = "windows-native-lab-2"
@@ -85,18 +88,21 @@ def test_all_tags_must_match_and_explicit_pins_cannot_override_them():
     assert _admit(conn, "first", tags=tags) == SECOND
 
 
-def test_mission_authoring_normalizes_tags_and_pin_reason():
+def test_mission_authoring_normalizes_tags_and_refuses_a_named_host():
     config = validate_method_config(
         "agent-mission",
         {
             "executor": "informed_subagent",
-            "test_machine": FIRST,
-            "test_machine_reason": "  The test addresses this host's console. ",
+            "os": "windows",
             "capability_tags": ["arch:x64", " arch:x64 "],
         },
     )
     assert config["capability_tags"] == ["arch:x64"]
-    assert config["test_machine_reason"] == "The test addresses this host's console."
+    with pytest.raises(QaMethodConfigError, match="test_machine_name_forbidden"):
+        validate_method_config(
+            "agent-mission",
+            {"executor": "informed_subagent", "test_machine": FIRST},
+        )
 
 
 @pytest.mark.parametrize("pin", [None, SECOND])

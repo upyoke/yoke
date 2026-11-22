@@ -57,7 +57,7 @@ def test_screenshot_literal_uses_runtime_schema(key, valid, no_dispatch, tmp_pat
     "value,valid",
     [
         ("test-machine", True),
-        ("test-machine:<registered-name>", True),
+        ("test-machine:<registered-name>", False),
         ("macos-examplehine", False),
         ("macos-examplehine:<name>", False),
         ("test-machine:bad/name", False),

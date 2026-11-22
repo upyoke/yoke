@@ -5,7 +5,10 @@ from yoke_core.domain.machine_qa_plan_case_ownership import (
 )
 
 
-from yoke_contracts.qa_case_starting_state import needs_test_machine
+from yoke_contracts.qa_case_starting_state import (
+    declares_starting_state,
+    needs_test_machine,
+)
 
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -82,10 +85,7 @@ def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
             )
         if parsed.ordinal != int(execution["cursor_ordinal"]):
             raise ValueError("QA plan execution expects its current ordinal")
-        if not needs_test_machine(case) and not (
-            case.get("runner_id") == "worktree_run"
-            and (case.get("method_config") or {}).get("test_machine")
-        ):
+        if not declares_starting_state(case):
             raise ValueError("the ordered plan case is not machine-backed")
         from yoke_core.domain.qa_plan_case_chain import settle_without_machine
 
@@ -102,6 +102,8 @@ def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
                 },
             )
         previous_lease_id = execution.get("test_machine_lease_id")
+        from yoke_core.domain.qa_case_host_choice import InheritedCustodyLost
+        from yoke_core.domain.qa_host_slot_turns import TestMachineSlotsBusy
         from yoke_core.domain.qa_plan_host_leases import begin_case_host_contract
 
         try:
@@ -114,6 +116,33 @@ def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
                 actor_id=request.actor.actor_id,
                 session_id=request.actor.session_id,
             )
+        except InheritedCustodyLost as lost:
+            from yoke_core.domain.qa_plan_case_chain import record_blocked_case
+
+            blocked = record_blocked_case(
+                conn, execution, case, ordinal=parsed.ordinal, blocker=lost.blocker
+            )
+            conn.commit()
+            return HandlerOutcome(
+                primary_success=True,
+                result_payload={
+                    "state": "blocked",
+                    "execution_id": str(execution["id"]),
+                    "cursor_ordinal": int(execution["cursor_ordinal"]),
+                    "result": blocked,
+                },
+            )
+        except TestMachineSlotsBusy as busy:
+            from yoke_core.domain.qa_host_set_turns import record_host_wait
+
+            waiting = record_host_wait(
+                conn,
+                execution,
+                test_machine=busy.test_machine,
+                rationale=str(busy),
+                slots=busy.slots,
+            )
+            return HandlerOutcome(primary_success=True, result_payload=waiting)
         except MachineQaProtocolLeaseHeld as held:
             from yoke_core.domain.qa_host_set_turns import record_host_wait
 

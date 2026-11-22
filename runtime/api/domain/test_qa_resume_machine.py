@@ -7,18 +7,18 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_core.domain.qa_plan_execution_continuation import continuation_recipe
-from yoke_core.domain.qa_resume_machine import execution_machine
+from yoke_core.domain.qa_resume_machine import execution_host_set, execution_machine
 
 
-@pytest.mark.parametrize("hosts", [("linux-lab",), ("linux-lab", "test-mac")])
-def test_resume_recipe_never_pins_a_host(hosts):
+@pytest.mark.parametrize("oses", [("linux",), ("linux", "macos")])
+def test_resume_recipe_never_pins_a_host(oses):
     execution = {
         "id": "walk",
         "deployment_run_id": "run",
         "deployment_stage": "member-qa",
         "roster": [
-            {"project": "example", "method_config": {"test_machine": host}}
-            for host in hosts
+            {"project": "example", "method_config": {"os": os_name}}
+            for os_name in oses
         ],
     }
     command = continuation_recipe(Mock(), execution)
@@ -232,3 +232,31 @@ def test_wait_recipe_is_rendered_from_its_execution_instead_of_saved_text(monkey
         },
     )
     assert command == "yoke qa plan run --resume-execution-id walk"
+
+
+_SLOTTED = {
+    "requirement_id": 5,
+    "method_config": {
+        "test_machines": [{"os": "linux"}, {"os": "macos", "driver": True}, {"os": "windows"}]
+    },
+}
+
+
+@pytest.mark.parametrize(
+    "bound,expected",
+    [
+        ({"mac-lab": 2, "linux-lab": 1, "win-lab": 3}, ("mac-lab", ("linux-lab", "win-lab"))),
+        # One slot's lease is gone: custody of the whole set is lost.
+        ({"mac-lab": 2, "linux-lab": 1}, None),
+        ({}, None),
+    ],
+)
+def test_slotted_resume_reads_the_set_still_leased_to_the_case(
+    monkeypatch, bound, expected
+):
+    custody = "yoke_core.domain.qa_case_host_custody"
+    monkeypatch.setattr(f"{custody}.bound_case_hosts", lambda *a: dict(bound))
+    monkeypatch.setattr(
+        f"{custody}.case_host_lease_id", lambda *a: 2 if bound else None
+    )
+    assert execution_host_set(Mock(), {"id": "slotted"}, _SLOTTED) == expected

@@ -27,9 +27,7 @@ def _plan(environment="prod"):
         "slug": "installer-campaign",
         "target_environment": environment,
         "execution_target": target,
-        "cases": installer_campaign_cases_for_target(
-            target, primary_machine="primary-test", joining_machine="joining-test"
-        ),
+        "cases": installer_campaign_cases_for_target(target, os="macos"),
     }
 
 

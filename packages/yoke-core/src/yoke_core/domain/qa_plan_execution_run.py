@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from yoke_core.domain.qa_plan_execution_result_state import plan_recovery
 
-from yoke_contracts.qa_case_starting_state import needs_test_machine
+from yoke_contracts.qa_case_starting_state import is_host_command, needs_test_machine
 from yoke_core.domain.agent_mission_controller import execute_controller_mission
 
 
@@ -157,15 +157,14 @@ def execute_begun_plan(
                 advance_result = False
             else:
                 result = None
-                if requirement.get("runner_id") == "worktree_run" and (
-                    requirement.get("method_config") or {}
-                ).get("test_machine"):
+                if is_host_command(requirement):
                     result = begin_command_host(
                         requirement,
                         execution_id=execution_id,
                         ordinal=ordinal,
                         target=target,
                         actor=resolved_actor,
+                        **machine_options,
                     )
                 advance_result = result is None
                 if advance_result:

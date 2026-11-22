@@ -52,8 +52,7 @@ def test_projected_recovery_entries_expand_through_both_real_host_adapters():
     )
     cases = installer_campaign_cases_for_target(
         _target("prod"),
-        primary_machine="primary-test",
-        joining_machine="joining-test",
+        os="macos",
     )
     for case in cases:
         if case["entry_surface"]:
@@ -334,15 +333,13 @@ def test_hosted_ready_marker_follows_successful_exit_and_real_backup_check(
     ]
 
 
-def test_second_machine_is_a_mission_with_both_physical_hosts():
-    cases = installer_campaign_cases_for_target(
-        _target("prod"), primary_machine="primary-test", joining_machine="joining-test"
-    )
+def test_second_machine_is_a_mission_with_two_same_os_slots():
+    cases = installer_campaign_cases_for_target(_target("prod"), os="macos")
     case = next(row for row in cases if row["case_key"] == "second-machine-join")
     assert case["method_id"] == "exploratory-mission"
     assert case["method_config"] == {
-        "executor": "informed_subagent", "test_machine": "joining-test", "os": "macos",
-        "test_machines": ["primary-test", "joining-test"],
+        "executor": "informed_subagent",
+        "test_machines": [{"os": "macos"}, {"os": "macos", "driver": True}],
     }
     assert "distinct" in case["instructions"]
     assert "both host bundles" in case["instructions"]

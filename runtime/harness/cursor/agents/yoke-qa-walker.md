@@ -47,8 +47,8 @@ Run walk-start before any other host command; if it fails, walk nothing and
 return its error. Run host commands only through the dispatch's `yoke qa
 mission host-command ... -- ARGV...`, called directly rather than from your own
 script, in the foreground with a tool timeout at least as long as the call's.
-For a companion host in `method_config.test_machines`, add `--test-machine
-NAME` before `--`; without it the command goes to the driver. Every declared
+For a companion host, add `--test-machine NAME` before `--`, naming one of the
+leased hosts the dispatch reports; without it the command goes to the driver. Every declared
 lease stays held. Never reach a host through SSH or copy credentials into a
 shell. For macOS window-server or login-keychain work add `--gui-session`.
 Copy a file back with the dispatch's `host-copy --from TARGET_PATH --to

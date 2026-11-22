@@ -12,8 +12,8 @@ Test Machine cases (`host_control` and exploratory missions declaring a host)
 declare starting state. A hostless mission explores on the controller and
 declares no host starting state. Authoring, `qa.requirement.add`, and
 materialization refuse missing state. Select a host type with `method_config.os`
-and optional `capability_tags`. A named `test_machine` needs a specific dependency
-in `test_machine_reason`. For requirements that replace a prior attempt, host
+and optional `capability_tags`, or list OS slots in `method_config.test_machines`;
+a case never names a host. For requirements that replace a prior attempt, host
 selection starts fresh. Resuming an execution preserves its host affinity.
 `yoke qa plan get` shows each starting-state choice:
 
@@ -27,8 +27,8 @@ selection starts fresh. Resuming an execution preserves its host affinity.
   may inherit only at the chain's tail, on the same driver, in an isolated
   execution; [Machine partitions](deployment-plan-execution.md#machine-partitions)
   explains host custody and the standalone plan boundary.
-A Command that calls a specific Test Machine names it in `method_config.test_machine`
-and states the dependency in `test_machine_reason`. It follows the same rule. A new
+A Command runs on a Test Machine when it declares `method_config.os`, OS slots
+or `"starting_state": "inherit"`, and it follows the same rule. A new
 chain resets before its first case. Choose `shell-preconfigured` when it runs
 Yoke on the host, verifies browser identities, uninstalls, or upgrades.
 `yoke qa case run` takes a host turn for a direct Command. Run inheriting

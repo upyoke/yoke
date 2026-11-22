@@ -1,4 +1,4 @@
-"""Select a mission's driver or a declared companion under its retained lease."""
+"""Select a mission's driver or a leased companion under its retained lease."""
 
 from __future__ import annotations
 
@@ -54,11 +54,12 @@ def mission_host_contract(
             lease_id=driver_lease.id,
             **{key: value for key, value in arguments.items() if key != "operation"},
         )
-    if selected not in case_machines(case):
+    leased = case_machines(conn, execution, case)
+    if selected not in leased:
         raise ValueError(
             f"mission_machine_not_declared: {selected!r} is outside this case's "
-            f"host set; omit --test-machine for driver {driver!r} or name one of "
-            f"{', '.join(case_machines(case))}"
+            f"leased host set; omit --test-machine for driver {driver!r} or name "
+            f"one of {', '.join(leased)}"
         )
     lease = next(
         (

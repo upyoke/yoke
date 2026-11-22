@@ -93,7 +93,8 @@ def operation_mission(
         raise MachineQaProtocolError(
             f"mission_operation_foreign_holder: you do not hold the lease on {test_machine}; "
             f"session {execution['session_id']} holds it for plan {execution['id']}. "
-            "Declare method_config.test_machine on your QA case and run its scoped plan "
+            "Declare method_config.os or OS slots in method_config.test_machines on "
+            "your QA case and run its scoped plan "
             "to acquire the host lease after that holder finishes"
         )
     if execution["state"] == "active":

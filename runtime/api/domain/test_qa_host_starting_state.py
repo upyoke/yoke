@@ -13,7 +13,7 @@ def test_mission_accepts_declared_package_state():
         "agent-mission",
         {
             "executor": "informed_subagent",
-            "test_machine": "linux-lab",
+            "os": "linux",
             "host_starting_state": {"os_packages": {"absent": ["python3.12-venv"]}},
         },
     )

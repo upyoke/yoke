@@ -9,7 +9,10 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from yoke_contracts.machine_qa_case_target import require_case_execution_target
-from yoke_contracts.qa_case_starting_state import require_materialized_starting_state
+from yoke_contracts.qa_case_starting_state import (
+    is_host_command,
+    require_materialized_starting_state,
+)
 from yoke_contracts.qa_continuity_fingerprint import require_continuity_state
 
 
@@ -91,11 +94,17 @@ class MachineQaCaseContract(BaseModel):
         if not hmac.compare_digest(self.execution_target_digest, expected_digest):
             raise ValueError("Machine QA execution target digest is invalid")
         require_case_execution_target(self)
-        if self.runner_id == "worktree_run":
-            if not self.method_config.get("test_machine"):
-                raise ValueError(
-                    "Command host admission requires method_config.test_machine"
-                )
+        shape = {
+            "runner_id": self.runner_id,
+            "method_config": self.method_config,
+            "starting_state": self.starting_state,
+        }
+        if self.runner_id == "worktree_run" and not is_host_command(shape):
+            raise ValueError(
+                "Command host admission requires a host Command: declare "
+                "method_config.os, OS slots in method_config.test_machines or "
+                'starting_state "inherit"; the host comes from the plan\'s lease'
+            )
         require_materialized_starting_state(self)
         require_continuity_state(self)
         return self

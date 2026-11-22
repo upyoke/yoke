@@ -136,7 +136,10 @@ def handle_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
     if isinstance(target, HandlerOutcome):
         return target
     from yoke_core.domain.db_helpers import connect
-    from yoke_core.domain.machine_qa_case_machine import resolve_case_machine
+    from yoke_core.domain.machine_qa_case_machine import (
+        refuse_stored_host_names,
+        resolve_case_machine,
+    )
     from yoke_core.domain.machine_qa_execution_protocol import (
         MachineQaProtocolError,
         MachineQaProtocolLeaseHeld,
@@ -157,6 +160,7 @@ def handle_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
                 session_id=request.actor.session_id,
             ),
         )
+        refuse_stored_host_names(case)
         if case.get("starting_state") == "inherit":
             raise ValueError(
                 f"requirement {target} inherits the machine the case before it "

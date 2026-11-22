@@ -11,21 +11,31 @@ from yoke_core.domain.qa_plan_item_target_partition import item_target_partition
 from yoke_core.domain.qa_standalone_execution import begin_standalone_execution
 
 
+SLOTS = [{"os": "linux"}, {"os": "macos", "driver": True}]
+
+
 def _roster():
     common = {"plan_id": 1, "baseline_position": 1, "execution_target_digest": "target"}
     return [
-        {**common, "requirement_id": 1, "method_config": {"test_machine": "mac-lab"}},
+        {
+            **common,
+            "requirement_id": 1,
+            "runner_id": "host_control",
+            "method_config": {"test_machines": SLOTS},
+        },
         {
             **common,
             "requirement_id": 2,
             "starting_state": "inherit",
             "runner_id": "agent_mission",
-            "method_config": {
-                "test_machine": "mac-lab",
-                "test_machines": ["linux-lab", "mac-lab"],
-            },
+            "method_config": {"test_machines": SLOTS},
         },
-        {**common, "requirement_id": 3, "method_config": {"test_machine": "mac-lab"}},
+        {
+            **common,
+            "requirement_id": 3,
+            "runner_id": "host_control",
+            "method_config": {"os": "macos"},
+        },
     ]
 
 
@@ -48,19 +58,16 @@ def test_item_execution_isolates_a_mission_chain_on_the_same_target(passed):
         )
     assert [row["requirement_id"] for row in selected] == [1, 2]
     assert remaining == 1
-    assert chain_host_groups(roster)[1] == (
-        "mac-lab",
-        ("linux-lab", "mac-lab"),
-        1,
-        None,
-    )
+    # Before admission a chain names no host: it carries its opener's slots.
+    assert chain_host_groups(roster)[1] == ("macos", ("linux", "macos"), 1, None)
+    assert chain_host_groups(roster)[3] == (None, (), None, "macos")
 
 
-def test_host_union_does_not_cross_a_plan_or_baseline_boundary():
+def test_mission_chain_does_not_cross_a_plan_or_baseline_boundary():
     roster = _roster()[:2]
     for boundary in ({"plan_id": 2}, {"baseline_position": 2}):
         separated = [roster[0], {**roster[1], **boundary}]
-        assert chain_host_groups(separated)[1] == ("mac-lab", ("mac-lab",), None, None)
+        assert chain_host_groups(separated)[1] == ("macos", ("linux", "macos"), None, None)
 
 
 @pytest.mark.parametrize("trailing", [False, True])
@@ -103,11 +110,13 @@ def test_each_chain_baseline_takes_only_its_own_chain_hosts(
     from runtime.api.domain.machine_qa_host_test_support import (
         TEST_MACHINE_SETTINGS,
         _terminal_recipe,
+        verify_fixture_host,
     )
     from yoke_core.domain.machine_qa_capability import replace_test_machine_settings
     from runtime.api.domain.qa_member_machine_partitions_test_support import (
         MACHINES,
         _case_begin,
+        host_slots,
     )
     from yoke_core.domain.qa_plan_management import replace_plan_cases
     from yoke_core.domain.qa_plan_execution_state import (
@@ -117,6 +126,7 @@ def test_each_chain_baseline_takes_only_its_own_chain_hosts(
     from yoke_core.domain.qa_plan_host_leases import execution_host_leases
 
     _seed(test_db, tmp_path, monkeypatch)
+    # An idle identical mac the chains never need to take.
     third = "mac-pro-lab"
     replace_test_machine_settings(
         test_db,
@@ -125,6 +135,7 @@ def test_each_chain_baseline_takes_only_its_own_chain_hosts(
         settings={**TEST_MACHINE_SETTINGS, "resource_name": third},
         base_settings=None,
     )
+    verify_fixture_host(test_db, third)
     test_db.execute(
         "UPDATE qa_plans SET target_environment_id=(SELECT id FROM environments "
         "WHERE project_id=1 AND name='stage') WHERE slug='host-check-0'"
@@ -145,17 +156,7 @@ def test_each_chain_baseline_takes_only_its_own_chain_hosts(
                 "expected_outcome": "Check passes.",
                 "method_config": {
                     **_terminal_recipe(),
-                    "test_machine": MACHINES[0],
-                    **(
-                        {
-                            "test_machines": [
-                                MACHINES[0],
-                                MACHINES[1] if position == 2 else third,
-                            ]
-                        }
-                        if position > 1
-                        else {}
-                    ),
+                    **({"test_machines": host_slots()} if position > 1 else {"os": "macos"}),
                 },
                 "entry_surface": "printf done",
                 "required_completion": "complete",
@@ -190,10 +191,11 @@ def test_each_chain_baseline_takes_only_its_own_chain_hosts(
     response = _case_begin(current, 1)
     assert response.primary_success, response.error
     current = lock_plan_execution(test_db, execution["id"])
-    # The opener's baseline is not covered, so its chain set is acquired anew.
+    # The opener's baseline is not covered, so its slots are acquired anew; the
+    # idle identical mac stays free.
     assert {
         lease.target.test_machine for lease in execution_host_leases(test_db, current)
-    } == {*MACHINES, third}
+    } == set(MACHINES)
     assert current["test_machine_lease_id"] != old_lease
     assert test_db.execute(
         "SELECT released_at FROM work_claims WHERE id=%s", (old_lease,)
@@ -209,7 +211,7 @@ def test_each_chain_baseline_takes_only_its_own_chain_hosts(
     )
     response = _case_begin(current, 2)
     assert response.primary_success, response.error
-    assert len(execution_host_leases(test_db, current)) == 3
+    assert len(execution_host_leases(test_db, current)) == 2
 
 
 def test_run_scoped_mission_chain_excludes_later_captures(

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from yoke_contracts.machine_config.test_machine import test_machine_capability_tags
-
 from typing import Any
 from datetime import datetime
 
@@ -57,20 +55,32 @@ def release_execution_hosts(
 
 
 def require_case_host_leases(
-    conn: Any, execution: dict[str, Any], case: dict[str, Any]
+    conn: Any,
+    execution: dict[str, Any],
+    case: dict[str, Any],
+    names: tuple[str, ...] | None = None,
 ) -> None:
-    """A running simultaneous case cannot continue after any host was released."""
-    names = case_machines(case)
-    if len(names) < 2:
-        return
+    """A running simultaneous case cannot continue after any host was released.
+
+    *names* is the set the caller continues with; by default the hosts bound
+    to *case*, which must still cover each of its OS slots once admitted.
+    """
+    from yoke_core.domain.machine_qa_case_hosts import case_slots
     from yoke_core.domain.machine_qa_execution_protocol import _validate_lease_owner
 
+    lost = ValueError(
+        "test_machine_set_lease_lost: this case no longer holds a host for every "
+        "OS slot; abort the execution and rerun its scoped QA command"
+    )
+    if names is None:
+        names = case_machines(conn, execution, case)
+        if names and len(names) < len(case_slots(case)):
+            raise lost
+    if len(names) < 2:
+        return
     leases = held_host_leases(conn, execution)
     if not set(names).issubset(leases):
-        raise ValueError(
-            "test_machine_set_lease_lost: this case no longer holds every declared "
-            "machine; abort the execution and rerun its scoped QA command"
-        )
+        raise lost
     for name in names:
         _validate_lease_owner(
             conn,
@@ -92,10 +102,11 @@ def begin_case_host_contract(
     actor_id: str | None,
     session_id: str,
 ) -> Any:
-    """Acquire the case's full sorted set, or acquire nothing and raise the
-    first busy or unhealthy host for the caller to queue the whole set."""
+    """Acquire the case's full host set, or acquire nothing and raise the
+    first busy or unhealthy host (or, for OS slots, every slot's wait) for
+    the caller to queue. An ``inherit`` case only continues on its chain's
+    hosts (``qa_case_host_choice``)."""
     from yoke_core.domain.claim_chain_state import record_claim_reason
-    from yoke_core.domain.machine_qa_case_machine import resolve_case_machine
     from yoke_core.domain.machine_qa_execution_protocol import (
         MachineQaProtocolLeaseHeld,
         begin_host_control_execution,
@@ -111,44 +122,34 @@ def begin_case_host_contract(
         plan_case_contract_arguments,
     )
     from yoke_core.domain.qa_plan_execution_lifecycle import set_plan_machine_lease
-
-    from yoke_core.domain.qa_resume_machine import execution_machine
-    from yoke_core.domain.machine_qa_case_platform import (
-        require_host_tags,
-        required_host_tags,
-    )
-
+    from yoke_core.domain.machine_qa_case_platform import require_host_tags
+    from yoke_core.domain.qa_case_host_choice import case_host_choice, custody_lost
+    from yoke_core.domain.qa_case_host_custody import case_host_lease_id
+    from yoke_core.domain.qa_host_slot_turns import TestMachineSlotsBusy
     from yoke_core.domain.qa_mixed_host_set import mixed_mission_host_set
-
-    chain = host_case_chain(execution, ordinal)
-    mixed = mixed_mission_host_set(conn, execution, ordinal, test_machine)
-    if mixed:
-        driver, names = mixed
-    else:
-        explicit = resolve_case_machine(case, test_machine)
-        driver = explicit or execution_machine(conn, execution, case)
-        tags = required_host_tags(chain)
-        if tags and driver and not explicit:
-            from yoke_core.domain.machine_qa_host_rows import test_machine_rows
-
-            settings = {row.test_machine: row.settings for row in test_machine_rows(conn)}
-            if not tags.issubset(test_machine_capability_tags(settings[driver])):
-                driver = None
-        names = tuple(sorted(set(case_machines(case, driver)).union(
-            name for row in chain for name in case_machines(row)
-        )))
-    lease_id = execution.get("test_machine_lease_id")
     from yoke_core.domain.qa_plan_execution_reentry import admitted_case
 
+    chain = host_case_chain(execution, ordinal)
+    inherit = case.get("starting_state") == "inherit"
+    lease_id = execution.get("test_machine_lease_id")
     lease = get_claim(conn, int(lease_id)) if lease_id else None
     primary = lease.target.test_machine if lease and lease.is_active else None
     held = held_hosts(conn, execution) if lease_id is not None else set()
+    mixed = mixed_mission_host_set(conn, execution, ordinal, test_machine)
+    slot_waits: tuple[tuple[str, ...], ...] = ()
+    if mixed:
+        if inherit and case_host_lease_id(conn, execution, chain[0]) is None:
+            raise custody_lost(execution, case, ordinal, chain, "its chain holds no host")
+        driver, names, companions = mixed
+    else:
+        driver, names, slot_waits = case_host_choice(
+            conn, execution, case, chain,
+            ordinal=ordinal, requested=test_machine, primary=primary,
+        )
+        companions = tuple(name for name in names if name != driver)
     # A chain baseline not yet admitted takes exactly its set; an admitted
     # case continues only with the custody it was admitted with.
-    baseline = (
-        case.get("starting_state") != "inherit"
-        and admitted_case(execution) != ordinal
-    )
+    baseline = not inherit and admitted_case(execution) != ordinal
     if primary and not baseline and primary != driver and not mixed:
         raise ValueError(
             f"test_machine_constraint_mismatch: active plan lease uses {primary!r}; "
@@ -171,10 +172,7 @@ def begin_case_host_contract(
     lease_id = execution.get("test_machine_lease_id")
     leases = held_host_leases(conn, execution)
     if lease_id is not None and len(names) > 1 and not mixed:
-        require_case_host_leases(
-            conn, execution,
-            {**case, "method_config": {"test_machine": driver, "test_machines": list(names)}},
-        )
+        require_case_host_leases(conn, execution, case, names)
     selection_reason = None
     if len(names) < 2 and not mixed and lease_id is None:
         contract = begin_host_control_execution(
@@ -213,14 +211,18 @@ def begin_case_host_contract(
                         leases[name] = admission.lease.id
                         if name == driver:
                             selection_reason = admission.selection_reason
-                except (MachineQaProtocolLeaseHeld, TestMachineHostUnhealthy) as exc:
-                    if mixed and held:
+                except (
+                    MachineQaProtocolLeaseHeld, TestMachineHostUnhealthy, TestMachineFleetBusy,
+                ) as exc:
+                    if slot_waits:
+                        raise TestMachineSlotsBusy(slot_waits, str(exc)) from None
+                    if mixed and held and not isinstance(exc, TestMachineFleetBusy):
                         raise ValueError(
                             "qa_open_walk_host_set_changed: finish the open walks on their "
                             "retained hosts, then restart with the full host set available"
                         ) from exc
-                    raise
-                except TestMachineFleetBusy as exc:
+                    if not isinstance(exc, TestMachineFleetBusy):
+                        raise
                     busy = exc.busy[0]
                     raise MachineQaProtocolLeaseHeld(
                         lease=busy.lease, test_machine=busy.test_machine,
@@ -235,7 +237,7 @@ def begin_case_host_contract(
             )
             require_host_tags(contract.settings, chain)
     bind_case_host(conn, execution, case, contract.lease_id)
-    for name in case_machines(case):
+    for name in companions:
         if name in leases and leases[name] != contract.lease_id:
             bind_case_host(conn, execution, case, leases[name], companion=True)
     set_plan_machine_lease(conn, execution, lease_id=contract.lease_id)

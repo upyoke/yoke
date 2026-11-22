@@ -46,11 +46,38 @@ from yoke_contracts.api.function_call import (
 
 MACHINES = ("mac-mini-lab", "mac-studio-lab")
 
+#: Each fixture host is the only one of its OS, so an OS selects it.
+OSES = {MACHINES[0]: "macos", MACHINES[1]: "linux"}
+
 RUN = "run-member-hosts"
 
 MEMBER = 9820
 
 SESSION = "session-machine-plan"
+
+
+def register_second_host(conn):
+    """Register and verify MACHINES[1], the fleet's one linux host."""
+    from runtime.api.domain.machine_qa_host_test_support import verify_fixture_host
+
+    replace_test_machine_settings(
+        conn,
+        power_project="yoke",
+        test_machine=MACHINES[1],
+        settings={
+            **TEST_MACHINE_SETTINGS, "resource_name": MACHINES[1], "os": OSES[MACHINES[1]],
+        },
+        base_settings=None,
+    )
+    verify_fixture_host(conn, MACHINES[1])
+
+
+def host_slots(driver=None):
+    """One OS slot per fixture host, the driver's OS marked."""
+    return [
+        {"os": OSES[name], **({"driver": True} if name == (driver or MACHINES[0]) else {})}
+        for name in MACHINES
+    ]
 
 
 def _seed(
@@ -66,13 +93,7 @@ def _seed(
     run_scope=False,
 ):
     configure_test_machine(conn, tmp_path, monkeypatch)
-    replace_test_machine_settings(
-        conn,
-        power_project="yoke",
-        test_machine=MACHINES[1],
-        settings={**TEST_MACHINE_SETTINGS, "resource_name": MACHINES[1]},
-        base_settings=None,
-    )
+    register_second_host(conn)
     plan = create_plan(
         conn,
         project="yoke",
@@ -82,12 +103,18 @@ def _seed(
     machines = [driver or MACHINES[0]] if simultaneous else list(MACHINES)
     if trailing:
         machines = [*machines, "independent"]
+
+    def hosts(key, position):
+        if simultaneous or (inherit and position <= 2):
+            return {"test_machines": host_slots(driver)}
+        return {"os": OSES.get(key, OSES[MACHINES[0]])}
+
     replace_plan_cases(
         conn,
         plan_id=int(plan["id"]),
         cases=[
             {
-                "case_key": test_machine,
+                "case_key": key,
                 "position": position,
                 "method_id": "exploratory-mission"
                 if mission and position == 2
@@ -96,15 +123,10 @@ def _seed(
                 "expected_outcome": "The check passes.",
                 "method_config": {
                     **({} if mission and position == 2 else _terminal_recipe()),
-                    "test_machine": MACHINES[0] if inherit else test_machine,
+                    **hosts(key, position),
                     **(
                         {"executor": "informed_subagent"}
                         if mission and position == 2
-                        else {}
-                    ),
-                    **(
-                        {"test_machines": list(MACHINES)}
-                        if simultaneous or (inherit and position == 2)
                         else {}
                     ),
                 },
@@ -113,9 +135,52 @@ def _seed(
                 "starting_state": "inherit" if inherit and position == 2 else "baseline",
                 "host_baselines": [] if inherit and position == 2 else ["fresh-host"],
             }
-            for position, test_machine in enumerate(machines, 1)
+            for position, key in enumerate(machines, 1)
         ],
     )
+    _materialize(conn, int(plan["id"]), machines, run_scope=run_scope)
+
+
+def seed_fleet_cases(conn, tmp_path, monkeypatch, fleet, cases):
+    """Register *fleet* ({name: os}, verified) beside the fixture mac and
+    materialize *cases* (terminal checks keyed by case_key) for MEMBER."""
+    from runtime.api.domain.machine_qa_host_test_support import verify_fixture_host
+
+    configure_test_machine(conn, tmp_path, monkeypatch)
+    for name, os_name in fleet.items():
+        replace_test_machine_settings(
+            conn,
+            power_project="yoke",
+            test_machine=name,
+            settings={**TEST_MACHINE_SETTINGS, "resource_name": name, "os": os_name},
+            base_settings=None,
+        )
+        verify_fixture_host(conn, name)
+    plan = create_plan(conn, project="yoke", slug="host-check-0", infer_target_environment=False)
+    inherit = {"starting_state": "inherit", "host_baselines": []}
+    baseline = {"starting_state": "baseline", "host_baselines": ["fresh-host"]}
+    replace_plan_cases(
+        conn,
+        plan_id=int(plan["id"]),
+        cases=[
+            {
+                "case_key": case["case_key"],
+                "position": position,
+                "method_id": "terminal-check",
+                "instructions": "Run a host-specific check.",
+                "expected_outcome": "The check passes.",
+                "method_config": {**_terminal_recipe(), **case.get("hosts", {})},
+                "entry_surface": "printf done",
+                "required_completion": "complete",
+                **(inherit if case.get("inherit") else baseline),
+            }
+            for position, case in enumerate(cases, 1)
+        ],
+    )
+    _materialize(conn, int(plan["id"]), [case["case_key"] for case in cases])
+
+
+def _materialize(conn, plan_id, case_keys, *, run_scope=False):
     from runtime.api.fixtures.backlog_inserts import insert_item
 
     insert_item(
@@ -123,8 +188,8 @@ def _seed(
     )
     # The flow pins the plan's cases to the stage, so each member walks its own
     # copy; an attached post-deploy plan would run as a memberless plan group.
-    stages = _stages(int(plan["id"]))
-    stages[1]["cases"] = {"plan_id": int(plan["id"]), "case_keys": machines}
+    stages = _stages(plan_id)
+    stages[1]["cases"] = {"plan_id": plan_id, "case_keys": case_keys}
     if run_scope:
         stages[1]["scope"] = "run"
     _seed_run(

@@ -63,7 +63,7 @@ def test_case_routes_exact_mission_into_plan_execution(monkeypatch, deployment):
 def test_direct_host_command_uses_ordered_execution(monkeypatch):
     case = mission_case(
         runner_id="worktree_run",
-        method_config={"command": "true", "test_machine": "linux-lab"},
+        method_config={"command": "true", "os": "linux"},
     )
     monkeypatch.setattr(cases, "fetch_case_execution_context", lambda *a, **k: case)
     expected = {"execution_id": "single-host-command", "state": "completed"}

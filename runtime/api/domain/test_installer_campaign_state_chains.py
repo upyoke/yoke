@@ -8,9 +8,7 @@ from yoke_core.domain.installer_campaign_execution_target import (
 
 
 def _cases():
-    return installer_campaign_cases_for_target(
-        _target("prod"), primary_machine="primary", joining_machine="joining"
-    )
+    return installer_campaign_cases_for_target(_target("prod"), os="macos")
 
 
 def test_state_checks_directly_follow_their_real_state_producers():

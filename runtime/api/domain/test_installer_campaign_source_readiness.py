@@ -40,8 +40,7 @@ _TARGETS = {
 def _recipes(target_name: str):
     cases = installer_campaign_cases_for_target(
         _TARGETS[target_name],
-        primary_machine="primary-test",
-        joining_machine="joining-test",
+        os="macos",
     )
     for case in cases:
         if not str(case["method_id"]).startswith("terminal-"):
@@ -69,7 +68,7 @@ def test_every_source_recipe_passes_the_execution_contract(target_name: str) -> 
         assert case["method_config"]["os"] == "macos"
         recipe = {
             key: value for key, value in config.items()
-            if key not in {"test_machine", "test_machines", "os", "platform"}
+            if key not in {"test_machines", "os"}
         }
         validate_terminal_recipe(
             recipe,

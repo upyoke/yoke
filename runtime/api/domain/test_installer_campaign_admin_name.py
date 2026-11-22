@@ -23,8 +23,7 @@ def _local_birth_config():
             },
             "role": {"production": True},
         },
-        primary_machine="primary-test",
-        joining_machine="joining-test",
+        os="macos",
     )
     return next(
         case["method_config"] for case in cases if case["case_key"] == "apply-handoff"

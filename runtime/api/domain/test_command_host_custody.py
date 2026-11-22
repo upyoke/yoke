@@ -7,12 +7,18 @@ import pytest
 from yoke_core.domain import host_lease_walk_heartbeat as walk_lease
 from yoke_core.domain import machine_qa_operation_lease as operations
 from yoke_core.domain import qa_plan_command_case as commands
-from yoke_core.domain.machine_qa_case_machine import normalize_config_machine
+from yoke_core.domain.machine_qa_case_machine import (
+    MachineConstraintError,
+    normalize_config_machine,
+)
 
 
-def test_command_accepts_a_declared_host():
-    config = {"command": "yoke test-machine reset", "test_machine": "linux-lab"}
-    assert normalize_config_machine("command", config) == "linux-lab"
+def test_command_declares_its_host_by_os_and_never_by_name():
+    normalize_config_machine("command", {"command": "yoke test-machine reset", "os": "linux"})
+    with pytest.raises(MachineConstraintError, match="test_machine_name_forbidden"):
+        normalize_config_machine(
+            "command", {"command": "yoke test-machine reset", "test_machine": "linux-lab"}
+        )
 
 
 def test_declared_host_command_cannot_run_as_host_free_work():
@@ -22,7 +28,8 @@ def test_declared_host_command_cannot_run_as_host_free_work():
     assert not is_host_free_case(
         {
             "runner_id": "worktree_run",
-            "method_config": {"test_machine": "linux-lab"},
+            "method_config": {"os": "linux"},
+            "host_baselines": ["fresh-host"],
         }
     )
 
@@ -77,7 +84,7 @@ def test_foreign_command_plan_names_actual_leaseholder(owned_plan, session, acto
     text = str(error.value)
     assert "you do not hold the lease on linux-lab" in text
     assert "session owner holds it for plan plan-execution" in text
-    assert "method_config.test_machine" in text
+    assert "Declare method_config.os or OS slots" in text
 
 
 def test_non_command_active_plan_cannot_borrow_host(owned_plan):
@@ -112,14 +119,15 @@ def test_command_uses_existing_plan_case_admission(monkeypatch, state):
     monkeypatch.setattr(commands, "_dispatch", dispatch)
     monkeypatch.setattr(commands, "reset_command_host", calls.append)
     result = commands.begin_command_host(
-        {"requirement_id": 1, "method_config": {"test_machine": "linux-lab"}},
+        {"requirement_id": 1, "runner_id": "worktree_run", "method_config": {"os": "linux"}},
         execution_id="plan-execution",
         ordinal=0,
         target="subject",
         actor="owner",
     )
     assert calls[0][0] == "test_machine.plan_case.begin"
-    assert calls[0][1]["payload"]["test_machine"] == "linux-lab"
+    # The case names no host; the server selects one by OS or keeps the lease.
+    assert "test_machine" not in calls[0][1]["payload"]
     if state == "waiting":
         assert result["case_outcome"] == "waiting"
     else:
@@ -215,7 +223,7 @@ def test_declared_command_acquires_lease_and_can_begin_nested_operation(
                 "method_id": "command",
                 "instructions": "Run a leased host operation.",
                 "expected_outcome": "Pass.",
-                "method_config": {"test_machine": "mac-mini-lab", "command": "true"},
+                "method_config": {"os": "macos", "command": "true"},
                 "host_baselines": list(baselines),
             }
         ],
@@ -257,6 +265,15 @@ def test_declared_command_acquires_lease_and_can_begin_nested_operation(
     assert admitted.result_payload["state"] == "ready"
     # Admission names the declared baseline, so the Command resets it first.
     assert admitted.result_payload["execution"]["baselines"] == list(baselines)
+    from yoke_core.domain.coordination_claims import get_claim
+    from yoke_core.domain.qa_case_host_custody import case_host_lease_id
+    from yoke_core.domain.qa_plan_execution_state import select_plan_execution
+
+    current = select_plan_execution(test_db, str(execution["id"]), lock=False)
+    lease_id = case_host_lease_id(test_db, current, current["roster"][0])
+    assert lease_id == admitted.result_payload["execution"]["lease_id"]
+    leased = get_claim(test_db, lease_id).target.test_machine
+    assert admitted.result_payload["execution"]["settings"]["resource_name"] == leased
     nested = begin(operation)
     assert nested.primary_success, nested.error
 
@@ -268,7 +285,7 @@ OWNER = SimpleNamespace(actor_id="1", session_id="owner")
 def test_machine_case_plan_borrows_its_lease_to_refresh_the_golden(owned_plan, runner):
     conn, execution = owned_plan
     execution["roster"][0]["runner_id"] = runner
-    execution["roster"][0]["method_config"] = {"test_machine": "linux-lab"}
+    execution["roster"][0]["method_config"] = {"os": "linux"}
     borrowed = operations.operation_mission(
         conn,
         lease_id=8,

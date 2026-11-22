@@ -326,20 +326,13 @@ INSTALLER_RECOVERY_CASES = (
 )
 
 
-def recovery_cases(*, primary_machine: str, joining_machine: str):
-    """Bind physical hosts explicitly; resetting one host cannot prove a join."""
-    if not primary_machine or not joining_machine or primary_machine == joining_machine:
-        raise ValueError(
-            "installer_campaign_hosts_required: select two distinct registered "
-            "Test Machines before exporting the campaign."
-        )
+def recovery_cases(*, os: str):
+    """Select hosts by OS; the join holds two same-OS slots, one host each."""
     cases = deepcopy(INSTALLER_RECOVERY_CASES)
     for case in cases:
-        case["method_config"]["test_machine"] = (
-            joining_machine
-            if case["case_key"] == "second-machine-join"
-            else primary_machine
-        )
+        config = case["method_config"]
+        config["os"] = os
         if case["case_key"] == "second-machine-join":
-            case["method_config"]["test_machines"] = [primary_machine, joining_machine]
+            del config["os"]
+            config["test_machines"] = [{"os": os}, {"os": os, "driver": True}]
     return cases

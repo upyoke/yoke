@@ -62,7 +62,7 @@ def test_lease_refusal_explains_actual_state_and_admission(
         )
     text = str(error.value)
     assert expected in text
-    assert "Declare method_config.test_machine" in text
+    assert "Declare method_config.os or OS slots" in text
     assert "scoped plan" in text
     if scenario not in {"missing", "unbound"}:
         assert "linux-lab" in text

@@ -13,25 +13,25 @@ its owning session or plan, and the next step: wait for another holder, or finis
 or abort your own mission before resetting. Do not reset an active mission from
 an unrelated command.
 
-A Command QA case that operates a host declares `method_config.test_machine` in its
-saved plan and states why in `method_config.test_machine_reason`. The plan acquires that host, queues when it is busy or unhealthy,
-and heartbeats its lease while the local command runs. Nested host operations
-borrow that owned active Command plan lease. A Command without a machine
-declaration has no host custody; declaring the machine is required before
-running its host operations. A missing or expired lease requires fresh admission;
+A Command QA case that operates a host declares `method_config.os` (or OS slots)
+and `host_baselines` or `inherit` in its saved plan. The plan acquires any
+matching host, queues when every match is busy or unhealthy, and heartbeats its
+lease while the local command runs. Nested host operations borrow that owned
+active Command plan lease. A Command without an OS declaration has no host
+custody; declare one before running its host operations. A missing or expired lease requires fresh admission;
 a released lease with an unknown receipt requires inspecting the retained
 capture, rather than repeating the operation.
 
-Machine QA chooses the required OS from `method_config.os` or `platform`,
-executable steps, capability requirements, or the registered `os` of declared
-`method_config.test_machine` / `test_machines`. Instructions never choose a platform:
-"Do not use linux-lab" does not require Linux. Cases without these declarations
-refuse with `test_machine_platform_undeclared`; set `method_config.os` to `linux`,
-`macos`, `windows` or `wsl`, or declare a registered machine with an `os`.
+Machine QA chooses the required OS from `method_config.os`, executable steps,
+capability requirements, or the OS slots in `method_config.test_machines`.
+Instructions never choose a platform: "Do not use linux-lab" does not require
+Linux. Cases without these declarations refuse with
+`test_machine_platform_undeclared`; set `method_config.os` to `linux`, `macos`,
+`windows` or `wsl`, or list OS slots.
 `windows` means native Windows and `wsl` a Windows host whose commands run in
 WSL2, so a native case never selects a WSL machine or accepts its receipts.
 PowerShell and `cmd.exe` steps imply native `windows`; a WSL case declares
-`os=wsl` or names its WSL machine.
+`os=wsl`.
 
 Set `method_config.os` for cases that can run on any matching host. Automatic
 QA selects only verified, healthy hosts and can use another eligible host while
@@ -39,16 +39,17 @@ the first is busy. To require capabilities, add a JSON array such as
 `"capability_tags": ["arch:x64", "codex-desktop-signed-in"]` to `method_config`.
 Record tags in each host's non-secret settings as comma-separated text, using
 Edit settings or `yoke test-machine settings-replace`. Every case tag must be
-present on the selected driver. During case review, require
-`method_config.test_machine_reason` for a named pin that the case truly needs.
+present on the selected host; slotted cases apply them to every slot. Test
+Machines of one kind are identical, so a case never names a host: authoring
+refuses one with `test_machine_name_forbidden`.
 
 A replacement case starts with no inherited machine preference. A resumed QA
 execution keeps the host from its own execution history or continuation chain,
-unless the case or run explicitly names a different host. Finish or abort an
+unless the run's `--test-machine` names a different host. Finish or abort an
 admitted case that still owns host state before changing its driver.
 
-Simultaneous machine-QA cases keep their declared driver and check platforms
-across the full host set; see [host-set authoring](exploration.md#authoring-shape).
+Simultaneous machine-QA cases get one distinct host per OS slot and drive the
+slot marked `driver`; see [host-set authoring](exploration.md#authoring-shape).
 
 When verification marks a host unhealthy, repair the named failure and run
 `yoke test-machine verify --test-machine NAME` to wake the waiting line.

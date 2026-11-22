@@ -42,8 +42,7 @@ def _fill_template(value: Any, fields: Mapping[str, str]) -> Any:
 def installer_campaign_cases_for_target(
     target: Mapping[str, Any],
     *,
-    primary_machine: str,
-    joining_machine: str,
+    os: str,
 ) -> list[dict[str, Any]]:
     """Return concrete cases filled only from the plan's bound environment."""
     endpoints = target["endpoints"]
@@ -58,9 +57,7 @@ def installer_campaign_cases_for_target(
             else str(target["environment"]["name"]).title()
         ),
     }
-    recovery = recovery_cases(
-        primary_machine=primary_machine, joining_machine=joining_machine
-    )
+    recovery = recovery_cases(os=os)
     cases = _fill_template(
         list(INSTALLER_CAMPAIGN_CASES) + list(recovery) + list(MACHINE_ADMISSION_CASES),
         fields,
@@ -68,7 +65,7 @@ def installer_campaign_cases_for_target(
     # Admission journeys serve their own disposable server on the host they run on.
     for case in cases:
         if case["case_key"] not in {row["case_key"] for row in recovery}:
-            case["method_config"]["test_machine"] = primary_machine
+            case["method_config"]["os"] = os
     for case in cases:
         require_case_target(case, target)
     return cases

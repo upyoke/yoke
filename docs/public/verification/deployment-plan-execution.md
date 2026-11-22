@@ -93,9 +93,8 @@ a later attacher gets a new group.
 
 ## Machine partitions
 
-Item and deployment member plan runs group cases by pinned machine or by
-their declared operating system. OS-only cases form a separate group from
-pinned cases, even when the same host can serve both. Each group runs an
+Item and deployment member plan runs group cases by their declared operating
+system or OS slots; an `inherit` chain stays in its opener's group. Each group runs an
 immutable roster with its own lease and the same frozen target. Sessions
 walk separate plans concurrently, one live execution per session and target. Begin skips held
 groups and aborts abandoned holders. Plan order holds across machine groups.
@@ -110,21 +109,23 @@ Completed scoped cases with passing evidence are retained. The member is
 accepted only when every required case passes. Omit --test-machine for this
 multi-machine form: a single host pin cannot satisfy conflicting constraints.
 
-For one case that needs several hosts simultaneously, declare its driving host
-as `method_config.test_machine` and every required host in
-`method_config.test_machines`; names must be registered, unique, and include
-the driving host. Explain why in `method_config.test_machine_reason`. Run it through `yoke qa plan run`; direct case
-execution refuses it. The
-runner takes the set in sorted name order once every host is free or reserved
-for it, and retains it through case execution and mission review. Completion
+For one case that needs several hosts simultaneously, list one OS slot per
+host in `method_config.test_machines`, such as
+`[{"os":"linux"},{"os":"macos","driver":true}]`: at least two slots, exactly one
+`driver`, and no singular `os` beside them. The case's `capability_tags` apply
+to every slot. Run it through `yoke qa plan run`; direct case execution refuses
+it. The runner admits the set once every slot has a free, verified, healthy
+host, giving each slot a distinct one, and retains it through case execution
+and mission review. Completion
 or abort releases it; [completed captures remain reviewable](requirement-state.md).
 A case and its `inherit` chain retain their declared hosts. When multiple
 walks in one execution need different hosts, Yoke acquires the combined set
 at the execution's single queue place before preparing the walks. Each walk
 uses its own recorded driver at walk-start and walk-end. Walk one mission
 at a time. A retry inside a chain never reacquires lost custody. Definition-time validation
-refuses `inherited_driver_mismatch` for a changed driver: use the predecessor's
-`method_config.test_machine`, or start a new chain from a named baseline.
+refuses `inherited_driver_mismatch` when a follower declares a different `os`
+or slots: drop them so it inherits the opener's hosts, or start a new chain
+from a named baseline. Only the chain's opener selects hosts.
 
 An exploratory mission walks after captures and may inherit only at a chain's
 tail; no case may inherit after it. Item and deployment scopes isolate the
@@ -188,7 +189,7 @@ through the current bundle's `yoke qa plan review-submit ... --stdin`:
 Submit this object alone to retain prior capture and queue the immutable target.
 It records no verdict or review request. Resume keeps the execution's host
 affinity and simultaneous host set. A replacement selects afresh by
-`method_config.os` and `capability_tags`. An explicit name overrides recorded
+`method_config.os` and `capability_tags`. A run's `--test-machine` overrides recorded
 affinity. Finish or abort a case that still owns host state before switching.
 Record a verdict only after the walk runs.
 
@@ -205,15 +206,16 @@ Exploratory mission `method_config` can declare an apt package fixture:
 ```
 
 A Command case whose command calls `yoke test-machine` must declare
-`method_config.test_machine` for its target host and `test_machine_reason` for its
-dependency. The name puts the local Command under that host's queue lease.
+`method_config.os` (or OS slots) and `host_baselines` or `inherit`. That makes
+it a host Command: it waits in the queue for any matching host and holds that
+host's lease while it runs.
 
-`method_config.test_machine` selects that registered host even when this direct
-requirement has only the generic <!-- qa:test-machine-capability -->`test-machine` capability. Deployment
-requirements retain the pin; omitting `--test-machine` does not permit another
-host, and a conflicting run pin is refused before a lease is acquired. To
-choose a host for one machine-backed requirement, run
-`yoke qa case run --requirement-id N --test-machine NAME`. The host must
+Selection reads only the case's OS and tags, even when the requirement has
+only the generic <!-- qa:test-machine-capability -->`test-machine` capability.
+Authoring refuses a host name on a case with `test_machine_name_forbidden`. To
+choose a host for one run of a machine-backed requirement, run
+`yoke qa case run --requirement-id N --test-machine NAME`; the choice is never
+stored. The host must
 match the required OS and `method_config.capability_tags`. For example,
 require `arch:arm64` on a macOS case that launches an arm64 app and set the
 architecture tag on each registered Mac.

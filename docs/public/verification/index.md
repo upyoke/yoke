@@ -249,8 +249,8 @@ temporary directory unless an output directory is supplied.
 
 Scoped release QA uses `yoke watch qa-plan -- --item ITEM --stage STAGE --project P`.
 Set `method_config.os` and any required `capability_tags` to use a verified,
-healthy match. A named driver needs `test_machine_reason`. A simultaneous case
-also lists its full `method_config.test_machines` set. Resume retains the
+healthy match. A case never names a host. A simultaneous case lists one OS
+slot per host in `method_config.test_machines`, one marked `driver`. Resume retains the
 execution's host affinity. A replacement selects afresh. Every required case
 must pass before member acceptance. See [case attachment](case-attachment.md)
 and [host selection](test-machine-desktop.md).

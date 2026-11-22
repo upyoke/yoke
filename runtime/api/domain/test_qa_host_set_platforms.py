@@ -1,111 +1,82 @@
-"""Platform requirements apply to a simultaneous set without changing its driver."""
+"""OS slots select one host per slot, and the driver slot drives the case."""
 
 from unittest.mock import Mock
 
 import pytest
 
 from runtime.api.domain import qa_member_machine_partitions_test_support as support
-from runtime.api.domain.machine_qa_host_test_support import TEST_MACHINE_SETTINGS
 from yoke_core.domain.qa_plan_execution_state import lock_plan_execution
 from yoke_core.domain.qa_plan_host_leases import execution_host_leases
 from yoke_core.domain.qa_resume_machine import execution_machine
 
 
-def _seed_case(test_db, tmp_path, monkeypatch, *, simultaneous, instructions, linux):
+def _seed_case(test_db, tmp_path, monkeypatch, *, simultaneous, driver, hosts=None):
     replace_cases = support.replace_plan_cases
 
-    def with_instructions(conn, **kwargs):
+    def with_hosts(conn, **kwargs):
         for case in kwargs["cases"]:
-            case["instructions"] = instructions
-            case["method_config"]["os"] = "linux"
+            if hosts is not None:
+                case["method_config"].pop("os", None)
+                case["method_config"].pop("test_machines", None)
+                case["method_config"].update(hosts)
         return replace_cases(conn, **kwargs)
 
-    monkeypatch.setattr(support, "replace_plan_cases", with_instructions)
-    if linux:
-        monkeypatch.setattr(
-            "runtime.api.domain.machine_qa_host_test_support.TEST_MACHINE_SETTINGS",
-            {**TEST_MACHINE_SETTINGS, "os": "linux"},
-        )
+    monkeypatch.setattr(support, "replace_plan_cases", with_hosts)
     support._seed(
-        test_db,
-        tmp_path,
-        monkeypatch,
-        simultaneous=simultaneous,
-        driver=support.MACHINES[1],
+        test_db, tmp_path, monkeypatch, simultaneous=simultaneous, driver=driver
     )
 
 
-@pytest.mark.parametrize("instructions", ["Inspect linux-lab.", "Run a Linux check."])
-def test_macos_driver_begins_and_resumes_with_linux_companion(
-    test_db,
-    tmp_path,
-    monkeypatch,
-    instructions,
+@pytest.mark.parametrize("driver", support.MACHINES)
+def test_driver_slot_begins_and_resumes_with_its_companion(
+    test_db, tmp_path, monkeypatch, driver
 ):
-    _seed_case(
-        test_db,
-        tmp_path,
-        monkeypatch,
-        simultaneous=True,
-        instructions=instructions,
-        linux=True,
-    )
+    _seed_case(test_db, tmp_path, monkeypatch, simultaneous=True, driver=driver)
     execution = support._begin(test_db)
     response = support._case_begin(execution)
     assert response.primary_success, response.error
     current = lock_plan_execution(test_db, execution["id"])
     leases = execution_host_leases(test_db, current)
     assert {claim.target.test_machine for claim in leases} == set(support.MACHINES)
-    driver = next(
-        claim for claim in leases if claim.target.test_machine == support.MACHINES[1]
-    )
-    assert response.result_payload["execution"]["lease_id"] == driver.id
+    lease = next(claim for claim in leases if claim.target.test_machine == driver)
+    assert response.result_payload["execution"]["lease_id"] == lease.id
     resumed = support._case_begin(current)
     assert resumed.primary_success, resumed.error
-    assert resumed.result_payload["execution"]["lease_id"] == driver.id
+    assert resumed.result_payload["execution"]["lease_id"] == lease.id
 
 
-def test_missing_platform_names_full_set_and_rolls_back_leases(
-    test_db,
-    tmp_path,
-    monkeypatch,
+def test_slot_without_a_registered_host_refuses_and_takes_no_lease(
+    test_db, tmp_path, monkeypatch
 ):
     _seed_case(
-        test_db,
-        tmp_path,
-        monkeypatch,
-        simultaneous=True,
-        instructions="Run a Linux check.",
-        linux=False,
+        test_db, tmp_path, monkeypatch, simultaneous=True, driver=None,
+        hosts={"test_machines": [{"os": "windows"}, {"os": "macos", "driver": True}]},
     )
     execution = support._begin(test_db)
     response = support._case_begin(execution)
     assert not response.primary_success
-    assert "test_machine_platform_unavailable" in response.error.message
-    assert all(name in response.error.message for name in support.MACHINES)
-    assert "Register and verify" in response.error.message
+    assert "test_machine_slots_unavailable" in response.error.message
+    assert "windows" in response.error.message
+    assert "register and verify" in response.error.message
     assert not execution_host_leases(test_db, execution)
 
 
-def test_single_host_linux_case_still_rejects_macos(test_db, tmp_path, monkeypatch):
+def test_single_host_case_rejects_hosts_of_another_os(test_db, tmp_path, monkeypatch):
     _seed_case(
-        test_db,
-        tmp_path,
-        monkeypatch,
-        simultaneous=False,
-        instructions="Run a Linux check.",
-        linux=False,
+        test_db, tmp_path, monkeypatch, simultaneous=False, driver=None,
+        hosts={"os": "windows"},
     )
     response = support._case_begin(support._begin(test_db))
     assert not response.primary_success
     assert "test_machine_platform_unavailable" in response.error.message
 
 
-def test_multi_host_resume_never_recovers_a_companion_override():
+def test_slotted_resume_never_recovers_a_single_host():
     conn = Mock()
     case = {
-        "instructions": "Inspect linux-lab.",
-        "method_config": {"test_machine": "test-mac", "test_machines": ["linux-lab", "test-mac"]},
+        "method_config": {
+            "test_machines": [{"os": "linux"}, {"os": "macos", "driver": True}]
+        },
     }
     assert (
         execution_machine(conn, {"id": "resumed", "test_machine_lease_id": 42}, case) is None

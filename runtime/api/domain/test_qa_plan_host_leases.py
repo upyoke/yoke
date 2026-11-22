@@ -12,6 +12,7 @@ from runtime.api.domain.qa_member_machine_partitions_test_support import (
     _begin,
     _case_begin,
     _seed,
+    host_slots,
 )
 from runtime.api.domain.machine_qa_session_seed import seed_qa_session
 from runtime.api.domain.deployment_qa_stage_execution_test_support import _complete_case
@@ -231,9 +232,11 @@ def test_removed_member_cleanup_releases_both_hosts_atomically(
 @pytest.mark.parametrize(
     "config",
     [
-        {"test_machines": list(MACHINES)},
-        {"test_machine": MACHINES[0], "test_machines": [MACHINES[0], MACHINES[0]]},
-        {"test_machine": "missing-driver", "test_machines": list(MACHINES)},
+        {"test_machines": [{"os": "linux"}, {"os": "macos"}]},
+        {"test_machines": [{"os": "linux", "driver": True}, {"os": "macos", "driver": True}]},
+        {"test_machines": [{"os": "macos", "driver": True}]},
+        {"os": "macos", "test_machines": [{"os": "linux"}, {"os": "macos", "driver": True}]},
+        {"test_machines": [{"os": "beos"}, {"os": "macos", "driver": True}]},
     ],
 )
 def test_invalid_host_sets_refuse_with_a_recovery(config):
@@ -253,7 +256,7 @@ def test_direct_execution_cannot_silently_drop_companion_hosts():
             session_id=SESSION,
             operation="case",
             cases=(
-                {"method_config": {"test_machine": MACHINES[0], "test_machines": list(MACHINES)}},
+                {"method_config": {"test_machines": host_slots()}},
             ),
         )
 
@@ -265,12 +268,11 @@ def test_mission_config_preserves_validated_simultaneous_hosts():
         "agent-mission",
         {
             "executor": "informed_subagent",
-            "test_machine": MACHINES[1],
-            "test_machines": list(reversed(MACHINES)),
+            "test_machines": [{"os": "linux"}, {"os": "macos", "driver": True}],
         },
     )
-    assert config["test_machines"] == list(MACHINES)
-    assert config["test_machine"] == MACHINES[1]
+    assert config["test_machines"] == [{"os": "linux"}, {"os": "macos", "driver": True}]
+    assert "test_machine" not in config
 
 
 def test_each_chain_resets_and_an_inheriting_case_keeps_the_machine():

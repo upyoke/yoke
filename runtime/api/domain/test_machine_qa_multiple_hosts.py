@@ -18,7 +18,6 @@ from runtime.api.domain.machine_qa_test_support import make_conn
 from yoke_contracts.machine_config.test_machine import (
     TestMachineCapabilityError as MachineCapabilityError,
 )
-from yoke_core.domain.machine_qa_case_machine import test_machine_requirement_kind as _machine_type
 from yoke_contracts.machine_qa_execution import (
     HOST_BASELINES,
     VERIFICATION_CHECKS,
@@ -229,6 +228,7 @@ def test_a_selector_cannot_name_different_settings() -> None:
 
 def test_generic_capability_writes_cannot_register_a_machine() -> None:
     settings_json = json.dumps(_settings(MACHINES[0]))
-    for kind in ("test-machine", _machine_type(MACHINES[0])):
+    # A capability kind naming one host is refused like the bare kind.
+    for kind in ("test-machine", f"test-machine:{MACHINES[0]}"):
         with pytest.raises(ValueError, match="use yoke test-machine settings-replace"):
             canonicalize_capability_settings(kind, settings_json)

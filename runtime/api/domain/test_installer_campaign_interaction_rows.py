@@ -27,8 +27,7 @@ INSTALLER_CAMPAIGN_CASES = installer_campaign_cases_for_target(
         },
         "role": {"production": False},
     },
-    primary_machine="primary-test",
-    joining_machine="joining-test",
+    os="macos",
 )
 
 

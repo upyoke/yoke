@@ -40,7 +40,7 @@ export it after merge from a clean Yoke source checkout using the plan's own reg
 
 ```text
 yoke qa plan get installer-campaign --project P --full --json > /tmp/installer-plan.json
-yoke dev run -- python3 -m yoke_core.tools.installer_campaign_plan --plan-file /tmp/installer-plan.json --cases-file /tmp/installer-cases.json --primary-machine FIRST --joining-machine SECOND
+yoke dev run -- python3 -m yoke_core.tools.installer_campaign_plan --plan-file /tmp/installer-plan.json --cases-file /tmp/installer-cases.json
 yoke qa plan-cases sync --project P --plan-id {plan_id} --cases-file /tmp/installer-cases.json --json
 yoke qa plan get installer-campaign --project P --full --json > /tmp/installer-plan-after.json
 yoke dev run -- python3 -m yoke_core.tools.installer_campaign_plan --plan-file /tmp/installer-plan-after.json --check
@@ -71,16 +71,16 @@ Existing execution snapshots keep their original definitions and evidence; any
 `requirements_behind_plan` returned by replacement need their named refresh path
 before reuse, rather than being rewritten as part of the installation.
 
-Choose two distinct registered names from `yoke test-machine list`.
-The saved case configurations retain those fixture choices; later source checks
-reuse them. The second-machine case must use a different physical host, not a
-reset of the first one. A deployment member stage runs the separate host rosters:
+Every exported case selects its host by `method_config.os` (`macos`). The
+second-machine case lists two `macos` slots in `method_config.test_machines`, so
+admission holds two distinct hosts, never a reset of the first one. A deployment
+member stage runs the separate host rosters:
 
 ```text
 yoke watch qa-plan -- --item PREFIX-N --stage STAGE --project P
 ```
 
-Omit a single-host pin for that scope. Standalone executions retain one host
+Pass no `--test-machine` run pin for that scope. Standalone executions retain one host
 lease; use a one-host saved plan for focused iteration, not a claimed full
 multi-host pass. Preserve the baseline and every unperformed case as evidence.
 

@@ -114,20 +114,19 @@ def test_continuation_does_not_restore_but_keeps_declared_package_journal(missio
     assert packages == [("record", None)]
 
 
-@pytest.mark.parametrize("machine", ["linux-lab", "test-mac"])
-def test_machine_pin_is_retained_by_the_execution_validator(machine):
-    config = {"test_machine": machine, "assertions": [{"argv": ["/usr/bin/true"]}]}
+def test_os_slots_are_retained_by_the_execution_validator():
+    slots = [{"os": "linux"}, {"os": "macos", "driver": True}]
+    config = {"test_machines": slots, "assertions": [{"argv": ["/usr/bin/true"]}]}
     result = validate_machine_method_config(
         "machine-state-check", config, entry_surface=None, required_completion=None
     )
-    assert result["test_machine"] == machine
+    assert result["test_machines"] == slots
     assert result["assertions"] == [{"argv": ["/usr/bin/true"], "expected_exit": 0}]
-    assert config["test_machine"] == machine
 
 
-@pytest.mark.parametrize("machine", ["../escape", "", "invalid machine"])
-def test_invalid_machine_pin_is_refused(machine):
-    with pytest.raises(MachineQaExecutionError, match="valid registered Test Machine"):
+@pytest.mark.parametrize("machine", ["linux-lab", "../escape", ""])
+def test_a_host_name_is_refused_by_the_execution_validator(machine):
+    with pytest.raises(MachineQaExecutionError, match="test_machine_name_forbidden"):
         validate_machine_method_config(
             "machine-state-check",
             {"test_machine": machine, "assertions": [{"argv": ["/usr/bin/true"]}]},

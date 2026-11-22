@@ -223,8 +223,8 @@ and a null `recovery`. Other rows carry the recovery command and a null
 
 The report lists the one Test Machine queue, oldest waiter first:
 `Test Machine queue #<position>: session <id> (execution <id>) waits for <need>
-since <instant>`. The need is one machine (pinned, resuming on the machine
-holding its state, or a manual claim), `any of` the machines whose OS and
+since <instant>`. The need is one machine (a run's `--test-machine`, resuming
+on the machine holding its state, or a manual claim), `any of` the machines whose OS and
 capability tags match, or `all of` a simultaneous host set. JSON `reset_debts`
 carries each waiter as a row with `position`, `session_id`, `execution_id`,
 `queued_at`, `test_machine` (the need) and a null `recovery`; queue rows are not

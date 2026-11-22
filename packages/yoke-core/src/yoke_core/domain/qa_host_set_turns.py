@@ -5,7 +5,8 @@ place: the earliest ``queued_at`` of any wait it ever recorded, or the place of
 an aborted shared walk it recovers (``qa_host_turn_inheritance``), so the one
 queue (``qa_host_queue``) orders each execution once, whichever machine serves
 it. A walk any one of several eligible machines serves waits on each of them
-as one need. A set can reserve hosts only while it is first on every host it needs.
+as one need; a slotted case waits as one such need per OS slot
+(``qa_host_slot_turns``). A set can reserve hosts only while it is first on every host it needs.
 A partial reservation is returned to the queue if the set loses that place. A
 holder reserved its whole set was woken and takes or releases it. The
 execution is woken when its last host is reserved and takes the set at once.
@@ -244,14 +245,17 @@ def record_host_wait(
     rationale: str,
     test_machines: Iterable[str] = (),
     eligible: Iterable[str] = (),
+    slots: Iterable[Iterable[str]] = (),
     commit: bool = True,
 ) -> dict:
     """Keep the cursor open and queue the execution for the hosts its case needs.
 
     *test_machines* is a set the case needs all of; *eligible* names the
-    machines any one of which serves it, queued as one need. Waits on other
-    hosts leave the queue; waits and reservations kept keep their place.
-    Every new wait takes the execution's one place.
+    machines any one of which serves it, queued as one need. *slots* queues
+    each OS slot as its own any-of need (``qa_host_slot_turns``); no host
+    may serve two slots. Waits on other hosts leave the queue; waits and
+    reservations kept keep their place. Every new wait takes the
+    execution's one place.
     """
     from yoke_core.domain.machine_qa_capability import host_claim_target
     from yoke_core.domain.qa_host_idle_waiters import recheck_host_sets
@@ -267,8 +271,18 @@ def record_host_wait(
     execution_id = str(execution["id"])
     alternatives = sorted({test_machine, *eligible})
     any_of = len(alternatives) > 1
-    machines = alternatives if any_of else sorted({test_machine, *test_machines})
-    need_id = new_need_id() if any_of else None
+    slot_needs = [tuple(sorted(slot)) for slot in slots]
+    needs = slot_needs or [
+        tuple(alternatives if any_of else sorted({test_machine, *test_machines}))
+    ]
+    need_ids = [new_need_id() if slot_needs or any_of else None for _ in needs]
+    rows = [(n, need_ids[i], i) for i, names in enumerate(needs) for n in names]
+    machines = sorted(name for name, _, _ in rows)
+    if len(set(machines)) != len(machines) or test_machine not in machines:
+        raise ValueError(
+            "test_machine_slots_invalid: each host can wait for one slot only and "
+            f"{test_machine!r} must be among them; rerun the plan case begin"
+        )
     lock_host_queue(conn)
     live = query_rows(
         conn,
@@ -289,6 +303,9 @@ def record_host_wait(
             resume_command=f"yoke qa plan run --resume-execution-id {execution_id}",
             rationale=rationale
             if name == test_machine
+            else f"slot {index + 1} of {len(needs)}, any of "
+            f"{', '.join(needs[index])}: {rationale}"
+            if slot_needs
             else f"any of {', '.join(machines)} serves this walk: {rationale}"
             if any_of
             else f"held with {test_machine} for one case: {rationale}",
@@ -296,7 +313,7 @@ def record_host_wait(
             queued_at=place,
             need_id=need_id,
         )
-        for name in machines
+        for name, need_id, index in rows
     ]
     finish_plan_execution(
         conn,

@@ -83,6 +83,9 @@ def case_platform(
         return slot_os
     config = case.get("method_config") or {}
     declared_os = set(platform_config(config).values())
+    if not declared_os and case.get("starting_state") == "inherit":
+        # An inheriting case runs on the hosts its chain opener selected.
+        return None
     from yoke_core.domain.qa_method_capabilities import capability_kinds
 
     required = tuple(

@@ -27,9 +27,7 @@ KEYS = (
 
 
 def test_campaign_exports_the_session_scope_cases_in_order():
-    cases = installer_campaign_cases_for_target(
-        _target("prod"), primary_machine="primary-test", joining_machine="joining-test"
-    )
+    cases = installer_campaign_cases_for_target(_target("prod"), os="macos")
     keyed = {case["case_key"]: case for case in cases}
     assert [keyed[key]["position"] for key in KEYS] == [26, 27, 28]
     assert [case["position"] for case in cases] == list(range(1, len(cases) + 1))
@@ -38,7 +36,7 @@ def test_campaign_exports_the_session_scope_cases_in_order():
     install = reinstall.index("/bin/sh", before)
     assert install < reinstall.index("{yoke_bin} reinstall-after")
     for key in KEYS:
-        assert keyed[key]["method_config"]["test_machine"] == "primary-test"
+        assert keyed[key]["method_config"]["os"] == "macos"
     # The host adapter expands braces inside entry_surface, scripts included.
     assert "{" not in SESSION_SCOPE_SCRIPT and "}" not in SESSION_SCOPE_SCRIPT
 

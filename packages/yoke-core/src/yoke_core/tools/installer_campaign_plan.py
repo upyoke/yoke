@@ -103,13 +103,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="Export source-proven cases for qa.plan_cases.sync; sync after merge.",
     )
     parser.add_argument(
-        "--primary-machine", help="Registered primary Test Machine for campaign cases."
-    )
-    parser.add_argument(
-        "--joining-machine",
-        help="Distinct registered Test Machine for the joining case.",
-    )
-    parser.add_argument(
         "--check",
         action="store_true",
         help="Exit 1 when installed cases differ from source.",
@@ -120,11 +113,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         if receipt.get("success") is not True:
             raise ValueError("plan read did not succeed")
         source_revision = export_source_revision() if args.cases_file else None
-        cases, report = compare_plan(
-            receipt["result"]["plan"],
-            primary_machine=args.primary_machine,
-            joining_machine=args.joining_machine,
-        )
+        cases, report = compare_plan(receipt["result"]["plan"])
         if args.cases_file:
             args.cases_file.write_text(
                 json.dumps(

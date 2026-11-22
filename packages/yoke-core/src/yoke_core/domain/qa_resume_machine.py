@@ -29,10 +29,13 @@ def run_machine(conn: Any, raw: str) -> str | None:
 def execution_machine(
     conn: Any, execution: Mapping[str, Any], case: Mapping[str, Any]
 ) -> str | None:
-    """Recover a single-host case's platform host from custody and run history."""
-    from yoke_core.domain.machine_qa_case_hosts import case_machines
+    """Recover a single-host case's platform host from custody and run history.
 
-    if len(case_machines(case)) > 1:
+    A slotted case resumes through :func:`execution_host_set`.
+    """
+    from yoke_core.domain.machine_qa_case_hosts import case_slots
+
+    if case_slots(case):
         return None
 
     from yoke_core.domain.machine_qa_case_platform import case_platform
@@ -94,3 +97,26 @@ def execution_machine(
         "qa_resume_history_cycle: execution continuation history repeats; "
         "ask the control-plane operator to repair its source links before resuming"
     )
+
+
+def execution_host_set(
+    conn: Any, execution: Mapping[str, Any], case: Mapping[str, Any]
+) -> tuple[str, tuple[str, ...]] | None:
+    """The driver and companions still leased to a slotted *case*.
+
+    Read from the execution's active leases bound to the case's requirement
+    and ``companion-<id>``. ``None`` when the case is unbound or any slot's
+    lease is gone: custody of the whole set is lost.
+    """
+    from yoke_core.domain.machine_qa_case_hosts import case_slots
+    from yoke_core.domain.qa_case_host_custody import (
+        bound_case_hosts,
+        case_host_lease_id,
+    )
+
+    bound = bound_case_hosts(conn, dict(execution), dict(case))
+    driver_lease = case_host_lease_id(conn, dict(execution), dict(case))
+    driver = next((name for name, lease in bound.items() if lease == driver_lease), None)
+    if driver is None or len(bound) < len(case_slots(case)):
+        return None
+    return driver, tuple(sorted(set(bound) - {driver}))
