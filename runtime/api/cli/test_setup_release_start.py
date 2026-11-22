@@ -171,3 +171,49 @@ def test_sign_in_on_the_served_release_continues(host, monkeypatch):
     value = admission.save_machine_credential(credential, {"ok": True}, None)
 
     assert value[3] is None and host["installs"] == []
+
+
+def _signed_in_follow(host, monkeypatch, shell):
+    monkeypatch.setattr(
+        admission.writer, "set_connection",
+        lambda *_a, **_k: {"connection": {"credential_source": {"path": "/t"}}},
+    )
+    credential = SimpleNamespace(org="acme", api_url=API, token="secret")
+    value = admission.save_machine_credential(credential, {"ok": True}, None)
+    admission.accept_machine_credential(shell, value)
+    return value[3]
+
+
+def test_sign_in_rerun_keeps_the_project_mode_asked_before_sign_in(host, monkeypatch):
+    shell = SimpleNamespace(
+        release_followed=None,
+        _project_mode_preset=True,
+        result=SimpleNamespace(project_mode="create-repo"),
+        exit=lambda: None,
+    )
+    followed = _signed_in_follow(host, monkeypatch, shell)
+    seen = []
+    monkeypatch.setattr(
+        setup_release_follow, "run_on_release",
+        lambda yoke_bin, args, marker: seen.append(args) or 0,
+    )
+    setup_release_follow.resume(followed, argparse.Namespace(), ["--tui"])
+    setup_release_follow.resume(
+        followed, argparse.Namespace(), ["--tui", "--project-mode", "existing-folder"]
+    )
+
+    assert seen == [
+        ["setup", "--tui", "--project-mode", "create-repo"],
+        ["setup", "--tui", "--project-mode", "existing-folder"],
+    ]
+
+
+def test_sign_in_before_a_project_choice_carries_nothing(host, monkeypatch):
+    shell = SimpleNamespace(
+        release_followed=None,
+        _project_mode_preset=False,
+        result=SimpleNamespace(project_mode="machine-only"),
+        exit=lambda: None,
+    )
+
+    assert _signed_in_follow(host, monkeypatch, shell).carried_args == []

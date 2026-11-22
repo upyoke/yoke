@@ -50,6 +50,8 @@ class ReleaseFollowed(Exception):
         self.running = running
         self.served = served
         self.yoke_bin = yoke_bin
+        # Answers given before the follow that the rerun must not ask again.
+        self.carried_args: list[str] = []
         then = (
             f"to match the project layer the server supplied; resuming setup run {run_id}"
             if run_id
@@ -148,6 +150,8 @@ def resume(followed: ReleaseFollowed, parsed: Any, args: list[str]) -> int:
         rerun = ["setup", *mode_flags(parsed)]
     else:
         rerun = ["setup", *args]
+    if followed.carried_args and followed.carried_args[0] not in rerun:
+        rerun += followed.carried_args
     return run_on_release(
         followed.yoke_bin,
         rerun,

@@ -35,6 +35,9 @@ def save_machine_credential(credential, verification, config_path):
 def accept_machine_credential(shell, value):
     credential, verification, token_file, followed = value
     if followed is not None:
+        if getattr(shell, "_project_mode_preset", False) and shell.result.project_mode:
+            # The wizard asks where the code lives before sign-in; keep it.
+            followed.carried_args = ["--project-mode", shell.result.project_mode]
         shell.release_followed = followed
         shell.exit()
         return
