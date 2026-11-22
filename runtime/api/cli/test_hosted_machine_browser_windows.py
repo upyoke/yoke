@@ -84,6 +84,11 @@ def test_connect_over_ssh_on_windows_prints_the_code_flow(monkeypatch, capsys) -
             "activated": True,
         },
     )
+    # connect_server is stubbed, so no connection is saved to repair.
+    monkeypatch.setattr(
+        "yoke_cli.config.credential_repair.repair_revoked_connections",
+        lambda *a, **kw: {},
+    )
     monkeypatch.setattr(webbrowser, "open", _never)
     monkeypatch.setattr(
         command.setup_browser,
