@@ -139,13 +139,12 @@ def test_archive_roundtrip_rehomes_bytes(
             assert hashlib.sha256(actual).digest() == hashlib.sha256(content).digest()
             if destination_s3:
                 assert restored["bucket"] == "destination-bucket"
-                assert (
-                    objects.objects[
-                        "destination-bucket",
-                        "destination/shared-files/yoke/folder/notes.txt",
-                    ]
-                    == shared
-                )
+                restored_shared = list(store.shared_sources(target, {"yoke": routing}))
+                assert [entry["key"] for entry in restored_shared] == [
+                    "shared-files/yoke/folder/notes.txt"
+                ]
+                handle = restored_shared[0]["original_handle"]
+                assert objects.objects[handle["bucket"], handle["key"]] == shared
                 from yoke_core.domain.qa_artifact_configuration import (
                     resolve_artifacts_bucket,
                 )

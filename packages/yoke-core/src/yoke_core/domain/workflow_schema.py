@@ -107,7 +107,7 @@ BEGIN
     SELECT 1
     FROM pg_trigger
     WHERE tgname = '{WORKFLOW_VERSIONS_IMMUTABLE_TRIGGER}'
-      AND NOT tgisinternal
+      AND tgrelid = 'workflow_versions'::regclass AND NOT tgisinternal
   ) THEN
     CREATE TRIGGER {WORKFLOW_VERSIONS_IMMUTABLE_TRIGGER}
     BEFORE UPDATE OR DELETE ON workflow_versions
@@ -124,14 +124,15 @@ def _ensure_immutable_version_triggers(conn: Any) -> None:
         function_exists = conn.execute(
             "SELECT 1 FROM pg_proc p "
             "JOIN pg_namespace n ON n.oid = p.pronamespace "
-            "WHERE n.nspname = 'public' "
+            "WHERE n.nspname = current_schema() "
             "AND p.proname = %s",
             (f"{WORKFLOW_VERSIONS_IMMUTABLE_TRIGGER}_fn",),
         ).fetchone()
         if function_exists is None:
             conn.execute(_POSTGRES_IMMUTABLE_FUNCTION)
         trigger_exists = conn.execute(
-            "SELECT 1 FROM pg_trigger WHERE tgname = %s AND NOT tgisinternal",
+            "SELECT 1 FROM pg_trigger WHERE tgname = %s AND NOT tgisinternal "
+            "AND tgrelid = 'workflow_versions'::regclass",
             (WORKFLOW_VERSIONS_IMMUTABLE_TRIGGER,),
         ).fetchone()
         if trigger_exists is None:

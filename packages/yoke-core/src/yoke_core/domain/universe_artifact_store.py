@@ -5,6 +5,7 @@ from __future__ import annotations
 from contextlib import closing, contextmanager
 from pathlib import Path
 from typing import Any, Callable, Iterator
+from uuid import uuid4
 
 from yoke_core.domain import json_helper, machine_config
 from yoke_core.domain.aws_machine_client import (
@@ -100,13 +101,19 @@ def shared_sources(
     client_factory: Callable[[str, dict], Any] | None = None,
 ) -> Iterator[dict]:
     """List shared-file objects, which have no database rows."""
-    from yoke_core.domain.shared_file_storage import local_shared_file_root
+    from yoke_core.domain.shared_file_storage import (
+        local_shared_file_root,
+        shared_storage_generation,
+        shared_storage_root,
+    )
 
+    generation = shared_storage_generation(conn)
     for project, store in stores.items():
-        root_key = f"shared-files/{project}/"
+        root_key = shared_storage_root(project, None)
+        storage_root = shared_storage_root(project, generation)
         if store.get("bucket"):
             prefix = (store.get("prefix") or "").strip("/")
-            prefix = f"{prefix}/{root_key}" if prefix else root_key
+            prefix = f"{prefix}/{storage_root}" if prefix else storage_root
             client = (client_factory or _client)(project, store)
             for page in client.get_paginator("list_objects_v2").paginate(
                 Bucket=store["bucket"], Prefix=prefix
@@ -121,7 +128,7 @@ def shared_sources(
                         "bytes": int(obj["Size"]),
                     }
         else:
-            root = local_shared_file_root() / project
+            root = local_shared_file_root().parent / storage_root
             if root.is_dir():
                 for path in sorted(root.rglob("*")):
                     if path.is_file() and not path.is_symlink():
@@ -133,9 +140,28 @@ def shared_sources(
                         }
 
 
+def imported_file_key(key: str, project: str, generation: str | None) -> str:
+    """Choose fresh keys for an in-place database replacement."""
+    from yoke_core.domain.shared_file_storage import shared_storage_root
+
+    if generation is None:
+        return key
+    if key.startswith("shared-files/"):
+        logical_root = shared_storage_root(project, None)
+        if not key.startswith(logical_root) or key == logical_root:
+            raise UniverseArchiveError(
+                "archive_artifact_owner_mismatch: shared file belongs to another project; export again"
+            )
+        return shared_storage_root(project, generation) + key.removeprefix(logical_root)
+    parent, name = key.rsplit("/", 1)
+    # The generation must fit beside a filename from another filesystem.
+    name = name.encode("utf-8")[:200].decode("utf-8", errors="ignore")
+    return f"{parent}/{uuid4().hex}-{name}"
+
+
 def write_file(
     path: Path,
-    key: str,
+    destination_key: str,
     *,
     project: str,
     store: dict,
@@ -145,7 +171,7 @@ def write_file(
     """Write through captured destination routing, ignoring imported settings."""
     if store.get("bucket"):
         prefix = (store.get("prefix") or "").strip("/")
-        destination = f"{prefix}/{key}" if prefix else key
+        destination = f"{prefix}/{destination_key}" if prefix else destination_key
         try:
             with path.open("rb") as stream:
                 (client_factory or _client)(project, store).put_object(
@@ -165,9 +191,9 @@ def write_file(
 
     root = machine_config.yoke_home()
     target = root / (
-        key
-        if key.startswith("shared-files/")
-        else "artifacts/" + key.removeprefix("qa-artifacts/")
+        "artifacts/" + destination_key.removeprefix("qa-artifacts/")
+        if destination_key.startswith("qa-artifacts/")
+        else destination_key
     )
     try:
         _write_local(target, path.read_bytes())

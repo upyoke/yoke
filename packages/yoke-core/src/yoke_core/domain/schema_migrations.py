@@ -75,6 +75,7 @@ BEGIN
     SELECT 1
     FROM pg_trigger
     WHERE tgname = '{QA_RUNS_VERDICT_IMMUTABLE_TRIGGER_NAME}'
+      AND tgrelid = 'qa_runs'::regclass
       AND NOT tgisinternal
   ) THEN
     CREATE TRIGGER {QA_RUNS_VERDICT_IMMUTABLE_TRIGGER_NAME}

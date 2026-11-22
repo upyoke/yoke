@@ -12,6 +12,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import re
+
+from psycopg import sql
 from typing import Any
 
 from yoke_contracts.owner_private_path import write_owner_private
@@ -68,11 +71,55 @@ def local_shared_file_root() -> Path:
     return machine_config.yoke_home() / SHARED_FILES_STORAGE_KIND
 
 
-def _local_path(project: str, path: str) -> Path:
-    return local_shared_file_root().joinpath(project, *path.split("/"))
+_GENERATION_MARKER = "Yoke shared file generation: "
 
 
-def _bucket(conn: Any, project_id: int, project: str, path: str) -> _Bucket | None:
+def _schema_storage_comment(conn: Any) -> tuple[str, str]:
+    return conn.execute(
+        "SELECT current_schema(), COALESCE(obj_description(current_schema()"
+        "::regnamespace, 'pg_namespace'), '')"
+    ).fetchone()
+
+
+def shared_storage_generation(conn: Any) -> str | None:
+    """Read the private address space published with the current schema."""
+    _schema, comment = _schema_storage_comment(conn)
+    for line in comment.splitlines():
+        if line.startswith(_GENERATION_MARKER):
+            generation = line.removeprefix(_GENERATION_MARKER)
+            if re.fullmatch(r"[0-9a-f]{32}", generation):
+                return generation
+            raise SharedFileError(
+                "shared_file_generation_invalid",
+                "the universe has invalid shared-file routing; restore a valid archive",
+            )
+    return None
+
+
+def set_shared_storage_generation(conn: Any, generation: str) -> None:
+    schema, comment = _schema_storage_comment(conn)
+    lines = [line for line in comment.splitlines() if not line.startswith(_GENERATION_MARKER)]
+    lines.append(_GENERATION_MARKER + generation)
+    conn.execute(
+        sql.SQL("COMMENT ON SCHEMA {} IS {}").format(
+            sql.Identifier(schema), sql.Literal("\n".join(lines)),
+        )
+    )
+
+
+def shared_storage_root(project: str, generation: str | None) -> str:
+    if generation is None:
+        return f"{SHARED_FILES_STORAGE_KIND}/{project}/"
+    return f"imported-shared-files/{generation}/{project}/"
+
+
+def _local_path(project: str, path: str, generation: str | None) -> Path:
+    return local_shared_file_root().parent / (shared_storage_root(project, generation) + path)
+
+
+def _bucket(
+    conn: Any, project_id: int, project: str, path: str, generation: str | None,
+) -> _Bucket | None:
     from yoke_core.domain.qa_artifact_configuration import (
         resolve_artifacts_bucket,
     )
@@ -88,7 +135,12 @@ def _bucket(conn: Any, project_id: int, project: str, path: str) -> _Bucket | No
     if configured is None:
         return None
     _environment, bucket, prefix = configured
-    owner = f"{SHARED_FILES_STORAGE_KIND}/{project}/{path}"
+    if broker is not None and generation is not None:
+        raise SharedFileError(
+            "shared_file_storage_route_unsupported",
+            "the hosted signer does not serve imported shared-file generations",
+        )
+    owner = shared_storage_root(project, generation) + path
     return _Bucket(
         bucket=bucket,
         key=f"{prefix}/{owner}" if prefix else owner,
@@ -170,12 +222,13 @@ def put_shared_file(
             "shared_file_too_large",
             f"the file is {len(content)} bytes; the limit is {MAX_SHARED_FILE_BYTES}",
         )
-    store = _bucket(conn, project_id, project, path)
+    generation = shared_storage_generation(conn)
+    store = _bucket(conn, project_id, project, path, generation)
     if store is None:
         refusal = _local_write_refusal(project)
         if refusal is not None:
             raise SharedFileError("shared_file_not_portable", refusal)
-        target = _local_path(project, path)
+        target = _local_path(project, path, generation)
         try:
             _write_local(target, content)
         except OSError as exc:
@@ -201,9 +254,10 @@ def read_shared_file(conn: Any, *, project_id: int, project: str, path: str) -> 
     """Return the bytes stored at the project path."""
     project = shared_file_project(project)
     path = shared_file_path(path)
-    store = _bucket(conn, project_id, project, path)
+    generation = shared_storage_generation(conn)
+    store = _bucket(conn, project_id, project, path, generation)
     if store is None:
-        target = _local_path(project, path)
+        target = _local_path(project, path, generation)
         if not target.is_file():
             raise SharedFileError(
                 "shared_file_not_found",

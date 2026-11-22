@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 import time
 
+import psycopg
 from psycopg import sql
 
 from yoke_core.domain.universe_portability_common import (
@@ -28,6 +29,7 @@ from yoke_core.domain.universe_portability_restore_contract import (
     RESTORE_SET_RE,
     SETVAL_RE,
     compatible_restore_columns,
+    restore_error_description,
     restore_target_columns,
     restore_target_sequences,
     unquote_identifier,
@@ -86,6 +88,7 @@ def apply_restore_stream(
     source: object,
     conn: object,
     *,
+    target_schema: str,
     allowed_tables: set[str],
     allowed_sequences: set[str],
     max_sql_bytes: int,
@@ -149,18 +152,24 @@ def apply_restore_stream(
                 copy_match, target_columns, allowed_tables, observed_tables
             )
             statement = sql.SQL("COPY {}.{} ({}) FROM STDIN").format(
-                sql.Identifier("public"),
+                sql.Identifier(target_schema),
                 sql.Identifier(table_name),
                 sql.SQL(", ").join(sql.Identifier(column) for column in columns),
             )
-            with conn.cursor().copy(statement) as copy:  # type: ignore[attr-defined]
-                consumed = copy_restore_rows(
-                    source,
-                    copy,
-                    consumed=consumed,
-                    max_sql_bytes=max_sql_bytes,
-                    deadline=deadline,
-                )
+            try:
+                with conn.cursor() as cursor, cursor.copy(statement) as copy:  # type: ignore[attr-defined]
+                    consumed = copy_restore_rows(
+                        source,
+                        copy,
+                        consumed=consumed,
+                        max_sql_bytes=max_sql_bytes,
+                        deadline=deadline,
+                    )
+            except psycopg.Error as exc:
+                raise UniversePortabilityError(
+                    f"universe restore COPY for {table_name} failed: "
+                    f"{restore_error_description(exc)}; correct the source data and export again"
+                ) from exc
             observed_tables.add(table_name)
             continue
         setval_match = SETVAL_RE.fullmatch(line)
@@ -177,10 +186,16 @@ def apply_restore_stream(
                 raise ArchiveInvalidError(
                     f"the universe archive repeats SEQUENCE SET for {sequence_name}"
                 )
-            conn.execute(  # type: ignore[attr-defined]
-                "SELECT pg_catalog.setval(%s::regclass, %s, %s)",
-                (f"public.{sequence_name}", int(raw_value), raw_called == "true"),
-            )
+            try:
+                conn.execute(  # type: ignore[attr-defined]
+                    "SELECT pg_catalog.setval(%s::regclass, %s, %s)",
+                    (f"{target_schema}.{sequence_name}", int(raw_value), raw_called == "true"),
+                )
+            except psycopg.Error as exc:
+                raise UniversePortabilityError(
+                    f"universe restore setval for {sequence_name} failed: "
+                    f"{restore_error_description(exc)}; correct the source sequence and export again"
+                ) from exc
             observed_sequences.add(sequence_name)
             continue
         raise ArchiveInvalidError(

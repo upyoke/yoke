@@ -193,11 +193,10 @@ def test_archive_with_control_character_org_slug_rolls_back_before_output(tmp_pa
                     importer.import_from_stream(stream, dsn=target_dsn)
             with psycopg.connect(target_dsn) as target:
                 assert target.execute(
-                    "SELECT COUNT(*) FROM organizations"
-                ).fetchone() == (0,)
-                assert target.execute("SELECT COUNT(*) FROM api_tokens").fetchone() == (
-                    0,
-                )
+                    "SELECT to_regclass('public.organizations'), "
+                    "to_regclass('public.api_tokens'), "
+                    "to_regnamespace('yoke_import_staging')"
+                ).fetchone() == (None, None, None)
         finally:
             pg_testdb.drop_test_database(target_name)
 
@@ -215,3 +214,15 @@ def test_internal_cli_keeps_progress_off_credential_stdout(monkeypatch, capsys):
     )
     assert "trusted schema progress" not in output.out
     assert "trusted schema progress" in output.err
+
+
+def test_internal_cli_names_destination_database_failure(monkeypatch, capsys):
+    def fail_import(_stream):
+        raise psycopg.errors.LockNotAvailable("do not print raw database errors")
+
+    monkeypatch.setattr(importer, "import_from_stream", fail_import)
+    assert importer.main(["--stdin"]) == 1
+    output = capsys.readouterr()
+    assert output.out == ""
+    assert "LockNotAvailable (SQLSTATE 55P03)" in output.err
+    assert "do not print raw database errors" not in output.err

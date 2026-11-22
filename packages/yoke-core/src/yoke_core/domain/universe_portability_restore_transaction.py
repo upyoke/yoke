@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import math
 import subprocess
 import threading
 import time
@@ -11,7 +10,7 @@ from pathlib import Path
 from typing import Callable, Optional
 
 import psycopg
-from psycopg import conninfo, sql
+from psycopg import sql
 
 from yoke_core.domain.universe_portability_common import (
     ArchiveTooLargeError,
@@ -19,9 +18,19 @@ from yoke_core.domain.universe_portability_common import (
     bounded_diagnostic_reader,
     subprocess_base_env,
     terminate,
+    remaining_timeout,
 )
 from yoke_core.domain.universe_portability_restore_stream import (
     apply_restore_stream,
+)
+
+
+from yoke_core.domain.universe_portability_restore_contract import (
+    restore_error_description,
+)
+from yoke_core.domain.universe_portability_staging import (
+    bounded_dsn,
+    publish_restore_schema,
 )
 
 
@@ -32,6 +41,7 @@ def restore_stream_worker(
     source: object,
     conn: object,
     *,
+    target_schema: str,
     allowed_tables: set[str],
     allowed_sequences: set[str],
     max_sql_bytes: int,
@@ -42,6 +52,7 @@ def restore_stream_worker(
         apply_restore_stream(
             source,
             conn,
+            target_schema=target_schema,
             allowed_tables=allowed_tables,
             allowed_sequences=allowed_sequences,
             max_sql_bytes=max_sql_bytes,
@@ -54,7 +65,7 @@ def restore_stream_worker(
 
 
 def suspend_restore_constraints(
-    conn: object,
+    conn: object, target_schema: str,
 ) -> tuple[list[tuple[str, str, str]], list[tuple[str, str, str]]]:
     """Drop trusted FKs and suspend user triggers inside the load transaction."""
     foreign_keys = [
@@ -83,7 +94,7 @@ def suspend_restore_constraints(
     for table, name, _definition in foreign_keys:
         conn.execute(  # type: ignore[attr-defined]
             sql.SQL("ALTER TABLE {}.{} DROP CONSTRAINT {}").format(
-                sql.Identifier("public"),
+                sql.Identifier(target_schema),
                 sql.Identifier(table),
                 sql.Identifier(name),
             )
@@ -92,7 +103,7 @@ def suspend_restore_constraints(
         if enabled != "D":
             conn.execute(  # type: ignore[attr-defined]
                 sql.SQL("ALTER TABLE {}.{} DISABLE TRIGGER {}").format(
-                    sql.Identifier("public"),
+                    sql.Identifier(target_schema),
                     sql.Identifier(table),
                     sql.Identifier(name),
                 )
@@ -102,6 +113,7 @@ def suspend_restore_constraints(
 
 def restore_constraints(
     conn: object,
+    target_schema: str,
     foreign_keys: list[tuple[str, str, str]],
     triggers: list[tuple[str, str, str]],
 ) -> None:
@@ -109,7 +121,7 @@ def restore_constraints(
     for table, name, definition in foreign_keys:
         conn.execute(  # type: ignore[attr-defined]
             sql.SQL("ALTER TABLE {}.{} ADD CONSTRAINT {} {}").format(
-                sql.Identifier("public"),
+                sql.Identifier(target_schema),
                 sql.Identifier(table),
                 sql.Identifier(name),
                 sql.SQL(definition),
@@ -129,7 +141,7 @@ def restore_constraints(
             )
         conn.execute(  # type: ignore[attr-defined]
             sql.SQL("ALTER TABLE {}.{} {} TRIGGER {}").format(
-                sql.Identifier("public"),
+                sql.Identifier(target_schema),
                 sql.Identifier(table),
                 mode,
                 sql.Identifier(name),
@@ -165,6 +177,7 @@ def restore_via_libpq(
     archive: Path,
     restore_list: Path,
     dsn: str,
+    target_schema: str,
     allowed_tables: set[str],
     allowed_sequences: set[str],
     timeout_s: float,
@@ -187,25 +200,13 @@ def restore_via_libpq(
         str(restore_list),
         str(archive),
     ]
-    parsed_dsn = conninfo.conninfo_to_dict(dsn)
-    prior_options = str(parsed_dsn.get("options") or "").strip()
-    timeout_ms = max(1, int(timeout_s * 1000))
-    parsed_dsn["connect_timeout"] = str(max(1, min(30, math.ceil(timeout_s))))
-    parsed_dsn["options"] = " ".join(
-        value
-        for value in (
-            prior_options,
-            f"-c statement_timeout={timeout_ms} -c lock_timeout={timeout_ms}"
-            " -c search_path=public,pg_catalog",
-        )
-        if value
-    )
-    connection = psycopg.connect(conninfo.make_conninfo(**parsed_dsn))
+    deadline = time.monotonic() + timeout_s
+    connection = psycopg.connect(bounded_dsn(dsn, timeout_s, target_schema))
     foreign_keys: list[tuple[str, str, str]] = []
     triggers: list[tuple[str, str, str]] = []
     restore: subprocess.Popen[bytes] | None = None
     try:
-        foreign_keys, triggers = suspend_restore_constraints(connection)
+        foreign_keys, triggers = suspend_restore_constraints(connection, target_schema)
         restore = subprocess.Popen(
             restore_cmd,
             env=subprocess_base_env(),
@@ -228,12 +229,12 @@ def restore_via_libpq(
     assert restore.stdout is not None and restore.stderr is not None
     stream_errors: list[BaseException] = []
     restore_stderr = bytearray()
-    deadline = time.monotonic() + timeout_s
     workers = (
         threading.Thread(
             target=restore_stream_worker,
             args=(restore.stdout, connection),
             kwargs={
+                "target_schema": target_schema,
                 "allowed_tables": allowed_tables,
                 "allowed_sequences": allowed_sequences,
                 "max_sql_bytes": max_sql_bytes,
@@ -258,9 +259,24 @@ def restore_via_libpq(
         if restore.returncode != 0 or stream_errors:
             connection.rollback()
         else:
-            restore_constraints(connection, foreign_keys, triggers)
+            restore_constraints(connection, target_schema, foreign_keys, triggers)
             if finalize is not None:
                 finalize(connection)
+            timeout_ms = max(1, int(1000 * remaining_timeout(deadline, "schema swap")))
+            # Leave time to roll back and remove staging if readers hold public.
+            lock_timeout_ms = max(1, min(30_000, timeout_ms // 2))
+            connection.execute(
+                "SELECT set_config('statement_timeout', %s, true), "
+                "set_config('lock_timeout', %s, true)",
+                (str(timeout_ms), str(lock_timeout_ms)),
+            )
+            try:
+                publish_restore_schema(connection, target_schema)
+            except psycopg.Error as exc:
+                raise UniversePortabilityError(
+                    f"universe restore schema swap failed: {restore_error_description(exc)}; "
+                    "close transactions using the destination and retry"
+                ) from exc
             connection.commit()
     except subprocess.TimeoutExpired as exc:
         worker_stopped = quiesce_restore_worker(restore, workers[0], connection)
@@ -284,8 +300,13 @@ def restore_via_libpq(
         error = stream_errors[0]
         if isinstance(error, (ArchiveTooLargeError, UniversePortabilityError)):
             raise error
+        safe_error = UniversePortabilityError(restore_error_description(error))
+        _log.error(
+            "universe restore stream failed",
+            exc_info=(type(safe_error), safe_error, error.__traceback__),
+        )
         raise UniversePortabilityError(
-            "universe restore stream failed before the transaction completed"
+            f"universe restore stream failed: {safe_error}; correct the cause and retry"
         ) from error
     if restore.returncode != 0:
         diagnostic = bytes(restore_stderr).decode("utf-8", errors="replace")
@@ -296,8 +317,8 @@ def restore_via_libpq(
             diagnostic or "<no stderr>",
         )
         raise UniversePortabilityError(
-            "universe restore failed transactionally; the staging database"
-            " was not accepted"
+            f"universe restore pg_restore exited with status {restore.returncode}; "
+            "check the restore log and verify or regenerate the archive"
         )
 
 

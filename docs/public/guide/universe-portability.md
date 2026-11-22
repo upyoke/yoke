@@ -135,15 +135,13 @@ new connection before the Project step offers the restored projects. The
 backup carries the account, so setup skips the name prompt. See
 [Install](../start/install.md#onboard-wizard) for the complete setup route.
 
-`yoke universe import ARCHIVE` and `yoke self-host import ARCHIVE` ask the
-operator exactly two things: which
-archive, and consent to replace the destination universe (`--yes` for
-non-interactive runs). Everything else — checksum, receipt verification,
-catalog compatibility — is derived from the archive. The destination is reset
-and restored through one path whether it was brand-new or held a prior
-universe; replacing the current universe is the operator's call, which is why
-the consent stays. Local import addresses only the active `local` connection;
-self-host import addresses an explicitly selected Compose bundle.
+`yoke universe import ARCHIVE` and `yoke self-host import ARCHIVE` verify
+the archive and ask for consent (`--yes` skips the prompt). They publish a
+private replacement schema atomically. A failure preserves the previous
+universe and its files. Existing connections can query the replacement.
+If publication times out, close transactions using the destination and retry.
+On Windows, trusted inherited archive ACLs are accepted when other users
+cannot write to the parent folder.
 
 If inspection reports `archive_tool_version_unsupported`, the selected
 `pg_restore` cannot read the dump format. Set `YOKE_PG_BIN_DIR` to the bin
