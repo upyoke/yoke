@@ -145,7 +145,11 @@ def test_failure_preserves_live_universe(
     with ExitStack() as stack:
         if phase == "swap":
             lock_holder = stack.enter_context(psycopg.connect(dsn))
+            lock_holder.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
             lock_holder.execute("LOCK TABLE items IN ACCESS SHARE MODE")
+            # A live snapshot on public can block a concurrent expression index
+            # even when that index targets the separate staging schema.
+            lock_holder.execute("SELECT count(*) FROM items").fetchone()
 
             def short_swap_timeout(target, schema):
                 target.execute("SET LOCAL lock_timeout = '100ms'")
@@ -154,7 +158,9 @@ def test_failure_preserves_live_universe(
             monkeypatch.setattr(transaction, "publish_restore_schema", short_swap_timeout)
         error_type = RuntimeError if phase == "finalize" else portability.UniversePortabilityError
         with pytest.raises(error_type, match=diagnostic) as refused:
-            portability.restore_universe(archived_universe, dsn, finalize=finalize)
+            portability.restore_universe(
+                archived_universe, dsn, finalize=finalize, timeout_s=20,
+            )
 
     refusal = str(refused.value)
     assert "archive-private-value" not in refusal

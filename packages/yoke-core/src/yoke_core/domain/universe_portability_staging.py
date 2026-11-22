@@ -111,7 +111,7 @@ def staged_restore_schema(dsn: str, deadline: float):
                             sql.Identifier(IMPORT_SCHEMA), sql.Literal(row[1]),
                         ))
                 phase = "trusted schema initialization"
-                with serving_build_authority():
+                with serving_build_authority(private_schema=True):
                     run_init_chain_at_dsn(
                         bounded_dsn(dsn, remaining_timeout(deadline, phase), IMPORT_SCHEMA),
                         emit=lambda line: _log.debug("trusted schema init: %s", line),
