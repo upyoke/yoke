@@ -103,3 +103,48 @@ def test_publication_refusal_reaches_release_failure_trace(monkeypatch, capsys):
         "image_publication_refused: release_image_collision: immutable version differs; "
         "retry the publication job after correcting the named cause"
     )
+
+
+def readback(monkeypatch, reads):
+    env = identity(monkeypatch)
+    monkeypatch.setattr(subject, "latest_release", lambda repo: "0.2.0.202610150941")
+    sequence = iter([None, *reads])
+    monkeypatch.setattr(subject, "inspect", lambda ref: next(sequence))
+    platforms = [{"platform": {"os": "linux", "architecture": a}} for a in ("amd64", "arm64")]
+    creates = []
+    monkeypatch.setattr(
+        subject,
+        "run",
+        lambda cmd: creates.append(cmd) or json.dumps({"manifests": platforms}),
+    )
+    sleeps = []
+    monkeypatch.setattr(subject, "sleep", sleeps.append)
+    return env, creates, sleeps
+
+
+def test_readback_waits_while_ghcr_does_not_yet_serve_the_new_tag(monkeypatch):
+    env, creates, sleeps = readback(monkeypatch, [None, None, DIGEST])
+    subject.publish(env)
+    assert len([cmd for cmd in creates if "create" in cmd]) == 1
+    assert sleeps == [2, 4]
+
+
+def test_readback_still_missing_after_retries_refuses(monkeypatch):
+    env, _, sleeps = readback(monkeypatch, [None] * 5)
+    with pytest.raises(ValueError) as refused:
+        subject.publish(env)
+    assert sleeps == [2, 4, 8, 16]
+    assert str(refused.value).startswith(
+        f"published_image_mismatch: {REPO}:{VERSION} reads not found (expected {DIGEST})"
+    )
+
+
+def test_readback_of_a_different_digest_refuses_without_retry(monkeypatch):
+    other = "sha256:" + "d" * 64
+    env, _, sleeps = readback(monkeypatch, [other])
+    with pytest.raises(ValueError) as refused:
+        subject.publish(env)
+    assert sleeps == []
+    assert str(refused.value).startswith(
+        f"published_image_mismatch: {REPO}:{VERSION} reads {other} (expected {DIGEST})"
+    )

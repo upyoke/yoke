@@ -268,7 +268,8 @@ def test_digest_publication_has_collision_platform_and_reference_verification():
     assert "existing is not None and existing != digest" in helper
     assert "release_image_collision" in helper
     assert "--prefer-index=false" in helper
-    assert "if inspect(reference) != digest" in helper
+    assert "if observed is not None:\n                break\n            sleep(delay)" in helper
+    assert helper.index("sleep(delay)") < helper.index("if observed != digest")
     assert 'platforms != {"linux/amd64", "linux/arm64"}' in helper
     assert helper.index("platforms !=") < helper.index("references = [immutable]")
 

@@ -7,9 +7,14 @@ import os
 import re
 import subprocess
 import sys
+import time
 
 from yoke_contracts.release_version import BASE_VERSION, release_version, version_order
 from yoke_core.tools.release_tag_validation import validate_release_tag
+
+# GHCR can briefly answer "not found" for a tag it accepted a moment ago.
+READBACK_DELAYS = (2, 4, 8, 16)
+sleep = time.sleep
 
 
 def run(command: list[str]) -> str:
@@ -116,9 +121,16 @@ def publish(env: dict[str, str]) -> None:
                     f"{repository}@{digest}",
                 ]
             )
-        if inspect(reference) != digest:
+        observed = inspect(reference)
+        for delay in READBACK_DELAYS:
+            if observed is not None:
+                break
+            sleep(delay)
+            observed = inspect(reference)
+        if observed != digest:
             raise ValueError(
-                "published_image_mismatch: inspect GHCR and retry publication without rebuilding"
+                f"published_image_mismatch: {reference} reads {observed or 'not found'} "
+                f"(expected {digest}); inspect GHCR and retry publication without rebuilding"
             )
     print(f"Promoted {repository}@{digest} as {', '.join(references)}")
 
