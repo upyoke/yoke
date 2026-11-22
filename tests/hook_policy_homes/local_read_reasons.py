@@ -81,6 +81,7 @@ AUTHORITY_TRANSPORT = (
         "yoke_contracts.direct_database_access:use_https_env_error",
         "yoke_contracts.install_binding:_module_path",
         "yoke_contracts.install_binding:_owning_distribution",
+        "yoke_contracts.install_binding:_recorded_paths",
         "yoke_contracts.install_binding:is_yoke_source_checkout",
         "yoke_contracts.machine_config.paths:_ambient_config_path",
         "yoke_contracts.machine_config.paths:config_path",
