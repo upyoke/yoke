@@ -28,8 +28,7 @@ Cursor Desktop ships no agent CLI; install it with
 `curl https://cursor.com/install -fsS | bash`, then run `cursor-agent login`.
 A missing CLI or unverified sign-in is a Doctor WARN that allows onboarding;
 follow its install or login step before launching workers. A missing CLI refuses
-a launch as `surface_absent` with its install step; a usage reading never refuses
-a launch. A launch that never registers names the harness's login command.
+a launch as `surface_absent`; a usage reading never refuses a launch.
 
 Setup always configures every installed harness for unattended Yoke commands.
 Review names the files and permission settings before applying them.
