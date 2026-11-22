@@ -62,6 +62,38 @@ def _declared_entries(text: str) -> set[str]:
     return entries
 
 
+def _plan_config(
+    original: str, managed_paths: tuple[str, ...]
+) -> tuple[str, List[str], List[str]]:
+    """Return the config text with every managed path exempted, and the changes."""
+    migrated = []
+    lines = []
+    for line in original.splitlines(keepends=True):
+        key, separator, value = line.partition("=")
+        rel = value.split("#", 1)[0].strip()
+        if key.strip() == "file_line_exception" and separator and rel in managed_paths:
+            line = f"{FILE_LINE_GROW_ALLOWED_KEY}={value}"
+            migrated.append(rel)
+        lines.append(line)
+    existing = "".join(lines)
+    declared = _declared_entries(existing)
+    added: List[str] = [
+        rel for rel in dict.fromkeys(managed_paths) if rel and rel not in declared
+    ]
+    if not added:
+        return existing, added, migrated
+    text = existing
+    if text and not text.endswith("\n"):
+        text += "\n"
+    entries = "".join(f"{FILE_LINE_GROW_ALLOWED_KEY}={rel}\n" for rel in added)
+    return f"{text}\n{_EXEMPTION_COMMENT}{entries}", added, migrated
+
+
+def planned_config_text(original: str, managed_paths: Iterable[str]) -> str:
+    """The exact config an install leaves after exempting *managed_paths*."""
+    return _plan_config(original, tuple(managed_paths))[0]
+
+
 def ensure_managed_file_line_exceptions(
     repo_root: str | Path, managed_paths: Iterable[str],
 ) -> Dict[str, Any]:
@@ -74,38 +106,16 @@ def ensure_managed_file_line_exceptions(
     root = Path(repo_root)
     config = root / PROJECT_CONFIG_REL
     original = _existing_text(config)
-    managed_paths = tuple(managed_paths)
-    migrated = []
-    lines = []
-    for line in original.splitlines(keepends=True):
-        key, separator, value = line.partition("=")
-        rel = value.split("#", 1)[0].strip()
-        if key.strip() == "file_line_exception" and separator and rel in managed_paths:
-            line = f"{FILE_LINE_GROW_ALLOWED_KEY}={value}"
-            migrated.append(rel)
-        lines.append(line)
-    existing = "".join(lines)
-    declared = _declared_entries(existing)
-
-    added: List[str] = [
-        rel for rel in dict.fromkeys(managed_paths) if rel and rel not in declared
-    ]
+    text, added, migrated = _plan_config(original, tuple(managed_paths))
     if not added:
         if migrated:
-            config.write_text(existing, encoding="utf-8", newline="")
+            config.write_text(text, encoding="utf-8", newline="")
         return {
             "attempted": True, "status": "ok" if migrated else "unchanged",
             "added": [], "migrated": migrated,
         }
-
-    text = existing
-    if text and not text.endswith("\n"):
-        text += "\n"
-    entries = "".join(f"{FILE_LINE_GROW_ALLOWED_KEY}={rel}\n" for rel in added)
     config.parent.mkdir(parents=True, exist_ok=True)
-    config.write_text(
-        f"{text}\n{_EXEMPTION_COMMENT}{entries}", encoding="utf-8", newline=""
-    )
+    config.write_text(text, encoding="utf-8", newline="")
     return {
         "attempted": True,
         "status": "ok",
@@ -138,4 +148,8 @@ def managed_markdown_paths(bundle: dict) -> list[str]:
     return paths
 
 
-__all__ = ["ensure_managed_file_line_exceptions", "managed_markdown_paths"]
+__all__ = [
+    "ensure_managed_file_line_exceptions",
+    "managed_markdown_paths",
+    "planned_config_text",
+]

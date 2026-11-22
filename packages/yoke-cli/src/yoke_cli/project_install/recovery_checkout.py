@@ -14,7 +14,13 @@ from yoke_cli.project_install import (
     settings_status_line,
     skill_discovery,
 )
+from yoke_cli.project_install.file_line_managed_exceptions import (
+    _existing_text,
+    managed_markdown_paths,
+    planned_config_text,
+)
 from yoke_cli.project_install.files import sha256_text
+from yoke_contracts.project_contract.file_line_policy import PROJECT_CONFIG_REL
 from yoke_contracts.project_contract.install_bundle import SKILL_DISCOVERY_LINKS
 
 
@@ -34,6 +40,20 @@ def state(path: Path) -> str:
 def states(path: Path) -> set[str]:
     """Return every safe state that proves the current installer-owned path."""
     return {state(path)}
+
+
+def _add_line_exception_states(root: Path, bundle: dict[str, Any], add) -> None:
+    """Plan the exemptions the install appends to a seeded or existing config."""
+    managed = managed_markdown_paths(bundle)
+    sources = [
+        entry["content"]
+        for entry in bundle.get("project_contract_files") or []
+        if entry["path"] == PROJECT_CONFIG_REL
+    ]
+    # Read as the installer reads it, so the planned bytes match what it writes.
+    sources.append(_existing_text(root / PROJECT_CONFIG_REL))
+    for source in sources:
+        add(PROJECT_CONFIG_REL, planned_config_text(source, managed))
 
 
 def plan(
@@ -60,6 +80,7 @@ def plan(
         add(entry["path"], entry["content"])
     for entry in bundle.get("strategy_files") or []:
         add(entry["path"], entry["content"])
+    _add_line_exception_states(root, bundle, add)
     for rel in preflight["install_recovery"]["removed_paths"]:
         add(rel, None)
     for rel, destination in SKILL_DISCOVERY_LINKS.items():
