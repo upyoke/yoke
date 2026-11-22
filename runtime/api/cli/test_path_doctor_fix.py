@@ -8,6 +8,7 @@ import pytest
 from yoke_cli.commands.adapters import path_doctor as adapter
 from yoke_cli.config import onboard_apply_path
 from yoke_cli.config.path_doctor import PathDiagnosis, ToolResolution
+from yoke_contracts.testing.real_home_isolation import set_home
 
 
 def diagnosis(needs_fix=False):
@@ -89,7 +90,7 @@ def test_diagnosis_reports_unreadable_startup_without_overruling_probes(
 
 @pytest.mark.posix_only(reason="applies POSIX startup file changes")
 def test_onboard_apply_excludes_unreadable_startup_file(tmp_path, monkeypatch):
-    monkeypatch.setenv("HOME", str(tmp_path))
+    set_home(monkeypatch, tmp_path)
     monkeypatch.setenv("SHELL", "/bin/zsh")
     monkeypatch.delenv("ZDOTDIR", raising=False)
     monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)

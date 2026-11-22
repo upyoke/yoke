@@ -10,6 +10,7 @@ from yoke_cli.commands.adapters import path_doctor as cli
 from yoke_cli.config import path_doctor as doctor
 from yoke_cli.main import main as yoke_main
 from yoke_contracts.shell_startup_files import shell_setup_files
+from yoke_contracts.testing.real_home_isolation import set_home
 
 POSIX_SHELL = pytest.mark.posix_only(
     reason="local POSIX shell path state; Windows counterpart is tests/installer/test_windows_user_path.py"
@@ -139,14 +140,15 @@ def test_path_fix_verifies_real_contexts_after_skipping_unreadable_zsh_file(
     launcher.write_text("#!/bin/sh\nexit 0\n")
     launcher.chmod(0o755)
     env = {
-        "HOME": str(tmp_path), "ZDOTDIR": str(tmp_path), "SHELL": zsh,
+        "ZDOTDIR": str(tmp_path), "SHELL": zsh,
         "PATH": os.defpath, "UV_TOOL_BIN_DIR": str(bindir),
         "XDG_CONFIG_HOME": str(tmp_path / ".config"),
     }
+    set_home(monkeypatch, tmp_path)
     for key, value in env.items():
         monkeypatch.setenv(key, value)
     monkeypatch.delenv("BASH_ENV", raising=False)
-    doctor.update_shell(env=env)
+    doctor.update_shell(env={**env, "HOME": str(tmp_path)})
     blocked = tmp_path / name
     original = b"# user configuration\n"
     blocked.write_bytes(original)
