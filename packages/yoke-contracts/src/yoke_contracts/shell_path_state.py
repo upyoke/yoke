@@ -19,6 +19,7 @@ TOOLS = ("uv", "uvx", "yoke")
 HARNESS_CLIS = harness_cli_executables()
 PATH_TOOLS = (*TOOLS, *HARNESS_CLIS)
 SUPPORTED_SHELLS = ("zsh", "bash", "fish")
+BASH_LOGIN_FILES = (".bash_profile", ".bash_login", ".profile")
 
 
 @dataclass(frozen=True)
@@ -91,14 +92,19 @@ def default_startup_file(shell: str, home: PurePath) -> PurePath:
     if shell == "zsh":
         return home / ".zprofile"
     if shell == "bash":
-        return next(
-            (
-                home / name
-                for name in (".bash_profile", ".bash_login", ".profile")
-                if isinstance(home, Path) and (home / name).exists()
-            ),
-            home / ".profile",
-        )
+        if isinstance(home, Path):
+            for name in BASH_LOGIN_FILES:
+                candidate = home / name
+                try:
+                    candidate.stat()
+                except FileNotFoundError:
+                    continue
+                except (OSError, UnicodeError):
+                    # Report the first inaccessible candidate through the caller's
+                    # per-file guard instead of treating it as absent.
+                    return candidate
+                return candidate
+        return home / ".profile"
     if shell == "fish":
         return home / ".config" / "fish" / "config.fish"
     return home / ".profile"
@@ -123,9 +129,7 @@ def startup_files_for_shell(shell: str, home: PurePath) -> tuple[PurePath, ...]:
         # fresh-login branch the installer campaign proves.
         files.extend((home / ".zshrc", home / ".zlogin"))
     if shell == "bash":
-        files.extend(
-            home / name for name in (".bash_profile", ".bash_login", ".profile")
-        )
+        files.extend(home / name for name in BASH_LOGIN_FILES)
     return tuple(dict.fromkeys(files))
 
 

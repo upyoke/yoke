@@ -71,6 +71,7 @@ class PathDiagnosis:
     managed_path_dirs: tuple[str, ...] = ()
     harness_clis: tuple[HarnessCliResolution, ...] = ()
     contexts: tuple[dict, ...] = ()
+    startup_read_error: str = ""
 
 
 def update_shell(*, env: dict[str, str] | None = None) -> str:
@@ -78,9 +79,10 @@ def update_shell(*, env: dict[str, str] | None = None) -> str:
     from yoke_contracts.shell_startup_files import write_shell_path
 
     environ = dict(os.environ if env is None else env)
-    changed = write_shell_path(env=environ)
+    changed, warnings = write_shell_path(env=environ)
     label = "Windows user PATH" if sys.platform == "win32" else "Shell PATH"
-    return label + " updated: " + (", ".join(changed) or "already configured") + "\n"
+    summary = label + " updated: " + (", ".join(changed) or "already configured")
+    return "\n".join([summary, *warnings, ""])
 
 
 def _probe_env_without_managed_paths(
@@ -194,6 +196,16 @@ def _shadowing_yoke_path(resolved: list[ToolResolution], *, bindir: str) -> str:
     return winner if shadowed else ""
 
 
+def _read_startup(path: Path, errors: list[str]) -> str:
+    try:
+        return path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return ""
+    except (OSError, UnicodeError) as exc:
+        errors.append(f"{path}: {exc}")
+        return ""
+
+
 def diagnose(*, env: dict | None = None, home: Path | None = None) -> PathDiagnosis:
     environ = dict(os.environ if env is None else env)
     if sys.platform == "win32":
@@ -227,7 +239,8 @@ def diagnose(*, env: dict | None = None, home: Path | None = None) -> PathDiagno
         Path(environ.get("ZDOTDIR") or home_path) if shell == "zsh" else home_path
     )
     startup = default_startup_file(shell, startup_home)
-    startup_text = startup.read_text(encoding="utf-8") if startup.exists() else ""
+    startup_read_errors: list[str] = []
+    startup_text = _read_startup(startup, startup_read_errors)
     managed_block_present = MANAGED_BEGIN in startup_text
     future_adds_bin = bindir in startup_text
     future_resolved = verify_fresh_login(
@@ -245,7 +258,7 @@ def diagnose(*, env: dict | None = None, home: Path | None = None) -> PathDiagno
     ssh_resolved: list[ToolResolution] = []
     ssh_needs_fix = False
     if ssh_startup is not None:
-        ssh_text = ssh_startup.read_text(encoding="utf-8") if ssh_startup.exists() else ""
+        ssh_text = _read_startup(ssh_startup, startup_read_errors)
         ssh_adds_bin = bindir in ssh_text
         ssh_managed_block_present = MANAGED_BEGIN in ssh_text
         ssh_resolved = verify_ssh_command(
@@ -286,6 +299,7 @@ def diagnose(*, env: dict | None = None, home: Path | None = None) -> PathDiagno
         managed_path_dirs=path_dirs,
         harness_clis=harness_clis,
         contexts=contexts,
+        startup_read_error="\n".join(startup_read_errors),
     )
 
 
