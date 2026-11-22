@@ -16,7 +16,10 @@ from typing import Any
 
 from psycopg.conninfo import make_conninfo
 from yoke_contracts.refusal_recovery import compose_refusal
-from yoke_contracts.schema_authority import refuse_without_serving_build_authority
+from yoke_contracts.schema_authority import (
+    private_schema_build_declared,
+    refuse_without_serving_build_authority,
+)
 
 from yoke_core.domain import administered_postgres, db_backend
 
@@ -85,6 +88,7 @@ def ensure_retention_index(conn: Any, *, remove_obsolete: bool = False) -> None:
         "building the events retention indexes",
         administering_env=administered_postgres.administering_target(connection=conn),
     )
+    concurrently = "" if private_schema_build_declared() else " CONCURRENTLY"
     # psycopg redacts info.dsn; reopening needs the private password too.
     dsn = make_conninfo(conn.info.dsn, password=conn.info.password)
     with db_backend.connect_psycopg(dsn, autocommit=True) as index_conn:
@@ -97,11 +101,11 @@ def ensure_retention_index(conn: Any, *, remove_obsolete: bool = False) -> None:
                     _verify_definition(state, name, columns)
                 if state is not None and (not state[0] or not state[1]):
                     # Retry only this catalog-confirmed, interrupted build.
-                    index_conn.execute(f"DROP INDEX CONCURRENTLY {name}")
+                    index_conn.execute(f"DROP INDEX{concurrently} {name}")
                     state = None
                 if state is None:
                     index_conn.execute(
-                        f"CREATE INDEX CONCURRENTLY {name} ON events "
+                        f"CREATE INDEX{concurrently} {name} ON events "
                         f"({', '.join(columns)})"
                     )
             finally:
@@ -110,4 +114,4 @@ def ensure_retention_index(conn: Any, *, remove_obsolete: bool = False) -> None:
         if remove_obsolete:
             # The composite's leading column serves every former name lookup.
             # Only the governed migration requests this destructive operation.
-            index_conn.execute("DROP INDEX CONCURRENTLY IF EXISTS idx_events_event_name")
+            index_conn.execute(f"DROP INDEX{concurrently} IF EXISTS idx_events_event_name")

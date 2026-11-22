@@ -64,17 +64,17 @@ class SchemaAuthorityRefused(BaseException):
 
 
 #: Context-scoped declaration that this process owns the database it changes.
-#: The default False means "undeclared", which is the right answer for every
+#: The default None means "undeclared", which is the right answer for every
 #: ordinary command: only a build that serves the database, or a tool holding
 #: a database of its own, has anything to declare.
-_serving_build: contextvars.ContextVar[bool] = contextvars.ContextVar(
+_serving_build: contextvars.ContextVar[str | None] = contextvars.ContextVar(
     "serving_build_authority",
-    default=False,
+    default=None,
 )
 
 
 @contextmanager
-def serving_build_authority() -> Iterator[None]:
+def serving_build_authority(*, private_schema: bool = False) -> Iterator[None]:
     """Declare that this block changes a database this process owns.
 
     Three callers are entitled to it: a server converging the database it is
@@ -84,8 +84,10 @@ def serving_build_authority() -> Iterator[None]:
     database it created or restored for its own use. The first and last claim
     that no other build is serving what this code is about to rewrite; the
     release driver claims only additions the serving build ignores.
+    Set private_schema only when building a fresh, unserved schema, so
+    index creation need not wait for snapshots elsewhere in the database.
     """
-    token = _serving_build.set(True)
+    token = _serving_build.set("private_schema" if private_schema else "serving")
     try:
         yield
     finally:
@@ -94,7 +96,12 @@ def serving_build_authority() -> Iterator[None]:
 
 def serving_build_authority_declared() -> bool:
     """Return whether this context declared authority over its database."""
-    return _serving_build.get()
+    return _serving_build.get() is not None
+
+
+def private_schema_build_declared() -> bool:
+    """Return whether this build explicitly owns a fresh, unserved schema."""
+    return _serving_build.get() == "private_schema"
 
 
 def protected_connection(explicit_env: Optional[str] = None) -> str:
@@ -179,6 +186,7 @@ def environment_without_administering_selection() -> dict[str, str]:
 __all__ = [
     "SchemaAuthorityRefused",
     "environment_without_administering_selection",
+    "private_schema_build_declared",
     "protected_connection",
     "refuse_without_serving_build_authority",
     "serving_build_authority",

@@ -6,7 +6,10 @@ from typing import Any
 from psycopg.conninfo import make_conninfo
 
 from yoke_contracts.control_plane_locality import local_authority_exempt
-from yoke_contracts.schema_authority import refuse_without_serving_build_authority
+from yoke_contracts.schema_authority import (
+    private_schema_build_declared,
+    refuse_without_serving_build_authority,
+)
 from yoke_core.domain import administered_postgres, db_backend
 from yoke_core.domain.migration_harness_audit import record_audit_fingerprint
 from yoke_core.domain.sql_json import json_text_expr
@@ -90,6 +93,10 @@ def ensure_function_index(conn: Any) -> None:
         "building the events function index",
         administering_env=administered_postgres.administering_target(connection=conn),
     )
+    # The import owns a fresh schema. Concurrent index creation there can
+    # still wait for transactions that only read the live public schema.
+    private_schema = private_schema_build_declared()
+    concurrently = "" if private_schema else " CONCURRENTLY"
     dsn = _connection_dsn(conn)
     with db_backend.connect_psycopg(dsn, autocommit=True) as index_conn:
         # Serialize competing boots, without locking event writers. The lock
@@ -104,11 +111,11 @@ def ensure_function_index(conn: Any) -> None:
             if state is not None and not state[0]:
                 # A cancelled concurrent build leaves an invalid index. Only
                 # our named, catalog-confirmed index is eligible for retry.
-                index_conn.execute(f"DROP INDEX CONCURRENTLY {FUNCTION_INDEX_NAME}")
+                index_conn.execute(f"DROP INDEX{concurrently} {FUNCTION_INDEX_NAME}")
                 state = None
             if state is None:
                 index_conn.execute(
-                    f"CREATE INDEX CONCURRENTLY {FUNCTION_INDEX_NAME} ON events "
+                    f"CREATE INDEX{concurrently} {FUNCTION_INDEX_NAME} ON events "
                     f"({function_lookup_sql()} text_pattern_ops) "
                     "WHERE event_name='YokeFunctionCalled'"
                 )
@@ -119,11 +126,11 @@ def ensure_function_index(conn: Any) -> None:
                 (BOOTSTRAP_AUDIT_RECORD["name"],),
             ).fetchone()
             if recorded is None:
+                audit = dict(BOOTSTRAP_AUDIT_RECORD)
+                if private_schema:
+                    audit["description"] = f"Private schema index validated: {FUNCTION_INDEX_NAME}"
                 with db_backend.bound_pg_dsn(dsn), local_authority_exempt():
-                    record_audit_fingerprint(
-                        db_path=dsn,
-                        **BOOTSTRAP_AUDIT_RECORD,
-                    )
+                    record_audit_fingerprint(db_path=dsn, **audit)
         finally:
             index_conn.execute(
                 "SELECT pg_advisory_unlock(hashtext(%s))", (FUNCTION_INDEX_NAME,)

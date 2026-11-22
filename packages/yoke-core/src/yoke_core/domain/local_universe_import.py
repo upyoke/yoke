@@ -89,6 +89,10 @@ def import_universe(
         restore_artifacts,
     )
 
+    from yoke_core.domain.universe_portability_restore_contract import (
+        restore_error_description,
+    )
+
     owner: dict[str, object] = {}
     artifact_result = {}
     try:
@@ -131,7 +135,8 @@ def import_universe(
         ) from exc
     except psycopg.Error as exc:
         raise LocalUniverseImportError(
-            "the local universe database restore failed"
+            f"the local universe database restore failed: {restore_error_description(exc)}; "
+            "check the destination database and retry"
         ) from exc
     if not owner:
         raise LocalUniverseImportError(

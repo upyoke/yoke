@@ -241,3 +241,21 @@ def test_import_skips_disabled_human_and_owner_can_list_tokens(
             assert response.result["tokens"] == []
         finally:
             pg_testdb.drop_test_database(target_name)
+
+
+def test_local_import_names_raw_database_errors_without_values(tmp_path, monkeypatch):
+    from yoke_core.domain import universe_artifact_transfer
+
+    def refuse_destination(_dsn):
+        raise psycopg.errors.ConnectionFailure("password=must-not-be-reported")
+
+    with _universe() as (source, dsn):
+        source.commit()
+        archive = universe_export.export_universe(dsn=dsn, out=tmp_path)["artifact"]
+        monkeypatch.setattr(universe_artifact_transfer, "capture_destination", refuse_destination)
+        with pytest.raises(
+            local_universe_import.LocalUniverseImportError,
+            match=r"ConnectionFailure \(SQLSTATE 08006\)",
+        ) as error:
+            local_universe_import.import_universe(archive, dsn=dsn)
+        assert "must-not-be-reported" not in str(error.value)
