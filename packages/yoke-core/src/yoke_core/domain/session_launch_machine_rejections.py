@@ -71,8 +71,6 @@ def rejection_from_row(
             continue
         if "surface_absent" in codes:
             recovery.append(manifest.missing_cli_recovery())
-        if "harness_signed_out" in codes:
-            recovery.append(manifest.sign_in_recovery())
     seen = parse_instant(last_seen_at) if last_seen_at else None
     return MachineRejection(
         machine_id=machine_id,

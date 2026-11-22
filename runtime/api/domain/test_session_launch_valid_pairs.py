@@ -72,8 +72,10 @@ def test_claude_is_eligible_with_quota_and_no_listing_adapter():
     )
 
 
-@pytest.mark.parametrize("reason", ["stale_credential", "http_429"])
-def test_quota_failure_names_reason_and_recovery_without_exhaustion(reason):
+@pytest.mark.parametrize(
+    "reason", ["stale_credential", "credential_expired", "http_429"]
+)
+def test_quota_failure_names_reason_and_recovery_without_refusing(reason):
     conn = level_connection(CLAUDE_OPUS)
     add_surface(
         conn,
@@ -92,12 +94,6 @@ def test_quota_failure_names_reason_and_recovery_without_exhaustion(reason):
         ],
     )
     result = place(conn)
-    if reason == "stale_credential":
-        assert result.chosen is None
-        blocked = result.to_dict()["candidates"][0]["blocked"]
-        assert "harness_signed_out" in blocked
-        assert "claude auth login" in blocked
-        return
     assert result.chosen is not None
     pool = result.to_dict()["chosen"]["pools"][0]
     assert pool["reason"] == reason

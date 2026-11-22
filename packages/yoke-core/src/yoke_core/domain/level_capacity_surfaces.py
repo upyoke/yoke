@@ -42,7 +42,6 @@ def viewer_snapshot(conn, snapshot, *, actor_id, project_id, now):
 def surface_reason(surface, rejection):
     """Name one cause on the freshest machine that actually offers a surface."""
     phrases = (
-        ("harness_signed_out", "signed out"),
         ("liveness_expired", "relay disconnected"),
         ("version_below_floor", "below version floor"),
         ("surface_disabled", "surface disabled"),
@@ -53,8 +52,6 @@ def surface_reason(surface, rejection):
     if phrase is None:
         phrase = ", ".join(rejection.codes)
     reason = f"{surface}: {phrase} on {rejection.name}"
-    if "harness_signed_out" in rejection.codes and surface == "claude-cli":
-        return reason + " — run `claude /login` there"
     if rejection.recovery:
         reason += " — " + rejection.recovery[0].removesuffix(".").replace("Run ", "run ", 1) + " there"
     return reason

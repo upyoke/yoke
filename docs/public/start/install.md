@@ -27,8 +27,9 @@ Desktop or Claude VS Code bundle, even when the command is absent from PATH.
 Cursor Desktop ships no agent CLI; install it with
 `curl https://cursor.com/install -fsS | bash`, then run `cursor-agent login`.
 A missing CLI or unverified sign-in is a Doctor WARN that allows onboarding;
-follow its install or login step before launching workers. Launch refusals name
-`surface_absent` or `harness_signed_out` with that harness's recovery step.
+follow its install or login step before launching workers. A missing CLI refuses
+a launch as `surface_absent` with its install step; a usage reading never refuses
+a launch. A launch that never registers names the harness's login command.
 
 Setup always configures every installed harness for unattended Yoke commands.
 Review names the files and permission settings before applying them.

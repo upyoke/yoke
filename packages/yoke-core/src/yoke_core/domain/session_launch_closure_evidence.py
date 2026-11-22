@@ -21,6 +21,7 @@ from datetime import datetime
 
 from typing import Any
 
+from yoke_contracts.harness_cli_manifest import HARNESS_CLI_MANIFESTS
 from yoke_contracts.timestamps import format_instant
 from yoke_core.domain.session_launch_store import marker, parse_time, value
 from yoke_core.domain.session_launch_types import LaunchRecord
@@ -109,6 +110,24 @@ def closure_evidence(
         elapsed = parse_time(now) - parse_time(started_at)
         document["duration_ms"] = max(0, int(elapsed.total_seconds() * 1000))
     return document
+
+
+def sign_in_recovery(launch: LaunchRecord) -> str | None:
+    """The sign-in step a launch that never registered earns, if any.
+
+    A signed-out interactive CLI waits on its login screen instead of exiting,
+    so nothing the native printed says why it never registered. The launch's
+    surface still names the harness, and its own login command is the one
+    recovery worth naming; the text says the CLI may be signed out, never that
+    it is.
+    """
+    for manifest in HARNESS_CLI_MANIFESTS:
+        if manifest.surface_id == launch.selected_surface:
+            return (
+                f"{manifest.executable} may be signed out on this machine. "
+                f"{manifest.sign_in_recovery()}"
+            )
+    return None
 
 
 def open_attempt(conn: Any, launch_id: str) -> Any:

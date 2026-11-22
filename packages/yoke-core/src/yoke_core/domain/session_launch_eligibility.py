@@ -8,9 +8,6 @@ import json
 from typing import Any, Sequence
 
 from yoke_contracts.session_control.capabilities import capability_for_surface
-from yoke_contracts.session_control.plan_limit_unreadable_guidance import (
-    CREDENTIAL_EXPIRED_REASON,
-)
 from yoke_contracts.session_control.surface_versions import (
     surface_operation_supported,
 )
@@ -95,7 +92,7 @@ def load_relay_eligibility_rows(
         conn.execute(
             "SELECT relay_id, machine_id, surface_versions, project_checkouts, "
             "last_seen_at, state, connected_until, machine_capacity, hostname, "
-            "actor_id, surface_plan_limits "
+            "actor_id "
             "FROM session_relays"
             f"{machine_clause} ORDER BY last_seen_at DESC, relay_id ASC",
             tuple(params),
@@ -164,15 +161,6 @@ def derive_launch_eligibility(
             codes.append("surface_absent")
         elif not _allowed_version(surface, offered):
             codes.append("version_below_floor")
-        limits = _json(_value(row, "surface_plan_limits", 10), {})
-        reading = limits.get(surface, {}) if isinstance(limits, dict) else {}
-        windows = reading.get("windows", []) if isinstance(reading, dict) else []
-        if isinstance(windows, list) and any(
-            isinstance(window, dict)
-            and window.get("reason") in {"stale_credential", CREDENTIAL_EXPIRED_REASON}
-            for window in windows
-        ):
-            codes.append("harness_signed_out")
         if relay_machine in disabled:
             codes.append(SURFACE_DISABLED_REJECTION)
         if not codes and relay_machine not in selected_by_machine:

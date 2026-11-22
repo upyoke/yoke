@@ -48,6 +48,9 @@ _TEXT_FIELDS = frozenset(
         # with nothing behind it to question.
         "receipt_state",
         "recovery",
+        # The harness login command a launch that never registered names,
+        # because its CLI may be waiting on a sign-in screen.
+        "sign_in_recovery",
         "transport_result",
         "identity_output_snippet",
         "identity_parse_expectation",
