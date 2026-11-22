@@ -3,8 +3,9 @@
 The installer's one-line ``yoke.cmd`` shim names Python and its launcher.
 Calling it hands every argument to cmd.exe, which reparses quotes, ``&`` and
 ``%`` -- a JSON argument does not survive. This script reads the shim on the
-host and starts that Python and launcher directly with the Windows argv
-contract, so arguments arrive exactly as given.
+host and starts that Python and its stdlib-only launcher directly (``-I -S``,
+as the shim does) with the Windows argv contract, so arguments arrive exactly
+as given.
 """
 
 import subprocess
@@ -13,7 +14,7 @@ from pathlib import PureWindowsPath
 from yoke_harness.native_windows.transport import quote
 
 SHIM_UNREADABLE = "windows_yoke_shim_unreadable"
-_SHIM_PATTERN = r'^@(?:\(goto\) 2>nul & )?"([^"]+)" "([^"]+)" %\*'
+_SHIM_PATTERN = r'^@(?:\(goto\) 2>nul & )?"([^"]+)" (?:-I -S )?"([^"]+)" %\*'
 _YOKE_NAMES = frozenset({"yoke", "yoke.cmd"})
 # Commands that show a page: the identity launcher and the managed browser.
 _PAGE_COMMANDS = (("browser", "open"), ("qa", "browser"))
@@ -48,7 +49,7 @@ if($shim -notmatch {quote(_SHIM_PATTERN)}){{
 }}
 $info=[Diagnostics.ProcessStartInfo]::new()
 $info.FileName=$Matches[1]
-$info.Arguments='"'+$Matches[2]+'" '+{quote(subprocess.list2cmdline(arguments))}
+$info.Arguments='-I -S "'+$Matches[2]+'" '+{quote(subprocess.list2cmdline(arguments))}
 $info.UseShellExecute=$false
 $info.RedirectStandardOutput=$true
 $info.RedirectStandardError=$true

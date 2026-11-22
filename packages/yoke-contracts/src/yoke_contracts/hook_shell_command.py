@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import base64
 import os
+import re
 import shlex
 import shutil
+
+from yoke_contracts.hook_runner.config_owner import CONFIG_OWNER_ENV_VAR
 
 
 _HOOK_PATH = (
@@ -21,50 +24,31 @@ def hook_shell_command(body: str) -> str:
     return f"/bin/sh -c 'PATH={_HOOK_PATH}; export PATH; {body}'"
 
 
-def windows_hook_command(
-    harness_id: str, verb: str, config_owner: str | None, *, resilient: bool = False
-) -> str:
-    """Encode PowerShell source so cmd, PowerShell and Git Bash pass it intact."""
-    root_var = {
-        "claude-code": "CLAUDE_PROJECT_DIR",
-        "codex": "YOKE_ROOT",
-        "cursor": "CURSOR_PROJECT_DIR",
-    }[harness_id]
-    body = (
-        "$ErrorActionPreference='Stop'; "
-        "$bin=Join-Path $HOME '.local/bin'; "
-        "if ($env:XDG_BIN_HOME) {$bin=$env:XDG_BIN_HOME}; "
-        "$env:PATH=$bin+[IO.Path]::PathSeparator+$env:PATH; "
-        f"$root=$env:{root_var}; if (!$root) {{$root=(Get-Location).Path}}; "
-    )
-    if resilient:
-        body += (
-            "$candidates=@($env:YOKE_ROOT,$env:CURSOR_PROJECT_DIR,"
-            "(Get-Location).Path); $root=$null; "
-            "foreach ($c in $candidates) {if ($c -and "
-            "(Test-Path -LiteralPath $c -PathType Container)) {$root=$c; break}}; "
-            "if (!$root) {foreach ($c in $candidates) {"
-            r"$p=$c -replace '[\\/]\.(?:claude[\\/])?worktrees[\\/].*$',''; "
-            "if ($p -and (Test-Path -LiteralPath $p -PathType Container)) "
-            "{$root=$p; break}}}; "
-            "if (!$root) {$root=$HOME}; Set-Location -LiteralPath $root; "
-        )
-    body += "$env:YOKE_ROOT=$root; "
-    if harness_id != "claude-code":
-        body += f"$env:YOKE_EXECUTOR='{harness_id}'; "
-    if harness_id == "codex":
-        body += "$env:YOKE_PROVIDER='openai'; "
+#: ``yoke hook evaluate`` options that carry what a shell wrapper used to set.
+HOOK_HARNESS_OPTION = "--harness"
+HOOK_CONFIG_OWNER_OPTION = "--config-owner"
+
+_OWNER = re.compile(
+    rf"(?:{re.escape(CONFIG_OWNER_ENV_VAR)}=|{re.escape(HOOK_CONFIG_OWNER_OPTION)}\s+)"
+    r"['\"]?([\w-]+)"
+)
+
+
+def windows_hook_command(harness_id: str, verb: str, config_owner: str | None) -> str:
+    """One shell-neutral command line for every Windows hook shell.
+
+    A bare ``yoke`` resolves ``yoke.cmd`` under cmd and PowerShell and the
+    sibling ``/bin/sh`` shim under Git Bash; ``yoke hook evaluate`` itself
+    sets the root, identity and owner context from these options.
+    """
+    command = f"yoke hook evaluate {verb} {HOOK_HARNESS_OPTION} {harness_id}"
     if config_owner:
-        body += f"$env:YOKE_HOOK_CONFIG_OWNER='{config_owner}'; "
-    body += f"& yoke hook evaluate {verb}; exit $LASTEXITCODE"
-    encoded = base64.b64encode(body.encode("utf-16le")).decode("ascii")
-    return (
-        "powershell.exe -NoLogo -NoProfile -NonInteractive -EncodedCommand " + encoded
-    )
+        command += f" {HOOK_CONFIG_OWNER_OPTION} {config_owner}"
+    return command
 
 
 def hook_command_source(command: str) -> str:
-    """Expose encoded source for ownership and diagnostics without executing it."""
+    """Decode a retired PowerShell ``-EncodedCommand`` hook so refresh can replace it."""
     if " -EncodedCommand " in command:
         try:
             return base64.b64decode(command.rsplit(" ", 1)[1], validate=True).decode(
@@ -73,6 +57,12 @@ def hook_command_source(command: str) -> str:
         except (ValueError, UnicodeError):
             return ""
     return command
+
+
+def hook_command_owner(command: str) -> str | None:
+    """The config owner a Yoke hook command carries, in any of its forms."""
+    match = _OWNER.search(hook_command_source(command))
+    return match.group(1) if match else None
 
 
 def hook_command_for_os(command: str, windows: str) -> str:
@@ -113,4 +103,11 @@ def hook_command_start_problem(handler: dict, *, codex: bool = False) -> str:
     return ""
 
 
-__all__ = ["hook_shell_command"]
+__all__ = [
+    "HOOK_CONFIG_OWNER_OPTION",
+    "HOOK_HARNESS_OPTION",
+    "hook_command_owner",
+    "hook_command_source",
+    "hook_shell_command",
+    "windows_hook_command",
+]

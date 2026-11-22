@@ -124,10 +124,13 @@ def test_windows_layout_uses_scripts_python_and_cmd_shim(tmp_path, monkeypatch):
     python, root = Path("C:/Python/python.exe"), tmp_path / "root"
     shims = runtime._shims(root, python, tmp_path / "bin")
     assert shims[tmp_path / "bin/yoke.cmd"] == (
-        f'@(goto) 2>nul & "{python}" "{root / "launcher"}" %*\r\n'
+        f'@(goto) 2>nul & "{python}" -I -S "{root / "launcher"}" %*\r\n'
     )
     # Git Bash runs the extensionless shim; Git runs helpers through sh too.
-    assert shims[tmp_path / "bin/yoke"].startswith("#!/bin/sh\nexec ")
+    # The stdlib-only launcher skips site and user paths on every shim.
+    assert shims[tmp_path / "bin/yoke"].startswith(
+        f"#!/bin/sh\nexec {python.as_posix()} -I -S "
+    )
     assert shims[root / "python"].endswith(' --python "$@"\n')
     with pytest.raises(RuntimeError, match="cli_launcher_path_unsupported"):
         runtime._shims(tmp_path / "100%", python, tmp_path / "bin")

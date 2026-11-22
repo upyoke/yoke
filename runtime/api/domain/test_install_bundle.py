@@ -181,8 +181,17 @@ def test_hooks_subtrees_match_canonical_renderers_and_committed_files(
 
     bundle = install_bundle.build_bundle(1, conn)
 
+    def posix_only(block):
+        for entries in block.values():
+            for entry in entries:
+                for handler in entry["hooks"]:
+                    handler.pop("commandWindows", None)
+        return block
+
     assert bundle["hooks"]["claude_settings_hooks"] == render_claude_hooks_block()
-    assert bundle["hooks"]["codex_hooks"] == render_codex_hooks_block()
+    # The installing client composes codex commandWindows, so an older CLI
+    # never receives a Windows command it cannot parse.
+    assert bundle["hooks"]["codex_hooks"] == posix_only(render_codex_hooks_block())
     root = install_bundle.server_tree_root()
     committed_claude = json.loads(
         (root / "runtime/harness/claude/settings.json").read_text("utf-8")
@@ -193,7 +202,7 @@ def test_hooks_subtrees_match_canonical_renderers_and_committed_files(
     # Server bundles and tracked files hold the POSIX form on every host
     # (decision 15934); only the installing client selects a native form.
     assert bundle["hooks"]["claude_settings_hooks"] == committed_claude["hooks"]
-    assert bundle["hooks"]["codex_hooks"] == committed_codex["hooks"]
+    assert bundle["hooks"]["codex_hooks"] == posix_only(committed_codex["hooks"])
 
 
 def test_build_bundle_round_trips_through_apply_bundle(conn, tmp_path) -> None:

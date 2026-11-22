@@ -1,10 +1,11 @@
 """Hook command and entry shapes shared by project and machine-wide hooks.
 
 Every Yoke hook entry, in a project config or a harness's user config, runs
-one ``yoke hook evaluate <Verb>`` command through the same bounded PATH and
-the same ``YOKE_ROOT`` expression. Project hooks and machine-wide hooks differ
-only in the ``YOKE_HOOK_CONFIG_OWNER`` value they carry, which is how the
-step-aside rule tells them apart. The three native entry shapes stay here as
+one ``yoke hook evaluate <Verb>`` command. The POSIX form sets a bounded PATH
+and the ``YOKE_ROOT`` expression in ``/bin/sh``; the Windows form is the bare
+command with ``--harness`` (see ``hook_shell_command.windows_hook_command``).
+Project hooks and machine-wide hooks differ only in the config owner they
+carry, which is how the step-aside rule tells them apart. The three native entry shapes stay here as
 thin, named, co-located branches.
 
 Cursor commands stay clear of the byte sequences its JSONC hook loader
@@ -29,7 +30,7 @@ from yoke_contracts.hook_shell_command import (
     hook_shell_command,
     windows_hook_command,
     hook_command_for_os,
-    hook_command_source,
+    hook_command_owner,
 )
 
 YOKE_HOOK_EVALUATE = "yoke hook evaluate"
@@ -140,9 +141,7 @@ def _user_command(spec: HarnessMachineHooks, event: MachineHookEvent) -> str:
         # User hooks spawn from ~/.cursor, so every event resolves its root.
         return hook_command_for_os(
             cwd_resilient_hook_command(event.verb, config_owner=spec.config_owner),
-            windows_hook_command(
-                "cursor", event.verb, spec.config_owner, resilient=True
-            ),
+            windows_hook_command("cursor", event.verb, spec.config_owner),
         )
     command = evaluate_hook_command(
         spec.harness_id, event.verb, config_owner=spec.config_owner
@@ -183,9 +182,8 @@ def render_user_hook_entries(spec: HarnessMachineHooks) -> dict[str, list[dict]]
 
 def is_machine_hook_entry(entry: object, spec: HarnessMachineHooks) -> bool:
     """True for an entry Yoke wrote into this harness's user config."""
-    marker = _owner_env(spec.config_owner)
     return any(
-        marker in hook_command_source(command).replace("'", "")
+        hook_command_owner(command) == spec.config_owner
         or any(retired in command for retired in RETIRED_USER_HOOK_MARKERS)
         for command in entry_commands(entry)
     )

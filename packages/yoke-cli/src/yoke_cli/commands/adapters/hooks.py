@@ -16,6 +16,10 @@ import sys
 import time
 from typing import List
 
+from yoke_cli.commands.adapters.hook_invocation_context import (
+    HOOK_ROOT_VARIABLES,
+    apply_hook_invocation_context,
+)
 from yoke_cli.commands.adapters.hook_config_dedup import (
     is_cursor_config_invocation,
     should_skip_config_duplicate,
@@ -33,7 +37,10 @@ from yoke_contracts.working_directory import (
 __all__ = ["HOOK_EVALUATE_USAGE", "hook_evaluate"]
 
 
-HOOK_EVALUATE_USAGE = "yoke hook evaluate <event> [--dry-run]"
+HOOK_EVALUATE_USAGE = (
+    "yoke hook evaluate <event> [--dry-run] [--harness ID] [--config-owner OWNER]"
+)
+_HARNESS_HELP = "Harness whose Windows hook set root and identity (Windows form)."
 # Below this much remaining budget an in-process fallback cannot finish, so
 # the hook allows with the degraded warning instead of starting one.
 MINIMUM_FALLBACK_MS = 2000
@@ -126,6 +133,10 @@ def _dispatch_hook(args: List[str], stdin_data: str | None = None) -> int:
         action="store_true",
         help="Print the ordered hook chain and exit.",
     )
+    parser.add_argument(
+        "--harness", choices=sorted(HOOK_ROOT_VARIABLES), help=_HARNESS_HELP
+    )
+    parser.add_argument("--config-owner", help="Hook config owner (Windows form).")
     try:
         parsed = parser.parse_args(args)
     except SystemExit as exc:
@@ -133,6 +144,9 @@ def _dispatch_hook(args: List[str], stdin_data: str | None = None) -> int:
             raise
         print(f"Usage: {HOOK_EVALUATE_USAGE}", file=sys.stderr)
         return 2
+    apply_hook_invocation_context(
+        parsed.harness, parsed.event_name, parsed.config_owner, os.environ
+    )
 
     stdin_data = (
         "" if parsed.dry_run else (_read_stdin() if stdin_data is None else stdin_data)

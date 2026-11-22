@@ -89,13 +89,8 @@ def claude_hooks() -> Dict[str, Any]:
 
 
 def codex_hooks() -> Dict[str, Any]:
-    from yoke_contracts.hook_shell_command import windows_hook_command
-
-    handler = entry(CODEX_PRE_CMD, "Bash")
-    handler["hooks"][0]["commandWindows"] = windows_hook_command(
-        "codex", "PreToolUse", None
-    )
-    return {"PreToolUse": [handler]}
+    """The server bundle's Codex hooks: POSIX only; the client adds commandWindows."""
+    return {"PreToolUse": [entry(CODEX_PRE_CMD, "Bash")]}
 
 
 def make_bundle(
