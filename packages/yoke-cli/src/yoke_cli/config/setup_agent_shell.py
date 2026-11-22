@@ -34,6 +34,7 @@ from yoke_cli.config.setup_agent_approvals import (
     ApprovalPending,
 )
 from yoke_cli.config.setup_prompt import SetupHuman, SetupPrompt
+from yoke_cli.config.setup_release_follow import ReleaseFollowed
 from yoke_cli.config.setup_run_facts import RunFacts
 
 
@@ -209,8 +210,12 @@ class AgentSetup(AgentShell, *SETUP_FLOWS):
                 step, self._next = self._next, None
                 current = self._history[-1].prompt if self._history else current
                 step()
+            if self.release_followed is not None:
+                raise self.release_followed
             if self._final is None:
                 self._finish_stopped()
+        except ReleaseFollowed:
+            raise  # `yoke setup` resumes this run on the installed release
         except SetupRefusal as refusal:
             if refusal.prompt is not None:
                 # The repeated question's printed answer must be the next one accepted.

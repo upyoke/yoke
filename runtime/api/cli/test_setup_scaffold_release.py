@@ -55,6 +55,7 @@ def test_release_mismatch_leaves_registration_for_resumed_setup(monkeypatch, tmp
     with pytest.raises(ProjectInstallError, match="setup_bundle_version_mismatch") as exc:
         apply()
 
+    assert isinstance(exc.value, validate.CliReleaseMismatch)
     assert running in str(exc.value)
     assert f"yoke update --version {served}" in str(exc.value)
     assert "resume this setup run" in str(exc.value)

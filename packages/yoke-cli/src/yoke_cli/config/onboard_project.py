@@ -36,6 +36,7 @@ from yoke_cli.config.project_github_adoption import (
 )
 from yoke_cli.config.project_publish_support import PublishRequest
 from yoke_contracts.project_contract.install_error import ProjectInstallError
+from yoke_cli.project_install.validate import CliReleaseMismatch
 
 
 def project_inputs(
@@ -188,6 +189,8 @@ def project_report(
             service_api_url=service_api_url,
             local_connection_selected=local_connection_selected,
         )
+    except CliReleaseMismatch:
+        raise  # setup Apply installs the served release, or refuses with it
     except (
         ProjectGithubAdoptionError,
         ProjectInstallError,

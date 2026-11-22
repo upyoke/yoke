@@ -9,6 +9,8 @@ from yoke_cli.config import onboard_publication
 from yoke_cli.config import onboard_wizard
 from yoke_cli.config import path_doctor
 from yoke_cli.config import path_repair_plan
+from yoke_cli.config import setup_release_follow
+from yoke_cli.project_install.validate import CliReleaseMismatch
 from yoke_cli.config.onboard_error_friendly import friendly_permission_error
 
 
@@ -75,8 +77,21 @@ def _run_locked_apply(
     from yoke_cli.config import onboard_publication_receipts
 
     try:
-        with onboard_publication_receipts.recording(writer):
-            report = onboard_config.build_report(**report_kwargs, progress=progress)
+        try:
+            with onboard_publication_receipts.recording(writer):
+                report = onboard_config.build_report(**report_kwargs, progress=progress)
+        except CliReleaseMismatch as mismatch:
+            # Still under the apply lock: the relay's release follow waits.
+            followed = setup_release_follow.install_served(
+                mismatch, kwargs, writer.payload["run_id"]
+            )
+            writer.fail(followed)
+            writer.payload["final_status"] = setup_release_follow.FINAL_STATUS
+            writer.payload["cli_followed_release"] = followed.record()
+            writer.write()
+            raise followed from mismatch
+    except setup_release_follow.ReleaseFollowed:
+        raise
     except Exception as exc:  # noqa: BLE001
         writer.fail(exc)
         summary = writer.summary()
@@ -92,6 +107,8 @@ def _run_locked_apply(
         report["install_health"] = setup_readiness(report, kwargs)
         writer.payload["install_health"] = report["install_health"]
     writer.finish(onboard_publication.record_outcome(writer, report))
+    if writer.payload.get("cli_followed_release"):
+        report["cli_followed_release"] = writer.payload["cli_followed_release"]
     report["apply_report"] = writer.summary()
     return report
 
