@@ -152,8 +152,9 @@ Windows restarts itself (`MicrosoftWindows.Client.WebExperience`,
 `Microsoft.WidgetsPlatformRuntime`, `Microsoft.StartExperiencesApp`), whose
 state lives in preserved `AppData/Local/Packages`. A failed SSH process
 discovery names the session to check. Desktop processes stop from the signed-in
-session; one that will not exit refuses `windows_reset_profile_process_running`.
-After restore, reset reopens them there and reports `profile_processes_stopped`
+session. Each stop pass lists its session again and stops anything that started
+meanwhile, until a listing is empty; a process still running at the 20-second
+deadline refuses `windows_reset_profile_process_running`. After restore, reset reopens them there and reports `profile_processes_stopped`
 and `desktop_apps_relaunched`; an app that fails to reopen is named in
 `desktop_apps_relaunch_failed` without failing reset. For a sharing or
 memory-mapped-file error under `.codex`, close Codex and retry the reset.
