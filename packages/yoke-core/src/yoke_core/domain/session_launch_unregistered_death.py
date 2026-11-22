@@ -30,7 +30,10 @@ from typing import Any, Dict, Iterable, List, Mapping
 from yoke_contracts.session_control.launch_registration import (
     NATIVE_EXITED_UNREGISTERED_CODE,
 )
-from yoke_core.domain.session_launch_closure_evidence import closure_evidence
+from yoke_core.domain.session_launch_closure_evidence import (
+    closure_evidence,
+    sign_in_recovery,
+)
 from yoke_core.domain.session_launch_delivery_state import IN_FLIGHT_LAUNCH_STATES
 from yoke_core.domain.session_launch_store import (
     LAUNCH_COLUMNS,
@@ -108,6 +111,9 @@ def _close(
     recorded.update(
         {name: evidence[name] for name in _REPORTED_EVIDENCE_FIELDS if name in evidence}
     )
+    recovery = sign_in_recovery(launch)
+    if recovery:
+        recorded["sign_in_recovery"] = recovery
     update_launch(
         conn,
         launch.launch_id,

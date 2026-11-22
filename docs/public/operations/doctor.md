@@ -188,9 +188,9 @@ and install rosters; these warnings allow setup readiness and onboarding.
 Before launching workers, follow the warning's install or login step. The
 resolver checks PATH and bundled CLIs, including ChatGPT.app and versioned
 Claude Desktop and VS Code binaries; versioned directories stay out of shell
-PATH blocks. A launch with a missing CLI refuses as `surface_absent`; a relay
-reading of `stale_credential` refuses as `harness_signed_out`, with recovery.
-Other quota-reading failures do not establish that a harness is signed out.
+PATH blocks. A launch with a missing CLI refuses as `surface_absent`. A usage
+reading never refuses a launch. A launch whose CLI never registers records that
+harness's sign-in command as `sign_in_recovery`, because the CLI may be signed out.
 
 Before onboarding, check only the session you are in:
 

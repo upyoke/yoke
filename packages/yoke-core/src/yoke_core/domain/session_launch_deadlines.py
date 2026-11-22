@@ -26,6 +26,7 @@ from yoke_core.domain.session_launch_closure_evidence import (
     closure_evidence,
     open_attempt,
     relay_transport_state,
+    sign_in_recovery,
 )
 from yoke_core.domain.session_launch_native_progress import native_attempt_pending
 from yoke_core.domain.session_relay_evidence import merge_redacted_evidence
@@ -253,6 +254,9 @@ def _expire_at_deadline(
         started_at=launch.launching_at,
         now=now,
     )
+    recovery = sign_in_recovery(launch) if result_code == "registration_deadline" else None
+    if recovery:
+        evidence["sign_in_recovery"] = recovery
     if unacknowledged:
         evidence["receipt_state"] = receipt_state
         evidence["recovery"] = (

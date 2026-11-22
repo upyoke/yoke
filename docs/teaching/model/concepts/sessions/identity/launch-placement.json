@@ -2,9 +2,9 @@
  "id": "launch-placement",
  "title": "Launch placement, model pairs and quota",
  "status": "observed",
- "sources": ["docs/public/agents/levels.md", "runtime/harness/manifest-schema.md", "runtime/api/domain/test_session_launch_valid_pairs.py", "docs/public/agents/capacity-recovery.md", "docs/public/agents/level-launches.md"],
+ "sources": ["docs/public/agents/levels.md", "runtime/harness/manifest-schema.md", "runtime/api/domain/test_session_launch_valid_pairs.py", "docs/public/agents/capacity-recovery.md", "docs/public/agents/level-launches.md", "packages/yoke-core/src/yoke_core/domain/session_launch_closure_evidence.py"],
  "commands": ["yoke session-control launch preview", "yoke universe level-capacity get"],
  "functions": ["session_control.launch.preview", "universe.level_capacity.get"],
  "page": "session-identity",
- "summary": "An item launch routes by the item's effective workflow stage level, then surface, model, effort and machine; launch preview --item previews that same route. Level and placement flags are overrides. Machine lane capacity counts registered workers whose native process is alive plus unregistered in-flight worker launches. Process-gone parked workers retain claims without using a lane; resumed workers count again."
+ "summary": "An item launch routes by the item's effective workflow stage level, then surface, model, effort and machine; launch preview --item previews that same route. Level and placement flags are overrides. Machine lane capacity counts registered workers whose native process is alive plus unregistered in-flight worker launches. Process-gone parked workers retain claims without using a lane; resumed workers count again. A usage reading never refuses a launch; a launch whose CLI never registers records that harness's login command as sign_in_recovery, since the CLI may be signed out."
 }

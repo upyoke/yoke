@@ -63,20 +63,19 @@ def test_owner_only_refuses_the_viewer_even_if_admin(universe, admin):
 
 
 @pytest.mark.parametrize("reason", ["stale_credential", "credential_expired"])
-def test_signed_out_is_visible_and_the_launch_is_refused(universe, reason):
+def test_credential_usage_reading_leaves_the_machine_usable(universe, reason):
     universe.execute(
         "UPDATE session_relays SET surface_plan_limits = ?",
         (json.dumps({SURFACE: unknown_reading(SURFACE, reason, observed_at=NOW)}),),
     )
-    result = read(universe)
-    assert surface_label(result) == f"{SURFACE}: signed out on {MACHINE} — run `claude /login` there"
-    assert result["usable_machines"] == 0
-    preview = preview_launch(
+    assert read(universe)["usable_machines"] == 1
+    assert preview_launch(
         universe, auth=authorization(), project_id=10, surface=SURFACE, now=NOW
-    )
-    assert not preview.launchable
-    assert "harness_signed_out" in preview.rejection_codes
-    assert launchable_surfaces(universe, project_id=10, now=parse_instant(NOW)) == ()
+    ).launchable
+    assert [
+        (r.machine_id, r.surface)
+        for r in launchable_surfaces(universe, project_id=10, now=parse_instant(NOW))
+    ] == [(MACHINE, SURFACE)]
 
 
 def test_disconnected_relay_names_the_machine(universe):
@@ -133,7 +132,7 @@ def test_pair_offered_in_another_project_remains_launchable(universe, monkeypatc
                     relays=(),
                     machine_rejections=(
                         MachineRejection(
-                            MACHINE, MACHINE, ("harness_signed_out",), now
+                            MACHINE, MACHINE, ("liveness_expired",), now
                         ),
                     ),
                 ),
@@ -216,15 +215,15 @@ def test_freshest_visible_rejection_supplies_the_reason(universe):
     universe.execute("UPDATE session_relays SET connected_until = '2026-08-22T11:00:00Z', last_seen_at = '2026-08-22T11:00:00Z'")
     add_surface(universe, "newer-mac", SURFACE)
     universe.execute(
-        "UPDATE session_relays SET surface_plan_limits = ? WHERE machine_id = 'newer-mac'",
-        (json.dumps({SURFACE: unknown_reading(SURFACE, "stale_credential", observed_at=NOW)}),),
+        "UPDATE session_relays SET surface_versions = ? WHERE machine_id = 'newer-mac'",
+        (json.dumps({SURFACE: "0.0.1"}),),
     )
     result = read(universe)
-    assert "signed out" in surface_label(result)
+    assert "below version floor" in surface_label(result)
     assert MACHINE not in str(result)
 
 
-def test_newer_signed_out_machine_beats_older_quota_blocker(universe):
+def test_newer_rejected_machine_beats_older_quota_blocker(universe):
     universe.execute(
         "UPDATE session_relays SET surface_plan_limits = ?",
         (json.dumps({SURFACE: plan_reading([weekly(0)], EXTRA_OFF)}),),
@@ -232,7 +231,7 @@ def test_newer_signed_out_machine_beats_older_quota_blocker(universe):
     universe.execute("UPDATE session_relays SET last_seen_at = '2026-08-22T11:00:00Z'")
     add_surface(universe, "newer-mac", SURFACE)
     universe.execute(
-        "UPDATE session_relays SET surface_plan_limits = ? WHERE machine_id = 'newer-mac'",
-        (json.dumps({SURFACE: unknown_reading(SURFACE, "stale_credential", observed_at=NOW)}),),
+        "UPDATE session_relays SET surface_versions = ? WHERE machine_id = 'newer-mac'",
+        (json.dumps({SURFACE: "0.0.1"}),),
     )
-    assert "signed out" in surface_label(read(universe))
+    assert "below version floor" in surface_label(read(universe))

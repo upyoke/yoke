@@ -46,10 +46,11 @@ PRESERVED_DIRECTORIES = (
     "AppData/Local/YokeQaMission",
     "AppData/Local/Temp",
 )
+# Cursor's Windows login file is %APPDATA%/cursor/auth.json, which the
+# preserved AppData/Roaming/Cursor directory already keeps live.
 PRESERVED_FILES = (
     ".claude/.credentials.json",
     ".codex/auth.json",
-    ".config/cursor/auth.json",
 )
 
 

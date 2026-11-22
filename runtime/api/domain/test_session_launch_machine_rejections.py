@@ -173,23 +173,12 @@ def test_fallback_merge_drops_machines_another_surface_could_use() -> None:
 
 
 @pytest.mark.parametrize("surface", ["codex-cli", "claude-cli", "cursor-cli"])
-@pytest.mark.parametrize("signed_out", [False, True])
-def test_cli_launch_refusal_names_the_reason_and_surface_recovery(surface, signed_out):
+def test_cli_launch_refusal_names_the_reason_and_surface_recovery(surface):
     from yoke_contracts.harness_cli_manifest import HARNESS_CLI_MANIFESTS
-    from yoke_contracts.session_control.plan_limits import unknown_reading
 
     conn = relay_connection()
     manifest = next(m for m in HARNESS_CLI_MANIFESTS if m.surface_id == surface)
-    add_relay(
-        conn,
-        surface=surface if signed_out else "other-cli",
-        version="9999.99.99",
-        plan_limits={
-            surface: unknown_reading(surface, "stale_credential", observed_at=NOW)
-        }
-        if signed_out
-        else None,
-    )
+    add_relay(conn, surface="other-cli", version="9999.99.99")
     preview = preview_launch(
         conn,
         auth=authorization(),
@@ -197,12 +186,9 @@ def test_cli_launch_refusal_names_the_reason_and_surface_recovery(surface, signe
         surface=surface,
         now=NOW,
     )
-    code = "harness_signed_out" if signed_out else "surface_absent"
-    recovery = (
-        manifest.sign_in_recovery() if signed_out else manifest.missing_cli_recovery()
-    )
+    recovery = manifest.missing_cli_recovery()
     assert not preview.launchable
-    assert code in preview.rejection_codes
+    assert "surface_absent" in preview.rejection_codes
     assert preview.to_dict()["machine_rejections"][0]["recovery"] == [recovery]
     assert recovery in launch_refusal_message(conn, preview)
     snapshot = derive_launch_eligibility(
@@ -213,6 +199,32 @@ def test_cli_launch_refusal_names_the_reason_and_surface_recovery(surface, signe
         now=_now(),
     )
     assert recovery in ineligible_reason(snapshot, surface, {})
+
+
+@pytest.mark.parametrize("surface", ["codex-cli", "claude-cli", "cursor-cli"])
+@pytest.mark.parametrize("reason", ["stale_credential", "credential_expired"])
+def test_credential_usage_reading_never_refuses_a_launch(surface, reason):
+    from yoke_contracts.session_control.plan_limits import unknown_reading
+
+    conn = relay_connection()
+    add_relay(
+        conn,
+        surface=surface,
+        version="9999.99.99",
+        plan_limits={surface: unknown_reading(surface, reason, observed_at=NOW)},
+    )
+    snapshot = derive_launch_eligibility(
+        conn,
+        project_id=10,
+        surface=surface,
+        machine_id=None,
+        now=_now(),
+    )
+    assert snapshot.relays
+    assert not snapshot.rejection_codes
+    assert preview_launch(
+        conn, auth=authorization(), project_id=10, surface=surface, now=NOW
+    ).launchable
 
 
 @pytest.mark.parametrize("reason", ["http_429", "probe_raised_TimeoutError"])
@@ -234,4 +246,4 @@ def test_other_unreadable_quota_does_not_mean_signed_out(reason):
         now=_now(),
     )
     assert snapshot.relays
-    assert "harness_signed_out" not in snapshot.rejection_codes
+    assert not snapshot.rejection_codes
