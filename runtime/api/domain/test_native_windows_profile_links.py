@@ -22,6 +22,12 @@ GOLDEN = r"D:\goldens\fixture"
 PRISTINE = json.dumps({"stage_folders": [], "uv_python_registry": False})
 
 
+def test_cursor_login_is_kept_through_its_roaming_folder():
+    copy = profile_copy_script(SimpleNamespace(home=HOME), GOLDEN)
+    assert quote(HOME + r"\AppData\Roaming\Cursor") in copy
+    assert r".config\cursor" not in copy
+
+
 def test_reset_sweeps_links_after_the_mirror_and_capture_does_not():
     control = SimpleNamespace(home=HOME)
     reset = profile_script(control, "reset", GOLDEN)
