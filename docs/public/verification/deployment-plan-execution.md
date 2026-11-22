@@ -93,11 +93,11 @@ a later attacher gets a new group.
 
 ## Machine partitions
 
-Item and deployment member plan runs group cases by their declared operating
-system or OS slots; an `inherit` chain stays in its opener's group. Each group runs an
-immutable roster with its own lease and the same frozen target. Sessions
-walk separate plans concurrently, one live execution per session and target. Begin skips held
-groups and aborts abandoned holders. Plan order holds across machine groups.
+Member plan runs group cases by declared OS or OS slots; an `inherit` chain
+stays in its opener's group. Each group runs an immutable roster with its own
+lease and the same frozen target. Sessions walk separate plans concurrently,
+one live execution per session and target. Begin skips held groups and aborts
+abandoned holders. Plan order holds across machine groups.
 A waiting host or independent review stops the command. Re-enter the same
 scoped command while review is pending to reprint that bundle without
 recapturing. Once a verdict batch is recorded, the same command reprints
@@ -116,8 +116,7 @@ host in `method_config.test_machines`, such as
 to every slot. Run it through `yoke qa plan run`; direct case execution refuses
 it. The runner admits the set once every slot has a free, verified, healthy
 host, giving each slot a distinct one, and retains it through case execution
-and mission review. Completion
-or abort releases it; [completed captures remain reviewable](requirement-state.md).
+and mission review. Completion or abort releases it; [completed captures remain reviewable](requirement-state.md).
 A case and its `inherit` chain retain their declared hosts. When multiple
 walks in one execution need different hosts, Yoke acquires the combined set
 at the execution's single queue place before preparing the walks. Each walk
@@ -189,8 +188,8 @@ through the current bundle's `yoke qa plan review-submit ... --stdin`:
 Submit this object alone to retain prior capture and queue the immutable target.
 It records no verdict or review request. Resume keeps the execution's host
 affinity and simultaneous host set. A replacement selects afresh by
-`method_config.os` and `capability_tags`. A run's `--test-machine` overrides recorded
-affinity. Finish or abort a case that still owns host state before switching.
+`method_config.os` and `capability_tags`. A run's `--test-machine` overrides
+recorded affinity. Finish or abort a case that still owns host state before switching.
 Record a verdict only after the walk runs.
 
 Exploratory mission `method_config` can declare an apt package fixture:
@@ -215,8 +214,7 @@ only the generic <!-- qa:test-machine-capability -->`test-machine` capability.
 Authoring refuses a host name on a case with `test_machine_name_forbidden`. To
 choose a host for one run of a machine-backed requirement, run
 `yoke qa case run --requirement-id N --test-machine NAME`; the choice is never
-stored. The host must
-match the required OS and `method_config.capability_tags`. For example,
+stored. The host must match the required OS and `method_config.capability_tags`. For example,
 require `arch:arm64` on a macOS case that launches an arm64 app and set the
 architecture tag on each registered Mac.
 
