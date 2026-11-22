@@ -160,7 +160,7 @@ def test_released_qa_roster_uses_known_subject_without_mutating_attestation(
         "execution_target": target,
         "execution_target_digest": "issued-digest",
     }
-    monkeypatch.setattr(validation, "resolve_plan_machine", lambda *args: None)
+    monkeypatch.setattr(validation, "resolve_case_machine", lambda *args: None)
     monkeypatch.setattr(
         validation, "resolve_execution_base_url", lambda *args: "https://example.test"
     )

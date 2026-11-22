@@ -84,7 +84,7 @@ def _setup(conn, *, baselines=(), qa_phase="post_deploy"):
     if baselines:
         case.update(
             method_id="machine-state-check",
-            method_config={"assertions": [{"argv": ["/usr/bin/true"]}]},
+            method_config={"os": "macos", "assertions": [{"argv": ["/usr/bin/true"]}]},
         )
     replace_plan_cases(conn, plan_id=plan["id"], cases=[case])
     set_project_default(

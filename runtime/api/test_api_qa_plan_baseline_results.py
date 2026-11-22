@@ -35,7 +35,10 @@ def test_plan_detail_requires_every_case_baseline_proof_to_satisfy_union() -> No
                     **CATALOG_CASES[0],
                     "case_key": "cold-start-hosted",
                     "method_id": "machine-state-check",
-                    "method_config": {"assertions": [{"argv": ["/usr/bin/true"]}]},
+                    "method_config": {
+                        "os": "macos",
+                        "assertions": [{"argv": ["/usr/bin/true"]}],
+                    },
                     "host_baselines": ["fresh-host", "shell-preconfigured"],
                 },
                 {
@@ -138,7 +141,7 @@ def test_plan_detail_reads_inheriting_case_proofs_on_its_chain_baselines() -> No
     machine = {
         **CATALOG_CASES[0],
         "method_id": "machine-state-check",
-        "method_config": {"assertions": [{"argv": ["/usr/bin/true"]}]},
+        "method_config": {"os": "macos", "assertions": [{"argv": ["/usr/bin/true"]}]},
     }
     with test_database() as conn:
         insert_item(conn, id=43, title="Prove a chain", workflow_id="issue")

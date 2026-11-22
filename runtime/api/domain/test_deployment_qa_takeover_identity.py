@@ -209,7 +209,7 @@ def test_stale_inherited_mission_continues_by_execution_before_deployment(
                 "method_id": "exploratory-mission",
                 "instructions": "Continue the recorded exploration",
                 "expected_outcome": "Return findings",
-                "method_config": {"executor": "informed_subagent"},
+                "method_config": {"executor": "informed_subagent", "os": "macos"},
                 "host_baselines": ["fresh-host"],
             }
         ],

@@ -25,7 +25,7 @@ from yoke_core.domain.qa_plan_management import create_plan, replace_plan_cases
 
 
 def _case(timeout: float) -> dict:
-    recipe = _terminal_recipe()
+    recipe = {**_terminal_recipe(), "os": "macos"}
     recipe["execution_mode"] = "terminal-multiplexer"
     recipe["actions"] = [
         {"step": "answer", "keys": ["Enter"], "ready_text": ["Ready?"]},

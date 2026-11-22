@@ -152,7 +152,7 @@ def test_stage_rematerialize_keeps_the_whole_passed_case(test_db, baselines):
     case = {
         **_case("command-smoke", "check the frozen host"),
         "method_id": "machine-state-check",
-        "method_config": {"assertions": [{"argv": ["/usr/bin/true"]}]},
+        "method_config": {"os": "macos", "assertions": [{"argv": ["/usr/bin/true"]}]},
         "host_baselines": baselines,
     }
     replace_plan_cases(test_db, plan_id=plan_id, cases=[case])

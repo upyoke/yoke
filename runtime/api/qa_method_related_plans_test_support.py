@@ -24,7 +24,7 @@ def _method_config(method_id: str) -> dict:
             ],
         }
     if method_id == "machine-state-check":
-        return {"assertions": [{"argv": ["/usr/bin/true"]}]}
+        return {"os": "macos", "assertions": [{"argv": ["/usr/bin/true"]}]}
     return {}
 
 

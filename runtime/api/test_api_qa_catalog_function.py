@@ -172,7 +172,10 @@ def test_machine_methods_and_plan_cases_project_the_active_serial_lease() -> Non
                     "method_id": "machine-state-check",
                     "instructions": "Inspect the controlled host.",
                     "expected_outcome": "The host state is ready.",
-                    "method_config": {"assertions": [{"argv": ["/usr/bin/true"]}]},
+                    "method_config": {
+                        "os": "macos",
+                        "assertions": [{"argv": ["/usr/bin/true"]}],
+                    },
                     "host_baselines": ["fresh-host"],
                 }
             ],

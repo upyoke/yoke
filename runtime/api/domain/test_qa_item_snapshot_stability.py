@@ -32,7 +32,8 @@ def _waive(conn, requirement_id, source):
     [_case(), _case(case_key="added", position=2)],
     [_case(case_key="replacement")],
     [_case(method_id="machine-state-check", host_baselines=["fresh-host"],
-           method_config={"assertions": [{"argv": ["/usr/bin/true"]}]})],
+           method_config={"os": "macos",
+                          "assertions": [{"argv": ["/usr/bin/true"]}]})],
 ])
 def test_gate_materialization_leaves_every_snapshot_field_unchanged(test_db, cases):
     item_id = 8617

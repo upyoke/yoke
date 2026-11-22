@@ -260,7 +260,7 @@ def test_member_correction_refresh_keeps_its_admitted_case_and_baseline_scope(
         "instructions": "check the host",
         "expected_outcome": "passes",
         "method_config": {
-            "test_machine": "mac-mini-lab",
+            "os": "macos",
             "assertions": [{"argv": ["/usr/bin/true"]}],
         },
         "host_baselines": ["fresh-host", "shell-preconfigured"],
