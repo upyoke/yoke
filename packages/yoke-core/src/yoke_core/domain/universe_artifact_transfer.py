@@ -17,6 +17,7 @@ from yoke_core.domain.qa_artifact_owner import requirement_storage_owner
 from yoke_core.domain.shared_file_storage import set_shared_storage_generation
 from yoke_core.domain.universe_archive import UniverseArchiveError
 from yoke_core.domain.universe_archive_artifacts import MANIFEST, safe_key
+from yoke_core.domain.universe_portability_staging import IMPORT_SCHEMA
 
 
 def artifact_sources(
@@ -213,15 +214,16 @@ def restore_artifacts(
     manifest_path = dump.parent / MANIFEST
     if not manifest_path.is_file():
         return {"included": 0, "missing": 0, "manifest": False}
-    manifest = json.loads(manifest_path.read_bytes())
-    included = missing = 0
-    generation = uuid4().hex
+    entries = json.loads(manifest_path.read_bytes())["entries"]
+    # Hosted replacement fences the tenant and journals its existing object keys.
+    staged = conn.execute("SELECT current_schema()").fetchone()[0] == IMPORT_SCHEMA
+    generation = uuid4().hex if staged else None
     with savepoint(conn, "restored_artifact_files", owns=False):
         storage.apply_destination_settings(conn, stores)
-        set_shared_storage_generation(conn, generation)
-        for entry in manifest["entries"]:
+        if generation is not None:
+            set_shared_storage_generation(conn, generation)
+        for entry in entries:
             if entry["status"] == "missing":
-                missing += 1
                 continue
             key = safe_key(entry["key"])
             project = entry.get("project")
@@ -262,8 +264,8 @@ def restore_artifacts(
                     "UPDATE qa_artifacts SET artifact_handle=%s WHERE id=%s",
                     (serialize_handle(handle), entry["artifact_id"]),
                 )
-            included += 1
-    return {"included": included, "missing": missing, "manifest": True}
+    missing = sum(entry["status"] == "missing" for entry in entries)
+    return {"included": len(entries) - missing, "missing": missing, "manifest": True}
 
 
 def estimate_universe(

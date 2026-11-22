@@ -232,3 +232,39 @@ def test_init_chain_builds_same_catalog_alongside_populated_public(destination):
     environment_bootstrap.run_init_chain_at_dsn(alternate_dsn, emit=lambda _line: None)
     with psycopg.connect(alternate_dsn) as alternate:
         assert _catalog(alternate) == _catalog(conn)
+
+
+def test_import_accepts_a_non_superuser_database_owner(archived_universe):
+    from uuid import uuid4
+
+    from runtime.api.fixtures import pg_testdb
+
+    database = pg_testdb.create_test_database(pooled=False)
+    original_dsn = pg_testdb.dsn_for_test_database(database)
+    role_name = f"restore_owner_{uuid4().hex[:16]}"
+    role_password = uuid4().hex
+    role = sql.Identifier(role_name)
+    with psycopg.connect(pg_testdb.maintenance_dsn(), autocommit=True) as admin:
+        admin.execute(sql.SQL("CREATE ROLE {} LOGIN NOINHERIT PASSWORD {}").format(
+            role, sql.Literal(role_password),
+        ))
+        try:
+            admin.execute(sql.SQL("ALTER DATABASE {} OWNER TO {}").format(
+                sql.Identifier(database), role,
+            ))
+            # The hosted importer runs as the one-use database owner without
+            # CREATE ROLE, CREATE DATABASE, or superuser authority.
+            dsn = psycopg.conninfo.make_conninfo(
+                original_dsn, user=role_name, password=role_password,
+            )
+            with psycopg.connect(dsn) as target:
+                target.execute("REVOKE CREATE ON SCHEMA public FROM PUBLIC")
+                acl = target.execute(_PUBLIC_METADATA_SQL).fetchone()
+            portability.restore_universe(archived_universe, dsn)
+            with psycopg.connect(dsn) as target:
+                assert target.execute(_PUBLIC_METADATA_SQL).fetchone() == acl
+                assert target.execute("SELECT id FROM projects").fetchall() == [(_ARCHIVE_PROJECT_ID,)]
+        finally:
+            # Drop the database first so no restored objects depend on the role.
+            pg_testdb.drop_test_database(database, pooled=False)
+            admin.execute(sql.SQL("DROP ROLE {}").format(role))

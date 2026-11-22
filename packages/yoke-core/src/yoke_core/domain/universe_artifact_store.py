@@ -140,10 +140,12 @@ def shared_sources(
                         }
 
 
-def imported_file_key(key: str, project: str, generation: str) -> str:
-    """Place restored files outside every previously published generation."""
+def imported_file_key(key: str, project: str, generation: str | None) -> str:
+    """Choose fresh keys for an in-place database replacement."""
     from yoke_core.domain.shared_file_storage import shared_storage_root
 
+    if generation is None:
+        return key
     if key.startswith("shared-files/"):
         logical_root = shared_storage_root(project, None)
         if not key.startswith(logical_root) or key == logical_root:
