@@ -7,7 +7,12 @@ import shlex
 import sys
 from typing import Any
 
-from yoke_cli.config import machine_registration, onboard_session_relay
+from yoke_cli.config import (
+    credential_repair,
+    machine_registration,
+    onboard_session_relay,
+    writer,
+)
 from yoke_cli.config.onboard_apply_report_metadata import sanitize_text
 from yoke_contracts.refusal_recovery import compose_refusal
 
@@ -18,6 +23,7 @@ def finish_connection(
     """Bind bootstrap credentials before converging the saved relay."""
     environment = str(report["env"])
     config_path = report.get("config")
+    report.update(credential_shared_with=[], credential_unverified=[])
     if register:
         registration = machine_registration.register_this_machine(
             config_path, environment=environment
@@ -32,6 +38,23 @@ def finish_connection(
                 ),
                 json_mode=json_mode,
             )
+    try:
+        report.update(
+            credential_repair.repair_revoked_connections(
+                environment, api_url=str(report["api_url"]), path=config_path
+            )
+        )
+    except writer.MachineConfigWriteError as exc:
+        return _report_failure(
+            report,
+            compose_refusal(
+                "connection_credential_share_failed: connection saved; other "
+                "connections to this server still hold a revoked credential",
+                evaluated=sanitize_text(str(exc)),
+                recovery="resolve the config error and rerun the same `yoke connect` command",
+            ),
+            json_mode=json_mode,
+        )
     try:
         outcome = onboard_session_relay.install(
             local_destination=False,
@@ -106,3 +129,12 @@ def _print_summary(report: dict[str, Any]) -> None:
             f"`yoke env use {report.get('env')}`"
         )
     print(f"verify anytime with `yoke --env {report.get('env')} status`")
+    if report.get("credential_shared_with"):
+        names = ", ".join(report["credential_shared_with"])
+        print(f"also moved to the new credential: {names}")
+    for name in report.get("credential_unverified") or ():
+        print(
+            f"warning: could not check connection {name}'s token; "
+            f"verify it with `yoke --env {name} status`",
+            file=sys.stderr,
+        )
