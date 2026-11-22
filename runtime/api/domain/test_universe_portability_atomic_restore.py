@@ -234,7 +234,9 @@ def test_init_chain_builds_same_catalog_alongside_populated_public(destination):
         assert _catalog(alternate) == _catalog(conn)
 
 
-def test_import_accepts_a_non_superuser_database_owner(archived_universe):
+def test_import_accepts_a_non_superuser_database_owner(
+    archived_universe, cluster_role_authority,
+):
     from uuid import uuid4
 
     from runtime.api.fixtures import pg_testdb
