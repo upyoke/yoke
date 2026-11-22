@@ -10,6 +10,7 @@ import pytest
 
 from yoke_cli.commands.adapters import onboard, onboard_apply
 from yoke_cli.config import onboard_apply_lock, onboard_wizard, setup_release_follow
+from yoke_cli.config import setup_release_marker
 from yoke_cli.config import writer
 from yoke_cli.config.onboard_wizard_flow_apply import ApplyFlow
 from yoke_cli.project_install.validate import CliReleaseMismatch
@@ -24,7 +25,7 @@ STEP = "project-install-scaffold"
 def machine(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict:
     config = tmp_path / "home" / "config.json"
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(config.parent))
-    monkeypatch.delenv(setup_release_follow.FOLLOWED_RUN_ENV, raising=False)
+    monkeypatch.delenv(setup_release_marker.FOLLOWED_RELEASE_ENV, raising=False)
     monkeypatch.delenv("YOKE_ENV", raising=False)
     writer.set_connection(
         "test", transport="https", api_url="https://test.invalid",
@@ -103,7 +104,10 @@ def test_mismatch_installs_served_release_then_resumed_run_completes(
     assert payload["final_status"] == setup_release_follow.FINAL_STATUS
     assert payload["cli_followed_release"] == {"from": RUNNING, "to": SERVED}
 
-    monkeypatch.setenv(setup_release_follow.FOLLOWED_RUN_ENV, followed.run_id)
+    monkeypatch.setenv(
+        setup_release_marker.FOLLOWED_RELEASE_ENV,
+        setup_release_marker.encode(RUNNING, SERVED, followed.run_id),
+    )
     from yoke_cli.config import onboard_apply_report
 
     path = onboard_apply_report.run_report_path(followed.run_id)
@@ -120,7 +124,10 @@ def test_resumed_run_still_mismatched_refuses_without_second_install(
     monkeypatch, machine
 ):
     followed = _follow(monkeypatch, machine)
-    monkeypatch.setenv(setup_release_follow.FOLLOWED_RUN_ENV, followed.run_id)
+    monkeypatch.setenv(
+        setup_release_marker.FOLLOWED_RELEASE_ENV,
+        setup_release_marker.encode(RUNNING, SERVED, followed.run_id),
+    )
     from yoke_cli.config import onboard_apply_report
 
     path = onboard_apply_report.run_report_path(followed.run_id)
@@ -213,7 +220,9 @@ def test_setup_command_reexecs_resume_with_original_mode_flags(monkeypatch):
         "/bin/yoke", "setup", "--resume", "run-1",
         "--json", "--non-interactive", "--yes", "--config", "/c.json",
     ]
-    assert env[setup_release_follow.FOLLOWED_RUN_ENV] == "run-1"
+    assert json.loads(env[setup_release_marker.FOLLOWED_RELEASE_ENV]) == {
+        "from": RUNNING, "to": SERVED, "run_id": "run-1",
+    }
 
 
 def test_agent_mode_flag_is_forwarded():
@@ -231,7 +240,7 @@ def test_windows_runs_resumed_setup_as_child_and_returns_its_code(monkeypatch):
         return argparse.Namespace(returncode=7)
 
     monkeypatch.setattr(setup_release_follow.subprocess, "run", run)
-    code = setup_release_follow.resume(followed, argparse.Namespace(apply=True))
+    code = setup_release_follow.resume(followed, argparse.Namespace(apply=True), [])
 
     assert code == 7
     assert seen == [["yoke.cmd", "setup", "--resume", "run-2", "--yes"]]

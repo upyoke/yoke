@@ -44,7 +44,9 @@ is a view. A serving release without checklist schema 2 refuses before new
 scoped writes and names the control-plane operator recovery.
 
 Run `yoke setup` for machine setup. Bare `yoke onboard` points there and lists
-the project commands, including `yoke onboard project`. Selection rows fit the
+the project commands, including `yoke onboard project`. `yoke setup --resume
+RUN-ID` reopens at Review with the run's saved answers (project, prefix,
+GitHub, hosting and board art); confirm it and Apply continues the same run. Selection rows fit the
 terminal's available width, including 80 columns and narrower; a long label
 or description is shortened, and the selected description appears below.
 

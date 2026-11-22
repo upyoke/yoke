@@ -13,7 +13,7 @@ from typing import Any, Callable
 
 from yoke_contracts.machine_config import reader as machine_config
 from yoke_contracts import onboard_destinations as onboard_destinations
-from yoke_cli.config import onboard_project
+from yoke_cli.config import onboard_project, onboard_wizard_resume_seed
 from yoke_cli.config.onboard_wizard import (
     WizardDefaults,
     WizardResult,
@@ -137,6 +137,7 @@ def init_setup_state(
     shell._checking_blocks_quit = False
     # login -> github_publish.RepoOwner for the chosen publish owner picker.
     shell._owner_lookup: dict[str, Any] = {}
+    onboard_wizard_resume_seed.apply(shell, defaults.resume_answers)
 
 
 __all__ = ["SETUP_FLOWS", "init_setup_state"]

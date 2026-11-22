@@ -79,10 +79,21 @@ def holders_from_response(response: Mapping[str, Any]) -> Holders | None:
             continue
         retired = " (retired)" if row.get("retired_at") else ""
         holders[prefix] = (
-            f"project {str(row.get('slug') or '')!r} "
-            f"(id {row.get('id')}){retired}"
+            f"{_project_label(str(row.get('slug') or ''))}(id {row.get('id')}){retired}"
         )
     return holders
+
+
+def without_project(holders: Holders | None, slug: str | None) -> Holders | None:
+    """Drop prefixes held by project *slug*: a resumed run's own earlier pass."""
+    if holders is None or not slug:
+        return holders
+    label = _project_label(slug)
+    return {prefix: held for prefix, held in holders.items() if not held.startswith(label)}
+
+
+def _project_label(slug: str) -> str:
+    return f"project {slug!r} "
 
 
 def propose(slug: str, holders: Holders | None) -> str:
@@ -120,5 +131,6 @@ __all__ = [
     "holder_problem",
     "holders_from_response",
     "propose",
+    "without_project",
     "read_holders",
 ]
