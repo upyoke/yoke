@@ -29,6 +29,10 @@ from yoke_cli.config.writer_connection_remove import (
     remove_connection,
     remove_connections,
 )
+from yoke_cli.config.writer_credential_share import (
+    same_server_credentials,
+    share_credential,
+)
 from yoke_cli.config.writer_projects import (
     register_project,
 )
@@ -209,6 +213,8 @@ __all__ = [
     "set_github",
     "remove_connection",
     "remove_connections",
+    "same_server_credentials",
+    "share_credential",
     "set_runtime_paths",
     "set_active_env",
     "set_connection",

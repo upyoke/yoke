@@ -55,7 +55,14 @@ class SourcePausedError(ServerConnectError):
 
 
 class ServerIdentityError(RuntimeError):
-    """The configured credential could not prove an actor identity."""
+    """The configured credential could not prove an actor identity.
+
+    ``code`` is the server's typed denial code, when it sent one.
+    """
+
+    def __init__(self, message: str, *, code: Optional[str] = None) -> None:
+        self.code = code
+        super().__init__(message)
 
 
 def connect_server(
@@ -196,7 +203,8 @@ def verify_server_identity(
         )
     except _HttpFailure as exc:
         raise ServerIdentityError(
-            f"token verification failed ({safe_identity_url}): {exc}"
+            f"token verification failed ({safe_identity_url}): {exc}",
+            code=exc.code,
         ) from exc
     if not isinstance(payload, Mapping):
         raise ServerIdentityError(f"{safe_identity_url} did not return a JSON object")
@@ -207,10 +215,14 @@ class _HttpFailure(RuntimeError):
     """One HTTP verification request failed (status, network, or body).
 
     ``named`` marks a reach failure already carrying its code and fix.
+    ``code`` is the typed error code from a Yoke JSON denial.
     """
 
-    def __init__(self, message: str, *, named: bool = False) -> None:
+    def __init__(
+        self, message: str, *, named: bool = False, code: Optional[str] = None
+    ) -> None:
         self.named = named
+        self.code = code
         super().__init__(message)
 
 
@@ -245,7 +257,11 @@ def _http_get_json(url: str, *, headers: Mapping[str, str], timeout_s: float) ->
                         recovery="use an existing source connection and run `yoke --env SOURCE universe resume`; if none exists, first record it with `yoke connection set SOURCE --transport https --api-url SOURCE_URL --token-file ADMIN_TOKEN_FILE`, then retry connection setup",
                     )
                 ) from None
-            raise _HttpFailure(f"HTTP {exc.status}") from None
+            error = payload.get("error") if isinstance(payload, Mapping) else None
+            code = error.get("code") if isinstance(error, Mapping) else None
+            raise _HttpFailure(
+                f"HTTP {exc.status}", code=code if isinstance(code, str) else None
+            ) from None
         raise _HttpFailure(str(exc)) from None
     return response.payload
 
