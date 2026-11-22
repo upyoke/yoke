@@ -68,6 +68,12 @@ consumer needs code changes, use its linked companion. Retry the existing
 release gate after correcting the failure; a missing or failed proof cannot
 be waived by a producer-only green run.
 
+For Yoke hosted releases, retry the deployment after the exact main wheel
+factory recovers. When the failed proof finished before the factory succeeded,
+the release gate dispatches or joins one replacement proof for the same pair.
+The replacement verdict decides the proof. Failures that finished at or after
+factory recovery keep their original verdict.
+
 Unavailable history must name that limitation and how to restore it. A release
 checkout needs full history and release tags so the interval can be read.
 Missing history never proves that no producer item caused a failure.

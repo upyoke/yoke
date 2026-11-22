@@ -129,6 +129,7 @@ jobs:
       - name: Prove the hosted consumer against the exact release candidate
         id: consumer_proof
         env:
+          GH_TOKEN: ${{ github.token }}
           YOKE_PLATFORM_RELEASE_API_TOKEN: ${{ secrets.YOKE_PLATFORM_RELEASE_API_TOKEN }}
           PRODUCT_SHA: ${{ inputs.product_sha }}
           CONSUMER_SHA: ${{ inputs.consumer_sha }}
@@ -171,6 +172,9 @@ jobs:
           PRODUCT_SHA: ${{ inputs.product_sha }}
           RELEASE_TAG: ${{ steps.release.outputs.tag }}
         run: |
+          PYTHONPATH=packages/yoke-contracts/src python3 \
+            packages/yoke-core/src/yoke_core/tools/promote_main_artifacts.py rerun-stale \
+            --repo upyoke/yoke --source-sha "$PRODUCT_SHA" --tag "$RELEASE_TAG"
           for workflow in yoke-release.yml yoke-server-image.yml; do
             run_id=""
             for attempt in $(seq 1 60); do

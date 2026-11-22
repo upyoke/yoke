@@ -1,4 +1,4 @@
-"""Transfer attested bytes from a successful main-push factory; never rebuild."""
+"""Promote attested main-push artifacts and recover stale runs in hosted CI."""
 
 from __future__ import annotations
 
@@ -15,14 +15,95 @@ import zipfile
 from email.parser import BytesParser
 
 from yoke_contracts.release_version import release_version
+from yoke_contracts.timestamps import parse_instant
 from yoke_contracts.designed_wait import announce_designed_wait, poll_every
 
 
-def run(command: list[str]) -> str:
+def run(command: list[str], *, timeout: float = 120) -> str:
     result = subprocess.run(
-        command, check=True, text=True, capture_output=True, timeout=120
+        command, check=True, text=True, capture_output=True, timeout=timeout
     )
     return result.stdout.strip()
+
+
+def _eligible_runs(repo: str, workflow: str, sha: str, ref: str) -> list[dict]:
+    runs = json.loads(run([
+        "gh", "api",
+        f"repos/{repo}/actions/workflows/{workflow}/runs?head_sha={sha}&event=push&per_page=100",
+    ]))["workflow_runs"]
+    return [
+        r for r in runs
+        if r.get("head_sha") == sha
+        and r.get("head_branch") == ref
+        and r.get("event") == "push"
+        and (r.get("head_repository") or {}).get("full_name", "").lower() == repo.lower()
+    ]
+
+
+def latest_run(repo: str, workflow: str, sha: str, ref: str) -> dict | None:
+    """Read the newest exact push run, or leave the existing verdict alone."""
+    try:
+        return max(_eligible_runs(repo, workflow, sha, ref), key=lambda r: r["id"], default=None)
+    except (ValueError, TypeError, KeyError, AttributeError, OSError, subprocess.SubprocessError):
+        return None
+
+
+def stale_failure(run: dict | None, upstream: dict | None) -> bool:
+    if not run or run.get("status") != "completed" or run.get("conclusion") != "failure":
+        return False
+    if not upstream or upstream.get("status") != "completed" or upstream.get("conclusion") != "success":
+        return False
+    try:
+        return parse_instant(run.get("updated_at")) < parse_instant(upstream.get("updated_at"))
+    except ValueError:
+        return False
+
+
+def _wait_for_attempt(repo: str, run_id: str, attempt: int) -> None:
+    deadline = time.monotonic() + 30
+    while (remaining := deadline - time.monotonic()) > 0:
+        current = json.loads(run(
+            ["gh", "api", f"repos/{repo}/actions/runs/{run_id}"], timeout=remaining
+        ))
+        if current["run_attempt"] > attempt or current["status"] != "completed":
+            return
+        time.sleep(min(2, max(0, deadline - time.monotonic())))
+    raise ValueError(
+        f"factory_rerun_not_visible: inspect {repo} run {run_id} and retry the release bridge"
+    )
+
+
+def rerun_stale(repo: str, sha: str, tag: str) -> int:
+    wheels, image = "yoke-build-artifacts.yml", "yoke-server-image.yml"
+    for workflow, ref, upstream_workflow in (
+        (image, "main", wheels),
+        ("yoke-release.yml", tag, wheels),
+        (image, tag, image),
+    ):
+        candidate = latest_run(repo, workflow, sha, ref)
+        upstream = latest_run(repo, upstream_workflow, sha, "main")
+        if not candidate or not stale_failure(candidate, upstream):
+            continue
+        run_id = str(candidate["id"])
+        print(f"Rerunning stale {workflow} ({ref}) run {run_id}", flush=True)
+        command = ["gh", "run", "rerun", run_id, "--failed", "--repo", repo]
+        try:
+            run(command)
+        except subprocess.CalledProcessError as exc:
+            raise ValueError(f"factory_rerun_refused: {exc.stderr or exc.stdout or exc}") from exc
+        _wait_for_attempt(repo, run_id, candidate["run_attempt"])
+        result = subprocess.run([
+            "yoke", "github-actions", "wait-run", repo, run_id,
+            "--project", "yoke", "--timeout", "3600",
+        ])
+        if result.returncode == 3:
+            print(f"{workflow} run {run_id} is still in flight", flush=True)
+            return 0
+        if result.returncode:
+            raise ValueError(
+                f"factory_failed: {workflow} run {run_id} wait exited {result.returncode}"
+            )
+    return 0
 
 
 def successful_main_run(repo: str, workflow: str, source: str) -> int:
@@ -38,24 +119,7 @@ def successful_main_run(repo: str, workflow: str, source: str) -> int:
         cadence=poll_every(5),
     )
     while True:
-        runs = json.loads(
-            run(
-                [
-                    "gh",
-                    "api",
-                    f"repos/{repo}/actions/workflows/{workflow}/runs?head_sha={source}&branch=main&event=push&per_page=100",
-                ]
-            )
-        )["workflow_runs"]
-        eligible = [
-            r
-            for r in runs
-            if r.get("head_sha") == source
-            and r.get("head_branch") == "main"
-            and r.get("event") == "push"
-            and r.get("head_repository", {}).get("full_name", "").lower()
-            == repo.lower()
-        ]
+        eligible = _eligible_runs(repo, workflow, source, "main")
         passed = [
             r
             for r in eligible
@@ -214,15 +278,23 @@ def promote(args) -> dict[str, str]:
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("kind", choices=("wheels", "image", "check-wheels"))
+    parser.add_argument("kind", choices=("wheels", "image", "check-wheels", "rerun-stale"))
     parser.add_argument("--repo")
     parser.add_argument("--source-sha", required=True)
-    parser.add_argument("--version", required=True)
-    parser.add_argument("--destination", required=True, type=Path)
+    parser.add_argument("--version")
+    parser.add_argument("--destination", type=Path)
+    parser.add_argument("--tag")
     args = parser.parse_args(argv)
     if args.kind != "check-wheels" and not args.repo:
         parser.error("--repo is required for promotion")
+    if args.kind == "rerun-stale":
+        if not args.tag:
+            parser.error("--tag is required for rerun-stale")
+    elif not args.version or args.destination is None:
+        parser.error("--version and --destination are required for artifact validation")
     try:
+        if args.kind == "rerun-stale":
+            return rerun_stale(args.repo, args.source_sha, args.tag)
         result = promote(args)
         if args.kind != "check-wheels":
             with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8", newline="\n") as out:

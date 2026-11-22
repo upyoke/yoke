@@ -30,21 +30,25 @@ def pair_request_id(candidate_sha: str, consumer_sha: str) -> str:
     )
 
 
-def build_dispatch(candidate_sha: str, consumer_sha: str) -> list[str]:
+def build_dispatch(
+    candidate_sha: str, consumer_sha: str, *, request_id: str | None = None
+) -> list[str]:
     """Own every input that contributes to exact-pair dispatch identity."""
     return [
         "github-actions", "trigger", CONSUMER_REPO, CONSUMER_CHECK_WORKFLOW,
         "--ref", consumer_dispatch_tag(consumer_sha),
         "--input", f"{CANDIDATE_INPUT}={candidate_sha}",
         "--input", f"consumer_sha={consumer_sha}",
-        "--request-id", pair_request_id(candidate_sha, consumer_sha),
+        "--request-id", request_id or pair_request_id(candidate_sha, consumer_sha),
         "--correlation-input", WORKFLOW_DISPATCH_CORRELATION_INPUT,
         "--project", CONSUMER_PROJECT,
     ]
 
 
 
-def dispatch_pair(run_yoke, candidate_sha: str, consumer_sha: str) -> Tuple[str, str]:
+def dispatch_pair(
+    run_yoke, candidate_sha: str, consumer_sha: str, *, request_id: str | None = None
+) -> Tuple[str, str]:
     """Dispatch or join proof at the immutable bound consumer commit."""
     _, error = bound_dispatch_ref(
         run_yoke,
@@ -55,7 +59,7 @@ def dispatch_pair(run_yoke, candidate_sha: str, consumer_sha: str) -> Tuple[str,
     )
     if error:
         return "", error
-    trigger = build_dispatch(candidate_sha, consumer_sha)
+    trigger = build_dispatch(candidate_sha, consumer_sha, request_id=request_id)
     deadline = time.monotonic() + _PENDING_JOIN_BUDGET_SECONDS
     delay = 2.0
     while True:
