@@ -15,7 +15,7 @@ from yoke_contracts.machine_config.test_machine import (
 
 # Only execution inputs participate; expected screen text and outcomes can
 # mention other operating systems without requiring those hosts. Windows words
-# mean native Windows; a WSL case declares os ``wsl`` or pins a WSL machine.
+# mean native Windows; a WSL case declares os ``wsl``.
 _PLATFORM_WORDS = {
     "linux": r"\b(?:linux|ubuntu|debian|xfce|xfce4-terminal)\b",
     "macos": r"\b(?:macos|darwin|osascript|safari|terminal\.app)\b|\bmac os\b",
@@ -31,7 +31,6 @@ _STEP_KEYS = frozenset(
         "setup_operations",
         "baseline_configs",
         "os",
-        "platform",
     }
 )
 
@@ -53,39 +52,35 @@ def _execution_text(value: Any) -> str:
         )
     if isinstance(value, (list, tuple)):
         return " ".join(_execution_text(v) for v in value)
-    text = str(value or "")
-    # A specific machine capability names a registered host, not an OS.
-    return "" if text.startswith("test-machine:") else text
+    return str(value or "")
 
 
 def platform_config(config: Mapping[str, Any]) -> dict[str, str]:
-    """Validate the platform metadata shared by machine method contracts."""
-    result = {key: config[key] for key in ("os", "platform") if key in config}
+    """Validate the ``os`` metadata shared by machine method contracts."""
+    result = {"os": config["os"]} if "os" in config else {}
     if any(
         not isinstance(value, str) or value not in TEST_MACHINE_OSES
         for value in result.values()
     ):
         raise TestMachineCapabilityError(
-            "test_machine_platform_invalid: set method_config.os or "
-            "method_config.platform to linux, macos, windows (native) or wsl"
-        )
-    if len(set(result.values())) > 1:
-        raise TestMachineCapabilityError(
-            "test_machine_platform_ambiguous: method_config.os and "
-            "method_config.platform disagree; set both to the same OS"
+            "test_machine_platform_invalid: set method_config.os to linux, "
+            "macos, windows (native) or wsl"
         )
     return result
 
 
 def case_platform(
-    case: Mapping[str, Any], hosts: Mapping[str, str] | None = None,
-    *, allow_undeclared: bool = False,
+    case: Mapping[str, Any], *, allow_undeclared: bool = False,
 ) -> str | None:
-    """Resolve declared execution inputs and registered machines to an OS."""
-    from yoke_contracts.qa_case_starting_state import needs_test_machine
+    """Resolve declared execution inputs to the OS of the case's driving host."""
+    from yoke_contracts.qa_case_starting_state import declares_starting_state
 
-    if case.get("runner_id") == "agent_mission" and not needs_test_machine(case):
+    from yoke_core.domain.machine_qa_case_hosts import driver_slot_os
+
+    if case.get("runner_id") == "agent_mission" and not declares_starting_state(case):
         return None
+    if slot_os := driver_slot_os(case):
+        return slot_os
     config = case.get("method_config") or {}
     declared_os = set(platform_config(config).values())
     from yoke_core.domain.qa_method_capabilities import capability_kinds
@@ -120,33 +115,22 @@ def case_platform(
         )
     if platforms:
         return next(iter(platforms))
-    from yoke_core.domain.machine_qa_case_hosts import case_machines
-
-    declared = {
-        hosts[name]
-        for name in case_machines({**case, "required_capability_kinds": required})
-        if hosts and name in hosts
-    }
-    if declared:
-        return next(iter(declared)) if len(declared) == 1 else None
     if allow_undeclared:
         return None
     raise TestMachineCapabilityError(
         "test_machine_platform_undeclared: case "
         f"{case.get('case_key') or case.get('requirement_id') or 'unknown'} "
         "has no declared platform; set method_config.os to linux, macos, windows "
-        "(native) or wsl, "
-        "or set method_config.test_machine to a registered Test Machine with an os"
+        "(native) or wsl, or list OS slots in method_config.test_machines"
     )
 
 
 def required_platform(
-    cases: Sequence[Mapping[str, Any]], hosts: Mapping[str, str] | None = None,
-    *, allow_undeclared: bool = False,
+    cases: Sequence[Mapping[str, Any]], *, allow_undeclared: bool = False,
 ) -> str | None:
     platforms = {
         platform for case in cases
-        if (platform := case_platform(case, hosts, allow_undeclared=allow_undeclared))
+        if (platform := case_platform(case, allow_undeclared=allow_undeclared))
     }
     if len(platforms) > 1:
         raise TestMachineCapabilityError(
@@ -180,10 +164,7 @@ def matching_platform_hosts(
     candidates: list[Any], cases: Sequence[Mapping[str, Any]]
 ) -> list[Any]:
     """Filter before taking any lease, including explicit machine selections."""
-    platform = required_platform(
-        cases,
-        {host.settings["resource_name"]: host.settings["os"] for host in candidates},
-    )
+    platform = required_platform(cases)
     matching = [
         host
         for host in candidates

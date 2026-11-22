@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from yoke_contracts.qa_case_starting_state import needs_test_machine
+from yoke_contracts.qa_case_starting_state import declares_starting_state
 
 from typing import Any, Mapping
 
@@ -149,31 +149,23 @@ def ordered_plan_requirements(
 def validate_roster_machine(
     conn: Any, roster: list[dict[str, Any]], test_machine: str | None
 ) -> None:
+    """Refuse stored host names, then check the run pin against each case."""
     from yoke_core.domain.machine_qa_case_machine import (
+        refuse_stored_host_names,
         require_registered_machine,
         resolve_plan_machine,
     )
 
-    resolve_plan_machine(roster, test_machine)
+    for row in roster:
+        refuse_stored_host_names(row)
+    resolve_plan_machine(conn, roster, test_machine)
     projects = {
         int(row["project_id"])
         for row in roster
-        if needs_test_machine(row)
+        if declares_starting_state(row)
     }
-    from yoke_core.domain.machine_qa_case_hosts import case_machines
-
     for project_id in projects:
-        names = {test_machine} if test_machine else set()
-        for row in roster:
-            if row.get("project_id") == project_id:
-                names.update(case_machines(row))
-        for name in names:
-            require_registered_machine(
-                conn,
-                project_id=project_id,
-                test_machine=name,
-                subject="run pin" if test_machine else "case constraint",
-            )
+        require_registered_machine(conn, project_id=project_id, test_machine=test_machine)
 
 
 def expected_plan_case(

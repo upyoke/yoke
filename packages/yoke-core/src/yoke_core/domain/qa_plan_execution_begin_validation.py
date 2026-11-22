@@ -20,7 +20,7 @@ from typing import Any, Mapping, Optional
 
 from yoke_core.domain.qa_plan_execution_result_state import QaPlanExecutionError
 from yoke_core.domain.qa_project_execution_target import resolve_execution_base_url
-from yoke_core.domain.machine_qa_case_machine import resolve_plan_machine
+from yoke_core.domain.machine_qa_case_machine import resolve_case_machine
 
 
 @dataclass(frozen=True)
@@ -85,7 +85,7 @@ def validate_begun_execution(
                     raise QaPlanExecutionError("QA roster named a different item")
                 row["public_ref"] = public_ref
     try:
-        selected_machine = resolve_plan_machine(requirements, test_machine)
+        selected_machine = resolve_case_machine({}, test_machine)
     except ValueError as exc:
         raise QaPlanExecutionError(str(exc)) from exc
     cursor = int(execution.get("cursor_ordinal") or 0)

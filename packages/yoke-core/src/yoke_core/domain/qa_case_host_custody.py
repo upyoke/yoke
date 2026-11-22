@@ -32,6 +32,20 @@ def bind_case_host(
     )
 
 
+def bound_case_hosts(conn: Any, execution: dict, case: dict) -> dict[str, int]:
+    """Each active lease bound to *case*, driver or companion, by host name."""
+    from yoke_core.domain.qa_plan_host_leases import execution_host_leases
+
+    prefix = HOST_SET_REASON + str(execution["id"]) + ":"
+    requirement = str(case["requirement_id"])
+    return {
+        str(claim.target.test_machine): claim.id
+        for claim in execution_host_leases(conn, execution)
+        if (claim.reason or "").startswith(prefix)
+        and {requirement, "companion-" + requirement} & _case_ids(claim.reason)
+    }
+
+
 def case_host_lease_id(conn: Any, execution: dict, case: dict) -> int | None:
     """Resolve the case's driver, including an in-flight pre-upgrade walk."""
     from yoke_core.domain.qa_plan_host_leases import execution_host_leases

@@ -44,7 +44,7 @@ def execution_machine(
         for row in test_machine_rows(conn)
     }
 
-    platform = case_platform(case, hosts)
+    platform = case_platform(case)
 
     def matches(test_machine: str | None) -> bool:
         if test_machine and platform is not None and test_machine not in hosts:

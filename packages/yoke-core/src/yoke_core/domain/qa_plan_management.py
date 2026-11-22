@@ -298,8 +298,6 @@ def _validated_plan_cases(
         contract = contracts[case["method_id"]]
         case["method_config"] = require_runnable_case(
             {**case, "config_contract_id": contract["config_contract_id"]},
-            conn=conn,
-            project_id=int(plan["project_id"]),
         )
         validate_case_targets(conn, plan=plan, case=case)
     from yoke_core.domain.qa_plan_case_store import (
