@@ -41,7 +41,13 @@ READ_FAILED_GUIDANCE = "the limits read failed; it retries on the next refresh"
 
 # A Claude token past its expiresAt: the CLI is still signed in.
 CREDENTIAL_EXPIRED_REASON = "credential_expired"
-_CREDENTIAL_REASON = "stale_credential"
+# Windows Cursor's default DPAPI store is absent or unusable: sign in again.
+CURSOR_SECRET_STORE_MISSING_REASON = "cursor_secret_store_missing"
+# A Windows Cursor store configuration the relay does not read; it retries.
+CURSOR_SECRET_STORE_UNSUPPORTED_REASON = "cursor_secret_store_unsupported"
+_CREDENTIAL_REASONS = frozenset(
+    {"stale_credential", CURSOR_SECRET_STORE_MISSING_REASON}
+)
 _CREDENTIAL_REASON_PREFIX = "codex_auth_"
 _THROTTLED_REASON = "http_429"
 
@@ -55,7 +61,7 @@ def _parts(reason: str | None) -> list[str]:
 
 
 def _is_credential(part: str) -> bool:
-    return part == _CREDENTIAL_REASON or part.startswith(_CREDENTIAL_REASON_PREFIX)
+    return part in _CREDENTIAL_REASONS or part.startswith(_CREDENTIAL_REASON_PREFIX)
 
 
 def reason_needs_sign_in(reason: str | None) -> bool:
@@ -106,6 +112,8 @@ def with_unreadable_guidance(
 __all__ = [
     "CREDENTIAL_EXPIRED_REASON",
     "CREDENTIAL_GUIDANCE",
+    "CURSOR_SECRET_STORE_MISSING_REASON",
+    "CURSOR_SECRET_STORE_UNSUPPORTED_REASON",
     "EXPIRED_GUIDANCE",
     "READ_FAILED_GUIDANCE",
     "REASON_SEPARATOR",

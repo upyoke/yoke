@@ -62,7 +62,10 @@ def _read_then_fail(monkeypatch, tmp_path: Path, at: str, reason: str) -> dict:
     return _observe(monkeypatch, tmp_path, at, failed)
 
 
-@pytest.mark.parametrize("reason", ["credential_expired", "http_429", "http_500"])
+@pytest.mark.parametrize(
+    "reason",
+    ["credential_expired", "http_429", "http_500", "cursor_secret_store_unsupported"],
+)
 def test_running_windows_are_kept_with_their_original_observation(
     monkeypatch, tmp_path, reason
 ):
@@ -88,7 +91,9 @@ def test_no_running_window_left_reports_the_new_reason(monkeypatch, tmp_path):
     assert _windows(reading) == [("unknown", "unknown", None, "credential_expired")]
 
 
-@pytest.mark.parametrize("reason", ["stale_credential", "codex_auth_401"])
+@pytest.mark.parametrize(
+    "reason", ["stale_credential", "codex_auth_401", "cursor_secret_store_missing"]
+)
 def test_a_rejected_sign_in_is_not_carried(monkeypatch, tmp_path, reason):
     reading = _read_then_fail(monkeypatch, tmp_path, LATER, reason)
     assert _windows(reading) == [("unknown", "unknown", None, reason)]

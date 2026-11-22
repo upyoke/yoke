@@ -32,6 +32,9 @@ from yoke_contracts.session_control.plan_limits import (
     unknown_reading,
 )
 from yoke_harness.session_relay_codex_plan_limit import probe_codex_cli
+from yoke_harness.session_relay_cursor_windows_credential import (
+    cursor_windows_access_token,
+)
 from yoke_contracts.machine_config.relay_instance import strip_relay_owned_python_state
 from yoke_harness.session_relay_failure_log import FailureReporter
 from yoke_harness.session_relay_plan_limit_http import (
@@ -148,31 +151,32 @@ def probe_claude_cli(*, observed_at: str) -> dict[str, Any]:
     return parse_claude_usage(credentials, usage, observed_at=observed_at)
 
 
-def _cursor_access_token() -> str | None:
-    if sys.platform == "darwin":
-        return _keychain_password("cursor-access-token")
+def _cursor_access_token() -> tuple[str | None, str]:
+    """Return ``(token, "")`` or ``(None, reason)`` for this platform's sign-in."""
     if sys.platform == "win32":
-        root = Path(os.environ.get("APPDATA") or Path.home() / "AppData" / "Roaming")
+        return cursor_windows_access_token()
+    if sys.platform == "darwin":
+        token = _keychain_password("cursor-access-token")
     elif sys.platform == "linux":
         root = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
+        try:
+            credentials = json.loads(
+                (root / "cursor" / "auth.json").read_text(encoding="utf-8")
+            )
+        except (OSError, ValueError):
+            credentials = None
+        token = credentials.get("accessToken") if isinstance(credentials, dict) else None
     else:
-        return None
-    try:
-        credentials = json.loads(
-            (root / "cursor" / "auth.json").read_text(encoding="utf-8")
-        )
-    except (OSError, ValueError):
-        return None
-    token = credentials.get("accessToken") if isinstance(credentials, dict) else None
-    return token if isinstance(token, str) and token.strip() else None
+        token = None
+    if isinstance(token, str) and token.strip():
+        return token, ""
+    return None, "stale_credential"
 
 
 def probe_cursor_cli(*, observed_at: str) -> dict[str, Any]:
-    token = _cursor_access_token()
+    token, reason = _cursor_access_token()
     if not token:
-        return unknown_reading(
-            "cursor-cli", "stale_credential", observed_at=observed_at
-        )
+        return unknown_reading("cursor-cli", reason, observed_at=observed_at)
     headers = {
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json",

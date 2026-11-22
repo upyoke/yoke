@@ -4,6 +4,6 @@
  "status": "observed",
  "page": "machines",
  "position": 2,
- "summary": "The machines page keeps stale ok quota windows until their reset, labels the percentage with its read time, and leaves headroom empty. Reset windows show no reading. The relay logs each surface’s failed plan-limit probes through its failure reporter and logs recovery before carrying forward unreset windows.",
- "sources": ["packages/yoke-core/src/yoke_core/ui/static/universe_machines_limits.js", "packages/yoke-harness/src/yoke_harness/session_relay_plan_limits.py"]
+ "summary": "The machines page keeps stale ok quota windows until their reset, labels the percentage with its read time, and leaves headroom empty. Reset windows show no reading. The relay logs each surface’s failed plan-limit probes through its failure reporter and logs recovery before carrying forward unreset windows. A rejected or missing sign-in, including Windows Cursor’s absent or unusable default DPAPI store (cursor_secret_store_missing), drops carried windows and asks for a fresh sign-in. An unsupported Windows Cursor store (cursor_secret_store_unsupported) keeps carried windows and retries each refresh.",
+ "sources": ["packages/yoke-core/src/yoke_core/ui/static/universe_machines_limits.js", "packages/yoke-harness/src/yoke_harness/session_relay_plan_limits.py", "packages/yoke-harness/src/yoke_harness/session_relay_cursor_windows_credential.py"]
 }

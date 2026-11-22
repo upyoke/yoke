@@ -34,6 +34,8 @@ _NOW = "2026-09-01T13:20:00.000000Z"
 _REASON_CLASSES = (
     ("stale_credential", CREDENTIAL_GUIDANCE),
     ("codex_auth_missing_tokens", CREDENTIAL_GUIDANCE),
+    ("cursor_secret_store_missing", CREDENTIAL_GUIDANCE),
+    ("cursor_secret_store_unsupported", READ_FAILED_GUIDANCE),
     ("app_server_timeout+stale_credential", CREDENTIAL_GUIDANCE),
     ("credential_expired", EXPIRED_GUIDANCE),
     ("credential_expired+stale_credential", CREDENTIAL_GUIDANCE),

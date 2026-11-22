@@ -107,9 +107,12 @@ Cursor Models includes grok-*, cursor-grok-* and composer-*; other selections
 use Other Models. One CURSOR_MODELS_FAMILIES owner supplies report/preview/
 Machines/model-reference split; Claude/Codex name actual vendor counter.
 Unreadable meters show reason/recovery from shared guidance: stale_credential
-reauthenticates that machine; credential_expired renews on next Claude CLI use;
-http_429 means throttled, not signed out; others retry next refresh. Except after
-stale_credential, the relay keeps the last read windows until each resets.
+and cursor_secret_store_missing (Windows Cursor's default DPAPI `auth.dpapi`
+sign-in is absent or unusable) reauthenticate that machine; credential_expired
+renews on next Claude CLI use; http_429 means throttled, not signed out;
+cursor_secret_store_unsupported (Credential Locker or another Windows store) and
+others retry next refresh. Except after those two sign-in reasons, the relay
+keeps the last read windows until each resets.
 Plan-limit reads never gate launches.
 
 HTTP failed-probe evidence includes status, UTC response time, Retry-After and
