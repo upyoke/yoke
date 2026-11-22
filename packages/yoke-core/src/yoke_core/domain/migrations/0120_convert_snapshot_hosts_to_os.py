@@ -30,7 +30,6 @@ finished executions are untouched. Only changed entries are replaced, a null
 ``method_config`` or kinds list stays null, and a second run finds nothing.
 """
 
-import json
 from pathlib import Path
 
 from yoke_contracts.timestamps import utc_now
