@@ -5,6 +5,7 @@ import subprocess
 
 import pytest
 
+from runtime.api.tools import consumer_failure_attribution
 from runtime.api.tools import require_platform_consumer_compatibility as gate
 from yoke_core.domain.ci_run_redispatch import redispatch_request_id
 from yoke_core.domain.platform_consumer_dispatch import pair_request_id
@@ -30,6 +31,8 @@ def verdict(run_id, updated_at, conclusion="failure"):
 
 @pytest.fixture
 def proof(monkeypatch):
+    monkeypatch.setattr(consumer_failure_attribution, "producer_failure_context", lambda _: "Attribution.")
+
     def setup(first, *, replacement=None, lookup_error=False):
         dispatches, waits, lookups = [], [], []
 

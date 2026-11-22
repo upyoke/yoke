@@ -28,6 +28,7 @@ _EXCLUDED_PREFIXES = (
 _CI_TOOLS = {
     "yoke_core.tools.release_tag_validation",
     "yoke_core.tools.publish_server_image",
+    "yoke_core.tools.promote_main_artifacts",
     "yoke_core.tools.ci_durations_refresh",
 }
 _CI_TOOL_PATHS = {

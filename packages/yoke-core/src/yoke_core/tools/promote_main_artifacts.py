@@ -1,4 +1,4 @@
-"""Transfer attested bytes from a successful main-push factory; never rebuild."""
+"""Promote attested main-push artifacts and recover stale runs in hosted CI."""
 
 from __future__ import annotations
 
