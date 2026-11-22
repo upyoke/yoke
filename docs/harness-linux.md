@@ -31,6 +31,19 @@ sent — repair the install so `claude --version` prints a version.
 The macOS probes use the login keychain, with Claude's credentials-file
 fallback. Linux probes never invoke the macOS `security` command.
 
+On native Windows, Cursor reads only its default per-user DPAPI store: the
+marker `%APPDATA%\Cursor\auth.json` (`{"storedIn": "os-secret-store"}`, with
+`~\AppData\Roaming` when `APPDATA` is unset) and the DPAPI-protected
+`auth.dpapi` beside it, unprotected in-process as the signed-in relay user. A
+plaintext `accessToken` in `auth.json` is ignored, and a missing or unparseable
+marker, or one without `storedIn`, reports `stale_credential`. A missing or
+unusable `auth.dpapi` reports `cursor_secret_store_missing`: sign in again with
+`cursor-agent login`, and carried windows are dropped. Cursor's opt-in
+Credential Locker mode (`CURSOR_CLI_WINDOWS_CREDENTIAL_MANAGER=1`) and any
+other store configuration report `cursor_secret_store_unsupported`; the read
+retries each refresh and keeps carried windows. Use the default store to get
+readings.
+
 These Linux paths also apply to apps running inside the WSLg distribution;
 the relay and credentials must live in that distribution. Yoke's desktop
 surfaces remain operator-opened. Use the target harness manifest and that

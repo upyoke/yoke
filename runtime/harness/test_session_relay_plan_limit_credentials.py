@@ -21,6 +21,9 @@ def linux_home(monkeypatch, tmp_path: Path):
         pytest.fail("Linux credentials must not invoke the macOS keychain")
 
     monkeypatch.setattr(limits.subprocess, "run", unexpected_tool)
+    monkeypatch.setattr(
+        limits, "cursor_windows_access_token", lambda: pytest.fail("Windows reader")
+    )
     return tmp_path
 
 
@@ -139,6 +142,9 @@ def test_claude_unreadable_version_is_named_and_skips_usage_check(
 
 def test_macos_cursor_keeps_keychain_source(monkeypatch):
     monkeypatch.setattr(limits.sys, "platform", "darwin")
+    monkeypatch.setattr(
+        limits, "cursor_windows_access_token", lambda: pytest.fail("Windows reader")
+    )
     calls = []
 
     def run(argv, **kwargs):
@@ -146,7 +152,7 @@ def test_macos_cursor_keeps_keychain_source(monkeypatch):
         return SimpleNamespace(returncode=0, stdout="fixture-token\n")
 
     monkeypatch.setattr(limits.subprocess, "run", run)
-    assert limits._cursor_access_token() == "fixture-token"
+    assert limits._cursor_access_token() == ("fixture-token", "")
     assert calls == [
         ["security", "find-generic-password", "-s", "cursor-access-token", "-w"]
     ]

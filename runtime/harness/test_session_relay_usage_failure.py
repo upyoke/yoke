@@ -40,7 +40,7 @@ def test_failed_usage_response_is_logged_cached_and_rendered_without_backoff(
             verdict="ok", version="2.3.4", error=None
         ),
     )
-    monkeypatch.setattr(limits, "_cursor_access_token", lambda: token)
+    monkeypatch.setattr(limits, "_cursor_access_token", lambda: (token, ""))
     monkeypatch.setattr(limits, "_cursor_tier_from_cli", lambda: {})
     monkeypatch.setattr(
         codex, "app_server_reading", lambda _: (None, "rpc_failed", "rpc_failed")
