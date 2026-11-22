@@ -47,10 +47,6 @@ def main() -> int:
                     m.requirement_snapshot::jsonb->'requirements') r
                     WHERE (r->>'plan_id')::bigint=q.plan_id
                         AND r->>'qa_phase'='post_deploy')
-                OR EXISTS (SELECT 1 FROM jsonb_array_elements(
-                    m.requirement_snapshot::jsonb->'plans') p
-                    WHERE (p #>> '{{plan,id}}')::bigint=q.plan_id
-                        AND p #>> '{{attachment,qa_phase}}'='post_deploy')
             )
             AND jsonb_array_length(e.roster_json::jsonb)>0
             AND (SELECT COUNT(*) FROM qa_plan_execution_results r

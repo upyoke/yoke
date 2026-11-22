@@ -31,6 +31,8 @@ composition_frozen_at TEXT -- immutable admission-freeze timestamp
 requirement_snapshot TEXT -- full flow-level QA plan/case content frozen at start
 ```
 
+`requirement_snapshot` freezes case copies under `selections[].cases[]` and `plan_groups{}.cases[]`. Those copies select Test Machines by OS like live cases: migration `0120_convert_snapshot_hosts_to_os` converted every stored copy that still named a host.
+
 A run copies the internal `target_tier` and `target_environment_id` from its flow. Operators select or override a persistent target only with `--environment <registered-name>`; numeric keys are never accepted or emitted by the operator surface. Setting `status=succeeded` stamps `environments.last_deployed_at` on the referenced row.
 
 ## Carried work

@@ -140,7 +140,7 @@ def test_audit_failure_rolls_back_the_run_state(test_db, monkeypatch):
     _bind_connection(monkeypatch, test_db)
     monkeypatch.setattr(
         terminalization,
-        "_append_event",
+        "append_terminalization_event",
         lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("no event")),
     )
 
