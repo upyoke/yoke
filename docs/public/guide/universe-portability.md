@@ -74,11 +74,8 @@ carrying the following required members at its root:
 - `universe.dump` — the `pg_dump` custom-format payload
   (compressed, `pg_restore --list`-able).
 - `freeze-receipt.json` — the freeze receipt whose `freeze_intent.archive`
-  block binds that exact payload by SHA-256 and byte count.
-
-The export report's `sha256` is the hash of the `.tar` file, so `sha256sum` or
-`Get-FileHash` on the artifact matches it. The payload's own hash is
-`freeze_intent.archive.sha256`.
+  block binds that exact payload by SHA-256 and byte count. The export report's
+  `sha256` is instead the hash of the `.tar` file.
 
 Archives with artifact bytes also include `artifacts-manifest.json` and an
 `artifacts/` tree. Each manifest entry names its original handle, a store-neutral
