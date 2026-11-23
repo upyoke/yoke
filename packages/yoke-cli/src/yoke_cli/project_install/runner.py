@@ -23,6 +23,7 @@ from yoke_cli.commands.adapters.project_snapshot import (
 from yoke_cli.project_install import files as files_layer
 from yoke_cli.project_install import git_hooks as git_hooks_layer
 from yoke_cli.project_install import checkout_gate
+from yoke_cli.project_install import owned_cleanup
 from yoke_cli.project_install import repository_layer
 
 # Re-exported: ``project_install`` and the source-dev refresh path both reach
@@ -97,6 +98,7 @@ def install(
         if require_branch
         else checkout_gate.FALLBACK_DEFAULT_BRANCH
     )
+    from yoke_cli.project_install.recovery_checkout import own_dirty_paths
     from yoke_cli.project_install.install_recovery import (
         pending,
         recoverable_checkout,
@@ -108,15 +110,7 @@ def install(
     recovery_checkout = (recoverable_checkout(root) if pending(root) else False) and (
         not require_branch or checkout_gate.current_branch(root) == default_branch
     )
-    recovered_paths = (
-        [
-            checkout_gate._porcelain_path(line)
-            for line in checkout_gate.porcelain(root)
-            if checkout_gate._porcelain_path(line) != PENDING_REL
-        ]
-        if recovery_checkout
-        else []
-    )
+    recovered_paths = own_dirty_paths(root) if recovery_checkout else []
     unclaimed = unclaimed_dirt(root, recovery_checkout)
     checkout = checkout_gate.assert_ready_for_write(
         root,
@@ -141,7 +135,8 @@ def install(
         root, resolved_id, config_path, explicit_given
     )
     project_publication_destination.migrate_legacy(root, config_path=config_path)
-    owned = registered or owns_registration
+    claimed = registered or owns_registration
+    owned = claimed or owned_cleanup.registration_intended(root, config_path)
 
     def regenerate() -> Dict[str, Any]:
         result = repository_layer.write_repository_layer(
@@ -152,9 +147,7 @@ def install(
             mode=resolved_mode,
         )
         if owned:
-            from yoke_cli.project_install.owned_cleanup import record_registration
-
-            record_registration(root, resolved_id, config_path)
+            owned_cleanup.record_registration(root, resolved_id, config_path)
         return result
 
     report = regenerate()
@@ -326,6 +319,7 @@ def _register_in_machine_config(
         return False
     if machine_config.project_id(repo_root, config_path) is not None:
         return False
+    owned_cleanup.intend_registration(repo_root, config_path)
     machine_config_writer.register_project(
         main_checkout(repo_root),
         project_id,

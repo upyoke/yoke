@@ -127,6 +127,24 @@ def test_own_prefix_from_the_first_pass_is_not_a_conflict():
     assert onboard_project_prefixes.without_project(None, "qa") is None
 
 
+def test_resume_keeps_the_first_pass_checkout_ownership(tmp_path):
+    folder = tmp_path / "qa"
+    kwargs = {"project_mode": "create-repo", "project_checkout": str(folder)}
+    first = onboard_apply_snapshot.build(kwargs)
+    assert first["checkout_provenance"]["created_by_run"] is True
+    first["checkout_provenance"]["ownership"] = {"token": "marker"}
+    folder.mkdir()
+
+    resumed = onboard_apply_snapshot.build(kwargs, {"input_snapshot": first})
+    moved = onboard_apply_snapshot.build(
+        {**kwargs, "project_checkout": str(tmp_path / "other")},
+        {"input_snapshot": first},
+    )
+
+    assert resumed["checkout_provenance"] == first["checkout_provenance"]
+    assert "ownership" not in moved["checkout_provenance"]
+
+
 def test_report_records_a_follow_from_the_marker(tmp_path, monkeypatch):
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "home"))
     monkeypatch.setenv(

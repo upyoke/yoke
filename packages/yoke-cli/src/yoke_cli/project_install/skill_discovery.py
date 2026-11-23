@@ -10,8 +10,9 @@ committed.
 
 An entry is the installer's own when it is a link resolving to the skill
 tree, Git's placeholder file for a committed link checked out without
-symlink support, or a directory this install recorded (its copy). Anything
-else is the operator's, and install refuses rather than replace it.
+symlink support, a directory this install recorded (its copy), or a copy a
+killed install left whose every file is one the interrupted apply planned.
+Anything else is the operator's, and install refuses rather than replace it.
 """
 
 from __future__ import annotations
@@ -75,9 +76,36 @@ def entry_state(root: Path, rel: str, records: Mapping[str, str] | None = None) 
         except (OSError, UnicodeDecodeError):
             return FOREIGN
         return PLACEHOLDER if text == destination else FOREIGN
-    if stat.S_ISDIR(info.st_mode) and rel in (records or {}):
+    if stat.S_ISDIR(info.st_mode) and (
+        rel in (records or {}) or _is_interrupted_copy(root, rel, expected)
+    ):
         return COPIED
     return FOREIGN
+
+
+def _is_interrupted_copy(root: Path, rel: str, source: Path) -> bool:
+    """A killed install's unrecorded copy: every file is one it planned to write."""
+    from yoke_cli.project_install.install_recovery import pending_record
+    from yoke_cli.project_install.recovery_checkout import state
+
+    planned = pending_record(root).get("checkout", {})
+    if not planned:
+        return False
+    target = root / rel
+    try:
+        source_rel = source.relative_to(root.resolve()).as_posix()
+        for path in target.rglob("*"):
+            info = path.lstat()
+            if is_link_entry(info):
+                return False
+            if stat.S_ISDIR(info.st_mode):
+                continue
+            inner = path.relative_to(target).as_posix()
+            if state(path) not in planned.get(f"{source_rel}/{inner}", ()):
+                return False
+    except (OSError, ValueError):
+        return False
+    return True
 
 
 def is_link_entry(info: os.stat_result) -> bool:

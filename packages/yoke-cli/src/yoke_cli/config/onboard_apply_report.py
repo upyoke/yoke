@@ -109,7 +109,7 @@ class ApplyReportWriter:
             "source_repo": str(safe_kwargs.get("project_remote_url") or ""),
             "target_github_repo": _target_github_repo(safe_kwargs),
             "credential_sources": _credential_sources(safe_kwargs),
-            "input_snapshot": onboard_apply_snapshot.build(safe_kwargs),
+            "input_snapshot": onboard_apply_snapshot.build(safe_kwargs, resume_payload),
             "created_commits": list((resume_payload or {}).get("created_commits", [])),
             "cli_followed_release": setup_release_marker.recorded(resume_payload),
             "steps": steps,
