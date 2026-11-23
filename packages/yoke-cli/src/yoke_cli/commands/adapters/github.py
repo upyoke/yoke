@@ -66,7 +66,10 @@ def github_connect(args: List[str]) -> int:
             "This never accepts or stores manual GitHub credentials. "
             "No browser is opened; present the link and code to the person. "
             "With --json, stdout is JSON lines: the link, code and instructions "
-            "arrive before polling, and the last line is the result."
+            "arrive before polling, and the last line is the result. In "
+            "PowerShell, run it in the background with `Start-Process ... "
+            "-RedirectStandardOutput FILE` rather than `>`, which can hold the "
+            "lines back until it exits."
         ),
     )
     parser.add_argument(

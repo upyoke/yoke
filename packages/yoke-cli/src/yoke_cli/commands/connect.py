@@ -66,7 +66,9 @@ def connect(args: List[str]) -> int:
             "non-terminal and --json runs only print it. With --json, stdout is "
             "JSON lines: the link, code and instructions arrive before waiting, "
             "and the last line is the result; show the link and code to the "
-            "person. --json never prompts; pass "
+            "person. In PowerShell, run it in the background with `Start-Process "
+            "... -RedirectStandardOutput FILE` rather than `>`, which can hold "
+            "the lines back until it exits. --json never prompts; pass "
             "--invite-code-stdin to redeem an invite."
         ),
     )
