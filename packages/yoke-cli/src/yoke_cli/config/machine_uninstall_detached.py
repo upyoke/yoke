@@ -76,25 +76,36 @@ def prepare(home: Path) -> Handoff:
     descriptor = os.open(lock, os.O_RDWR | os.O_CREAT, 0o600)
     platform_file_lock.acquire_exclusive_nonblocking(descriptor)
     with log.open("w", encoding="utf-8") as output:
-        process = subprocess.Popen(
-            [
-                _base_python(),
-                "-I",
-                str(script),
-                str(lock),
-                str(arm_file),
-                str(ready_file),
-                str(releases),
-                str(bin_dir),
-                *_package_roots(),
-            ],
-            stdin=subprocess.DEVNULL,
-            stdout=output,
-            stderr=subprocess.STDOUT,
-            # Outside the folder, so the worker can delete it when done.
-            cwd=root,
-            **_detached(),
-        )
+        try:
+            process = subprocess.Popen(
+                [
+                    _base_python(),
+                    "-I",
+                    str(script),
+                    str(lock),
+                    str(arm_file),
+                    str(ready_file),
+                    str(releases),
+                    str(bin_dir),
+                    *_package_roots(),
+                ],
+                stdin=subprocess.DEVNULL,
+                stdout=output,
+                stderr=subprocess.STDOUT,
+                # Outside the folder, so the worker can delete it when done.
+                cwd=root,
+                **_detached(),
+            )
+        except PermissionError as exc:
+            if os.name != "nt":
+                raise
+            os.close(descriptor)
+            raise RuntimeError(
+                "uninstall_cli_handoff_failed: this process runs in a Windows job "
+                "that forbids breakaway, so a detached CLI removal would be killed "
+                "with it; after this uninstall exits, remove the releases by hand: "
+                f"{manual_removal(releases)}"
+            ) from exc
     deadline = time.monotonic() + 10
     while not ready_file.is_file():
         if process.poll() is not None or time.monotonic() >= deadline:
@@ -148,11 +159,16 @@ def _package_roots() -> list[str]:
 
 
 def _detached() -> dict:
-    """Popen options that let the finisher outlive this process and its console."""
+    """Popen options that let the finisher outlive this process and its console.
+
+    Windows OpenSSH ends a session's kill-on-close job when the session closes,
+    so the finisher leaves the job. The flag has no effect outside a job.
+    """
     if os.name == "nt":
         return {
             "creationflags": subprocess.DETACHED_PROCESS
             | subprocess.CREATE_NEW_PROCESS_GROUP
+            | subprocess.CREATE_BREAKAWAY_FROM_JOB
         }
     return {"start_new_session": True}
 
