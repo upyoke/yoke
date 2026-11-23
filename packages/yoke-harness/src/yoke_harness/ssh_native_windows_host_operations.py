@@ -150,7 +150,6 @@ class SshNativeWindowsHostOperations(WindowsMissionOperations, WindowsTransport)
                 "wsl_absent": wsl_absent,
                 "windows_features": self.native_features,
                 "runner_materialized": ok,
-                "observed_outcome": "passed" if ok else "refused",
                 **(
                     {}
                     if ok
