@@ -258,11 +258,12 @@ def finish(root: Path, hashes: dict[str, str], *, clear_pending: bool = True) ->
 
 def recoverable_checkout(root: Path) -> bool:
     """Only exact planned states bypass the ordinary dirty gate."""
-    from yoke_cli.project_install.recovery_checkout import states
+    from yoke_cli.project_install import recovery_checkout as planned
 
     expected = pending_record(root).get("checkout", {})
     if not expected:
         return False
+    planned.remove_staging_leftovers(root, expected)
     paths = [
         checkout_gate._porcelain_path(line) for line in checkout_gate.porcelain(root)
     ]
@@ -270,7 +271,7 @@ def recoverable_checkout(root: Path) -> bool:
         if rel == PENDING_REL:
             continue
         try:
-            if states(root / rel).isdisjoint(expected.get(rel, [])):
+            if planned.states(root / rel).isdisjoint(expected.get(rel, [])):
                 return False
         except (OSError, UnicodeError):
             return False
@@ -310,7 +311,7 @@ def refuse_unclaimed_dirt(root: Path, before: list[str]) -> None:
             "install_recovery_incomplete: an interrupted install left these "
             f"paths uncommitted, and this install could not prove they are its own:\n{listed}\n"
             "recipe: review them with `git status`, commit or restore them, then "
-            "rerun or resume this install; the interrupted apply record was retained."
+            "retry (in setup, answer Try again); the apply record was retained."
         )
 
 

@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import re
 import stat
 from typing import Any
 
 from yoke_cli.project_install import (
+    checkout_gate,
     cursor_permissions,
     managed_markdown,
     settings_permissions,
@@ -40,6 +42,25 @@ def state(path: Path) -> str:
 def states(path: Path) -> set[str]:
     """Return every safe state that proves the current installer-owned path."""
     return {state(path)}
+
+
+def remove_staging_leftovers(root: Path, expected: dict[str, Any]) -> None:
+    """Delete untracked temp files a killed atomic write left beside planned paths."""
+    for rel in expected:
+        target = root / rel
+        pattern = re.compile(re.escape("." + target.name) + r"[a-z0-9_]{8}")
+        if not target.parent.is_dir():
+            continue
+        for leftover in target.parent.iterdir():
+            if not pattern.fullmatch(leftover.name) or not leftover.is_file():
+                continue
+            if leftover.is_symlink():
+                continue
+            tracked = checkout_gate.run_git(
+                root, "ls-files", "--", str(leftover.relative_to(root))
+            )
+            if tracked.returncode == 0 and not tracked.stdout.strip():
+                leftover.unlink()
 
 
 def _add_line_exception_states(root: Path, bundle: dict[str, Any], add) -> None:
