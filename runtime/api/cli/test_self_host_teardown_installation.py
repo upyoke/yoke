@@ -2,6 +2,7 @@
 """The scoped teardown preserves recovery authority and unrelated installations."""
 
 import json
+import shutil
 import subprocess
 
 import pytest
@@ -14,7 +15,7 @@ from runtime.api.cli.self_host_teardown_test_support import (  # noqa: F401
     seed_connection,
     target,
 )
-from yoke_cli.config import machine_uninstall_steps, writer
+from yoke_cli.config import machine_uninstall, machine_uninstall_steps, writer
 from yoke_cli.config.machine_uninstall_inventory import UninstallError, remove_home_except_bundle
 from yoke_cli.self_host import bundle, teardown
 
@@ -197,3 +198,105 @@ def test_failed_machine_handoff_keeps_bundle_for_retry(
 
     assert calls[-1] == ("docker", "compose", "down")
     assert (target / bundle.COMPOSE_FILE_NAME).is_file()
+
+
+@pytest.fixture()
+def place_bundle(target, machine_home):
+    """Move the initialized bundle to a path inside the machine home."""
+
+    def place(relative: str):
+        moved = machine_home / relative
+        moved.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(target), str(moved))
+        return moved
+
+    return place
+
+
+@pytest.fixture()
+def last_connection(target, installed, machine_home, monkeypatch):
+    """Leave one connection and uninstall the machine around the kept bundle."""
+    config, _, _ = installed
+    writer.remove_connection("cloud", path=config)
+
+    def finish(*, config, keep_bundle, emit):
+        if keep_bundle.is_relative_to(machine_home.resolve()):
+            remove_home_except_bundle(machine_home, keep_bundle)
+        emit("machine home: done")
+        return 0
+
+    monkeypatch.setattr(machine_uninstall, "after_self_host_teardown", finish)
+    return config
+
+
+@pytest.mark.parametrize("relative", ["yoke-server", "servers/local"])
+def test_last_connection_bundle_removal_removes_emptied_home(
+    last_connection, machine_home, place_bundle, relative
+):
+    moved = place_bundle(relative)
+
+    report = teardown.tear_down(
+        directory=str(moved), config_path=str(last_connection), remove_bundle=True
+    )
+
+    assert report["machine_uninstall"] == ["machine home: done"]
+    assert report["bundle_files_retained"] == []
+    assert not machine_home.exists()
+
+
+def test_last_connection_without_bundle_removal_keeps_home_and_bundle(
+    last_connection, machine_home, place_bundle
+):
+    moved = place_bundle("yoke-server")
+
+    teardown.tear_down(directory=str(moved), config_path=str(last_connection))
+
+    assert machine_home.is_dir()
+    assert (moved / bundle.COMPOSE_FILE_NAME).is_file()
+
+
+def test_scoped_bundle_removal_leaves_machine_home(
+    target, installed, machine_home, place_bundle
+):
+    config, _, _ = installed
+    moved = place_bundle("yoke-server")
+
+    report = teardown.tear_down(
+        directory=str(moved),
+        config_path=str(config),
+        activate="cloud",
+        remove_bundle=True,
+    )
+
+    assert report["machine_uninstall"] == []
+    assert not moved.exists()
+    assert config.is_file()
+    assert set(payload(machine_home)["connections"]) == {"cloud"}
+
+
+def test_operator_file_keeps_bundle_and_home(
+    last_connection, machine_home, place_bundle
+):
+    moved = place_bundle("yoke-server")
+    operator_file = moved / "notes.txt"
+    operator_file.write_text("mine\n", encoding="utf-8")
+
+    report = teardown.tear_down(
+        directory=str(moved), config_path=str(last_connection), remove_bundle=True
+    )
+
+    assert report["bundle_files_retained"] == [str(operator_file.resolve())]
+    assert operator_file.is_file()
+    assert machine_home.is_dir()
+
+
+def test_bundle_outside_home_leaves_parent_and_home(
+    target, last_connection, machine_home
+):
+    teardown.tear_down(
+        directory=str(target), config_path=str(last_connection), remove_bundle=True
+    )
+
+    assert not target.exists()
+    assert target.parent.is_dir()
+    assert machine_home.is_dir()

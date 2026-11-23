@@ -111,8 +111,9 @@ def tear_down(
     for image in images:
         removed = _remove_image(docker, target, image)
         report["images_removed" if removed else "images_retained"].append(image)
+    from yoke_contracts.machine_config import reader as machine_config
+
     if not keep_connection:
-        from yoke_contracts.machine_config import reader as machine_config
         from yoke_cli.self_host.teardown_installation import finish_machine
 
         try:
@@ -125,7 +126,8 @@ def tear_down(
                 "Repair the reported step and retry self-host teardown."
             ) from exc
     if remove_bundle:
-        _remove_bundle_files(target, report)
+        home = machine_config.yoke_home().expanduser().resolve()
+        _remove_bundle_files(target, report, home if report["machine_uninstall"] else None)
     return report
 
 
@@ -170,12 +172,15 @@ def _remove_image(executable: str, target: Path, image: str) -> bool:
     return result.returncode == 0
 
 
-def _remove_bundle_files(target: Path, report: dict[str, Any]) -> None:
+def _remove_bundle_files(
+    target: Path, report: dict[str, Any], machine_home: Path | None
+) -> None:
     """Delete the files the bundle writer owns, and nothing else.
 
     Each protected file carries a sibling advisory lock the atomic writer
     created; leaving those behind is what keeps an otherwise emptied
-    ``secrets/`` directory alive.
+    ``secrets/`` directory alive. ``machine_home`` is set only after a full
+    machine uninstall, whose kept bundle was all that held the home open.
     """
     secrets_dir = target / bundle.SECRETS_DIR_NAME
     written = [
@@ -201,7 +206,11 @@ def _remove_bundle_files(target: Path, report: dict[str, Any]) -> None:
             report["bundle_files_retained"].extend(
                 str(directory / name) for name in remaining
             )
-            break
+            return
+    if machine_home is not None:
+        from yoke_cli.self_host.teardown_installation import remove_emptied_home
+
+        remove_emptied_home(target, machine_home)
 
 
 def _bundle_connections(
