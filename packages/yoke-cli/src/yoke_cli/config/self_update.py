@@ -21,9 +21,11 @@ from typing import Any, Mapping
 from yoke_contracts.machine_config import distribution
 from yoke_cli.config import github_repo_helper_reconnect, install_binding
 from yoke_cli.self_host import release_target
-from yoke_cli.config import project_update, relay_service_upkeep
+from yoke_cli.config import project_update, relay_service_upkeep, scheduled_install
 from yoke_contracts.project_contract.install_error import ProjectInstallError
 from yoke_contracts.engine_version import compare_engine_versions
+from yoke_contracts.refusal_recovery import compose_refusal
+from yoke_contracts.windows_one_shot_task import OneShotRefused
 
 VERSION_PROBE_TIMEOUT_SECONDS = 30.0
 _RUN = subprocess.run
@@ -40,6 +42,12 @@ _INSTALLER_OWNED_REPAIR: dict[str, Any] = {
 
 class SelfUpdateError(RuntimeError):
     """A safe, named ``yoke update`` refusal or failure."""
+
+
+class ScheduledInstallRefused(SelfUpdateError):
+    """The desktop-session install failed; the text carries its own recovery."""
+
+    code = "windows_scheduled_install_failed"
 
 
 def run_update(
@@ -157,6 +165,10 @@ def install_release(
         completed = release_target.run_installer(target, installer_bytes, env=env)
     except distribution_target.ReleaseTargetError as exc:
         raise SelfUpdateError(str(exc)) from exc
+    if completed.returncode != 0 and scheduled_install.blocked_by_redirection_guard(
+        completed
+    ):
+        return _install_from_desktop(target, installer_bytes, yoke_bin, env)
     if completed.returncode != 0:
         # Covers every installer-owned failure, credential-helper repair
         # included: the installer raises the same way a product-boundary
@@ -174,6 +186,52 @@ def install_release(
             f"{target.version!r}"
         )
     return new_version
+
+
+def _install_from_desktop(
+    target: release_target.ReleaseTarget,
+    installer_bytes: bytes,
+    yoke_bin: str,
+    env: Mapping[str, str] | None,
+) -> str:
+    """Rerun the installer in the desktop session; return the verified version."""
+    try:
+        result = scheduled_install.run_installer(target, installer_bytes, env=env)
+    except OneShotRefused as exc:
+        raise _scheduled_refusal(target, str(exc), exc.log_tail) from exc
+    if result.exit_code != 0:
+        raise _scheduled_refusal(
+            target, f"the installer exited {result.exit_code}", result.log_tail
+        )
+    try:
+        new_version = _probe_version(yoke_bin, env)
+    except (SelfUpdateError, OSError, subprocess.SubprocessError) as exc:
+        raise _scheduled_refusal(target, str(exc), result.log_tail) from exc
+    if new_version != target.version:
+        raise _scheduled_refusal(
+            target,
+            f"the freshly installed `yoke --version` reports {new_version!r}",
+            result.log_tail,
+        )
+    return new_version
+
+
+def _scheduled_refusal(
+    target: release_target.ReleaseTarget, detail: str, log_tail: str
+) -> ScheduledInstallRefused:
+    output = f" Installer output: {log_tail}" if log_tail else ""
+    return ScheduledInstallRefused(
+        compose_refusal(
+            f"{ScheduledInstallRefused.code}: could not install Yoke "
+            f"{target.version} through this machine's desktop session: "
+            f"{detail}.{output}",
+            recovery=(
+                "sign in at this machine's desktop, run "
+                f"`yoke update --version {target.version}` in PowerShell, "
+                "then rerun setup"
+            ),
+        )
+    )
 
 
 def _with_project_refresh(yoke_bin: str, result: dict[str, Any]) -> dict[str, Any]:
@@ -228,4 +286,10 @@ def _probe_version(yoke_bin: str, env: Mapping[str, str] | None = None) -> str:
     return completed.stdout.strip()
 
 
-__all__ = ["SelfUpdateError", "install_release", "resolve_target", "run_update"]
+__all__ = [
+    "ScheduledInstallRefused",
+    "SelfUpdateError",
+    "install_release",
+    "resolve_target",
+    "run_update",
+]

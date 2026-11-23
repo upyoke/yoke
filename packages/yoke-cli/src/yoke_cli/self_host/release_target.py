@@ -167,6 +167,25 @@ def installed_cli_version() -> str | None:
     return (completed.stdout.strip() or None) if completed.returncode == 0 else None
 
 
+def installer_command(
+    target: ReleaseTarget, path: str, *, extra_args: tuple[str, ...] = ()
+) -> tuple[str, ...]:
+    """The argv that runs the installer at *path*, pinned to *target*."""
+    return (
+        sys.executable,
+        path,
+        "--version",
+        target.version,
+        "--yes",
+        "--no-setup",
+        "--base-url",
+        target.base_url,
+        "--channel",
+        target.channel or DEFAULT_RELEASE_CHANNEL,
+        *extra_args,
+    )
+
+
 def run_installer(
     target: ReleaseTarget,
     installer_bytes: bytes,
@@ -187,21 +206,8 @@ def run_installer(
         ) as handle:
             handle.write(installer_bytes)
             path = handle.name
-        command = (
-            sys.executable,
-            path,
-            "--version",
-            target.version,
-            "--yes",
-            "--no-setup",
-            "--base-url",
-            target.base_url,
-            "--channel",
-            target.channel or DEFAULT_RELEASE_CHANNEL,
-            *extra_args,
-        )
         return _RUN(
-            command,
+            installer_command(target, path, extra_args=extra_args),
             check=False,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -317,5 +323,6 @@ __all__ = [
     "current_release_target",
     "fetch_installer",
     "fetch_json",
+    "installer_command",
     "run_installer",
 ]

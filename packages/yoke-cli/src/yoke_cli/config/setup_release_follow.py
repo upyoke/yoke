@@ -74,6 +74,8 @@ def install_exact(version: str) -> str:
         raise FollowBlocked("the `yoke` executable is not on PATH")
     try:
         self_update.install_release(self_update.resolve_target(version=version), yoke_bin)
+    except self_update.ScheduledInstallRefused:
+        raise  # it carries its own recovery
     except self_update.SelfUpdateError as exc:
         raise FollowBlocked(str(exc)) from exc
     return yoke_bin
@@ -90,6 +92,8 @@ def install_served(
         raise ProjectInstallError(mismatch.refusal(cause)) from mismatch
     try:
         yoke_bin = install_exact(mismatch.target)
+    except self_update.ScheduledInstallRefused as exc:
+        raise ProjectInstallError(str(exc)) from exc
     except FollowBlocked as exc:
         raise ProjectInstallError(mismatch.refusal(str(exc))) from exc
     return ReleaseFollowed(run_id, mismatch.running, mismatch.target, yoke_bin)

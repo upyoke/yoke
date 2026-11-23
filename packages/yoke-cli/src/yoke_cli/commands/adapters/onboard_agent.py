@@ -199,6 +199,9 @@ def run(
         code = setup.run()
     except setup_release_follow.ReleaseFollowed:
         raise  # `yoke setup` resumes this run on the installed release
+    except setup_release_start.StartFollowRefused as exc:
+        responses.emit(responses.refused(exc.code, str(exc), None))
+        return responses.EXIT_CODES[responses.STATE_REFUSED]
     except KeyboardInterrupt:
         responses.emit(responses.interrupted())
         return responses.EXIT_CODES[responses.STATE_FAILED]

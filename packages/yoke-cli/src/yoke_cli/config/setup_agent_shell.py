@@ -25,6 +25,7 @@ from yoke_cli.config import onboard_wizard_apply_prompts as apply_prompts
 from yoke_cli.config import onboard_wizard_steps as steps
 from yoke_cli.config import setup_agent_answers as answers
 from yoke_cli.config import setup_agent_response as responses
+from yoke_cli.config.onboard_wizard_flow_machine_admission import raise_carried_follow
 from yoke_cli.config.onboard_wizard_flows import SETUP_FLOWS, init_setup_state
 from yoke_cli.config.onboard_wizard_state import CopyTarget, _View
 from yoke_cli.config.setup_agent_answering import REVIEW_KEY, AnswerFlow, SetupRefusal
@@ -35,6 +36,7 @@ from yoke_cli.config.setup_agent_approvals import (
 )
 from yoke_cli.config.setup_prompt import SetupHuman, SetupPrompt
 from yoke_cli.config.setup_release_follow import ReleaseFollowed
+from yoke_cli.config.setup_release_start import StartFollowRefused
 from yoke_cli.config.setup_run_facts import RunFacts
 
 
@@ -210,12 +212,11 @@ class AgentSetup(AgentShell, *SETUP_FLOWS):
                 step, self._next = self._next, None
                 current = self._history[-1].prompt if self._history else current
                 step()
-            if self.release_followed is not None:
-                raise self.release_followed
+            raise_carried_follow(self)
             if self._final is None:
                 self._finish_stopped()
-        except ReleaseFollowed:
-            raise  # `yoke setup` resumes this run on the installed release
+        except (ReleaseFollowed, StartFollowRefused):
+            raise  # `yoke setup` resumes on the release, or reports the refusal
         except SetupRefusal as refusal:
             if refusal.prompt is not None:
                 # The repeated question's printed answer must be the next one accepted.
