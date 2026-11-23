@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import importlib
 import json
 import urllib.parse
@@ -113,12 +114,15 @@ def download_universe(
                 )
             filename = _response_filename(response.headers.get("content-disposition"))
             target = _destination(out, filename)
-            written = _write_response(
+            written, sha256 = _write_response(
                 response,
                 target,
                 deadline=deadline,
                 max_bytes=max_bytes,
                 expected_bytes=declared,
+                declared_sha256=str(
+                    response.headers.get("x-yoke-universe-sha256") or ""
+                ).strip(),
             )
             return {
                 "artifact": str(target),
@@ -127,7 +131,7 @@ def download_universe(
                     response.headers.get("x-yoke-universe-format") or "universe-tar"
                 ),
                 "org": str(response.headers.get("x-yoke-universe-org") or ""),
-                "sha256": str(response.headers.get("x-yoke-universe-sha256") or ""),
+                "sha256": sha256,
                 "source": "self-host-https",
                 "artifacts": _artifact_summary(target),
             }
@@ -237,7 +241,8 @@ def _write_response(
     deadline: float,
     max_bytes: int,
     expected_bytes: int | None,
-) -> int:
+    declared_sha256: str,
+) -> tuple[int, str]:
     descriptor, temporary = create_owner_private_temporary(
         prefix=f".{target.name}.tmp-", suffix="", directory=target.parent
     )
@@ -255,10 +260,36 @@ def _write_response(
             raise UniverseExportDownloadError(
                 "the self-host archive length did not match its response header"
             )
+        with temporary.open("rb") as stream:
+            sha256 = hashlib.file_digest(stream, "sha256").hexdigest()
+        if (
+            declared_sha256
+            and declared_sha256 != sha256
+            and declared_sha256 != _receipt_payload_sha256(temporary)
+        ):
+            raise UniverseExportDownloadError(
+                "universe_export_checksum_mismatch: the downloaded archive's SHA-256 "
+                "did not match the server's X-Yoke-Universe-SHA256 header, so nothing "
+                "was saved; run `yoke universe export` again"
+            )
         os.replace(temporary, target)
-        return written
+        return written, sha256
     finally:
         temporary.unlink(missing_ok=True)
+
+
+def _receipt_payload_sha256(archive_path: Path) -> str | None:
+    """The dump hash a server older than the artifact-hash header still sends."""
+    try:
+        with tarfile.open(archive_path) as archive:
+            member = archive.getmember("freeze-receipt.json")
+            if not member.isfile() or member.size > MAX_ARTIFACT_MANIFEST_BYTES:
+                return None
+            with archive.extractfile(member) as stream:
+                receipt = json.load(stream)
+        return str(receipt["freeze_intent"]["archive"]["sha256"])
+    except (tarfile.TarError, KeyError, TypeError, ValueError):
+        return None
 
 
 def _content_length(value: Any) -> int | None:

@@ -12,6 +12,7 @@ import pytest
 from runtime.api.fixtures import pg_testdb
 from yoke_core.domain import db_backend, postgres_client_runtime, universe_archive
 from yoke_core.domain import universe_snapshot_archive as engine
+from yoke_core.domain.universe_portability_inspection import file_sha256
 
 
 @pytest.mark.parametrize("writers_stopped", [False, True])
@@ -95,12 +96,16 @@ def test_archive_receipt_matches_hosted_admission_fixture(
             writers_stopped=writers_stopped,
             include_artifacts=False,
         )
-    _, receipt = universe_archive.unpack_universe_archive(
+    assert (
+        report["sha256"]
+        == hashlib.sha256(Path(report["artifact"]).read_bytes()).hexdigest()
+    )
+    dump, receipt = universe_archive.unpack_universe_archive(
         Path(report["artifact"]), tmp_path / "hosted", max_dump_bytes=1 << 30
     )
     intent = SimpleNamespace(
         source_freeze_receipt=receipt["freeze_intent"],
-        archive_sha256=report["sha256"],
+        archive_sha256=file_sha256(dump),
         environment_capability_types={"aws-admin", "github"},
     )
     if writers_stopped:
@@ -121,7 +126,7 @@ def test_manifest_receipt_passes_hosted_admission(monkeypatch, tmp_path):
             out=tmp_path / "with-files.tar",
             writers_stopped=True,
         )
-    _, receipt = universe_archive.unpack_universe_archive(
+    dump, receipt = universe_archive.unpack_universe_archive(
         Path(report["artifact"]), tmp_path / "hosted", max_dump_bytes=1 << 30
     )
     assert receipt["freeze_intent"]["zero_writable_app_sessions"] is True
@@ -129,7 +134,7 @@ def test_manifest_receipt_passes_hosted_admission(monkeypatch, tmp_path):
     assert_hosted_receipt(
         SimpleNamespace(
             source_freeze_receipt=receipt["freeze_intent"],
-            archive_sha256=report["sha256"],
+            archive_sha256=file_sha256(dump),
             environment_capability_types={"aws-admin", "github"},
         )
     )

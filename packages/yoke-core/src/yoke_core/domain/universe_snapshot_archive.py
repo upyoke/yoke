@@ -18,6 +18,7 @@ from yoke_core.domain.universe_export_destination import (
     destination_unavailable,
     resolve_export_destination,
 )
+from yoke_core.domain.universe_portability_inspection import file_sha256
 
 from yoke_contracts.owner_private_path import write_owner_private
 
@@ -105,6 +106,7 @@ def snapshot_archive(
                 artifact_files=files,
                 **({"max_bytes": max_bytes} if max_bytes is not None else {}),
             )
+            artifact_sha256 = file_sha256(dest)
         except universe_archive.UniverseArchiveError as exc:
             raise UniverseExportError(str(exc)) from exc
     except OSError as exc:
@@ -140,7 +142,7 @@ def snapshot_archive(
         "bytes": artifact_bytes,
         "format": ARTIFACT_FORMAT,
         "org": selected_org,
-        "sha256": inspection.archive_sha256,
+        "sha256": artifact_sha256,
         "artifacts": {
             "included": len(files),
             "missing": len(missing_keys),

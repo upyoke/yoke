@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 from pathlib import Path
 
 from fastapi import Request
@@ -87,7 +88,7 @@ def test_route_exports_server_authority_and_cleans_up(tmp_path, monkeypatch):
             "artifact": str(artifact),
             "format": "universe-tar",
             "org": "acme",
-            "sha256": "b" * 64,
+            "sha256": hashlib.sha256(b"archive").hexdigest(),
         }
 
     monkeypatch.setattr(route.universe_export, "export_universe", export_universe)
@@ -95,7 +96,11 @@ def test_route_exports_server_authority_and_cleans_up(tmp_path, monkeypatch):
     assert isinstance(response, FileResponse)
     assert response.headers["cache-control"] == "no-store"
     assert response.headers["x-yoke-universe-org"] == "acme"
-    assert Path(response.path).read_bytes() == b"archive"
+    served = Path(response.path).read_bytes()
+    assert served == b"archive"
+    assert response.headers["x-yoke-universe-sha256"] == (
+        hashlib.sha256(served).hexdigest()
+    )
     asyncio.run(response.background())
     assert not (tmp_path / "export").exists()
 

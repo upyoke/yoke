@@ -111,8 +111,8 @@ def export_universe(
     existing directory stays a directory; any other path is the target
     file. Directory targets get the default filename, which embeds the
     org slug and a UTC timestamp. Returns a payload naming the artifact
-    path, size, org slug, archive format, and the dump payload's SHA-256
-    (also recorded inside the artifact's freeze receipt).
+    path, size, org slug, archive format, and the SHA-256 of the artifact
+    file. The dump payload's own hash stays in the freeze receipt.
     """
     from yoke_core.domain.universe_snapshot_archive import snapshot_archive
 
