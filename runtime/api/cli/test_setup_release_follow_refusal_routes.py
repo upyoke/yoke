@@ -131,3 +131,58 @@ def test_scheduled_refusal_keeps_its_recovery_through_the_start_follow(monkeypat
         start.follow_after_sign_in("https://a")
     assert caught.value.code == CODE and str(caught.value) == text
     assert "yoke update`" not in str(caught.value)
+
+
+class SavedConnectionShell(admission.MachineAdmissionChoiceFlow):
+    """Runs the check inline, the way agent mode does."""
+
+    def __init__(self):
+        self.result = SimpleNamespace(api_url="https://a", project_mode=None)
+        self.release_followed = None
+        self.follow_refused = None
+        self.exited = False
+        self.routed = []
+        self._history = ["picker"]
+
+    def exit(self):
+        self.exited = True
+
+    def _run_checking(self, *, work, on_success, on_error, **_kwargs):
+        try:
+            result = work()
+        except Exception as exc:  # noqa: BLE001 - mirrors the shell's error route
+            on_error(exc)
+            return
+        on_success(result)
+
+    def choose_saved(self):
+        self._follow_saved_connection(lambda: self.routed.append("next"))
+
+
+def test_saved_connection_on_the_served_release_continues(monkeypatch):
+    seen = []
+    monkeypatch.setattr(start, "follow_after_sign_in", lambda url: seen.append(url))
+    shell = SavedConnectionShell()
+    shell.choose_saved()
+    assert seen == ["https://a"]
+    assert shell.routed == ["next"] and not shell.exited and shell._history == ["picker"]
+
+
+def test_saved_connection_on_another_release_follows_it(monkeypatch):
+    followed = follow.ReleaseFollowed("", "0.2.0.1", "0.2.0.2", "yoke", server="https://a")
+    monkeypatch.setattr(start, "follow_after_sign_in", lambda _url: followed)
+    shell = SavedConnectionShell()
+    shell.choose_saved()
+    assert shell.release_followed is followed and shell.exited and shell.routed == []
+
+
+def test_saved_connection_install_refusal_exits_as_itself(monkeypatch):
+    def refuse(_url):
+        raise REFUSAL
+
+    monkeypatch.setattr(start, "follow_after_sign_in", refuse)
+    shell = SavedConnectionShell()
+    shell.choose_saved()
+    assert shell.follow_refused is REFUSAL and shell.exited and shell.routed == []
+    with pytest.raises(start.StartFollowRefused):
+        admission.raise_carried_follow(shell)
