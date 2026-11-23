@@ -22,7 +22,14 @@ MAC_KEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMacHostKey"
 MAC_FINGERPRINT = "SHA256:" + "K" * 43
 
 
-def fake_hop(monkeypatch, *, ssh_rc: int = 0, ssh_stderr: str = "") -> list:
+def fake_hop(
+    monkeypatch,
+    *,
+    ssh_rc: int = 0,
+    ssh_stderr: str = "",
+    probe_rc: int = 0,
+    probe_stderr: str = "",
+) -> list:
     """Replace ssh-keygen, ssh-keyscan and ssh; return the recorded calls."""
     calls: list = []
 
@@ -44,6 +51,9 @@ def fake_hop(monkeypatch, *, ssh_rc: int = 0, ssh_stderr: str = "") -> list:
                 f"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOperator {argv[argv.index('-C') + 1]}\n"
             )
             return subprocess.CompletedProcess(argv, 0, "", "")
+        if argv[-1] == "probe":
+            out = "ok\n" if probe_rc == 0 else ""
+            return subprocess.CompletedProcess(argv, probe_rc, out, probe_stderr)
         stdout = f"noise\n{hop.HOST_KEY_MARK}{HOST_KEY} root@vm\n" if ssh_rc == 0 else ""
         return subprocess.CompletedProcess(argv, ssh_rc, stdout, ssh_stderr)
 
@@ -57,7 +67,6 @@ def _env(**overrides) -> SimpleNamespace:
         env_name="prod",
         ssh_user="ubuntu",
         mac_host="testy@mac-mini",
-        mac_host_ssh_key_path="~/.ssh/operator_rsa",
         mac_host_key_fingerprint=MAC_FINGERPRINT,
     )
     values.update(overrides)
@@ -81,24 +90,26 @@ def test_ensure_creates_key_authorizes_pins_and_writes_config(home, monkeypatch)
     assert is_owner_private_file(key)
     keygen = calls[0]
     assert keygen[0][:4] == ["ssh-keygen", "-q", "-t", "ed25519"]
-    assert calls[1][0][:2] == ["ssh-keyscan", "-T"] and calls[1][0][-1] == "mac-mini"
+    assert calls[1][0][:4] == ["ssh-keygen", "-q", "-t", "ed25519"], "the Mac-host key"
+    assert calls[2][0][:2] == ["ssh-keyscan", "-T"] and calls[2][0][-1] == "mac-mini"
     argv, kwargs = calls[-1]
     assert argv[:3] == ["ssh", "-F", str(home / "ssh" / "config")]
     assert argv[5] == "yoke-prod-mac-host"
-    assert "limactl" in argv[6] and "shell --workdir / yoke-prod sh -s" in argv[6]
-    script = kwargs["input"]
-    assert "U=ubuntu" in script
-    assert "K='ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOperator'\n" in script, "comment dropped"
-    assert 'awk -v k="$K"' in script and "END{exit (f==0)}" in script
-    assert "/etc/ssh/ssh_host_ed25519_key.pub" in script
-    assert "PRIVATE KEY" not in script
+    assert argv[6:] == ["authorize"]
+    assert kwargs["input"] == "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOperator\n", "comment dropped"
+    mac_key = home / "secrets" / "platform-prod-mac-host-ssh-key"
+    assert is_owner_private_file(mac_key)
+    assert report["mac_host_key"].endswith("platform-prod-mac-host-ssh-key")
+    assert not any(".ssh/" in part for call, _ in calls for part in call)
+    comments = [c[c.index("-C") + 1] for c, _ in calls if c[:2] == ["ssh-keygen", "-q"]]
+    assert comments[1].startswith("yoke-platform-prod-mac-host@")
 
     known = (home / "ssh" / "known_hosts").read_text()
     assert known == f"yoke-prod-mac-host {MAC_KEY}\nyoke-prod-mini-vm {HOST_KEY}\n"
     config = (home / "ssh" / "config").read_text()
     mac_block = (
         "Host yoke-prod-mac-host\n  HostName mac-mini\n  User testy\n"
-        f'  IdentityFile "{Path("~/.ssh/operator_rsa").expanduser().as_posix()}"\n'
+        f'  IdentityFile "{mac_key.as_posix()}"\n'
         "  IdentitiesOnly yes\n  HostKeyAlias yoke-prod-mac-host\n"
     )
     assert mac_block in config
@@ -109,9 +120,8 @@ def test_ensure_creates_key_authorizes_pins_and_writes_config(home, monkeypatch)
     assert "StrictHostKeyChecking yes" in config
     argv = ["ssh", "-F", str(home / "ssh" / "config"), "yoke-prod-mac-host"]
     prefix = subprocess.list2cmdline(argv) if os.name == "nt" else shlex.join(argv)
-    assert f"ProxyCommand {prefix} " in config
-    assert "list yoke-prod --format " in config and "{{.SSHLocalPort}}" in config
-    assert "lima-*/bin/limactl" in config
+    assert f"ProxyCommand {prefix} connect\n" in f"{config}\n"
+    assert "limactl" not in config
     assert is_owner_private_file(home / "ssh" / "config")
 
 
@@ -165,7 +175,6 @@ def test_failed_authorization_refuses_without_writing(home, monkeypatch) -> None
         ({"mac_host": ""}, "box_mac_host_missing"),
         ({"mac_host": "testy@mac mini; rm"}, "box_mac_host_invalid"),
         ({"mac_host": "mac-mini"}, "box_mac_host_invalid"),
-        ({"mac_host_ssh_key_path": ""}, "box_mac_host_ssh_key_path_missing"),
         ({"mac_host_key_fingerprint": ""}, "box_mac_host_key_fingerprint_missing"),
         ({"mac_host_key_fingerprint": "abc"}, "box_mac_host_key_fingerprint_invalid"),
     ],
@@ -207,8 +216,7 @@ def test_existing_custody_key_with_a_multi_word_comment_is_reused(home, monkeypa
 
     assert report["operator_key_created"] is False
     assert key.read_text() == "PRIVATE KEY\n", "the custody key is never replaced"
-    script = calls[-1][1]["input"]
-    assert "K='ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICustody'\n" in script
+    assert calls[-1][1]["input"] == "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICustody\n"
 
 
 def test_public_key_that_is_not_ed25519_refuses_without_moving_the_key(home, monkeypatch) -> None:
@@ -225,3 +233,89 @@ def test_public_key_that_is_not_ed25519_refuses_without_moving_the_key(home, mon
     assert "ssh-keygen -y -f" in str(excinfo.value)
     assert "aside" not in str(excinfo.value)
     assert key.exists() and not any(argv[0] == "ssh" for argv, _ in calls)
+
+
+@pytest.mark.parametrize(
+    ("rc", "stderr", "code"),
+    [
+        (255, "testy@mac-mini: Permission denied (publickey).", "box_mac_host_key_unauthorized"),
+        (255, "ssh: connect to host mac-mini: timed out", "box_mac_host_unreachable"),
+        (2, "refused", "box_mac_host_command_missing"),
+    ],
+)
+def test_probe_refusal_leaves_the_ssh_config_byte_identical(
+    home, monkeypatch, rc, stderr, code
+) -> None:
+    config = home / "ssh" / "config"
+    config.parent.mkdir(mode=0o700)
+    config.write_bytes(b"Host working-route\n  HostName kept\n")
+    calls = fake_hop(monkeypatch, probe_rc=rc, probe_stderr=stderr)
+
+    with pytest.raises(DbAdminSetupError) as excinfo:
+        hop.ensure(_env())
+
+    assert str(excinfo.value).startswith(code)
+    if code == "box_mac_host_key_unauthorized":
+        assert "platform-prod-mac-host-ssh-key.pub" in str(excinfo.value)
+        assert "testy@mac-mini" in str(excinfo.value)
+    assert config.read_bytes() == b"Host working-route\n  HostName kept\n"
+    assert calls[-1][0][-1] == "probe", "nothing runs after a refused probe"
+
+
+def test_probe_uses_only_the_yoke_key_and_pinned_host(home, monkeypatch) -> None:
+    calls = fake_hop(monkeypatch)
+
+    hop.ensure(_env())
+
+    argv = next(call for call, _ in calls if call[-1] == "probe")
+    assert argv[argv.index("-i") + 1] == str(home / "secrets" / "platform-prod-mac-host-ssh-key")
+    for option in (
+        "IdentitiesOnly=yes",
+        "HostKeyAlias=yoke-prod-mac-host",
+        f"UserKnownHostsFile={home / 'ssh' / 'known_hosts'}",
+        "StrictHostKeyChecking=yes",
+        "BatchMode=yes",
+    ):
+        assert option in argv
+    assert argv[-2:] == ["testy@mac-mini", "probe"]
+
+
+def test_existing_mac_host_key_is_reused(home, monkeypatch) -> None:
+    calls = fake_hop(monkeypatch)
+    key = home / "secrets" / "platform-prod-mac-host-ssh-key"
+    key.parent.mkdir(mode=0o700, parents=True)
+    key.write_text("MAC PRIVATE\n")
+    key.chmod(0o600)
+    Path(f"{key}.pub").write_text("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMacKey any comment\n")
+
+    hop.ensure(_env())
+
+    assert key.read_text() == "MAC PRIVATE\n"
+    created = [c[c.index("-f") + 1] for c, _ in calls if c[:2] == ["ssh-keygen", "-q"]]
+    assert str(key) not in created
+
+
+def test_mac_host_public_key_that_is_not_ed25519_refuses(home, monkeypatch) -> None:
+    calls = fake_hop(monkeypatch)
+    key = home / "secrets" / "platform-prod-mac-host-ssh-key"
+    key.parent.mkdir(mode=0o700, parents=True)
+    key.write_text("MAC PRIVATE\n")
+    Path(f"{key}.pub").write_text("ssh-rsa AAAAB3Nza\n")
+
+    with pytest.raises(DbAdminSetupError) as excinfo:
+        hop.ensure(_env())
+
+    assert str(excinfo.value).startswith("mac_host_key_invalid")
+    assert not any(argv[0] == "ssh" for argv, _ in calls)
+
+
+def test_vm_user_other_than_ubuntu_refuses_before_any_change(home, monkeypatch) -> None:
+    calls = fake_hop(monkeypatch)
+
+    with pytest.raises(DbAdminSetupError) as excinfo:
+        hop.ensure(_env(ssh_user="deploy"))
+
+    assert str(excinfo.value).startswith("box_ssh_user_unsupported")
+    assert "ubuntu" in str(excinfo.value)
+    assert calls == []
+    assert list(home.iterdir()) == []

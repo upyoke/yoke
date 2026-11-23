@@ -6,14 +6,14 @@ public relay, not that VM, so the profile tunnels through a Yoke-owned ssh
 config instead: ``~/.yoke/ssh/config`` holds a ``yoke-<env>-box`` alias whose
 ProxyCommand logs in to the Mac host through the file's own
 ``yoke-<env>-mac-host`` stanza (:mod:`yoke_cli.config.db_admin_box_mac_host`)
-and connects ``nc`` to the VM's ssh port, which Lima picks anew at each VM start
-and so is looked up on every connect.
+with a per-machine Yoke key. The host binds that key to a forced command that
+runs only the verbs ``probe``, ``connect`` and ``authorize``.
 
-:func:`ensure` makes the hop work from this machine: it creates the operator
-key when the machine has none, authorizes it for the VM user over the Mac
-host's ``limactl shell``, pins the VM's host key read through that same
-authenticated shell (never trust on first use), and writes the alias. It
-never touches ``~/.ssh``.
+:func:`ensure` makes the hop work from this machine: it creates both keys when
+missing, proves the Mac-host key with ``probe`` before changing the ssh config,
+has ``authorize`` add the operator key for the VM's ``ubuntu`` user and return
+the VM's host key (never trust on first use), and writes the alias. It never
+touches ``~/.ssh``.
 """
 
 from __future__ import annotations
@@ -21,6 +21,7 @@ from __future__ import annotations
 import os
 import re
 import shlex
+import socket
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -36,9 +37,9 @@ from yoke_cli.config.db_admin_setup_report import _path_ref
 SSH_DIR_NAME = "ssh"
 REMOTE_TIMEOUT_SECONDS = 120
 HOST_KEY_MARK = "@@yoke-box-host-key@@ "
-# Same place ops/mac-host/install.sh keeps its VMs and pinned limactl.
-LIMACTL = 'L=$(ls -d "$HOME"/yoke-boxes/lima-*/bin/limactl | tail -1)'
-LIMA_HOME = 'LIMA_HOME="$HOME/yoke-boxes/lima"'
+# What the client sends must equal what the host's forced command accepts.
+VERB_CONNECT = "connect"
+VERB_AUTHORIZE = "authorize"
 # Type and key only; the comment may be anything (a custody key's often is).
 _PUBLIC_KEY = re.compile(r"^(ssh-ed25519 [A-Za-z0-9+/]+={0,2})(?:\s.*)?$")
 _HOST_KEY = re.compile(r"^ssh-ed25519 [A-Za-z0-9+/=]+")
@@ -80,12 +81,8 @@ def mac_host(env: Any) -> str:
 
 
 def proxy_command(env: Any) -> str:
-    """ssh to the Mac host's Yoke alias, then nc to the VM's current Lima port."""
-    lookup = (
-        f'{LIMACTL}; exec nc 127.0.0.1 "$({LIMA_HOME} "$L" list '
-        f'{vm_name(env.env_name)} --format "{{{{.SSHLocalPort}}}}")"'
-    )
-    return _mac_ssh(env, lookup)
+    """ssh to the Mac host's Yoke alias; its forced command connects to the VM."""
+    return _mac_ssh(env, VERB_CONNECT)
 
 
 def _mac_ssh(env: Any, remote: str) -> str:
@@ -105,10 +102,12 @@ def tunnel_fields(env: Any) -> dict[str, str]:
 def plan_steps(env: Any) -> list[dict[str, str]]:
     return [
         {"action": "ensure-box-operator-key", "target": _path_ref(key_path(env))},
+        {"action": "ensure-mac-host-key", "target": _path_ref(mac_leg.key_path(env))},
         {
             "action": "pin-mac-host-key",
             "target": f"{mac_host(env)} {mac_leg.fingerprint(env)}",
         },
+        {"action": "probe-mac-host-key", "target": mac_host(env)},
         {
             "action": "authorize-box-operator-key",
             "target": f"{mac_host(env)} {vm_name(env.env_name)} {env.ssh_user}",
@@ -123,19 +122,15 @@ def ensure(env: Any) -> dict[str, Any]:
     mac_leg.check_settings(env)
     host = mac_host(env)
     key = key_path(env)
-    created = _ensure_key(env, key)
-    found = _PUBLIC_KEY.match(_public_key(key))
-    if found is None:
-        raise DbAdminSetupError(
-            f"box_operator_key_invalid: {_path_ref(Path(f'{key}.pub'))} does "
-            "not start with an ssh-ed25519 type and key; restore that public "
-            f"half from the private key (`ssh-keygen -y -f {_path_ref(key)}`), "
-            "then rerun"
-        )
-    public = found.group(1)
+    created = _ensure_key(key, "box_operator", f"yoke-{env.env_name}-operator-box-key")
+    public = _checked_public_key(key, "box_operator")
+    mac_key_file = mac_leg.key_path(env)
+    _ensure_key(mac_key_file, "mac_host", _mac_key_comment(env))
+    _checked_public_key(mac_key_file, "mac_host")
     mac_key = mac_leg.pinned_host_key(env, _run)
     create_private_directory(ssh_dir())
     _upsert_known_host(mac_leg.alias(env.env_name), mac_key)
+    mac_leg.probe(env, str(known_hosts_path()), _run)
     _upsert_host_blocks(env)
     host_key = _authorize_and_read_host_key(env, host, public)
     _upsert_known_host(host_key_alias(env.env_name), host_key)
@@ -146,6 +141,7 @@ def ensure(env: Any) -> dict[str, Any]:
         "mac_host_alias": mac_leg.alias(env.env_name),
         "operator_key": _path_ref(key),
         "operator_key_created": created,
+        "mac_host_key": _path_ref(mac_key_file),
         "host_key_alias": host_key_alias(env.env_name),
     }
 
@@ -154,17 +150,21 @@ def _run(argv: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
     return subprocess.run(argv, capture_output=True, text=True, check=False, **kwargs)
 
 
-def _ensure_key(env: Any, key: Path) -> bool:
+def _mac_key_comment(env: Any) -> str:
+    machine = socket.gethostname().split(".", 1)[0]
+    return f"yoke-{env.project}-{env.env_name}-mac-host@{machine}"
+
+
+def _ensure_key(key: Path, label: str, comment: str) -> bool:
     if key.exists():
         return False
     machine_secrets.secrets_dir()
-    comment = f"yoke-{env.env_name}-operator-box-key"
     result = _run(
         ["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-C", comment, "-f", str(key)]
     )
     if result.returncode != 0 or not key.exists():
         raise DbAdminSetupError(
-            f"box_operator_key_create_failed: ssh-keygen could not create "
+            f"{label}_key_create_failed: ssh-keygen could not create "
             f"{_path_ref(key)} (rc={result.returncode}): "
             f"{(result.stderr or '').strip()}; fix ssh-keygen, then rerun"
         )
@@ -174,7 +174,20 @@ def _ensure_key(env: Any, key: Path) -> bool:
     return True
 
 
-def _public_key(key: Path) -> str:
+def _checked_public_key(key: Path, label: str) -> str:
+    """The key's bare ``ssh-ed25519 <key>``, or a refusal naming the ``.pub``."""
+    found = _PUBLIC_KEY.match(_public_key(key, label))
+    if found is None:
+        raise DbAdminSetupError(
+            f"{label}_key_invalid: {_path_ref(Path(f'{key}.pub'))} does "
+            "not start with an ssh-ed25519 type and key; restore that public "
+            f"half from the private key (`ssh-keygen -y -f {_path_ref(key)}`), "
+            "then rerun"
+        )
+    return found.group(1)
+
+
+def _public_key(key: Path, label: str) -> str:
     """The key's public half: its ``.pub`` file, else derived from the key."""
     pub = Path(f"{key}.pub")
     if pub.exists():
@@ -182,7 +195,7 @@ def _public_key(key: Path) -> str:
     result = _run(["ssh-keygen", "-y", "-f", str(key)])
     if result.returncode != 0:
         raise DbAdminSetupError(
-            f"box_operator_key_unreadable: ssh-keygen could not read "
+            f"{label}_key_unreadable: ssh-keygen could not read "
             f"{_path_ref(key)} (rc={result.returncode}): "
             f"{(result.stderr or '').strip()}; move the key aside, then rerun so "
             "setup creates a new one"
@@ -190,42 +203,17 @@ def _public_key(key: Path) -> str:
     return result.stdout.strip()
 
 
-def _vm_script(user: str, public: str) -> str:
-    """Runs in the VM as the Lima user: authorize the key, print the host key."""
-    return "\n".join(
-        [
-            "set -eu",
-            f"U={shlex.quote(user)}",
-            f"K={shlex.quote(public)}",
-            'H=$(getent passwd "$U" | cut -d: -f6)',
-            '[ -n "$H" ] || { echo "VM user $U does not exist" >&2; exit 4; }',
-            'G=$(id -gn "$U")',
-            'sudo -n install -d -m 700 -o "$U" -g "$G" "$H/.ssh"',
-            'F="$H/.ssh/authorized_keys"',
-            'sudo -n touch "$F"',
-            # A line already carrying this type and key (any comment) counts.
-            'sudo -n awk -v k="$K" \'$1" "$2==k{f=1} END{exit (f==0)}\' "$F" '
-            '|| printf \'%s\\n\' "$K" | sudo -n tee -a "$F" >/dev/null',
-            'sudo -n chown "$U:$G" "$F"',
-            'sudo -n chmod 600 "$F"',
-            f'printf \'{HOST_KEY_MARK}%s\\n\' "$(cat /etc/ssh/ssh_host_ed25519_key.pub)"',
-            "",
-        ]
-    )
-
-
 def _authorize_and_read_host_key(env: Any, host: str, public: str) -> str:
     vm = vm_name(env.env_name)
-    remote = (
-        f"{LIMACTL}; export {LIMA_HOME}; "
-        f'exec "$L" --tty=false shell --workdir / {vm} sh -s'
-    )
     setting = f"servers[0].mac_host ({host}) of {env.project}/{env.env_name}"
     mac_alias = mac_leg.alias(env.env_name)
     try:
         result = _run(
-            ["ssh", "-F", str(config_path()), "-o", "ConnectTimeout=15", mac_alias, remote],
-            input=_vm_script(str(env.ssh_user), public),
+            [
+                "ssh", "-F", str(config_path()), "-o", "ConnectTimeout=15",
+                mac_alias, VERB_AUTHORIZE,
+            ],
+            input=f"{public}\n",
             timeout=REMOTE_TIMEOUT_SECONDS,
         )
     except subprocess.TimeoutExpired:
@@ -239,8 +227,8 @@ def _authorize_and_read_host_key(env: Any, host: str, public: str) -> str:
         raise DbAdminSetupError(
             f"box_mac_host_unreachable: could not ssh to {setting} through "
             f"{mac_alias} in {_path_ref(config_path())}: {detail}; check "
-            "servers[0].mac_host and servers[0].mac_host_ssh_key_path (the key "
-            "must be authorized on the Mac host), then rerun"
+            f"servers[0].mac_host and that {_path_ref(mac_leg.key_path(env))}.pub "
+            "is in the host's hop key list, then rerun"
         )
     found = [
         line[len(HOST_KEY_MARK):].strip()

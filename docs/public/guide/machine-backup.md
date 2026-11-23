@@ -54,16 +54,18 @@ place. Run the named Doctor command to inspect and repair restored connection he
 Run `yoke github connect` to authorize GitHub again, and use
 `yoke browser authorize --help` to sign into browser profiles again.
 
-Restore does not copy personal SSH keys from `~/.ssh`. If a database admin route
-reaches a Mac mini, re-enroll that login:
+A database admin route that reaches a Mac mini uses two Yoke keys in
+`~/.yoke/secrets`, `<project>-<env>-mac-host-ssh-key` and
+`<project>-<env>-box-operator-ssh-key`. They are backed up with that folder, and
+neither depends on `~/.ssh`. After a restore:
 
-1. Create or choose the login key and authorize it on the mini.
-2. If the key's path changed, record it:
-   `yoke projects environment-settings merge --project <project> --environment <env> --set servers.0.mac_host_ssh_key_path=<path>`.
-3. Rebuild the generated SSH settings for this home, passing the profile's existing port so it
+1. Rebuild the generated SSH settings for this home, passing the profile's existing port so it
    keeps its installed port:
    `yoke dev db-admin setup <env> --project <project> [--database <model>] --local-port <port> --yes`.
-4. Prove one read: `yoke --env <admin-env> db read "SELECT 1"`.
+2. On a new machine, setup creates a new Mac-host key and refuses
+   `box_mac_host_key_unauthorized`, naming its `.pub` file. Add that public key to the
+   host's hop key list, then rerun step 1.
+3. Prove one read: `yoke --env <admin-env> db read "SELECT 1"`.
 
 This folder protects machine configuration and credentials. Back up repositories,
 application data, and the Universe separately; see

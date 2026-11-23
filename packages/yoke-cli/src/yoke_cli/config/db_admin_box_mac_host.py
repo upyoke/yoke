@@ -1,19 +1,18 @@
 """The Mac-host leg of the box hop, defined in the Yoke-owned ssh config.
 
-The operator's plain ``ssh USER@HOST`` to the Mac host may not work (its host
-key may be pinned under another name, its key may not be a default identity),
-and nobody edits ``~/.ssh``. So setup writes a ``yoke-<env>-mac-host`` stanza
-into ``~/.yoke/ssh/config`` from three environment settings that sit together
-in ``environments.settings.servers[0]``:
+Nobody edits ``~/.ssh`` and a sandboxed agent cannot read it. So setup writes a
+``yoke-<env>-mac-host`` stanza into ``~/.yoke/ssh/config`` that logs in with a
+per-machine key, ``~/.yoke/secrets/<project>-<env>-mac-host-ssh-key``, from two
+environment settings in ``environments.settings.servers[0]``:
 
 - ``mac_host``: the ssh login, ``USER@HOST``;
-- ``mac_host_ssh_key_path``: the identity file that login uses;
 - ``mac_host_key_fingerprint``: the ``SHA256:...`` fingerprint of the Mac
   host's ssh host key.
 
 The host key is scanned and accepted only when its fingerprint equals the
 declared one, then pinned in ``~/.yoke/ssh/known_hosts`` under the stanza's
-``HostKeyAlias``; nothing is trusted on first use.
+``HostKeyAlias``; nothing is trusted on first use. The host authorizes the key
+for a forced command, and :func:`probe` proves that before the config changes.
 """
 
 from __future__ import annotations
@@ -25,9 +24,14 @@ import tempfile
 from pathlib import Path
 from typing import Any, Callable
 
+from yoke_contracts.machine_config import runtime as machine_config
+from yoke_contracts.machine_config import schema as contract
 from yoke_cli.config.db_admin_setup_errors import DbAdminSetupError
+from yoke_cli.config.db_admin_setup_report import _path_ref
 
 SCAN_TIMEOUT_SECONDS = 15
+PROBE_TIMEOUT_SECONDS = 30
+VM_USER = "ubuntu"
 _MAC_HOST = re.compile(r"^[A-Za-z0-9._-]+@[A-Za-z0-9._-]+$")
 _FINGERPRINT = re.compile(r"^SHA256:[A-Za-z0-9+/]{43}$")
 
@@ -72,10 +76,9 @@ def login(env: Any) -> tuple[str, str]:
     return user, host
 
 
-def key_path(env: Any) -> str:
-    return os.path.expanduser(
-        _required(env, "mac_host_ssh_key_path", "~/.ssh/KEY", None)
-    )
+def key_path(env: Any) -> Path:
+    name = f"{env.project}-{env.env_name}-mac-host-ssh-key"
+    return machine_config.yoke_home() / contract.SECRETS_DIR_NAME / name
 
 
 def fingerprint(env: Any) -> str:
@@ -85,8 +88,13 @@ def fingerprint(env: Any) -> str:
 def check_settings(env: Any) -> None:
     """Refuse before any change when a Mac-host setting is missing."""
     login(env)
-    key_path(env)
     fingerprint(env)
+    if env.ssh_user != VM_USER:
+        raise DbAdminSetupError(
+            f"box_ssh_user_unsupported: the ssh user of {env.project}/{env.env_name} "
+            f"is {env.ssh_user!r}, but the Mac-host hop supports only {VM_USER!r}, "
+            f"the Lima guest user; set servers[0].ssh_user to {VM_USER}, then rerun"
+        )
 
 
 def host_block(env: Any, known_hosts: str) -> str:
@@ -104,6 +112,49 @@ def host_block(env: Any, known_hosts: str) -> str:
             "  StrictHostKeyChecking yes",
             "  BatchMode yes",
         ]
+    )
+
+
+def probe(env: Any, known_hosts: str, run: Runner) -> None:
+    """Prove the host runs the hop's forced command for this key, or refuse."""
+    user, host = login(env)
+    key = key_path(env)
+    name = alias(env.env_name)
+    argv = [
+        "ssh", "-F", "none", "-o", "IdentitiesOnly=yes", "-i", str(key),
+        "-o", f"HostKeyAlias={name}", "-o", f"UserKnownHostsFile={known_hosts}",
+        "-o", "StrictHostKeyChecking=yes", "-o", "BatchMode=yes",
+        "-o", "ConnectTimeout=15", f"{user}@{host}", "probe",
+    ]
+    login_ref = f"{user}@{host}"
+    try:
+        result = run(argv, timeout=PROBE_TIMEOUT_SECONDS)
+    except subprocess.TimeoutExpired:
+        raise DbAdminSetupError(
+            f"box_mac_host_timeout: no answer from {login_ref} within "
+            f"{PROBE_TIMEOUT_SECONDS}s; check that the Mac host is up and "
+            "reachable, then rerun"
+        ) from None
+    detail = (result.stderr or "").strip()
+    if result.returncode == 0 and (result.stdout or "").strip() == "ok":
+        return
+    if result.returncode == 255 and "Permission denied" in detail:
+        raise DbAdminSetupError(
+            f"box_mac_host_key_unauthorized: {login_ref} does not accept this "
+            f"machine's key; add the public half {_path_ref(key)}.pub to the host's "
+            "hop key list, then rerun"
+        )
+    if result.returncode == 255:
+        raise DbAdminSetupError(
+            f"box_mac_host_unreachable: could not ssh to {login_ref} "
+            f"({_setting(env, 'mac_host')}): {detail}; check that the Mac host is "
+            "up and reachable from this machine, then rerun"
+        )
+    raise DbAdminSetupError(
+        f"box_mac_host_command_missing: {login_ref} accepted this machine's key but "
+        f"did not answer the hop's probe (rc={result.returncode}): {detail}; the "
+        "host's hop command is not installed for this key; install it on the "
+        "Mac host, then rerun"
     )
 
 
@@ -162,4 +213,5 @@ __all__ = [
     "key_path",
     "login",
     "pinned_host_key",
+    "probe",
 ]
