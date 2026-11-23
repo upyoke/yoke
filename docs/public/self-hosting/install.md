@@ -262,7 +262,9 @@ The `pgdata` volume survives by default. With the bundle and CLI available,
 `--destroy-universe` deletes the database volume and prompts for consent unless
 you pass `--yes`. `--remove-images` removes the images this bundle uses and
 reports any still in use. `--remove-bundle` deletes the files Yoke wrote,
-including the bundle's secrets and admin token, and keeps other files.
+including the bundle's secrets and admin token, and keeps other files. After a
+full machine uninstall, it also removes any folders the bundle leaves empty, up
+to and including the machine home.
 
 ## You own the operations
 

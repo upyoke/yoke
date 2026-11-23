@@ -62,3 +62,15 @@ def finish_machine(config: Path, bundle: Path) -> list[str]:
     if code:
         raise UninstallError("\n".join(lines))
     return lines
+
+
+def remove_emptied_home(bundle: Path, home: Path) -> None:
+    """Remove the empty folders above a removed bundle, through the machine home."""
+    if bundle == home or not bundle.is_relative_to(home):
+        return
+    for directory in bundle.parents:
+        if any(directory.iterdir()):
+            return
+        directory.rmdir()
+        if directory == home:
+            return
