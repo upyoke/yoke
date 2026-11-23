@@ -98,7 +98,7 @@ def _report_failure(
 def _emit_result(report: dict[str, Any], *, json_mode: bool) -> int:
     relay = report["session_relay"]
     if json_mode:
-        print(json.dumps(report, indent=2, sort_keys=True))
+        print(json.dumps(report, sort_keys=True), flush=True)
     else:
         _print_summary(report)
         if "error" in relay:

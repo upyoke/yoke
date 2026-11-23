@@ -1,6 +1,7 @@
 """Authorization refreshes prerequisites, then holds the human gate for its window."""
 
 import json
+import sys
 from datetime import timedelta
 from types import SimpleNamespace
 
@@ -139,6 +140,7 @@ def test_machine_progress_carries_match_code_and_approval_hint(capsys, json_mode
             "browser_attempted": False,
         },
         json_mode=json_mode,
+        stream=sys.stderr,
     )
     output = capsys.readouterr()
     assert output.out == ""
@@ -154,6 +156,7 @@ def test_machine_progress_carries_match_code_and_approval_hint(capsys, json_mode
     setup_browser.render_progress(
         {"phase": "device_browser", "browser_action": browser_action},
         json_mode=json_mode,
+        stream=sys.stderr,
     )
     github = capsys.readouterr().err
     assert "approval_hint" not in github and "Match code" not in github

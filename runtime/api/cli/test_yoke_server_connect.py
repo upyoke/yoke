@@ -150,8 +150,9 @@ def test_connect_without_token_uses_hosted_browser_org_authority(
         "https://app.upyoke.com/api/orgs/acme"
     )
     output = capsys.readouterr()
-    assert json.loads(output.out)["env"] == "acme"
-    assert "K7F2" in output.err
+    sign_in, result = [json.loads(line) for line in output.out.splitlines()]
+    assert result["env"] == "acme"
+    assert sign_in["browser_action"]["user_code"] == "K7F2"
 
 
 def test_connect_stage_platform_url_uses_stage_browser_authority(

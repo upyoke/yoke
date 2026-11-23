@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -99,7 +100,7 @@ def apply(
                 service_api_url=service_api_url,
                 use_local_product_profile=local_connection_selected,
                 notify=lambda event: setup_browser.render_progress(
-                    event, json_mode=True
+                    event, json_mode=True, stream=sys.stderr
                 ),
             )
     except (

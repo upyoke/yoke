@@ -213,7 +213,8 @@ Yoke never opens a new session for the person. A
 machine-only setup adds a project later through another `yoke setup --agent`.
 
 `yoke connect --json` and `yoke github connect --json` stay available as
-standalone commands for one sign-in outside setup.
+standalone commands for one sign-in outside setup. Their stdout is JSON lines:
+the sign-in line arrives before the wait, and the last line is the result.
 
 ## Setup facts and next action
 
