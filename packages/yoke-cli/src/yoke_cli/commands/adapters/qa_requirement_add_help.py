@@ -87,7 +87,8 @@ case runs on a Test Machine. Set method_config.os and optional capability_tags
 Test Machines of one kind are identical, so a case never names a host. A case
 needing several hosts lists OS slots in method_config.test_machines, such as
 [{"os":"linux"},{"os":"macos","driver":true}], with exactly one driver; its
-capability_tags apply to every slot. A Command that declares method_config.os
+capability_tags is an object from slot OS to tags, such as
+{"macos":["macos:15"]}. A Command that declares method_config.os
 or slots runs on a Test Machine and also requires --host-baseline. An
 agent_mission with no OS, slots, host tags or baseline runs on the controller.
 --test-machine on a run picks a host for that run only. A replacement selects

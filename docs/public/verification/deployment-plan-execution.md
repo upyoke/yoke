@@ -112,8 +112,9 @@ multi-machine form: a single host pin cannot satisfy conflicting constraints.
 For one case that needs several hosts simultaneously, list one OS slot per
 host in `method_config.test_machines`, such as
 `[{"os":"linux"},{"os":"macos","driver":true}]`: at least two slots, exactly one
-`driver`, and no singular `os` beside them. The case's `capability_tags` apply
-to every slot. Run it through `yoke qa plan run`; direct case execution refuses
+`driver`, and no singular `os` beside them. Its `capability_tags` is an object
+from slot OS to tags, such as `{"macos":["macos:15"]}`, applied to every slot of
+that OS. Run it through `yoke qa plan run`; direct case execution refuses
 it. The runner admits the set once every slot has a free, verified, healthy
 host, giving each slot a distinct one, and retains it through case execution
 and mission review. Completion or abort releases it; [completed captures remain reviewable](requirement-state.md).

@@ -43,7 +43,8 @@ get --test-machine NAME --json`, copy its complete settings into the file, and
 replace `--new` with `--base SETTINGS_TOKEN` using the as-read token. Run
 `yoke test-machine verify --test-machine NAME` after saving. Automatic QA
 matches `method_config.os` and every tag in the case's `method_config.capability_tags`
-array, then selects a verified, healthy host.
+array, then selects a verified, healthy host. A slotted case maps each slot OS to
+its tags instead, such as `{"macos":["macos:15"]}`.
 
 ## Network access
 

@@ -39,7 +39,8 @@ the first is busy. To require capabilities, add a JSON array such as
 `"capability_tags": ["arch:x64", "codex-desktop-signed-in"]` to `method_config`.
 Record tags in each host's non-secret settings as comma-separated text, using
 Edit settings or `yoke test-machine settings-replace`. Every case tag must be
-present on the selected host; slotted cases apply them to every slot. Test
+present on the selected host. A slotted case instead maps each slot OS to its
+tags, such as `{"macos":["macos:15"]}`, and they apply to every slot of that OS. Test
 Machines of one kind are identical, so a case never names a host: authoring
 refuses one with `test_machine_name_forbidden`. Frozen deployment run snapshots were
 converted to OS form like other stored cases, so a stage never refuses a case

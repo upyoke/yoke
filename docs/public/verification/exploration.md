@@ -71,8 +71,10 @@ inference and refusal recovery.
 
 For a mission that needs two hosts at once, list OS slots instead of `os`:
 `"test_machines":[{"os":"linux"},{"os":"macos","driver":true}]`. Name at least
-two slots and exactly one `driver`, the host the walker drives. The case's
-`capability_tags` apply to every slot. Platform words in instructions do not
+two slots and exactly one `driver`, the host the walker drives. Set
+`capability_tags` as an object from slot OS to tags, such as
+`{"macos":["macos:15"]}`; the tags apply to every slot of that OS, and a list
+is refused with `test_machine_set_invalid`. Platform words in instructions do not
 constrain the host set. The plan runner queues each slot at the execution's one
 queue place and admits the set only when every slot has a free, verified,
 healthy host, giving each slot a distinct one in a single step; otherwise

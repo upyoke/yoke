@@ -19,6 +19,7 @@ from yoke_contracts.timestamps import utc_now
 from yoke_core.domain.coordination_claims import acquire, active_claim, release
 from yoke_core.domain.db_helpers import query_one
 from yoke_core.domain.machine_qa_capability import replace_test_machine_settings
+from yoke_core.domain.machine_qa_case_machine import MachineConstraintError
 from yoke_core.domain.qa_host_set_turns import record_host_wait
 from yoke_core.domain.qa_host_slot_turns import (
     assign_slot_hosts,
@@ -37,12 +38,15 @@ TWO_LINUX = {
 }
 
 
-def _register(conn, name, os_name):
+def _register(conn, name, os_name, tags=""):
     replace_test_machine_settings(
         conn,
         power_project="yoke",
         test_machine=name,
-        settings={**TEST_MACHINE_SETTINGS, "resource_name": name, "os": os_name},
+        settings={
+            **TEST_MACHINE_SETTINGS, "resource_name": name, "os": os_name,
+            **({"capability_tags": tags} if tags else {}),
+        },
         base_settings=None,
     )
     verify_fixture_host(conn, name)
@@ -145,3 +149,56 @@ def test_two_free_linux_hosts_are_both_reserved_in_one_assignment(test_db, linux
         (LINUX[0], "reserved"), (LINUX[1], "reserved"),
     ]
     assert len(linux_fleet) == 1
+
+
+def _slotted(slots, tags):
+    return {
+        "case_key": "tagged",
+        "method_config": {"test_machines": slots, "capability_tags": tags},
+    }
+
+
+MAC_AND_WINDOWS = [{"os": "macos"}, {"os": "windows", "driver": True}]
+
+
+@pytest.fixture
+def mixed_fleet(test_db, tmp_path, monkeypatch):
+    configure_test_machine(test_db, tmp_path, monkeypatch)
+    _register(test_db, "win-a", "windows")
+    _register(test_db, "mac-tagged", "macos", "macos:15")
+    _register(test_db, "mac-tagged-2", "macos", "macos:15,extra:tag")
+
+
+def test_os_tags_bind_only_that_os_slot(test_db, mixed_fleet):
+    case = _slotted(MAC_AND_WINDOWS, {"macos": ["macos:15"]})
+    assert slot_eligibility(test_db, case, [case]) == (
+        ("macos", ("mac-tagged", "mac-tagged-2")),
+        ("windows", ("win-a",)),
+    )
+
+
+@pytest.mark.parametrize("tags", [{"linux": ["macos:15"]}, ["macos:15"], []])
+def test_slotted_tags_refuse_a_list_or_an_os_with_no_slot(test_db, mixed_fleet, tags):
+    case = _slotted(MAC_AND_WINDOWS, tags)
+    with pytest.raises(MachineConstraintError, match="test_machine_set_invalid.*macos:15"):
+        slot_eligibility(test_db, case, [case])
+
+
+def test_two_macos_slots_both_take_the_macos_tags(test_db, mixed_fleet):
+    slots = [{"os": "macos"}, {"os": "macos"}, {"os": "windows", "driver": True}]
+    case = _slotted(slots, {"macos": ["macos:15"]})
+    tagged = ("mac-tagged", "mac-tagged-2")
+    assert slot_eligibility(test_db, case, [case])[:2] == (("macos", tagged), ("macos", tagged))
+
+
+def test_inheriting_case_tag_binds_every_slot_of_the_driver_os(test_db, mixed_fleet):
+    slots = [{"os": "macos", "driver": True}, {"os": "macos"}, {"os": "windows"}]
+    case = _slotted(slots, {"macos": ["macos:15"]})
+    inheriting = {"case_key": "next", "method_config": {"capability_tags": ["extra:tag"]}}
+    with pytest.raises(TestMachineCapabilityError, match="needs 2 verified macos.*extra:tag"):
+        slot_eligibility(test_db, case, [case, inheriting])
+    _register(test_db, "mac-tagged-3", "macos", "extra:tag,macos:15")
+    assert slot_eligibility(test_db, case, [case, inheriting])[:2] == (
+        ("macos", ("mac-tagged-2", "mac-tagged-3")),
+        ("macos", ("mac-tagged-2", "mac-tagged-3")),
+    )

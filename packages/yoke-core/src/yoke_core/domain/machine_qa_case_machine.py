@@ -94,18 +94,19 @@ def normalize_config_machine(config_contract_id: str, config: dict) -> None:
     from yoke_core.domain.machine_qa_case_hosts import normalize_config_machines
 
     refuse_host_names(config)
-    normalize_config_machines(config)
+    slots = normalize_config_machines(config)
     if "capability_tags" in config:
         if config_contract_id not in MACHINE_CONFIG_CONTRACTS:
             raise MachineConstraintError(
                 "method_config.capability_tags requires a Command or Machine QA case"
             )
-        try:
-            config["capability_tags"] = list(
-                normalize_test_machine_capability_tags(config["capability_tags"])
-            )
-        except TestMachineCapabilityError as exc:
-            raise MachineConstraintError(str(exc)) from exc
+        if not slots:
+            try:
+                config["capability_tags"] = list(
+                    normalize_test_machine_capability_tags(config["capability_tags"])
+                )
+            except TestMachineCapabilityError as exc:
+                raise MachineConstraintError(str(exc)) from exc
     if (config.get("os") or config.get("test_machines")) and (
         config_contract_id not in MACHINE_CONFIG_CONTRACTS
     ):

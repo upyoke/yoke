@@ -94,7 +94,8 @@ independent agent review described below.
 
 Use `method_config.os` and optional `capability_tags` (a JSON array) for Machine
 QA, or OS slots in `method_config.test_machines` for a case needing several
-hosts. A case never names a host (`test_machine_name_forbidden`). A run-level
+hosts, with `capability_tags` as an object from slot OS to tags, such as
+`{"macos":["macos:15"]}`. A case never names a host (`test_machine_name_forbidden`). A run-level
 `--test-machine` picks a host for that run only and must satisfy the case's OS
 and tags. It beats recorded affinity except while an admitted case still owns
 host state. A resume

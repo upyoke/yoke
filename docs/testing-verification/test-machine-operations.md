@@ -30,7 +30,8 @@ with the dedicated account's default non-root WSL2 user. Set optional
 comma-separated `capability_tags` with `yoke test-machine settings-replace`.
 Follow the [registration and re-verification steps](../public/verification/test-machines/host-provisioning.md#register-capability-tags).
 Cases select a verified, healthy host by `method_config.os` and the full
-`method_config.capability_tags` array. Replacement cases select afresh.
+`method_config.capability_tags` array; a slotted case maps each slot OS to its
+tags instead. Replacement cases select afresh.
 Continuations retain the host from their own execution history.
 
 The registered commands are discoverable through `yoke test-machine --help`;

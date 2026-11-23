@@ -12,7 +12,8 @@ Test Machine cases (`host_control` and exploratory missions declaring a host)
 declare starting state. A hostless mission explores on the controller and
 declares no host starting state. Authoring, `qa.requirement.add`, and
 materialization refuse missing state. Select a host type with `method_config.os`
-and optional `capability_tags`, or list OS slots in `method_config.test_machines`;
+and optional `capability_tags`, or list OS slots in `method_config.test_machines`
+with `capability_tags` as an object from slot OS to tags;
 a case never names a host. For requirements that replace a prior attempt, host
 selection starts fresh. Resuming an execution preserves its host affinity.
 `yoke qa plan get` shows each starting-state choice:
