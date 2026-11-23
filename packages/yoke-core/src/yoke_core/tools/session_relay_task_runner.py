@@ -27,6 +27,8 @@ RELAY_RESTART_MAX_DELAY_SECONDS = 60
 #: Task Scheduler's End stops only the task's own process, so the runner joins
 #: a kill-on-close job first: ending or deleting the task then also stops the
 #: relay it started, as systemd stops a unit's whole control group on Linux.
+#: Only a child that asks to break away leaves it: the uninstall finisher must
+#: outlive the task that uninstall deletes.
 CONTAIN_RUNNER = """\
 if globals().get("__name__") == "__main__":
     import ctypes
@@ -45,7 +47,7 @@ if globals().get("__name__") == "__main__":
     _k.AssignProcessToJobObject.argtypes = [wintypes.HANDLE, wintypes.HANDLE]
     _job = _k.CreateJobObjectW(None, None)
     _info = _Extended()
-    _info.basic.flags = 0x2000  # JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+    _info.basic.flags = 0x2000 | 0x800  # JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE | JOB_OBJECT_LIMIT_BREAKAWAY_OK
     if not (_job and _k.SetInformationJobObject(_job, 9, ctypes.byref(_info), ctypes.sizeof(_info))
             and _k.AssignProcessToJobObject(_job, _k.GetCurrentProcess())):
         raise SystemExit(f"relay_task_containment_failed: {ctypes.WinError(ctypes.get_last_error())}; "

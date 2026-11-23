@@ -7,6 +7,7 @@ from pathlib import Path
 import subprocess
 import sys
 import time
+from types import SimpleNamespace
 
 import pytest
 
@@ -113,7 +114,45 @@ def test_windows_detaches_without_a_posix_session(monkeypatch):
     monkeypatch.setattr(
         detached.subprocess, "CREATE_NEW_PROCESS_GROUP", 0x200, raising=False
     )
-    assert detached._detached() == {"creationflags": 0x208}
+    monkeypatch.setattr(
+        detached.subprocess, "CREATE_BREAKAWAY_FROM_JOB", 0x01000000, raising=False
+    )
+    assert detached._detached() == {"creationflags": 0x8 | 0x200 | 0x01000000}
+
+
+@pytest.mark.windows
+def test_job_that_forbids_breakaway_refuses_the_handoff(tmp_path, monkeypatch):
+    closed = []
+    # Only this module sees Windows: pathlib must keep building native paths.
+    fake_os = SimpleNamespace(
+        name="nt",
+        open=os.open,
+        close=lambda descriptor: (closed.append(descriptor), os.close(descriptor)),
+        O_RDWR=os.O_RDWR,
+        O_CREAT=os.O_CREAT,
+    )
+
+    def refuse(*args, **kwargs):
+        raise PermissionError(13, "Access is denied")
+
+    monkeypatch.setattr(detached, "os", fake_os)
+    for flag, value in (
+        ("DETACHED_PROCESS", 0x8),
+        ("CREATE_NEW_PROCESS_GROUP", 0x200),
+        ("CREATE_BREAKAWAY_FROM_JOB", 0x01000000),
+    ):
+        monkeypatch.setattr(detached.subprocess, flag, value, raising=False)
+    monkeypatch.setattr(detached.shutil, "which", lambda name: "/bin/uv")
+    monkeypatch.setattr(detached, "_uv_directory", lambda uv, args: tmp_path / "uv")
+    monkeypatch.setattr(detached.subprocess, "Popen", refuse)
+    monkeypatch.setattr(detached.tempfile, "gettempdir", lambda: str(tmp_path))
+    with pytest.raises(RuntimeError, match="uninstall_cli_handoff_failed") as refusal:
+        detached.prepare(tmp_path / "home")
+    assert "forbids breakaway" in str(refusal.value)
+    assert detached.manual_removal(tmp_path / "uv/yoke-cli-releases") in str(refusal.value)
+    assert len(closed) == 1
+    with pytest.raises(OSError):
+        os.fstat(closed[0])
 
 
 @pytest.mark.windows

@@ -115,7 +115,8 @@ def test_installed_runner_keeps_its_pins_readable_as_data(tmp_path, monkeypatch)
 
 def test_containment_joins_a_kill_on_close_job_only_as_the_task():
     compile(task_runner.CONTAIN_RUNNER, "task-runner.py", "exec")
-    assert "0x2000" in task_runner.CONTAIN_RUNNER  # JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+    # JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE | JOB_OBJECT_LIMIT_BREAKAWAY_OK
+    assert "_info.basic.flags = 0x2000 | 0x800" in task_runner.CONTAIN_RUNNER
     exec(task_runner.CONTAIN_RUNNER, {"__name__": "imported"})  # never contains an importer
 
 

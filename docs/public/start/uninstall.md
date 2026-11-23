@@ -72,7 +72,11 @@ followed by `shell PATH: done`. The command prints the releases
 folder it removes and its result log, in a system temporary folder the worker
 removes once it succeeds. If that removal fails, `yoke` may already be gone, so the log names a command that
 removes the folder without it: `Remove-Item -LiteralPath '\\?\<folder>' -Recurse
--Force` on Windows, `rm -rf '<folder>'` elsewhere.
+-Force` on Windows, `rm -rf '<folder>'` elsewhere. On Windows the worker leaves
+the job of the session that started it, so it finishes after an SSH session
+closes. A job that forbids this stops uninstall with
+`uninstall_cli_handoff_failed`, keeps the CLI and machine home, and names that
+same command to run after uninstall exits.
 
 Each step reports done, skipped with a reason, or failed with a named recovery.
 On macOS, systemd Linux and Windows, uninstall checks saved relay services
