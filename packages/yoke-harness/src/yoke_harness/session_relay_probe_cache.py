@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from yoke_contracts.machine_config.directories import create_private_directory
+from yoke_contracts.owner_private_path import write_owner_private
 from yoke_contracts.timestamps import InvalidInstant, parse_instant, temporal_wire
 
 
@@ -44,9 +45,4 @@ def write_probe_cache(path: Path | None, document: Mapping[str, Any]) -> None:
         "probed_at": parse_instant(raw) if raw is not None else None,
     }
     create_private_directory(path.parent)
-    temporary = path.with_suffix(".tmp")
-    temporary.write_text(
-        json.dumps(temporal_wire(document), sort_keys=True), encoding="utf-8"
-    )
-    temporary.chmod(0o600)
-    temporary.replace(path)
+    write_owner_private(path, json.dumps(temporal_wire(document), sort_keys=True))

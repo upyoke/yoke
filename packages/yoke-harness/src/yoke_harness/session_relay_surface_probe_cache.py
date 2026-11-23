@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from yoke_contracts.machine_config.directories import create_private_directory
+from yoke_contracts.owner_private_path import write_owner_private
 
 from dataclasses import dataclass
 import json
@@ -61,10 +62,7 @@ def _read_cache(state_dir: Path | None = None) -> dict[str, object]:
 def _write_cache(document: Mapping[str, object], state_dir: Path | None) -> None:
     path = _cache_path(state_dir)
     create_private_directory(path.parent)
-    temporary = path.with_suffix(".tmp")
-    temporary.write_text(json.dumps(document, sort_keys=True), encoding="utf-8")
-    temporary.chmod(0o600)
-    temporary.replace(path)
+    write_owner_private(path, json.dumps(document, sort_keys=True))
 
 
 def update_surface_probe_cache(
