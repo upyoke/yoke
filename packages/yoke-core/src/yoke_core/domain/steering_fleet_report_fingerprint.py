@@ -98,9 +98,6 @@ def seat_payload(report: "FleetReport") -> dict[str, Any]:
         "deadlocks": deadlock_fingerprint(report),
         "settlement_followups": settlement_followup_fingerprint(report),
         "failed_prunes": failed_prune_fingerprint(report),
-        "suite_runs": sorted(
-            (row.repo, row.run_id, row.commit, row.conclusion) for row in report.suite_runs
-        ),
         "waiting_chains": waiting_chain_fingerprint(report),
     }
 

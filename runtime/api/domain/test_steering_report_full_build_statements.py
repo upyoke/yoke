@@ -29,9 +29,8 @@ SECOND_PROJECT = 2
 #: scheduled-prune read adds two universe-wide statements, cached per build.
 #: Each next-actor facts read adds one Test Machine wait read for its page.
 #: The Test Machine findings add one held-lease read for idle host holds.
-#: Suite outcomes add one dispatch-intent read per held project.
 #: The one Test Machine queue adds one universe-wide queue read.
-FULL_BUILD_STATEMENTS = 157
+FULL_BUILD_STATEMENTS = 155
 
 
 def _seed(conn):

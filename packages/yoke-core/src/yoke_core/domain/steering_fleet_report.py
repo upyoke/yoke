@@ -55,7 +55,6 @@ from yoke_core.domain import steering_fleet_report_awaiting_seat as awaiting
 from yoke_core.domain import steering_fleet_report_waiting_chains as chains
 from yoke_core.domain import steering_fleet_report_settlement_followups as settlement
 from yoke_core.domain.steering_fleet_report_prune import FailedPrune
-from yoke_core.domain.steering_fleet_report_workflow_runs import SuiteRunFinding
 
 
 @dataclass(frozen=True)
@@ -114,7 +113,6 @@ class FleetReport:
     deadlocks: tuple[DependencyCycle, ...] = ()
     settlement_followups: tuple[settlement.FailedSettlementFollowup, ...] = ()
     failed_prunes: tuple[FailedPrune, ...] = ()
-    suite_runs: tuple[SuiteRunFinding, ...] = ()
     waiting_chains: tuple[chains.WaitingChain, ...] = ()
     landing_waits: tuple[LandingWait, ...] = ()
 
@@ -202,7 +200,6 @@ class FleetReport:
             or self.deadlocks
             or self.settlement_followups
             or self.failed_prunes
-            or self.suite_runs
         )
 
     def fingerprint(self) -> str:
@@ -320,7 +317,6 @@ def compose_report(
         deadlocks=tuple(seat_cycles(conn, facts.deadlocks, members)),
         settlement_followups=members_only(facts.settlement_followups, members),
         failed_prunes=facts.failed_prunes,
-        suite_runs=facts.suite_runs,
         waiting_chains=chains.seat_chains(facts.waiting_chains, members),
         levels=facts.levels,
         level_overrides=read_level_overrides(conn, refs)

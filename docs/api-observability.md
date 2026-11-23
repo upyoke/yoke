@@ -164,7 +164,7 @@ wall time, floored at zero). SQL wall time can include thread CPU, so the
 remainder is approximate. Each observed dependency adds a `_calls` count and
 `_ms` elapsed total. GitHub GraphQL and REST counts describe transport attempts,
 including failures and retries. Token requests and retry waits are separate.
-Landing reads, suite-run reads, deployment progress, source lookup and lineage
+Landing reads, deployment progress, source lookup and lineage
 containment are inclusive measurements. Their elapsed totals can overlap SQL
 and GitHub time, and should never be added together. Dependency fields contain
 no request arguments, repository names or report data. Once
