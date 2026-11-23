@@ -15,7 +15,7 @@ def approval_hint(code: str) -> str:
     )
 
 
-def save_machine_credential(credential, verification, config_path):
+def store_machine_credential(credential, verification, config_path):
     """Save verified delivered credentials through the existing private writer."""
     connection = writer.set_connection(
         credential.org,
@@ -26,10 +26,37 @@ def save_machine_credential(credential, verification, config_path):
         path=config_path,
     )
     token_file = str(connection["connection"]["credential_source"]["path"])
-    # The first moment a fresh setup knows its server: move onto its release
-    # before any project question (the rerun reuses this saved connection).
+    return credential, verification, token_file
+
+
+def follow_stored_credential(stored):
+    """The first moment a fresh setup knows its server: move onto its release.
+
+    This runs before any project question; the rerun reuses the saved
+    connection. A refusal here is an install failure, not a sign-in failure.
+    """
+    credential, verification, token_file = stored
     followed = setup_release_start.follow_after_sign_in(credential.api_url)
     return credential, verification, token_file, followed
+
+
+def save_machine_credential(credential, verification, config_path):
+    return follow_stored_credential(
+        store_machine_credential(credential, verification, config_path)
+    )
+
+
+def exit_with_follow_refusal(shell, refusal):
+    """Close the shell; ``raise_carried_follow`` re-raises once it has closed."""
+    shell.follow_refused = refusal
+    shell.exit()
+
+
+def raise_carried_follow(shell):
+    """Raise the release follow or its refusal that the closed shell carries."""
+    for carried in (shell.release_followed, getattr(shell, "follow_refused", None)):
+        if carried is not None:
+            raise carried
 
 
 def accept_machine_credential(shell, value):
@@ -158,6 +185,10 @@ class MachineAdmissionChoiceFlow:
 
     def _goto_invite_error(self, error):
         from yoke_cli.config.onboard_wizard_state import _View
+
+        if isinstance(error, setup_release_start.StartFollowRefused):
+            exit_with_follow_refusal(self, error)
+            return
         from yoke_cli.config.onboard_wizard_widgets import STEP_CONNECT
         from yoke_cli.config.setup_prompt import SelectionRow, SetupPrompt, TONE_ERROR
 

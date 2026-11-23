@@ -4,12 +4,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import partial
-import locale
 import os
 from pathlib import Path
 import subprocess
 import time
-from typing import Callable, Mapping
+from typing import Mapping
 import xml.etree.ElementTree as ET
 
 from yoke_contracts.direct_database_access import USE_HTTPS_ENV
@@ -30,9 +29,10 @@ from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.platform_process import process_command_lines
 from yoke_core.tools.session_relay_task_stop import wait_relay_task_stopped
 from yoke_core.tools.session_relay_task_runner import relay_task_runner_source
+from yoke_contracts import windows_task_scheduler as task_scheduler
+from yoke_contracts.windows_task_scheduler import Runner, TASK_NS, task_node as node
 
-Runner = Callable[..., subprocess.CompletedProcess[str]]
-TASK_NS = "http://schemas.microsoft.com/windows/2004/02/mit/task"
+_COMMAND_TIMEOUT_SECONDS = 15
 
 
 @dataclass(frozen=True)
@@ -50,18 +50,8 @@ class RelayTaskStatus:
 
 def _run(argv: list[str], runner: Runner) -> subprocess.CompletedProcess[str]:
     try:
-        result = runner(argv, check=False, capture_output=True, timeout=15)
-        def decode(value):
-            if not isinstance(value, bytes):
-                return value or ""
-            if value.startswith((b"\xff\xfe", b"\xfe\xff")):
-                return value.decode("utf-16")
-            try:
-                return value.decode("utf-8")
-            except UnicodeDecodeError:
-                return value.decode(locale.getpreferredencoding(False), errors="replace")
-        return subprocess.CompletedProcess(argv, result.returncode, decode(result.stdout), decode(result.stderr))
-    except (OSError, subprocess.SubprocessError, UnicodeError) as exc:
+        return task_scheduler.run_command(argv, runner, timeout=_COMMAND_TIMEOUT_SECONDS)
+    except task_scheduler.SchedulerCommandError as exc:
         raise _unavailable(str(exc)) from exc
 
 
@@ -84,17 +74,10 @@ def _checked(argv: list[str], runner: Runner) -> str:
 
 
 def _account(runner: Runner) -> tuple[str, str]:
-    """The current user's SID and ``DOMAIN\\user`` name from one read.
-
-    The task declares the SID, stable across renames; Task Scheduler may
-    export the same account by name.
-    """
-    import csv
-
-    rows = list(csv.reader(_checked(["whoami", "/user", "/fo", "csv", "/nh"], runner).splitlines()))
-    if not rows or len(rows[0]) != 2 or not rows[0][1].startswith("S-1-"):
-        raise _unavailable("cannot resolve the current user's SID")
-    return rows[0][1], rows[0][0]
+    try:
+        return task_scheduler.current_account(runner, timeout=_COMMAND_TIMEOUT_SECONDS)
+    except task_scheduler.SchedulerCommandError as exc:
+        raise _unavailable(str(exc)) from exc
 
 
 def relay_task_command(state_dir: Path) -> Path:
@@ -108,12 +91,6 @@ def relay_task_command(state_dir: Path) -> Path:
 
 def relay_task_document(instance: RelayInstance, *, user_sid: str) -> str:
     root = ET.Element("Task", {"version": "1.2", "xmlns": TASK_NS})
-
-    def node(parent, name, text=None, **attributes):
-        child = ET.SubElement(parent, name, attributes)
-        child.text = text
-        return child
-
     trigger = node(node(root, "Triggers"), "LogonTrigger")
     node(trigger, "Enabled", "true")
     node(trigger, "UserId", user_sid)

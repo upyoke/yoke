@@ -27,7 +27,8 @@ from yoke_cli.config import yoke_token_verify
 from yoke_cli.config.onboard_machine_github import CHOICE_CONNECT
 from yoke_cli.config.onboard_wizard_flow_machine_admission import (
     accept_machine_credential,
-    save_machine_credential,
+    follow_stored_credential,
+    store_machine_credential,
 )
 from yoke_cli.config.onboard_wizard_step_ids import STEP_GITHUB
 from yoke_cli.config.onboard_wizard_widgets import STEP_CONNECT
@@ -96,7 +97,7 @@ class AgentApprovals:
             verification = yoke_token_verify.verify(
                 credential.api_url, credential.token
             )
-            value = save_machine_credential(
+            stored = store_machine_credential(
                 credential, verification, self.result.config_path
             )
         except hosted_machine_authorization.HostedMachineAuthorizationDenied as exc:
@@ -107,7 +108,9 @@ class AgentApprovals:
             self._goto_hosted_machine_error(str(exc))
             return
         self._forget_approval("machine")
-        accept_machine_credential(self, value)
+        # Outside the sign-in errors: a failed install is not a failed approval,
+        # and the rerun reuses the connection saved above.
+        accept_machine_credential(self, follow_stored_credential(stored))
 
     def _goto_hosted_machine_error(self, message: str) -> None:
         self._answers.keep_pending_approval({"kind": "machine", "error": message})

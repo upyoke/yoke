@@ -294,6 +294,7 @@ def run_wizard(
     try:
         from yoke_cli.config.onboard_wizard_app import OnboardWizardApp
         from yoke_cli.config.onboard_terminal_driver import run_wizard_app
+        from yoke_cli.config.onboard_wizard_flow_machine_admission import raise_carried_follow
     except ImportError as exc:  # textual missing from an unusual install
         raise WizardCancelled(
             "the onboarding wizard requires the 'textual' package; reinstall the "
@@ -305,8 +306,7 @@ def run_wizard(
     # everywhere; that costs native drag-select of a URL or code, so ^y suspends
     # to selectable scrollback (on SSH, ^o shows the link there too).
     run_wizard_app(app)
-    if app.release_followed is not None:
-        raise app.release_followed
+    raise_carried_follow(app)
     if app.cancelled:
         saved = app.result.machine_github_saved
         return WizardRunResult(exit_code=130, cancelled=True, machine_github_saved=saved)

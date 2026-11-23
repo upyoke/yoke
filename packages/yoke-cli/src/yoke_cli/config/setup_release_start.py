@@ -24,7 +24,7 @@ from yoke_contracts.onboard_destinations import DESTINATION_LOCAL
 from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.release_version import release_version
 
-from yoke_cli.config import install_binding, onboard_apply_lock, server_connect
+from yoke_cli.config import install_binding, onboard_apply_lock, self_update, server_connect
 from yoke_cli.config import setup_release_follow as follow
 from yoke_cli.config import setup_release_marker
 from yoke_cli.transport.installed_cli_staleness import update_recovery
@@ -34,6 +34,10 @@ HEALTH_TIMEOUT_SECONDS = 10.0
 
 class StartFollowRefused(RuntimeError):
     """Setup could not install the release its server serves."""
+
+    def __init__(self, message: str, *, code: str = "setup_release_install_failed") -> None:
+        super().__init__(message)
+        self.code = code
 
 
 def check_at_start(parsed: Any, destination: str | None) -> None:
@@ -70,6 +74,8 @@ def _follow(api_url: str) -> follow.ReleaseFollowed | None:
     try:
         with onboard_apply_lock.acquire():
             yoke_bin = follow.install_exact(target)
+    except self_update.ScheduledInstallRefused as exc:
+        raise StartFollowRefused(str(exc), code=exc.code) from exc
     except (follow.FollowBlocked, onboard_apply_lock.OnboardApplyBusy) as exc:
         raise StartFollowRefused(
             compose_refusal(

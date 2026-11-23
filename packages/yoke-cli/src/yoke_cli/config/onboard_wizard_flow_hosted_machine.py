@@ -15,8 +15,10 @@ from yoke_cli.config import onboard_wizard_steps as steps
 from yoke_cli.config import yoke_token_verify
 from yoke_cli.config.onboard_wizard_flow_machine_admission import (
     accept_machine_credential,
+    exit_with_follow_refusal,
     save_machine_credential,
 )
+from yoke_cli.config.setup_release_start import StartFollowRefused
 from yoke_contracts.onboard_destinations import ENV_STAGE
 from yoke_cli.config.onboard_wizard_widgets import STEP_CONNECT
 from yoke_cli.config.onboard_wizard_hosted_machine_views import (
@@ -197,7 +199,9 @@ class HostedMachineConnectFlow(HostedMachineApprovalViews):
             )
 
         def _error(exc: BaseException) -> None:
-            if isinstance(
+            if isinstance(exc, StartFollowRefused):
+                exit_with_follow_refusal(self, exc)
+            elif isinstance(
                 exc,
                 hosted_machine_authorization.HostedMachineAuthorizationDenied,
             ):

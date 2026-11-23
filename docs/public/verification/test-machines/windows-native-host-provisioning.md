@@ -284,9 +284,9 @@ yoke test-machine screenshot --test-machine NAME
 
 `shell-preconfigured` runs the released `/install.ps1` as the signed-in desktop
 user through an interactive task, the way users install; SSH only verifies.
-OpenSSH runs `sshd.exe` sessions under Redirection Guard, so they cannot
-follow user directory junctions such as uv's Python links; installs over SSH
-refuse with `windows_untrusted_mount_point`.
+OpenSSH sessions run under Redirection Guard and cannot follow uv's Python
+links: the installer refuses `windows_untrusted_mount_point`, and `yoke update`
+and setup rerun it as a one-shot task that needs the desktop user signed in.
 
 Read command help first; never overwrite an existing golden. Restore mirrors
 the profile, restores user PATH/tasks and preserves live harness/browser
