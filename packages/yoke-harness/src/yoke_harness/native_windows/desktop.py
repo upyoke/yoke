@@ -27,7 +27,11 @@ def desktop_script(control, script, *, timeout=60, hidden=False):
     # The wrapper always writes a completion receipt, even for a script that
     # calls exit. Its child owns the exit code; only stdout/stderr are returned.
     child = root + ".command.ps1"
-    arguments = '-NoLogo -NoProfile -WindowStyle ' + ('Hidden' if hidden else 'Normal') + ' -File "' + source + '"'
+    # A hidden task must own no window: on a Windows Terminal host, even a
+    # minimized console takes activation and dismisses the app's open menu.
+    path = "conhost.exe" if hidden else "powershell.exe"
+    launch = "--headless powershell.exe -NoLogo -NoProfile" if hidden else "-NoLogo -NoProfile -WindowStyle Normal"
+    arguments = launch + ' -File "' + source + '"'
     # Windows PowerShell 5.1 wraps each native stderr line in an ErrorRecord;
     # under 'Stop' the first one would abort a command that succeeded, so the
     # child runs under 'Continue' and its streams are split by record type.
@@ -63,7 +67,7 @@ try {{
         control.upload_remote_text(source, wrapper)
         uploads_complete = True
         diagnostics["phase"] = "task_start"
-        start = control._run(create_interactive_task(name, arguments, timeout))
+        start = control._run(create_interactive_task(name, path, arguments, timeout))
         require_task_result(control, start, phase="desktop_task_start")
         announce_designed_wait("native Windows desktop task", max_wait_seconds=timeout)
         diagnostics["phase"] = "receipt"
@@ -104,7 +108,7 @@ try {{
             else:
                 removal = remove_owned_task(name).replace(
                     "Remove-YokeTask " + quote(name),
-                    "$t=Get-YokeTask " + quote(name) + ";if($t -and ($t.Definition.Actions.Count -ne 1 -or $t.Definition.Actions.Item(1).Path -ne 'powershell.exe' -or $t.Definition.Actions.Item(1).Arguments -ne " + quote(arguments) + ")){throw 'Desktop task action changed; preserve'};Remove-YokeTask " + quote(name),
+                    "$t=Get-YokeTask " + quote(name) + ";if($t -and ($t.Definition.Actions.Count -ne 1 -or $t.Definition.Actions.Item(1).Path -ne " + quote(path) + " -or $t.Definition.Actions.Item(1).Arguments -ne " + quote(arguments) + ")){throw 'Desktop task action changed; preserve'};Remove-YokeTask " + quote(name),
                 )
                 cleanup = control._run(removal + f"\nif(Get-YokeTask {quote(name)}){{throw 'Owned task cleanup incomplete'}}\nRemove-Item -LiteralPath {','.join(quote(root + s) for s in ('.ps1', '.command.ps1', '.json', '.json.tmp'))} -Force -ErrorAction SilentlyContinue; foreach($p in @({','.join(quote(root + s) for s in ('.ps1', '.command.ps1', '.json', '.json.tmp'))})){{if(Test-Path -LiteralPath $p){{throw 'Owned desktop cleanup incomplete'}}}}")
             if diagnostics["cleanup"] != "preserved_ambiguous_upload":

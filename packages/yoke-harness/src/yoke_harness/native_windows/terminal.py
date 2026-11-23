@@ -79,7 +79,7 @@ class WindowsTerminal:
         )
         self.control.upload_remote_text(self.root + ".ps1", script)
         start = self.control._run(create_interactive_task(
-            self.token, '-NoLogo -NoExit -File "' + self.root + '.ps1"', 2400,
+            self.token, "powershell.exe", '-NoLogo -NoExit -File "' + self.root + '.ps1"', 2400,
         ))
         require_task_result(self.control, start, phase="terminal_task_start")
         deadline = time.monotonic() + 20
