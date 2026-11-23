@@ -26,6 +26,7 @@ from yoke_contracts.harness_folder_trust import (
     CLAUDE_PROJECTS_KEY,
     CLAUDE_TRUST_KEY,
     claude_state_path,
+    claude_trust_key,
     cursor_trust_file,
     trust_key,
 )
@@ -50,7 +51,7 @@ def grant_folder_trust(
     path = trust_key(checkout)
     granted: List[str] = []
     if "claude-code" in harnesses:
-        granted.extend(_grant_claude(path, claude_state))
+        granted.extend(_grant_claude(claude_trust_key(checkout), claude_state))
     if "codex" in harnesses:
         granted.extend(_grant_codex(path, codex_config))
     if "cursor" in harnesses:

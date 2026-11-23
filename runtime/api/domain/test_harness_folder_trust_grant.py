@@ -9,13 +9,17 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
+from types import SimpleNamespace
 
+from yoke_contracts import harness_settings_ledger as ledger
 from yoke_contracts.harness_folder_trust import (
     CLAUDE_PROJECTS_KEY,
     CLAUDE_TRUST_KEY,
     CURSOR_TRUST_FILENAME,
+    claude_trust_key,
     cursor_project_slug,
+    trust_key,
 )
 from yoke_contracts.harness_folder_trust_grant import grant_folder_trust
 from yoke_contracts.codex_config_posture import parse_config
@@ -53,6 +57,32 @@ def test_cursor_slug_matches_the_shape_cursor_writes():
     assert cursor_project_slug("/Users/me/yoke/.worktrees/YOK-1") == (
         "Users-me-yoke-worktrees-YOK-1"
     )
+
+
+def test_claude_key_is_forward_slash_while_native_key_stays(monkeypatch):
+    windows = PureWindowsPath(r"C:\Users\u\proj")
+    monkeypatch.setattr(
+        "yoke_contracts.harness_folder_trust.Path",
+        lambda _value: SimpleNamespace(expanduser=lambda: windows),
+    )
+    assert claude_trust_key("ignored") == "C:/Users/u/proj"
+    assert trust_key("ignored") == r"C:\Users\u\proj"
+
+
+def test_claude_grant_and_ledger_use_the_claude_key(tmp_path: Path, monkeypatch):
+    sentinel = "C:/sentinel/claude-key"
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
+    monkeypatch.setattr(
+        "yoke_contracts.harness_folder_trust_grant.claude_trust_key",
+        lambda _checkout: sentinel,
+    )
+    claude = _claude(tmp_path, {"projects": {}})
+    grant_folder_trust(CHECKOUT, harnesses=("claude-code",), claude_state=claude)
+    projects = json.loads(claude.read_text())[CLAUDE_PROJECTS_KEY]
+    assert list(projects) == [sentinel]
+    assert projects[sentinel][CLAUDE_TRUST_KEY] is True
+    [entry] = ledger.read()
+    assert entry["keys"][1] == sentinel
 
 
 def test_every_present_harness_is_granted(tmp_path: Path):

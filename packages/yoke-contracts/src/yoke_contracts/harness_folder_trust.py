@@ -11,7 +11,9 @@ Grounded against the builds this repository supports:
 * ``codex`` — ``$CODEX_HOME/config.toml``: ``[projects."<path>"]
   trust_level = "trusted"``.
 * ``claude-code`` — ``~/.claude.json``: ``projects.<path>
-  .hasTrustDialogAccepted = true``.
+  .hasTrustDialogAccepted = true``, where ``<path>`` is the forward-slash
+  absolute path on every OS (``C:/Users/...`` on Windows);
+  :func:`claude_trust_key` produces it.
 * ``cursor`` — ``~/.cursor/projects/<slug>/.workspace-trusted``, a small JSON
   file naming the path and when it was trusted. The slug is the absolute
   path with dots dropped and every run of non-alphanumerics collapsed to a
@@ -75,8 +77,13 @@ def cursor_trust_file(checkout: str | Path) -> Path:
 
 
 def trust_key(checkout: str | Path) -> str:
-    """Return the absolute path every harness keys folder trust by."""
+    """Return the native absolute path Codex and Cursor key folder trust by."""
     return str(Path(checkout).expanduser())
+
+
+def claude_trust_key(checkout: str | Path) -> str:
+    """Return the forward-slash absolute path Claude keys ``projects`` by."""
+    return Path(checkout).expanduser().as_posix()
 
 
 __all__ = [
@@ -87,6 +94,7 @@ __all__ = [
     "CURSOR_TRUST_FILENAME",
     "TRUSTED_HARNESSES",
     "claude_state_path",
+    "claude_trust_key",
     "cursor_project_slug",
     "cursor_projects_root",
     "cursor_trust_file",
