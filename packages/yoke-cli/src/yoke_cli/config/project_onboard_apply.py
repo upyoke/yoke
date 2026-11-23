@@ -18,6 +18,7 @@ from yoke_cli.config.project_onboard_support import (
     ProjectOnboardError,
     project_from_result,
 )
+from yoke_cli.project_install import owned_cleanup
 from yoke_cli.project_install import publication
 from yoke_cli.project_install import publication_outcome
 from yoke_cli.project_install import runner as install_runner
@@ -58,6 +59,7 @@ def finish_after_dispatch(
         project_onboard_installed_layer.remove_layer(root, progress=progress)
     wrote_mapping = project_mapping_needs_write(root, project_id, config_path)
     if wrote_mapping:
+        owned_cleanup.intend_registration(root, config_path)
         with onboard_apply_progress.step(
             progress, "project-checkout-register", str(root)
         ):

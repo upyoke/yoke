@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import shutil
+
 import pytest
 
 from runtime.api.cli.project_install_recovery_test_support import _commit, _file, _git
 from yoke_cli.project_install import checkout_gate, instruction_discovery
+from yoke_cli.project_install import owned_cleanup, skill_discovery
 from yoke_cli.project_install import install_recovery as recovery
 from yoke_cli.project_install.bundle_apply import apply_bundle
 from yoke_cli.project_install.file_line_managed_exceptions import (
@@ -107,6 +110,53 @@ def test_paths_committed_after_a_rejected_recovery_do_not_block(killed):
     )
 
     recovery.refuse_unclaimed_dirt(killed, unclaimed)
+
+
+def _skill_copy(root):
+    rel = next(iter(skill_discovery.SKILL_DISCOVERY_LINKS))
+    entry = root / rel
+    source = (entry.parent / skill_discovery.SKILL_DISCOVERY_LINKS[rel]).resolve()
+    if entry.is_symlink():
+        entry.unlink()
+    else:
+        shutil.rmtree(entry)
+    shutil.copytree(source, entry)
+    return rel, entry
+
+
+def test_a_killed_installs_own_skill_copy_is_still_its_own(killed):
+    rel, entry = _skill_copy(killed)
+
+    assert skill_discovery.entry_state(killed, rel) == skill_discovery.COPIED
+    next(path for path in entry.rglob("*") if path.is_file()).unlink()  # killed mid-copy
+    assert skill_discovery.entry_state(killed, rel) == skill_discovery.COPIED
+
+
+@pytest.mark.parametrize("change", ["edited", "added"])
+def test_an_operators_change_to_the_copy_stays_foreign(killed, change):
+    rel, entry = _skill_copy(killed)
+    if change == "edited":
+        next(p for p in entry.rglob("*") if p.is_file()).write_text("mine", "utf-8")
+    else:
+        (entry / "my-notes.md").write_text("mine", encoding="utf-8")
+
+    assert skill_discovery.entry_state(killed, rel) == skill_discovery.FOREIGN
+
+
+def test_a_copy_without_an_interrupted_install_stays_foreign(killed):
+    rel, _entry = _skill_copy(killed)
+    (killed / recovery.PENDING_REL).unlink()
+
+    assert skill_discovery.entry_state(killed, rel) == skill_discovery.FOREIGN
+
+
+def test_registration_intent_survives_a_kill_for_its_own_config_only(killed, tmp_path):
+    config = killed / "machine.json"
+
+    assert not owned_cleanup.registration_intended(killed, config)
+    owned_cleanup.intend_registration(killed, config)
+    assert owned_cleanup.registration_intended(killed, config)
+    assert not owned_cleanup.registration_intended(killed, killed / "other.json")
 
 
 @pytest.mark.parametrize(

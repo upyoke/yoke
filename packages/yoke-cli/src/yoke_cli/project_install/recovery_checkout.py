@@ -44,6 +44,29 @@ def states(path: Path) -> set[str]:
     return {state(path)}
 
 
+def in_interrupted_copy(root: Path, rel: str) -> bool:
+    """Whether *rel* is inside a killed install's own local discovery copy."""
+    return any(
+        (rel.rstrip("/") == entry or rel.startswith(entry + "/"))
+        and skill_discovery.entry_state(root, entry) == skill_discovery.COPIED
+        for entry in SKILL_DISCOVERY_LINKS
+    )
+
+
+def own_dirty_paths(root: Path) -> list[str]:
+    """Dirty paths a recovery must commit: local discovery copies stay untracked."""
+    from yoke_cli.project_install.install_recovery import PENDING_REL
+
+    paths = [
+        checkout_gate._porcelain_path(line) for line in checkout_gate.porcelain(root)
+    ]
+    return [
+        rel
+        for rel in paths
+        if rel != PENDING_REL and not in_interrupted_copy(root, rel)
+    ]
+
+
 def remove_staging_leftovers(root: Path, expected: dict[str, Any]) -> None:
     """Delete untracked temp files a killed atomic write left beside planned paths."""
     for rel in expected:

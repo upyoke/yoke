@@ -40,6 +40,41 @@ def scope_reason(root: Path, manifest: dict, config_path) -> str:
         return "checkout_scope_unavailable"
 
 
+def _registration_intent(root: Path) -> Path | None:
+    """Machine-local proof, in Git's metadata, that an install wrote the mapping."""
+    from yoke_cli.project_install import checkout_gate
+
+    if not checkout_gate.is_git_checkout(root):
+        return None
+    found = checkout_gate.run_git(
+        root, "rev-parse", "--git-path", "yoke-install-registration"
+    )
+    if found.returncode:
+        return None
+    path = Path(found.stdout.strip())
+    return path if path.is_absolute() else root / path
+
+
+def intend_registration(root: Path, config_path) -> None:
+    """Record ownership BEFORE writing the mapping, so a kill cannot lose it."""
+    path = _registration_intent(root)
+    if path is not None:
+        path.write_text(
+            str(machine_config.config_path(config_path).resolve()), encoding="utf-8"
+        )
+
+
+def registration_intended(root: Path, config_path) -> bool:
+    """Whether an interrupted install of this checkout wrote its mapping."""
+    path = _registration_intent(root)
+    return (
+        path is not None
+        and path.is_file()
+        and path.read_text(encoding="utf-8")
+        == str(machine_config.config_path(config_path).resolve())
+    )
+
+
 def record_registration(root: Path, project_id: int, config_path) -> None:
     """Attach the exact mapping introduced by this install to its manifest."""
     payload = machine_config.load_config(config_path)
@@ -58,6 +93,9 @@ def record_registration(root: Path, project_id: int, config_path) -> None:
         "entry": dict(matching[0]),
     }
     files.write_manifest(root, manifest)
+    intent = _registration_intent(root)
+    if intent is not None:
+        intent.unlink(missing_ok=True)
 
 
 def refresh_registration_policy(root, config_path, connection, previous, updated) -> None:

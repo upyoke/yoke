@@ -15,8 +15,14 @@ _PROJECT_MODES_THAT_CREATE_CHECKOUTS = {
 }
 
 
-def build(kwargs: Mapping[str, Any]) -> dict[str, Any]:
-    """Return a JSON-safe snapshot of non-secret apply inputs."""
+def build(
+    kwargs: Mapping[str, Any], resumed: Mapping[str, Any] | None = None
+) -> dict[str, Any]:
+    """Return a JSON-safe snapshot of non-secret apply inputs.
+
+    A resumed run keeps its first pass's checkout provenance: the folder it
+    created exists now, and that must not read as someone else's.
+    """
     project_mode = _text(
         kwargs.get("project_mode") or onboard_project.PROJECT_MODE_MACHINE_ONLY
     )
@@ -32,7 +38,8 @@ def build(kwargs: Mapping[str, Any]) -> dict[str, Any]:
         "credential_sources": _credential_sources(kwargs),
         "machine_github": _machine_github(kwargs),
         "project": _project(kwargs, project_mode),
-        "checkout_provenance": _checkout_provenance(project_mode, checkout),
+        "checkout_provenance": _resumed_provenance(resumed, project_mode, checkout)
+        or _checkout_provenance(project_mode, checkout),
         "hosting": {
             "choice": _text(kwargs.get("hosting_choice")),
             "provider_note": _text(kwargs.get("hosting_provider_note")),
@@ -102,6 +109,15 @@ def _credential_sources(kwargs: Mapping[str, Any]) -> dict[str, Any]:
 
 def _mapping(value: Any) -> dict[str, Any]:
     return dict(value) if isinstance(value, Mapping) else {}
+
+
+def _resumed_provenance(
+    resumed: Mapping[str, Any] | None, project_mode: str, checkout: str
+) -> dict[str, Any] | None:
+    snapshot = _mapping((resumed or {}).get("input_snapshot"))
+    saved = _mapping(snapshot.get("checkout_provenance"))
+    same = saved.get("path") == checkout and saved.get("project_mode") == project_mode
+    return saved if saved and same else None
 
 
 def _checkout_provenance(project_mode: str, checkout: str) -> dict[str, Any]:

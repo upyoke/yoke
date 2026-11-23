@@ -268,7 +268,7 @@ def recoverable_checkout(root: Path) -> bool:
         checkout_gate._porcelain_path(line) for line in checkout_gate.porcelain(root)
     ]
     for rel in checkout_gate.discovery_commit_paths(root, paths):
-        if rel == PENDING_REL:
+        if rel == PENDING_REL or planned.in_interrupted_copy(root, rel):
             continue
         try:
             if planned.states(root / rel).isdisjoint(expected.get(rel, [])):
