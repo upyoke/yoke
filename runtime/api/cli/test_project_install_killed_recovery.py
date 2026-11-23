@@ -45,6 +45,30 @@ def test_recovery_accepts_the_installers_own_config_edit(killed):
     assert recovery.unclaimed_dirt(killed, True) == []
 
 
+def test_recovery_removes_a_killed_writes_staging_file(killed):
+    planned = killed / PROJECT_CONFIG_REL
+    leftover = planned.with_name(f".{planned.name}i2iaao56")
+    leftover.write_text("partial", encoding="utf-8")
+    lookalike = planned.with_name(f".{planned.name}.mine")
+    lookalike.write_text("mine", encoding="utf-8")
+
+    assert not recovery.recoverable_checkout(killed)  # the lookalike stays dirty
+    assert not leftover.exists() and lookalike.read_text("utf-8") == "mine"
+    lookalike.unlink()
+    assert recovery.recoverable_checkout(killed)
+
+
+def test_a_tracked_file_named_like_a_staging_file_is_kept(killed):
+    planned = killed / PROJECT_CONFIG_REL
+    kept = planned.with_name(f".{planned.name}abcd1234")
+    kept.write_text("tracked", encoding="utf-8")
+    _git(killed, "add", "-f", str(kept.relative_to(killed)))
+
+    recovery.recoverable_checkout(killed)
+
+    assert kept.read_text("utf-8") == "tracked"
+
+
 def test_retry_after_the_kill_commits_every_installer_path(killed):
     assert recovery.recoverable_checkout(killed)
     recovered = [
