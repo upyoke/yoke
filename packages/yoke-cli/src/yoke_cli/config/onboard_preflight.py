@@ -27,7 +27,6 @@ from yoke_contracts.onboard_destinations import DESTINATION_LOCAL
 from yoke_contracts.windows_drive_checkout import windows_drive_checkout_warning
 
 from yoke_cli.config import onboard_input_validation as validation
-from yoke_cli.config import onboard_credential_replacement
 from yoke_cli.config import onboard_project
 from yoke_cli.config import onboard_project_prefixes
 from yoke_cli.config import project_git_prerequisite
@@ -113,7 +112,7 @@ def preflight(
     re-check and is always clear.
     """
     probes = probes or PreflightProbes()
-    problems = onboard_credential_replacement.replacement_problems_from_result(result)
+    problems: list[str] = []
     if (
         getattr(result, "destination", None) == DESTINATION_LOCAL
         and probes.vc_runtime_problem is not None

@@ -18,7 +18,6 @@ from yoke_cli.config import onboard_apply_runtime
 from yoke_cli.config import onboard_bridge
 from yoke_contracts import onboard_destinations as onboard_destinations
 from yoke_cli.config import onboard_machine_github
-from yoke_cli.config import onboard_credential_replacement
 from yoke_cli.config import onboard_credential_source
 from yoke_cli.config import onboard_project
 from yoke_cli.config import onboard_report
@@ -226,9 +225,6 @@ def build_report(
         report.get("project_onboarding"),
         error_cls=OnboardError,
     )
-    problems = onboard_credential_replacement.replacement_problems_from_kwargs(locals())
-    if problems:
-        raise OnboardError(" ".join(problems))
     if local_destination:
         onboard_apply_connection.apply_local_universe(
             cfg_path,
