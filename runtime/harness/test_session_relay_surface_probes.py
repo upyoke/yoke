@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 import subprocess
 import plistlib
 from threading import Event
 from types import SimpleNamespace
 
+from yoke_contracts import filesystem_safety, owner_private_path
 from yoke_harness import session_relay
 from yoke_harness import session_relay_surface_identity as identity_module
 from yoke_harness import session_relay_surface_probe_cache as probe_cache
@@ -56,6 +58,33 @@ def test_linux_metadata_timeout_retains_probe_diagnostic(monkeypatch) -> None:
     result = probes.probe_surface("claude-desktop")
     assert result.verdict == "timeout"
     assert "desktop_metadata_timeout" in result.error
+
+
+def test_cache_write_survives_a_transient_sharing_violation(
+    monkeypatch, tmp_path: Path
+) -> None:
+    real_replace = owner_private_path.os.replace
+    attempts: list[object] = []
+
+    def replace_after_one_refusal(source, target) -> None:
+        attempts.append(target)
+        if len(attempts) == 1:
+            raise PermissionError(5, "Access is denied")
+        real_replace(source, target)
+
+    monkeypatch.setattr(filesystem_safety, "_RETRY_SHARING_VIOLATIONS", True)
+    monkeypatch.setattr(owner_private_path.os, "replace", replace_after_one_refusal)
+
+    probe_cache.update_surface_probe_cache(
+        [_result(verdict="ok", observed_at=100.0, version="2.1.0")],
+        state_dir=tmp_path,
+    )
+
+    assert len(attempts) == 2
+    written = json.loads((tmp_path / "surface-probes.json").read_text(encoding="utf-8"))
+    assert written["surfaces"]["claude-cli"]["latest_verdict"] == "ok"
+    assert not list(tmp_path.glob(".surface-probes.json.*"))
+    assert not (tmp_path / "surface-probes.tmp").exists()
 
 
 def _result(

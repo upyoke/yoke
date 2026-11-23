@@ -3,6 +3,7 @@
 import json
 from datetime import timedelta
 import pytest
+from yoke_contracts import filesystem_safety, owner_private_path
 from yoke_contracts.timestamps import InvalidInstant, format_instant, parse_instant
 from yoke_harness import session_relay_health as health
 from yoke_harness.session_relay_probe_cache import read_probe_cache, write_probe_cache
@@ -52,6 +53,34 @@ def test_cached_readings_serve_the_next_poll_without_probing_again(
     assert len(calls) == 2
     assert first["cursor-cli"]["models"] == within["cursor-cli"]["models"]
     assert beyond["cursor-cli"]["status"] == "ok"
+
+
+def test_probe_cache_write_survives_a_transient_sharing_violation(
+    tmp_path: Path, monkeypatch
+) -> None:
+    real_replace = owner_private_path.os.replace
+    attempts: list[object] = []
+
+    def replace_after_one_refusal(source, target) -> None:
+        attempts.append(target)
+        if len(attempts) == 1:
+            raise PermissionError(5, "Access is denied")
+        real_replace(source, target)
+
+    monkeypatch.setattr(filesystem_safety, "_RETRY_SHARING_VIOLATIONS", True)
+    monkeypatch.setattr(owner_private_path.os, "replace", replace_after_one_refusal)
+    path = tmp_path / "native-models.json"
+
+    write_probe_cache(
+        path, {"schema_version": 1, "probed_at": NOW, "surfaces": {"cursor-cli": {}}}
+    )
+
+    assert len(attempts) == 2
+    written = json.loads(path.read_text(encoding="utf-8"))
+    assert written["surfaces"] == {"cursor-cli": {}}
+    assert parse_instant(written["probed_at"]) == parse_instant(NOW)
+    assert not list(tmp_path.glob(".native-models.json.*"))
+    assert not (tmp_path / "native-models.tmp").exists()
 
 
 def test_forced_refresh_ignores_the_cadence(tmp_path: Path, monkeypatch) -> None:
