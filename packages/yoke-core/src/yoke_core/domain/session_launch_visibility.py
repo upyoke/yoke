@@ -42,11 +42,23 @@ LAUNCH_EXECUTION_FAILURE_CODES = frozenset(
         "native_swap_headroom_low",
     }
 )
+ACKNOWLEDGED_LAUNCH_PHASE = "registered_and_acknowledged"
+# Only an acknowledged receipt can produce these outcome codes.
+_ACKNOWLEDGED_RESULT_CODES = frozenset(
+    {"launch_work_claim_missing", "launch_work_claim_pending"}
+)
 
 
 def launch_execution_failure_code(value: object) -> str:
     code = str(value or "").strip()
     return code if code in LAUNCH_EXECUTION_FAILURE_CODES else "native_create_failed"
+
+
+def abandoned_launch_phase(state: str, result_code: str | None) -> str:
+    """Name the phase an abandoned launch reached before its final outcome."""
+    if state == "succeeded" or result_code == "launch_work_claim_pending":
+        return ACKNOWLEDGED_LAUNCH_PHASE
+    return state
 
 
 def launch_visibility(
@@ -55,8 +67,13 @@ def launch_visibility(
     result_code: str | None,
     native_session_id: str | None,
     registered_session_id: str | None,
+    launch_phase_reached: str | None,
 ) -> dict[str, str]:
-    """Describe correlation and delivery without inferring either from creation."""
+    """Describe correlation and delivery without inferring either from creation.
+
+    A failed launch can still have delivered: its outcome code or recorded
+    phase keeps the acknowledgement that the final state overwrote.
+    """
     native = str(native_session_id or "").strip()
     registered = str(registered_session_id or "").strip()
     result = str(result_code or "").strip()
@@ -77,7 +94,14 @@ def launch_visibility(
     else:
         correlation = "pending"
 
-    if state == "succeeded" or result == "launch_work_claim_pending":
+    if (
+        state == "succeeded"
+        or result in _ACKNOWLEDGED_RESULT_CODES
+        or (
+            result == "abandoned_without_claim"
+            and launch_phase_reached == ACKNOWLEDGED_LAUNCH_PHASE
+        )
+    ):
         delivery = "delivered"
     elif result == "injected_awaiting_acknowledgement":
         delivery = "awaiting_acknowledgement"
@@ -92,8 +116,10 @@ def launch_visibility(
 
 
 __all__ = [
+    "ACKNOWLEDGED_LAUNCH_PHASE",
     "CORRELATION_FAILURE_CODES",
     "LAUNCH_EXECUTION_FAILURE_CODES",
+    "abandoned_launch_phase",
     "launch_execution_failure_code",
     "launch_visibility",
 ]

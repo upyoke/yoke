@@ -20,6 +20,7 @@ def _correlation(state: str, *, native: str | None, registered: str | None) -> s
         result_code=None,
         native_session_id=native,
         registered_session_id=registered,
+        launch_phase_reached=None,
     )["identity_correlation"]
 
 

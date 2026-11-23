@@ -8,6 +8,8 @@ from yoke_contracts.timestamps import parse_instant
 import json
 from dataclasses import replace
 
+import pytest
+
 from yoke_core.domain import session_launch_abandonment as launch_abandonment
 from yoke_core.domain.session_launch_abandonment import (
     ABANDONED_RESULT_CODE,
@@ -17,7 +19,8 @@ from yoke_core.domain.session_launch_abandonment import (
     settle_and_notify,
     settle_launch_native_death,
 )
-from yoke_core.domain.session_launch_store import get_launch
+from yoke_core.domain.session_launch_projection import public_launch_record
+from yoke_core.domain.session_launch_store import get_launch, update_launch
 from runtime.api.domain.session_launch_test_support import (
     NOW,
     add_relay,
@@ -253,6 +256,42 @@ def test_a_dead_native_that_had_worked_keeps_its_launch_without_telemetry() -> N
 
     assert settled is None
     assert get_launch(conn, launch.launch_id).state == "succeeded"
+
+
+@pytest.mark.parametrize(
+    "settle",
+    [
+        lambda conn: settle_abandoned_launch(
+            conn, WORKER, end_reason="session_ended", now=NOW
+        ),
+        lambda conn: settle_launch_native_death(
+            conn, WORKER, {"native_stderr_tail": ""}, now=NOW
+        ),
+    ],
+    ids=["session_end", "native_death"],
+)
+def test_abandoned_claim_pending_launch_still_reads_as_delivered(settle) -> None:
+    conn = launch_connection()
+    _worker_tables(conn)
+    add_relay(conn)
+    launch = _delivered_launch(conn)
+    update_launch(
+        conn,
+        launch.launch_id,
+        state="awaiting_registration",
+        result_code="launch_work_claim_pending",
+    )
+    conn.commit()
+
+    settled = settle(conn)
+
+    assert settled is not None
+    assert json.loads(settled.result_evidence)["launch_phase_reached"] == (
+        "registered_and_acknowledged"
+    )
+    record = public_launch_record(settled)
+    assert record["state"] == "failed"
+    assert record["instruction_delivery"] == "delivered"
 
 
 def test_a_dead_native_that_never_worked_is_settled_as_abandoned() -> None:

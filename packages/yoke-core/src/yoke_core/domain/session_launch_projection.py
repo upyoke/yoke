@@ -67,15 +67,18 @@ def _safe_result_evidence(value: Any) -> dict[str, str | int]:
 def public_launch_record(launch: LaunchRecord, conn=None) -> dict[str, Any]:
     """Project one launch without request identity, secrets, or native payloads."""
     result = {field: getattr(launch, field) for field in _PUBLIC_FIELDS}
+    evidence = _safe_result_evidence(launch.result_evidence)
+    phase = evidence.get("launch_phase_reached")
     result.update(
         launch_visibility(
             state=launch.state,
             result_code=launch.result_code,
             native_session_id=launch.native_session_id,
             registered_session_id=launch.registered_session_id,
+            launch_phase_reached=phase if isinstance(phase, str) else None,
         )
     )
-    result["result_evidence"] = _safe_result_evidence(launch.result_evidence)
+    result["result_evidence"] = evidence
     result["item"] = (
         render_item_refs(conn, [launch.item_id]).get(launch.item_id)
         if launch.item_id

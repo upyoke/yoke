@@ -21,7 +21,6 @@ from yoke_core.domain.session_launch_types import (
     LaunchRecord,
     SessionLaunchError,
 )
-from yoke_core.domain.session_launch_visibility import launch_visibility
 from yoke_core.domain.session_termination import terminate_cancelled_launch_session
 from yoke_core.domain.sessions_analytics import SessionError
 
@@ -56,13 +55,10 @@ def cancel_launch(
         if launch.state == "cancelled":
             conn.commit()
             return launch
-        delivery = launch_visibility(
-            state=launch.state,
-            result_code=launch.result_code,
-            native_session_id=launch.native_session_id,
-            registered_session_id=launch.registered_session_id,
-        )["instruction_delivery"]
-        if delivery == "delivered":
+        if (
+            launch.state == "succeeded"
+            or launch.result_code == "launch_work_claim_pending"
+        ):
             ended = conn.execute(
                 f"SELECT 1 FROM harness_sessions s WHERE s.session_id = {marker(conn)} "
                 f"AND {ended_session_sql('s')}",

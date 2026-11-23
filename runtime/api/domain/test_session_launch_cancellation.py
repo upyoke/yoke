@@ -103,6 +103,25 @@ def test_cancel_refuses_a_session_already_working(
     assert get_launch(conn, launch.launch_id).state == "succeeded"
 
 
+def test_cancel_refuses_a_live_session_with_its_work_claim_pending(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(TERMINATE, lambda conn, **kwargs: pytest.fail("ended"))
+    conn = launch_connection()
+    launch = _launch_bound_to(
+        conn,
+        key="cancel-claim-pending",
+        state="awaiting_registration",
+        result_code="launch_work_claim_pending",
+    )
+
+    with pytest.raises(SessionLaunchError) as refused:
+        cancel_launch(conn, launch_id=launch.launch_id, auth=authorization(), now=NOW)
+
+    assert refused.value.code == SESSION_WORKING_CODE
+    assert get_launch(conn, launch.launch_id).state == "awaiting_registration"
+
+
 @pytest.mark.parametrize("end_column", ["ended_at", "terminated_at"])
 def test_cancel_settles_a_delivered_launch_whose_registered_session_ended(
     monkeypatch, end_column
