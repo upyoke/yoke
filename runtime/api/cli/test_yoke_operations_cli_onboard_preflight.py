@@ -42,7 +42,7 @@ def test_machine_only_is_always_clear() -> None:
     assert onboard_preflight.preflight_problems(_Result()) == []
 
 
-def test_different_existing_yoke_token_blocks_review(
+def test_different_existing_yoke_token_does_not_block_review(
     tmp_path: Path, monkeypatch,
 ) -> None:
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "home"))
@@ -56,9 +56,7 @@ def test_different_existing_yoke_token_blocks_review(
         _Result(env_name="stage", token_file=str(incoming))
     )
 
-    assert any("different Yoke API token for stage" in p for p in problems)
-    assert "yoke_v1_existing" not in "\n".join(problems)
-    assert "yoke_v1_new" not in "\n".join(problems)
+    assert problems == []
 
 
 def test_same_existing_yoke_token_is_clear(

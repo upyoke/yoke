@@ -195,43 +195,6 @@ def test_onboard_yes_accepts_versioned_api_base(
     assert written["connections"]["stage"]["api_url"] == versioned_api_url
 
 
-def test_onboard_yes_refuses_to_replace_existing_token(
-    tmp_path: Path,
-    monkeypatch,
-    capsys,
-) -> None:
-    home = tmp_path / "home"
-    monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
-    saved = home / "secrets" / "prod.token"
-    saved.parent.mkdir(parents=True)
-    saved.write_text("yoke_v1_existing\n", encoding="utf-8")
-
-    rc = yoke_operations_cli.main(
-        [
-            "setup",
-            "yoke_v1_new",
-            "--non-interactive",
-            "--quick",
-            "--config",
-            str(home / "config.json"),
-            "--env",
-            "prod",
-            "--api-url",
-            "https://api.example.test",
-            "--yes",
-            "--json",
-        ]
-    )
-
-    assert rc == 1
-    err = capsys.readouterr().err
-    assert "different Yoke API token for prod" in err
-    assert "yoke_v1_existing" not in err
-    assert "yoke_v1_new" not in err
-    assert saved.read_text(encoding="utf-8") == "yoke_v1_existing\n"
-    assert not (home / "config.json").exists()
-
-
 def test_onboard_missing_required_flags_exits_nonzero(capsys) -> None:
     rc = yoke_operations_cli.main(["setup", "--non-interactive"])
 
