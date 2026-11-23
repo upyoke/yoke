@@ -27,9 +27,7 @@ tested commit to the GitHub run summary.
 
 `--wait` reports the exact run's conclusion. If the wait times out, use
 `yoke github-actions wait-run upyoke/yoke <run-id> --project yoke` with the
-printed run ID. The steering report checks the last ten recorded suite
-dispatches from the previous day, and lists failed or unreadable runs with
-their run IDs and requested commits. When a lane changes
+printed run ID. When a lane changes
 `yoke-suite.yml`, dispatch on the published lane branch so Actions also
 uses that branch's workflow definition.
 
