@@ -1,8 +1,9 @@
 """One Test Machine per OS slot of a simultaneous-host case.
 
-A slotted case lists OS slots in ``method_config.test_machines``; every slot
-shares the case's ``capability_tags``. A slot's eligible hosts are the
-registered, verified hosts of its OS carrying those tags, so slots of one OS
+A slotted case lists OS slots in ``method_config.test_machines`` and maps a
+slot OS to its tags in ``capability_tags``. Slots of the driver's OS also carry
+the tags of cases inheriting the driver host. A slot's eligible hosts are the
+registered, verified hosts of its OS carrying its tags, so slots of one OS
 share one eligible set. Slots take hosts in order, each the lowest-named
 available host no earlier slot took.
 
@@ -45,20 +46,29 @@ class TestMachineSlotsBusy(MachineQaProtocolError):
 def slot_eligibility(
     conn: Any, case: Mapping[str, Any], cases: Sequence[Mapping[str, Any]]
 ) -> SlotEligibility:
-    """Each slot of *case* with its eligible hosts under the tags of *cases*.
+    """Each slot of *case* with its eligible hosts under its OS's tags.
 
     Refuses when an OS has fewer eligible hosts than slots, which no wait
     can cure.
     """
-    from yoke_core.domain.machine_qa_case_hosts import case_slots
+    from yoke_core.domain.machine_qa_case_hosts import (
+        case_slots,
+        driver_slot_os,
+        slot_os_tags,
+    )
     from yoke_core.domain.machine_qa_case_platform import required_host_tags
     from yoke_core.domain.machine_qa_host_rows import test_machine_rows
 
-    tags = required_host_tags(cases)
+    driver_os = driver_slot_os(case)
     rows = test_machine_rows(conn)
     slots = [slot["os"] for slot in case_slots(case)]
     eligibility = []
     for os_name in slots:
+        tags = (
+            required_host_tags(cases)
+            if os_name == driver_os
+            else slot_os_tags(case, os_name)
+        )
         names = tuple(
             row.test_machine
             for row in rows

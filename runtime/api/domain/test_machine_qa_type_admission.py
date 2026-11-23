@@ -98,6 +98,15 @@ def test_mission_authoring_normalizes_tags_and_refuses_a_named_host():
         },
     )
     assert config["capability_tags"] == ["arch:x64"]
+    with pytest.raises(QaMethodConfigError, match="test_machine_capability_tags_invalid"):
+        validate_method_config(
+            "agent-mission",
+            {
+                "executor": "informed_subagent",
+                "os": "windows",
+                "capability_tags": {"windows": ["arch:x64"]},
+            },
+        )
     with pytest.raises(QaMethodConfigError, match="test_machine_name_forbidden"):
         validate_method_config(
             "agent-mission",

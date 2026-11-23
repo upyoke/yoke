@@ -7,7 +7,11 @@ from yoke_contracts.machine_config.test_machine import (
     test_machine_capability_tags,
 )
 from yoke_contracts.qa_case_starting_state import declares_starting_state
-from yoke_core.domain.machine_qa_case_hosts import case_machines, case_slots
+from yoke_core.domain.machine_qa_case_hosts import (
+    case_machines,
+    case_slots,
+    slot_os_tags,
+)
 from yoke_core.domain.machine_qa_case_machine import resolve_case_machine
 from yoke_core.domain.machine_qa_case_platform import (
     matching_platform_hosts,
@@ -47,7 +51,14 @@ def mixed_mission_host_set(
                 chains.append((start, index, chain))
             start = index + 1
     selectors = {
-        (groups[chain[0]["requirement_id"]], frozenset(required_host_tags(chain)))
+        (
+            groups[chain[0]["requirement_id"]],
+            frozenset(required_host_tags(chain)),
+            frozenset(
+                (slot["os"], frozenset(slot_os_tags(chain[0], slot["os"])))
+                for slot in case_slots(chain[0])
+            ),
+        )
         for _, _, chain in chains
     }
     if len(selectors) < 2:

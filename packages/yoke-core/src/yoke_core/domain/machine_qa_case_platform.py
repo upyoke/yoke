@@ -144,13 +144,20 @@ def required_platform(
 
 
 def required_host_tags(cases: Sequence[Mapping[str, Any]]) -> set[str]:
-    return {
-        tag
-        for case in cases
-        for tag in normalize_test_machine_capability_tags(
-            (case.get("method_config") or {}).get("capability_tags", [])
-        )
-    }
+    """Tags the driving host must carry; a slotted case adds its driver OS tags."""
+    from yoke_core.domain.machine_qa_case_hosts import driver_slot_os, slot_os_tags
+
+    tags: set[str] = set()
+    for case in cases:
+        if driver_os := driver_slot_os(case):
+            tags |= slot_os_tags(case, driver_os)
+        else:
+            tags.update(
+                normalize_test_machine_capability_tags(
+                    (case.get("method_config") or {}).get("capability_tags", [])
+                )
+            )
+    return tags
 
 
 def require_host_tags(settings: Mapping[str, str], cases: Sequence[Mapping[str, Any]]) -> None:

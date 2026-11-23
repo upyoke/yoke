@@ -13,6 +13,7 @@ from runtime.api.domain.qa_member_machine_partitions_test_support import (
     _case_begin,
     _seed,
     host_slots,
+    seed_fleet_cases,
 )
 from runtime.api.domain.machine_qa_session_seed import seed_qa_session
 from runtime.api.domain.deployment_qa_stage_execution_test_support import _complete_case
@@ -320,3 +321,26 @@ def test_acquisition_order_does_not_depend_on_driving_host(
     assert [call.kwargs["test_machine"] for call in acquire_spy.call_args_list] == list(
         MACHINES
     )
+
+
+def test_mac_only_tags_pass_the_windows_driver_and_pick_the_tagged_mac(
+    test_db, tmp_path, monkeypatch
+):
+    from runtime.api.domain.machine_qa_host_test_support import TEST_MACHINE_SETTINGS as BASE, verify_fixture_host
+    from yoke_core.domain.machine_qa_capability import replace_test_machine_settings
+    from yoke_core.domain.machine_qa_case_platform import require_host_tags
+
+    slots = [{"os": "macos"}, {"os": "windows", "driver": True}]
+    hosts = {"test_machines": slots, "capability_tags": {"macos": ["macos:15"]}}
+    seed_fleet_cases(test_db, tmp_path, monkeypatch, {"win-a": "windows"}, [{"case_key": "mixed", "hosts": hosts}])
+    tagged = {**BASE, "resource_name": "z-mac", "capability_tags": "macos:15"}
+    replace_test_machine_settings(
+        test_db, power_project="yoke", test_machine="z-mac", settings=tagged, base_settings=None,
+    )
+    verify_fixture_host(test_db, "z-mac")
+    execution = _begin(test_db)
+    response = _case_begin(execution)
+    assert response.primary_success, response.error
+    current = lock_plan_execution(test_db, execution["id"])
+    assert {c.target.test_machine for c in execution_host_leases(test_db, current)} == {"win-a", "z-mac"}
+    require_host_tags({**BASE, "resource_name": "win-a", "os": "windows"}, current["roster"])
