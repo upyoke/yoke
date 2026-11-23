@@ -1,6 +1,7 @@
 """Real standard-SSH readiness and task/profile roundtrip on disposable guests."""
 
 import json
+from unittest.mock import patch
 from uuid import uuid4
 
 from yoke_harness.native_windows.baseline import profile_operation
@@ -13,7 +14,11 @@ def verify_standard_task_operations(settings, key, password, foreign_task):
     control = SshNativeWindowsHostOperations(
         settings=settings, key_path=key, secret_values=(password,),
     )
-    readiness = control.check_connection()
+    # The disposable runner has no signed-in desktop for the GUI-session CLI
+    # probe; every SSH readiness check still runs for real.
+    with patch("yoke_harness.golden_harness_clis.probe_harness_cli_versions", return_value={}):
+        readiness = control.check_connection()
+    assert readiness.ok, readiness.evidence
     assert readiness.evidence["os"] == "windows", readiness.evidence
     assert set(readiness.evidence) - {"reason", "recovery"} == {
         "commit_limit_bytes", "committed_bytes", "free_commit_bytes",
