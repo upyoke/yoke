@@ -186,7 +186,7 @@ class DestinationFlow:
         stored_destination: str,
     ) -> None:
         if choice == _STORED_DESTINATION:
-            self._route_destination(stored_destination)
+            self._follow_saved_connection(lambda: self._route_destination(stored_destination))
             return
         self._clear_stored_connection()
         self._route_destination(choice)
