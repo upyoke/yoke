@@ -137,7 +137,7 @@ def test_ssh_bootstrap_uses_admin_ssh_without_azure_or_password_trimming(monkeyp
     provision.provision(
         "project", "machine", "host", "group", "admin", "qa", bootstrap_transport="ssh"
     )
-    assert len(scripts) == 3
+    assert len(scripts) == 2  # bootstrap, setup
     assert scripts[1][1]["input_text"] == " secret "
     assert "Read-YokeFrame" in scripts[1][0]
     assert "ReadToEnd" not in scripts[1][0]
