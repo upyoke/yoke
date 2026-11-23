@@ -18,7 +18,11 @@ from yoke_contracts.codex_hook_trust_store import (
 )
 from yoke_contracts.global_skill_install import ensure_global_skill, global_skill_ready
 from yoke_contracts.codex_lane_hook_trust import inspect_hook_trust, mirror_hook_trust
-from yoke_contracts.harness_folder_trust import claude_state_path, cursor_trust_file
+from yoke_contracts.harness_folder_trust import (
+    claude_state_path,
+    claude_trust_key,
+    cursor_trust_file,
+)
 from yoke_contracts.harness_folder_trust_grant import grant_folder_trust
 from yoke_contracts.harness_machine_hooks import HARNESS_MACHINE_HOOKS
 from yoke_contracts.harness_posture_install import configure_harness_unattended_posture
@@ -82,13 +86,14 @@ def _folder(path: Path, harness: str) -> tuple[bool, str]:
         target = claude_state_path()
         doc = _document(target)
         projects = doc.get("projects", {})
+        key = claude_trust_key(path)
         if not isinstance(projects, dict) or not isinstance(
-            projects.get(str(path), {}), dict
+            projects.get(key, {}), dict
         ):
             raise ValueError(
                 f"harness_config_malformed: {target}: projects entry is not an object"
             )
-        ready = projects.get(str(path), {}).get("hasTrustDialogAccepted") is True
+        ready = projects.get(key, {}).get("hasTrustDialogAccepted") is True
     elif harness == "codex":
         target = posture.codex_config_path()
         doc = _document(target)

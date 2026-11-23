@@ -81,6 +81,23 @@ def test_harness_installed_after_yoke_converges_existing_lanes(
     assert files == {p: p.read_bytes() for p in home.rglob("*") if p.is_file()}
 
 
+def test_claude_readiness_reads_the_claude_key(machine, monkeypatch):
+    home, root, _lanes = machine
+    sentinel = "C:/sentinel/claude-key"
+    monkeypatch.setattr(setup, "claude_trust_key", lambda _path: sentinel)
+    state = home / ".claude.json"
+    state.write_text(
+        json.dumps({"projects": {sentinel: {"hasTrustDialogAccepted": True}}})
+    )
+    assert setup._folder(root, "claude-code")[0] is True
+    state.write_text(
+        json.dumps({"projects": {str(root): {"hasTrustDialogAccepted": True}}})
+    )
+    ready, detail = setup._folder(root, "claude-code")
+    assert ready is False
+    assert detail.startswith("folder_trust_missing")
+
+
 def test_modified_lane_hooks_refuse_without_minting(machine):
     home, root, lanes = machine
     (home / ".codex").mkdir()
