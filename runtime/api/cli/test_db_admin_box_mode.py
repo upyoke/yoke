@@ -76,7 +76,9 @@ def test_box_plan_targets_box_postgres_and_keeps_the_dsn_file(box, capsys) -> No
     assert actions == [
         "resolve-deploy-environment",
         "ensure-box-operator-key",
+        "ensure-mac-host-key",
         "pin-mac-host-key",
+        "probe-mac-host-key",
         "authorize-box-operator-key",
         "pin-box-host-key",
         "write-box-ssh-config",

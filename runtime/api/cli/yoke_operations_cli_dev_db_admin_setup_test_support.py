@@ -63,6 +63,5 @@ def _env(
         aws_region="us-east-1",
         ssh_user="ubuntu",
         mac_host="testy@mac-mini",
-        mac_host_ssh_key_path="~/.ssh/operator_rsa",
         mac_host_key_fingerprint=MAC_FINGERPRINT,
     )

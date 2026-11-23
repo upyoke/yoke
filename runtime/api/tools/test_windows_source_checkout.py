@@ -82,7 +82,7 @@ def test_windows_proxy_command_quotes_local_path_and_remote_shell(monkeypatch, t
 
 def test_ssh_host_block_normalizes_native_paths(monkeypatch):
     monkeypatch.setattr(mac_leg, "login", lambda env: ("user", "host"))
-    monkeypatch.setattr(mac_leg, "key_path", lambda env: str(Path.home() / "key with spaces"))
+    monkeypatch.setattr(mac_leg, "key_path", lambda env: Path.home() / "key with spaces")
     block = mac_leg.host_block(SimpleNamespace(env_name="prod"), str(Path.home() / "known hosts"))
     assert f'IdentityFile "{(Path.home() / "key with spaces").as_posix()}"' in block
     assert f'UserKnownHostsFile "{(Path.home() / "known hosts").as_posix()}"' in block

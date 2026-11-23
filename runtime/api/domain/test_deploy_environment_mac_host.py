@@ -25,14 +25,14 @@ def test_mac_host_is_read_next_to_the_server_key_path() -> None:
             {
                 "ssh_key_path": "/keys/prod.pem",
                 "mac_host": " testy@testys-mac-mini ",
-                "mac_host_ssh_key_path": "~/.ssh/operator_rsa",
+                "mac_host_ssh_key_path": "~/.ssh/retired",
                 "mac_host_key_fingerprint": "SHA256:K0hk",
             }
         ]
     )
 
     assert env.mac_host == "testy@testys-mac-mini"
-    assert env.mac_host_ssh_key_path == "~/.ssh/operator_rsa"
+    assert not hasattr(env, "mac_host_ssh_key_path"), "the setting is retired"
     assert env.mac_host_key_fingerprint == "SHA256:K0hk"
     assert env.ssh_key_path == "/keys/prod.pem"
     assert env.ssh_target == "ubuntu@origin.example.com", "other callers keep the origin"
@@ -44,8 +44,4 @@ def test_mac_host_is_empty_when_not_declared(servers) -> None:
 
     env = _resolve(**overrides)
 
-    assert (env.mac_host, env.mac_host_ssh_key_path, env.mac_host_key_fingerprint) == (
-        "",
-        "",
-        "",
-    )
+    assert (env.mac_host, env.mac_host_key_fingerprint) == ("", "")
