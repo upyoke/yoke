@@ -42,6 +42,7 @@ from yoke_core.domain.session_launch_store import (
     utc_now,
 )
 from yoke_core.domain.session_launch_types import LaunchRecord
+from yoke_core.domain.session_launch_visibility import abandoned_launch_phase
 from yoke_core.domain.session_relay_evidence import merge_redacted_evidence
 
 
@@ -147,9 +148,7 @@ def settle_launch_native_death(
         recorded = {
             "result_code": ABANDONED_RESULT_CODE,
             "closure_reason": reason,
-            "launch_phase_reached": (
-                "registered_and_acknowledged" if launch.state == "succeeded" else launch.state
-            ),
+            "launch_phase_reached": abandoned_launch_phase(launch.state, launch.result_code),
             "registration_session_id": session_id,
             **{
                 name: evidence[name]
@@ -205,9 +204,7 @@ def settle_abandoned_launch(
         evidence = {
             "result_code": ABANDONED_RESULT_CODE,
             "closure_reason": str(end_reason or "session_ended")[:128],
-            "launch_phase_reached": (
-                "registered_and_acknowledged" if launch.state == "succeeded" else launch.state
-            ),
+            "launch_phase_reached": abandoned_launch_phase(launch.state, launch.result_code),
             "registration_session_id": session_id,
         }
         flipped = update_launch(
