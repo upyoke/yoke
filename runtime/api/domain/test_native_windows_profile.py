@@ -40,7 +40,7 @@ def test_missing_secret_cannot_reset_existing_account(monkeypatch):
     store.assert_not_called()
 
 
-def test_profile_failure_stops_before_journal_install_and_redacts_secret(monkeypatch):
+def test_profile_failure_stops_setup_and_redacts_secret(monkeypatch):
     calls = []
     monkeypatch.setattr(provision, "test_machine_secret_path", lambda *a: "key")
     monkeypatch.setattr(

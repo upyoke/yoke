@@ -1,10 +1,10 @@
 """Disable the verified vendor tray shortcut while preserving its private backup."""
 
-from yoke_harness.native_windows.receipts import GUARDS
+from yoke_harness.native_windows.private_root import GUARDS
 
 SCRIPT = GUARDS + r"""
 function Assert-YokeTailnetStartupPrivate($path,$directory) {
- Assert-YokeRecoveryObject $path $directory
+ Assert-YokePrivateObject $path $directory
  $acl=Get-Acl -LiteralPath $path -ErrorAction Stop
  $rules=@($acl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier]))
  if(!$acl.AreAccessRulesProtected -or $rules.Count -ne 2 -or @($rules.IdentityReference.Value|Select-Object -Unique).Count -ne 2){throw 'windows_tailnet_startup_private_invalid: preserve the backup and inspect its permissions'}
@@ -53,12 +53,12 @@ function Disable-YokeTailnetTrayStartup {
   }
  }
  if(!(Test-Path -LiteralPath $StartupRoot)){return @{trayStartup='absent'}}
- Assert-YokeRecoveryObject $StartupRoot $true
+ Assert-YokePrivateObject $StartupRoot $true
  $path=Join-Path $StartupRoot 'Tailscale.lnk'
  Assert-YokeTailnetStartupInventory $StartupRoot $path
  if(!(Test-Path -LiteralPath $path)){return @{trayStartup='absent'}}
- Assert-YokeRecoveryObject $path $false
- Assert-YokeRecoveryObject $Executable $false
+ Assert-YokePrivateObject $path $false
+ Assert-YokePrivateObject $Executable $false
  if((Get-AuthenticodeSignature -LiteralPath $Executable -ErrorAction Stop).Status -ne 'Valid'){throw 'windows_tailnet_startup_target_invalid: preserve the shortcut; require the signed installed tray executable'}
  $shell=New-Object -ComObject WScript.Shell
  $shortcut=$shell.CreateShortcut($path)
@@ -84,7 +84,7 @@ function Disable-YokeTailnetTrayStartup {
  }
  Assert-YokeTailnetStartupPrivate $backup $false
  if((Get-Item -LiteralPath $backup -Force).Length -ne $length -or (Get-FileHash -LiteralPath $backup -Algorithm SHA256).Hash.ToLowerInvariant() -cne $hash){throw 'windows_tailnet_startup_backup_invalid: preserve both objects; backup differs'}
- Assert-YokeRecoveryObject $path $false
+ Assert-YokePrivateObject $path $false
  if((Get-Item -LiteralPath $path -Force).Length -ne $length -or (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant() -cne $hash){throw 'windows_tailnet_startup_changed: preserve both objects; startup entry changed during backup'}
  Remove-Item -LiteralPath $path -Force -ErrorAction Stop
  if(Test-Path -LiteralPath $path){throw 'windows_tailnet_startup_cleanup_failed: verified shortcut remains in Startup'}

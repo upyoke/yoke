@@ -1,76 +1,30 @@
-"""Real standard-SSH recovery and task/profile roundtrip on disposable guests."""
+"""Real standard-SSH readiness and task/profile roundtrip on disposable guests."""
 
 import json
+from unittest.mock import patch
 from uuid import uuid4
 
 from yoke_harness.native_windows.baseline import profile_operation
-from yoke_harness.native_windows.features import FEATURES, features_absent
-from yoke_harness.native_windows.receipts import RECEIPT
 from yoke_harness.native_windows.tasks import HELPERS, remove_owned_task
 from yoke_harness.native_windows.transport import quote
 from yoke_harness.ssh_native_windows_host_operations import SshNativeWindowsHostOperations
 
 
-def verify_standard_task_operations(settings, key, password):
+def verify_standard_task_operations(settings, key, password, foreign_task):
     control = SshNativeWindowsHostOperations(
         settings=settings, key_path=key, secret_values=(password,),
     )
-    lease = uuid4().hex
-    # Production binding invokes the fixed SYSTEM task through standard SSH;
-    # its receipt proves execution, rather than just task registration.
-    control.bind_qa_lease(lease)
-    assert set(control.native_features) == FEATURES
-    readiness = control.check_connection()
-    assert readiness.ok is features_absent(control.native_features), readiness.evidence
-    genuine_before = control.read_remote_text(RECEIPT)
-    protected = control._run(r"""
-$receipt='C:\ProgramData\YokeQa\receipts\receipt.json'
-if(!(Test-Path -LiteralPath $receipt)){throw 'genuine SYSTEM receipt missing'}
-function Assert-Denied($label,$operation) {
- $denied=$false
- try {& $operation} catch {
-  $failure=$_.Exception
-  $chain=@()
-  while($failure){
-   $chain+=@{type=$failure.GetType().FullName;hresult=$failure.HResult;message=$failure.Message}
-   if($failure -is [UnauthorizedAccessException] -or $failure.HResult -eq -2147024891){$denied=$true}
-   $failure=$failure.InnerException
-  }
-  if(!$denied){throw ('unexpected protected-proof failure '+$label+': '+($chain | ConvertTo-Json -Compress))}
- }
- if(!$denied){throw ('protected SYSTEM proof was mutable by the standard user: '+$label)}
-}
-Assert-Denied 'overwrite' {[IO.File]::WriteAllText($receipt,'forged')}
-Assert-Denied 'create' {[IO.File]::WriteAllText('C:\ProgramData\YokeQa\receipts\new.json','forged')}
-Assert-Denied 'delete' {[IO.File]::Delete($receipt)}
-$source='C:\ProgramData\YokeQa\requests\forged.json'
-Set-Content -LiteralPath $source -Value forged
-try {
- Assert-Denied 'replace' {[IO.File]::Replace($source,$receipt,[System.Management.Automation.Language.NullString]::Value)}
- if(!(Test-Path -LiteralPath $source)){throw 'denied replacement consumed its source'}
-}
-finally {Remove-Item -LiteralPath $source -Force -ErrorAction SilentlyContinue}
-$acl=Get-Acl -LiteralPath $receipt
-$acl.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new([Security.Principal.WindowsIdentity]::GetCurrent().Name,'FullControl','Allow'))
-Assert-Denied 'change_acl' {[IO.File]::SetAccessControl($receipt,$acl)}
-Assert-Denied 'delete_directory' {[IO.Directory]::Delete('C:\ProgramData\YokeQa\receipts',$true)}
-""")
-    assert protected.returncode == 0, protected.stderr
-    assert control.read_remote_text(RECEIPT) == genuine_before
-    assert json.loads(control.read_remote_text(RECEIPT))["ok"] is True
-    upload = control.upload_remote_text
-    def forge_old_receipt(path, text):
-        upload(path, text)
-        request = json.loads(text)
-        upload(r"C:\ProgramData\YokeQa\requests\receipt.json",
-               json.dumps(request | {"ok": True, "features": [], "forged": True}))
-    control.upload_remote_text = forge_old_receipt
-    try:
-        genuine = control.journal_settings("restore")
-        assert "forged" not in genuine
-        assert set(control.native_features) == FEATURES
-    finally:
-        control.upload_remote_text = upload
+    # The disposable runner has no signed-in desktop for the GUI-session CLI
+    # probe; every SSH readiness check still runs for real.
+    with patch("yoke_harness.golden_harness_clis.probe_harness_cli_versions", return_value={}):
+        readiness = control.check_connection()
+    assert readiness.ok, readiness.evidence
+    assert readiness.evidence["os"] == "windows", readiness.evidence
+    assert set(readiness.evidence) - {"reason", "recovery"} == {
+        "commit_limit_bytes", "committed_bytes", "free_commit_bytes",
+        "minimum_free_commit_bytes", "transport", "os", "edition", "build",
+        "harness_version", "yoke_release", "runner_materialized",
+    }
     name = "YokeFixture-" + uuid4().hex
     extra = name + "-extra"
     folder_name = name + "-folder"
@@ -89,7 +43,7 @@ $folder=$schedule.GetFolder('\').CreateFolder({quote(folder_name)},$null)
 $folder.RegisterTaskDefinition('nested',$task.Definition,2,$taskIdentity.User.Value,$null,3,$null) | Out-Null
 """)
         assert created.returncode == 0, created.stderr
-        foreign = control._run(remove_owned_task("YokeQaMachineSettings"))
+        foreign = control._run(remove_owned_task(foreign_task))
         assert foreign.returncode != 0 and "windows_task_owner_refused" in foreign.stderr
         captured = profile_operation(control, "capture", golden)
         assert captured.ok, captured.evidence
@@ -113,7 +67,7 @@ $task=Get-YokeTask {quote(name)}
 if(!$task -or $task.Definition.Actions.Item(1).Arguments -cne '-NoProfile -Command exit'){{throw 'saved task XML not restored'}}
 if(Get-YokeTask {quote(extra)}){{throw 'new task not removed'}}
 if(!(Get-YokeTask {quote(nested)})){{throw 'deleted task folder not restored'}}
-@{{path=[Environment]::GetEnvironmentVariable('Path','User');fixedExists=($null -ne (Get-YokeTask 'YokeQaMachineSettings'))}} | ConvertTo-Json -Compress
+@{{path=[Environment]::GetEnvironmentVariable('Path','User');fixedExists=($null -ne (Get-YokeTask {quote(foreign_task)}))}} | ConvertTo-Json -Compress
 """)
         assert verified.returncode == 0, verified.stderr
         facts = json.loads(verified.stdout)

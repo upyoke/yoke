@@ -129,6 +129,7 @@ def test_complete_guest_provisioning_and_real_ssh_rdp_forward(monkeypatch, tmp_p
     ssh = ["ssh", "-F", "none", "-i", str(key), "-o", "BatchMode=yes",
            "-o", "StrictHostKeyChecking=accept-new", "-o", "ConnectTimeout=15"]
     tunnel = None
+    foreign_task = "YokeFixtureForeign-" + uuid4().hex
     try:
         provision.provision("fixture", "fixture", "127.0.0.1", "fixture", admin, name,
                             bootstrap_transport="ssh")
@@ -136,10 +137,9 @@ def test_complete_guest_provisioning_and_real_ssh_rdp_forward(monkeypatch, tmp_p
         for receipt in (
             "Native OpenSSH ready; password authentication disabled.",
             "Native standard user, private golden directory and private desktop routes ready.",
-            "Native QA recovery task ready.",
         ):
             assert receipt in output
-        assert len(stages) == 4  # bootstrap, absent-user guard, setup, recovery task
+        assert len(stages) == 3  # bootstrap, absent-user guard, setup
         for user, expected in ((admin, "$true"), (name, "$false")):
             script = (
                 "$ErrorActionPreference='Stop'; $id=[Security.Principal.WindowsIdentity]::GetCurrent(); "
@@ -188,8 +188,20 @@ def test_complete_guest_provisioning_and_real_ssh_rdp_forward(monkeypatch, tmp_p
 
         verify_real_system_tailnet_errors(key, admin)
         verify_real_tailnet_startup_policy(powershell, tmp_path)
+        # Readable by the test user but not owned, so owner refusal is reachable.
+        registered = powershell(rf"""
+$sid=(Get-LocalUser -Name '{name}').SID.Value
+$action=New-ScheduledTaskAction -Execute 'powershell.exe' -Argument '-NoProfile -Command exit'
+$principal=New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Highest
+Register-ScheduledTask -TaskName '{foreign_task}' -Action $action -Principal $principal -Force | Out-Null
+$scheduler=New-Object -ComObject Schedule.Service
+$scheduler.Connect()
+$scheduler.GetFolder('\').GetTask('{foreign_task}').SetSecurityDescriptor(('D:P(A;;GA;;;SY)(A;;GA;;;BA)(A;;GRGX;;;'+$sid+')'),0)
+""", tmp_path)
+        assert registered.returncode == 0, registered.stderr
         verify_standard_task_operations(
             {"os": "windows", "host": "127.0.0.1", "user": name}, key, custody["password"],
+            foreign_task,
         )
         checks = rf"""
 $u=Get-LocalUser -Name '{name}'
@@ -200,9 +212,6 @@ if($rules.Count -ne 3 -or @($rules | Where-Object {{$_.IdentityReference.Value -
 $g=Get-LocalGroup -Name 'OpenSSH Users' -ErrorAction SilentlyContinue
 if($g -and @(Get-LocalGroupMember -Group $g.Name).SID.Value -notcontains $u.SID.Value){{throw 'SSH group membership missing'}}
 if(!(Test-Path -LiteralPath (Join-Path $p.ProfileImagePath 'NTUSER.DAT'))){{throw 'profile hive missing'}}
-$task=Get-ScheduledTask -TaskName YokeQaMachineSettings
-if($task.Principal.UserId -notin @('SYSTEM','S-1-5-18')){{throw 'recovery task is not SYSTEM'}}
-if(!(Test-Path 'C:\ProgramData\YokeQa\private\machine-settings.ps1')){{throw 'recovery program missing'}}
 if(Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon' -Name DefaultPassword -ErrorAction SilentlyContinue){{throw 'plaintext autologon password'}}
 if(Get-ChildItem 'C:\ProgramData\YokeQaProvision-*' -ErrorAction SilentlyContinue){{throw 'owned upload staging remains'}}
 'GUEST_SETUP_OK'
@@ -308,7 +317,7 @@ if((Get-Content -LiteralPath (Join-Path $p.ProfileImagePath '.ssh\authorized_key
             cleanup = powershell(
                 "$password=''; $name='';\n" + AUTOLOGON_SCRIPT + rf"""
 Set-ItemProperty $winlogon -Name AutoAdminLogon -Value '0'
-Unregister-ScheduledTask -TaskName YokeQaMachineSettings -Confirm:$false -ErrorAction SilentlyContinue
+Unregister-ScheduledTask -TaskName '{foreign_task}' -Confirm:$false -ErrorAction SilentlyContinue
 # This dedicated job owns sshd; persistent hosts are excluded above.
 $service=Get-Service sshd -ErrorAction Stop
 if($service.Status -ne 'Stopped'){{$service.Stop()}}
@@ -325,7 +334,7 @@ if($account){{
  }} finally {{Remove-LocalUser -Name '{name}'}}
 }}
 if(Get-LocalUser -Name '{name}' -ErrorAction SilentlyContinue){{throw 'owned fixture account remains'}}
-if(Get-ScheduledTask -TaskName YokeQaMachineSettings -ErrorAction SilentlyContinue){{throw 'owned fixture task remains'}}
+if(Get-ScheduledTask -TaskName '{foreign_task}' -ErrorAction SilentlyContinue){{throw 'owned fixture task remains'}}
 if((Get-Service sshd).Status -ne 'Stopped'){{throw 'owned fixture SSH service remains active'}}
 """ + AUTOLOGON_CLEARED_SCRIPT, tmp_path, timeout=60,
             )

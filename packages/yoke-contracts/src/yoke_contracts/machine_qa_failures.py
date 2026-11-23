@@ -8,7 +8,6 @@ from typing import Any
 
 
 MACHINE_QA_DIAGNOSTIC_LIMIT = 512
-MACHINE_QA_DIAGNOSTIC_ROWS_LIMIT = 64
 #: SSH could not reach the Test Machine (connect timeout, refusal, no route).
 #: QA records it as the host's failed verification and waits on its line.
 SSH_UNAVAILABLE = "ssh_unavailable"
@@ -54,7 +53,6 @@ class HostControlLocalError(RuntimeError):
         stderr: str = "",
         stdout: str = "",
         secrets: Sequence[str] = (),
-        diagnostics: Sequence[str] = (),
     ) -> None:
         self.code = code
         self.phase = phase
@@ -69,11 +67,7 @@ class HostControlLocalError(RuntimeError):
         if self.stdout:
             fields.append(f"stdout={self.stdout}")
         self.detail = f"{safe_detail} ({'; '.join(fields)})"
-        self.diagnostics = tuple(
-            bounded_machine_qa_diagnostic(line, secrets)
-            for line in diagnostics[:MACHINE_QA_DIAGNOSTIC_ROWS_LIMIT]
-        )
-        super().__init__("\n".join((self.detail, *self.diagnostics)))
+        super().__init__(self.detail)
 
 
 def host_control_failure(

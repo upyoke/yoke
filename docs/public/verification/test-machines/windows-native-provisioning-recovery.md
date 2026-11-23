@@ -165,8 +165,8 @@ saved profile need not be deleted. The observed policy, unselected profile
 and write timing strongly match this path; historical ownership was not logged.
 Collect proof only as SYSTEM through the private bounded task, with nonce/SID
 verification and owned-task/file cleanup; never fall back to administrator CLI.
-SYSTEM execution policy must permit private local task scripts, as for the
-fixed recovery task; do not change policy to hide a refused probe.
+SYSTEM execution policy must permit private local task scripts; do not
+change policy to hide a refused probe.
 Diagnose `NeedsLogin` before selecting a profile or reauthenticating. Successful
 repair commands alone do not prove unattended persistence: require a cold boot,
 SYSTEM running/self-IP evidence and independent private-route proof.
@@ -251,13 +251,7 @@ desktop through the registered screenshot path before accepting readiness.
 
 ## Standard-user task recovery
 
-After host-facts correction, the journal request upload succeeded but
-`Start-ScheduledTask YokeQaMachineSettings` returned `Cannot connect to CIM server.
-Access denied`. The old screenshot wrapper hid this as a generic `RuntimeError`.
-The fixed task already granted the test SID read/run (`GRGX`); do not widen WMI
-access or administrator membership to repair a denied CIM connection.
-
-Journal, desktop, terminal and baseline task operations now use the native
+Desktop, terminal and baseline task operations now use the native
 Task Scheduler COM interface. Owned tasks use the current SID and limited
 interactive logon; foreign tasks remain protected. Reset preserves task XML
 and full paths, recreates missing saved folders, and removes newly added owned
@@ -270,9 +264,8 @@ Restore administrator SSH, inspect those diagnostics privately, then verify
 this invocation's owned staging removal before retrying. A cleanup timeout
 does not prove the primary command failed or that guest removal hung.
 Disposable Windows guest checks passed with both Git and native OpenSSH:
-the actual standard-SSH journal task returned its restore receipt, task/XML/PATH
-reset restored state, a deleted nested task folder was recreated, and attempted
-removal of the fixed SYSTEM task was refused. This proves those operations;
+task/XML/PATH reset restored state, a deleted nested task folder was recreated,
+and attempted removal of a foreign SYSTEM task was refused. This proves those operations;
 full lab readiness still requires live proof. A subsequent registered capture
 did execute interactively and produced a real 1024×768 PNG. It showed Windows
 first-run privacy setup, not a ready desktop; the lease released and Azure
@@ -280,28 +273,3 @@ deallocation verified. Decision request 15878 selects **Windows defaults** to
 match a typical user. A later observed private Windows App session accepted
 those displayed defaults and reached the Windows 11 desktop. Desktop/app
 acceptance and the remaining lab proof are still required.
-
-## Native feature evidence
-
-Both direct CIM and legacy WMI feature queries returned `Access denied` under
-the standard SSH token. The existing fixed SYSTEM **restore** action must
-return current `Win32_OptionalFeature` evidence for both
-`Microsoft-Windows-Subsystem-Linux` and `VirtualMachinePlatform`; it adds no
-new action or test-user privilege. Refresh that fixed program through the full
-guest provisioner before binding a new QA lease to the corrected adapter.
-
-Require the current request token, lease, action and a boolean success field.
-Require exactly one row for each feature, with integer installation states:
-only **Disabled (2)** or **Absent (3)** prove absence. Enabled, missing,
-duplicate, malformed or unknown states never pass. Clear cached proof before
-rebinding or a machine-settings case; a successful restore refreshes it.
-Receipts live in `C:\ProgramData\YokeQa\receipts`, writable only by
-SYSTEM/Administrators and readable by the test SID. The writable `requests`
-directory cannot hold trusted proof. Provisioning rejects linked paths or
-untrusted owners and verifies exact protected ACLs; it never takes ownership.
-
-## Settings journal and interrupted-case recovery
-
-Read `tools.saved_only` and `tools.current_only` in the failed restore receipt.
-Follow [settings journal recovery](windows-native-settings-journal.md) to repair
-the drift or accept a verified vendor update as Administrator.

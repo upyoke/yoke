@@ -183,8 +183,8 @@ key for the administrator bootstrap in
 Administrators/SYSTEM. Validate the effective configuration and restart sshd.
 
 For an **existing** VM the provisioner creates the standard account/profile,
-authorizes its `.ssh\authorized_keys`, prepares goldens and the fixed recovery
-task, and enables private RDP over the tailnet or an SSH forward:
+authorizes its `.ssh\authorized_keys`, prepares goldens, and enables private RDP over the
+tailnet or an SSH forward:
 
 ```text
 python -m yoke_harness.native_windows.provision --project P --machine VM --host ADDRESS --resource-group GROUP --admin-user ADMIN --test-user yokeqa
@@ -260,14 +260,7 @@ Last Run Result and confirm the console is free. With the viewer closed, `yoke t
 Continue with [native harness installation and sign-ins](windows-native-harnesses.md)
 before capturing goldens.
 
-## 4. Settings journal and interrupted-case recovery
-
-Before QA, follow [settings journal and interrupted-case recovery](windows-native-settings-journal.md).
-The SYSTEM task checks recovery at every lease bind. Declare the journal setup
-operation only for cases that change AppLocker, long paths, machine certificates
-or machine-scope tools. Keep the machine unavailable until recovery verifies.
-
-## 5. Register, capture and prove
+## 4. Register, capture and prove
 
 Register after the standard user works, with native `os=windows` separate from
 WSL. Use an absolute golden path outside the profile and no credentials in settings.

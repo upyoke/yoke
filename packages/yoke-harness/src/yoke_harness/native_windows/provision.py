@@ -1,7 +1,6 @@
 """Provision an existing Azure Windows lab VM; no resource creation or passwords in argv."""
 
 import argparse
-import base64
 from pathlib import Path
 import secrets
 import subprocess
@@ -18,14 +17,13 @@ from yoke_contracts.machine_config.capability_secret_store import (
 from yoke_harness.native_windows.transport import encoded, quote
 from yoke_harness.native_windows.stdin_frame import READ_FRAME_SCRIPT
 from yoke_harness.native_windows.admin import admin_script
-from yoke_harness.native_windows.journal import PROGRAM, TASK
 from yoke_harness.native_windows.autologon import SCRIPT as AUTOLOGON_SCRIPT
 from yoke_harness.native_windows.tailnet_startup import SCRIPT as TAILNET_STARTUP_SCRIPT
 from yoke_harness.native_windows.console_setup import console_settings_script
 from yoke_harness.native_windows.display_geometry import console_display_task_script
 from yoke_harness.native_windows.firewall import SCRIPT as RDP_FIREWALL_SCRIPT
 from yoke_harness.native_windows.user_ssh import SCRIPT as USER_SSH_SCRIPT
-from yoke_harness.native_windows.receipts import SETUP as RECOVERY_PATHS
+from yoke_harness.native_windows.private_root import SETUP as PRIVATE_ROOT_SETUP
 from yoke_harness.native_windows.profile import (
     SCRIPT as PROFILE_SCRIPT,
     missing_password_guard,
@@ -195,7 +193,7 @@ Add-LocalGroupMember -SID 'S-1-5-32-555' -Member $name -ErrorAction SilentlyCont
 if((Get-LocalGroupMember -SID 'S-1-5-32-544').Name -contains "$env:COMPUTERNAME\$name"){throw 'windows_test_user_admin: remove the test user from Administrators and retry'}
 New-Item -ItemType Directory -Force "$homePath\.ssh",'C:\YokeQa\goldens' | Out-Null
 USER_SSH_ACCESS
-RECOVERY_PATHS
+PRIVATE_ROOT
 TAILNET_STARTUP
 Disable-YokeTailnetTrayStartup -UserHome $homePath -UserSid $sid | ConvertTo-Json -Compress
 Invoke-YokeAcl 'C:\YokeQa' /grant "${name}:(OI)(CI)M" /T
@@ -204,7 +202,7 @@ RDP_FIREWALL
 Write-Output 'Native standard user, private golden directory and private desktop routes ready.'
 """.replace("TEST_USER", quote(test_user))
         .replace("USER_SSH_ACCESS", USER_SSH_SCRIPT)
-        .replace("RECOVERY_PATHS", RECOVERY_PATHS)
+        .replace("PRIVATE_ROOT", PRIVATE_ROOT_SETUP)
         .replace("TAILNET_STARTUP", TAILNET_STARTUP_SCRIPT)
         .replace("PUBLIC_KEY", quote(public))
         .replace("PROFILE_CREATION", PROFILE_SCRIPT)
@@ -224,27 +222,6 @@ Write-Output 'Native standard user, private golden directory and private desktop
             + result.stderr.replace(password, "[REDACTED]")[-1200:]
         )
     print(result.stdout.replace(password, "[REDACTED]"))
-    program = base64.b64encode(PROGRAM.encode("utf-8")).decode("ascii")
-    journal_setup = f"""
-$ErrorActionPreference='Stop'
-[IO.File]::WriteAllBytes('C:\\ProgramData\\YokeQa\\private\\machine-settings.ps1',[Convert]::FromBase64String('{program}'))
-$action=New-ScheduledTaskAction -Execute 'powershell.exe' -Argument '-NoProfile -NonInteractive -File C:\\ProgramData\\YokeQa\\private\\machine-settings.ps1'
-$principal=New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Highest
-Register-ScheduledTask -TaskName {quote(TASK)} -Action $action -Principal $principal -Force | Out-Null
-$sid=(Get-LocalUser -Name {quote(test_user)}).SID.Value
-$scheduler=New-Object -ComObject Schedule.Service
-$scheduler.Connect()
-$task=$scheduler.GetFolder('\\').GetTask({quote(TASK)})
-$task.SetSecurityDescriptor(('D:P(A;;GA;;;SY)(A;;GA;;;BA)(A;;GRGX;;;'+$sid+')'),0)
-Write-Output 'Native QA recovery task ready.'
-"""
-    installed = admin_script(key, host, admin_user, journal_setup)
-    if installed.returncode:
-        raise RuntimeError(
-            "windows_journal_provision_failed: repair the fixed recovery task and its ACL; "
-            + installed.stderr[-1200:]
-        )
-    print(installed.stdout)
 
 
 def main():
