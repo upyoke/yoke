@@ -1,6 +1,6 @@
 """Verify live Tailscale identity before accepting tailnet-only firewall scope."""
 
-from yoke_harness.native_windows.receipts import GUARDS
+from yoke_harness.native_windows.private_root import GUARDS
 
 SCRIPT = GUARDS + r"""
 function Get-YokeTailnetFailure {
@@ -26,7 +26,7 @@ function New-YokeTailnetProbePayload($exe,$body,$nonce,$resultPath) {
  return $payload
 }
 function Assert-YokeTailnetPrivate($path,$directory) {
- try {Assert-YokeRecoveryObject $path $directory} catch {
+ try {Assert-YokePrivateObject $path $directory} catch {
   $problem=$_.Exception.Message; $probeOwner='unavailable'
   try {$probeOwner=(Get-Acl -LiteralPath $path -ErrorAction Stop).GetOwner([Security.Principal.SecurityIdentifier]).Value} catch {}
   throw ($problem+'; probe='+[IO.Path]::GetFileName($path)+'; owner='+$probeOwner)

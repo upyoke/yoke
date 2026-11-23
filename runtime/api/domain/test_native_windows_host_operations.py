@@ -11,8 +11,6 @@ from yoke_contracts.machine_config.test_machine import validate_golden_baseline_
 from yoke_harness.native_windows.baseline import golden_path, profile_operation
 from yoke_harness.native_windows.desktop import desktop_script
 from yoke_harness.native_windows.transport import WindowsTransport, command
-from yoke_harness.native_windows.journal import journal_operation
-from yoke_core.domain.native_windows_fixture import NativeWindowsFixture
 
 
 pytestmark = pytest.mark.windows
@@ -121,31 +119,6 @@ def test_desktop_child_stderr_cannot_abort_a_successful_command():
     assert call.rstrip().endswith("$ErrorActionPreference='Continue'\n  $lines = @(")
     assert " 2>&1)" in rest.splitlines()[0] and " 2> " not in wrapper
     assert "[Management.Automation.ErrorRecord]" in rest
-
-
-def test_journal_requires_a_lease_before_any_write():
-    with pytest.raises(RuntimeError, match="windows_journal_lease_required"):
-        journal_operation(SimpleNamespace(), "capture")
-
-
-def test_interrupted_journal_recovers_before_capture_and_cleanup_retries():
-    calls = []
-    fail = [False]
-
-    def journal(action):
-        calls.append(action)
-        if fail[0]:
-            fail[0] = False
-            raise RuntimeError("restore failed; repair original settings and retry")
-
-    fixture = NativeWindowsFixture(SimpleNamespace(journal_settings=journal))
-    assert fixture.execute_setup_operations([{"id": "machine.windows-settings-journal", "parameters": {"mutations": ["tools"]}}]).ok
-    assert calls == ["restore", "capture"]
-    fail[0] = True
-    assert not fixture.close().ok
-    assert not fixture.closed
-    assert fixture.close().ok
-    assert calls == ["restore", "capture", "restore", "restore"]
 
 
 def test_native_refresh_never_runs_posix_python(monkeypatch):

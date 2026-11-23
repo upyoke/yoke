@@ -93,10 +93,6 @@ function Restore-YokeTask($row) {
 """.replace("CONSOLE_DISPLAY_TASK", CONSOLE_DISPLAY_TASK)
 
 
-def start_fixed_task(name):
-    return HELPERS + f"$task=Get-YokeTask {quote(name)}; if(!$task){{throw 'windows_task_missing: provision the fixed recovery task'}}; $task.Run($null) | Out-Null"
-
-
 def create_interactive_task(name, path, arguments, seconds):
     return HELPERS + f"$task=New-YokeInteractiveTask {quote(name)} {quote(path)} {quote(arguments)} {int(seconds)}; $task.Run($null) | Out-Null"
 

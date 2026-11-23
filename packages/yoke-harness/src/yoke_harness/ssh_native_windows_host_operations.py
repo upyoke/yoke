@@ -6,12 +6,7 @@ from yoke_contracts.test_machine_types import HostActionResult
 from yoke_harness.native_windows.baseline import profile_operation, reach_baseline
 from yoke_harness.native_windows.console import probe_console, verify_console
 from yoke_harness.native_windows.desktop import capture_desktop
-from yoke_harness.native_windows.journal import journal_operation
-from yoke_harness.native_windows.features import feature_states, features_absent
-from yoke_contracts.machine_qa_failures import (
-    HostControlLocalError,
-    bounded_machine_qa_diagnostic,
-)
+from yoke_contracts.machine_qa_failures import bounded_machine_qa_diagnostic
 from yoke_harness.native_windows.mission import WindowsMissionOperations
 from yoke_harness.native_windows.transport import (
     HOST_RESOURCES_EXHAUSTED,
@@ -51,32 +46,7 @@ $page=$info.PageSize.ToUInt64()
 class SshNativeWindowsHostOperations(WindowsMissionOperations, WindowsTransport):
     """A standard Windows user; no WSL commands or Linux desktop intermediates."""
 
-    def bind_qa_lease(self, lease_id):
-        self.native_features = None
-        self._feature_lease_id = None
-        self.qa_lease_id = lease_id
-        self.journal_settings("restore")
-
-    def journal_settings(self, action):
-        # Only a restore proves this lease's Windows features. A capture saves
-        # settings and changes neither, so the current proof stays valid.
-        if action != "restore":
-            return journal_operation(self, action)
-        self.native_features = None
-        self._feature_lease_id = None
-        receipt = journal_operation(self, action)
-        self.native_features = feature_states(receipt.get("features"))
-        self._feature_lease_id = str(self.qa_lease_id)
-        return receipt
-
     def check_connection(self):
-        if not getattr(self, "native_features", None) or getattr(self, "_feature_lease_id", None) != str(getattr(self, "qa_lease_id", None)):
-            raise HostControlLocalError(
-                code="native_windows_features_unverified", phase="native_feature_proof",
-                detail="No current-lease Windows feature proof is available.",
-                recovery_hint="Acquire and bind a fresh serial machine QA lease before checking native readiness.",
-            )
-        wsl_absent = features_absent(self.native_features)
         commit = self._run(COMMIT_MEMORY_PROBE, timeout=20)
         try:
             counters = json.loads(commit.stdout)
@@ -133,7 +103,7 @@ class SshNativeWindowsHostOperations(WindowsMissionOperations, WindowsTransport)
         except ValueError:
             observed = {}
         # An uninstalled Yoke is a valid fresh-host state.
-        ok = facts.returncode == 0 and wsl_absent
+        ok = facts.returncode == 0
         from yoke_harness.golden_harness_clis import probe_harness_cli_versions
 
         versions = probe_harness_cli_versions(self) if ok else {}
@@ -147,15 +117,13 @@ class SshNativeWindowsHostOperations(WindowsMissionOperations, WindowsTransport)
                 "build": self.windows_facts["build"],
                 "harness_version": versions,
                 "yoke_release": observed.get("yoke_release") or "absent",
-                "wsl_absent": wsl_absent,
-                "windows_features": self.native_features,
                 "runner_materialized": ok,
                 **(
                     {}
                     if ok
                     else {
-                        "reason": "WSL is present or the native startup probe failed",
-                        "recovery": "Remove WSL and VirtualMachinePlatform from this dedicated Windows 11 host, reboot, and verify native SSH again.",
+                        "reason": "The native startup probe failed.",
+                        "recovery": "Check PowerShell and yoke.cmd on the host, then rerun test-machine verify.",
                     }
                 ),
             },

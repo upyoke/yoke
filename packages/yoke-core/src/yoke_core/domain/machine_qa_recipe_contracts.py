@@ -15,7 +15,6 @@ from yoke_core.domain.machine_qa_operator_gate_contract import (
     normalize_operator_gate,
 )
 
-WINDOWS_SETTINGS_JOURNAL = "machine.windows-settings-journal"
 REGISTERED_SETUP_OPERATION_IDS = frozenset(
     {
         "fixture.apply-resume-report-prepare",
@@ -37,7 +36,6 @@ REGISTERED_SETUP_OPERATION_IDS = frozenset(
         "machine.yoke-connection-restore",
         "machine.yoke-connections-prepare",
         "terminal.size-prepare",
-        WINDOWS_SETTINGS_JOURNAL,
     }
 )
 REGISTERED_POST_STATE_ASSERTION_IDS = frozenset(
@@ -340,7 +338,6 @@ def validate_terminal_recipe(
 
 __all__ = [
     "MachineQaRecipeError",
-    "WINDOWS_SETTINGS_JOURNAL",
     "REGISTERED_POST_STATE_ASSERTION_IDS",
     "REGISTERED_STAGE_URLS",
     "REGISTERED_SETUP_OPERATION_IDS",

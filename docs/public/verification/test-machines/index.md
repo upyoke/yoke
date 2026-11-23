@@ -160,11 +160,10 @@ to `awaiting_walk_review`; both retain the pending verdict bundle and custody.
 - [Windows host provisioning](windows-host-provisioning.md) — Prepare a Windows test account and the WSL desktop route.
 - [WSL desktop provisioning](windows-desktop-provisioning.md) — Prepare XFCE, Chromium and unattended WSL desktop access.
 - [WSL browser identities](windows-wsl-browser-identities.md) — Authorize browser identities in the WSL test desktop.
-- [Native Windows host provisioning](windows-native-host-provisioning.md) — Prepare a Windows lab profile, native desktop and lease recovery journal.
+- [Native Windows host provisioning](windows-native-host-provisioning.md) — Prepare a Windows lab profile and native desktop.
 - [Native Windows harness installation](windows-native-harnesses.md) — Install native harness CLIs and desktop apps, then prove sign-ins before goldens.
 - [Native Windows controller prerequisites](windows-native-controller.md) — Agents drive lab apps with `yoke qa mission desktop`; an RDP client is optional for people.
 - [Native Windows provisioning recovery](windows-native-provisioning-recovery.md) — Recover bounded administrator SSH, partial key ACLs and RDP setup.
-- [Native Windows settings journal](windows-native-settings-journal.md) — Recover interrupted machine settings and approve verified Windows tool updates.
 - [Native Windows browser identities](windows-browser-identities.md) — Authorize browser identities in the native Windows test desktop.
 - [Machine browser identities](browser-identities.md) — Follow the browser identity procedure for the declared OS.
 <!-- /yoke:contents -->

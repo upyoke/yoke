@@ -18,7 +18,6 @@ from yoke_core.domain.machine_qa_fixture_machine_operations import (
 from yoke_core.domain.machine_qa_fixture_repository_operations import (
     MachineQaFixtureRepositoryOperations,
 )
-from yoke_core.domain.machine_qa_recipe_contracts import WINDOWS_SETTINGS_JOURNAL
 from yoke_core.domain.machine_qa_fixture_runtime import (
     MachineQaFixtureRuntime,
     RemoteCommandResult,
@@ -93,12 +92,6 @@ class MachineQaFixtureOperationRunner(
             rows.append({"id": operation_id, "outcome": "passed"})
         return HostActionResult(True, {"operations": rows})
 
-    @staticmethod
-    def _windows_settings_journal(_parameters: Mapping[str, Any]) -> None:
-        raise RemoteFixtureFailure(
-            "windows_settings_journal_requires_native_host: select a native Windows Test Machine"
-        )
-
     def _setup_handlers(
         self,
     ) -> Mapping[str, Callable[[Mapping[str, Any]], None]]:
@@ -122,7 +115,6 @@ class MachineQaFixtureOperationRunner(
             "machine.yoke-connection-restore": self._connection_restore,
             "machine.yoke-connections-prepare": self._connections_prepare,
             "terminal.size-prepare": self._terminal_size,
-            WINDOWS_SETTINGS_JOURNAL: self._windows_settings_journal,
         }
 
     def _post_handlers(

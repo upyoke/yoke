@@ -10,7 +10,6 @@ from typing import Any
 
 from yoke_contracts.machine_qa_failures import (
     HostControlLocalError,
-    MACHINE_QA_DIAGNOSTIC_ROWS_LIMIT,
     bounded_machine_qa_diagnostic,
     host_control_failure,
 )
@@ -62,13 +61,6 @@ def _operation_outcomes(
                 projected["reason"] = bounded_machine_qa_diagnostic(
                     row["reason"], secrets
                 )
-            diagnostics = row.get("diagnostics")
-            if outcome == "failed" and isinstance(diagnostics, list) and diagnostics:
-                projected["diagnostics"] = [
-                    bounded_machine_qa_diagnostic(line, secrets)
-                    for line in diagnostics[:MACHINE_QA_DIAGNOSTIC_ROWS_LIMIT]
-                    if isinstance(line, str)
-                ]
             outcomes.append(projected)
     return outcomes
 

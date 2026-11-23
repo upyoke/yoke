@@ -223,11 +223,10 @@ root:
           - {title: "Windows host provisioning", summary: "Prepare a Windows test account and the WSL desktop route.", path: "verification/test-machines/windows-host-provisioning.md"}
           - {title: "WSL desktop provisioning", summary: "Prepare XFCE, Chromium and unattended WSL desktop access.", path: "verification/test-machines/windows-desktop-provisioning.md"}
           - {title: "WSL browser identities", summary: "Authorize browser identities in the WSL test desktop.", path: "verification/test-machines/windows-wsl-browser-identities.md"}
-          - {title: "Native Windows host provisioning", summary: "Prepare a Windows lab profile, native desktop and lease recovery journal.", path: "verification/test-machines/windows-native-host-provisioning.md"}
+          - {title: "Native Windows host provisioning", summary: "Prepare a Windows lab profile and native desktop.", path: "verification/test-machines/windows-native-host-provisioning.md"}
           - {title: "Native Windows harness installation", summary: "Install native harness CLIs and desktop apps, then prove sign-ins before goldens.", path: "verification/test-machines/windows-native-harnesses.md"}
           - {title: "Native Windows controller prerequisites", summary: "Agents drive lab apps with `yoke qa mission desktop`; an RDP client is optional for people.", path: "verification/test-machines/windows-native-controller.md"}
           - {title: "Native Windows provisioning recovery", summary: "Recover bounded administrator SSH, partial key ACLs and RDP setup.", path: "verification/test-machines/windows-native-provisioning-recovery.md"}
-          - {title: "Native Windows settings journal", summary: "Recover interrupted machine settings and approve verified Windows tool updates.", path: "verification/test-machines/windows-native-settings-journal.md"}
           - {title: "Native Windows browser identities", summary: "Authorize browser identities in the native Windows test desktop.", path: "verification/test-machines/windows-browser-identities.md"}
           - {title: "Machine browser identities", summary: "Follow the browser identity procedure for the declared OS.", path: "verification/test-machines/browser-identities.md"}
       - {title: "Test Machine desktop", summary: "View remote desktops and recover cleanup or disk-space refusals.", path: "verification/test-machine-desktop.md"}
