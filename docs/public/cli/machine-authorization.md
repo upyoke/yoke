@@ -22,9 +22,8 @@ hosted app; a web page that is not Yoke fails with `server_not_yoke`.
 
 Interactive `yoke connect` announces and opens browser approval; approve, then
 return to the terminal. Agent, non-TTY, and `--json` runs print the link instead;
-`--json` prints the link, code and instructions as a JSON line on stdout before
-waiting, and the last stdout line is the result. Use the printed link if opening
-fails.
+`--json` sends link, code and instructions as a stdout JSON line first; the
+last line is the result. Use the printed link if opening fails.
 
 ## Wire
 
