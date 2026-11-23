@@ -98,7 +98,8 @@ def test_export_produces_one_receipt_carrying_tar_artifact(tmp_path):
     intent = receipt["freeze_intent"]
     assert intent["schema"] == "yoke.source-freeze/v2"
     assert intent["database"]["org"] == "default"
-    assert intent["archive"]["sha256"] == file_sha256(dump) == report["sha256"]
+    assert intent["archive"]["sha256"] == file_sha256(dump)
+    assert report["sha256"] == file_sha256(artifact)
     assert intent["archive"]["bytes"] == dump.stat().st_size
     assert intent["zero_writable_app_sessions"] is False
     assert intent["receipt_id"] == report["receipt_id"]
@@ -267,7 +268,8 @@ def test_export_binds_dump_and_receipt_to_one_exported_snapshot(
     assert observed["timeout_s"] == ux.DEFAULT_EXPORT_TIMEOUT_S
     dump, receipt = _unpack(dest, tmp_path / "unpacked")
     assert dump.read_bytes() == b"PGDMP"
-    assert receipt["freeze_intent"]["archive"]["sha256"] == report["sha256"]
+    assert receipt["freeze_intent"]["archive"]["sha256"] == file_sha256(dump)
+    assert report["sha256"] == file_sha256(dest)
     assert receipt["freeze_intent"]["frozen_at"] == format_instant(moment)
     wire_inputs = {**observed["receipt_inputs"], "frozen_at": format_instant(moment)}
     from yoke_core.domain.universe_archive_artifacts import bind_manifest

@@ -76,6 +76,10 @@ carrying the following required members at its root:
 - `freeze-receipt.json` — the freeze receipt whose `freeze_intent.archive`
   block binds that exact payload by SHA-256 and byte count.
 
+The export report's `sha256` is the hash of the `.tar` file, so `sha256sum` or
+`Get-FileHash` on the artifact matches it. The payload's own hash is
+`freeze_intent.archive.sha256`.
+
 Archives with artifact bytes also include `artifacts-manifest.json` and an
 `artifacts/` tree. Each manifest entry names its original handle, a store-neutral
 `qa-artifacts/...` or `shared-files/...` key, status, and (when included) its

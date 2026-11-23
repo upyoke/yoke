@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import hashlib
 import io
 import json
 import tarfile
 from email.message import Message
 from pathlib import Path
+
+import pytest
 
 from yoke_cli.config import universe_export_download as download
 from yoke_cli.transport.https import HttpsConnection
@@ -67,7 +70,7 @@ def test_download_streams_to_owner_only_atomic_file(tmp_path: Path, monkeypatch)
             "content-disposition": 'attachment; filename="acme-universe.tar"',
             "x-yoke-universe-format": "universe-tar",
             "x-yoke-universe-org": "acme",
-            "x-yoke-universe-sha256": "a" * 64,
+            "x-yoke-universe-sha256": hashlib.sha256(body).hexdigest(),
         },
     )
     captured = {}
@@ -86,6 +89,7 @@ def test_download_streams_to_owner_only_atomic_file(tmp_path: Path, monkeypatch)
     assert is_owner_private_file(artifact)
     assert report["source"] == "self-host-https"
     assert report["org"] == "acme"
+    assert report["sha256"] == hashlib.sha256(body).hexdigest()
     assert report["artifacts"] == {
         "included": 0,
         "missing": 1,
@@ -93,6 +97,50 @@ def test_download_streams_to_owner_only_atomic_file(tmp_path: Path, monkeypatch)
     }
     assert captured["request"].full_url == url
     assert captured["request"].headers["Authorization"] == "Bearer secret-token"
+
+
+def _download_with_hash(tmp_path, monkeypatch, body: bytes, declared: str):
+    connection = HttpsConnection("https://yoke.example.test", "token")
+    response = _Response(
+        body,
+        connection.api_url + "/v1/universe/export",
+        {
+            "content-type": "application/x-tar",
+            "content-length": str(len(body)),
+            "content-disposition": 'attachment; filename="hashed.tar"',
+            "x-yoke-universe-sha256": declared,
+        },
+    )
+    monkeypatch.setattr(download, "open_bounded_request", lambda *_a, **_k: response)
+    monkeypatch.setattr(download, "_engine_limits", lambda: (30.0, 1 << 20))
+    return download.download_universe(connection, out=str(tmp_path) + "/")
+
+
+def test_download_refuses_wrong_hash_and_writes_nothing(tmp_path, monkeypatch):
+    with pytest.raises(
+        download.UniverseExportDownloadError,
+        match="universe_export_checksum_mismatch",
+    ):
+        _download_with_hash(tmp_path, monkeypatch, _archive(), "0" * 64)
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_download_from_older_server_reports_local_tar_hash(tmp_path, monkeypatch):
+    payload_hash = "c" * 64
+    receipt = json.dumps(
+        {"freeze_intent": {"archive": {"sha256": payload_hash}}}
+    ).encode()
+    buffer = io.BytesIO()
+    with tarfile.open(fileobj=buffer, mode="w") as archive:
+        member = tarfile.TarInfo("freeze-receipt.json")
+        member.size = len(receipt)
+        archive.addfile(member, io.BytesIO(receipt))
+    body = buffer.getvalue()
+
+    report = _download_with_hash(tmp_path, monkeypatch, body, payload_hash)
+
+    assert report["sha256"] == hashlib.sha256(body).hexdigest()
+    assert Path(str(report["artifact"])).read_bytes() == body
 
 
 def test_download_rejects_oversized_content_before_writing(tmp_path, monkeypatch):
