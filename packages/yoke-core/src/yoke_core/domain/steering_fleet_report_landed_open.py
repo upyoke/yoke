@@ -181,7 +181,7 @@ def landed_without_closeout(
     enrollment so the report and the enroller can never disagree about what
     counts as merged and still open.
     """
-    records = list(merged_open_items(conn, int(project_id)))
+    records = list(merged_open_items(conn, int(project_id), include_frozen=True))
     if not records:
         return ()
     item_ids = [int(record["id"]) for record in records]

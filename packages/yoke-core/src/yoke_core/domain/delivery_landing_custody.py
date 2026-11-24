@@ -100,14 +100,17 @@ def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def merged_open_items(conn: Any, project_id: int) -> tuple[dict[str, Any], ...]:
+def merged_open_items(
+    conn: Any, project_id: int, *, include_frozen: bool = False
+) -> tuple[dict[str, Any], ...]:
     """Landed nonterminal items and their pinned close-out workflows."""
     columns = LANDING_STAMP_COLUMNS
     marker = _p(conn)
     terminal_filter, terminal_params = exclude_terminal_items(conn)
     present = " OR ".join(f"{column} IS NOT NULL" for column in columns)
+    projection = ", ".join((*columns, "frozen") if include_frozen else columns)
     rows = conn.execute(
-        f"SELECT id, status, workflow_id, frozen, {', '.join(columns)} FROM items i "
+        f"SELECT id, status, workflow_id, {projection} FROM items i "
         f"WHERE project_id = {marker} {terminal_filter} "
         f"AND ({present})",
         (int(project_id), *terminal_params),
