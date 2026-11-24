@@ -60,10 +60,21 @@ def test_cursor_walk_peels_a_deleted_lane_and_enters_its_checkout(
     missing = tmp_path / "missing"
     missing.mkdir()
     os.chdir(missing)
-    missing.rmdir()
-    apply_hook_invocation_context("cursor", verb, owner, environ)
+    real_getcwd = os.getcwd
+    if os.name == "nt":  # Windows refuses to remove a process's cwd.
+
+        def deleted_cwd() -> str:
+            raise FileNotFoundError(str(missing))
+
+        monkeypatch.setattr(os, "getcwd", deleted_cwd)
+    else:
+        missing.rmdir()
+    try:
+        apply_hook_invocation_context("cursor", verb, owner, environ)
+    finally:  # Fixture teardown reads the real cwd.
+        monkeypatch.setattr(os, "getcwd", real_getcwd)
     assert Path(environ["YOKE_ROOT"]) == checkout
-    assert Path(os.getcwd()) == checkout.resolve()
+    assert Path(real_getcwd()) == checkout.resolve()
     assert environ["YOKE_EXECUTOR"] == "cursor"
 
 

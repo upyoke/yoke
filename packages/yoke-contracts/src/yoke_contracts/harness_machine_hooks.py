@@ -37,6 +37,14 @@ from yoke_contracts.hook_runner.config_owner import (
 #: The user-level hooks-file trust a harness requires before running it.
 TrustKind = Literal["none", "codex_trusted_hash"]
 
+#: The shell a harness hands a Windows hook command to. ``cmd``: the command
+#: line runs under ``%COMSPEC% /C`` and its exit status passes through.
+#: ``powershell``: Windows PowerShell or Git Bash; PowerShell 5.1 ``-Command``
+#: turns a native command's status into 0 or 1, so the command must exit with
+#: ``$LASTEXITCODE`` itself (Git Bash expands that to nothing and ``exit``
+#: keeps the last status).
+WindowsHookShell = Literal["cmd", "powershell"]
+
 #: Retired machine-hook markers. Install and uninstall delete entries that
 #: carry one; nothing reads them for any other purpose.
 RETIRED_USER_HOOK_MARKERS: tuple[str, ...] = (
@@ -82,6 +90,7 @@ class HarnessMachineHooks:
     # value Yoke writes into the hook entry, or the harness default when Yoke
     # writes none. Every hook budget stays below the shortest of these.
     hook_timeout_seconds: int
+    windows_hook_shell: WindowsHookShell
     deferrals: tuple[str, ...] = ()
 
     def home_path(self, environ: Optional[Mapping[str, str]] = None) -> Path:
@@ -123,6 +132,7 @@ class HarnessMachineHooks:
             "events": [event.to_json() for event in self.events],
             "trust": self.trust,
             "hook_timeout_seconds": self.hook_timeout_seconds,
+            "windows_hook_shell": self.windows_hook_shell,
             "deferrals": list(self.deferrals),
         }
 
@@ -148,6 +158,8 @@ HARNESS_MACHINE_HOOKS: Mapping[str, HarnessMachineHooks] = {
         # Claude Code's 600 s default; SessionEnd 1.5 s unless the entry sets
         # timeout, so Yoke writes CLAUDE_SESSION_END_HOOK_TIMEOUT_S there.
         hook_timeout_seconds=600,
+        # Git Bash when installed, else Windows PowerShell (Claude Code hooks docs).
+        windows_hook_shell="powershell",
     ),
     "codex": HarnessMachineHooks(
         harness_id="codex",
@@ -166,6 +178,8 @@ HARNESS_MACHINE_HOOKS: Mapping[str, HarnessMachineHooks] = {
         trust="codex_trusted_hash",
         # Codex's default command-hook timeout; Yoke writes none.
         hook_timeout_seconds=600,
+        # codex-rs hooks command_runner: %COMSPEC% (cmd.exe) /C "<command>".
+        windows_hook_shell="cmd",
         deferrals=(
             "SessionEnd: codex-cli 0.161.0 fires a SessionEnd hook, but Yoke's "
             "Codex project hooks do not wire it; the machine-wide set matches "
@@ -193,6 +207,8 @@ HARNESS_MACHINE_HOOKS: Mapping[str, HarnessMachineHooks] = {
         # Written into every Cursor hook entry; the platform default is
         # undocumented.
         hook_timeout_seconds=30,
+        # Cursor hooks docs: the desktop app runs hook commands through PowerShell.
+        windows_hook_shell="powershell",
     ),
 }
 

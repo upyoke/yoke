@@ -247,6 +247,7 @@
     ],
     "trust": "none",
     "hook_timeout_seconds": 600,
+    "windows_hook_shell": "powershell",
     "deferrals": []
   },
   "session_permission_posture": {
