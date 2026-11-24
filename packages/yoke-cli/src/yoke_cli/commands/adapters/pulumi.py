@@ -9,9 +9,9 @@ import subprocess
 import sys
 from typing import List, Mapping
 
+from yoke_cli.commands import _helpers
 from yoke_cli.commands._helpers import (
     add_session_arg,
-    ensure_handlers_loaded,
     parse_or_usage_error,
 )
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
@@ -93,7 +93,7 @@ def pulumi_exec(args: List[str]) -> int:
     if not command:
         print(f"Usage: {PULUMI_EXEC_USAGE}", file=sys.stderr)
         return 2
-    ensure_handlers_loaded()
+    _helpers.ensure_handlers_loaded()
 
     try:
         caller_root = _current_git_root()

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from contextlib import redirect_stderr
+from types import SimpleNamespace
 import io
 from pathlib import Path
 
@@ -33,7 +34,7 @@ def _capture_executor(monkeypatch) -> dict:
             "execute_pulumi_command": staticmethod(execute),
         },
     )
-    monkeypatch.setattr(pulumi, "ensure_handlers_loaded", lambda: None)
+    monkeypatch.setattr(pulumi, "_helpers", SimpleNamespace(ensure_handlers_loaded=lambda: None))
     monkeypatch.setattr(pulumi, "_project_checkout", lambda *a, **k: Path("."))
     monkeypatch.setattr(
         pulumi, "build_pulumi_github_auth_loader", lambda **kwargs: object()

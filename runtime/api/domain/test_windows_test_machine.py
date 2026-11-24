@@ -213,7 +213,7 @@ def test_ad_hoc_exec_windows_command_enters_wsl(monkeypatch, tmp_path):
     )
     monkeypatch.setattr(custody.dispatcher, "call_dispatcher", lambda **kw: lease)
     monkeypatch.setattr(cloud_machine_power, "power_on", lambda *a: None)
-    monkeypatch.setattr(adapter, "ensure_handlers_loaded", lambda: None)
+    monkeypatch.setattr(adapter, "_helpers", SimpleNamespace(ensure_handlers_loaded=lambda: None))
     monkeypatch.setattr(
         adapter, "build_actor", lambda **kw: SimpleNamespace(session_id="mine")
     )

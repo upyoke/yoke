@@ -11,8 +11,7 @@ import json
 from typing import Any, Iterator, List, Optional
 
 from yoke_contracts.api.function_call import FunctionWarning
-from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import connect
+from yoke_core.domain import db_backend, db_helpers
 
 
 # Statuses where the joint gate has already had its chance to run.  When
@@ -114,7 +113,7 @@ def _run_db_mutation_gate(
     except ImportError:
         return None
 
-    gate_conn = conn if conn is not None else connect(db_path)
+    gate_conn = conn if conn is not None else db_helpers.connect(db_path)
     try:
         if gate_kind == "joint":
             outcome = db_mutation_gate.check_idea_to_refining_idea_gate(

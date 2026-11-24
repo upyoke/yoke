@@ -6,6 +6,8 @@ from contextlib import redirect_stderr
 import io
 from pathlib import Path
 
+from types import SimpleNamespace
+
 import pytest
 
 from yoke_cli.commands.adapters import pulumi
@@ -26,7 +28,7 @@ def _capture_executor(monkeypatch) -> dict:
             "execute_pulumi_command": staticmethod(execute),
         },
     )
-    monkeypatch.setattr(pulumi, "ensure_handlers_loaded", lambda: None)
+    monkeypatch.setattr(pulumi, "_helpers", SimpleNamespace(ensure_handlers_loaded=lambda: None))
     monkeypatch.setattr(pulumi, "_project_checkout", lambda *a, **k: Path("."))
     monkeypatch.setattr(
         pulumi, "build_pulumi_github_auth_loader", lambda **kwargs: object()

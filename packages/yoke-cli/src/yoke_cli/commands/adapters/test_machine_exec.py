@@ -18,9 +18,9 @@ import sys
 from typing import Any, List
 
 from yoke_contracts.api.function_call import TargetRef
+from yoke_cli.commands import _helpers
 from yoke_cli.commands._helpers import (
     add_session_arg,
-    ensure_handlers_loaded,
     parse_or_usage_error,
 )
 from yoke_contracts.machine_config import reader as machine_config
@@ -111,7 +111,7 @@ def test_machine_exec(args: List[str]) -> int:
         print(f"usage: {EXEC_USAGE}", file=sys.stderr)
         print("the remote command goes after `--`", file=sys.stderr)
         return 2
-    ensure_handlers_loaded()
+    _helpers.ensure_handlers_loaded()
     actor = build_actor(session_id=parsed.session_id)
     response = call_dispatcher(
         function_id="test_machine.get",

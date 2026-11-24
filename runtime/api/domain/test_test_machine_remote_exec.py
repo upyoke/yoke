@@ -7,6 +7,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from types import SimpleNamespace
+
 import pytest
 
 from yoke_contracts.api.function_call import FunctionCallResponse
@@ -136,7 +138,7 @@ def _detail(
 @pytest.fixture
 def cli(monkeypatch, tmp_path):
     ran: list[dict[str, Any]] = []
-    monkeypatch.setattr(adapter, "ensure_handlers_loaded", lambda: None)
+    monkeypatch.setattr(adapter, "_helpers", SimpleNamespace(ensure_handlers_loaded=lambda: None))
     monkeypatch.setattr(
         adapter,
         "build_actor",

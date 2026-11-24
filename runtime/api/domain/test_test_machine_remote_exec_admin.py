@@ -6,6 +6,8 @@ import shlex
 import subprocess
 import sys
 
+from types import SimpleNamespace
+
 import pytest
 
 from yoke_cli.commands import test_machine_desktop_lease as custody
@@ -26,7 +28,7 @@ def test_admin_cli_reads_only_named_machine_secret_and_passes_it_to_product(
 ):
     calls = []
     reads = []
-    monkeypatch.setattr(adapter, "ensure_handlers_loaded", lambda: None)
+    monkeypatch.setattr(adapter, "_helpers", SimpleNamespace(ensure_handlers_loaded=lambda: None))
     monkeypatch.setattr(
         adapter, "build_actor", lambda **_: type("Actor", (), {"session_id": "mine"})()
     )
