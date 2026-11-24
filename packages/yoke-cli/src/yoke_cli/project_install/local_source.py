@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from yoke_cli.config import github_project_setup
+from yoke_cli.project_install import clone_excludes
 from yoke_cli.project_install import files as files_layer
 from yoke_cli.project_install import publication_outcome
 from yoke_cli.project_install import repository_layer
@@ -182,6 +183,9 @@ def _resolve_prior_manifest(
             "--manifest-from conflicts with the target checkout's existing "
             "install manifest; remove the flag or reconcile the manifests"
         )
+    if target_manifest is None:
+        # Transferred file lineage proves nothing about this clone's Git metadata.
+        transferred.pop(clone_excludes.KEY, None)
     return transferred, str(source_path)
 
 

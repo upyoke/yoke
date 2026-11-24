@@ -95,19 +95,18 @@ def test_untracked_under_worktrees_dir_is_exempt(monkeypatch):
     blocked, kind, paths = guard.overlapping_dirty_main(
         "/repo",
         [".worktrees/YOK-1/tmp.py"],
-        worktrees_dir="/repo/.worktrees",
     )
     assert (blocked, kind, paths) == (False, "", ())
 
 
 def test_dirty_main_error_is_none_without_needed_paths(monkeypatch):
     monkeypatch.setattr(guard, "_run", _fake_run(_git_tracked("foo.py")))
-    assert dirty_main_error("/repo", "/repo/.worktrees") is None
+    assert dirty_main_error("/repo") is None
 
 
 def test_dirty_main_error_names_overlap(monkeypatch):
     monkeypatch.setattr(guard, "_run", _fake_run(_git_tracked("foo.py")))
-    message = dirty_main_error("/repo", "/repo/.worktrees", ["foo.py"])
+    message = dirty_main_error("/repo", ["foo.py"])
     assert message is not None
     assert "overlapping" in message
     assert "foo.py" in message

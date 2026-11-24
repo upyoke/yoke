@@ -10,13 +10,9 @@ from yoke_cli.config import project_local_git
 from yoke_cli.config import project_publish_support as pub
 from yoke_cli.config.project_git_process import NetworkGitBoundaryError
 from yoke_cli.config.project_onboard_support import ProjectOnboardError
-from yoke_cli.config.project_worktrees_ignore import WORKTREES_IGNORE_ENTRY
 from yoke_contracts.project_git_bootstrap import GIT_BOOTSTRAP_USAGE
 
 STARTER_GITIGNORE = "\n".join((
-    "# Yoke lanes",
-    WORKTREES_IGNORE_ENTRY,
-    "",
     "# Dependencies and build output",
     "node_modules/",
     ".venv/",

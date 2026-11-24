@@ -17,9 +17,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Callable
 
+from yoke_contracts.machine_config.checkout import LANES_DIR
 
 DRIVER_WORKTREE_PREFIX = "deploy-"
-WORKTREES_DIR_NAME = ".worktrees"
 
 
 def driver_worktree_name(run_id: str) -> str:
@@ -29,7 +29,7 @@ def driver_worktree_name(run_id: str) -> str:
 
 def driver_worktree_path(checkout: Path, run_id: str) -> Path:
     """Where *run_id* pins its self-deploy driver source inside *checkout*."""
-    return checkout / WORKTREES_DIR_NAME / driver_worktree_name(run_id)
+    return checkout / LANES_DIR / driver_worktree_name(run_id)
 
 
 def run_id_for_driver_worktree(path: Path, repo_root: Path) -> str:
@@ -38,7 +38,7 @@ def run_id_for_driver_worktree(path: Path, repo_root: Path) -> str:
     An item lane named after an item, a nested directory inside a driver tree,
     and a path somewhere else entirely all read as "not mine".
     """
-    if path.parent != repo_root / WORKTREES_DIR_NAME:
+    if path.parent != repo_root / LANES_DIR:
         return ""
     if not path.name.startswith(DRIVER_WORKTREE_PREFIX):
         return ""
@@ -69,7 +69,6 @@ def deploy_run_worktree_paths(
 
 __all__ = [
     "DRIVER_WORKTREE_PREFIX",
-    "WORKTREES_DIR_NAME",
     "deploy_run_worktree_paths",
     "driver_worktree_name",
     "driver_worktree_path",

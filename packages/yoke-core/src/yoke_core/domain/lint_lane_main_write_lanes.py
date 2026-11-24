@@ -22,6 +22,7 @@ not to the checkout root, so the suggestion never nests one lane's
 from __future__ import annotations
 
 from pathlib import PureWindowsPath, PurePosixPath
+from yoke_contracts.machine_config.checkout import LANES_DIR
 from yoke_contracts.hook_runner.bash_paths import lexical_client_path, join_path, windows_path
 from typing import Optional, Sequence
 
@@ -32,7 +33,6 @@ from yoke_core.domain.lint_session_cwd_path_authority import (
 )
 from yoke_core.domain.session_claimed_worktrees import ClaimedWorktree
 
-_WORKTREES_DIR = ".worktrees"
 
 
 def held_lane_for(
@@ -47,7 +47,7 @@ def held_lane_for(
 
 
 def _under_worktrees(target: str, repo_root: str) -> bool:
-    return is_inside(target, join_path(repo_root, _WORKTREES_DIR))
+    return is_inside(target, join_path(repo_root, LANES_DIR))
 
 
 def is_lane_escape(
@@ -99,7 +99,7 @@ def lane_equivalent_path(main_target: str, claim: ClaimedWorktree) -> str:
     except (OSError, ValueError):
         return claim.worktree_path
     parts = rel.parts
-    if len(parts) >= 2 and parts[0] == _WORKTREES_DIR:
+    if len(parts) >= 2 and parts[0] == LANES_DIR:
         # A foreign lane's file: keep only its lane-relative path.
         rel = path_type(*parts[2:]) if len(parts) > 2 else path_type(".")
     if ".git" in rel.parts:

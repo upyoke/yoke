@@ -6,6 +6,7 @@ import re
 from pathlib import Path
 from typing import Any, Iterable
 
+from yoke_cli.project_install.clone_excludes import KEY as CLONE_EXCLUDES_KEY, validate_entries
 from yoke_cli.project_install.files import (
     DISCARDED_PRIOR_CONTRACT_RECORDS_KEY,
     DISCARDED_PRIOR_STRATEGY_RECORDS_KEY,
@@ -156,7 +157,13 @@ def sanitize_prior_manifest_records(
     """Sanitize inert legacy records without weakening new-manifest writes."""
 
     contracts_sanitized = sanitize_prior_contract_records(manifest, source=source)
-    return sanitize_prior_strategy_records(contracts_sanitized, source=source)
+    sanitized = sanitize_prior_strategy_records(contracts_sanitized, source=source)
+    if isinstance(sanitized, dict):
+        return {
+            key: value for key, value in sanitized.items()
+            if key not in {"worktrees_ignore_added", "worktrees_ignore_created_file"}
+        }
+    return sanitized
 
 
 def _validate_hook_records(records: Any, *, source: str, settings_rel: str) -> None:
@@ -281,9 +288,7 @@ def validate_manifest(manifest: Any, *, source: str = "install manifest") -> Non
         not isinstance(manifest["project_slug"], str) or not manifest["project_slug"]
     ):
         raise ProjectInstallError(f"{source} project_slug must be a non-empty string")
-    for key in ("worktrees_ignore_added", "worktrees_ignore_created_file"):
-        if key in manifest and not isinstance(manifest[key], bool):
-            raise ProjectInstallError(f"{source} {key} must be a boolean")
+    validate_entries(manifest.get(CLONE_EXCLUDES_KEY, []), source=source)
 
 
 __all__ = [

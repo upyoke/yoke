@@ -167,7 +167,6 @@ def test_lane_plan_refuses_rather_than_planning_an_invented_name(
         resolve_worktree_lanes_for_item(
             99248,
             str(git_repo),
-            ".worktrees",
             yoke_db,
         )
 
@@ -230,7 +229,6 @@ def test_recorded_lanes_survive_an_unreadable_sequence(git_repo, yoke_db):
     lanes = resolve_worktree_lanes_for_item(
         internal_id,
         str(git_repo),
-        ".worktrees",
         yoke_db,
     )
 
@@ -256,6 +254,5 @@ def test_a_required_new_lane_still_refuses_without_identity(git_repo, yoke_db):
         resolve_worktree_lanes_for_item(
             internal_id,
             str(git_repo),
-            ".worktrees",
             yoke_db,
         )

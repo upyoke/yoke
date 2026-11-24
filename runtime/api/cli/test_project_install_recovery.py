@@ -144,7 +144,7 @@ def test_dirty_interrupted_checkout_accepts_planned_settings_and_refuses_edits(
     bundle = make_bundle()
     bundle["hooks"]["cursor_hooks"] = {}
     preflight = preflight_apply(tmp_path, bundle, {}, {})
-    recovery.begin(tmp_path, preflight["install_recovery"])
+    recovery.begin(tmp_path, preflight["install_recovery"], {})
     _file(
         tmp_path,
         ".claude/settings.json",

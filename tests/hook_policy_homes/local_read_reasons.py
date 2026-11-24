@@ -67,8 +67,6 @@ AUTHORITY_TRANSPORT = (
     "from the hook payload.",
     (
         "yoke_cli.commands._helpers:client_project_context",
-        "yoke_cli.config.checkout_context:_git_toplevel",
-        "yoke_cli.config.checkout_context:_strip_worktree_path",
         "yoke_cli.config.checkout_context:resolve_repo_root_from_cwd",
         "yoke_contracts.machine_config.reader:load_config",
         "yoke_cli.transport.dispatcher:_resolve_session_id",
@@ -132,8 +130,6 @@ EVALUATING_PROCESS_TELEMETRY = (
         "yoke_contracts.execution_provenance:_collect_execution_provenance",
         "yoke_contracts.execution_provenance:_git_sha",
         "yoke_contracts.install_binding:distribution_source_commit_for_module",
-        "yoke_contracts.machine_config.checkout:_git_worktrees",
-        "yoke_contracts.machine_config.checkout:main_checkout",
         "yoke_contracts.machine_config.schema_projects:_path_key",
         "yoke_contracts.machine_config.schema_projects:checkout_path_candidates",
         "yoke_contracts.machine_config.schema_projects:project_entry_for_checkout",
@@ -147,6 +143,24 @@ EVALUATING_PROCESS_TELEMETRY = (
         _C + "function_unresolved_project:control_plevel_label",
         _C + "yok_n_parser:item_argument_project",
     ),
+)
+
+EVALUATING_CHECKOUT_IDENTITY = (
+    "Git identity of the evaluating process's checkout for execution provenance "
+    "and local dispatcher context. It does not infer the client's checkout from "
+    "a server filesystem path.",
+    (
+        "yoke_contracts.machine_config.checkout:_git_worktrees",
+        "yoke_contracts.machine_config.checkout:find_main_checkout",
+        "yoke_contracts.machine_config.checkout:main_checkout",
+    ),
+)
+
+AUTHORITY_SCHEDULING_LIMITS = (
+    "The machine running the authority configures the frontier freshness threshold "
+    "and the QA host idle hold limit. These are limits for authority-owned work, "
+    "independent of the requesting client's machine settings.",
+    (_C + "runtime_settings:read_all",),
 )
 
 AMBIENT_IDENTITY_FALLBACK = (
@@ -208,18 +222,16 @@ CLIENT_PATH_CANONICALIZATION = (
         _C + "path_claim_bash_guard_narrative:target_under_active_worktree",
         _C + "path_claim_item_worktree_paths:universal_item_worktree_paths",
         _C + "path_claim_task_session_coverage:_target_lane",
-        _C + "worktree_paths:_normalize_repo_root",
     ),
 )
 
 UNRECORDED_LANE_PATH = (
-    "Derives a lane path from the evaluating machine's checkout mapping and "
-    "worktrees_dir setting, only for a lane row with no recorded path. "
+    "Derives a lane path under .worktrees from the evaluating machine's "
+    "checkout mapping, only for a lane row with no recorded path. "
     "Prepared lanes always record their path, so the authority never "
     "derives one.",
     (
         _C + "project_checkout_locations:checkout_for_project_id",
-        _C + "runtime_settings:read_all",
     ),
 )
 
@@ -249,7 +261,6 @@ OBSERVE_TELEMETRY_ENRICHMENT = (
         _C + "observe_db_reads:repo_root_for_attribution",
         _C + "observe_function_call_refs:extract_function_call_item_id",
         _C + "observe_normalization:_normalize_dir",
-        _C + "project_settings:checkout_root",
     ),
 )
 
@@ -264,6 +275,8 @@ REASONS: tuple[tuple[str, tuple[str, ...]], ...] = (
     AUTHORITY_TRANSPORT,
     AUTHORITY_RELEASE_MACHINERY,
     EVALUATING_PROCESS_TELEMETRY,
+    EVALUATING_CHECKOUT_IDENTITY,
+    AUTHORITY_SCHEDULING_LIMITS,
     AMBIENT_IDENTITY_FALLBACK,
     CLIENT_PATH_CANONICALIZATION,
     UNRECORDED_LANE_PATH,

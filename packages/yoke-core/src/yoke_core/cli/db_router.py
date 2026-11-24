@@ -41,7 +41,7 @@ split across responsibility-named siblings:
 * :mod:`yoke_core.cli.db_router_dispatch` — dispatch tables + helpers
 * :mod:`yoke_core.cli.db_router_help` — usage and domain help text
 
-Path resolution (``_repo_root`` / ``_strip_worktree_prefix``) and the
+Path resolution (``_repo_root``) and the
 top-level ``main()`` entry stay
 in this module so monkey-patches against ``db_router.__file__`` and the
 ``_dispatch_python_module`` binding continue to take effect inside
@@ -57,6 +57,8 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from yoke_contracts.machine_config.checkout import main_checkout
+from yoke_contracts.machine_config.schema_connections import MachineConfigContractError
 from yoke_core.api.repo_root import find_repo_root
 from yoke_core.cli.db_router_dispatch import (  # noqa: F401
     _DOMAIN_PY_MODULES,
@@ -80,30 +82,22 @@ from yoke_core.cli.db_router_init import (  # noqa: F401
 
 # Path / env resolution — kept inline for ``__file__`` monkey-patch tests.
 
-def _strip_worktree_prefix(path: Path) -> Path:
-    """Strip ``.worktrees/<branch>/`` from *path* to get the main repo root."""
-    parts = path.parts
-    for i, part in enumerate(parts):
-        if part == ".worktrees" and i + 1 < len(parts):
-            return Path(*parts[:i]) if i > 0 else Path("/")
-    return path
-
-
 def _repo_root() -> Path:
     """Resolve the **main** repo root by walking up from this file."""
     here = Path(__file__).resolve()
     try:
         found = find_repo_root(here)
-        guess = _strip_worktree_prefix(found) if _is_under_root(here, found) else _repo_root_from_layout(here)
     except RuntimeError:
         guess = _repo_root_from_layout(here)
+    else:
+        guess = main_checkout(found) if _is_under_root(here, found) else _repo_root_from_layout(here)
     if _looks_like_repo_root(guess):
         return guess
     env_root = os.environ.get("YOKE_REPO_ROOT")
     if env_root:
         env_path = Path(env_root).resolve()
         if _looks_like_repo_root(env_path):
-            return env_path
+            return main_checkout(env_path)
     try:
         result = subprocess.run(
             ["git", "rev-parse", "--show-toplevel"],
@@ -111,7 +105,7 @@ def _repo_root() -> Path:
             text=True,
             check=True,
         )
-        git_root = _strip_worktree_prefix(Path(result.stdout.strip()))
+        git_root = main_checkout(Path(result.stdout.strip()))
         if _looks_like_repo_root(git_root):
             return git_root
     except (subprocess.CalledProcessError, FileNotFoundError):
@@ -121,10 +115,9 @@ def _repo_root() -> Path:
 
 def _repo_root_from_layout(here: Path) -> Path:
     for candidate in (here.parent, *here.parents):
-        for root in (_strip_worktree_prefix(candidate), candidate):
-            if _looks_like_repo_root(root):
-                return root
-    return _strip_worktree_prefix(here.parent)
+        if _looks_like_repo_root(candidate):
+            return main_checkout(candidate)
+    return main_checkout(here.parent)
 
 
 def _is_under_root(path: Path, root: Path) -> bool:
@@ -248,7 +241,11 @@ def main(argv: Optional[List[str]] = None) -> int:
         _print_domain_help(argv[0])
         return 0
 
-    repo_root = _repo_root()
+    try:
+        repo_root = _repo_root()
+    except MachineConfigContractError as exc:
+        print(exc, file=sys.stderr)
+        return 1
 
     forced_init = bool(argv) and argv[0] == "init"
     _auto_init(repo_root, forced=forced_init)

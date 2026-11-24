@@ -41,15 +41,3 @@ class TestLocalOnlySettings:
         assert get_project_int(repo, "wip_cap", config_path=cfg) == int(
             RECOGNIZED_PROJECT_KEYS["wip_cap"].default
         )
-
-    def test_worktrees_dir_remains_machine_local(self, tmp_path: Path) -> None:
-        cfg = _machine_cfg(tmp_path, "worktrees_dir=.wt\n")
-        repo = _project_dir(tmp_path)
-        assert (
-            get_project_str(
-                repo,
-                "worktrees_dir",
-                config_path=cfg,
-            )
-            == ".wt"
-        )

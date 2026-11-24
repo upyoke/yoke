@@ -13,13 +13,14 @@ from __future__ import annotations
 
 import argparse
 import os
-import subprocess
 import sys
 import time
 from pathlib import Path
 from typing import Iterable
 
 from yoke_contracts.board.phase_timer import PhaseRecorder, measure_phase
+from yoke_contracts.machine_config.checkout import find_main_checkout, main_checkout
+from yoke_contracts.machine_config.schema_connections import MachineConfigContractError
 from yoke_core.domain import machine_config, rebuild_board_outcome as outcome, schema
 from yoke_core.domain.rebuild_board_file_write import write_live_text
 from yoke_core.domain.rebuild_board_render import (
@@ -34,16 +35,6 @@ from yoke_core.domain.workspace_authority import (
 THROTTLE_SECONDS = 5
 
 
-def _strip_worktree_path(path: Path) -> Path:
-    parts = list(path.parts)
-    if ".worktrees" in parts:
-        return Path(*parts[:parts.index(".worktrees")])
-    for i in range(len(parts) - 1):
-        if parts[i] == ".claude" and parts[i + 1] == "worktrees":
-            return Path(*parts[:i])
-    return path
-
-
 def _find_repo_root(start: Path) -> Path | None:
     current = start.expanduser()
     if current.is_file():
@@ -52,7 +43,7 @@ def _find_repo_root(start: Path) -> Path | None:
         current = current.resolve()
     except OSError:
         return None
-    git_root = _git_root(current)
+    git_root = find_main_checkout(current)
     if git_root is not None:
         return git_root
     for candidate in (current, *current.parents):
@@ -61,59 +52,34 @@ def _find_repo_root(start: Path) -> Path | None:
     return None
 
 
-def _git_root(start: Path) -> Path | None:
-    try:
-        proc = subprocess.run(
-            ["git", "-C", str(start), "rev-parse", "--show-toplevel"],
-            capture_output=True,
-            text=True,
-            timeout=10,
-            check=False,
-        )
-    except Exception:
-        return None
-    if proc.returncode != 0 or not proc.stdout.strip():
-        return None
-    return Path(proc.stdout.strip()).resolve()
-
-
 def resolve_main_repo_root(repo_arg: str | None = None) -> Path:
     if repo_arg:
         found = _find_repo_root(Path(repo_arg))
         if found:
-            return _strip_worktree_path(found)
-        return _strip_worktree_path(Path(repo_arg).resolve())
+            return main_checkout(found)
+        return main_checkout(Path(repo_arg).resolve())
 
     for env_name in ("CLAUDE_PROJECT_DIR",):
         env_value = os.environ.get(env_name)
         if env_value:
             found = _find_repo_root(Path(env_value))
             if found:
-                return _strip_worktree_path(found)
-            return _strip_worktree_path(Path(env_value).resolve())
-
-    git_root = _git_root(Path.cwd())
-    if git_root is not None:
-        return git_root
+                return main_checkout(found)
+            return main_checkout(Path(env_value).resolve())
 
     found = _find_repo_root(Path.cwd())
     if found:
-        return _strip_worktree_path(found)
+        return main_checkout(found)
 
     raise FileNotFoundError("Could not find project repo root.")
 
 
 def try_resolve_main_repo_root(repo_arg: str | None = None) -> Path | None:
-    """Like :func:`resolve_main_repo_root` but returns ``None`` when no local
-    checkout exists, instead of raising.
-
-    Server-side (no ``.git``, no ``CLAUDE_PROJECT_DIR``, server cwd not a repo)
-    both the ``FileNotFoundError`` raised here and the worktree/find_repo_root
-    ``RuntimeError`` mean "no local checkout" — the board is a client-local view
-    the in-checkout client rebuilds, so callers skip rather than fail.
-    """
+    """Skip rebuild without a local checkout. Surface broken Git metadata."""
     try:
         return resolve_main_repo_root(repo_arg)
+    except MachineConfigContractError:
+        raise
     except (FileNotFoundError, RuntimeError):
         return None
 

@@ -1,7 +1,7 @@
-"""Project setting readers with DB/local authority split.
+"""Project policy readers.
 
 Shared project behavior is DB-owned through the ``project-policy``
-capability.  Machine-local checkout facts are local-only.
+capability.
 """
 
 from __future__ import annotations
@@ -12,7 +12,6 @@ from typing import Any, List, Optional, Tuple
 from yoke_contracts.project_contract.project_keys import (
     DB_PROJECT_POLICY_KEYS,
     DEFAULT_WIP_CAP,
-    LOCAL_PROJECT_KEYS,
     RECOGNIZED_PROJECT_KEYS,
 )
 
@@ -27,13 +26,6 @@ def get_project_str(
     """Read a project setting using its current authority."""
 
     resolved_default = _default_for_key(key, default)
-    if key in LOCAL_PROJECT_KEYS:
-        from yoke_core.domain import runtime_settings
-
-        return (
-            runtime_settings.get_str(key, "", config_path=config_path)
-            or resolved_default
-        )
     if key in DB_PROJECT_POLICY_KEYS:
         value = _policy_value_for_repo(repo_root, key, config_path=config_path)
         return _string_value(value, resolved_default)
@@ -52,14 +44,6 @@ def get_project_int(
     resolved_default = int(
         _default_for_key(key, str(default) if default is not None else None)
     )
-    if key in LOCAL_PROJECT_KEYS:
-        from yoke_core.domain import runtime_settings
-
-        return runtime_settings.get_int(
-            key,
-            resolved_default,
-            config_path=config_path,
-        )
     if key in DB_PROJECT_POLICY_KEYS:
         value = _policy_value_for_repo(repo_root, key, config_path=config_path)
         return _int_value(value, resolved_default)
@@ -179,17 +163,7 @@ def _mapped_checkouts(
 def _default_for_key(key: str, override: str | None) -> str:
     if override is not None:
         return str(override)
-    try:
-        from yoke_contracts.machine_config.settings_keys import MACHINE_SETTING_KEYS
-
-        specs = (
-            MACHINE_SETTING_KEYS
-            if key in LOCAL_PROJECT_KEYS
-            else RECOGNIZED_PROJECT_KEYS
-        )
-        return str(specs[key].default)
-    except KeyError as exc:
-        raise KeyError(key) from exc
+    return str(RECOGNIZED_PROJECT_KEYS[key].default)
 
 
 def _string_value(value: Any, default: str) -> str:
@@ -211,7 +185,6 @@ def _int_value(value: Any, default: int) -> int:
 __all__ = [
     "DB_PROJECT_POLICY_KEYS",
     "DEFAULT_WIP_CAP",
-    "LOCAL_PROJECT_KEYS",
     "RECOGNIZED_PROJECT_KEYS",
     "checkout_root",
     "get_project_int",

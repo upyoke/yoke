@@ -4,25 +4,21 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from yoke_contracts.machine_config.checkout import LANES_DIR
 from yoke_contracts.harness_folder_trust import claude_state_path, cursor_projects_root
 from yoke_contracts.harness_lane_config_edit import edit_codex, edit_cursor, edit_json
 from yoke_contracts.harness_machine_hooks import HARNESS_MACHINE_HOOKS
 from yoke_contracts.harness_unattended_posture import codex_config_path
-from yoke_contracts.machine_config.runtime import read_settings
-from yoke_contracts.machine_config.settings_keys import machine_setting_default
 
 SWEEP_COMMAND = "yoke harness lane-config sweep"
 RECOVERY = f"Repair the named config or permissions, then run `{SWEEP_COMMAND}`."
 
 
 def managed_lane_roots(checkouts: tuple[Path, ...]) -> tuple[Path, ...]:
-    configured = read_settings().get("worktrees_dir") or machine_setting_default(
-        "worktrees_dir"
-    )
     return tuple(
         root.resolve() / suffix
         for root in checkouts
-        for suffix in dict.fromkeys((configured, ".worktrees", ".claude/worktrees"))
+        for suffix in (LANES_DIR, ".claude/worktrees")
     )
 
 

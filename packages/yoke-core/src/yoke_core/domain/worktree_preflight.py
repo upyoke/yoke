@@ -25,6 +25,7 @@ orchestrator + CLI stay under the authored-file line limit.
 
 from __future__ import annotations
 
+from yoke_contracts.machine_config.checkout import LANES_DIR
 from yoke_core.domain.public_item_target import public_item_target
 
 import argparse
@@ -220,8 +221,8 @@ def run_preflight(
     if no_worktree:
         out.actions_taken.append("worktree:skipped")
     else:
-        worktrees_dir = os.path.join(repo_root, ".worktrees")
-        canonical_path = recorded_lane_path or os.path.join(worktrees_dir, branch)
+        lane_root = os.path.join(repo_root, LANES_DIR)
+        canonical_path = recorded_lane_path or os.path.join(lane_root, branch)
         canonical_exists = os.path.isdir(canonical_path)
         will_create = not canonical_exists
         needed_paths: tuple[str, ...] = ()
@@ -232,7 +233,6 @@ def run_preflight(
                 item_id=item_id,
                 public_ref=public_ref,
                 session_id=session_id,
-                worktrees_dir=worktrees_dir,
             )
             if verdict.blocked:
                 out.ok = False

@@ -15,6 +15,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
+from yoke_contracts.machine_config.checkout import LANES_DIR
 from yoke_contracts.project_defaults import default_project_for_directory
 from yoke_core.domain.project_github_auth import (
     ProjectGithubAuthError,
@@ -197,13 +198,12 @@ def run_checks(repo_root: Path, *, strict: bool = False) -> int:
     )
     critical_fail = critical_fail or not canonical_settings_ok
 
-    gitignore = repo_root / ".gitignore"
-    gitignore_ok = gitignore.is_file()
-    if gitignore_ok:
-        text = gitignore.read_text(encoding="utf-8")
-        gitignore_ok = ".worktrees/" in text
-    _add_result(results, ".gitignore updated", "✅" if gitignore_ok else "❌")
-    critical_fail = critical_fail or not gitignore_ok
+    lanes_ignored = shutil.which("git") and subprocess.run(
+        ["git", "-C", str(repo_root), "check-ignore", "-q", f"{LANES_DIR}/x"],
+        capture_output=True,
+    ).returncode == 0
+    _add_result(results, "lanes ignored", "✅" if lanes_ignored else "❌")
+    critical_fail = critical_fail or not lanes_ignored
 
     # Native shared doctrine has one canonical source.
     doctrine_ok = (repo_root / "AGENTS.md").is_file()

@@ -1,4 +1,4 @@
-"""Project onboarding handoff and root worktree ignore contract tests."""
+"""Project onboarding handoff and clone-local exclude contract tests."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ from yoke_cli import main as yoke_operations_cli
 from yoke_cli.config import project_onboarding_handoff as handoff
 
 
-def test_onboard_project_apply_writes_handoff_and_worktrees_ignore(
+def test_onboard_project_apply_writes_handoff_and_clone_excludes(
     tmp_path: Path, monkeypatch, capsys
 ) -> None:
     monkeypatch.setattr(handoff, "nearest_harness_family", lambda: "codex")
@@ -68,12 +68,11 @@ def test_onboard_project_apply_writes_handoff_and_worktrees_ignore(
 
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
-    assert payload["install"]["worktrees_ignore"]["status"] == "written"
-    assert payload["install"]["worktrees_ignore"]["patch"] == ["+.worktrees/"]
-    assert payload["worktrees_ignore"]["status"] == "present"
-    assert payload["worktrees_ignore"]["patch"] == []
+    assert payload["install"]["clone_excludes"]["added"] == [
+        "/.worktrees/", "/.claude/settings.local.json",
+    ]
     assert (checkout / ".gitignore").read_text(encoding="utf-8") == (
-        "node_modules/\n.worktrees/\n/.claude/skills/yoke\n"
+        "node_modules/\n/.claude/skills/yoke\n"
     )
     assert payload["install"]["snapshot_sync"]["status"] == "ok"
     assert payload["handoff"]["run_id"] == "run-handoff"
@@ -106,7 +105,7 @@ def test_handoff_uses_native_router_and_preserves_run(monkeypatch, family, route
     assert command == "/yoke onboard --run-id run-handoff"
 
 
-def test_project_onboard_dry_run_previews_worktrees_ignore_without_writing(
+def test_project_onboard_dry_run_leaves_clone_excludes_untouched(
     tmp_path: Path, monkeypatch, capsys
 ) -> None:
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine-home"))
@@ -137,13 +136,6 @@ def test_project_onboard_dry_run_previews_worktrees_ignore_without_writing(
 
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
-    assert payload["worktrees_ignore"] == {
-        "path": str(checkout / ".gitignore"),
-        "entry": ".worktrees/",
-        "present": False,
-        "applied": False,
-        "created_file": False,
-        "patch": ["+.worktrees/"],
-        "status": "missing",
-    }
+    assert payload["applied"] is False
+    assert "/.worktrees/" not in (checkout / ".git/info/exclude").read_text()
     assert not (checkout / ".gitignore").exists()

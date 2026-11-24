@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from typing import Any, List, Mapping, Optional, Sequence, Tuple
 
+from yoke_contracts.machine_config.checkout import LANES_DIR
 from yoke_core.domain import db_backend
 from yoke_core.domain.workflow_behavior import (
     LANE_IMPLEMENTATION,
@@ -23,13 +24,12 @@ def normalize_worktree_lane(
     branch: str,
     path: str,
     repo_root: str,
-    worktrees_dir: str,
 ) -> Tuple[str, str]:
     """Return one complete branch/path pair from either stored component."""
     branch = (branch or "").strip()
     path = (path or "").strip()
     if not path and branch:
-        path = os.path.join(repo_root, worktrees_dir, branch)
+        path = os.path.join(repo_root, LANES_DIR, branch)
     if not branch and path:
         branch = os.path.basename(path)
     if path and not os.path.isabs(path):
@@ -40,7 +40,6 @@ def normalize_worktree_lane(
 def resolve_worktree_lanes_for_item(
     item_id: int,
     repo_root: str,
-    worktrees_dir: str,
     db_path: Optional[str] = None,
     *,
     authoritative_lanes: Optional[Sequence[Mapping[str, Any]]] = None,
@@ -74,7 +73,7 @@ def resolve_worktree_lanes_for_item(
         return [
             (
                 str(row.get("branch") or ""),
-                os.path.join(repo_root, worktrees_dir, str(row.get("branch") or "")),
+                os.path.join(repo_root, LANES_DIR, str(row.get("branch") or "")),
                 str(row.get("lane_role") or ""),
                 int(row.get("id") or 0),
             )
@@ -120,7 +119,7 @@ def resolve_worktree_lanes_for_item(
             about a name nothing was going to mint.
             """
             name = worktree_name_for_item(conn, int(item_id))
-            return name, os.path.join(repo_root, worktrees_dir, name)
+            return name, os.path.join(repo_root, LANES_DIR, name)
 
         runtime = load_item_workflow_runtime(conn, int(item_id))
         policy = worktree_lane_policy(runtime)
@@ -140,7 +139,6 @@ def resolve_worktree_lanes_for_item(
                         row["branch"],
                         row["path"],
                         repo_root,
-                        worktrees_dir,
                     ),
                     row["lane_role"],
                     int(row["id"]),

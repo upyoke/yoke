@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from yoke_cli.project_install import checkout_gate
+from yoke_cli.project_install import checkout_gate, clone_excludes
 from yoke_cli.project_install import runner as project_install
 from yoke_cli.project_install.runner import ProjectInstallError, apply_bundle
 from yoke_core.domain.project_install_test_helpers import DEFAULT_FILES, make_bundle
@@ -50,6 +50,8 @@ def _git_init(root) -> None:
     import subprocess
 
     subprocess.run(["git", "init", "-q", "-b", "trunk"], cwd=root, check=True)
+    for key, value in (("user.name", "Yoke Test"), ("user.email", "tests@example.invalid")):
+        subprocess.run(["git", "config", "--local", key, value], cwd=root, check=True)
 
 
 def test_manifest_and_report_record_copy_mode(repo) -> None:
@@ -134,36 +136,55 @@ def test_git_hook_marker_mention_is_never_treated_as_ownership(repo) -> None:
     ]
 
 
-def test_worktrees_ignore_owned_line_round_trips_without_foreign_loss(repo) -> None:
+def test_clone_excludes_install_and_uninstall_preserve_foreign_rules(repo) -> None:
+    _git_init(repo)
     root_ignore = repo / ".gitignore"
-    root_ignore.write_text("dist/\n# operator note\n", encoding="utf-8")
+    root_ignore.write_text("dist/\n", encoding="utf-8")
+    checkout_gate.run_git(repo, "add", ".gitignore")
+    assert checkout_gate.run_git(repo, "commit", "-m", "seed").returncode == 0
+    exclude = repo / ".git/info/exclude"
+    exclude.write_bytes(b"# operator note\r\n/.worktrees/\r\n")
 
-    apply_bundle(repo, make_bundle(), source="test")
+    report = apply_bundle(repo, make_bundle(), source="test")
+    assert root_ignore.read_text(encoding="utf-8") == "dist/\n/.claude/skills/yoke\n"
+    assert _manifest(repo)["clone_excludes"] == ["/.claude/settings.local.json"]
+    checkout_gate.commit_touched_paths(repo, report)
+    assert checkout_gate.porcelain(repo) == []
 
-    assert root_ignore.read_text(encoding="utf-8") == (
-        "dist/\n# operator note\n.worktrees/\n/.claude/skills/yoke\n"
-    )
+    report = project_install.uninstall(repo)
+
+    assert root_ignore.read_text(encoding="utf-8") == "dist/\n"
+    assert report["clone_excludes_removed"] == ["/.claude/settings.local.json"]
+    assert exclude.read_bytes().startswith(b"# operator note\r\n/.worktrees/\r\n")
+    assert b"/.claude/settings.local.json" not in exclude.read_bytes()
+
+
+@pytest.mark.parametrize("repair", [False, True])
+def test_legacy_root_ignore_line_survives(repo, repair) -> None:
+    _git_init(repo)
+    root_ignore = repo / ".gitignore"
+    root_ignore.write_text(".worktrees/\n", encoding="utf-8")
+    checkout_gate.run_git(repo, "add", ".gitignore")
+    assert checkout_gate.run_git(repo, "commit", "-m", "seed").returncode == 0
+    report = apply_bundle(repo, make_bundle(), source="test")
+    checkout_gate.commit_touched_paths(repo, report)
     manifest = _manifest(repo)
-    assert manifest["worktrees_ignore_added"] is True
-    assert manifest["worktrees_ignore_created_file"] is False
+    owned = manifest.pop("clone_excludes")
+    clone_excludes.remove(repo, owned)
+    manifest["worktrees_ignore_added"] = True
+    manifest["worktrees_ignore_created_file"] = True
+    (repo / MANIFEST_REL).write_text(json.dumps(manifest), encoding="utf-8")
+    checkout_gate.run_git(repo, "add", "-f", MANIFEST_REL)
+    commit = checkout_gate.run_git(repo, "commit", "-m", "record legacy install")
+    assert commit.returncode == 0, commit.stderr
 
-    report = project_install.uninstall(repo)
-
-    assert root_ignore.read_text(encoding="utf-8") == "dist/\n# operator note\n"
-    assert report["worktrees_ignore"] == {
-        "removed": True,
-        "deleted_file": False,
-    }
-
-
-def test_worktrees_ignore_created_file_is_removed_on_uninstall(repo) -> None:
-    apply_bundle(repo, make_bundle(), source="test")
-    assert _manifest(repo)["worktrees_ignore_created_file"] is True
-
-    report = project_install.uninstall(repo)
-
-    assert not (repo / ".gitignore").exists()
-    assert report["worktrees_ignore"]["deleted_file"] is True
+    if repair:
+        report = apply_bundle(repo, make_bundle(), source="test")
+        checkout_gate.commit_touched_paths(repo, report)
+        assert "worktrees_ignore_added" not in _manifest(repo)
+        assert ".worktrees/" in root_ignore.read_text(encoding="utf-8").splitlines()
+    project_install.uninstall(repo)
+    assert root_ignore.read_text(encoding="utf-8") == ".worktrees/\n"
 
 
 def test_git_hook_symlink_escape_fails_before_uninstall_mutation(

@@ -22,7 +22,6 @@ from yoke_contracts.setting_spec import SettingSpec
 
 from yoke_contracts.project_contract.project_keys import (
     DB_PROJECT_POLICY_KEYS,
-    LOCAL_PROJECT_KEYS,
     PROJECT_POLICY_CAPABILITY,
 )
 
@@ -212,9 +211,6 @@ MACHINE_SETTING_KEYS.update(
             "credential-free install origin and release channel; empty means unconfigured",
             fields=("origin", "channel"),
         ),
-        "worktrees_dir": SettingSpec(
-            ".worktrees", str, "checkout-relative directory holding linked worktrees"
-        ),
     }
 )
 
@@ -244,7 +240,7 @@ def db_owned_capability_for(key: str) -> str | None:
 
 def is_recognized(key: str) -> bool:
     """Return whether ``key`` is a machine-owned setting with a live reader."""
-    if key in MACHINE_SETTING_KEYS or key in LOCAL_PROJECT_KEYS:
+    if key in MACHINE_SETTING_KEYS:
         return True
     return any(key.startswith(prefix) for prefix in MACHINE_SETTING_PREFIXES)
 

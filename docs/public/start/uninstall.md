@@ -141,7 +141,9 @@ A checkout registered on one connection only is retired from that connection
 whichever connection is active, so projects from different universes that share
 a project number uninstall independently; a checkout registered on two
 connections is preserved as `checkout_shared_with_other_connection`. Each
-reason is reported once, however many harnesses it covers.
+reason is reported once, however many harnesses it covers. In an exclusive
+clone, uninstall removes only the entries Yoke recorded adding to Git's
+local exclude file. Existing lane rules in the tracked `.gitignore` stay.
 Each run lands one removal commit, recording only files Git already tracked;
 ignored local views, including the install manifest, never enter history. A
 complete cleanup deletes the generated `.yoke/BOARD.md*` views and names every

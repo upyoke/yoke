@@ -1,7 +1,6 @@
 """Worktree-resolution tests for ``yoke_core.cli.db_router``.
 
-Companion to ``test_db_router.py``. Covers the path-stripping helper
-plus end-to-end query dispatch from a linked worktree, including:
+Covers end-to-end query dispatch from a linked worktree, including:
 
 - main-checkout DB resolution from a worktree-local ``__file__``
 - ignoring a pre-existing stray worktree DB
@@ -15,6 +14,7 @@ import io
 import json
 import os
 import sqlite3
+import subprocess
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from typing import Tuple
@@ -63,6 +63,15 @@ class TestWorktreeResolution:
             self._seed_items_db(main_db, count=3)
         (tmp_path / "runtime" / "api").mkdir(parents=True, exist_ok=True)
         wt_root = tmp_path / ".worktrees" / "YOK-99"
+        subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+        subprocess.run(
+            ["git", "-c", "user.email=test@example.invalid", "-c", "user.name=Test",
+             "commit", "-qm", "seed", "--allow-empty"], cwd=tmp_path, check=True,
+        )
+        subprocess.run(
+            ["git", "worktree", "add", "-q", "--detach", str(wt_root)],
+            cwd=tmp_path, check=True,
+        )
         wt_yoke = wt_root / "runtime"
         wt_yoke.mkdir(parents=True, exist_ok=True)
         (wt_yoke / "api" / "cli").mkdir(parents=True, exist_ok=True)
@@ -119,43 +128,12 @@ class TestWorktreeResolution:
         for key in keys:
             monkeypatch.delenv(key, raising=False)
 
-    def test_strip_worktree_prefix_basic(self) -> None:
-        """_strip_worktree_prefix removes .worktrees/<branch>/ from path."""
-        p = Path("/home/user/repo/.worktrees/YOK-9999/runtime/api/cli")
-        result = db_router._strip_worktree_prefix(p)
-        assert result == Path("/home/user/repo")
-
-    def test_strip_worktree_prefix_noop_when_no_worktree(self) -> None:
-        """_strip_worktree_prefix is a no-op for normal paths."""
-        p = Path("/home/user/repo/runtime/api/cli")
-        result = db_router._strip_worktree_prefix(p)
-        assert result == p
-
-    def test_repo_root_strips_worktree_prefix(
+    def test_repo_root_uses_git_registration(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """_repo_root returns main checkout when __file__ is under .worktrees/."""
-        # Build a fake worktree layout:
-        #   tmp_path/runtime/api/cli/db_router.py  (main checkout)
-        #   tmp_path/.worktrees/<branch>/runtime/api/cli/db_router.py  (worktree)
-        main_api = tmp_path / "runtime" / "api"
-        main_api.mkdir(parents=True)
-        (main_api / "cli").mkdir()
-        (main_api / "cli" / "db_router.py").touch()
-
-        wt_root = tmp_path / ".worktrees" / "YOK-99"
-        wt_api = wt_root / "runtime" / "api"
-        wt_api.mkdir(parents=True)
-        (wt_api / "cli").mkdir()
-        fake_file = wt_api / "cli" / "db_router.py"
-        fake_file.touch()
-
-        # Monkey-patch __file__ to the worktree location
+        _, fake_file, _ = self._build_linked_worktree_layout(tmp_path)
         monkeypatch.setattr(db_router, "__file__", str(fake_file))
-        result = db_router._repo_root()
-        # Must resolve to main checkout, not the worktree
-        assert ".worktrees" not in str(result)
-        assert result == tmp_path
+        assert db_router._repo_root() == tmp_path.resolve()
 
     def test_connected_postgres_binding_does_not_export_sqlite_db(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch

@@ -1,7 +1,7 @@
 """Installer-owned lines in the root ``.gitignore``.
 
-Onboarding owns the ``.worktrees/`` line; project install also owns one line
-per local skill-discovery entry. :func:`add_entry` and :func:`remove_entry`
+Project install owns one line per local skill-discovery entry.
+:func:`add_entry` and :func:`remove_entry`
 are the shared mechanics: append a missing line, or drop exactly one owned
 line while preserving every other byte.
 """
@@ -10,47 +10,6 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
-
-WORKTREES_IGNORE_ENTRY = ".worktrees/"
-
-
-def report(repo_root: str | Path, *, apply: bool) -> dict[str, Any]:
-    """Preview or apply the narrow root ``.gitignore`` worktree entry."""
-    root = Path(repo_root).expanduser().resolve()
-    from yoke_cli.project_install.files import assert_resolved_targets_within
-
-    assert_resolved_targets_within(
-        root, [".gitignore"], context="root worktree-ignore mutation",
-    )
-    path = root / ".gitignore"
-    existed = path.exists()
-    text = path.read_text(encoding="utf-8") if path.is_file() else ""
-    present = _has_entry(text, WORKTREES_IGNORE_ENTRY)
-    payload: dict[str, Any] = {
-        "path": str(path),
-        "entry": WORKTREES_IGNORE_ENTRY,
-        "present": present,
-        "applied": False,
-        "created_file": False,
-        "patch": [] if present else [f"+{WORKTREES_IGNORE_ENTRY}"],
-        "status": "present" if present else "missing",
-    }
-    if present or not apply:
-        return payload
-    _append_entry(path, text, WORKTREES_IGNORE_ENTRY)
-    payload["present"] = True
-    payload["applied"] = True
-    payload["created_file"] = not existed
-    payload["status"] = "written"
-    return payload
-
-
-def remove_owned_entry(
-    repo_root: str | Path, *, created_file: bool,
-) -> dict[str, Any]:
-    """Remove one installer-owned worktree line, preserving all foreign text."""
-    return remove_entry(repo_root, WORKTREES_IGNORE_ENTRY, created_file=created_file)
-
 
 def add_entry(repo_root: str | Path, entry: str) -> bool:
     """Append *entry* to the root ``.gitignore`` when absent; return if written."""
@@ -119,10 +78,7 @@ def _append_entry(path: Path, text: str, entry: str) -> None:
 
 
 __all__ = [
-    "WORKTREES_IGNORE_ENTRY",
     "add_entry",
     "planned_text",
     "remove_entry",
-    "remove_owned_entry",
-    "report",
 ]

@@ -143,7 +143,7 @@ def git_repo(tmp_path):
 
     # Create the runtime/config compatibility fixture used by worktree tests.
     (repo / "runtime").mkdir()
-    (repo / "runtime" / "config").write_text("worktrees_dir=.worktrees\n")
+    (repo / "runtime" / "config").write_text("")
 
     return repo
 
