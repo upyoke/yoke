@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import argparse
 import sys
-from importlib import import_module
 from typing import Dict, List
 
 from yoke_cli.commands._helpers import (
@@ -24,6 +23,7 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
     usage_error,
 )
+from yoke_cli.commands.adapters.lane_head_local import lane_head_engine
 from yoke_cli.commands.text_file import add_text_file_pair, resolve_text_file
 from yoke_contracts.api.function_call import TargetRef
 
@@ -168,7 +168,7 @@ def epic_task_review_insert(args: List[str]) -> int:
         return usage_error(str(exc))
     target = _epic_task_target(parsed)
     if parsed.verdict == "pass" and parsed.head_sha:
-        engine = import_module("yoke_core.domain.lane_head_client")
+        engine = lane_head_engine()
         try:
             engine.reconcile_task_lane(target, session_id=parsed.session_id)
         except engine.LaneHeadClientError as exc:

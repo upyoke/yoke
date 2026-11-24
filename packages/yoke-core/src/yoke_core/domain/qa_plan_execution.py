@@ -75,6 +75,7 @@ def execute_plan(
     handed to this candidate runtime (``qa_controller_handoff_cli``); it is
     run as is, with no second materialize, begin or resume.
     """
+    checkout_path = str(Path(checkout_path).resolve()) if checkout_path else None
     plan_kwargs = {
         key: value
         for key, value in locals().items()
@@ -103,7 +104,7 @@ def execute_plan(
     )
     resolved_actor = execution_actor(actor)
     begin_payload.update(
-        checkout_path=str(checkout_path) if checkout_path else None,
+        checkout_path=checkout_path,
         expected_branch=expected_branch,
     )
     if target.kind == "global":
