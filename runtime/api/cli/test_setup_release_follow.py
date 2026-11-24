@@ -10,7 +10,7 @@ import pytest
 
 from yoke_cli.commands.adapters import onboard, onboard_apply
 from yoke_cli.config import onboard_apply_lock, onboard_wizard, setup_release_follow
-from yoke_cli.config import setup_release_marker
+from yoke_cli.config import setup_release_marker, setup_release_start
 from yoke_cli.config import writer
 from yoke_cli.config.onboard_wizard_flow_apply import ApplyFlow
 from yoke_cli.project_install.validate import CliReleaseMismatch
@@ -118,6 +118,63 @@ def test_mismatch_installs_served_release_then_resumed_run_completes(
     assert _report(followed.run_id)["final_status"] == "done"
     assert _report(followed.run_id)["cli_followed_release"]["to"] == SERVED
     assert machine["installs"] == [SERVED]
+
+
+def test_release_moves_between_review_and_apply_before_relay(monkeypatch, machine):
+    api_url = "https://test.invalid"
+    relay_step = "reuse-session-relay-token"
+    running = RUNNING
+    served = RUNNING
+    applied = []
+    health_checks = []
+
+    def health(url, *, timeout_s):
+        assert url == api_url
+        health_checks.append(onboard_apply_lock.lock_path().is_file())
+        return {"engine_version": served}
+
+    def build_report(**kwargs):
+        if kwargs["apply"]:
+            applied.append(running)
+            for status in ("running", "done"):
+                kwargs["progress"](relay_step, "test", status)
+            return {"project_onboarding": {}}
+        return {"plan": {"steps": [{"action": relay_step, "target": "test"}]}}
+
+    monkeypatch.setattr(setup_release_start.server_connect, "verify_server_health", health)
+    monkeypatch.setattr(setup_release_start, "local_handshake_version", lambda: running)
+    monkeypatch.setattr(onboard_apply.onboard_config, "build_report", build_report)
+    kwargs = {
+        "path_repair": {}, "config_path": machine["config"], "env_name": "test",
+        "api_url": api_url,
+    }
+    setup_release_start.check_at_start(argparse.Namespace(api_url=api_url), None)
+    onboard_apply.apply_with_durable_report({**kwargs, "apply": False})
+
+    served = SERVED
+    with pytest.raises(setup_release_follow.ReleaseFollowed) as exc:
+        onboard_apply.apply_with_durable_report({**kwargs, "apply": True})
+    assert applied == []
+    assert machine["installs"] == [SERVED]
+    run_id = exc.value.run_id
+    payload = _report(run_id)
+    assert payload["failed_step"] is None
+    assert payload["steps"][0]["status"] == "pending"
+    assert payload["cli_followed_release"] == {"from": RUNNING, "to": SERVED}
+
+    running = SERVED
+    monkeypatch.setenv(
+        setup_release_marker.FOLLOWED_RELEASE_ENV,
+        setup_release_marker.encode(RUNNING, SERVED, run_id),
+    )
+    report = onboard_apply.apply_with_durable_report({
+        **kwargs, "apply": True, "resume_run_id": run_id, "resume_payload": payload,
+    }, install_health=False)
+    assert health_checks == [False, True, True]
+    assert applied == [SERVED]
+    assert machine["installs"] == [SERVED]
+    assert report["cli_followed_release"] == {"from": RUNNING, "to": SERVED}
+    assert _report(run_id)["steps"][0]["status"] == "done"
 
 
 def test_resumed_run_still_mismatched_refuses_without_second_install(

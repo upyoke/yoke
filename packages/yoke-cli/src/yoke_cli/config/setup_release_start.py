@@ -7,7 +7,8 @@ saves the connection, which is the first moment a fresh hosted setup knows its
 org's server. When the served release is a different downloadable release,
 setup installs exactly that release under the apply lock and reruns the same
 command on it, so no answer is lost: the rerun reuses the saved connection.
-A release that moves later is followed during Apply (``setup_release_follow``).
+Apply checks again under its own lock before machine steps and follows a
+release that moved after Review (``setup_release_follow``).
 
 A source checkout never follows (git updates it), an unreadable health reply
 leaves the decision to Apply's bundle check, and a process already started by
@@ -27,6 +28,7 @@ from yoke_contracts.release_version import release_version
 from yoke_cli.config import install_binding, onboard_apply_lock, self_update, server_connect
 from yoke_cli.config import setup_release_follow as follow
 from yoke_cli.config import setup_release_marker
+from yoke_cli.project_install.validate import CliReleaseMismatch
 from yoke_cli.transport.installed_cli_staleness import update_recovery
 
 HEALTH_TIMEOUT_SECONDS = 10.0
@@ -59,17 +61,31 @@ def refuse(exc: StartFollowRefused) -> int:
     return 1
 
 
+def check_at_apply(api_url: str) -> None:
+    """Route a pre-machine-step mismatch through the existing Apply follow."""
+    if not api_url:
+        return
+    try:
+        install_binding.require_packaged_install("yoke setup")
+    except install_binding.SourceCheckoutError:
+        return
+    mismatch = _observe_move(api_url)
+    if mismatch is not None:
+        raise mismatch
+
+
 def _follow(api_url: str) -> follow.ReleaseFollowed | None:
     if not api_url or setup_release_marker.current() is not None:
         return None
-    running = local_handshake_version()
-    served = _served_release(api_url)
-    if not running or not served or served == running:
+    mismatch = _observe_move(api_url)
+    if mismatch is None:
         return None
+    running, target = mismatch.running, mismatch.target
+    # _observe_move only returns a downloadable release.
+    assert target is not None
     try:
-        target = release_version(served)
         install_binding.require_packaged_install("yoke setup")
-    except (ValueError, install_binding.SourceCheckoutError):
+    except install_binding.SourceCheckoutError:
         return None
     try:
         with onboard_apply_lock.acquire():
@@ -87,6 +103,18 @@ def _follow(api_url: str) -> follow.ReleaseFollowed | None:
     return follow.ReleaseFollowed("", running, target, yoke_bin, server=api_url)
 
 
+def _observe_move(api_url: str) -> CliReleaseMismatch | None:
+    running = local_handshake_version()
+    served = _served_release(api_url)
+    if not running or not served or served == running:
+        return None
+    try:
+        target = release_version(served)
+    except ValueError:
+        return None
+    return CliReleaseMismatch(running, served, target, server=api_url)
+
+
 def _served_release(api_url: str) -> str:
     try:
         health = server_connect.verify_server_health(
@@ -99,6 +127,7 @@ def _served_release(api_url: str) -> str:
 
 __all__ = [
     "StartFollowRefused",
+    "check_at_apply",
     "check_at_start",
     "follow_after_sign_in",
     "refuse",

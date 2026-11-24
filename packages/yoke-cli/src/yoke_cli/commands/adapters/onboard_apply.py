@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.onboard_destinations import DESTINATION_LOCAL
+
 from yoke_cli.config import onboard as onboard_config
 from yoke_cli.config import onboard_apply_lock
 from yoke_cli.config import onboard_apply_report
@@ -9,7 +11,7 @@ from yoke_cli.config import onboard_publication
 from yoke_cli.config import onboard_wizard
 from yoke_cli.config import path_doctor
 from yoke_cli.config import path_repair_plan
-from yoke_cli.config import setup_release_follow
+from yoke_cli.config import setup_release_follow, setup_release_start
 from yoke_cli.project_install.validate import CliReleaseMismatch
 from yoke_cli.config.onboard_error_friendly import friendly_permission_error
 
@@ -78,6 +80,8 @@ def _run_locked_apply(
 
     try:
         try:
+            if kwargs.get("destination") != DESTINATION_LOCAL:
+                setup_release_start.check_at_apply(str(kwargs.get("api_url") or ""))
             with onboard_publication_receipts.recording(writer):
                 report = onboard_config.build_report(**report_kwargs, progress=progress)
         except CliReleaseMismatch as mismatch:
@@ -85,7 +89,8 @@ def _run_locked_apply(
             followed = setup_release_follow.install_served(
                 mismatch, kwargs, writer.payload["run_id"]
             )
-            writer.fail(followed)
+            if not mismatch.server:  # Bundle validation interrupted a running step.
+                writer.fail(followed)
             writer.payload["final_status"] = setup_release_follow.FINAL_STATUS
             writer.payload["cli_followed_release"] = followed.record()
             writer.write()

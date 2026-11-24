@@ -288,3 +288,31 @@ def test_legacy_status_helper_uses_the_same_health_contract(
     )
 
     assert install_session_relay.main(["status"]) == expected
+
+
+
+def test_installer_validates_converged_pin_without_refreshing_served_build(monkeypatch):
+    status = SimpleNamespace(
+        supported=True, plist_present=True, plist_current=True, loaded=True,
+        environment="test",
+    )
+    instance = SimpleNamespace(follows_served_release=True)
+    operations = []
+
+    def service_operation(action, **_kwargs):
+        operations.append(action)
+        return status
+
+    def release_status(*, instance, refresh_served):
+        assert operations == ["install"]
+        assert not refresh_served
+        return SimpleNamespace(
+            current=True, error_code="", error_message="",
+            pinned_release="0.2.0.1", served_build="0.2.0.1",
+        )
+
+    monkeypatch.setattr(install_session_relay, "resolve_relay_instance", lambda **_: instance)
+    monkeypatch.setattr(install_session_relay, "relay_service_operation", service_operation)
+    monkeypatch.setattr(install_session_relay, "relay_release_status", release_status)
+
+    assert install_session_relay.main(["install"]) == 0

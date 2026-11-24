@@ -164,16 +164,19 @@ def validate_bundle_for_project(
 
 
 class CliReleaseMismatch(ProjectInstallError):
-    """The bundle was built for a different CLI release than this one.
+    """Setup observed a different served release than this CLI runs.
 
     ``target`` is the served release as a downloadable version, or ``None``
     when the served value names no release this CLI can install.
     """
 
-    def __init__(self, running: str, served: str, target: str | None) -> None:
+    def __init__(
+        self, running: str, served: str, target: str | None, *, server: str = ""
+    ) -> None:
         self.running = running
         self.served = served
         self.target = target
+        self.server = server
         super().__init__(self.refusal())
 
     def refusal(self, cause: str = "") -> str:
@@ -185,10 +188,12 @@ class CliReleaseMismatch(ProjectInstallError):
             )
         else:
             recovery = f"{update_recovery(self.target)}, then resume this setup run"
-        reason = (
-            f"setup_bundle_version_mismatch: this CLI is {self.running}, but the "
-            f"server supplied a {self.served!r} project layer."
+        detail = (
+            f"{self.server} serves {self.served!r}"
+            if self.server
+            else f"the server supplied a {self.served!r} project layer"
         )
+        reason = f"setup_bundle_version_mismatch: this CLI is {self.running}, but {detail}."
         if cause:
             reason = f"{reason} Setup could not install that release itself: {cause}"
         return compose_refusal(reason, recovery=f"{recovery}.")

@@ -228,8 +228,11 @@ installed CLI itself.
 
 Setup installs exactly the release its server serves before any project
 question, at start or right after sign-in, and reruns the same command on it.
-A later move installs at Apply, records `cli_followed_release` and resumes at
-Review with the run's answers. If it cannot, it stops naming the exact
+Apply checks the served release under the setup lock before changing the
+machine. If the release moved, setup installs it, records
+`cli_followed_release` and resumes at Review with the run's answers. The relay
+installer waits for any pin already holding the release lock before selecting
+the served release. If setup cannot follow, it stops naming the exact
 `yoke update --version VERSION` command.
 Other commands warn when the CLI is older than the served release.
 `yoke update --version VERSION` installs that exact release, older or newer: it
