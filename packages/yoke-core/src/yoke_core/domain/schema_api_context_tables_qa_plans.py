@@ -62,6 +62,7 @@ QA_PLAN_TABLES = {
     "qa_plan_executions": {
         "columns": [
             ("id", "TEXT"),
+            ("standalone_plan_id", "INTEGER"),
             ("roster_json", "TEXT"),
             ("roster_digest", "TEXT"),
             ("cursor_ordinal", "INTEGER"),
@@ -73,7 +74,8 @@ QA_PLAN_TABLES = {
         "notes": (
             "The durable case roster is JSON text in roster_json, not a roster "
             "column. Domain execution dictionaries expose it as roster; SQL "
-            "must use roster_json."
+            "must use roster_json. Standalone runs reference their plan through "
+            "standalone_plan_id. There is no stage_plan_id column."
         ),
     },
     "qa_plan_execution_adoptions": {

@@ -8,16 +8,24 @@ from runtime.api.domain.qa_plan_execution_adoption_test_support import (
 
 import pytest
 
+from runtime.api.domain.machine_qa_host_test_support import (
+    TEST_MACHINE_SETTINGS,
+    verify_fixture_host,
+)
+from runtime.api.domain.qa_host_turns_test_support import _notices
 from runtime.api.fixtures.dispatch_actor import register_session_actor
 from runtime.api.fixtures.pg_testdb import test_database
 from runtime.api.fixtures.session_holdings import insert_item_claim
 from yoke_core.domain.db_helpers import query_one
+from yoke_core.domain.qa_host_set_turns import execution_waits, record_host_wait
+from yoke_core.domain.qa_host_turns import join_host_queue
 from yoke_core.domain.qa_plan_execution_adoption import adopt_execution
 from yoke_core.domain.qa_plan_execution_authority import require_plan_execution_owner
 from yoke_core.domain.qa_plan_execution_store import lock_plan_execution
 from yoke_core.domain.qa_plan_review import begin_plan_review
 from yoke_core.domain.qa_plan_review_submission import submit_plan_review
 from yoke_core.domain.schema_init_tables import create_governed_tables
+from yoke_core.domain.work_claim_targets import make_qa_admission_target
 
 
 @pytest.mark.parametrize("stamp", ["ended_at", "terminated_at"])
@@ -129,6 +137,41 @@ def test_nonholder_cannot_adopt_ended_execution():
         execution, _, _, actor = _setup(conn, claim=False)
         with pytest.raises(ValueError, match="qa_adoption_claim_required"):
             _adopt(conn, execution, actor)
+
+
+def test_adopting_a_waiting_execution_keeps_its_place_under_the_new_session(monkeypatch):
+    notices = _notices(monkeypatch)
+    with test_database() as conn:
+        execution, _, _, actor = _setup(conn, stamp="terminated_at")
+        machine = TEST_MACHINE_SETTINGS["resource_name"]
+        verify_fixture_host(conn, machine)
+        conn.execute(
+            "UPDATE qa_plan_executions SET state='waiting' WHERE id=%s",
+            (execution["id"],),
+        )
+        wait = join_host_queue(
+            conn, make_qa_admission_target(machine),
+            session_id=execution["session_id"], actor_id=int(execution["actor_id"]),
+            execution_id=execution["id"], resume_command="resume",
+        )
+        conn.commit()
+
+        _adopt(conn, execution, actor)
+
+        assert execution_waits(conn, execution["id"]) == []
+        adopted = lock_plan_execution(conn, execution["id"])
+        record_host_wait(conn, adopted, test_machine=machine, rationale="still needs host")
+        [new] = execution_waits(conn, execution["id"])
+        assert new["session_id"] == "successor-session"
+        assert new["id"] != wait["id"]
+        prior = query_one(
+            conn, "SELECT queued_at, state FROM qa_test_machine_waits WHERE id=%s",
+            (wait["id"],),
+        )
+        assert prior["state"] == "cancelled"
+        assert new["queued_at"] == prior["queued_at"]
+        assert new["state"] == "reserved"
+        assert len(notices) == 1
 
 
 def test_adoption_does_not_grant_old_owner_mutation_authority():

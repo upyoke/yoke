@@ -5,6 +5,7 @@ from __future__ import annotations
 from uuid import uuid4
 
 from yoke_core.domain.db_helpers import instant_parameter, query_one, utc_now
+from yoke_core.domain.qa_host_turns import cancel_host_waits
 from yoke_core.domain.qa_plan_execution_authority import require_plan_execution_subject
 from yoke_core.domain.qa_plan_execution_store import (
     QaPlanExecutionStateError,
@@ -128,6 +129,7 @@ def adopt_execution(
             now,
         ),
     )
+    cancel_host_waits(conn, execution_ids=[execution_id])
     conn.execute(
         "UPDATE qa_plan_executions SET actor_id=%s,session_id=%s WHERE id=%s",
         (str(actor_id), session_id, execution_id),

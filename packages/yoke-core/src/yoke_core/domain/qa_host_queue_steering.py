@@ -243,7 +243,8 @@ def withdraw_manual_wait(conn, session_id: str, host: str, project_id: int) -> d
         conn,
         "SELECT w.id, w.qa_plan_execution_id, s.project_id "
         "FROM qa_test_machine_waits w JOIN harness_sessions s ON s.session_id=w.session_id "
-        f"WHERE w.session_id={p} AND w.test_machine={p} AND w.state IN ('waiting','reserved')",
+        f"WHERE w.session_id={p} AND w.test_machine={p} AND w.state IN ('waiting','reserved') "
+        "ORDER BY w.qa_plan_execution_id IS NOT NULL, w.queued_at, w.id LIMIT 1",
         (session_id, host),
     )
     if wait is None:
@@ -264,7 +265,6 @@ def withdraw_manual_wait(conn, session_id: str, host: str, project_id: int) -> d
             f"Session {session_id} is outside the selected project",
             "Pass the waiting session's --project P from a steering seat covering it",
         )
-    # The live (host, session) row is unique and the queue lock keeps it from
-    # changing owners between validation and cancellation.
-    cancel_host_waits(conn, session_id=session_id, test_machines=[host])
+    # The queue lock keeps the manual wait from changing owners after validation.
+    cancel_host_waits(conn, session_id=session_id, test_machines=[host], manual_only=True)
     return {"session": session_id, "host": host, "wait_id": str(wait["id"])}

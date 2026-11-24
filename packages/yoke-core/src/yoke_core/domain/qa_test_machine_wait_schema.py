@@ -41,8 +41,8 @@ CREATE TABLE IF NOT EXISTS qa_test_machine_waits (
     rationale TEXT NOT NULL DEFAULT '',
     settled_at TIMESTAMPTZ
 );
-CREATE UNIQUE INDEX IF NOT EXISTS idx_qa_test_machine_waits_live_session
-    ON qa_test_machine_waits(test_machine, session_id)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_qa_test_machine_waits_live_owner
+    ON qa_test_machine_waits(test_machine, COALESCE(qa_plan_execution_id, session_id))
     WHERE state IN ('waiting','reserved');
 CREATE INDEX IF NOT EXISTS idx_qa_test_machine_waits_line
     ON qa_test_machine_waits(test_machine, state, queued_at);
