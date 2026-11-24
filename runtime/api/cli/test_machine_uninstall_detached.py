@@ -150,6 +150,7 @@ def test_job_that_forbids_breakaway_refuses_the_handoff(tmp_path, monkeypatch):
         detached.prepare(tmp_path / "home")
     assert "forbids breakaway" in str(refusal.value)
     assert detached.manual_removal(tmp_path / "uv/yoke-cli-releases") in str(refusal.value)
+    assert not list(tmp_path.glob(f"{detached.HANDOFF_PREFIX}*"))
     assert len(closed) == 1
     with pytest.raises(OSError):
         os.fstat(closed[0])
