@@ -22,6 +22,10 @@ Cut while member QA runs; keep the execution ID (`.yoke/docs/deployments/takeove
 Open walks carry intact to the successor; never hold a release for an open walk.
 The create receipt's `carried_execution_ids` names each carried execution.
 
+Release enrollment skips frozen items. Use `remove-item` only when an item
+already attached to a live run must leave before takeover. An existing operator
+park still applies after thaw until the item lands again or is explicitly added.
+
 CONTROL_PLANE is the project-owning HTTPS connection (`--env`, or checkout routing);
 DB env refuses run creation with `use_https_env`. Both targets use the selected
 source `release_lineage`. A self-replacing run uses the paired `*-db-admin`

@@ -199,3 +199,26 @@ def test_a_membership_copy_failure_leaves_no_usable_empty_retry(
             )
 
     assert _runs(retry_db_path) == before
+
+
+@pytest.mark.parametrize("frozen_ids", [(4106,), (4106, 4107)])
+def test_retry_does_not_copy_frozen_items(retry_db_path: str, frozen_ids):
+    source = "run-failed-f"
+    _failed_run(retry_db_path, run_id=source, member_ids=(4106, 4107))
+    conn = connect_test_db(retry_db_path)
+    try:
+        conn.execute("UPDATE items SET frozen=1 WHERE id=ANY(%s)", (list(frozen_ids),))
+        conn.commit()
+    finally:
+        conn.close()
+
+    outcome = _create({"project": "yoke", "flow": "retry-flow", "retry_of": source})
+
+    assert outcome.primary_success, outcome.error
+    assert outcome.result_payload["release_lineage"] == LINEAGE
+    expected = [item_id for item_id in (4106, 4107) if item_id not in frozen_ids]
+    assert outcome.result_payload["inherited_item_ids"] == expected
+    assert _members(retry_db_path, outcome.result_payload["run_id"]) == [
+        (item_id, "final", SELECTION, SNAPSHOT) for item_id in expected
+    ]
+    assert len(_members(retry_db_path, source)) == 2

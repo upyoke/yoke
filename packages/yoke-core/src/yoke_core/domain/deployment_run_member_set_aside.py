@@ -18,8 +18,29 @@ from yoke_core.domain.deployment_runs_lock import lock_run_with_stable_membershi
 
 SET_ASIDE_REASON = "member is reworking; awaiting enrollment in a later release"
 
+FROZEN_SET_ASIDE_REASON = (
+    "item is frozen; awaiting enrollment in the release after it thaws"
+)
+
 #: Removals that keep the member's QA for the release that enrolls it next.
-SET_ASIDE_REASONS = frozenset({SET_ASIDE_REASON, BLOCKED_SET_ASIDE_REASON})
+SET_ASIDE_REASONS = frozenset(
+    {SET_ASIDE_REASON, BLOCKED_SET_ASIDE_REASON, FROZEN_SET_ASIDE_REASON}
+)
+
+
+def set_aside_frozen_members(conn, run_id, item_ids, *, session_id=None, actor_id=None):
+    """Remove frozen members under the caller's run lock, preserving their QA."""
+    if item_ids:
+        remove_members_on(
+            conn,
+            run_id,
+            item_ids,
+            reason=FROZEN_SET_ASIDE_REASON,
+            session_id=session_id,
+            actor_id=actor_id,
+            removed_by="item frozen",
+            preserve_qa=True,
+        )
 
 
 def set_aside_reworking_members(conn, run_id, item_ids):

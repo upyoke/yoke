@@ -39,6 +39,7 @@ from yoke_core.domain.workflow_runtime import (
     ENGINE_TERMINAL_STAGE_IDS,
     WorkflowRuntime,
 )
+from yoke_core.domain.deployment_run_landed_closeout import flag_frozen_item_ids
 from yoke_core.domain.deployment_run_proposed_membership import run_items
 
 
@@ -169,10 +170,8 @@ def items_requiring_release_membership(
 ) -> frozenset[int]:
     """The items, of *item_ids*, a release run must deliver as members.
 
-    One read answers the whole set. A done item owes no membership and could
-    not take one: new admission of a terminal item is rejected, and its code
-    reaches the environment under the run's pinned release lineage instead.
-    Listing it would demand an attach that cannot happen.
+    Done and frozen items owe no membership. Their code reaches the
+    environment under the run's pinned release lineage.
     """
     from yoke_core.domain.workflow_delivery_binding_validation import (
         delivery_ready_for_stage,
@@ -188,7 +187,7 @@ def items_requiring_release_membership(
             and delivery_ready_for_stage(runtime, status)
         ):
             required.add(item_id)
-    return frozenset(required)
+    return frozenset(required) - flag_frozen_item_ids(conn, required)
 
 
 @composition_operation

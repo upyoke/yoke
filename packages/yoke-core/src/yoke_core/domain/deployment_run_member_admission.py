@@ -39,6 +39,7 @@ from yoke_core.domain.deployment_run_composition_freeze import (
     requires_release_admission,
     validate_delivery_intent,
 )
+from yoke_core.domain.deployment_run_landed_closeout import flag_frozen_item_ids
 from yoke_core.domain.item_ref_render import render_item_ref_lookup
 from yoke_core.domain.workflow_delivery_binding_validation import validate_run_member
 from yoke_core.domain.workflow_item_binding_validation import (
@@ -168,6 +169,18 @@ def prepare_run_items(
             return answer()
         except (LookupError, ValueError) as exc:
             refuse(item_id, exc)
+
+    frozen_ids = flag_frozen_item_ids(conn, ids)
+    if frozen_ids:
+        first = min(frozen_ids)
+        ref = render_item_ref_lookup(conn, [first])(first)
+        refuse(
+            first,
+            ValueError(
+                f"{ref} is frozen; releases don't deliver a frozen item. "
+                f"Thaw it with yoke items thaw {ref}, then add it again."
+            ),
+        )
 
     landing_refusals = open_landing_refusals(conn, ids)
     if landing_refusals:
