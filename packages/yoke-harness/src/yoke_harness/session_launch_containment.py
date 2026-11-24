@@ -25,9 +25,9 @@ from yoke_contracts.owner_private_path import create_owner_private_directory
 from contextlib import contextmanager
 from contextvars import ContextVar
 import json
+import logging
 import os
 import subprocess
-import sys
 from pathlib import Path
 import time
 from typing import Iterator, Mapping
@@ -44,8 +44,7 @@ from yoke_harness.session_process_custody import (
 from yoke_contracts.session_control.resume import RESUME_ATTEMPT_ENV
 from yoke_contracts.machine_config import reader as machine_config
 
-
-
+_LOGGER = logging.getLogger(__name__)
 
 # Walking the process tree reads the whole process table. Every hook of a
 # resume touches its record, so the descendants are refreshed at most this
@@ -90,17 +89,17 @@ def record_supervised_native(
     resume. Identity or persistence failures leave acceptance unresolved.
     """
     if not launch_id or pid <= 0 or supervision_kind not in {"launch", "resume"}:
-        print(compose_refusal(
+        _LOGGER.warning(compose_refusal(
             f"process_custody_invalid_request: PID {pid}",
             recovery="Supply a launch or resume attempt identifier, a positive PID, and a valid supervision kind",
-        ), file=sys.stderr)
+        ))
         return False
     start_time = process_start_time(pid)
     if not start_time:
-        print(compose_refusal(
+        _LOGGER.warning(compose_refusal(
             f"process_identity_missing: PID {pid}",
             recovery="Check that the relay can read process start identities as the native's owner, then retry",
-        ), file=sys.stderr)
+        ))
         return False
     payload = {
         "launch_id": launch_id,
@@ -127,10 +126,10 @@ def record_supervised_native(
             return True
     except (OSError, ValueError, subprocess.SubprocessError):
         pass
-    print(compose_refusal(
+    _LOGGER.warning(compose_refusal(
         f"process_custody_record_not_written: PID {pid}",
         recovery="Check that the native is still running and the relay custody directory is writable, then retry",
-    ), file=sys.stderr)
+    ))
     return False
 
 

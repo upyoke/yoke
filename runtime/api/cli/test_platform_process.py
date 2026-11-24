@@ -49,6 +49,41 @@ def test_start_token_returns_none_when_creation_time_is_denied(monkeypatch):
     assert processes.start_token(process.pid) is None
 
 
+@pytest.mark.windows_only(reason="Compares field visibility for a live native Windows child")
+def test_windows_group_child_snapshot_field_visibility():
+    script = (
+        'import subprocess,sys,time; '
+        'child=subprocess.Popen([sys.executable,"-c","import time; time.sleep(30)"]); '
+        'print(child.pid,flush=True); time.sleep(30)'
+    )
+    group = processes.spawn_group([sys.executable, "-c", script], stdout=subprocess.PIPE)
+    try:
+        process = psutil.Process(int(group.process.stdout.readline()))
+        reads = {
+            "status": process.status,
+            "cmdline": process.cmdline,
+            "ppid": process.ppid,
+            "start_identity": lambda: processes.start_identity(process),
+            "name": process.name,
+            "memory_info": process.memory_info,
+            "username": process.username,
+            "create_time": process.create_time,
+        }
+        outcomes = {}
+        with process.oneshot():
+            for field, read in reads.items():
+                try:
+                    read()
+                except (psutil.AccessDenied, psutil.NoSuchProcess) as exc:
+                    outcomes[field] = type(exc).__name__
+                else:
+                    outcomes[field] = "ok"
+        print(f"Windows group child PID {process.pid} snapshot reads: {outcomes}")
+        assert outcomes["start_identity"] == outcomes["create_time"] == "ok", outcomes
+    finally:
+        processes.stop_group(group, 1)
+
+
 def test_snapshot_and_ancestry_observe_current_process():
     own = next(p for p in processes.process_command_lines() if p.pid == os.getpid())
     assert own.cmdline and own.start_time > 0 and own.rss_kb > 0 and own.username

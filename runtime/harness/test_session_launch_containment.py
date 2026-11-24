@@ -41,14 +41,14 @@ def _record_file(state_dir: Path) -> Path:
     return state_dir / "session-launch-supervision" / f"{LAUNCH_ID}.json"
 
 
-def test_missing_start_identity_reports_pid_and_refuses(tmp_path, monkeypatch, capsys):
+def test_missing_start_identity_reports_pid_and_refuses(tmp_path, monkeypatch, caplog):
     pid = os.getpid()
     monkeypatch.setattr(session_launch_containment, "process_start_time", lambda _: None)
 
     assert record_supervised_native(LAUNCH_ID, pid, state_dir=tmp_path) is False
-    lines = capsys.readouterr().err.splitlines()
-    assert len(lines) == 1
-    assert f"process_identity_missing: PID {pid}" in lines[0]
+    assert len(caplog.records) == 1
+    assert caplog.records[0].levelname == "WARNING"
+    assert f"process_identity_missing: PID {pid}" in caplog.text
     assert not _record_file(tmp_path).exists()
 
 

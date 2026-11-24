@@ -242,6 +242,8 @@ jobs:
         if: matrix.os == 'windows' && matrix.shard == 1
         timeout-minutes: 8
         run: |
+          uv run --frozen python -m pytest -n 0 -q -s \
+            runtime/api/cli/test_platform_process.py::test_windows_group_child_snapshot_field_visibility
           custody=runtime/harness/test_session_process_custody.py
           settlement=runtime/harness/test_session_relay_resume_settlement.py
           for attempt in {1..30}; do
