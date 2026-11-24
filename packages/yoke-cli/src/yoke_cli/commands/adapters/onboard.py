@@ -316,7 +316,7 @@ def _run_flags_or_wizard(parsed: argparse.Namespace, *, force_wizard: bool) -> i
     else:
         print(onboard_config.render_human(report), end="")
     if parsed.apply:
-        _finish_pending_dev_install(
+        onboard_interactive.finish_pending_source_install(
             parsed.config_path,
             stream=sys.stderr if parsed.json_mode else sys.stdout,
         )
@@ -334,15 +334,9 @@ def _run_wizard(
         env_name,
         selected_mode,
         destination,
-        apply_with_report=_apply_with_durable_report,
-        print_failure=_print_failure_summary,
+        apply_with_report=onboard_apply.apply_with_durable_report,
+        print_failure=onboard_apply.print_failure_summary,
     )
-
-
-_finish_pending_dev_install = onboard_interactive.finish_pending_source_install
-
-_apply_with_durable_report = onboard_apply.apply_with_durable_report
-_print_failure_summary = onboard_apply.print_failure_summary
 
 
 __all__ = ["ONBOARD_USAGE", "onboard"]

@@ -3418,7 +3418,7 @@
   "runtime/api/cli/test_onboard_source_dev_apply.py::test_remote_destination_keeps_deployed_server_build": 0.002702,
   "runtime/api/cli/test_onboard_source_dev_apply.py::test_same_host_self_host_stops_bundle_then_builds_checkout_server": 0.002702,
   "runtime/api/cli/test_onboard_source_dev_apply.py::test_source_link_subprocess_puts_checkout_on_pythonpath": 0.002702,
-  "runtime/api/cli/test_onboard_source_dev_deferred.py::test_finish_pending_dev_install_uses_selected_stream": 0.005491,
+  "runtime/api/cli/test_onboard_source_dev_deferred.py::test_finish_pending_source_install_uses_selected_stream": 0.005491,
   "runtime/api/cli/test_onboard_source_dev_deferred.py::test_pending_dev_install_marker_roundtrip": 0.005491,
   "runtime/api/cli/test_onboard_source_dev_deferred.py::test_run_editable_install_step_captures_failure": 0.004992,
   "runtime/api/cli/test_onboard_source_dev_deferred.py::test_run_editable_install_step_ok": 0.005491,
