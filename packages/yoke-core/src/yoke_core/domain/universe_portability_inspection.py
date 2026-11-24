@@ -7,10 +7,10 @@ import re
 import subprocess
 import threading
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Optional
 
 from yoke_contracts.refusal_recovery import compose_refusal
-from yoke_core.domain.postgres_client_runtime import postgres_executable
+from yoke_core.domain import postgres_client_runtime
 from yoke_core.domain.universe_portability_catalog import (
     catalog_data_targets,
     validate_catalog,
@@ -143,7 +143,6 @@ def inspect_archive_with_catalog(
     max_bytes: int = DEFAULT_MAX_ARCHIVE_BYTES,
     timeout_s: float = DEFAULT_ARCHIVE_TIMEOUT_S,
     pg_restore: Optional[str] = None,
-    executable_resolver: Callable[[str], str] = postgres_executable,
 ) -> tuple[ArchiveInspection, str]:
     """Validate size, magic, versions, and the safe TOC boundary."""
     archive = Path(path)
@@ -161,7 +160,7 @@ def inspect_archive_with_catalog(
             raise ArchiveInvalidError(
                 "the artifact is not a pg_dump custom-format universe archive"
             )
-    executable = pg_restore or executable_resolver("pg_restore")
+    executable = pg_restore or postgres_client_runtime.postgres_executable("pg_restore")
     catalog = archive_catalog(archive, executable=executable, timeout_s=timeout_s)
     table_entries = validate_catalog(catalog)
     dumped_from = DUMPED_FROM_RE.search(catalog)
@@ -219,7 +218,6 @@ def inspect_archive(
     max_bytes: int = DEFAULT_MAX_ARCHIVE_BYTES,
     timeout_s: float = DEFAULT_ARCHIVE_TIMEOUT_S,
     pg_restore: Optional[str] = None,
-    executable_resolver: Callable[[str], str] = postgres_executable,
 ) -> ArchiveInspection:
     """Validate size, bounded catalog, versions, schema, and TOC kinds."""
     inspection, _catalog = inspect_archive_with_catalog(
@@ -227,7 +225,6 @@ def inspect_archive(
         max_bytes=max_bytes,
         timeout_s=timeout_s,
         pg_restore=pg_restore,
-        executable_resolver=executable_resolver,
     )
     return inspection
 

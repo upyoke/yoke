@@ -94,7 +94,7 @@ def test_shell_pipeline_receipt_round_trip_recovers_exact_committed_request(
             tuple(values.values()),
         )
         proxy = SimpleNamespace(execute=conn.execute, close=lambda: None)
-        monkeypatch.setattr(reads, "connect", lambda *_: proxy)
+        monkeypatch.setattr(reads, "db_helpers", SimpleNamespace(connect=lambda *_: proxy))
         monkeypatch.setattr(
             run_get_members,
             "run_membership",

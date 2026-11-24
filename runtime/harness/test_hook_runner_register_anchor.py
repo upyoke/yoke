@@ -33,8 +33,10 @@ def yoke_target(monkeypatch):
     monkeypatch.setattr(
         "yoke_core.hooks.helpers.resolve_yoke_db", lambda _d: "",
     )
+    monkeypatch.setattr(
+        "yoke_core.hooks.helpers_identity.detect_executor", lambda: "claude-code",
+    )
     for name, value in (
-        ("detect_executor", lambda: "claude-code"),
         ("detect_provider", lambda _e: "anthropic"),
         ("detect_entrypoint", lambda: None),
     ):

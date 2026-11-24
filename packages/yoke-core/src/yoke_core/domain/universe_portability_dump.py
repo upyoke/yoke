@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from yoke_core.domain import universe_archive_output
-from yoke_core.domain.postgres_client_runtime import postgres_executable
+from yoke_core.domain import postgres_client_runtime
 from yoke_core.domain.universe_portability_common import (
     DEFAULT_ARCHIVE_TIMEOUT_S,
     DEFAULT_MAX_ARCHIVE_BYTES,
@@ -39,14 +39,13 @@ def dump_universe(
     timeout_s: int = DEFAULT_ARCHIVE_TIMEOUT_S,
     pg_dump: Optional[str] = None,
     snapshot: Optional[str] = None,
-    executable_resolver: Callable[[str], str] = postgres_executable,
     client_env_builder: Callable[[str], dict[str, str]] = postgres_client_env,
     archive_inspector: Callable[..., ArchiveInspection] = inspect_archive,
 ) -> ArchiveInspection:
     """Create and inspect one portable dump, deleting every failed artifact."""
     dest = Path(destination)
     dest.parent.mkdir(parents=True, exist_ok=True)
-    executable = pg_dump or executable_resolver("pg_dump")
+    executable = pg_dump or postgres_client_runtime.postgres_executable("pg_dump")
     if snapshot is not None and EXPORTED_SNAPSHOT_RE.fullmatch(snapshot) is None:
         raise UniversePortabilityError("exported PostgreSQL snapshot id is invalid")
     client_env = client_env_builder(dsn)

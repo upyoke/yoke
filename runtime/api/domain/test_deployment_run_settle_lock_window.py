@@ -10,6 +10,7 @@ and at 30. A change committed between the read and the lock is read again.
 from __future__ import annotations
 
 import json
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -123,7 +124,7 @@ def _ready_run(conn: Any, run_id: str, first: int, size: int) -> tuple[int, ...]
 
 def _succeed(conn: Any, monkeypatch, run_id: str) -> RunLockRecorder:
     recorder = RunLockRecorder(conn)
-    monkeypatch.setattr(mutate, "connect", lambda _path=None: recorder)
+    monkeypatch.setattr(mutate, "db_helpers", SimpleNamespace(connect=lambda _path=None: recorder))
     assert mutate.cmd_update(run_id, "status", "succeeded") is None
     return recorder
 

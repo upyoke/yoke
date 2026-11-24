@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from yoke_core.domain import postgres_client_runtime
 from yoke_core.domain import universe_portability as portability
 
 
@@ -12,7 +13,7 @@ def test_dump_resolves_client_before_creating_private_output(
     tmp_path: Path,
 ):
     prepared = []
-    monkeypatch.setattr(portability, "_postgres_executable", lambda _name: "pg_dump")
+    monkeypatch.setattr(postgres_client_runtime, "postgres_executable", lambda _name: "pg_dump")
     monkeypatch.setattr(
         portability,
         "postgres_client_env",

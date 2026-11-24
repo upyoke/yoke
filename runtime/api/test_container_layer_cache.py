@@ -35,7 +35,7 @@ def test_dockerfile_uses_wheel_runtime_and_healthcheck() -> None:
     assert "YOKE_PG_BIN_DIR=/opt/yoke-postgres/bin" in dockerfile
     assert "RUN YOKE_MACHINE_HOME=/var/lib/yoke/.yoke python" in dockerfile
     assert "libgssapi-krb5-2" in dockerfile
-    assert "p._postgres_executable(name), '--version'" in dockerfile
+    assert "p.postgres_executable(name), '--version'" in dockerfile
     assert ("shutil.move(str(binaries.parent), '/opt/yoke-postgres')") in dockerfile
     assert 'CMD ["python", "-m", "yoke_core.api.server_entrypoint"]' in dockerfile
     assert "RUN python -m yoke_core.tools.container_image_validation" in dockerfile
