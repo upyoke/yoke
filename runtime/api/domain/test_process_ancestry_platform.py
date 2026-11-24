@@ -2,6 +2,7 @@
 
 from unittest.mock import Mock
 
+import psutil
 import pytest
 
 from yoke_contracts import platform_process, process_ancestry
@@ -45,27 +46,28 @@ def test_full_name_stops_before_shared_host_without_ps(monkeypatch, name):
 
 
 def test_exact_creation_epoch_changes_on_pid_reuse(monkeypatch):
-    rows = [entry(200, 100, "claude", 123.5)]
-    single(monkeypatch, rows)
-    monkeypatch.setattr(platform_process, "pid_alive", lambda *args: True)
+    tokens = {200: 123.5}
+    monkeypatch.setattr(platform_process, "start_token", tokens.get)
     assert process_ancestry.process_start_time(200) == "123.5"
-    rows[0] = entry(200, 100, "claude", 123.6)
+    tokens[200] = 123.6
     assert process_ancestry.process_start_time(200) == "123.6"
     assert process_ancestry.process_start_time(201) is None
 
 
-def test_exit_during_snapshot_never_yields_a_live_identity(monkeypatch):
-    single(monkeypatch, [entry(200, 1, "claude")])
-    monkeypatch.setattr(platform_process, "pid_alive", lambda *args: False)
+def test_exit_during_identity_read_never_yields_a_live_identity(monkeypatch):
+    process = Mock()
+    process.is_running.return_value = False
+    monkeypatch.setattr(psutil, "Process", Mock(return_value=process))
     assert process_ancestry.process_start_time(200) is None
 
 
 def test_unobservable_identity_is_not_reported_live(monkeypatch):
-    single(monkeypatch, [entry(200, 1, "claude")])
-    monkeypatch.setattr(platform_process, "pid_alive",
-                        Mock(side_effect=OSError("process_access_denied")))
+    process = Mock()
+    process.status.side_effect = psutil.AccessDenied(200)
+    monkeypatch.setattr(psutil, "Process", Mock(return_value=process))
+    assert process_ancestry.process_start_time(200) is None
     with pytest.raises(OSError, match="process_access_denied"):
-        process_ancestry.process_start_time(200)
+        platform_process.pid_alive(200)
 
 
 def test_single_process_read_matches_the_live_process():
