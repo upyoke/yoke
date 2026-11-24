@@ -38,7 +38,7 @@ from yoke_core.domain.coordination_claims import (
     get_claim,
     release,
 )
-from yoke_core.domain.handlers.machine_qa_execution_abort import _release
+from yoke_core.domain.handlers.machine_qa_execution_abort import _release_operation
 from yoke_core.domain.handlers.machine_qa_operation import (
     handle_operation_begin,
     handle_operation_submit,
@@ -162,7 +162,7 @@ def test_aborted_reset_on_a_reserved_plan_turn_keeps_it(
         lambda conn, *, lease_id, **_: (get_claim(conn, lease_id), None),
     )
 
-    result = _release(
+    result = _release_operation(
         test_db,
         request=FunctionCallRequest(
             function="machine_qa.operation.abort",

@@ -123,6 +123,15 @@ already passed, the notice says the recorded passes carry and there is nothing
 to re-run. A member owing only shared plans gets none, because its plan groups
 moved whole.
 
+## Single Test Machine cases carry over
+
+A single Test Machine case can finish after its requirement moves. It records
+evidence against the target it started on, even if the successor has since
+rebound the requirement once. A case whose target changes outside that
+takeover still refuses submission. The holder can abort and release the host
+even after a target change. If automatic abort fails, the CLI prints the
+holder's release command. The creation receipt lists carried open plan walks.
+
 ## Creation with a takeover
 
 Source containment is prepared outside write locks; bounded locks protect the

@@ -223,7 +223,7 @@ def takeover_note(run_id: str, superseded: str, carried: Sequence[str] = ()) -> 
     return (
         f"note: {run_id} took over {superseded}, which was waiting only on "
         f"item QA on this target; its waiting members now ride {run_id}. "
-        f"{OPEN_WALKS_CARRY} Carried open executions: {executions}. "
+        f"{OPEN_WALKS_CARRY} Carried open plan walks: {executions}. "
         f"`yoke deployment-runs get {superseded}` shows what stayed there."
     )
 

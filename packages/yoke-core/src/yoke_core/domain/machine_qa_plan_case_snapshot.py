@@ -67,11 +67,6 @@ def normalized_result(
     }
 
 
-def _starting_run(target: Any) -> str:
-    identity = (target or {}).get("deployment") or {}
-    return str(identity.get("starting_run_id", identity.get("run_id")) or "")
-
-
 def _forgive_takeover(
     conn: Any, current: dict[str, Any], stored: dict[str, Any]
 ) -> None:
@@ -84,13 +79,11 @@ def _forgive_takeover(
     the run, target and digest are compared as frozen. Every other field must
     still match.
     """
-    from yoke_core.domain.deployment_qa_takeover_identity import inherited_target
+    from yoke_core.domain.deployment_qa_takeover_identity import inherited_rebind
 
     frozen = stored.get("execution_target") or {}
     live_run = str(current.get("deployment_run_id") or "")
-    if not inherited_target(conn, live_run, frozen):
-        return
-    if _starting_run(current.get("execution_target")) != _starting_run(frozen):
+    if not inherited_rebind(conn, live_run, frozen, current.get("execution_target") or {}):
         return
     for key in ("deployment_run_id", "execution_target", "execution_target_digest"):
         current[key] = stored.get(key)

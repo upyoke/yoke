@@ -93,6 +93,15 @@ def _abort_issued_contract(
     return True
 
 
+def _lease_release_recovery(execution: dict[str, Any]) -> str:
+    from yoke_contracts.coordination_claim_recovery import holder_release_command
+
+    lease_id = execution.get("lease_id")
+    if not isinstance(lease_id, int):
+        return "automatic server-lease release also failed"
+    return f"the server lease is still held; release it with `{holder_release_command(lease_id)}`"
+
+
 def _execute_issued_contract(
     *,
     begin_function: str,
@@ -150,7 +159,7 @@ def _execute_issued_contract(
             + (
                 "the server lease was released"
                 if released
-                else "automatic server-lease release also failed"
+                else _lease_release_recovery(execution)
             )
         ) from exc
     try:
@@ -160,8 +169,8 @@ def _execute_issued_contract(
             actor=resolved_actor,
             payload=submission.payload,
         )
-    except MachineCaseDispatchError:
-        _abort_issued_contract(
+    except MachineCaseDispatchError as exc:
+        released = _abort_issued_contract(
             abort_function=abort_function,
             requirement_id=requirement_id,
             actor=resolved_actor,
@@ -169,6 +178,8 @@ def _execute_issued_contract(
             reason="submission_failed",
         )
         submission.cleanup_artifacts()
+        if not released:
+            raise MachineCaseDispatchError(f"{exc}; {_lease_release_recovery(execution)}") from exc
         raise
     submission.cleanup_artifacts()
     return submitted
