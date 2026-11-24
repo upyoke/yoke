@@ -32,8 +32,10 @@ def _members(record: Mapping[str, Any]) -> dict[str, str]:
     return {str(pid): started, **dict(record.get("process_members") or {})}
 
 
-def capture_process_tree(pid: int, started: str) -> dict[str, Any]:
+def capture_process_tree(pid: int, started: str | None) -> dict[str, Any]:
     """Capture a verified root and its current descendants for later recovery."""
+    if not started:
+        raise ValueError("process_identity_missing")
     handle = platform_process.handle_from_pid(pid, float(started))
     if handle is None:
         raise OSError("process_identity_changed")

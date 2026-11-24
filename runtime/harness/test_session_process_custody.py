@@ -32,11 +32,17 @@ def _process(code="import time; time.sleep(30)"):
 
 def _finish(process):
     started = process_start_time(process.pid)
-    if started:
-        handle = platform_process.handle_from_pid(process.pid, float(started))
-        if handle is not None:
-            platform_process.stop_group(handle, 1)
+    handle = platform_process.handle_from_pid(process.pid, float(started)) if started else None
+    if handle is not None:
+        platform_process.stop_group(handle, 1)
+    elif process.poll() is None:
+        process.kill()
     process.wait(timeout=5)
+
+
+def test_capture_process_tree_requires_start_identity():
+    with pytest.raises(ValueError, match="^process_identity_missing$"):
+        custody.capture_process_tree(1, None)
 
 
 def _record(process):

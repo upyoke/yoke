@@ -10,9 +10,43 @@ import psutil
 import pytest
 
 from yoke_contracts import platform_process as processes
+from yoke_contracts.process_ancestry import process_start_time
 
 
 pytestmark = pytest.mark.windows
+
+
+def test_start_identity_survives_denied_snapshot_fields(monkeypatch):
+    process = psutil.Process()
+    expected = processes.start_identity(process)
+
+    def denied(self):
+        raise psutil.AccessDenied(self.pid)
+
+    monkeypatch.setattr(psutil.Process, "cmdline", denied)
+    monkeypatch.setattr(psutil.Process, "username", denied)
+    assert process_start_time(process.pid) == str(expected)
+    assert processes.start_token(process.pid) == expected
+    assert processes.process_info(process.pid) is None
+
+
+def test_start_token_returns_none_for_exited_pid():
+    with subprocess.Popen([sys.executable, "-c", "pass"]) as process:
+        process.wait(timeout=5)
+        assert processes.start_token(process.pid) is None
+
+
+def test_start_token_returns_none_when_creation_time_is_denied(monkeypatch):
+    process = psutil.Process()
+
+    def denied(*args, **kwargs):
+        raise psutil.AccessDenied(process.pid)
+
+    if processes._MONOTONIC_START:
+        monkeypatch.setattr(type(process._proc), "create_time", denied)
+    else:
+        monkeypatch.setattr(psutil.Process, "create_time", denied)
+    assert processes.start_token(process.pid) is None
 
 
 def test_snapshot_and_ancestry_observe_current_process():

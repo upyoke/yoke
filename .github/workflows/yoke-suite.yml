@@ -238,6 +238,20 @@ jobs:
           uv run --frozen python -m pytest -n 0 -q --capture=tee-sys \
             runtime/api/tools/test_ci_shards.py::test_shard_log_preserves_hung_worker_traceback_before_exit \
             | tee -a pytest-output.txt
+      - name: Repeat Windows custody regressions
+        if: matrix.os == 'windows' && matrix.shard == 1
+        timeout-minutes: 5
+        run: |
+          custody=runtime/harness/test_session_process_custody.py
+          settlement=runtime/harness/test_session_relay_resume_settlement.py
+          cases=()
+          for attempt in {1..30}; do
+            cases+=(
+              "$custody::test_supervisor_exit_keeps_live_child_identity_and_reaps_group"
+              "$settlement::test_default_spawn_settles_usage_across_custody_and_relay_directories"
+            )
+          done
+          uv run --frozen python -m pytest -n 0 -q --keep-duplicates "${cases[@]}"
       - name: Run pytest
         # End a hung step before the job deadline so artifact upload can run.
         timeout-minutes: 18

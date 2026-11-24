@@ -108,7 +108,7 @@ def _settled_capture(tmp_path: Path, body: bytes, exit_code: int | None) -> Path
 
 def test_default_spawn_settles_usage_across_custody_and_relay_directories(
     tmp_path: Path,
-    monkeypatch,
+    monkeypatch, capsys,
 ) -> None:
     from yoke_contracts.machine_config import reader as machine_config
     from yoke_contracts.session_usage_facts import usage_from_document
@@ -139,7 +139,7 @@ def test_default_spawn_settles_usage_across_custody_and_relay_directories(
         binary_source="path",
         lease_id=LEASE_ID,
     )
-    assert resumed is not None
+    assert resumed is not None, capsys.readouterr().err
     _await_outcome(resumed.capture_path, resumed.pid)
     assert resumed.capture_path.parent == relay / "native-diagnostics"
     assert supervision_record_path(ATTEMPT_ID, custody).exists()

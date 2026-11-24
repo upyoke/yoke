@@ -13,6 +13,7 @@ import subprocess
 import sys
 import time
 
+from yoke_harness import session_launch_containment
 from yoke_harness.session_launch_containment import (
     record_supervised_native,
 )
@@ -38,6 +39,17 @@ def _sleeper() -> subprocess.Popen:
 
 def _record_file(state_dir: Path) -> Path:
     return state_dir / "session-launch-supervision" / f"{LAUNCH_ID}.json"
+
+
+def test_missing_start_identity_reports_pid_and_refuses(tmp_path, monkeypatch, capsys):
+    pid = os.getpid()
+    monkeypatch.setattr(session_launch_containment, "process_start_time", lambda _: None)
+
+    assert record_supervised_native(LAUNCH_ID, pid, state_dir=tmp_path) is False
+    lines = capsys.readouterr().err.splitlines()
+    assert len(lines) == 1
+    assert f"process_identity_missing: PID {pid}" in lines[0]
+    assert not _record_file(tmp_path).exists()
 
 
 def test_a_recorded_native_carries_its_pid_and_session(tmp_path: Path) -> None:

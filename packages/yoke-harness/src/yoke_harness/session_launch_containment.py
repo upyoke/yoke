@@ -27,12 +27,14 @@ from contextvars import ContextVar
 import json
 import os
 import subprocess
+import sys
 from pathlib import Path
 import time
 from typing import Iterator, Mapping
 from uuid import UUID
 
 from yoke_contracts.process_ancestry import process_start_time
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_harness.session_process_custody import (
     MAX_RECORD_BYTES,
     capture_process_tree,
@@ -88,9 +90,17 @@ def record_supervised_native(
     resume. Identity or persistence failures leave acceptance unresolved.
     """
     if not launch_id or pid <= 0 or supervision_kind not in {"launch", "resume"}:
+        print(compose_refusal(
+            f"process_custody_invalid_request: PID {pid}",
+            recovery="Supply a launch or resume attempt identifier, a positive PID, and a valid supervision kind",
+        ), file=sys.stderr)
         return False
     start_time = process_start_time(pid)
     if not start_time:
+        print(compose_refusal(
+            f"process_identity_missing: PID {pid}",
+            recovery="Check that the relay can read process start identities as the native's owner, then retry",
+        ), file=sys.stderr)
         return False
     payload = {
         "launch_id": launch_id,
@@ -113,9 +123,15 @@ def record_supervised_native(
     try:
         payload.update(capture_process_tree(pid, start_time))
         path = supervision_record_path(launch_id, state_dir)
-        return write_record(path, payload)
+        if write_record(path, payload):
+            return True
     except (OSError, ValueError, subprocess.SubprocessError):
-        return False
+        pass
+    print(compose_refusal(
+        f"process_custody_record_not_written: PID {pid}",
+        recovery="Check that the native is still running and the relay custody directory is writable, then retry",
+    ), file=sys.stderr)
+    return False
 
 
 def touch_supervised_resume(

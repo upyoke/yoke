@@ -65,14 +65,31 @@ def _info(process: psutil.Process) -> ProcessInfo:
         )
 
 
+def _live_process(pid: int) -> psutil.Process | None:
+    if pid <= 0:
+        return None
+    process = psutil.Process(pid)
+    if process.is_running() and process.status() != psutil.STATUS_ZOMBIE:
+        return process
+    return None
+
+
+def start_token(pid: int) -> float | None:
+    """Read a live PID's start identity without collecting snapshot fields."""
+    try:
+        process = _live_process(pid)
+        return start_identity(process) if process is not None else None
+    except (psutil.NoSuchProcess, psutil.AccessDenied):
+        return None
+
+
 def pid_alive(pid: int, start_time: float | None = None) -> bool:
     """Check liveness, optionally rejecting reuse of a recorded start_identity."""
-    if pid <= 0:
-        return False
     try:
-        process = psutil.Process(pid)
-        return (process.is_running() and process.status() != psutil.STATUS_ZOMBIE
-                and (start_time is None or start_identity(process) == float(start_time)))
+        process = _live_process(pid)
+        return process is not None and (
+            start_time is None or start_identity(process) == float(start_time)
+        )
     except psutil.NoSuchProcess:
         return False
     except psutil.AccessDenied as exc:
