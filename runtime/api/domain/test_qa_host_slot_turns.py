@@ -16,7 +16,6 @@ from runtime.api.domain.machine_qa_session_seed import seed_qa_session
 from runtime.api.domain.qa_host_turns_test_support import _notices
 from yoke_contracts.machine_config.test_machine import TestMachineCapabilityError
 from yoke_contracts.timestamps import utc_now
-from yoke_core.domain import qa_host_slot_turns
 from yoke_core.domain.coordination_claims import acquire, active_claim, release
 from yoke_core.domain.db_helpers import query_one
 from yoke_core.domain.machine_qa_capability import replace_test_machine_settings
@@ -43,7 +42,7 @@ TWO_LINUX = {
 }
 
 
-def _register(conn, name, os_name, tags=""):
+def _register(conn, name, os_name, tags="", *, verified=True):
     replace_test_machine_settings(
         conn,
         power_project="yoke",
@@ -54,7 +53,8 @@ def _register(conn, name, os_name, tags=""):
         },
         base_settings=None,
     )
-    verify_fixture_host(conn, name)
+    if verified:
+        verify_fixture_host(conn, name)
 
 
 @pytest.fixture
@@ -236,19 +236,18 @@ def test_slotted_wait_names_the_leased_host_and_each_slot(test_db, mixed_fleet):
     assert waiting["host_wait"]["waits_for"] == "one host per slot: any of mac-tagged, mac-tagged-2; win-a"
 
 
-def test_slotted_wait_explains_verification_that_fails_during_selection(
+def test_slotted_wait_explains_failed_verification_and_resumes_after_repair(
     test_db, mixed_fleet, monkeypatch,
 ):
-    seed_qa_session(test_db, "walker")
+    _notices(monkeypatch)
+    _register(test_db, "win-unverified", "windows", verified=False)
+    seed_qa_session(test_db, "walker", messageable=True)
     execution = _execution(test_db, "walker")
     case = _slotted(MAC_AND_WINDOWS, {"macos": ["macos:15"]})
-    eligibility = slot_eligibility(test_db, case, [case])
     record_test_machine_verification(
         test_db, test_machine="win-a", status="error",
         checks=[{"name": "verify", "ok": False}], error_code="ssh_unavailable",
     )
-    # Eligibility may already have been read when a failed verification lands.
-    monkeypatch.setattr(qa_host_slot_turns, "slot_eligibility", lambda *_: eligibility)
 
     with pytest.raises(SlotsBusy) as refused:
         select_slot_hosts(test_db, execution, case, [case])
@@ -258,3 +257,15 @@ def test_slotted_wait_explains_verification_that_fails_during_selection(
     busy = refused.value
     assert busy.test_machine == "win-a"
     assert f"windows slot waits on win-a: {unhealthy_rationale(health)}" in str(busy)
+    assert busy.slots == (("mac-tagged", "mac-tagged-2"), ("win-a",))
+    waiting = record_host_wait(
+        test_db, execution, test_machine=busy.test_machine, slots=busy.slots, rationale=str(busy),
+    )
+    assert waiting["host_wait"]["state"] == "waiting"
+    assert assign_slot_hosts(test_db, execution) is False
+
+    verify_fixture_host(test_db, "win-a")
+
+    assert assign_slot_hosts(test_db, execution) is True
+    assert active_claim(test_db, make_qa_admission_target("win-a")).session_id == "walker"
+    assert active_claim(test_db, make_qa_admission_target("win-unverified")) is None
