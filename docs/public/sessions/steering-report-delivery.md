@@ -12,10 +12,13 @@ Landed-without-close-out uses item merged_at or merge_queue_landed_at plus
 nonterminal state; control-plane observer records landing even if waiter died.
 Each row is classified from the item's own done-gate facts (`load_item_facts`),
 never from holder posture. A release-status item whose active flow targets a
-tier and has no succeeded or independent delivery reports one compact
-`awaiting next FLOW release` line, naming the run that holds it (or remerged/
-unreadable custody) and the holder only as bracketed context; it offers no
-wake or close-out command, and silence is expected. No deployment target reads
+tier and has no succeeded or independent delivery reports one compact line.
+It names the run holding the landing, or says `awaiting next FLOW release`
+with remerged or unreadable custody when applicable. Without a run holding
+the landing, a frozen item instead reads
+`Frozen · releases don't deliver it · code merged; item QA paused`.
+The line adds holder context in parentheses and offers no wake or close-out
+command. No deployment target reads
 `close-out ready`; a recorded delivery, unreadable gate fact, unavailable flow,
 non-release status or actionable run keeps full detail and recovery. Section
 owns these rows; never duplicates idle/live holders or members already shown

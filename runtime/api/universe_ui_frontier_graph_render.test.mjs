@@ -186,7 +186,7 @@ async function mount(t, hash, frontier) {
   documentNode.defaultView.location.href = hash;
   const root = documentNode.createElement("div");
   const items = [
-    row("YOK-7", 1, { frontier_group: { section: "on_hold", reason: "item_on_hold" }, frozen: true, blocked_reason: "Waiting for a product decision." }),
+    row("YOK-7", 1, { frontier_group: { section: "on_hold", reason: "item_on_hold" }, status: "release", frozen: true, completion_flow: "ship", merged_at: recentIso(1), blocked_reason: "Waiting for a product decision." }),
     row("YOK-12", 1, { frontier_group: { section: (frontier.blocked_rows || []).some((r) => r.public_ref === "YOK-12" && (r.holds_pickup ?? (!r.gate_point || r.gate_point === "activation"))) ? "waiting" : "ready", reason: "dependency_unsatisfied" } }),
     row("BET-3", 2, { frontier_group: { section: (frontier.blocked_rows || []).some((r) => r.public_ref === "BET-3") ? "waiting" : "ready", reason: "dependency_unsatisfied" } }),
   ];
@@ -216,7 +216,9 @@ test("a frozen item stays On hold and appears as a reference in the full graph",
   const { band, count } = await mount(t, "/frontier?project=1", waitingOnFrozen);
   assert.equal(count("waiting"), "2");
   assert.equal(count("hold"), "1");
-  assert.equal(byClass(band("hold"), "work-item-card").length, 1);
+  const [card] = byClass(band("hold"), "work-item-card");
+  assert.match(descendantText(card), /release.*Frozen.*Frozen · releases don't deliver it · code merged; item QA paused/s);
+  assert.doesNotMatch(descendantText(card), /next release|not in prod yet/);
   const frozen = byClass(band("waiting"), "fdv-tile").find(
     (node) => node.getAttribute("data-fdv-ref") === "YOK-7",
   );

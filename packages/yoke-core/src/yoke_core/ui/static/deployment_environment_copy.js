@@ -15,7 +15,9 @@ export const NO_ENVIRONMENT_LABEL = "no environment";
 // drift. The environment name is always data from the record; a record that
 // names none gets the same sentence without the place, not a pretend name.
 // "not deployed" is a merged item whose delivery there is still pending.
+const FROZEN_DELIVERY_LABEL = "Frozen · releases don't deliver it";
 const DELIVERY_STATE_LABELS = {
+  frozen: [() => FROZEN_DELIVERY_LABEL, FROZEN_DELIVERY_LABEL],
   live: [(env) => `✓ Live in ${env}`, "✓ Live"],
   deploying: [(env) => `Deploying to ${env}`, "Deploying"],
   "not deployed": [(env) => `Merged · not in ${env} yet`, "Merged · not deployed yet"],

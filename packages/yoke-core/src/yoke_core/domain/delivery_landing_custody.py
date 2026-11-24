@@ -107,7 +107,7 @@ def merged_open_items(conn: Any, project_id: int) -> tuple[dict[str, Any], ...]:
     terminal_filter, terminal_params = exclude_terminal_items(conn)
     present = " OR ".join(f"{column} IS NOT NULL" for column in columns)
     rows = conn.execute(
-        f"SELECT id, status, workflow_id, {', '.join(columns)} FROM items i "
+        f"SELECT id, status, workflow_id, frozen, {', '.join(columns)} FROM items i "
         f"WHERE project_id = {marker} {terminal_filter} "
         f"AND ({present})",
         (int(project_id), *terminal_params),

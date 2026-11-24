@@ -127,6 +127,7 @@ def _landed_dict(entry: LandedItem, *, idle_after_seconds: int) -> dict[str, Any
         "holder_idle_seconds": entry.holder_idle_seconds,
         "workflow_id": entry.workflow_id,
         "custody_state": entry.custody_state,
+        "frozen": entry.frozen,
         "custody_run_id": entry.custody_run_id,
         "stranded": entry.stranded,
         "delivery_gate": entry.delivery_gate.state,

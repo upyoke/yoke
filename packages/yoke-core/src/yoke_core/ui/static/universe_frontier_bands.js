@@ -18,7 +18,7 @@ import { appendItemClaimants } from "./universe_item_claimant.js";
 import { appendItemDelivery, deliverySummary } from "./universe_item_deployment.js";
 import { workItemCard } from "./universe_work_cards.js";
 import { el, settledScopedCalls } from "./universe_view_support.js";
-import { finishedAt, frontierBandRows, reference } from "./frontier_band_rows.js";
+import { enabled, finishedAt, frontierBandRows, reference } from "./frontier_band_rows.js";
 import { frontierFilter } from "./frontier_dependency_model.js";
 import { frontierGraphModel } from "./frontier_graph_nodes.js";
 import { frontierGraphSection } from "./frontier_graph.js";
@@ -136,11 +136,17 @@ export async function loadFrontier(context, bands, getScope, sessionRoster, opti
       return build;
     };
 
+    const delivered = (row, options) => () => {
+      const built = workItemCard(documentNode, row, scope, options);
+      if (deploymentsSettled) appendItemDelivery(documentNode, built, row, deployments, projects);
+      return withClaimants(built, row);
+    };
     const waiting = [...rows.waiting, ...rows.held].filter(({ row }) => kept(row));
     for (const { row, reason } of waiting) {
-      card(row, () => withClaimants(workItemCard(documentNode, row, scope, {
-        flag: reason.flag, timestamp: row.created_at, timeLabel: "filed",
-      }), row));
+      const options = { flag: reason.flag, timestamp: row.created_at, timeLabel: "filed" };
+      card(row, enabled(row.frozen)
+        ? delivered(row, options)
+        : () => withClaimants(workItemCard(documentNode, row, scope, options), row));
     }
     const active = rows.active.filter(({ row }) => kept(row)).map(({ row }) => card(
       row,
@@ -163,11 +169,6 @@ export async function loadFrontier(context, bands, getScope, sessionRoster, opti
         timeLabel: "filed",
       },
     )));
-    const delivered = (row, options) => () => {
-      const built = workItemCard(documentNode, row, scope, options);
-      if (deploymentsSettled) appendItemDelivery(documentNode, built, row, deployments, projects);
-      return withClaimants(built, row);
-    };
     const releasing = rows.releasing.filter(kept).map((row) => card(
       row, delivered(row, { timestamp: row.updated_at }),
     ));

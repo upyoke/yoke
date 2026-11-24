@@ -21,6 +21,34 @@ import {
   itemText,
 } from "./universe_ui_items_test_support.mjs";
 
+import { appendItemDelivery } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_item_deployment.js";
+import { descendantText } from "./universe_ui_workbench_test_support.mjs";
+
+function pendingRow(row) {
+  const documentNode = new FakeDocument();
+  const card = documentNode.createElement("article");
+  appendItemDelivery(documentNode, card, {
+    completion_environment: "prod", delivery_policy: "release_stage", ...row,
+  }, new Map());
+  return byClass(card, "item-deployment-outcome").map(descendantText);
+}
+
+test("a frozen merged item shows paused QA in place of the next release", () => {
+  const row = { status: "release", completion_flow: "ship", merged_at: "2026-10-01" };
+  assert.deepEqual(pendingRow({ ...row, frozen: 1 }), [
+    "○ Frozen · releases don't deliver it · code merged; item QA paused",
+  ]);
+  assert.deepEqual(pendingRow(row), ["○ Merged · not in prod yet · next release"]);
+});
+
+test("a frozen unmerged item needs a resolvable flow to show a pending row", () => {
+  const row = { status: "implementing", frozen: true };
+  assert.deepEqual(pendingRow({ ...row, completion_flow: "ship" }), [
+    "○ Frozen · releases don't deliver it",
+  ]);
+  assert.deepEqual(pendingRow(row), []);
+});
+
 const ok = (result) => ({ status: 200, envelope: { success: true, result } });
 
 function deliveryClient(item, runs, requests, deliveryDefaults = []) {

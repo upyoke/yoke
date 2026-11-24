@@ -53,7 +53,8 @@ the unmet gate and blockers. The steering report retains the server's next-actio
 sentence; JSON and named-field item reads retain its next-actor projection.
 
 Each item has one server-assigned home section (`frontier_group`). On hold
-contains frozen, blocked, missing-spec and halted work. It keeps that home
+contains frozen work at any unfinished stage, along with blocked, missing-spec
+and halted work. It keeps that home
 when other items depend on it. In progress separates Working from Idle using
 the holder's shared server status. Session cards display awaiting intent when
 present. Reasons and next actor are available in the information disclosure. Dependency references in the graph are smaller outlined
@@ -71,7 +72,7 @@ Done (24h) shows finishes from the last 24 hours plus older blockers retained
 by live dependencies, with their actual finishing times. Its **See more...**
 link always opens Items in the current scope, including when the window is empty.
 
-Release and Done cards show delivery by landing and environment. A
+Release, Done and frozen On hold cards show delivery by landing and environment. A
 candidate run appears while it carries a landing awaiting delivery there;
 the first successful run settles that landing in that environment. Later runs
 that only contain the same code remain in run history. Stage delivery does not
@@ -87,15 +88,17 @@ open. Only that finished member gets a sub-line naming the run's remaining
 wait. In-progress rows name the current stage and elapsed time. An environment
 awaiting a run reads `Merged · not in <environment> yet · next release` only
 when that item's workflow delivery policy owes a delivery and the item is not
-cancelled. Inheriting the
-project's default flow is not that obligation. A cancelled item, and a workflow
+cancelled. When an owed delivery has a flow and no run row for its completion
+environment, a frozen item reads `Frozen · releases don't deliver it`. A merged
+frozen item adds `· code merged; item QA paused`. Inheriting the project's
+default flow is not that obligation. A cancelled item, and a workflow
 whose delivery policy is `merge_free`, leave the delivery box off when nothing
 has been delivered. A delivery that did happen stays on the card, including
 after cancellation and on a workflow that does not owe one. The run id links
 to its history. Compact Frontier rows and dependency cards say each
 environment's state in one phrase, with the environment's own name:
 `✓ Live in prod`, `Deploying to prod`, `Merged · not in prod yet` or
-`✗ Failed in prod`.
+`✗ Failed in prod`. The compact frozen state reads `Frozen · releases don't deliver it`.
 
 ```bash
 yoke items dependency list PREFIX-N

@@ -16,12 +16,14 @@ const EXPECTED = {
     deploying: "Deploying to prod",
     "not deployed": "Merged · not in prod yet",
     failed: "✗ Failed in prod",
+    frozen: "Frozen · releases don't deliver it",
   },
   staging: {
     live: "✓ Live in staging",
     deploying: "Deploying to staging",
     "not deployed": "Merged · not in staging yet",
     failed: "✗ Failed in staging",
+    frozen: "Frozen · releases don't deliver it",
   },
 };
 
@@ -53,6 +55,9 @@ for (const [env, labels] of Object.entries(EXPECTED)) {
     assert.equal(summary(env, { status: "executing" }), labels.deploying);
     assert.equal(summary(env, { status: "failed" }), labels.failed);
     assert.equal(summary(env, null, { completion_environment: env }), labels["not deployed"]);
+    assert.equal(summary(env, null, {
+      completion_environment: env, frozen: 1, merged_at: "2026-10-01",
+    }), labels.frozen);
   });
 }
 

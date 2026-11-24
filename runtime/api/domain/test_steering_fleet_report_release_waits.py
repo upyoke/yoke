@@ -127,6 +127,44 @@ def test_parked_release_is_compact_even_after_hours_of_tool_silence(
     assert "finish close-out" not in body
 
 
+@pytest.mark.parametrize("custody", ["unheld", REMERGED, UNDETERMINED])
+def test_frozen_release_wait_is_command_free(custody):
+    entry = landing(frozen=True, custody_state=custody)
+    body = report_body(report(entry))
+    lines = [line for line in body.splitlines() if entry.public_ref in line]
+    assert len(lines) == 1
+    assert (
+        "Frozen · releases don't deliver it · code merged; item QA paused (parked)"
+        in lines[0]
+    )
+    assert "awaiting next" not in body
+    assert "wake `" not in body
+    assert "finish close-out" not in body
+
+
+@pytest.mark.parametrize(
+    "delivery, expected",
+    [
+        ({}, f"awaiting {RUN_FLOW} release — delivering in"),
+        (
+            {"delivered_to": "stage", "completion_target": "prod"},
+            "delivered to stage; awaiting prod",
+        ),
+    ],
+)
+def test_frozen_release_wait_keeps_held_run_outcome(delivery, expected):
+    entry = landing(
+        frozen=True,
+        custody_state=HELD,
+        custody_run_flow=RUN_FLOW,
+        custody_run_id="active-run",
+        **delivery,
+    )
+    body = report_body(report(entry))
+    assert expected in body
+    assert "Frozen · releases" not in body
+
+
 @pytest.mark.parametrize(
     "changes, context",
     [
