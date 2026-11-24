@@ -1,6 +1,6 @@
 from functools import partial
 from pathlib import Path
-from types import ModuleType
+from types import MethodType, ModuleType
 from unittest.mock import MagicMock
 
 import pytest
@@ -107,12 +107,14 @@ def test_reports_bound_methods_and_partials(monkeypatch):
 
     monkeypatch.setattr(FakeConnection.connect, "__module__", helper.__name__)
     module.connect = FakeConnection().connect
+    module.method_from_partial = MethodType(partial(FakeConnection.connect), FakeConnection())
     module.partial_connect = partial(module.connect)
 
     assert find_stale_test_bindings(
         {}, {module.__name__: module, helper.__name__: helper}
     ) == [
         (module.__name__, "connect", helper.__name__),
+        (module.__name__, "method_from_partial", helper.__name__),
         (module.__name__, "partial_connect", helper.__name__),
     ]
 

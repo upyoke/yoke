@@ -10,7 +10,8 @@ from __future__ import annotations
 from typing import NamedTuple, Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import connect, utc_now
+from yoke_core.domain import db_helpers
+from yoke_core.domain.db_helpers import utc_now
 from yoke_core.domain.domain_refusal import DomainRefusal
 from yoke_core.domain.deployment_run_id_allocation import next_run_id, reserve_run_id
 from yoke_core.domain import deployment_run_create_idempotency as idempotency
@@ -204,7 +205,7 @@ def create_item_run(
 def _create(
     project: str, db_path: Optional[str], entries: list[tuple[dict, dict]]
 ) -> list[tuple[CreatedRun, str]]:
-    conn = connect(db_path)
+    conn = db_helpers.connect(db_path)
     try:
         with composition_reads():
             results = _create_committed(conn, project, entries)

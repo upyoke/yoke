@@ -6,7 +6,8 @@ import re
 from datetime import datetime, timezone
 from typing import Optional
 
-from yoke_core.domain.db_helpers import connect, utc_now
+from yoke_core.domain import db_helpers
+from yoke_core.domain.db_helpers import utc_now
 
 #: Run ids are shared by every project, so two projects creating at once each
 #: hold the id they picked until commit and the later one takes the next.
@@ -17,7 +18,7 @@ _RUN_ID_LOCK_SQL = (
 
 def cmd_next_id(db_path: Optional[str] = None) -> str:
     """Preview the next run ID for today without reserving it."""
-    conn = connect(db_path)
+    conn = db_helpers.connect(db_path)
     try:
         return next_run_id(conn, utc_now())
     finally:

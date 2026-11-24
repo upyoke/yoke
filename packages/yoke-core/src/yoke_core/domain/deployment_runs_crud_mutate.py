@@ -7,7 +7,8 @@ from yoke_core.domain.deployment_start_timing import timed_call
 from collections.abc import Iterable
 from typing import Any, Mapping, Optional
 
-from yoke_core.domain.db_helpers import connect, instant_parameter, utc_now
+from yoke_core.domain import db_helpers
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain import deployment_run_lineage_rebind as lineage_rebind
 from yoke_core.domain import (
     deployment_run_completion_preconditions as completion_preconditions,
@@ -67,7 +68,7 @@ def cmd_add_item(
     requirement_ids: Iterable[int] = (),
 ) -> str:
     """Add item to run. Returns confirmation message."""
-    conn = connect(db_path)
+    conn = db_helpers.connect(db_path)
     try:
         lock_item_workflow_bindings(conn, (int(item_id),))
         from yoke_core.domain.deployment_run_member_exists import (
@@ -147,7 +148,7 @@ def cmd_update(
     if field not in UPDATABLE_FIELDS:
         return f"Error: field '{field}' is not updatable"
 
-    conn = connect(db_path)
+    conn = db_helpers.connect(db_path)
     try:
         if field == "status" and value == "executing":
             from yoke_core.domain.deployment_run_start import start_run

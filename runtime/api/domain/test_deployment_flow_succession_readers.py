@@ -151,7 +151,7 @@ def test_containment_finds_a_release_on_the_retired_pin(
 
     # Ancestry is a git question; everything else here is the real database.
     monkeypatch.setattr(ladder, "item_merge_identity", lambda _c, _i: "a" * 40)
-    monkeypatch.setattr(ladder, "candidate_contains_commit", _contains)
+    monkeypatch.setattr(ladder.containment, "candidate_contains_commit", _contains)
 
     verdict = ladder.delivery_evidence(test_db, 9393)
     assert verdict.discharged
@@ -160,7 +160,7 @@ def test_containment_finds_a_release_on_the_retired_pin(
     assert len(asked) == 1
 
     monkeypatch.setattr(
-        ladder,
+        ladder.containment,
         "candidate_contains_commit",
         lambda *_a, **_k: ContainmentVerdict(NOT_CONTAINED),
     )

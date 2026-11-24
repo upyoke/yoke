@@ -61,10 +61,8 @@ from yoke_core.domain.deployment_member_independent_close_out import (
 from yoke_core.domain.deployment_qa_source_obligation import (
     latest_completion_run,
 )
-from yoke_core.domain.deployment_run_candidate_containment import (
-    UNDETERMINED,
-    candidate_contains_commit,
-)
+from yoke_core.domain import deployment_run_candidate_containment as containment
+from yoke_core.domain.deployment_run_candidate_containment import UNDETERMINED
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.time_parse import parse_timestamp_utc
 
@@ -201,7 +199,7 @@ def delivery_evidence(conn: Any, item_id: int) -> DeliveryEvidence:
         lineage = run["release_lineage"]
         if not lineage:
             continue
-        verdict = candidate_contains_commit(
+        verdict = containment.candidate_contains_commit(
             conn,
             int(project_id),
             candidate_lineage=lineage,

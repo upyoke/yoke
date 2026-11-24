@@ -28,7 +28,7 @@ def delivery(monkeypatch):
     monkeypatch.setattr(ladder, "item_closing_flows", lambda *_: {"production"})
     monkeypatch.setattr(ladder, "latest_completion_run", lambda *_: None)
     containment = Mock(return_value=ContainmentVerdict(CONTAINED))
-    monkeypatch.setattr(ladder, "candidate_contains_commit", containment)
+    monkeypatch.setattr(ladder.containment, "candidate_contains_commit", containment)
 
     def evaluate(runs, *, flow="production"):
         monkeypatch.setattr(ladder, "item_completion_flow", lambda *_: flow)

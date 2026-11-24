@@ -22,11 +22,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from yoke_core.domain import db_backend
+from yoke_core.domain import db_backend, deployment_run_candidate_containment as containment
 from yoke_core.domain.delivery_evidence_ladder import item_merge_identity
-from yoke_core.domain.deployment_run_candidate_containment import (
-    candidate_contains_commit,
-)
 from yoke_core.domain.schema_common import _column_exists, _table_exists
 
 
@@ -80,7 +77,7 @@ def head_is_stale_bookkeeping(
     merge_sha = recorded_merge_identity(conn, int(item_id), merge_sha)
     if not merge_sha or not lineage:
         return False
-    return candidate_contains_commit(
+    return containment.candidate_contains_commit(
         conn,
         int(project_id),
         candidate_lineage=lineage,

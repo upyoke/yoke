@@ -6,8 +6,8 @@ invocation; without this fixture, fast in-memory tests that seed low item ids
 could be silently suppressed by live cutoff values and fail with unhelpful
 PASS-when-WARN-expected assertions.
 
-The fixture binds Doctor's source root to a per-session empty temp directory
-and points ``YOKE_MACHINE_CONFIG_FILE`` at
+The fixture gives Doctor's report helpers a per-session empty temp directory
+when no source root is bound and points ``YOKE_MACHINE_CONFIG_FILE`` at
 an empty per-session JSON config. Tests that DO want to exercise
 repo-root-dependent paths or cutoff values layer their own ``patch(...)``,
 ``patch.dict(...)`` or ``monkeypatch`` override INSIDE the test, which takes
@@ -24,7 +24,8 @@ import pytest
 from runtime.api.engines._merge_landed_lane_test_helpers import (
     build_landed_lane,
 )
-from yoke_core.engines.doctor_source_root import bound_source_root
+from yoke_core.engines import doctor_report
+from yoke_core.engines.doctor_source_root import bound_source_root_or_none
 
 
 @pytest.fixture(scope="session")
@@ -50,10 +51,13 @@ def _isolate_engines_from_live_config(_engines_isolated_repo_root, monkeypatch):
     ``with patch(...)`` or ``monkeypatch`` still win.
     """
     repo_root, config_path = _engines_isolated_repo_root
+    monkeypatch.setattr(
+        doctor_report,
+        "bound_source_root_or_none",
+        lambda: bound_source_root_or_none() or repo_root,
+    )
     monkeypatch.setenv("YOKE_MACHINE_CONFIG_FILE", config_path)
     monkeypatch.setenv("YOKE_MACHINE_HOME", "")
-    with bound_source_root(repo_root):
-        yield
 
 
 @pytest.fixture()

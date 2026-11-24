@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from . import db_backend
-from yoke_core.domain.db_helpers import connect
+from yoke_core.domain import db_helpers
 from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain.project_identity import (
     allocate_project_sequence,
@@ -227,7 +227,7 @@ def get_next_display_id(project: str, db_path: Optional[str] = None) -> str:
     if db_path is None:
         db_path = _resolve_write_db_path()
     _assert_write_db_ready(db_path)
-    conn = connect(db_path)
+    conn = db_helpers.connect(db_path)
     try:
         ident = resolve_project(conn, project, required=True)
         return format_item_ref(
@@ -250,7 +250,7 @@ def dedup_search(keywords: str, project: Optional[str] = None) -> list[dict[str,
     """
     db_path = _resolve_write_db_path()
     _assert_write_db_ready(db_path)
-    conn = connect(db_path)
+    conn = db_helpers.connect(db_path)
     try:
         # Operator-input search: pre-lower the pattern and wrap each
         # column in LOWER(...) for explicit case-insensitive matching.

@@ -46,7 +46,7 @@ def _wire(
     )
     if verdict is not None:
         monkeypatch.setattr(
-            ladder,
+            ladder.containment,
             "candidate_contains_commit",
             lambda _c, _p, **_kw: verdict,
         )
@@ -127,7 +127,7 @@ def test_a_definite_yes_on_an_older_run_beats_an_unreadable_newer_one(monkeypatc
             {"id": "run-8", "release_lineage": "older"},
         ],
     )
-    monkeypatch.setattr(ladder, "candidate_contains_commit", _verdict)
+    monkeypatch.setattr(ladder.containment, "candidate_contains_commit", _verdict)
     verdict = ladder.delivery_evidence(object(), 1)
     assert verdict.discharged
     assert verdict.run_id == "run-8"

@@ -27,6 +27,16 @@ def _is_test_code(module: ModuleType | None) -> bool:
     )
 
 
+def _unwrap(value: object) -> object:
+    while True:
+        if type(value) is MethodType:
+            value = value.__func__
+        elif issubclass(type(value), partial):
+            value = value.func
+        else:
+            return value
+
+
 def find_stale_test_bindings(
     modules_before: Mapping[str, int],
     modules: Mapping[str, ModuleType | None],
@@ -40,10 +50,7 @@ def find_stale_test_bindings(
         if module is None or id(module) == modules_before.get(name):
             continue
         for attribute, value in vars(module).copy().items():
-            while issubclass(type(value), partial):
-                value = value.func
-            if type(value) is MethodType:
-                value = value.__func__
+            value = _unwrap(value)
             value_type = type(value)
             if issubclass(value_type, ModuleType):
                 continue

@@ -185,7 +185,7 @@ def test_a_failed_status_write_cancels_after_its_commit(test_db, seeded, monkeyp
         lambda conn, run_id: cancelled.append(run_id) or [],
     )
     monkeypatch.setattr(
-        deployment_runs_crud_mutate, "connect", lambda *_: _OpenConnection(test_db)
+        deployment_runs_crud_mutate.db_helpers, "connect", lambda *_: _OpenConnection(test_db)
     )
 
     assert deployment_runs_crud_mutate.cmd_update(RUN, "status", "failed") is None
