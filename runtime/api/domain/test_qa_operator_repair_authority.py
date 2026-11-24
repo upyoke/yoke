@@ -28,6 +28,10 @@ RECORDER = "repair-recorder"
 WORKER = "repair-worker"
 MEMBER = 9811
 
+# Other notice modules bind push_member_notice when first imported. Stub its
+# call to delivery so those modules always bind the real routing function.
+NOTICE_DELIVERY = "yoke_core.domain.deployment_run_driver_notice._deliver"
+
 
 @pytest.fixture
 def repair_world(test_db):
@@ -87,10 +91,7 @@ def test_repair_without_item_claim_records_authority_and_notifies_holder(
     )
     req = request(old, final)
     assert gate(req) is None
-    with patch(
-        "yoke_core.domain.deployment_run_driver_notice.push_member_notice",
-        return_value="undelivered",
-    ) as notice:
+    with patch(NOTICE_DELIVERY, return_value="undelivered") as notice:
         outcome = handle_qa_requirement_supersede(req)
     assert outcome.primary_success, outcome
     row = requirement_row(conn, old)
@@ -102,8 +103,9 @@ def test_repair_without_item_claim_records_authority_and_notifies_holder(
     assert f"session={RECORDER}" in row["supersession_rationale"]
     assert f"'claim_id': {seat['id']}" in row["supersession_rationale"]
     assert "'scope':" in row["supersession_rationale"]
-    assert notice.call_args.kwargs["item_id"] == MEMBER
-    assert RECORDER in notice.call_args.kwargs["body_for_route"]("holder")
+    assert notice.call_args.kwargs["session_id"] == WORKER
+    assert notice.call_args.kwargs["idempotency_key"] == f"qa-repair:{req.request_id}"
+    assert RECORDER in notice.call_args.kwargs["body"]
     assert outcome.result_payload["repair_notice"]["delivery"] == "undelivered"
     held = conn.execute(
         "SELECT session_id,released_at FROM work_claims WHERE id=%s", (claim["id"],)
@@ -177,10 +179,7 @@ def test_ordinary_operator_supersession_keeps_its_claim_policy(repair_world):
 def test_notice_failure_reports_durable_repair_and_recovery(repair_world):
     conn, old, final, _ = repair_world
     acquire(conn, session_id=RECORDER, project_id=1, reason="repair QA")
-    with patch(
-        "yoke_core.domain.deployment_run_driver_notice.push_member_notice",
-        side_effect=RuntimeError("notice unavailable"),
-    ):
+    with patch(NOTICE_DELIVERY, side_effect=RuntimeError("notice unavailable")):
         outcome = handle_qa_requirement_supersede(request(old, final))
     assert outcome.primary_success
     assert requirement_row(conn, old)["replacement_requirement_id"] == final

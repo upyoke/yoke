@@ -25,13 +25,18 @@ from runtime.api.domain.deployment_run_target_takeover_test_support import (
 )
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.deployment_qa_dispatch_wait_notice import notify_stage_wait
-from yoke_core.domain.deployment_qa_plan_ownership import open_walk_members
+from yoke_core.domain.deployment_qa_plan_ownership import (
+    open_walk_members,
+    plan_only_members,
+)
+from yoke_core.domain.merge_queue_landing_notice import addressable_items
+from yoke_core.domain.session_message_types import SessionMessageError
 from yoke_core.domain.work_claim_targets import make_item_target
 
 WALKER = "sess-carried-walker"
 
 
-def _seed_takeover(conn, monkeypatch, walk=None) -> None:
+def _seed_takeover(conn, monkeypatch, walk=None, *, expected_notice=None) -> None:
     """Take OLD over; ``walk`` opens WAITING's walk on OLD first, so it moves."""
     _seed_old(conn, run_qa=False)
     _project(conn)
@@ -47,7 +52,66 @@ def _seed_takeover(conn, monkeypatch, walk=None) -> None:
         _walk(conn, run_id=OLD, **walk)
     _seed_new(conn)
     _contains(monkeypatch)
+    if expected_notice is not None:
+        _assert_takeover_notice(conn, monkeypatch, expected_notice)
+        return
     assert _take_over(conn) == OLD
+
+
+def _assert_takeover_notice(conn, monkeypatch, member: int) -> None:
+    """Observe the actual send so a missing row explains where delivery stopped."""
+    from yoke_core.domain import deployment_qa_takeover_notice
+
+    ids = (member,)
+    project_id = 1
+    assert member in addressable_items(conn, item_ids=ids, project_id=project_id), (
+        f"Member {member} is not addressable before takeover"
+    )
+    assert member not in plan_only_members(conn, OLD, ids), (
+        f"Member {member} is plan-only before takeover"
+    )
+    assert member not in open_walk_members(conn, OLD, ids), (
+        f"Member {member} has a live walk before takeover"
+    )
+
+    push = deployment_qa_takeover_notice.push_member_notice
+    attempts = {}
+
+    def observe(*args, **kwargs):
+        item_id = kwargs["item_id"]
+        try:
+            outcome = push(*args, **kwargs)
+        except SessionMessageError as exc:
+            attempts[item_id] = f"message refused: {exc}"
+            raise
+        attempts[item_id] = (
+            f"send returned {outcome!r} without writing the notice"
+            if outcome
+            else "send resolved no recipient"
+        )
+        return outcome
+
+    with monkeypatch.context() as patch:
+        patch.setattr(deployment_qa_takeover_notice, "push_member_notice", observe)
+        assert _take_over(conn) == OLD
+
+    if _bodies(conn, f"deployment-qa-moved:{NEW}:{member}"):
+        return
+    if member in attempts:
+        pytest.fail(f"Takeover notice missing for member {member}: {attempts[member]}")
+    assert member not in plan_only_members(conn, NEW, ids), (
+        f"Takeover filtered plan-only member {member}"
+    )
+    assert member not in open_walk_members(conn, NEW, ids), (
+        f"Takeover filtered member {member} with a live walk"
+    )
+    assert member in addressable_items(conn, item_ids=ids, project_id=project_id), (
+        f"Takeover could not address member {member}"
+    )
+    assert member not in deployment_qa_takeover_notice.recheck_holding_members(
+        conn, new_id=NEW, item_ids=ids, project_id=project_id
+    ), f"Takeover filtered member {member} whose holder has a scheduled recheck"
+    pytest.fail(f"Takeover never attempted a notice for eligible member {member}")
 
 
 def _walk(
@@ -98,7 +162,12 @@ def _wake(conn, member: int) -> None:
 
 @pytest.mark.parametrize("state", ["walking", "awaiting_walk_review", "waiting"])
 def test_open_walk_owner_gets_no_takeover_notice(test_db, monkeypatch, state):
-    _seed_takeover(test_db, monkeypatch, walk={"state": state, "ended": False})
+    _seed_takeover(
+        test_db,
+        monkeypatch,
+        walk={"state": state, "ended": False},
+        expected_notice=PASSED,
+    )
 
     assert open_walk_members(test_db, NEW, (WAITING,)) == {WAITING}
     assert _bodies(test_db, f"deployment-qa-moved:{NEW}:{WAITING}") == []
@@ -133,7 +202,12 @@ def test_takeover_carries_an_open_walk_intact_and_the_receipt_names_it(
 
 
 def test_ended_walk_owner_is_still_told_to_wait(test_db, monkeypatch):
-    _seed_takeover(test_db, monkeypatch, walk={"state": "walking", "ended": True})
+    _seed_takeover(
+        test_db,
+        monkeypatch,
+        walk={"state": "walking", "ended": True},
+        expected_notice=WAITING,
+    )
 
     [body] = _bodies(test_db, f"deployment-qa-moved:{NEW}:{WAITING}")
     assert "do not act on the predecessor's wake" in body
