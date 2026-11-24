@@ -239,6 +239,7 @@ def test_shard_log_preserves_hung_worker_traceback_before_exit(tmp_path, monkeyp
         "def test_blocked_until_traceback_is_saved():\n"
         f"    log = Path({ci_shards.OUTPUT_LOG!r})\n"
         "    deadline = monotonic() + 10\n"
+        "    sleep(1.5)  # Give the watchdog a stable frame before reading the log.\n"
         "    while monotonic() < deadline:\n"
         "        if 'in test_blocked_until_traceback_is_saved' in log.read_text():\n"
         "            return\n"
