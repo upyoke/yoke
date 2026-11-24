@@ -6,9 +6,7 @@ from typing import Any, Dict, Mapping
 
 from yoke_core.domain.migration_ledger_contract import runner_config_ledger
 
-#: Default model key in a governed-postgres seed. The spelling collides with
-#: the unresolved execution-level sentinel; declared membership is what
-#: distinguishes a real model from a level leaking into ``model_name``.
+#: Default model key in a governed-postgres seed.
 DEFAULT_MODEL_NAME = "primary"
 
 

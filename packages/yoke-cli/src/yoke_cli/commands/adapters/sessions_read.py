@@ -181,6 +181,7 @@ def write_sessions_result(response, stdout, stderr, *, full=False) -> None:
             {
                 "session": f"{label} ({identity})" if label else identity,
                 "project": recipient_project(row),
+                "level": row.get("level_label"),
                 "status": str(state["status"]).capitalize(),
                 "reason": state["reason"],
                 "active": (

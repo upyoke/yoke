@@ -54,7 +54,7 @@ def seed_session(conn, session_id):
         "INSERT INTO harness_sessions (session_id, executor, provider, "
         "model, project_id, execution_level, executor_version, machine_id, workspace, mode, "
         "offered_at, last_heartbeat) "
-        "VALUES (%s, 'claude-code', 'test', 'test', 1, 'primary', NULL, NULL, '/tmp', "
+        "VALUES (%s, 'claude-code', 'test', 'test', 1, NULL, NULL, NULL, '/tmp', "
         "'active', '2026-05-01T00:00:00Z', '2026-05-01T00:00:00Z')",
         (session_id,),
     )

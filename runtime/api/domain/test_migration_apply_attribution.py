@@ -14,7 +14,6 @@ from runtime.api.domain.migration_boot_test_helpers import (
     history as build_history,
     marks,
 )
-from yoke_contracts.session_level import UNRESOLVED_EXECUTION_LEVEL
 from yoke_core.domain.migration_apply_attribution import (
     IncompleteAttributionError,
     LevelAsModelNameError,
@@ -167,8 +166,8 @@ def test_completed_receipt_records_attribution(tmp_path: Path) -> None:
     )
 
 
-def test_declared_model_name_that_collides_with_the_level_sentinel_is_kept() -> None:
-    assert refuse_level_as_model_name(UNRESOLVED_EXECUTION_LEVEL) == "primary"
+def test_primary_remains_a_migration_model_name() -> None:
+    assert refuse_level_as_model_name("primary") == "primary"
     assert (
         refuse_level_as_model_name("primary", declared_models=["primary"]) == "primary"
     )

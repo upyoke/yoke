@@ -55,7 +55,7 @@ def _session(conn, actor_id: int, project_id: int, session_id: str) -> None:
         "INSERT INTO harness_sessions "
         "(session_id,executor,provider,model,reasoning_effort,execution_level,workspace,project_id,"
         "mode,offered_at,last_heartbeat,actor_id) VALUES "
-        "(%s,'codex','openai','gpt-6.1-sol','medium','primary',%s,%s,'wait',%s,%s,%s)",
+        "(%s,'codex','openai','gpt-6.1-sol','medium',NULL,%s,%s,'wait',%s,%s,%s)",
         (session_id, f"/tmp/{session_id}", project_id, now, now, actor_id),
     )
     conn.commit()

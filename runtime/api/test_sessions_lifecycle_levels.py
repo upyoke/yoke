@@ -12,7 +12,6 @@ import uuid
 import pytest
 from fastapi.testclient import TestClient
 
-from yoke_contracts.session_level import UNRESOLVED_EXECUTION_LEVEL
 from yoke_contracts.session_model_facts import SessionModelFacts
 from yoke_core.api.main import app
 from yoke_core.api.service_client_sessions_lifecycle_begin import begin_session
@@ -39,7 +38,7 @@ def _sid(label: str) -> str:
     return f"{label}-{uuid.uuid4().hex[:8]}"
 
 
-def _stored_level(connection, session_id: str) -> str:
+def _stored_level(connection, session_id: str) -> str | None:
     row = connection.execute(
         "SELECT execution_level FROM harness_sessions WHERE session_id = "
         f"{_p(connection)}",
@@ -49,7 +48,7 @@ def _stored_level(connection, session_id: str) -> str:
     return row["execution_level"] if hasattr(row, "keys") else row[0]
 
 
-def _begin(connection, executor: str, facts: SessionModelFacts) -> str:
+def _begin(connection, executor: str, facts: SessionModelFacts) -> str | None:
     session_id = _sid("begin")
     result = begin_session(
         connection,
@@ -92,8 +91,8 @@ class TestBeginSessionStampsLevel:
                 SessionModelFacts(model="claude-haiku-5-5", reasoning_effort="max"),
                 "INTERN",
             ),
-            ("claude-code", SessionModelFacts(model="claude-unlisted"), "primary"),
-            ("claude-code", SessionModelFacts(), "primary"),
+            ("claude-code", SessionModelFacts(model="claude-unlisted"), None),
+            ("claude-code", SessionModelFacts(), None),
         ],
     )
     def test_shipped_options_label_when_nothing_is_stored(
@@ -175,9 +174,7 @@ class TestInProcessRegistrationStampsLevel:
         assert self._register(conn, model=_OPUS, level="CHOSEN") == "SENIOR"
 
     def test_unmatched_model_stays_unresolved(self, conn):  # noqa: F811
-        assert self._register(conn, model="claude-unlisted") == (
-            UNRESOLVED_EXECUTION_LEVEL
-        )
+        assert self._register(conn, model="claude-unlisted") is None
 
 
 class TestRegisterRouteStampsLevel:
@@ -187,7 +184,7 @@ class TestRegisterRouteStampsLevel:
         self.client.headers.update(session_test_db["auth_headers"])
         self.db_path = session_test_db["db_path"]
 
-    def _post(self, **body) -> str:
+    def _post(self, **body) -> str | None:
         session_id = _sid("route")
         payload = {
             "session_id": session_id,
@@ -229,7 +226,7 @@ class TestRegisterRouteStampsLevel:
         assert self._post(model=_OPUS, execution_level="CHOSEN") == "SENIOR"
 
     def test_unmatched_model_stays_unresolved(self):
-        assert self._post(model="claude-unlisted") == UNRESOLVED_EXECUTION_LEVEL
+        assert self._post(model="claude-unlisted") is None
 
 
 class TestRegisterSessionLevelHealing:
@@ -254,7 +251,7 @@ class TestRegisterSessionLevelHealing:
                 execution_level="PRINCIPAL",
                 model_facts=SessionModelFacts(model="unknown"),
             )
-        assert _stored_level(conn, "level-unknown") == UNRESOLVED_EXECUTION_LEVEL
+        assert _stored_level(conn, "level-unknown") is None
 
     def test_reactivation_refreshes_against_current_levels(self, conn):  # noqa: F811
         _register(conn, session_id="level-reactivate", execution_level="INTERN")

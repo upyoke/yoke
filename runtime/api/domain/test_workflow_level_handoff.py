@@ -186,11 +186,10 @@ def test_transition_result_emits_handoff_only_for_a_level_change(monkeypatch, ch
 
 
 def test_unresolved_session_label_does_not_invent_a_level_change(monkeypatch):
-    from yoke_contracts.session_level import UNRESOLVED_EXECUTION_LEVEL
 
     conn, _ref = context(monkeypatch)
     conn.execute(
-        "UPDATE harness_sessions SET execution_level=?", (UNRESOLVED_EXECUTION_LEVEL,)
+        "UPDATE harness_sessions SET execution_level=?", (None,)
     )
     assert (
         handoffs.level_handoff(

@@ -44,7 +44,7 @@ def seed_session(conn, session_id: str, **columns) -> None:
         "project_id, mode, offered_at, last_heartbeat, actor_id, "
         "executor_surface, machine_id, last_tool_call_at, ended_at, "
         "terminated_at, current_item_id) "
-        "VALUES (%s, %s, 'openai', 'gpt-6.1-sol', 'medium', 'primary', %s, %s, "
+        "VALUES (%s, %s, 'openai', 'gpt-6.1-sol', 'medium', NULL, %s, %s, "
         "%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
         (
             session_id,

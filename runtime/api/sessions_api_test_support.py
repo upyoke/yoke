@@ -47,7 +47,7 @@ CREATE TABLE harness_sessions (
     requested_model TEXT DEFAULT NULL,
     requested_reasoning_effort TEXT DEFAULT NULL,
     requested_context_window_tokens INTEGER DEFAULT NULL,
-    execution_level TEXT NOT NULL DEFAULT 'DARIUS',
+    execution_level TEXT,
     executor_version TEXT, machine_id TEXT,
     workspace TEXT NOT NULL,
     project_id INTEGER NOT NULL REFERENCES projects(id),

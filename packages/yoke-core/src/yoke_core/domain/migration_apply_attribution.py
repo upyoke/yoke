@@ -7,9 +7,7 @@ owes no mutation, so gathering those fields must not refuse a no-op boot.
 Existing null rows are left as they are — this module does not backfill.
 
 ``model_name`` on the same row is a declared migration model. Execution
-levels (including the unresolved-level sentinel) are refused unless that
-spelling is also a declared model, which is how the yoke default model
-shares a name with the sentinel without the column becoming a level dump.
+levels are refused unless that spelling is also a declared model.
 """
 
 from __future__ import annotations
@@ -20,9 +18,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, Mapping, Optional
 
 from yoke_contracts.level_defaults import DEFAULT_LEVELS
-from yoke_contracts.session_level import UNRESOLVED_EXECUTION_LEVEL
 from yoke_core.domain.migration_apply_contract import MigrationApplyError
-from yoke_core.domain.migration_model_capability_defaults import DEFAULT_MODEL_NAME
 
 ATTRIBUTION_FIELDS = (
     "session_id",
@@ -77,7 +73,7 @@ def refuse_level_as_model_name(
                 f"model_name {value!r} is not a declared migration model"
             )
         return value
-    if value in levels and value != DEFAULT_MODEL_NAME:
+    if value in levels:
         raise LevelAsModelNameError(
             f"model_name {value!r} is an execution level, not a migration model"
         )
@@ -163,7 +159,7 @@ def _git_capture(worktree_path: Path, argv: list[str]) -> Optional[str]:
 
 
 def _known_execution_levels(extra: Iterable[str]) -> frozenset[str]:
-    levels = {UNRESOLVED_EXECUTION_LEVEL, *(level["name"] for level in DEFAULT_LEVELS)}
+    levels = {level["name"] for level in DEFAULT_LEVELS}
     levels.update(str(name).strip() for name in extra if str(name).strip())
     return frozenset(levels)
 

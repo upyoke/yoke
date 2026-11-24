@@ -23,7 +23,7 @@ def session_started_context(
     fallback_surface: Optional[str],
     provider: str,
     model_facts: SessionModelFacts,
-    execution_level: str,
+    execution_level: str | None,
     workspace: str,
     executor_version: Optional[str],
     machine_id: Optional[str],

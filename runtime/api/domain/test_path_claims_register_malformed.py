@@ -45,7 +45,7 @@ def db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
                 "INSERT INTO harness_sessions (session_id, executor, provider, "
                 "model, project_id, execution_level, workspace, mode, offered_at, "
                 "last_heartbeat) VALUES (%s, 'claude-code', 'test', 'test', 1, "
-                "'primary', '/tmp', 'wait', '2026-05-01T00:00:00Z', "
+                "NULL, '/tmp', 'wait', '2026-05-01T00:00:00Z', "
                 "'2026-05-01T00:00:00Z')",
                 (SESSION_ID,),
             )

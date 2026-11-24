@@ -40,7 +40,6 @@ There is no stored surface, context, speed or exhausted-pool fallback.
 Within a model, thresholds must strictly increase with level; duplicate or
 decreasing thresholds refuse `level_min_effort_order_invalid`. Base IDs carry
 no native effort/speed suffix. Invalid rows name their field and correction.
-`primary` is reserved and cannot name a level.
 
 ## Where levels live
 

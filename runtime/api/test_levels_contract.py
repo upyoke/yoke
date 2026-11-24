@@ -84,6 +84,12 @@ def test_level_names_follow_existing_contract(name):
         parse_levels(raw)
 
 
+def test_primary_is_available_as_a_level_name():
+    raw = document()
+    raw[0]["name"] = "PRIMARY"
+    assert parse_levels(raw)[0].name == "PRIMARY"
+
+
 def test_duplicate_model_in_a_level_refuses():
     raw = document()
     raw[0]["options"].append({"model": "gpt-6.1-sol", "min_effort": "high"})
@@ -126,8 +132,8 @@ def test_project_override_precedes_universe_then_default():
     assert resolve_effective_levels(None, None)[1] == "default"
 
 
-@pytest.mark.parametrize("level", [None, "", "primary"])
-def test_unresolved_presentation_never_prints_primary(level):
+@pytest.mark.parametrize("level", [None, ""])
+def test_unresolved_presentation_shows_no_level(level):
     assert level_presentation(default_levels(), level) == {
         "label": "no level",
         "glyph": "",
@@ -152,7 +158,7 @@ def test_unresolved_presentation_names_its_reason(model, effort, reason, label):
     levels = default_levels()
     found = level_reason(levels, model=model, effort=effort, records=MODEL_RECORDS)
     assert found == reason
-    assert level_presentation(levels, "primary", reason=found) == {
+    assert level_presentation(levels, None, reason=found) == {
         "label": f"no level: {label}",
         "glyph": "",
         "reason": reason,

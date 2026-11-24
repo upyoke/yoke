@@ -6,7 +6,6 @@ import json
 from typing import Any, Dict, List, Optional
 
 from yoke_contracts.refusal_recovery import compose_refusal
-from yoke_contracts.session_level import UNRESOLVED_EXECUTION_LEVEL
 from yoke_contracts.session_model_facts import SessionModelFacts
 from yoke_contracts.timestamps import utc_now
 
@@ -84,7 +83,7 @@ def register_session(
     executor: str,
     provider: str,
     model_facts: SessionModelFacts,
-    execution_level: str = UNRESOLVED_EXECUTION_LEVEL,
+    execution_level: str | None = None,
     workspace: str,
     project_id: int | None,
     machine_scope: bool = False,

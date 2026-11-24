@@ -46,7 +46,7 @@ def cmd_begin(
     provider: str,
     model: str,
     workspace: str,
-    level: str = "primary",
+    level: str | None = None,
     executor_version: Optional[str] = None,
     machine_id: Optional[str] = None,
     *,

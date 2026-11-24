@@ -211,7 +211,7 @@ class TestRegisterSession:
         assert result["executor_surface"] == "claude-desktop"
         assert result["provider"] == "openai"
         assert result["workspace"] == "/tmp/reopened"
-        assert result["execution_level"] == "primary"
+        assert result["execution_level"] is None
         assert result["offered_at"] == original["offered_at"]
 
     def test_register_executor_is_write_once_on_reentry(self, conn):

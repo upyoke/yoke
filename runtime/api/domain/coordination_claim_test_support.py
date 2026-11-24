@@ -53,7 +53,7 @@ def seed_session(
         "INSERT INTO harness_sessions "
         "(session_id, executor, provider, model, execution_level, workspace, "
         "project_id, mode, offered_at, last_heartbeat, actor_id, ended_at) "
-        "VALUES (%s, 'codex', 'openai', 'test-model', 'primary', %s, %s, "
+        "VALUES (%s, 'codex', 'openai', 'test-model', NULL, %s, %s, "
         "'wait', %s, %s, 2, %s)",
         (
             session_id,

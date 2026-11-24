@@ -34,7 +34,7 @@ def _insert_session(
             """INSERT INTO harness_sessions
                (session_id, executor, provider, model, execution_level,
                 workspace, mode, offered_at, last_heartbeat, ended_at)
-               VALUES (%s, 'codex', 'openai', 'gpt-5.4', 'primary',
+               VALUES (%s, 'codex', 'openai', 'gpt-5.4', NULL,
                        %s, 'charge', %s, %s, %s)""",
             (
                 session_id,

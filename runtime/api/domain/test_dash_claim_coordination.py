@@ -22,7 +22,7 @@ def _hold_as(conn, item_id: int, mode: str) -> None:
     conn.execute(
         "INSERT INTO harness_sessions (session_id, executor, provider, model, "
         "execution_level, workspace, project_id, mode, offered_at, last_heartbeat) "
-        "VALUES (%s, 'claude-code', 'anthropic', 'claude-opus-5-5', 'primary', "
+        "VALUES (%s, 'claude-code', 'anthropic', 'claude-opus-5-5', NULL, "
         "'/tmp/dash-holder', 1, %s, %s, %s)",
         (session_id, mode, stamp, stamp),
     )

@@ -1,19 +1,9 @@
 """Registered read-back of the calling session's resolved identity.
 
-Identity is resolved once, at registration: ``register_session`` stores the
-canonical executor id and its display alias, the provider, the model
-SessionStart observed, the execution level the project's routing policy maps
-that executor to, the workspace, the project, and the actor. This handler
-reads those stored facts back through the shared projection and adds the
-values derived from them — the stored checkpoint budget and whether a Yoke
-relay started this session as a headless command.
-
-Nothing here re-derives, so nothing returned is advisory. A caller that
-cannot reach the authority is refused with its recovery command rather than
-handed a locally guessed value: a level, model, or executor invented on the
-client disagrees with the row every other surface reads, and a wrong value
-that looks authoritative is harder to catch than a missing one — the caller
-reasons correctly from a false input and nothing downstream misbehaves.
+The handler reads stored identity facts and projects the current execution
+level from the session's model and effort. It also reports the checkpoint
+budget and whether a Yoke relay started this session as a headless command.
+A caller that cannot reach the authority receives a refusal with recovery.
 """
 
 from __future__ import annotations
@@ -46,6 +36,8 @@ class IdentityResponse(BaseModel):
     #: must say it is showing a request.
     requested_model: Optional[str] = None
     execution_level: Optional[str] = None
+    level_label: Optional[str] = None
+    level_reason: Optional[str] = None
     workspace: Optional[str] = None
     project_id: Optional[int] = None
     org_id: Optional[int] = None
@@ -123,6 +115,8 @@ def handle_identity(request: FunctionCallRequest) -> HandlerOutcome:
             "model": identity.model or None,
             "requested_model": identity.requested_model or None,
             "execution_level": identity.execution_level,
+            "level_label": identity.level_label,
+            "level_reason": identity.level_reason,
             "workspace": identity.workspace,
             "project_id": identity.project_id,
             "org_id": identity.org_id,

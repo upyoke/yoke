@@ -239,7 +239,7 @@ def seed_test_holder_session(conn: Any, session_id: str = HOLDER_SESSION_ID) -> 
             "INSERT INTO harness_sessions (session_id, executor, "
             "provider, model, project_id, execution_level, executor_version, machine_id, workspace, mode, "
             "offered_at, last_heartbeat, actor_id) "
-            "VALUES (%s, 'claude-code', 'test', 'test', 1, 'primary', NULL, NULL, '/tmp', "
+            "VALUES (%s, 'claude-code', 'test', 'test', 1, NULL, NULL, NULL, '/tmp', "
             "'active', '2026-05-01T00:00:00Z', '2026-05-01T00:00:00Z', %s) "
             "ON CONFLICT(session_id) DO UPDATE SET actor_id = EXCLUDED.actor_id",
             (session_id, actor_id),
@@ -249,7 +249,7 @@ def seed_test_holder_session(conn: Any, session_id: str = HOLDER_SESSION_ID) -> 
         "INSERT INTO harness_sessions (session_id, executor, "
         "provider, model, project_id, execution_level, executor_version, machine_id, workspace, mode, "
         "offered_at, last_heartbeat) "
-        "VALUES (%s, 'claude-code', 'test', 'test', 1, 'primary', NULL, NULL, '/tmp', "
+        "VALUES (%s, 'claude-code', 'test', 'test', 1, NULL, NULL, NULL, '/tmp', "
         "'active', '2026-05-01T00:00:00Z', '2026-05-01T00:00:00Z') "
         "ON CONFLICT(session_id) DO NOTHING",
         (session_id,),

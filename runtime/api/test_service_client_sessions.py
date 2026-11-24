@@ -14,7 +14,6 @@ import uuid
 
 import pytest
 
-from yoke_contracts.session_level import UNRESOLVED_EXECUTION_LEVEL
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.fixtures.level_store import (
     levels_doc,
@@ -108,7 +107,7 @@ class TestSessionBeginLevel:
                 ("--model", "claude-haiku-5-5", "--reasoning-effort", "max"),
                 "INTERN",
             ),
-            ("claude-code", ("--model", "claude-unlisted"), UNRESOLVED_EXECUTION_LEVEL),
+            ("claude-code", ("--model", "claude-unlisted"), None),
         ],
     )
     def test_shipped_options_label_when_nothing_is_stored(
@@ -205,4 +204,4 @@ class TestSessionBeginLevel:
         (_executor, _surface, level), _context = _session_row(
             session_test_db, session_id
         )
-        assert level == UNRESOLVED_EXECUTION_LEVEL
+        assert level is None

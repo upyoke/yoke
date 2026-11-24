@@ -55,7 +55,7 @@ def _stores(*, universe=None, project=None, project_id: int = 1):
     return DB()
 
 
-@pytest.mark.parametrize("level", [None, "", "   ", "primary", "PRIMARY"])
+@pytest.mark.parametrize("level", [None, ""])
 def test_unresolved_level_is_marked(level) -> None:
     rendered = _render_level(level)
     assert rendered == f"{_MARKER} no level"
@@ -218,7 +218,7 @@ def _session_db(model: str, effort: str, catalog: list | None):
 def test_board_names_why_a_session_has_no_level(model, effort, label) -> None:
     catalog = [record.to_dict() for record in MODEL_RECORDS]
     presentation = session_level_presentation(
-        _session_db(model, effort, catalog), None, "primary", "s-1"
+        _session_db(model, effort, catalog), None, None, "s-1"
     )
     assert presentation["label"] == label
-    assert _render_level("primary", presentation) == f"{_MARKER} {label}"
+    assert _render_level(None, presentation) == f"{_MARKER} {label}"

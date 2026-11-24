@@ -202,7 +202,6 @@ def render_session_roster_rows(
                     if row.get("last_tool_call_at")
                     else None
                 ),
-                "execution_level": row.get("execution_level"),
                 **presentation,
                 "mode": row.get("mode"),
                 "quiet_reason": row.get("quiet_reason"),

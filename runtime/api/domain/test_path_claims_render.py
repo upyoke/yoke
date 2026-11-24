@@ -105,7 +105,7 @@ class TestRenderPathClaimsSection:
             "INSERT INTO harness_sessions (session_id, executor, provider, "
             "model, project_id, execution_level, executor_version, machine_id, workspace, mode, "
             "offered_at, last_heartbeat) "
-            "VALUES ('sess-render', 'claude-code', 'test', 'test', 1, 'primary', "
+            "VALUES ('sess-render', 'claude-code', 'test', 'test', 1, NULL, "
             "NULL, NULL, '/tmp', 'wait', '2026-05-01T00:00:00Z', "
             "'2026-05-01T00:00:00Z')",
         )

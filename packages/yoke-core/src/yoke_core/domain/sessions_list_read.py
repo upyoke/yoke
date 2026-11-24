@@ -267,6 +267,8 @@ def session_summary_result(rows: list[dict], *, offset: int, limit: int | None) 
         "executor_surface",
         "model",
         "execution_level",
+        "level_label",
+        "level_reason",
         "mode",
         "status",
         "active_at",

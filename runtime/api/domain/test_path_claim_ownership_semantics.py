@@ -67,7 +67,7 @@ def _seed_session(conn, *, session_id: str) -> str:
         "INSERT INTO harness_sessions (session_id, executor, provider, model, "
         "project_id, execution_level, executor_version, machine_id, workspace, mode, offered_at, "
         "last_heartbeat) "
-        "VALUES (%s, 'claude-code', 'test', 'test', 1, 'primary', NULL, NULL, '/tmp', 'wait', "
+        "VALUES (%s, 'claude-code', 'test', 'test', 1, NULL, NULL, NULL, '/tmp', 'wait', "
         "%s, %s)",
         (session_id, _now(), _now()),
     )

@@ -67,7 +67,7 @@ def _roster_row(session_id: str, *, project_id: int, actor_id: int, item_id: int
         "current_item_id": str(item_id),
         "executor": "claude-code",
         "executor_surface": "claude-cli",
-        "execution_level": "primary",
+        "execution_level": None,
         "mode": "wait",
         "holds_work_claim": True,
         "last_heartbeat": _iso(),

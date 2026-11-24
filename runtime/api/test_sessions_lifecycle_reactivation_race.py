@@ -37,7 +37,7 @@ class _RaceConn:
                     "terminated_at": None,
                     "model": "gpt",
                     "actor_id": None,
-                    "execution_level": "primary",
+                    "execution_level": None,
                     "project_id": 1,
                     "org_id": None,
                 }

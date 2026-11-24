@@ -23,7 +23,7 @@ def _session(conn: Any, session_id: str) -> None:
         "INSERT INTO harness_sessions "
         "(session_id,executor,provider,model,execution_level,workspace,project_id,"
         "mode,offered_at,last_heartbeat) VALUES "
-        "(%s,'codex','openai','test','primary',%s,1,'wait',%s,%s)",
+        "(%s,'codex','openai','test',NULL,%s,1,'wait',%s,%s)",
         (session_id, f"/tmp/{session_id}", now, now),
     )
     conn.commit()
