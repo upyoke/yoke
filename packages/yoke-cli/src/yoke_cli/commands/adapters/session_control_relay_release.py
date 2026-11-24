@@ -111,7 +111,6 @@ def serve_release_daemon(*, cycle_maintenance: Callable[[], None] | None = None)
     lane_sweep = importlib.import_module(
         "yoke_core.tools.session_relay_lane_sweep"
     ).relay_lane_sweep(instance)
-    retry_follow = False
 
     def maintain() -> None:
         # The host's own upkeep, then this machine's lane sweep when it is due.
@@ -181,35 +180,35 @@ def serve_release_daemon(*, cycle_maintenance: Callable[[], None] | None = None)
             executable=installed.launch_executable,
         )
 
-    def follow_active_release(*, retrying: bool = False) -> bool:
-        from yoke_cli.config.operator_cli_release_follow import (
-            DEFERRED_SETUP_ACTIVE,
-            follow_release,
-        )
+    from yoke_cli.config.operator_cli_release_follow import DEFERRED_SETUP_ACTIVE
+    from yoke_cli.config.operator_cli_release_follow_worker import OperatorCliReleaseFollower
 
-        record = follow_release(installed.pinned_release, instance.state_dir)
-        return record["outcome"] == DEFERRED_SETUP_ACTIVE or (
-            retrying and record["outcome"] == "update_failed"
-        )
-
-    if instance.machine_active:
-        retry_follow = follow_active_release()
+    follower = OperatorCliReleaseFollower(installed.pinned_release, instance.state_dir)
+    retry_follow = instance.machine_active
+    retrying = False
 
     def maintain_served_release() -> None:
-        nonlocal retry_follow
+        nonlocal retry_follow, retrying
         maintain()
-        if retry_follow:
-            retry_follow = (
-                resolve_relay_instance().machine_active
-                and follow_active_release(retrying=True)
+        if record := follower.settle():
+            retry_follow = record["outcome"] == DEFERRED_SETUP_ACTIVE or (
+                retrying and record["outcome"] == "update_failed"
             )
+            retrying = True
+        if retry_follow:
+            retry_follow = resolve_relay_instance().machine_active and not follower.start()
 
     def repin(served_build: str, *, runner=subprocess.run):
-        return release_install.pin_relay_release(
-            instance=instance,
-            served_build=served_build,
-            runner=runner,
-        ).launch_executable
+        follower.pause_and_wait()
+        try:
+            return release_install.pin_relay_release(
+                instance=instance,
+                served_build=served_build,
+                runner=runner,
+            ).launch_executable
+        except BaseException:  # noqa: BLE001 - even an interrupted pin reopens admission
+            follower.resume()
+            raise
 
     return serve_forever(
         state_dir=instance.state_dir,

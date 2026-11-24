@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+from queue import Queue
+from threading import current_thread
 from contextlib import ExitStack
 from pathlib import Path
 from types import SimpleNamespace
@@ -56,19 +58,28 @@ def test_relay_retries_a_deferred_follow_until_setup_releases_the_lock(
     monkeypatch.setattr(self_update, "resolve_target", lambda *, version: version)
     monkeypatch.setattr(self_update, "install_release", install)
     monkeypatch.setattr(operator_cli_release_follow, "_refresh_checkouts", refresh)
-    monkeypatch.setattr(
-        operator_cli_release_follow, "follow_release",
-        lambda release, state_dir: follow(release, state_dir, run=probe, executable=launcher),
-    )
+    attempts = Queue()
+
+    def run_follow(release, state_dir):
+        attempts.put(current_thread())
+        return follow(release, state_dir, run=probe, executable=launcher)
+
+    monkeypatch.setattr(operator_cli_release_follow, "follow_release", run_follow)
     state = tmp_path / operator_cli_release_follow.FOLLOW_RECORD_NAME
 
+    def wait_for_follow():
+        thread = attempts.get(timeout=5)
+        thread.join(timeout=5)
+        assert not thread.is_alive()
+
     def serve_forever(*, cycle_maintenance, **_kwargs):
-        assert json.loads(state.read_text())["outcome"] == "deferred_setup_active"
         cycle_maintenance()
+        wait_for_follow()
         assert actions == []
         assert json.loads(state.read_text())["outcome"] == "deferred_setup_active"
         setup.close()
         cycle_maintenance()
+        wait_for_follow()
         record = json.loads(state.read_text())
         assert record["outcome"] == "updated"
         assert record["after"] == RELEASE
