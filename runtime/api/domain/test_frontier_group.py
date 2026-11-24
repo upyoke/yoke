@@ -36,6 +36,9 @@ def test_idle_and_working_holders_have_distinct_activity():
         ({}, "ready"),
         ({"finished": True}, "done"),
         ({"release_stage": True}, "release"),
+        ({"release_stage": True, "blocked": True}, "release"),
+        ({"release_stage": True, "frozen": True}, "on_hold"),
+        ({"finished": True, "frozen": True}, "done"),
         ({"frozen": True}, "on_hold"),
         ({"blocked": True}, "on_hold"),
         ({"exceptional": True}, "on_hold"),
@@ -63,7 +66,7 @@ def test_precedence_and_ended_holder():
     assert frontier_group({"frozen": True}, [holder])["section"] == "on_hold"
     assert (
         frontier_group({"release_stage": True, "frozen": True}, [holder])["section"]
-        == "release"
+        == "on_hold"
     )
     assert frontier_group({}, [{**holder, "status": "ended"}])["section"] == "ready"
 

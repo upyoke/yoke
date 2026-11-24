@@ -20,9 +20,11 @@ def frontier_group(
 
     if row.get("finished"):
         return home("done", why="item_finished")
+    if is_frozen(row.get("frozen")):
+        return home("on_hold", why=row.get("blocked_reason") or "item_on_hold")
     if row.get("release_stage"):
         return home("release", why="awaiting_delivery")
-    if is_frozen(row.get("frozen")) or is_blocked(row.get("blocked")):
+    if is_blocked(row.get("blocked")):
         return home("on_hold", why=row.get("blocked_reason") or "item_on_hold")
     holders = [s for s in holder_states if s.get("status") != "ended"]
     if holders:

@@ -183,6 +183,8 @@ function deliveryPolicy(row) {
   return Object.hasOwn(row, "delivery_policy") ? String(row.delivery_policy || "") : null;
 }
 
+const isFrozen = (row) => [true, 1, "1", "true"].includes(row.frozen);
+
 function owesPendingDelivery(row) {
   if (String(row.status || "").toLowerCase() === "cancelled") return false;
   const policy = deliveryPolicy(row);
@@ -256,9 +258,10 @@ export function appendItemDelivery(documentNode, card, row, deployments, project
   const flow = flowId(row.completion_flow) || flowId(row.deployment_flow) || flowId(row.delivery?.flow);
   const awaiting = !runs.length || (environment && !runs.some((run) => runEnvironment(run) === environment));
   if (owesPendingDelivery(row) && flow && awaiting) {
-    box.appendChild(environmentRow(documentNode, environment, {
-      symbol: "○", text: `${deliveryStateLabel("not deployed", environment)} · next release`,
-    }, null, row));
+    const text = isFrozen(row)
+      ? deliveryStateLabel("frozen") + (row.merged_at ? " · code merged; item QA paused" : "")
+      : deliveryStateLabel("not deployed", environment) + " · next release";
+    box.appendChild(environmentRow(documentNode, environment, { symbol: "○", text }, null, row));
   }
   card.appendChild(box);
   return box;
@@ -280,7 +283,7 @@ export function deliverySummary(row, deployments) {
     && environment
     && !runs.some((run) => runEnvironment(run) === environment)
   ) {
-    parts.push(deliveryStateLabel("not deployed", environment));
+    parts.push(deliveryStateLabel(isFrozen(row) ? "frozen" : "not deployed", environment));
   }
   return parts.join(" · ");
 }

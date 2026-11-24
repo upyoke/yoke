@@ -167,6 +167,8 @@ def release_wait_phrase(entry: LandedItem) -> str:
         wait = f"delivered to {entry.delivered_to}; awaiting {entry.completion_target}"
     elif entry.custody_state == HELD:
         wait = f"awaiting {entry.custody_run_flow} release — {custody_phrase(entry)}"
+    elif entry.frozen:
+        wait = "Frozen · releases don't deliver it · code merged; item QA paused"
     elif entry.custody_state in {REMERGED, CUSTODY_UNDETERMINED}:
         wait = f"{wait} — {custody_phrase(entry)}"
     return f"{wait} ({_holder_context(entry)})"

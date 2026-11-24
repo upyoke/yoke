@@ -96,6 +96,7 @@ _SCHEMA_DDL = """
         title TEXT NOT NULL DEFAULT '',
         status TEXT NOT NULL DEFAULT 'idea',
         priority TEXT NOT NULL DEFAULT 'medium',
+        frozen INTEGER NOT NULL DEFAULT 0,
         project_id INTEGER NOT NULL DEFAULT 1,
         project_sequence INTEGER NOT NULL DEFAULT 0,
         deployment_flow TEXT,

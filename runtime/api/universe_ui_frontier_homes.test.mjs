@@ -13,7 +13,7 @@ const item = (ref, section, activity = null) => ({
 });
 
 test("home membership and counts stay exclusive across the full chain", () => {
-  const items = [item("I-1", "in_progress", "idle"), item("I-2", "waiting"), item("I-3", "on_hold")];
+  const items = [item("I-1", "in_progress", "idle"), item("I-2", "waiting"), { ...item("I-3", "on_hold"), frozen: 1, status: "release" }];
   const rows = frontierBandRows({ items, readyRows: [], blockedRows: [], sessionRows: [] });
   const edges = [
     { blocking_item: "I-1", dependent_item: "I-2", gate_point: "activation", satisfaction: "status:done" },
@@ -21,6 +21,9 @@ test("home membership and counts stay exclusive across the full chain", () => {
   ];
   const model = frontierGraphModel(rows, edges, () => "");
   assert.equal(model.linked.length, 3);
+  assert.equal(rows.held[0].row.status, "release");
+  assert.equal(rows.held[0].reason.flag.label, "Frozen");
+  assert.equal(rows.releasing.length, 0);
   assert.equal(frontierWaitingSplit(model).graphCount, 1);
   assert.equal(frontierWaitingSplit(model).held.length, 1);
   assert.equal(rows.active.length + rows.waiting.length + rows.held.length, items.length);

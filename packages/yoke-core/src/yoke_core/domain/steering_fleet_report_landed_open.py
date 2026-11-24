@@ -30,6 +30,8 @@ from datetime import datetime
 from dataclasses import dataclass
 from typing import Any, Sequence
 
+from yoke_contracts.item_flags import is_frozen
+
 from yoke_core.domain.deployment_item_flow_resolution import item_completion_flow_facts
 from yoke_core.domain.deployment_flow_state import FLOW_STATUS_ACTIVE
 from yoke_core.domain.gate_satisfier_item_facts import load_delivery_facts_for_items
@@ -97,6 +99,7 @@ class LandedItem:
     #: behind. Empty when no release names the item at all.
     custody_run_id: str = ""
     custody_run_flow: str = ""
+    frozen: bool = False
     #: The resolved closing flow is active; an absent/disabled flow cannot deliver.
     completion_flow_available: bool = False
     holder_native_process_gone: bool = False
@@ -257,6 +260,7 @@ def landed_without_closeout(
                 custody_state=held.state,
                 custody_run_id=held.run_id,
                 custody_run_flow=held.run_flow,
+                frozen=is_frozen(record.get("frozen")),
                 completion_flow_available=bool(
                     item_id in flows and flows[item_id].flow in active_flows
                 ),

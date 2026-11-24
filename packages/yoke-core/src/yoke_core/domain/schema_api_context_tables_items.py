@@ -61,6 +61,8 @@ ITEMS_TABLE: dict[str, dict] = {
             "Conflict Survey touch_paths are section data read via items.get body; "
             "touch_paths is not an items.get column. "
             "`item_id` is a foreign-key column on OTHER tables. "
+            "The shared merged_open_items read projects items.frozen for the fleet report. "
+            "Wrong guess: a deployment-runs fixture without frozen supports that read. "
             "item_overview_read also reads items.frozen, blocked and state timestamps; "
             "wrong guess: an item_page_reads_test_support fixture without frozen models that reader. "
             "Item reader fixtures must seed items.title. Wrong guess: an id-only "

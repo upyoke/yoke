@@ -38,7 +38,7 @@ ITEM_ID = 9601
 PROJECT_ID = 1
 
 
-def _landed_item(conn: Any, *, status: str = "implementing") -> str:
+def _landed_item(conn: Any, *, status: str = "implementing", frozen: bool = False) -> str:
     """One merged, still-open item, before its landing commit is known."""
     insert_item(
         conn,
@@ -47,6 +47,7 @@ def _landed_item(conn: Any, *, status: str = "implementing") -> str:
         workflow_id="blitz",
         status=status,
         deployment_flow=FLOW,
+        frozen=int(frozen),
         merged_at="2026-09-14T00:10:00Z",
     )
     conn.commit()
@@ -211,6 +212,12 @@ def test_an_unreadable_comparison_is_neither_answer(
     assert verdict.enrollable is False
     assert verdict.reason
     assert verdict.recovery
+
+
+def test_merged_open_items_projects_frozen_landings(test_db: Any) -> None:
+    _landed_item(test_db, frozen=True)
+    rows = merged_open_items(test_db, PROJECT_ID)
+    assert [row["frozen"] for row in rows if row["id"] == ITEM_ID] == [1]
 
 
 def test_a_terminal_item_is_not_in_the_conversation(test_db: Any) -> None:
