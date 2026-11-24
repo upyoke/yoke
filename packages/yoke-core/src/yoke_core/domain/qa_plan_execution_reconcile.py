@@ -18,6 +18,7 @@ from typing import Any
 from uuid import uuid4
 
 from yoke_core.domain.db_helpers import instant_parameter, query_one, utc_now
+from yoke_core.domain.qa_host_turns import cancel_host_waits
 from yoke_core.domain.qa_plan_execution_abort_reason import REASON_DETAIL_SEPARATOR
 from yoke_core.domain.qa_plan_execution_abort_state import abort_request
 from yoke_core.domain.qa_plan_execution_reconcile_hosts import (
@@ -211,6 +212,8 @@ def reconcile_execution(
     if bundle_id is not None and not hand_off:
         _close_unreviewable(conn, bundle_id, actor_id, session_id)
     owner = (actor_id, session_id) if session_id else (prior[1], prior[2])
+    if owner[1] != prior[2]:
+        cancel_host_waits(conn, execution_ids=[execution_id])
     conn.execute(
         "UPDATE qa_plan_executions SET actor_id=%s,session_id=%s,"
         "test_machine_lease_id=%s WHERE id=%s",

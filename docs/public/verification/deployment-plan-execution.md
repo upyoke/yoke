@@ -138,6 +138,10 @@ preparation.
 
 When a Test Machine is leased or unhealthy, the plan keeps its cursor and
 joins the same line as a refused `yoke claims coordination-claim acquire`.
+Each execution keeps its own place, even when its session queues another
+execution for the same machine or makes a manual acquire. If a new session
+adopts the execution, its old waits and reservations are cleared. Its next
+queue join retains the execution's place.
 The runner lists each host's position with the reserved turn first. Park until
 the host-turn notice wakes you. A set reserves hosts only at the front of
 every required line and returns partial reservations if it falls behind. Its

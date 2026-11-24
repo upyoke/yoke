@@ -8,7 +8,7 @@ share one eligible set. Slots take hosts in order, each the lowest-named
 available host no earlier slot took.
 
 While it waits, each slot is one any-of need at the execution's one queue
-place. One host carries one live wait per session, so the eligible hosts of
+place. One host carries one live wait per execution, so the eligible hosts of
 an OS are dealt round-robin across that OS's slots. A free host never serves
 a slotted waiter alone: :func:`assign_slot_hosts` reserves a host for every
 slot at once, or nothing, and the host passes to the next waiter.

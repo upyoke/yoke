@@ -90,7 +90,7 @@ def _waits(conn, execution_id):
 def test_two_linux_slots_share_no_host_and_need_two_registered(test_db, linux_fleet):
     eligibility = slot_eligibility(test_db, TWO_LINUX, [TWO_LINUX])
     assert eligibility == (("linux", LINUX), ("linux", LINUX))
-    # One host carries one live wait per session, so the hosts are dealt out.
+    # One host carries one live wait per execution, so the hosts are dealt out.
     assert slot_waits(eligibility) == ((LINUX[0],), (LINUX[1],))
     three = {
         **TWO_LINUX,

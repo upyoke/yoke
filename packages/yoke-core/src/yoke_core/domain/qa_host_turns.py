@@ -112,20 +112,20 @@ def join_host_queue(
     queued_at: Any = None,
     need_id: str | None = None,
 ) -> dict[str, Any]:
-    """Queue *session_id* for *target*'s machine at *queued_at* or now; a
-    queued session keeps its place.
+    """Queue a host wait for an execution or, for a manual acquire, its session.
 
-    Rows sharing *need_id* are one waiter's alternative machines. A live wait
-    moves only earlier, to a *queued_at* before its own.
+    A queued owner keeps its place unless given an earlier *queued_at*.
+    Rows sharing *need_id* are one waiter's alternative machines.
     """
     p = _p(conn)
     test_machine = str(target.test_machine)
     lock_host_turn(conn, target)
     live = query_one(
         conn,
-        f"SELECT id FROM qa_test_machine_waits WHERE test_machine={p} AND session_id={p} "
-        f"AND state IN {_LIVE}",
-        (test_machine, session_id),
+        f"SELECT id FROM qa_test_machine_waits WHERE test_machine={p} AND state IN {_LIVE} "
+        f"AND (qa_plan_execution_id={p} OR (qa_plan_execution_id IS NULL AND session_id={p})) "
+        "ORDER BY qa_plan_execution_id IS NULL LIMIT 1",
+        (test_machine, execution_id, session_id),
     )
     if live is None:
         wait_id = str(uuid4())
@@ -295,9 +295,9 @@ def cancel_host_waits(
     session_id: str | None = None,
     execution_ids: Iterable[str] = (),
     test_machines: Iterable[str] = (),
+    manual_only: bool = False,
 ) -> None:
-    """Leave the queue for the session or executions, or only their waits on
-    *test_machines* when named.
+    """Cancel waits for a session or executions, filtered by host or manual ownership.
 
     Every matching wait is cancelled before any reservation is released, so
     a released turn never passes to another wait this same call removes.
@@ -317,6 +317,8 @@ def cancel_host_waits(
     if machines:
         where += f" AND test_machine IN ({','.join([p] * len(machines))})"
         params = (*params, *machines)
+    if manual_only:
+        where += " AND qa_plan_execution_id IS NULL"
     if not _has_line(conn):
         return
     lock_host_queue(conn)
