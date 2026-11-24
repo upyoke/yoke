@@ -57,20 +57,25 @@ def test_file_writability_preserves_system_owned_readable_files(tmp_path, monkey
     assert not paths.is_others_unwritable_file(tmp_path)
 
 
-def _check_acl(entries, *, foreign=True, failed_index=None):
-    buffers = [ctypes.create_string_buffer(entry) for entry in entries]
+def _check_acl(entries, *, foreign=True, failed_index=None, any_access=False):
+    buffers = [ctypes.create_string_buffer(bytes(entry)) for entry in entries]
     acl = windows._Acl(count=len(entries))
     def get_ace(dacl, index, output):
         if index == failed_index:
             return 0
         output._obj.value = ctypes.addressof(buffers[index])
         return 1
-    api = SimpleNamespace(GetAce=get_ace)
+    api = SimpleNamespace(
+        GetAce=get_ace,
+        IsValidAcl=lambda dacl: True,
+        IsValidSid=lambda sid: ctypes.c_ubyte.from_address(sid).value == 1,
+    )
     original = private._sid_string
     private._sid_string = lambda *args: 'foreign' if foreign else 'user'
     try:
-        return windows._acl_is_others_unwritable(
-            ctypes.byref(acl), {'user'}, api, None,
+        return windows._acl_has_only_trusted_grants(
+            ctypes.cast(ctypes.byref(acl), ctypes.c_void_p),
+            {'user'}, api, None, any_access=any_access,
         )
     finally:
         private._sid_string = original
@@ -81,7 +86,7 @@ def _ace(mask, *, flags=0, kind=0, object_flags=0):
     if kind in (5, 11):
         body += struct.pack('<I', object_flags)
         body += b'\0' * (16 * bool(object_flags & 1) + 16 * bool(object_flags & 2))
-    body += b'\0' * 8
+    body += struct.pack('<BB6sI', 1, 1, (5).to_bytes(6, 'big'), 18)
     return struct.pack('<BBH', kind, flags, 4 + len(body)) + body
 
 
@@ -108,6 +113,21 @@ def test_acl_walk_fails_closed_and_does_not_subtract_denies():
     assert not _check_acl([_ace(0x2)], failed_index=0)
     assert not _check_acl([_ace(0x2, kind=1), _ace(0x2)])
     assert not _check_acl([_ace(0x2, kind=99)])
+
+
+@pytest.mark.windows
+@pytest.mark.parametrize('flags', [0, 0x08, 0x10])
+@pytest.mark.parametrize('mask', [0, 0x120089])
+def test_owner_private_acl_refuses_foreign_grants_regardless_of_mask(mask, flags):
+    assert not _check_acl([_ace(mask, flags=flags)], any_access=True)
+    assert _check_acl([_ace(mask, flags=flags)], foreign=False, any_access=True)
+
+
+@pytest.mark.windows
+def test_owner_private_acl_rejects_truncated_sid_before_rendering():
+    malformed = bytearray(_ace(0x120089))
+    malformed[9] = 2  # The entry contains only one SID subauthority.
+    assert not _check_acl([malformed], foreign=False, any_access=True)
 
 
 def _set_acl(path, grants, *, owner=None):
