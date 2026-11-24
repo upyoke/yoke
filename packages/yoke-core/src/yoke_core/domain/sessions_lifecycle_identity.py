@@ -209,7 +209,7 @@ def refresh_active_duplicate_identity(
     existing: Any,
     session_id: str,
     model_facts: SessionModelFacts,
-    execution_level: str,
+    execution_level: str | None,
     resolved_actor_id: int,
     executor_surface: Optional[str],
     executor_version: Optional[str],

@@ -157,7 +157,7 @@ def seed_session(
         "executor_version, machine_id, workspace, mode, offered_at, last_heartbeat, actor_id, "
         "current_item_id) "
         "VALUES (%s, 'claude-code', 'test', 'test', "
-        "(SELECT project_id FROM items WHERE id = %s), 'primary', NULL, NULL, "
+        "(SELECT project_id FROM items WHERE id = %s), NULL, NULL, NULL, "
         "'/tmp', 'active', %s, %s, %s, %s)",
         (
             session_id,

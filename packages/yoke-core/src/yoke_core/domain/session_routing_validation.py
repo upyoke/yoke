@@ -12,7 +12,6 @@ from typing import Any, Mapping
 
 from yoke_contracts.levels import LEVELS_KEY, LevelsError, parse_levels
 from yoke_contracts.session_level import (
-    renamed_routing_keys,
     retired_lane_setting_keys,
     retired_level_routing_keys,
     retired_process_offer_keys,
@@ -51,15 +50,14 @@ def _refuse_retired(settings: Mapping[str, Any]) -> None:
             + _OVERRIDE_RECIPE,
             field=", ".join(retired_lane),
         )
-    renamed = sorted(renamed_routing_keys(settings))
     retired_level = sorted(retired_level_routing_keys(settings))
-    if renamed or retired_level:
+    if retired_level:
         raise SessionRoutingSettingsError(
             "level_routing_keys_retired: levels are ordered lists of launchable "
             "options, and a session's level is the one whose option matches "
             "its harness, model, and effort; declared metadata, selector "
             "rules, and harness defaults no longer exist. " + _OVERRIDE_RECIPE,
-            field=", ".join(renamed + retired_level),
+            field=", ".join(retired_level),
         )
 
 

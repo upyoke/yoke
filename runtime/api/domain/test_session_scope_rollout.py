@@ -214,7 +214,7 @@ def test_identity_read_tolerates_absent_org_field():
         model="",
         requested_model="",
         workspace="/tmp/project",
-        execution_level="primary",
+        execution_level=None,
         project_id=1,
     )
     assert identity.org_id is None and identity.scope_kind == "project"

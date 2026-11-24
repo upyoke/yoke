@@ -57,7 +57,7 @@ def insert_session(
             "claude-code",
             "anthropic",
             "claude-opus-5-5",
-            "primary",
+            None,
             "/tmp/workspace",
             1,
             "wait",

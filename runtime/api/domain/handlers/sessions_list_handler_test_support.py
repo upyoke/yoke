@@ -55,7 +55,7 @@ def _insert_session(
     ended_at: str | None = None,
     terminated_at: str | None = None,
     executor: str = "claude-code",
-    level: str = "primary",
+    level: str | None = None,
     mode: str = "wait",
     project_id: int = 1,
     actor_id: int | None = None,

@@ -53,7 +53,7 @@ def _insert_family_activity(conn, table: str, timestamp: str) -> int | None:
                 "codex",
                 "openai",
                 "test-model",
-                "primary",
+                None,
                 "/tmp",
                 1,
                 timestamp,

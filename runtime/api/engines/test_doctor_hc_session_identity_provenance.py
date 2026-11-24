@@ -32,7 +32,7 @@ CREATE TABLE harness_sessions (
     requested_model TEXT DEFAULT NULL,
     requested_reasoning_effort TEXT DEFAULT NULL,
     requested_context_window_tokens INTEGER DEFAULT NULL,
-    execution_level TEXT NOT NULL DEFAULT 'primary',
+    execution_level TEXT,
     workspace TEXT NOT NULL DEFAULT '/tmp',
     mode TEXT DEFAULT 'wait',
     offered_at TIMESTAMPTZ NOT NULL,

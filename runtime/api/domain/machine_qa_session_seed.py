@@ -35,7 +35,7 @@ def seed_qa_session(
                 "(session_id, executor, provider, model, execution_level, "
                 "workspace, project_id, mode, offered_at, last_heartbeat, "
                 "actor_id) VALUES (%s, 'codex', 'openai', 'test-model', "
-                "'primary', %s, 1, 'wait', %s, %s, %s) "
+                "NULL, %s, 1, 'wait', %s, %s, %s) "
                 "ON CONFLICT (session_id) DO NOTHING",
                 (
                     session_id,

@@ -14,7 +14,6 @@ from yoke_contracts.model_level_resolution import (
 )
 from yoke_contracts.model_reference import lookup_stem
 from yoke_contracts.refusal_recovery import compose_refusal
-from yoke_contracts.session_level import level_is_unresolved
 
 LEVELS_KEY = "levels"
 
@@ -51,8 +50,6 @@ class Level:
 def level_name_error(name: object) -> Optional[str]:
     if not isinstance(name, str) or not name.strip():
         return "a level name must be a non-empty string"
-    if level_is_unresolved(name):
-        return f"{name.strip()!r} is reserved for an unresolved session; choose another name"
     normalized = "".join(c if c.isalnum() else "_" for c in name.strip()).upper()
     if name != normalized:
         return f"{name!r} must use uppercase letters, digits and underscores (for example {normalized!r})"
@@ -206,7 +203,7 @@ def level_reason(levels, *, model, effort, records):
 
 def level_presentation(levels, level, *, reason=None):
     """Label and glyph for a stored level; unresolved or placed names why."""
-    if level_is_unresolved(level):
+    if not level:
         text = UNRESOLVED_LEVEL_REASONS.get(str(reason or ""), "")
         return {
             "label": f"no level: {text}" if text else "no level",

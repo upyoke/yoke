@@ -68,7 +68,7 @@ def create_session_tables(conn: Any) -> None:
           reasoning_effort TEXT DEFAULT NULL,
           context_window_tokens INTEGER DEFAULT NULL,
           usage_totals TEXT DEFAULT NULL,
-          execution_level TEXT NOT NULL DEFAULT 'primary',
+          execution_level TEXT,
           workspace TEXT NOT NULL,
           project_id INTEGER REFERENCES projects(id),
           org_id INTEGER REFERENCES organizations(id),

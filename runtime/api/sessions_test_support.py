@@ -181,7 +181,7 @@ def _register(conn, session_id="sess-1", mode=None, **kwargs):
         ),
         workspace="/tmp/work",
         project_id=1,
-        execution_level="primary",
+        execution_level=None,
     )
     defaults.update(kwargs)
     row = register_session(conn, session_id=session_id, **defaults)
@@ -323,7 +323,7 @@ def _ensure_active_session(
     executor: str = "claude-code",
     provider: str = "anthropic",
     model: str = TEST_MODEL_ID,
-    execution_level: str = "primary",
+    execution_level: str | None = None,
 ) -> None:
     row = conn.execute(
         f"SELECT session_id FROM harness_sessions WHERE session_id = {_p(conn)} "

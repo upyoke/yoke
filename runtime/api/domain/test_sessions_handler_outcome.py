@@ -283,7 +283,7 @@ class TestRecordRecoverableSubstrateSkip:
                 "INSERT INTO harness_sessions (session_id, executor, provider,"
                 " model, execution_level, executor_version, machine_id, workspace, mode,"
                 " offered_at, last_heartbeat, ended_at, offer_envelope) VALUES"
-                " (%s, 'claude-code', 'anthropic', 'claude-opus-4-7', 'primary',"
+                " (%s, 'claude-code', 'anthropic', 'claude-opus-4-7', NULL,"
                 " NULL, NULL, '/tmp/work', 'wait', %s, %s, NULL, NULL)",
                 ("sess-bare-row", now, now),
             )

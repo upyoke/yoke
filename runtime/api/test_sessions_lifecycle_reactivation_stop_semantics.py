@@ -52,7 +52,7 @@ def _insert_session(
                (session_id, executor, provider, model, execution_level,
                 workspace, project_id, mode, offered_at, last_heartbeat, ended_at,
                 offer_envelope)
-               VALUES (%s, 'codex', 'openai', 'gpt-5.4', 'primary',
+               VALUES (%s, 'codex', 'openai', 'gpt-5.4', NULL,
                        %s, 1, %s, %s, %s, NULL, %s)""",
             (session_id, workspace, mode, now, now, envelope),
         )
@@ -211,7 +211,7 @@ class TestReactivationAfterStop:
                 executor="codex",
                 provider="openai",
                 model_facts=SessionModelFacts(requested_model="gpt-5.4"),
-                execution_level="primary",
+                execution_level=None,
                 workspace=workspace,
                 project_id=1,
             )
@@ -246,7 +246,7 @@ class TestReactivationAfterStop:
                 executor="codex",
                 provider="openai",
                 model_facts=SessionModelFacts(requested_model="gpt-5.4"),
-                execution_level="primary",
+                execution_level=None,
                 workspace=workspace,
                 project_id=1,
             )

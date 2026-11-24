@@ -58,8 +58,6 @@ def test_an_invalid_level_is_refused_at_its_path():
         "level_rules",
         "executor_default_levels",
         "executor_default_level_codex",
-        "lane_metadata",
-        "executor_default_lane_codex",
     ],
 )
 def test_retired_level_routing_keys_are_refused_with_the_override_recipe(key):
@@ -82,9 +80,10 @@ def test_older_retired_keys_keep_their_named_refusal(key, code):
     assert code in str(error)
 
 
-def test_an_unknown_key_is_refused():
-    error = _refusal({**OVERRIDE, "max_chain_steps": 3})
-    assert error.field == "max_chain_steps"
+@pytest.mark.parametrize("key", ["max_chain_steps", "lane_metadata", "executor_default_lane_codex"])
+def test_an_unknown_key_is_refused(key):
+    error = _refusal({**OVERRIDE, key: 3})
+    assert error.field == key
     assert "session_routing_key_unknown" in str(error)
 
 

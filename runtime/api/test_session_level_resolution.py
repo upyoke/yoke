@@ -11,10 +11,6 @@ import json
 import pytest
 
 from yoke_contracts.levels import default_levels, parse_levels
-from yoke_contracts.session_level import (
-    UNRESOLVED_EXECUTION_LEVEL,
-    level_is_unresolved,
-)
 from yoke_core.domain.session_level_resolution import (
     resolve_execution_level,
     session_levels,
@@ -63,15 +59,15 @@ class TestShippedSchemeMatch:
         assert _resolve(executor, model, effort) == expected
 
     @pytest.mark.parametrize("executor,model,effort,expected", _SHIPPED_MATCHES)
-    def test_relayed_sentinel_yields_to_the_option_match(
+    def test_missing_level_yields_to_the_option_match(
         self, executor, model, effort, expected
     ):
         assert (
-            _resolve(executor, model, effort, explicit=UNRESOLVED_EXECUTION_LEVEL)
+            _resolve(executor, model, effort, explicit=None)
             == expected
         )
 
-    @pytest.mark.parametrize("explicit", ["  PRIMARY  ", "default", ""])
+    @pytest.mark.parametrize("explicit", ["default", ""])
     def test_non_choices_yield_to_the_option_match(self, explicit):
         assert (
             _resolve("claude-code", "claude-opus-5-5", "medium", explicit=explicit)
@@ -93,8 +89,7 @@ class TestShippedSchemeMatch:
     )
     def test_no_matching_option_reports_unresolved(self, executor, model):
         resolved = _resolve(executor, model, "medium")
-        assert resolved == UNRESOLVED_EXECUTION_LEVEL
-        assert level_is_unresolved(resolved)
+        assert resolved is None
 
 
 class TestEffortDisambiguation:
@@ -106,8 +101,8 @@ class TestEffortDisambiguation:
             ("max", "UPPER"),
             ("MAX", "UPPER"),
             ("high", "LOWER"),
-            ("medium", UNRESOLVED_EXECUTION_LEVEL),
-            (None, UNRESOLVED_EXECUTION_LEVEL),
+            ("medium", None),
+            (None, None),
         ],
     )
     def test_effort_must_dominate_the_option(self, effort, expected):
@@ -202,10 +197,10 @@ class TestProjectLevelForSession:
         conn = _LevelStoreConn(universe=_UNIVERSE_DOC, project=_PROJECT_DOC)
         assert self._level(conn) == "PROJECT_ONLY"
 
-    def test_relayed_sentinel_does_not_override_the_match(self):
+    def test_missing_level_does_not_override_the_match(self):
         conn = _LevelStoreConn(universe=_UNIVERSE_DOC)
         assert (
-            self._level(conn, explicit_level=UNRESOLVED_EXECUTION_LEVEL)
+            self._level(conn, explicit_level=None)
             == "UNIVERSE_ONLY"
         )
 
@@ -215,10 +210,10 @@ class TestProjectLevelForSession:
 
     def test_unreadable_stored_document_labels_nothing(self):
         conn = _LevelStoreConn(raw_universe="{not json")
-        assert self._level(conn) == UNRESOLVED_EXECUTION_LEVEL
+        assert self._level(conn) is None
 
     def test_no_project_and_no_model_reports_unresolved(self):
         assert (
             project_level_for_session(None, None, "claude-code")
-            == UNRESOLVED_EXECUTION_LEVEL
+            is None
         )

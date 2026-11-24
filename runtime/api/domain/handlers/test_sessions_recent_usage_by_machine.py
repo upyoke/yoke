@@ -67,7 +67,7 @@ def _insert_session(
             "claude-code",
             "anthropic",
             "test-model",
-            "primary",
+            None,
             "/tmp/workspace",
             project_id,
             "wait",

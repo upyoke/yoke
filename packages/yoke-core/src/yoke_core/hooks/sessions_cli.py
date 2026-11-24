@@ -156,7 +156,7 @@ def main(argv: Optional[List[str]] = None) -> None:
                     "Usage: harness-sessions begin <sid> <executor> <provider> "
                     "<model> <workspace> [level]"
                 )
-            level = rest[5] if len(rest) > 5 else "primary"
+            level = rest[5] if len(rest) > 5 else None
             from yoke_contracts.project_defaults import default_project_for_directory
             from yoke_core.domain.project_identity import resolve_project_id
 

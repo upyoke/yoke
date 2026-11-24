@@ -56,7 +56,7 @@ model TEXT -- provider-attested served model; NULL until attested and landed
 reasoning_effort TEXT -- served effort, distinct from requested_reasoning_effort
 context_window_tokens INTEGER -- served window, distinct from requested_context_window_tokens
 usage_totals TEXT -- measured usage document; parse through session_usage_facts
-execution_level TEXT NOT NULL DEFAULT 'primary' -- session grouping identity stamped by session-routing settings
+execution_level TEXT -- resolved session grouping identity, NULL when no level matches
 capabilities TEXT DEFAULT '[]' -- JSON array of capability tags
 project_id INTEGER REFERENCES projects(id) -- registered project; NULL outside any project
 org_id INTEGER REFERENCES organizations(id) -- authority org; set only outside any project

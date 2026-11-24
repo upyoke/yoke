@@ -125,7 +125,7 @@ def test_a_wire_level_without_model_facts_cannot_drive_reregister(monkeypatch):
     )
 
     drove = register_module.ensure_registered_from_hook(
-        _Conn([{"execution_level": "primary"}]),
+        _Conn([{"execution_level": None}]),
         '{"execution_level": "SENIOR"}',
         "s-level",
     )
@@ -135,9 +135,9 @@ def test_a_wire_level_without_model_facts_cannot_drive_reregister(monkeypatch):
 
 
 def _unresolved_row(executor: str, **facts) -> dict:
-    """A stored row the sentinel left unroutable, with its model facts."""
+    """A stored row with no level, with its model facts."""
     row = {
-        "execution_level": "primary",
+        "execution_level": None,
         "executor": executor,
         "model": None,
         "requested_model": None,
@@ -164,7 +164,7 @@ _NO_STORED_LEVELS = (None, None)
     ],
 )
 def test_unresolved_level_drives_reregister_from_matching_option(monkeypatch, facts):
-    """A row the sentinel left unroutable repairs itself on any hook event.
+    """A row with no level repairs itself on any hook event.
 
     Nothing rides the wire here: the row's executor and model facts matched
     against the levels the project reads are the whole input, which is what

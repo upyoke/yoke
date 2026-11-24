@@ -41,7 +41,7 @@ def _seed_session(conn, session_id: str) -> None:
         "(session_id, executor, provider, model, execution_level, workspace, "
         "project_id, mode, offered_at, last_heartbeat, actor_id, "
         "executor_surface) "
-        "VALUES (%s, 'codex', 'openai', 'test-model', 'primary', %s, %s, "
+        "VALUES (%s, 'codex', 'openai', 'test-model', NULL, %s, %s, "
         "'wait', %s, %s, %s, 'codex-cli')",
         (
             session_id,

@@ -63,7 +63,7 @@ def _make_conn(repo_path: str):
         );
         CREATE TABLE harness_sessions (
             session_id TEXT PRIMARY KEY,
-            execution_level TEXT NOT NULL DEFAULT 'primary'
+            execution_level TEXT
         );
         """,
     )

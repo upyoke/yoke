@@ -3,7 +3,6 @@
 from __future__ import annotations
 from typing import Any, Optional, Sequence
 from yoke_contracts.levels import Level, LevelsError, default_levels, level_for_session
-from yoke_contracts.session_level import UNRESOLVED_EXECUTION_LEVEL
 
 
 def session_levels(conn: Any, project_id: Optional[int]) -> tuple[Level, ...]:
@@ -31,13 +30,12 @@ def resolve_execution_level(
     model: Optional[str] = None,
     reasoning_effort: Optional[str] = None,
     records: Sequence[Any] = (),
-) -> str:
+) -> str | None:
     """Resolve actual model facts; a launch's level stamp is never capability."""
-    matched = level_for_session(
+    return level_for_session(
         levels,
         executor=executor,
         model=model,
         reasoning_effort=reasoning_effort,
         records=records,
     )
-    return matched or UNRESOLVED_EXECUTION_LEVEL

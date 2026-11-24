@@ -6,7 +6,6 @@ import json
 
 import pytest
 
-from yoke_contracts.session_level import UNRESOLVED_EXECUTION_LEVEL
 
 from runtime.api.api_items_test_helpers import _client_for_db, make_test_db_fixture
 
@@ -46,7 +45,7 @@ def _body(session_id: str, *, event_name: str, execution_level=None) -> dict:
     return body
 
 
-def _level_for(session_id: str) -> str:
+def _level_for(session_id: str) -> str | None:
     from yoke_core.domain import db_helpers
 
     conn = db_helpers.connect()
@@ -72,7 +71,7 @@ def test_hooks_evaluate_wire_level_cannot_resolve_unknown_model(client) -> None:
         == 200
     )
     # No model is attested, so no level option matches yet.
-    assert _level_for(session_id) == UNRESOLVED_EXECUTION_LEVEL
+    assert _level_for(session_id) is None
 
     assert (
         client.post(
@@ -85,7 +84,7 @@ def test_hooks_evaluate_wire_level_cannot_resolve_unknown_model(client) -> None:
         ).status_code
         == 200
     )
-    assert _level_for(session_id) == UNRESOLVED_EXECUTION_LEVEL
+    assert _level_for(session_id) is None
 
     fresh = "wire-level-fresh-session"
     assert (
@@ -99,4 +98,4 @@ def test_hooks_evaluate_wire_level_cannot_resolve_unknown_model(client) -> None:
         ).status_code
         == 200
     )
-    assert _level_for(fresh) == UNRESOLVED_EXECUTION_LEVEL
+    assert _level_for(fresh) is None

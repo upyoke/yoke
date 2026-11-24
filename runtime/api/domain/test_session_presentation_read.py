@@ -19,7 +19,7 @@ def test_roster_keeps_execution_and_observed_presentation_independent():
         {
             "executor": "claude-code",
             "executor_surface": "claude-cli",
-            "execution_level": "primary",
+            "execution_level": None,
             "presentation_surface": "remote-control",
             "presentation_state": "attached",
             "presentation_mode": "bidirectional",
@@ -73,18 +73,18 @@ def test_fleet_holder_and_delivery_queries_select_waiting_chronology():
     assert "turn_posture" in undelivered_src and "turn_posture_at" in undelivered_src
 
 
-def test_existing_cursor_sentinel_recomputes_on_read_without_mutating_row():
+def test_cursor_level_recomputes_on_read_without_mutating_row():
     row = {
         "executor": "cursor",
         "executor_surface": "cursor-desktop",
-        "execution_level": "primary",
+        "execution_level": None,
         "model": "grok-4.7-high-fast",
         "project_id": 1,
     }
     result = session_presentation(row, levels={1: default_levels()}, records=RECORDS)
     assert result["execution_level"] == "JUNIOR"
     assert (result["level_label"], result["level_glyph"]) == ("JUNIOR", "\U0001f425")
-    assert row["execution_level"] == "primary"
+    assert row["execution_level"] is None
 
 
 def test_superseded_model_has_no_execution_level():
@@ -92,7 +92,7 @@ def test_superseded_model_has_no_execution_level():
         {
             "executor": "cursor",
             "executor_surface": "cursor-cli",
-            "execution_level": "primary",
+            "execution_level": None,
             "model": "cursor-grok-4.5-high",
         },
         levels={None: default_levels()},
@@ -109,7 +109,7 @@ def test_requested_facts_fill_missing_roster_model_and_effort():
     result = session_presentation(
         {
             "executor": "codex",
-            "execution_level": "primary",
+            "execution_level": None,
             "requested_model": "gpt-6.2-sol",
             "requested_reasoning_effort": "medium",
         },
@@ -124,7 +124,7 @@ def test_attested_roster_facts_outrank_requested_facts():
     result = session_presentation(
         {
             "executor": "cursor",
-            "execution_level": "primary",
+            "execution_level": None,
             "model": "grok-4.7-high-fast",
             "reasoning_effort": "high",
             "requested_model": "claude-fable-5-1",

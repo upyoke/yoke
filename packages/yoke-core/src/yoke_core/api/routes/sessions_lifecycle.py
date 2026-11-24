@@ -18,7 +18,6 @@ from yoke_contracts.timestamps import temporal_wire
 from fastapi.routing import APIRouter
 from pydantic import BaseModel
 
-from yoke_contracts.session_level import UNRESOLVED_EXECUTION_LEVEL
 from yoke_contracts.session_model_facts import facts_from_mapping
 from yoke_core.domain import db_backend
 from yoke_core.domain.sessions import (
@@ -58,7 +57,7 @@ class RegisterSessionRequest(BaseModel):
     model: Optional[str] = None
     reasoning_effort: Optional[str] = None
     context_window_tokens: Optional[int] = None
-    execution_level: str = UNRESOLVED_EXECUTION_LEVEL
+    execution_level: str | None = None
     executor_version: Optional[str] = None
     machine_id: Optional[str] = None
     workspace: str
@@ -73,8 +72,7 @@ def api_register_session(req: RegisterSessionRequest) -> JSONResponse:
     _main = _main_api()
     conn = _main.get_db_readwrite()
     try:
-        # The request's own level is the explicit choice: a real level is
-        # honoured, while the unresolved sentinel yields to the option match.
+        # Model and effort determine the stored level.
         execution_level = resolve_execution_level(
             executor=req.executor,
             explicit_level=req.execution_level,
