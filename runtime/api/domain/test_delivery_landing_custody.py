@@ -216,7 +216,7 @@ def test_an_unreadable_comparison_is_neither_answer(
 
 def test_merged_open_items_projects_frozen_landings(test_db: Any) -> None:
     _landed_item(test_db, frozen=True)
-    rows = merged_open_items(test_db, PROJECT_ID, include_frozen=True)
+    rows = merged_open_items(test_db, PROJECT_ID)
     assert [row["frozen"] for row in rows if row["id"] == ITEM_ID] == [1]
 
 
