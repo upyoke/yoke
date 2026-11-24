@@ -11,7 +11,7 @@ import pytest
 
 from yoke_cli.config import writer
 from yoke_cli.project_install import instruction_discovery as instructions
-from yoke_cli.project_install import runner
+from yoke_cli.project_install import owned_cleanup, runner
 from yoke_cli.project_install.bundle_apply import apply_bundle
 from yoke_contracts.project_contract.install_error import ProjectInstallError
 from yoke_contracts.machine_config.checkout import main_checkout
@@ -151,12 +151,10 @@ def test_first_install_from_external_lane_registers_main(
     lane = external_lane
     _git(checkout, "worktree", "add", "-b", "lane", str(lane))
     cfg = _config(tmp_path, monkeypatch, [])
-    from yoke_cli.project_install import owned_cleanup
-
     intent = owned_cleanup._registration_intent(lane)
     git_dir = Path(_git(lane, "rev-parse", "--absolute-git-dir").stdout.strip())
     assert intent == git_dir / "yoke-install-registration", (
-        f"locale-decoded intent {ascii(str(intent))}; "
+        f"registration intent {ascii(str(intent))}; "
         f"UTF-8 Git directory {ascii(str(git_dir))}; directory exists: {git_dir.is_dir()}"
     )
     assert runner._register_in_machine_config(lane, 7, cfg, True)
@@ -164,6 +162,21 @@ def test_first_install_from_external_lane_registers_main(
     assert json.loads(cfg.read_text(encoding="utf-8"))["connection_projects"]["prod"] == [
         {"checkout": str(checkout), "project_id": 7}
     ]
+
+
+def test_external_lane_install_requires_the_registration_intent(
+    checkout, tmp_path, external_lane, monkeypatch
+):
+    lane = external_lane
+    _git(checkout, "worktree", "add", "-b", "lane", str(lane))
+    cfg = _config(tmp_path, monkeypatch, [])
+    before = cfg.read_bytes()
+    missing = tmp_path / "missing" / "yoke-install-registration"
+    monkeypatch.setattr(owned_cleanup, "_registration_intent", lambda _: missing)
+
+    with pytest.raises(ProjectInstallError, match="registration_intent_unwritable.*rerun"):
+        runner._register_in_machine_config(lane, 7, cfg, True)
+    assert cfg.read_bytes() == before
 
 
 def test_install_refuses_displacing_an_unrelated_checkout(tmp_path, monkeypatch):

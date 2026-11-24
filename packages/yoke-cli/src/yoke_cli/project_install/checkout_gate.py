@@ -311,11 +311,12 @@ def _commit_message(operation: str, version: str) -> str:
     return f"{INSTALL_COMMIT_PREFIX}{version}"
 
 
-def run_git(repo_root: Path, *args: str) -> subprocess.CompletedProcess[str]:
+def run_git(repo_root: Path, *args: str, encoding: str | None = None) -> subprocess.CompletedProcess[str]:
     return terminal_detached_process.run(
         ["git", "-C", str(repo_root), *args],
         capture_output=True,
         text=True,
+        encoding=encoding,
         check=False,
     )
 

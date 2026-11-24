@@ -47,10 +47,13 @@ def _registration_intent(root: Path) -> Path | None:
     if not checkout_gate.is_git_checkout(root):
         return None
     found = checkout_gate.run_git(
-        root, "rev-parse", "--git-path", "yoke-install-registration"
+        root, "rev-parse", "--git-path", "yoke-install-registration", encoding="utf-8"
     )
-    if found.returncode:
-        return None
+    if found.returncode or not found.stdout.strip():
+        raise ProjectInstallError(
+            f"registration_intent_unavailable: Git could not locate metadata for {root}; "
+            "repair the Git worktree, then rerun yoke project install"
+        )
     path = Path(found.stdout.strip())
     return path if path.is_absolute() else root / path
 
@@ -59,9 +62,15 @@ def intend_registration(root: Path, config_path) -> None:
     """Record ownership BEFORE writing the mapping, so a kill cannot lose it."""
     path = _registration_intent(root)
     if path is not None:
-        path.write_text(
-            str(machine_config.config_path(config_path).resolve()), encoding="utf-8"
-        )
+        try:
+            path.write_text(
+                str(machine_config.config_path(config_path).resolve()), encoding="utf-8"
+            )
+        except OSError as exc:
+            raise ProjectInstallError(
+                f"registration_intent_unwritable: {path}: {exc}; "
+                "repair the Git worktree metadata or permissions, then rerun yoke project install"
+            ) from exc
 
 
 def registration_intended(root: Path, config_path) -> bool:
