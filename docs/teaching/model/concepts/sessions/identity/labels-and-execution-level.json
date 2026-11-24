@@ -4,5 +4,5 @@
  "status": "observed",
  "page": "session-identity",
  "position": 5,
- "summary": "Session mentions resolve title, surface, project, claims and last tool age at read time. Cards retain the harness header and add a stored native chat title only when it differs from the launch item ref and title and no steering claim is held. The header info control reveals diagnostic state and timestamps; card active age includes heartbeat and turn markers."
+ "summary": "Session mentions resolve title, surface, project, claims and last tool age at read time. Cards retain the harness header and add a stored native chat title only when it differs from the launch item ref and title and no steering claim is held. The header info control reveals diagnostic state and timestamps; card active age includes heartbeat and turn markers. Session list, get and identity replies show no level with its reason when the current model and effort resolve to no execution level. The JSON execution_level field is null."
 }

@@ -103,14 +103,27 @@ class TestResolveSessionIdentity:
 
 
 class TestHandleIdentity:
-    def test_returns_stored_identity_not_a_local_guess(self, test_db, monkeypatch):
+    @pytest.mark.parametrize(
+        ("model", "label", "reason"),
+        [
+            ("composer-1", "no level: model not in the catalog", "session_model_unknown"),
+            (
+                "cursor-grok-4.5-high",
+                "no level: superseded model with no lower class",
+                "session_older_model_bottom_class",
+            ),
+        ],
+    )
+    def test_returns_stored_identity_not_a_local_guess(
+        self, test_db, monkeypatch, model, label, reason
+    ):
         _insert_session(
             test_db,
             "identity-handler",
             executor="cursor",
             executor_surface="cursor-desktop",
             provider="cursor",
-            model="composer-1",
+            model=model,
             level="MUSKY",
         )
         monkeypatch.setattr(
@@ -124,8 +137,10 @@ class TestHandleIdentity:
         assert payload["executor"] == "cursor"
         assert payload["executor_surface"] == "cursor-desktop"
         assert payload["provider"] == "cursor"
-        assert payload["model"] == "composer-1"
-        assert payload["execution_level"] == "primary"
+        assert payload["model"] == model
+        assert payload["execution_level"] is None
+        assert payload["level_label"] == label
+        assert payload["level_reason"] == reason
         assert payload["workspace"] == "/tmp/workspace"
         assert "lane_allowed_paths" not in payload
         assert isinstance(payload["max_chain_steps"], int)

@@ -195,6 +195,25 @@ class TestHandler:
         assert outcome.result_payload["rows"][0]["reasoning_effort"] == "max"
         assert outcome.result_payload["rows"][0]["context_window_tokens"] == 258400
 
+    def test_summary_reports_no_level_and_its_reason(self, test_db):
+        _insert_session(test_db, "s-superseded", last_heartbeat=_iso(), executor="cursor")
+        test_db.execute(
+            "UPDATE harness_sessions SET model = %s WHERE session_id = %s",
+            ("cursor-grok-4.5-high", "s-superseded"),
+        )
+        test_db.commit()
+
+        outcome = handle_sessions_list(_request({"detail": "summary"}))
+
+        assert outcome.primary_success
+        assert {"execution_level", "level_label", "level_reason"}.issubset(
+            outcome.result_payload["fields"]
+        )
+        row, = outcome.result_payload["rows"]
+        assert row["execution_level"] is None
+        assert row["level_label"] == "no level: superseded model with no lower class"
+        assert row["level_reason"] == "session_older_model_bottom_class"
+
     def test_handler_returns_fields_and_rows(self, test_db):
         create_session_control_tables(test_db)
         test_db.commit()

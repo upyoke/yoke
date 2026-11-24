@@ -8,13 +8,11 @@ from yoke_contracts.executor_labels import executor_presentation
 from yoke_contracts.levels import (
     Level,
     LevelsError,
-    level_for_session,
     level_presentation,
-    level_reason,
     resolve_effective_levels,
 )
-from yoke_contracts.session_level import UNRESOLVED_EXECUTION_LEVEL
 from yoke_contracts.model_level_resolution import (
+    resolve_model_level,
     routing_effort_of,
     routing_model_of,
 )
@@ -74,23 +72,8 @@ def session_presentation(
         row.get("requested_reasoning_effort"),
         row.get("model"),
     )
-    execution_level = (
-        level_for_session(
-            effective,
-            executor=display_name,
-            model=model,
-            reasoning_effort=effort,
-            records=records,
-        )
-        or UNRESOLVED_EXECUTION_LEVEL
-    )
-    reason = level_reason(effective, model=model, effort=effort, records=records)
-    level = level_presentation(effective, execution_level, reason=reason)
     return {
-        "execution_level": execution_level,
-        "level_label": level["label"],
-        "level_glyph": level["glyph"],
-        "level_reason": level.get("reason") or None,
+        **session_level_presentation(effective, model=model, effort=effort, records=records),
         "executor_mark": executor["mark"],
         "executor_class_name": executor["class_name"],
         "presentation_surface": row.get("presentation_surface"),
@@ -101,4 +84,23 @@ def session_presentation(
     }
 
 
-__all__ = ["levels_by_project", "session_presentation"]
+def session_level_presentation(
+    levels: tuple[Level, ...],
+    *,
+    model: str | None,
+    effort: str | None,
+    records=(),
+) -> dict[str, Any]:
+    """Expose the current level and the reason for unresolved or placed levels."""
+    resolved = resolve_model_level(levels, model=model, effort=effort, records=records)
+    reason = resolved.reason if model else "session_model_unreported"
+    level = level_presentation(levels, resolved.level, reason=reason)
+    return {
+        "execution_level": resolved.level,
+        "level_label": level["label"],
+        "level_glyph": level["glyph"],
+        "level_reason": level.get("reason") or None,
+    }
+
+
+__all__ = ["levels_by_project", "session_level_presentation", "session_presentation"]

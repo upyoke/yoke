@@ -51,13 +51,15 @@ class SessionIdentity:
     #: ``model`` must say which it is showing.
     requested_model: str
     workspace: str
-    execution_level: str
+    execution_level: Optional[str]
     capabilities: List[str] = field(default_factory=list)
     project_id: Optional[int] = None
     org_id: Optional[int] = None
     actor_id: Optional[int] = None
     mode: Optional[str] = None
     ended_at: Optional[datetime] = None
+    level_label: Optional[str] = None
+    level_reason: Optional[str] = None
 
     @property
     def scope_kind(self) -> str:
@@ -91,7 +93,7 @@ def resolve_session_identity(conn: Any, session_id: str) -> SessionIdentity:
 
     row = conn.execute(
         "SELECT executor, executor_surface, executor_version, machine_id, "
-        "provider, model, requested_model, workspace, execution_level, "
+        "provider, model, requested_model, workspace, "
         "project_id, actor_id, mode, ended_at, reasoning_effort, requested_reasoning_effort, org_id "
         f"FROM harness_sessions WHERE session_id = {_p(conn)}",
         (session_id,),
@@ -109,22 +111,16 @@ def resolve_session_identity(conn: Any, session_id: str) -> SessionIdentity:
     )
 
     derived = resolve_harness_capabilities(_text(row[0]), _text(row[7]))
-    from yoke_core.domain.session_level_resolution import (
-        resolve_execution_level,
-        session_levels,
-    )
-    from yoke_contracts.model_level_resolution import (
-        routing_effort_of,
-        routing_model_of,
-    )
+    from yoke_contracts.model_level_resolution import routing_effort_of, routing_model_of
+    from yoke_core.domain.session_level_resolution import session_levels
     from yoke_core.domain.session_model_catalog import current_model_records
+    from yoke_core.domain.session_presentation_read import session_level_presentation
 
-    execution_level = resolve_execution_level(
-        executor=_text(row[1]) or _text(row[0]),
-        explicit_level=None,
-        levels=session_levels(conn, _optional_int(row[9])),
+    project_id = _optional_int(row[8])
+    level = session_level_presentation(
+        session_levels(conn, project_id),
         model=routing_model_of(row[5], row[6]),
-        reasoning_effort=routing_effort_of(row[13], row[14], row[5]),
+        effort=routing_effort_of(row[12], row[13], row[5]),
         records=current_model_records(conn),
     )
     return SessionIdentity(
@@ -137,13 +133,15 @@ def resolve_session_identity(conn: Any, session_id: str) -> SessionIdentity:
         model=_text(row[5]),
         requested_model=_text(row[6]),
         workspace=_text(row[7]),
-        execution_level=execution_level,
+        execution_level=level["execution_level"],
+        level_label=level["level_label"],
+        level_reason=level["level_reason"],
         capabilities=[str(value) for value in derived["downstream_paths"]],
-        project_id=_optional_int(row[9]),
-        org_id=_optional_int(row[15]),
-        actor_id=_optional_int(row[10]),
-        mode=(str(row[11]) if row[11] is not None else None),
-        ended_at=(parse_instant(row[12]) if row[12] is not None else None),
+        project_id=project_id,
+        org_id=_optional_int(row[14]),
+        actor_id=_optional_int(row[9]),
+        mode=(str(row[10]) if row[10] is not None else None),
+        ended_at=(parse_instant(row[11]) if row[11] is not None else None),
     )
 
 
