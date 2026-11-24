@@ -17,7 +17,7 @@ from yoke_harness.native_windows.tasks import (
 )
 
 
-def desktop_script(control, script, *, timeout=60, hidden=False):
+def desktop_script(control, script, *, timeout=60, hidden=False, announce_wait=True):
     token = uuid4().hex
     root = control.home + "\\AppData\\Local\\YokeQa\\" + token
     name = "YokeQa-" + token
@@ -69,7 +69,8 @@ try {{
         diagnostics["phase"] = "task_start"
         start = control._run(create_interactive_task(name, path, arguments, timeout))
         require_task_result(control, start, phase="desktop_task_start")
-        announce_designed_wait("native Windows desktop task", max_wait_seconds=timeout)
+        if announce_wait:
+            announce_designed_wait("native Windows desktop task", max_wait_seconds=timeout)
         diagnostics["phase"] = "receipt"
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:

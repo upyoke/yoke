@@ -247,6 +247,14 @@ Provisioning stores the lab account's autologon password in LSA and disables
 its locks. Reboot, close the viewer and run `yoke test-machine verify --test-machine VM`.
 The probe checks Explorer and an unlocked display in the interactive console.
 
+After restoring the profile, a native Windows reset reboots the host if it can
+prove every interactive account is signed out. It waits up to ten minutes for
+SSH and autologon before checking PATH and the baseline. Keep the default
+`SeShutdownPrivilege` for the lab account through the Users group so it can
+restart Windows over SSH. If the console is locked or an RDP session is still
+signed in, reconnect, unlock and disconnect without signing out. If autologon
+fails after a reboot, inspect the VM console and repair desktop provisioning.
+
 Follow the [Tailscale and bootstrap RDP guide](windows-native-harnesses.md#first-tailscale-login-and-bootstrap-desktop).
 Register RDP on port 3389 for `yokeqa` using `direct` and MagicDNS after tailnet
 proof, or `ssh-forward` and `127.0.0.1` during bootstrap. Use
