@@ -94,7 +94,7 @@ def test_every_present_harness_is_granted(tmp_path: Path):
     )
     assert len(granted) >= 3
     claude_payload = json.loads(claude.read_text())
-    assert claude_payload[CLAUDE_PROJECTS_KEY][CHECKOUT][CLAUDE_TRUST_KEY] is True
+    assert claude_payload[CLAUDE_PROJECTS_KEY][claude_trust_key(CHECKOUT)][CLAUDE_TRUST_KEY] is True
     assert parse_config(codex.read_text())["projects"][CHECKOUT]["trust_level"] == (
         "trusted"
     )
@@ -153,7 +153,7 @@ def test_claude_keeps_every_unrelated_project_and_key(tmp_path: Path):
     payload = json.loads(claude.read_text())
     assert payload["someTopLevelSetting"] == 7
     assert payload[CLAUDE_PROJECTS_KEY]["/other"] == {"allowedTools": ["x"]}
-    assert payload[CLAUDE_PROJECTS_KEY][CHECKOUT][CLAUDE_TRUST_KEY] is True
+    assert payload[CLAUDE_PROJECTS_KEY][claude_trust_key(CHECKOUT)][CLAUDE_TRUST_KEY] is True
 
 
 def test_cursor_grant_preserves_native_microseconds(tmp_path: Path, monkeypatch):

@@ -114,7 +114,9 @@ def test_supervisor_delivers_instruction_bytes_after_custody(tmp_path, monkeypat
     assert settled.stdout == instruction
 
 
-@pytest.mark.parametrize("instruction", [b"", b"x" * (supervisor.MAX_HANDOFF_BYTES + 1)])
+@pytest.mark.parametrize(
+    "instruction", [b"", b"x" * (supervisor.MAX_HANDOFF_BYTES + 1)], ids=["empty", "oversized"]
+)
 def test_supervisor_refuses_invalid_instruction_before_native_spawn(tmp_path, monkeypatch, instruction):
     tmp_path = create_owner_private_directory(tmp_path / "private-relay")
     monkeypatch.setattr(

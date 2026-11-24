@@ -40,8 +40,9 @@ def test_uninstall_removes_checkout_and_lane_trust(installed):  # noqa: F811
 
     assert report["outcome"] == "complete", report
     claude_projects = read_json(trust.claude_state_path())["projects"]
-    assert str(root) not in claude_projects and str(lane) not in claude_projects
-    assert str(other_lane) in claude_projects
+    assert trust.claude_trust_key(root) not in claude_projects
+    assert trust.claude_trust_key(lane) not in claude_projects
+    assert trust.claude_trust_key(other_lane) in claude_projects
     codex = parse_config((Path.home() / ".codex/config.toml").read_text())
     assert str(root) not in codex["projects"] and str(lane) not in codex["projects"]
     assert str(other_lane) in codex["projects"]

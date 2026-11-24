@@ -151,7 +151,16 @@ def test_first_install_from_external_lane_registers_main(
     lane = external_lane
     _git(checkout, "worktree", "add", "-b", "lane", str(lane))
     cfg = _config(tmp_path, monkeypatch, [])
+    from yoke_cli.project_install import owned_cleanup
+
+    intent = owned_cleanup._registration_intent(lane)
+    git_dir = Path(_git(lane, "rev-parse", "--absolute-git-dir").stdout.strip())
+    assert intent == git_dir / "yoke-install-registration", (
+        f"locale-decoded intent {ascii(str(intent))}; "
+        f"UTF-8 Git directory {ascii(str(git_dir))}; directory exists: {git_dir.is_dir()}"
+    )
     assert runner._register_in_machine_config(lane, 7, cfg, True)
+    assert owned_cleanup.registration_intended(lane, cfg)
     assert json.loads(cfg.read_text(encoding="utf-8"))["connection_projects"]["prod"] == [
         {"checkout": str(checkout), "project_id": 7}
     ]
