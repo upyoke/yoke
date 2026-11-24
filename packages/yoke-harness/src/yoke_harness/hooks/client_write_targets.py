@@ -124,21 +124,57 @@ def _git(
         return None
 
 
-def _ignored(repo: str, paths: Iterable[str]) -> dict[str, bool | None]:
-    """Exclude proven Git metadata and ignored files from source-write policy."""
-    paths = list(paths)
+# The resident answers every hook on the machine, and each Git call is a
+# process spawn. Repository-level answers are reused while the Git metadata
+# they depend on is unchanged; per-operand ignore checks always run.
+_CACHE_LIMIT = 64
+_git_dirs_cache: dict[tuple[str, int], list[str]] = {}
+_worktrees_cache: dict[str, tuple[tuple, list[str]]] = {}
+
+
+def _remember(cache: dict, key, value) -> None:
+    if len(cache) >= _CACHE_LIMIT:
+        cache.pop(next(iter(cache)))
+    cache[key] = value
+
+
+def _git_dirs(repo: str) -> list[str]:
+    """The checkout's common and own Git directories; empty when unknown."""
+    try:
+        key = (repo, os.stat(os.path.join(repo, ".git")).st_ino)
+    except OSError:
+        key = None
+    if key is not None and key in _git_dirs_cache:
+        return _git_dirs_cache[key]
     probe = _git(
         repo, ["rev-parse", "--path-format=absolute", "--git-common-dir", "--git-dir"]
     )
-    roots = (
-        [
-            canonical_native_path(p)
-            for p in probe.stdout.splitlines()
-            if os.path.isabs(p)
-        ]
-        if probe is not None and probe.returncode == 0
-        else []
-    )
+    if probe is None or probe.returncode != 0:
+        return []
+    roots = [canonical_native_path(p) for p in probe.stdout.splitlines() if os.path.isabs(p)]
+    if key is not None:
+        _remember(_git_dirs_cache, key, roots)
+    return roots
+
+
+def _worktrees_stamp(common_dir: str) -> tuple | None:
+    """Changes whenever Git adds, moves or removes a linked worktree."""
+    directory = os.path.join(common_dir, "worktrees")
+    try:
+        entries = sorted(
+            (entry.name, entry.stat().st_mtime_ns) for entry in os.scandir(directory)
+        )
+        return (os.stat(directory).st_mtime_ns, tuple(entries))
+    except FileNotFoundError:
+        return ("none",) if os.path.isdir(common_dir) else None
+    except OSError:
+        return None
+
+
+def _ignored(repo: str, paths: Iterable[str]) -> dict[str, bool | None]:
+    """Exclude proven Git metadata and ignored files from source-write policy."""
+    paths = list(paths)
+    roots = _git_dirs(repo)
     metadata = {
         path
         for path in paths
@@ -167,14 +203,23 @@ def _ignored(repo: str, paths: Iterable[str]) -> dict[str, bool | None]:
 
 
 def _worktrees(repo: str) -> list[str]:
-    result = _git(repo, ["worktree", "list", "--porcelain"])
-    if result is None or result.returncode != 0:
-        return []
-    return [
-        canonical_native_path(line[len("worktree ") :])
-        for line in result.stdout.splitlines()
-        if line.startswith("worktree ") and os.path.isdir(line[len("worktree ") :])
-    ]
+    dirs = _git_dirs(repo)
+    stamp = _worktrees_stamp(dirs[0]) if dirs else None
+    cached = _worktrees_cache.get(repo)
+    if stamp is not None and cached is not None and cached[0] == stamp:
+        listed = cached[1]
+    else:
+        result = _git(repo, ["worktree", "list", "--porcelain"])
+        if result is None or result.returncode != 0:
+            return []
+        listed = [
+            line[len("worktree ") :]
+            for line in result.stdout.splitlines()
+            if line.startswith("worktree ")
+        ]
+        if stamp is not None:
+            _remember(_worktrees_cache, repo, (stamp, listed))
+    return [canonical_native_path(path) for path in listed if os.path.isdir(path)]
 
 
 def write_targets_fact(payload: Mapping[str, object], shell: ShellParse) -> dict:
