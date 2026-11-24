@@ -11,7 +11,8 @@ from datetime import datetime
 from typing import List, Optional
 from yoke_contracts.timestamps import format_instant
 
-from yoke_core.domain.db_helpers import connect, query_one, query_rows, query_scalar
+from yoke_core.domain import db_helpers
+from yoke_core.domain.db_helpers import query_one, query_rows, query_scalar
 from yoke_core.domain.deployment_runs_schema import (
     RUN_FIELDS,
     RUN_INSTANT_FIELDS,
@@ -45,7 +46,7 @@ def get_run(
         if fields is None
         else ", ".join(expressions.get(name, name) for name in selected)
     )
-    conn = connect(db_path)
+    conn = db_helpers.connect(db_path)
     try:
         row = query_one(
             conn,
@@ -77,7 +78,7 @@ def cmd_get(
 
     Returns None if the run is not found (caller should handle error output).
     """
-    conn = connect(db_path)
+    conn = db_helpers.connect(db_path)
     try:
         if field:
             if field not in RUN_FIELDS:
@@ -148,7 +149,7 @@ def cmd_list(
         or resolved_limit > MAX_RUN_LIST_LIMIT
     ):
         raise ValueError(f"limit must be an integer from 1 to {MAX_RUN_LIST_LIMIT}")
-    conn = connect(db_path)
+    conn = db_helpers.connect(db_path)
     try:
         clauses: List[str] = []
         params: List[object] = []
@@ -176,7 +177,7 @@ def cmd_list(
 
 def cmd_items(run_id: str, db_path: Optional[str] = None) -> str:
     """List items in a run (pipe-delimited)."""
-    conn = connect(db_path)
+    conn = db_helpers.connect(db_path)
     try:
         rows = query_rows(
             conn,
@@ -194,7 +195,7 @@ def cmd_find_by_item(
     db_path: Optional[str] = None,
 ) -> str:
     """Find deployment run(s) for an item. Returns pipe-delimited rows."""
-    conn = connect(db_path)
+    conn = db_helpers.connect(db_path)
     try:
         status_clause = ""
         params: list = [item_id]

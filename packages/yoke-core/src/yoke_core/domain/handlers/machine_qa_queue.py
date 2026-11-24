@@ -7,8 +7,7 @@ from psycopg.errors import LockNotAvailable, QueryCanceled
 
 from yoke_contracts.api.function_call import FunctionError, HandlerOutcome
 from yoke_core.domain.auth_context import StandardAuthContext
-from yoke_core.domain import db_helpers
-from yoke_core.domain.events import emit_event
+from yoke_core.domain import db_helpers, events
 from yoke_core.domain.project_identity import resolve_project_id
 from yoke_core.domain.qa_host_queue import lock_host_queue
 from yoke_core.domain.qa_host_queue_steering import (
@@ -133,7 +132,7 @@ def _edit(request, *, model, event_name):
             else:
                 result = withdraw_manual_wait(conn, body.session, body.host, project)
             if event_name:
-                emit_event(
+                events.emit_event(
                     event_name,
                     event_kind="system",
                     event_type="lease_lifecycle",

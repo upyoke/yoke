@@ -103,7 +103,7 @@ def native_clocks(clocks, monkeypatch):
         close=lambda: None,
         info=clocks.info,
     )
-    monkeypatch.setattr(deployment_runs_crud_query, "connect", lambda *_: proxy)
+    monkeypatch.setattr(deployment_runs_crud_query.db_helpers, "connect", lambda *_: proxy)
     monkeypatch.setattr(updates, "connect", lambda *_: proxy)
     native_clock_columns(clocks)
     from runtime.api.workflow_pin_test_support import install_workflow_pin

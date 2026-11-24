@@ -150,9 +150,13 @@ def test_resuming_a_failed_run_clears_its_completion_time(
         "validate_deployment_run_members",
         "require_target_unoccupied",
         "freeze_run_composition",
-        "record_attested_candidate_containment",
     ):
         monkeypatch.setattr(deployment_run_start, name, lambda *a, **k: None)
+    monkeypatch.setattr(
+        deployment_run_start.deployment_run_contained_items,
+        "record_attested_candidate_containment",
+        lambda *a, **k: None,
+    )
     monkeypatch.setattr(
         qa_deployment_run_settlement, "restore_retry_obligations", lambda *a: None
     )

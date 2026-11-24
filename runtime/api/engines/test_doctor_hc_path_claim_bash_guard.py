@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -11,6 +12,7 @@ from yoke_project_checks.check_path_claim_bash_guard import (
     hc_path_claim_bash_guard,
 )
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
+from yoke_core.engines.doctor_source_root import bound_source_root
 
 
 @pytest.fixture
@@ -156,5 +158,6 @@ def test_edit_matcher_does_not_count_as_bash_coverage():
 def test_hc_passes_against_production_hook_configs(conn):
     """End-to-end: the HC must report PASS against the actual rendered hook configs and chain registry."""
     rec = RecordCollector()
-    hc_path_claim_bash_guard(conn, DoctorArgs(), rec)
+    with bound_source_root(Path(__file__).resolve().parents[3]):
+        hc_path_claim_bash_guard(conn, DoctorArgs(), rec)
     assert rec.results[0].result == "PASS", rec.results[0].detail
