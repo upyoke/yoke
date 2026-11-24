@@ -38,9 +38,15 @@ hatch, not an agent merge path. Classic branch protection still requires
 Measured on a single working day of eleven parallel lanes: the serialized
 exact-final-tree merge discipline ran the full CI suite 21 times, roughly 9
 of them wasted re-proving trees that a neighbor's merge had already
-invalidated. A queue amortizes that: every branch proves itself once on its
-own tree, and one `merge_group` run proves the combined result for the whole
-train, with GitHub ejecting only the culprit on a red train.
+invalidated. The queue checks each branch on its own tree before admission.
+Under HEADGREEN, only the last entry's `merge_group` run must pass. It checks
+the combined head that lands, including every earlier entry's changes. An
+earlier entry can land with that group even if its own queue run failed,
+leaving the intermediate commit unproven on its own.
+
+On 2026-11-24 the operator chose to keep
+[HEADGREEN](https://docs.github.com/en/graphql/reference/pulls#mergequeuegroupingstrategy)
+on both Yoke and Platform and fix flaky tests directly.
 
 Hand-applied GitHub switches drifted within an hour of the first activation
 record (ALLGREEN → HEADGREEN). Encoding the shape in-repo closes that gap:
@@ -97,14 +103,10 @@ queued**, not arrivals still to come, so a long wait does not accumulate a
 batch — it only delays releasing an entry that is genuinely alone. The timer
 exists only for the quiet case, and a minute caps it.
 
-**The full isolated entry run is what makes batching safe, and narrowing it is
-the tempting mistake.** Every member of a group has already been proven green
-*alone*, so a group failure is by construction an interaction failure rather
-than an unattributed one, and GitHub's automatic bisect rarely has to run.
-Trimming the entry run to a change-impacted selection would look like a
-saving and would remove both the isolation proof and cheap attribution — a red
-train would no longer tell you whether a member is broken or merely
-incompatible with its neighbours. The entry run stays whole.
+Keep the full PR run before queue entry. It gives each branch a full-suite
+baseline on its own tree. If a queue run fails, compare it with that baseline
+to investigate whether the failure comes from integration with the base or
+earlier entries, or from a flaky check.
 
 Shard width is the larger lever, and orthogonal to all of this: it is
 parallelism inside one run, so it shortens every one of those concurrent
