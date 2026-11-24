@@ -68,7 +68,7 @@ def test_run_start_identity_survives_new_evidence_and_lane_advance(test_db, runn
     raw = test_db.execute(
         "SELECT raw_result FROM qa_runs WHERE id=%s", (run.run_id,)
     ).fetchone()[0]
-    assert recorded_head_sha(raw) == LATER
+    assert recorded_head_sha(raw) == START
     assert json.loads(raw)["evidence"] == "finished"
 
 
@@ -131,12 +131,3 @@ def test_served_commit_survives_plain_evidence_update():
 
     raw = retain_start_commit(json.dumps({"code_identity": {"sha": LATER}}), "finished")
     assert recorded_head_sha(raw) == LATER
-
-
-def test_finish_cannot_rebind_a_started_run_to_a_new_lane_head():
-    from yoke_core.domain.qa_run_commit_binding import wrap_evidence
-    from yoke_core.domain.qa_run_start_identity import retain_start_commit
-
-    raw = retain_start_commit(wrap_evidence("started", START), wrap_evidence("finished", LATER))
-    assert recorded_head_sha(raw) == START
-    assert json.loads(raw)["evidence"] == "finished"
