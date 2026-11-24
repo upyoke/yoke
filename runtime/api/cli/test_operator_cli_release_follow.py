@@ -11,6 +11,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from threading import Event
 from types import SimpleNamespace
 
 from yoke_cli.commands.adapters import session_control_relay_release as release_cli
@@ -233,19 +234,24 @@ def _serve_relay(monkeypatch, tmp_path, *, machine_active: bool) -> list[str]:
             runtime_python=Path(sys.prefix) / "bin" / "python",
         ),
     )
+    completed = Event()
+
     def record_follow(release, _state_dir):
         followed.append(release)
+        completed.set()
         return {"outcome": "current"}
 
     monkeypatch.setattr(follow, "follow_release", record_follow)
-    monkeypatch.setattr(session_relay_daemon, "serve_forever", lambda **_k: "served")
+    def serve_forever(*, cycle_maintenance, **_kwargs):
+        cycle_maintenance()
+        assert not machine_active or completed.wait(timeout=5)
+        return "served"
+    monkeypatch.setattr(session_relay_daemon, "serve_forever", serve_forever)
     assert release_cli.serve_release_daemon() == "served"
     return followed
 
 
-def test_active_connection_relay_start_follows_its_pinned_release(
-    monkeypatch, tmp_path
-) -> None:
+def test_active_connection_relay_start_follows_its_pinned_release(monkeypatch, tmp_path) -> None:
     followed = _serve_relay(monkeypatch, tmp_path, machine_active=True)
     assert followed == ["0.2.0.202610140941"]
 
@@ -254,9 +260,7 @@ def test_other_relays_leave_the_installed_cli_alone(monkeypatch, tmp_path) -> No
     assert _serve_relay(monkeypatch, tmp_path, machine_active=False) == []
 
 
-def test_update_installs_the_requested_version_from_the_recorded_origin(
-    monkeypatch, tmp_path
-) -> None:
+def test_update_installs_the_requested_version_from_the_recorded_origin(monkeypatch, tmp_path) -> None:
     select_machine_config_file(monkeypatch, tmp_path / "config.json")
     distribution_write.save(origin="https://fork.example", channel="stable")
     monkeypatch.setattr(

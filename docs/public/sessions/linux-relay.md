@@ -89,6 +89,11 @@ Repair that cause before reinstalling; an HTTP 403
 alone does not establish a permissions problem. Existing workers and pending
 reports remain available across the release switch.
 
+After the switch, the active connection's relay updates the operator CLI on
+a separate thread while it keeps polling and claiming work. A newer relay
+pin waits for that CLI update to finish. Read the CLI follow outcome in
+`operator-cli-follow.json` in the relay's state directory.
+
 ## Shutdown and service recovery
 
 TERM interrupts the current poll or maintenance call and closes job admission.
