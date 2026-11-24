@@ -7,7 +7,7 @@ from runtime.api.fixtures.machine_config_test import select_machine_config_file
 
 import pytest
 
-from yoke_cli.commands.adapters import onboard_interactive
+from yoke_cli.commands.adapters import onboard_apply, onboard_interactive
 from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.config import onboard_machine_setup as setup, onboard_report
 
@@ -143,7 +143,7 @@ def test_interactive_posture_is_in_preview_and_apply(tmp_path, monkeypatch):
         return SimpleNamespace(error=None, cancelled=False, exit_code=0)
 
     monkeypatch.setattr(onboard_interactive.onboard_wizard, "run_wizard", wizard)
-    monkeypatch.setattr(adapter, "_apply_with_durable_report", assemble)
+    monkeypatch.setattr(onboard_apply, "apply_with_durable_report", assemble)
     arguments = [
         "--connect",
         "https://app.upyoke.com",

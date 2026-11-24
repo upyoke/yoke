@@ -12,7 +12,7 @@ import argparse
 import io
 from pathlib import Path
 
-from yoke_cli.commands.adapters import onboard as onboard_adapter
+from yoke_cli.commands.adapters import onboard_interactive
 from yoke_cli.commands.adapters import onboard_project_args
 from yoke_cli.config import onboard as onboard_config
 from yoke_cli.config import dev_setup
@@ -53,7 +53,7 @@ def test_source_dev_project_mode_needs_only_checkout() -> None:
     assert onboard_project_args.project_prompt_missing(parsed) is False
 
 
-def test_finish_pending_dev_install_uses_selected_stream(
+def test_finish_pending_source_install_uses_selected_stream(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
@@ -67,7 +67,7 @@ def test_finish_pending_dev_install_uses_selected_stream(
     )
     stream = io.StringIO()
 
-    onboard_adapter._finish_pending_dev_install(str(config), stream=stream)
+    onboard_interactive.finish_pending_source_install(str(config), stream=stream)
 
     output = stream.getvalue()
     assert "Finalizing Yoke source activation" in output

@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from yoke_cli.commands.adapters import onboard as onboard_adapter
+from yoke_cli.commands.adapters import onboard_apply
 from yoke_cli.config import onboard_apply_connection
 from yoke_cli.config import onboard_apply_report
 from yoke_cli.config import onboard_wizard
@@ -116,7 +117,7 @@ def test_adapter_converts_apply_failure_to_typed_report(
     )
 
     with pytest.raises(onboard_wizard.WizardApplyError) as raised:
-        onboard_adapter._apply_with_durable_report(
+        onboard_apply.apply_with_durable_report(
             {
                 "config_path": "/tmp/home/config.json",
                 "env_name": "stage",
@@ -265,7 +266,7 @@ def test_apply_failure_outside_onboard_error_finalizes_report(
     )
 
     with pytest.raises(onboard_wizard.WizardApplyError) as raised:
-        onboard_adapter._apply_with_durable_report(
+        onboard_apply.apply_with_durable_report(
             {
                 "config_path": "/tmp/home/config.json",
                 "env_name": "stage",

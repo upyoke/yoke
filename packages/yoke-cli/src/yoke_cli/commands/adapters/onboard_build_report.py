@@ -21,9 +21,6 @@ from yoke_cli.config.project_publish_support import PublishRequest
 from yoke_cli.config.writer import MachineConfigWriteError
 from yoke_contracts.machine_config.schema import MachineConfigContractError
 
-_apply_with_durable_report = onboard_apply.apply_with_durable_report
-_print_failure_summary = onboard_apply.print_failure_summary
-
 
 def build_report(
     *,
@@ -64,7 +61,7 @@ def build_report(
     resume_payload: dict | None = None,
 ) -> dict | None:
     try:
-        return _apply_with_durable_report(
+        return onboard_apply.apply_with_durable_report(
             {
                 "config_path": config_path,
                 "env_name": env_name,
@@ -112,7 +109,7 @@ def build_report(
         print(f"error: {friendly_permission_error(str(exc))}", file=sys.stderr)
         return None
     except onboard_wizard.WizardApplyError as exc:
-        _print_failure_summary(
+        onboard_apply.print_failure_summary(
             onboard_wizard.WizardRunResult(
                 exit_code=1,
                 error=str(exc),
