@@ -324,7 +324,7 @@ def test_interactive_windows_console_probe_requires_receipt(monkeypatch, wsl, re
         }
     else:
         assert result.error_code == "windows_console_not_ready"
-        assert "Reboot" in result.evidence["recovery"]
+        assert "the next lease cold-boots and autologon signs in" in result.evidence["recovery"]
 
 
 def wsl_console_screenshot(monkeypatch):

@@ -2,11 +2,14 @@
 
 import subprocess
 from unittest.mock import Mock
+from uuid import uuid4
 
 import pytest
 
 from runtime.api.domain.native_windows_fixture_cleanup import PROFILE_CLEANUP_SCRIPT
 from yoke_harness.native_windows import provision
+from yoke_harness.native_windows.autologon import SCRIPT as AUTOLOGON_SCRIPT
+from yoke_harness.native_windows.console_setup import VALIDATE_ACCOUNT_PASSWORD
 from yoke_harness.native_windows.profile import HELPERS, SCRIPT
 from yoke_harness.native_windows.transport import encoded
 
@@ -40,7 +43,11 @@ def test_missing_secret_cannot_reset_existing_account(monkeypatch):
     store.assert_not_called()
 
 
-def test_profile_failure_stops_setup_and_redacts_secret(monkeypatch):
+@pytest.mark.parametrize("failure", [
+    "windows_profile_creation_failed HRESULT 0x80070005",
+    "windows_console_credential_rejected",
+])
+def test_provisioning_failure_stops_setup_and_redacts_secret(monkeypatch, failure):
     calls = []
     monkeypatch.setattr(provision, "test_machine_secret_path", lambda *a: "key")
     monkeypatch.setattr(
@@ -58,16 +65,22 @@ def test_profile_failure_stops_setup_and_redacts_secret(monkeypatch):
             [],
             1,
             "",
-            "private password windows_profile_creation_failed HRESULT 0x80070005",
+            f"private password {failure}",
         )
 
     monkeypatch.setattr(provision, "admin_script", admin)
-    with pytest.raises(RuntimeError, match="0x80070005") as error:
+    with pytest.raises(RuntimeError, match=failure) as error:
         provision.provision(
             "project", "vm", "host", "group", "admin", "qa", bootstrap_transport="ssh"
         )
     assert "private password" not in str(error.value)
     assert len(calls) == 2
+    setup = calls[1]
+    assert setup.index(SCRIPT) < setup.index(VALIDATE_ACCOUNT_PASSWORD) < setup.index(AUTOLOGON_SCRIPT)
+    grant = r'''Invoke-YokeAcl 'C:\YokeQa' /grant "${name}:(OI)(CI)M"'''
+    goldens = r"New-Item -ItemType Directory -Force 'C:\YokeQa\goldens'"
+    assert grant in setup.splitlines()
+    assert setup.index(VALIDATE_ACCOUNT_PASSWORD) < setup.index(grant) < setup.index(goldens)
 
 
 def powershell(script, *, timeout=45):
@@ -82,6 +95,21 @@ def powershell(script, *, timeout=45):
         if isinstance(output, bytes):
             output = output.decode(errors="replace")
         raise RuntimeError(f"native_profile_fixture_timeout after {timeout}s; stages: " + output[-1600:]) from None
+
+
+@pytest.mark.windows_only(reason="requires Windows LogonUser")
+def test_credential_rejection_stops_before_autologon():
+    missing_user = "yq" + uuid4().hex[:14]
+    result = powershell(
+        f"$name='{missing_user}'; $password='fixture-only';\n"
+        + VALIDATE_ACCOUNT_PASSWORD
+        + "\nWrite-Output 'WOULD_CONFIGURE_AUTOLOGON'"
+    )
+    assert result.returncode != 0
+    assert "windows_console_credential_rejected" in result.stderr
+    assert "yoke test-machine secret set --test-machine M --key desktop_password --value-file FILE" in result.stderr
+    assert "fixture-only" not in result.stderr
+    assert "WOULD_CONFIGURE_AUTOLOGON" not in result.stdout
 
 
 @pytest.mark.windows_only(reason='requires Windows PowerShell')

@@ -341,3 +341,7 @@ if((Get-Service sshd).Status -ne 'Stopped'){{throw 'owned fixture SSH service re
             with capsys.disabled():
                 print(cleanup.stdout)
             assert cleanup.returncode == 0, cleanup.stderr
+
+
+def test_autologon_clears_the_previous_logon_count():
+    assert 'Remove-ItemProperty $winlogon -Name AutoLogonCount' in AUTOLOGON_SCRIPT

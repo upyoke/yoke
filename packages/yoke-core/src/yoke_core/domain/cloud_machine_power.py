@@ -33,6 +33,12 @@ from yoke_core.domain.ec2_instance_power import (
     Ec2InstancePowerError,
 )
 
+from yoke_core.domain.windows_console_readiness import (
+    CONSOLE_MISSING,
+    CONSOLE_MISSING_EXIT,
+    windows_console_readiness_command,
+)
+
 SSH_WAIT_SECONDS = 600
 SSH_LOGIN_SECONDS = 60
 SSH_POLL_SECONDS = 10.0
@@ -119,17 +125,14 @@ def _aws_env(project: str) -> dict[str, str]:
         ) from exc
 
 
-def _readiness_command(os_name: str) -> tuple[str, str | None]:
+def _readiness_command(os_name: str, user: str) -> tuple[str, str | None]:
     """The login probe and its stdin: on a WSL host, the WSL Python host facts use.
 
     A freshly booted Windows host accepts a login long before WSL can start
     Python inside the 20 seconds host control allows its first command.
     """
     if os_name == "windows":
-        return (
-            'powershell.exe -NoLogo -NoProfile -NonInteractive -Command "exit 0"',
-            None,
-        )
+        return windows_console_readiness_command(user), None
     if os_name != "wsl":
         return "exit", None
     from yoke_contracts.windows_wsl_command import (
@@ -151,7 +154,7 @@ def wait_for_ssh_login(
     sleeper: Callable[[float], None] = time.sleep,
     clock: Callable[[], float] = time.monotonic,
 ) -> None:
-    """Retry a key login until it succeeds; a freshly booted host is slow to answer.
+    """Wait for a key login and, on native Windows, the autologon console.
 
     Without the machine-local key there is nothing to try: the host-control
     runner then refuses with its own credential recovery.
@@ -167,31 +170,57 @@ def wait_for_ssh_login(
     host_key_options = get_test_machine_remote_exec().host_key_options
 
     argv += host_key_options(settings)
-    command, probe_input = _readiness_command(settings["os"])
-    argv += [f"{settings['user']}@{host}", command]
+    user = settings["user"]
+    native_windows = settings["os"] == "windows"
+    command, probe_input = _readiness_command(settings["os"], user)
+    argv += [f"{user}@{host}", command]
+    waiting_for = f"Test Machine {name} to accept an SSH login on {host}"
+    if native_windows:
+        waiting_for += f" and start {user}'s console session"
     announce_designed_wait(
-        f"Test Machine {name} to accept an SSH login on {host}",
+        waiting_for,
         max_wait_seconds=timeout_s,
         cadence=poll_every(SSH_POLL_SECONDS),
         write=emit,
     )
-    deadline = clock() + timeout_s
+    started = clock()
+    deadline = started + timeout_s
+    runner = runner or CommandRunner()
     last_error = "no attempt"
-    while clock() < deadline:
+    console_missing = ssh_ready = False
+    while (remaining := deadline - clock()) > 0:
+        probe_timeout = min(SSH_LOGIN_SECONDS, remaining)
         try:
-            result = (runner or CommandRunner()).run(
-                argv, input_text=probe_input, timeout=SSH_LOGIN_SECONDS
-            )
+            result = runner.run(argv, input_text=probe_input, timeout=probe_timeout)
         except subprocess.TimeoutExpired:
-            last_error = f"login timed out after {SSH_LOGIN_SECONDS}s"
+            console_missing = False
+            last_error = f"login timed out after {probe_timeout:g}s"
         else:
-            if result.ok:
+            console_missing = native_windows and result.returncode == CONSOLE_MISSING_EXIT
+            if (result.ok or console_missing) and not ssh_ready:
                 emit(f"  Test Machine {name} accepts SSH logins on {host}")
+                ssh_ready = True
+            if result.ok:
+                if native_windows:
+                    emit(f"  Test Machine {name}: {user} signed in at its console after {clock() - started:.1f}s")
                 return
-            last_error = (result.stderr or result.stdout).strip()[-300:] or (
+            limit = 450 if console_missing else 300
+            last_error = (result.stderr or result.stdout).strip()[-limit:] or (
                 f"ssh exited {result.returncode}"
             )
-        sleeper(SSH_POLL_SECONDS)
+        delay = min(SSH_POLL_SECONDS, deadline - clock())
+        if delay > 0:
+            sleeper(delay)
+    if console_missing:
+        # Keep SSH and desktop access available to diagnose a broken autologon.
+        details = ' '.join(last_error.removeprefix(CONSOLE_MISSING).split())
+        emit(
+            f"{CONSOLE_MISSING}: Test Machine {name} booted but {user} never signed "
+            f"in at its console within {timeout_s}s; autologon failed: rerun Windows "
+            "desktop provisioning (see the native Windows desktop guide)"
+            + (f"; {details}" if details else "")
+        )
+        return
     raise _refused(
         SSH_UNAVAILABLE,
         f"Test Machine {name} is running but refused SSH logins on {host} for "

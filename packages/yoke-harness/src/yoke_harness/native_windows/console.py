@@ -6,7 +6,8 @@ from yoke_harness.native_windows.desktop import desktop_script
 from yoke_harness.native_windows.display_geometry import DEFINITION
 
 RECOVERY = (
-    "Reboot the lab to start autologon, or rerun Windows desktop provisioning. "
+    "Release the lease so the next lease cold-boots and autologon signs in. "
+    "If autologon still fails, check the VM console and rerun Windows desktop provisioning. "
     "If an RDP viewer is connected, disconnect without signing out and retry."
 )
 PROBE = r"""
@@ -35,7 +36,7 @@ public static class YokeConsoleProbe {
 $session=[Diagnostics.Process]::GetCurrentProcess().SessionId
 if ($session -eq 0 -or $session -ne [YokeConsoleProbe]::WTSGetActiveConsoleSessionId() -or
     !(Get-Process explorer -ErrorAction SilentlyContinue | Where-Object SessionId -eq $session)) {
- throw 'windows_console_session_missing: reboot the lab or rerun Windows desktop provisioning'
+ throw 'windows_console_session_missing: release the lease so the next lease cold-boots and autologon signs in; if autologon still fails, check the VM console and rerun Windows desktop provisioning'
 }
 if (![YokeConsoleProbe]::InputDesktopReady()) {
  throw 'windows_console_locked: reconnect to the lab account, unlock and disconnect before retrying'

@@ -4,7 +4,7 @@
 [Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Verification](../index.md) > [Machine QA](index.md) > Native Windows harness installation
 <!-- /yoke:breadcrumbs -->
 
-Complete [desktop setup](windows-native-host-provisioning.md#3-desktop-and-sign-ins)
+Complete [desktop setup](windows-native-desktop.md)
 before installing and signing in as the dedicated standard test user. Follow
 the [normal-user installation rule](index.md#install-as-the-test-user).
 
@@ -218,7 +218,7 @@ personally when shown. Stop on an unexpected account, hostname or duplicate
 device; do not reset/delete devices or invent an auth key. An approved SYSTEM
 `up` may instead print an official AuthURL for the operator's existing browser;
 a URL or successful GUI login still needs independent SYSTEM/private-route proof.
-Complete [tray startup handling and two cold boots](#tray-startup-and-autologon)
+Complete [tray startup handling and two cold boots](windows-native-desktop.md#tray-startup-and-autologon)
 before treating the private desktop as persistent. Close completed auth tabs,
 leave apps authenticated, disconnect without Windows sign-out, terminate the
 local forward when it is no longer needed. Once all setup, sign-ins and QA
@@ -257,8 +257,8 @@ Every action, refusals included, prints one JSON object. Typed text appears only
 text carrying a lease secret or a credential shape is refused
 (`desktop_input_secret_refused`) before anything is typed: a password entry is
 a human gate. Failures exit 1 with a named code and recovery:
-`windows_desktop_locked` (the console is locked; reboot so autologon signs
-in, or a person unlocks it over RDP), `windows_window_not_found`,
+`windows_desktop_locked` (unlock the console over RDP, or release the lease so
+the next lease cold-boots and autologon signs in), `windows_window_not_found`,
 `windows_window_ambiguous`, `windows_element_not_found`,
 `windows_element_ambiguous`, `windows_foreground_refused`,
 `windows_foreground_changed`, `windows_click_target_obscured` and
@@ -269,37 +269,4 @@ osascript, and Linux apps with `--gui-session` xdotool.
 
 ## Tray startup and autologon
 
-Configure automatic logon using an LSA-protected password (such as Microsoft's
-Sysinternals Autologon), never a plaintext Winlogon `DefaultPassword`. Disable locking only for this dedicated test desktop under
-the project's lab policy. Reboot and prove a scheduled task with
-`LogonType=Interactive` runs as the standard user without an RDP client open.
-
-A later boot reported SYSTEM `NeedsLogin`, no node key and no expected IP
-assignments despite a running Tailscale service. Fresh operator GUI login
-restored SYSTEM Running/key/startup-target and the known DNS/IP/private routes.
-The selected profile changed from `5967` to `0860`; never hardcode a historical
-profile ID as evidence of today's identity. Inspect it privately and compare
-the expected node, DNS and addresses before accepting a replacement profile.
-
-The actual MSI startup entry was common Startup `Tailscale.lnk`, targeting the
-signed installed `tailscale-ipn.exe` with no arguments. Its tray process started
-before the human RDP login. A non-SYSTEM LocalAPI request can select an OS-user
-profile, but the precise caller that caused the earlier loss remains unproven.
-Do not infer that earlier successful boots lacked autologon.
-
-Provisioning's `Disable-YokeTailnetTrayStartup` checks the exact shortcut,
-trusted owner, unlinked ancestors, signed target and empty arguments. It keeps a
-byte-verified, content-addressed backup in protected `C:\ProgramData\YokeQa\private`
-before removing that exact Startup entry. It refuses unknown Run/user-startup
-forms, changed objects or backup collisions; it does not stop the SYSTEM service,
-select a profile or edit Tailscale state. Recheck after vendor reinstall/update.
-
-Before acceptance inventory startup entries and tray-process/logon times. Run
-two distinct cold boots with automatic `yokeqa` logon demonstrably completed,
-tray autostart absent, the same selected identity, nonempty startup key,
-SYSTEM Running/key/live adapters, private standard SSH/RDP and public3389 denial.
-Use explicit stop/start boundaries for these cold-boot proofs, with no selection
-or repair between them. Keep the lab on afterward while the item needs it.
-Probe receipts preserve exact allowlisted errors, including NeedsLogin's running
-self-identity refusal; unknown/native or secret-bearing errors become a fixed
-unclassified failure. Neither classification is a passing readiness receipt.
+Follow [tray startup and cold-boot checks](windows-native-desktop.md#tray-startup-and-autologon).
