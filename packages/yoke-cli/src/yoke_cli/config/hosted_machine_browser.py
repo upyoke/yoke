@@ -11,6 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import os
 import platform as platform_info
+import re
 import shlex
 import shutil
 import subprocess
@@ -221,6 +222,7 @@ def _open_with_browser_variable(
     The bound is generous because a launcher may first prepare its browser.
     """
     attempts: list[str] = []
+    reason_code = None
     for command in (part for part in value.split(os.pathsep) if part.strip()):
         try:
             argv = shlex.split(command)
@@ -248,11 +250,18 @@ def _open_with_browser_variable(
             return BrowserOpenResult(
                 opened=True, method="BROWSER", reason="; ".join(attempts) or None
             )
+        detail = (completed.stderr or completed.stdout or "").strip()
+        named = re.match(r"(?:yoke browser open: )?([a-z][a-z0-9_]*)(?=:\s|$)", detail)
+        if named and reason_code is None:
+            reason_code = named[1]
         attempts.append(
             f"BROWSER {argv[0]} exited {completed.returncode}: "
-            + ((completed.stderr or completed.stdout or "").strip() or "no output")
+            + (named[1] if named else detail or "no output")
         )
-    return BrowserOpenResult(opened=False, reason="; ".join(attempts))
+    reason = "; ".join(attempts)
+    if reason_code:
+        reason = f"{reason_code}: {reason}"
+    return BrowserOpenResult(opened=False, reason=reason)
 
 
 def windows_desktop_available(env: Mapping[str, str]) -> bool:

@@ -12,6 +12,7 @@ from yoke_contracts.browser_identity import BrowserIdentityError
 from yoke_contracts.project_defaults import MissingProjectError
 from yoke_cli.commands._helpers import parse_or_usage_error
 from yoke_cli.commands.browser_authorize_help import AUTHORIZE_HELP
+from yoke_cli.commands.browser_authorize_self_host import token_site_connection
 from yoke_cli.commands.browser_sign_in import (
     DECLARATIONS_FLAG_HELP,
     IDENTITY_FLAG_HELP,
@@ -96,6 +97,7 @@ def browser_authorize(args: List[str]) -> int:
         project_key, identity = resolve_identity_target(
             parsed.project, parsed.identity, parsed.declarations_json
         )
+        connection = token_site_connection(identity)
         runtime = prepare_browser_runtime("authorize.js")
         if parsed.reset:
             from yoke_cli.commands.browser_authorize_automatic import reset_profile
@@ -158,7 +160,7 @@ def browser_authorize(args: List[str]) -> int:
         from yoke_cli.commands.browser_authorize_automatic import authorize_automatic
 
         automatic_sites, expired = authorize_automatic(
-            browser_client, runtime, project_key, identity, expired
+            browser_client, runtime, project_key, identity, expired, connection
         )
         if automatic_sites is not None and not expired and not parsed.url:
             return _done(
@@ -308,7 +310,7 @@ TOOL_SHAPED_SUBCOMMANDS = {
 TOOL_SHAPED_USAGE = {
     "yoke browser authorize": (
         "Sign one project browser identity in where its declared sites have "
-        "expired: automatic test accounts headless, human sites in a window."
+        "expired: automatic sites headless, human sites in a window."
     ),
 }
 

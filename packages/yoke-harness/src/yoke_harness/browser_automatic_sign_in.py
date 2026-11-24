@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import tempfile
 from pathlib import Path
@@ -90,27 +91,7 @@ def sign_in_expired_sites(
         entries.append(sign_in_entry(project, identity, site))
     try:
         profile = browser_profile.ensure_profile_dir(project, identity=identity.name)
-        with tempfile.TemporaryDirectory(prefix="yoke-browser-sign-in-") as directory:
-            manifest = Path(directory) / "manifest.json"
-            manifest.write_text(json.dumps({"sites": entries}), encoding="utf-8")
-            manifest.chmod(0o600)
-            result = subprocess.run(
-                [
-                    str(runtime.node),
-                    str(runtime.runtime_dir / "src" / "authorize-automatic.js"),
-                    str(profile),
-                    str(manifest),
-                ],
-                cwd=runtime.runtime_dir,
-                env=runtime.env,
-                capture_output=True,
-                text=True,
-                timeout=checks.CHECK_TIMEOUT_SECONDS,
-                check=False,
-            )
-            outcomes = (
-                json.loads(result.stdout)["sites"] if result.returncode == 0 else []
-            )
+        outcomes = run_automatic_sign_in(runtime, profile, lambda: entries)
         by_site = {s["site"]: s["state"] for s in outcomes}
         for outcome in outcomes:
             if outcome["state"] == "secret_missing":
@@ -139,6 +120,40 @@ def sign_in_expired_sites(
         else s
         for s in sites
     ]
+
+
+def run_automatic_sign_in(runtime, profile, build_entries, *, private=False):
+    """Pass file paths to the browser and keep its diagnostic output private."""
+    with tempfile.TemporaryDirectory(prefix="yoke-browser-sign-in-") as directory:
+        manifest = Path(directory) / "manifest.json"
+        env = runtime.env
+        if private:
+            # Debug logging can record Playwright request arguments.
+            env = {
+                name: value for name, value in env.items()
+                if name.upper() not in {"DEBUG", "DEBUG_FILE", "PWDEBUG", "NODE_DEBUG"}
+            }
+        with os.fdopen(
+            os.open(manifest, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600),
+            "w",
+            encoding="utf-8",
+        ) as stream:
+            json.dump({"sites": build_entries()}, stream)
+        result = subprocess.run(
+            [
+                str(runtime.node),
+                str(runtime.runtime_dir / "src" / "authorize-automatic.js"),
+                str(profile),
+                str(manifest),
+            ],
+            cwd=runtime.runtime_dir,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=checks.CHECK_TIMEOUT_SECONDS,
+            check=False,
+        )
+        return json.loads(result.stdout)["sites"] if result.returncode == 0 else []
 
 
 def sign_in_entry(project, identity, site) -> dict:

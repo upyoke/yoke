@@ -83,6 +83,7 @@ class SignInCheck:
     signed_in_status: int | None = None
     account: str = ""
     sign_in: AutomaticSignIn | None = None
+    token_link: bool = False
 
     def as_probe(self) -> dict[str, object]:
         """The JSON the browser runtime's sign-in check consumes."""
@@ -179,6 +180,8 @@ def _sign_in_check(identity: str, index: int, raw: object) -> SignInCheck:
         raise BrowserIdentityError(
             f"browser_identity_declaration_invalid: {where}.account must be text."
         )
+    sign_in = raw.get("sign_in")
+    token_link = sign_in == {"mode": "token-link"}
     return SignInCheck(
         site=site,
         origin=_web_url(raw.get("origin"), f"{where}.origin"),
@@ -186,7 +189,8 @@ def _sign_in_check(identity: str, index: int, raw: object) -> SignInCheck:
         signed_in_selector=selector.strip() if selector is not None else None,
         signed_in_status=status,
         account=account.strip(),
-        sign_in=parse_automatic_sign_in(raw.get("sign_in"), str(raw.get("origin"))),
+        sign_in=None if token_link else parse_automatic_sign_in(sign_in, str(raw.get("origin"))),
+        token_link=token_link,
     )
 
 

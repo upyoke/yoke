@@ -52,3 +52,28 @@ def test_an_opener_exception_stays_generic():
 
     result = admission.open_private_url(URL, opener=explode)
     assert result.reason == "browser_open_failed"
+
+
+@pytest.mark.parametrize("prefix", ["", "yoke browser open: "])
+def test_browser_child_named_failure_survives_without_its_detail(monkeypatch, prefix):
+    from types import SimpleNamespace
+
+    from yoke_cli.config import hosted_machine_browser
+
+    monkeypatch.setattr(
+        hosted_machine_browser.terminal_detached_process,
+        "run",
+        lambda *args, **kwargs: SimpleNamespace(
+            returncode=1,
+            stdout="",
+            stderr=f"{prefix}browser_identity_not_authorized: cannot open {URL}",
+        ),
+    )
+    result = admission.open_private_url(
+        URL,
+        opener=lambda url: hosted_machine_browser.open_url(
+            url, environ={"BROWSER": "browser-command"}
+        ),
+    )
+    assert result.reason == "browser_identity_not_authorized"
+    assert URL not in repr(result)

@@ -27,7 +27,14 @@ Expired, used, or invalid links name `browser_sign_in_expired`,
 machines without a display receive a named browser reason, such as
 `browser_display_unavailable`, and the recovery: run `yoke ui up` from your own
 terminal on a machine with a display. `--no-browser` prints no recovery.
-The signed-out page teaches this CLI path.
+For a declared browser identity, set the site's `sign_in.mode` to
+`token-link` and run `yoke browser authorize --project P --identity NAME`
+on the machine holding the profile. Use the active self-hosted connection's
+origin for the site and its signed-in probe. Yoke redeems a fresh link headless
+as the connection token's actor and checks the saved sign-in. The link stays
+in memory and an owner-only temporary manifest. Agents can authorize over SSH,
+and the saved session counts like any other dashboard sign-in. See
+[Browser sign-in identities](../verification/browser-identities.md).
 
 **With company sign-in.** `yoke ui up` opens the server's own URL, and the
 OIDC admission ladder below applies. Token-link minting and redemption are
