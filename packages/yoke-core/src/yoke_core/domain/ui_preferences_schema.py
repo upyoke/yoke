@@ -10,16 +10,13 @@ modules:
   ``pref_key = 'profile.time_zone'`` with an IANA zone name (no row means
   Automatic, the browser's own zone); ``UNIQUE(actor_id, pref_key)``
   makes the upsert the whole write contract.
-* ``overview_activation_facts`` — universe-scoped monotone activation
-  latches, one row per activation module key. A row records that the
-  module's signal was observed satisfied at least once; rows are never
-  updated or deleted by product code, so a signal that later disappears
-  (a deleted session, a dropped binding) cannot un-activate a module.
-* ``overview_machine_activation_facts`` — the same monotone latch keyed
-  per ``(machine_id, module_key)`` for the modules that answer for one
-  machine rather than for the universe (machine connected, harness
-  connected). A universe-level ``connect_harness`` row written before
-  this table existed is inert: product code neither reads nor deletes it.
+* ``overview_activation_facts`` — the universe's monotone Run onboard latch.
+  Its row records the first observed completion. Rows are never updated
+  or deleted by product code, so a signal that later disappears cannot
+  reopen Run onboard.
+* ``overview_machine_activation_facts`` — monotone latches per
+  ``(machine_id, module_key)`` for machine and harness connection.
+  Viewers' steps use the earliest latches on machines they own.
 
 All three shapes are additive: the schema-init chain applies them
 idempotently on every server boot, so every born universe converges on

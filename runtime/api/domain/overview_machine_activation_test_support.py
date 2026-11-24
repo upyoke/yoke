@@ -12,7 +12,6 @@ from yoke_core.domain.machine_registry import register_machine
 from yoke_core.domain.overview_machine_activation import (
     MACHINE_MODULE_CONNECT_HARNESS,
     MACHINE_MODULE_MACHINE_CONNECTED,
-    any_machine_has_harness,
     latch_machine_activations,
     machine_module_rows,
     read_registered_machines,

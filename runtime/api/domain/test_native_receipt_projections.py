@@ -278,11 +278,10 @@ def test_overview_native_latches_and_machine_order_keep_exact_facts(
     assert first[key] == STAMP
     assert overview_machine_activation.latch_machine_activations(test_db, {}) == first
     monkeypatch.setattr(overview_activation_read, "utc_now", lambda: STAMP)
-    universe_key = overview_activation_read.MODULE_RUN_ONBOARD
-    first = overview_activation_read.latch_activations(test_db, {universe_key: True})
-    assert first[universe_key] == STAMP
-    assert overview_activation_read.latch_activations(test_db, {}) == first
-    assert temporal_wire(first)[universe_key] == format_instant(STAMP)
+    first = overview_activation_read.latch_run_onboard(test_db, True)
+    assert first == STAMP
+    assert overview_activation_read.latch_run_onboard(test_db, False) == first
+    assert temporal_wire(first) == format_instant(STAMP)
 
 
 @pytest.mark.parametrize("zone", SESSION_ZONES[1:])

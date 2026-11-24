@@ -1,6 +1,8 @@
-// "Connect a harness" completes on the viewer's first connected machine.
-// Each registered machine's row keeps its own harness history and hook
-// health. A pending machine still shows as next up on its own row.
+// The "Connect a harness" module body, drawn per registered machine. The
+// engine answers the module for each machine — which harnesses ran from
+// it, when, and its own hook health — so one box's history is never read
+// as another's. A machine that registered a relay and ran nothing lists
+// as next up on its own row while the machines that did stay ✓.
 
 import { el } from "./universe_view_support.js";
 import {

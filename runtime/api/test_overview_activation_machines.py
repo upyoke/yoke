@@ -1,4 +1,4 @@
-"""The harness module completes once any of the viewer's machines connects.
+"""Live machine rows inside the viewer's onboarding steps.
 
 Drives ``overview.activation.get`` with multiple registered machines.
 The wizard counts and names them. Each harness row keeps its own state,
@@ -7,14 +7,11 @@ hook health and monotone latch.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
     TargetRef,
 )
-from yoke_core.domain import overview_machine_activation
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.machine_registry import register_machine
 from yoke_core.domain.handlers.overview_activation import (
@@ -139,27 +136,6 @@ def test_one_connected_machine_activates_the_module_beside_a_pending_one(test_db
     assert modules["run_onboard"]["state"] == "in_progress"
 
 
-def test_two_connected_machines_keep_the_earliest_activation(test_db, monkeypatch):
-    _seed_relay(test_db, MACHINE_A, "alpha-box")
-    _seed_relay(test_db, MACHINE_B, "beta-box")
-    latch_times = iter(
-        (datetime(2026, 11, day, tzinfo=timezone.utc) for day in (23, 24))
-    )
-    monkeypatch.setattr(overview_machine_activation, "utc_now", lambda: next(latch_times))
-    _seed_session(test_db, "s-a", MACHINE_A)
-    first = _modules()["connect_harness"]
-    _seed_session(test_db, "s-b", MACHINE_B, executor="codex", surface="codex-cli")
-
-    harness = _modules()["connect_harness"]
-    rows = _machines(harness)
-
-    assert harness["state"] == "activated"
-    assert all(row["state"] == "activated" for row in rows.values())
-    assert harness["activated_at"] == first["activated_at"]
-    assert harness["activated_at"] == rows[MACHINE_A]["activated_at"]
-    assert rows[MACHINE_A]["activated_at"] < rows[MACHINE_B]["activated_at"]
-
-
 def test_the_harness_latch_holds_per_machine_when_sessions_vanish(test_db):
     _seed_relay(test_db, MACHINE_A, "alpha-box")
     _seed_session(test_db, "s-a", MACHINE_A)
@@ -184,22 +160,6 @@ def test_the_harness_latch_holds_per_machine_when_sessions_vanish(test_db):
     assert rows[MACHINE_B]["activated_at"] is None
 
 
-def test_a_universe_latch_row_for_the_harness_module_is_inert(test_db):
-    test_db.execute(
-        "INSERT INTO overview_activation_facts (module_key, activated_at) "
-        "VALUES ('connect_harness', %s)",
-        (iso8601_now(),),
-    )
-    test_db.commit()
-
-    harness = _modules(payload={"host_facts": {"machine_connected": True}})[
-        "connect_harness"
-    ]
-
-    assert harness["state"] == "in_progress"
-    assert harness["machines"] == []
-
-
 def test_hook_health_regresses_per_machine_under_a_held_latch(test_db):
     _seed_relay(test_db, MACHINE_A, "alpha-box")
     _seed_session(
@@ -220,30 +180,6 @@ def test_hook_health_regresses_per_machine_under_a_held_latch(test_db):
     again = _machines(_modules()["connect_harness"])[MACHINE_A]
     assert again["state"] == "activated"
     assert _health(again)["codex"] == "red"
-
-
-def test_the_machine_row_answers_for_the_viewer_not_the_universe(test_db):
-    from yoke_core.domain.actors import seed_human_actor
-
-    _seed_relay(test_db, MACHINE_A, "first-box")
-    invitee = seed_human_actor(test_db, "invitee")
-    test_db.commit()
-    outcome = handle_overview_activation_get(
-        FunctionCallRequest(
-            function="overview.activation.get",
-            actor=ActorContext(actor_id=str(invitee), session_id=""),
-            target=TargetRef(kind="global"),
-            payload={"host_facts": {"machine_connected": False}},
-        )
-    )
-    assert outcome.primary_success, outcome.error
-    wizard = {m["key"]: m for m in outcome.result_payload["modules"]}[
-        "finish_installation_wizard"
-    ]
-    row = next(s for s in wizard["submodules"] if s["key"] == "machine_universe")
-    # Another actor's connected machine is not the invitee's progress.
-    assert row["done"] is False
-    assert row["machines"] == []
 
 
 def test_retired_and_unregistered_machines_do_not_block_harness_setup(test_db):

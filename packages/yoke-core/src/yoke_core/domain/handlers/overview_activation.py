@@ -2,8 +2,8 @@
 
 ``overview.activation.get`` derives every module and submodule state in
 one dispatch (see :mod:`yoke_core.domain.overview_activation_read`) and
-latches newly satisfied activations — its one sanctioned side effect,
-universe-scoped, monotone, and idempotent. The dismiss/restore pair
+latches newly satisfied machine steps and the universe's Run onboard step.
+Those writes are monotone and idempotent. The dismiss/restore pair
 writes the calling actor's per-module dismissal preference and refuses
 cleanly without a bound actor; module facts keep deriving either way, so
 a dismissal never hides state from other actors.

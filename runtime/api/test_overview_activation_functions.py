@@ -112,20 +112,19 @@ def test_machine_without_any_project_activates_wizard(test_db):
     ]
 
 
-def test_machine_fact_activates_and_latches_wizard(test_db):
+def test_host_machine_fact_activates_wizard_without_a_universe_latch(test_db):
     result = _get(payload={"host_facts": {"machine_connected": True}})
     wizard = _modules_by_key(result)["finish_installation_wizard"]
     assert wizard["state"] == "activated"
-    assert wizard["activated_at"]
+    assert wizard["activated_at"] is None
     # The required machine row activates without the recommended tail.
     assert wizard["fully_complete"] is False
     # The next module unlocks in order.
     assert _modules_by_key(result)["connect_harness"]["state"] == "in_progress"
     row = test_db.execute(
-        "SELECT activated_at FROM overview_activation_facts "
-        "WHERE module_key = 'finish_installation_wizard'"
+        "SELECT module_key FROM overview_activation_facts"
     ).fetchone()
-    assert row is not None
+    assert row is None
 
 
 def test_tail_signals_fill_submodules_and_fully_complete(test_db):
