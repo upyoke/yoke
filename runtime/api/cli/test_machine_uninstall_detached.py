@@ -157,28 +157,6 @@ def test_job_that_forbids_breakaway_refuses_the_handoff(tmp_path, monkeypatch):
 
 
 @pytest.mark.windows
-def test_cancel_removes_temp_folder_after_worker_exits(tmp_path):
-    folder = tmp_path / f"{detached.HANDOFF_PREFIX}cancelled"
-    folder.mkdir()
-    descriptor = os.open(folder / detached.LOCK_NAME, os.O_CREAT | os.O_RDWR)
-    events = []
-
-    def wait(*, timeout):
-        assert events == ["terminated"]
-        assert folder.is_dir()
-        os.fstat(descriptor)
-        events.append("exited")
-
-    process = SimpleNamespace(terminate=lambda: events.append("terminated"), wait=wait)
-    handoff = detached.Handoff(folder / "armed", folder / "result.log", process, descriptor, tmp_path)
-    handoff.cancel()
-    assert events == ["terminated", "exited"]
-    assert not folder.exists()
-    with pytest.raises(OSError):
-        os.fstat(descriptor)
-
-
-@pytest.mark.windows
 def test_finisher_runs_isolated_base_python_with_pure_package_roots(
     tmp_path, monkeypatch
 ):

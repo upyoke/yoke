@@ -1,10 +1,14 @@
 """Operator choices and safe refusals for full machine removal."""
 
 from dataclasses import replace
+import os
+from types import SimpleNamespace
 
 import pytest
 
 from yoke_cli.config import machine_uninstall as removal
+from yoke_cli.config import machine_uninstall_detached as detached
+from yoke_cli.config import machine_uninstall_steps as steps
 from yoke_cli.config.machine_uninstall_inventory import Inventory, UninstallError
 from yoke_cli.commands.tool_shaped import resolve_tool_shaped
 
@@ -209,3 +213,55 @@ def test_other_backup_answer_cancels_cleanly(inventory, monkeypatch, answer):
     )
     assert len(questions) == 1
     assert output[-1] == "yoke uninstall cancelled; no changes were made"
+
+
+@pytest.mark.windows
+def test_failed_home_removal_cancels_worker_and_removes_temp_folder(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    home.mkdir()
+    config = home / "config.json"
+    config.write_text("{}")
+    inventory = Inventory(home, config, (), (), False, None, ())
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
+    for owner, method in (
+        (steps, "command"),
+        (steps, "_remove_machine_hooks"),
+        (steps, "_report_windows_path"),
+        (steps, "stop_resident"),
+        (steps.machine_uninstall_browsers, "stop"),
+        (steps.machine_uninstall_relays, "remove_saved_services"),
+        (steps.machine_uninstall_workers, "stop"),
+    ):
+        monkeypatch.setattr(owner, method, lambda *args: None)
+
+    def locked(path):
+        raise OSError(f"remove_tree_locked: {path / 'chrome.dll'}")
+
+    monkeypatch.setattr(steps, "remove_tree", locked)
+    folder = tmp_path / f"{detached.HANDOFF_PREFIX}cancelled"
+    folder.mkdir()
+    descriptor = os.open(folder / detached.LOCK_NAME, os.O_CREAT | os.O_RDWR)
+    events = []
+
+    def wait(*, timeout):
+        assert events == ["terminated"]
+        assert folder.is_dir()
+        os.fstat(descriptor)
+        events.append("exited")
+
+    process = SimpleNamespace(terminate=lambda: events.append("terminated"), wait=wait)
+    handoff = detached.Handoff(folder / "armed", folder / "result.log", process, descriptor, tmp_path)
+    monkeypatch.setattr(detached, "prepare", lambda _home: handoff)
+    output = []
+    assert removal.run(
+        backup=None,
+        projects="all",
+        non_interactive=True,
+        emit=output.append,
+        inspected=inventory,
+    ) == 1
+    assert any("machine home: failed" in line and "chrome.dll" in line for line in output)
+    assert events == ["terminated", "exited"]
+    assert not folder.exists()
+    with pytest.raises(OSError):
+        os.fstat(descriptor)
