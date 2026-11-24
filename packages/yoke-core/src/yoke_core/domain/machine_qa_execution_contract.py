@@ -1,5 +1,7 @@
 """Compatibility imports for the client-safe Machine QA execution contract."""
 
+from collections.abc import Mapping
+
 from yoke_contracts.machine_qa_execution import (
     HOST_CONTROL_PROTOCOL,
     HostControlExecutionContract,
@@ -26,6 +28,10 @@ __all__ = [
 
 def public_case_snapshots(conn, cases):
     """Compose client identities in the issuing transaction before sealing digests."""
+    from yoke_contracts.refusal_recovery import compose_refusal
+    from yoke_core.domain.deployment_qa_execution_target import (
+        is_deployment_execution_target,
+    )
     from yoke_core.domain.function_response_refs import collect_item_ids, public_result
     from yoke_core.domain.item_ref_render import render_item_refs
     from yoke_core.domain.qa_execution_environment_target import target_digest
@@ -44,7 +50,16 @@ def public_case_snapshots(conn, cases):
     snapshots = public_result(snapshots, refs)
     for case in snapshots:
         target = case["execution_target"]
-        if deployment := target.get("deployment"):
-            case["deployment_run_id"] = deployment["run_id"]
+        if is_deployment_execution_target(target):
+            deployment = target.get("deployment")
+            run_id = deployment.get("run_id") if isinstance(deployment, Mapping) else None
+            if not isinstance(run_id, str) or not run_id:
+                raise ValueError(
+                    compose_refusal(
+                        f"Machine QA requirement {case['requirement_id']} has a deployment target without a run ID",
+                        recovery="Re-materialize the QA case on its owning deployment stage, then retry",
+                    )
+                )
+            case["deployment_run_id"] = run_id
         case["execution_target_digest"] = target_digest(target)
     return snapshots
