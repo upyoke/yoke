@@ -45,6 +45,12 @@ from yoke_contracts.machine_config import reader as machine_config
 
 
 
+# Walking the process tree reads the whole process table. Every hook of a
+# resume touches its record, so the descendants are refreshed at most this
+# often; activity is still stamped on every touch.
+RESUME_RECAPTURE_SECONDS = 5
+
+
 def _directory(state_dir: Path | None = None) -> Path:
     root = state_dir or machine_config.cache_dir()
     missing = []
@@ -127,14 +133,20 @@ def touch_supervised_resume(
         payload = json.loads(path.read_text(encoding="utf-8"))
         if not isinstance(payload, dict) or payload.get("supervision_kind") != "resume":
             return False
-        if custody_state(payload) == "live":
+        stamp = int(time.time() if now is None else now)
+        captured_at = payload.get("process_captured_at")
+        recaptured = isinstance(captured_at, int) and (
+            0 <= stamp - captured_at < RESUME_RECAPTURE_SECONDS
+        )
+        if not recaptured and custody_state(payload) == "live":
             try:
                 payload.update(
                     capture_process_tree(payload["pid"], payload["process_start_time"])
                 )
+                payload["process_captured_at"] = stamp
             except OSError:
                 pass
-        payload["last_activity_at"] = int(time.time() if now is None else now)
+        payload["last_activity_at"] = stamp
         temporary = path.with_suffix(f".{os.getpid()}.tmp")
         body = json.dumps(payload, sort_keys=True)
         if len(body.encode()) > MAX_RECORD_BYTES:

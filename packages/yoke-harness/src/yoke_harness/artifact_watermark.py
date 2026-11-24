@@ -55,6 +55,11 @@ USAGE_KIND = "usage"
 MODEL_KIND = "model"
 
 _PRUNE_AGE_S = 7 * 86400
+# A directory holds one record per session ever seen on the machine, so a
+# sweep stats thousands of files. The resident saves on every hook; sweep a
+# directory at most once an hour per process.
+_PRUNE_INTERVAL_S = 3600
+_last_prune: dict[Path, float] = {}
 
 #: Recorded when a shrinking artifact forces a reread from the beginning.
 TRUNCATED_ARTIFACT_REASON = (
@@ -234,12 +239,17 @@ def _non_negative(value: Any) -> int:
 
 
 def _prune(directory: Path) -> None:
-    """Drop records for sessions that stopped writing a week ago.
+    """Drop records for sessions that stopped writing a week ago, hourly at most.
 
     Only the records themselves: a lock file is created once and never
     written again, so an old one can still belong to a session folding
     right now, and removing it would leave two folds excluding nothing.
     """
+    now = time.monotonic()
+    last = _last_prune.get(directory)
+    if last is not None and now - last < _PRUNE_INTERVAL_S:
+        return
+    _last_prune[directory] = now
     cutoff = time.time() - _PRUNE_AGE_S
     try:
         entries = list(directory.iterdir())

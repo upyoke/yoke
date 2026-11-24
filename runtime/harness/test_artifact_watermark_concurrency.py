@@ -244,9 +244,32 @@ def test_a_stale_record_for_a_finished_session_is_pruned(tmp_path: Path) -> None
     save_watermark("session-old", artifact, ArtifactWatermark(offset=1))
     stale = watermark_path("session-old")
     os.utime(stale, (0, 0))
+    artifact_watermark._last_prune.clear()
 
     save_watermark("session-1", artifact, ArtifactWatermark(offset=1))
 
+    assert not stale.exists()
+
+
+def test_saves_sweep_the_record_directory_at_most_hourly(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Every hook saves; rescanning thousands of records each time is the cost."""
+    artifact = tmp_path / "s.jsonl"
+    clock = [1000.0]
+    monkeypatch.setattr(artifact_watermark.time, "monotonic", lambda: clock[0])
+    artifact_watermark._last_prune.clear()
+    save_watermark("session-1", artifact, ArtifactWatermark(offset=1))
+    save_watermark("session-old", artifact, ArtifactWatermark(offset=1))
+    stale = watermark_path("session-old")
+    os.utime(stale, (0, 0))
+
+    clock[0] += artifact_watermark._PRUNE_INTERVAL_S - 1
+    save_watermark("session-1", artifact, ArtifactWatermark(offset=2))
+    assert stale.exists()
+
+    clock[0] += 2
+    save_watermark("session-1", artifact, ArtifactWatermark(offset=3))
     assert not stale.exists()
 
 

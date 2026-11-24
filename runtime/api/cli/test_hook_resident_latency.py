@@ -257,8 +257,10 @@ def test_ambient_ancestry_reads_one_table_and_keeps_shared_host_boundary(monkeyp
     table = Mock(return_value={400: (300, "python"), 300: (200, "zsh"),
                                200: (100, "codex"), 100: (1, "claude")})
     individual = Mock(side_effect=AssertionError("must use the snapshot names"))
-    monkeypatch.setattr(ancestry, "process_table", table)
+    monkeypatch.setattr(ancestry, "ancestry_table", table)
     monkeypatch.setattr(ancestry, "process_command_name", individual)
+    monkeypatch.setattr(ancestry.platform_process, "process_command_lines",
+                        Mock(side_effect=AssertionError("whole-machine snapshot")))
     assert ancestry.find_nearest_harness_anchor(400) is None
     table.assert_called_once()
     individual.assert_not_called()

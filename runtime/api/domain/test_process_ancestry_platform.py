@@ -14,9 +14,19 @@ def entry(pid, ppid, name, started=123.5):
 
 
 def single(monkeypatch, rows):
-    """Serve single-PID reads; a full-table snapshot fails the test."""
-    monkeypatch.setattr(platform_process, "process_info",
-                        lambda pid: next((row for row in rows if row.pid == pid), None))
+    """Serve single-PID and ancestor reads; a full-table snapshot fails the test."""
+    def info(pid):
+        return next((row for row in rows if row.pid == pid), None)
+
+    def ancestors(pid):
+        chain, row = [], info(pid)
+        while row is not None and info(row.ppid) is not None:
+            row = info(row.ppid)
+            chain.append(row)
+        return chain
+
+    monkeypatch.setattr(platform_process, "process_info", info)
+    monkeypatch.setattr(platform_process, "ancestors", ancestors)
     monkeypatch.setattr(platform_process, "process_command_lines",
                         Mock(side_effect=AssertionError("full process snapshot")))
 
@@ -28,9 +38,9 @@ def test_full_name_stops_before_shared_host_without_ps(monkeypatch, name):
             entry(300, 200, "/bin/bash"), entry(400, 300, "python.exe")]
     monkeypatch.setattr(platform_process, "process_command_lines", lambda: rows)
     assert process_ancestry.process_table()[200] == (100, name)
+    single(monkeypatch, rows)
     assert process_ancestry.anchor_candidate_pids(400) == [300]
     assert process_ancestry.find_nearest_harness_anchor(400) is None
-    single(monkeypatch, rows)
     assert process_ancestry.process_command_name(200) == name
 
 
@@ -65,3 +75,11 @@ def test_single_process_read_matches_the_live_process():
     assert info is not None and info.pid == os.getpid()
     assert process_ancestry.process_start_time(os.getpid()) == str(info.start_time)
     assert platform_process.process_info(0) is None
+
+
+def test_ancestry_table_reads_only_the_process_and_its_ancestors():
+    import os
+
+    table = process_ancestry.ancestry_table(os.getpid())
+    assert table[os.getpid()][0] == os.getppid()
+    assert os.getppid() in table

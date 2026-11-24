@@ -23,10 +23,25 @@ answer separates client work from network time; it does not prove the
 Production gap. Exercise concurrent calls and both missing and saved
 transcripts, and preserve which discovery or ancestor selection was mocked.
 
+Profile with a new parent process for every hook, as Production has: the
+launcher spawns a fresh parent per hook, so a cache keyed by the parent never
+hits there. Feed each concurrent client its payload at once, and record the
+resident's per-evaluation CPU time; the resident shares one interpreter lock,
+so CPU work from concurrent sessions queues.
+
 A one-process fact such as a start token or executable name reads only that
-PID through `platform_process.process_info`. Never snapshot the whole process
-table for it: on a busy machine the snapshot reads every process's command
-line and memory, and in Production it cost about 100ms on every hook.
+PID through `platform_process.process_info`, and anchor and harness-family
+walks read only the hook process and its ancestors through
+`process_ancestry.ancestry_table`. Never snapshot the whole process table on
+the hook path: it reads every process's command line and memory, and cost
+about 50-100ms of CPU per hook.
+
+Other machine-wide work is reused while its inputs are unchanged. The usage
+watermark directory is swept at most hourly per process. A resumed session
+refreshes its descendant process tree at most every 5 seconds and stamps
+activity on every hook. Write-target facts reuse `git rev-parse` per checkout
+and `git worktree list` until Git's `worktrees` metadata changes, so a lane
+added or removed is seen on the next hook; ignore checks run every time.
 
 Claude keeps its per-session ambient anchor walk, including its shared-host
 boundary. Other surfaces without liveness process names skip that walk.

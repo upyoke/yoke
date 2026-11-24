@@ -91,6 +91,20 @@ def process_table() -> Dict[int, Tuple[int, str]]:
     }
 
 
+def ancestry_table(pid: Optional[int] = None) -> Dict[int, Tuple[int, str]]:
+    """Parent and executable title for ``pid`` and its visible ancestors only.
+
+    Anchor walks read nothing else, and hooks walk on every tool call: a
+    whole-table snapshot reads every process on the machine instead.
+    """
+    current = os.getpid() if pid is None else pid
+    entry = platform_process.process_info(current)
+    if entry is None:
+        return {}
+    chain = [entry, *platform_process.ancestors(current)]
+    return {item.pid: (item.ppid, item.name) for item in chain}
+
+
 def parent_map() -> Dict[int, int]:
     """Return a ``pid -> ppid`` map from one platform process snapshot."""
     return {pid: entry[0] for pid, entry in process_table().items()}
@@ -183,7 +197,7 @@ def anchor_candidate_pids(
     but launched from an anchored one resolved silently to the *launching*
     session, and acted with its authority.
 
-    Both process-table facts come from one lookup when the caller injects
+    Both process facts come from one ancestry read when the caller injects
     neither. ``parents`` and ``name_of`` describe the same table, so
     injecting only ``parents`` describes a tree whose names are unknown and
     no ancestor is classified — reading live names against a synthetic tree
@@ -192,7 +206,7 @@ def anchor_candidate_pids(
     resolve_name = name_of
     if resolve_name is None:
         if parents is None:
-            table = process_table()
+            table = ancestry_table(pid)
             parents = {ancestor: entry[0] for ancestor, entry in table.items()}
             resolve_name = {ancestor: entry[1] for ancestor, entry in table.items()}.get
         else:
@@ -224,7 +238,7 @@ def find_nearest_harness_anchor(
     """
     resolve_name = process_command_name if name_of is None else name_of
     if name_of is None and parents is None:
-        table = process_table()
+        table = ancestry_table(pid)
         parents = {process: entry[0] for process, entry in table.items()}
         resolve_name = {process: entry[1] for process, entry in table.items()}.get
     resolve_start = process_start_time if start_time_of is None else start_time_of
@@ -268,7 +282,7 @@ def find_nearest_named_process_anchor(
     resolve_name = name_of
     if resolve_name is None:
         if parents is None:
-            table = process_table()
+            table = ancestry_table(pid)
             parents = {process: entry[0] for process, entry in table.items()}
             resolve_name = {process: entry[1] for process, entry in table.items()}.get
         else:

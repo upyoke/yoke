@@ -3,7 +3,7 @@
  "title": "Profile hook startup and resident work; confirm latency after client rollout.",
  "status": "observed",
  "form": "State",
- "verification": "Source guidance in docs/source-dev/hook-client-latency.md covers entry imports, evaluate_inprocess profiling, concurrent observations, single-PID start-token and name reads (no per-hook process-table snapshot), bounded process/transcript discovery and request-scoped HTTP reuse. Controlled measurements separate client work from transport and explicitly name fixtures. Existing telemetry supplies paired client/server measurements and harness coverage; three complete Production days after client adoption still own acceptance; Nov 17-19 days after the earlier fixes failed at 410-690ms medians.",
+ "verification": "Source guidance in docs/source-dev/hook-client-latency.md covers entry imports, evaluate_inprocess profiling, concurrent observations, single-PID and ancestor-only process reads (no per-hook process-table snapshot), reuse of watermark sweeps, resume process trees and repository Git answers, fresh-parent concurrent profiling, bounded process/transcript discovery and request-scoped HTTP reuse. Controlled measurements separate client work from transport and explicitly name fixtures. Existing telemetry supplies paired client/server measurements and harness coverage; three complete Production days after client adoption still own acceptance; Nov 17-19 (410-690ms) and Nov 21-23 (284-366ms) medians failed before the ancestor-only and reuse changes.",
  "topics": ["context/hooks"],
  "position": 7
 }

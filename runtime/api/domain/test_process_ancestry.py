@@ -124,16 +124,15 @@ class TestAnchorCandidatePids(unittest.TestCase):
             [300, 200, 100, 1],
         )
 
-    def test_both_process_facts_come_from_one_snapshot(self):
-        from types import SimpleNamespace
-        rows = [SimpleNamespace(pid=p, ppid=pp, name=n) for p, pp, n in [
-            (400, 300, "python.exe"), (300, 200, "pwsh.exe"),
-            (200, 1, "cursor-agent.exe"),
-        ]]
-        with patch.object(process_ancestry.platform_process, "process_command_lines",
-                          return_value=rows) as snapshot:
+    def test_both_process_facts_come_from_one_ancestry_read(self):
+        table = {400: (300, "python.exe"), 300: (200, "pwsh.exe"),
+                 200: (1, "cursor-agent.exe")}
+        with (patch.object(process_ancestry, "ancestry_table",
+                           return_value=table) as read,
+              patch.object(process_ancestry.platform_process, "process_command_lines",
+                           side_effect=AssertionError("whole-machine snapshot"))):
             self.assertEqual(anchor_candidate_pids(400), [300])
-        self.assertEqual(snapshot.call_count, 1)
+        read.assert_called_once_with(400)
 
 
 class TestFindNearestHarnessAnchor(unittest.TestCase):

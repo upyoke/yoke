@@ -16,7 +16,9 @@ import sys
 import time
 
 from yoke_contracts.session_control.resume import RESUME_INACTIVITY_SECONDS
+from yoke_harness import session_launch_containment
 from yoke_harness.session_launch_containment import (
+    RESUME_RECAPTURE_SECONDS,
     record_supervised_native,
     touch_supervised_resume,
 )
@@ -186,6 +188,40 @@ def test_recent_capture_output_keeps_silent_resume_alive(tmp_path: Path) -> None
 
         assert contain_stranded_launch_natives(state_dir=tmp_path, now=now) == []
         assert process.poll() is None
+    finally:
+        process.kill()
+        process.wait()
+
+
+def test_resume_hooks_refresh_descendants_at_most_every_few_seconds(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Each capture walks the process table; activity still lands every touch."""
+    process = _sleeper()
+    now = time.time()
+    captures = []
+    real = session_launch_containment.capture_process_tree
+
+    def counted(pid, started):
+        captures.append(pid)
+        return real(pid, started)
+
+    monkeypatch.setattr(session_launch_containment, "capture_process_tree", counted)
+    try:
+        record_supervised_native(
+            LAUNCH_ID, process.pid, supervision_kind="resume",
+            state_dir=tmp_path, now=now,
+        )
+        captures.clear()
+        assert touch_supervised_resume(LAUNCH_ID, state_dir=tmp_path, now=now)
+        assert touch_supervised_resume(LAUNCH_ID, state_dir=tmp_path, now=now + 1)
+        assert len(captures) == 1
+        record = json.loads(_record_file(tmp_path).read_text(encoding="utf-8"))
+        assert record["last_activity_at"] == int(now + 1)
+
+        later = now + 1 + RESUME_RECAPTURE_SECONDS
+        assert touch_supervised_resume(LAUNCH_ID, state_dir=tmp_path, now=later)
+        assert len(captures) == 2
     finally:
         process.kill()
         process.wait()
