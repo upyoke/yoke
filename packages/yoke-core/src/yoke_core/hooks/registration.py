@@ -300,9 +300,8 @@ def ensure_registered_from_hook(
             # A registered row stuck on placeholder identity still needs a
             # drive when a real value is resolvable — the registrar's
             # SESSION_EXISTS branch upgrades in place. That covers a wire
-            # model the row is still missing AND a level left on the
-            # unresolved sentinel, which is how a row stamped before its
-            # routing policy could be read repairs itself.
+            # model the row is still missing and a missing level that has
+            # since become resolvable from the current routing policy.
             needs_identity_upgrade = (
                 found is True
                 and not needs_reactivation

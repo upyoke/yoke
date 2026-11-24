@@ -50,7 +50,7 @@ class TestMatchingFacts:
 
 
 class TestResolution:
-    @pytest.mark.parametrize("explicit", [None, "", "default", "primary", "PRIMARY"])
+    @pytest.mark.parametrize("explicit", [None, "", "default"])
     def test_a_non_choice_yields_to_the_option_match(self, explicit):
         assert (
             resolve_execution_level(
@@ -77,7 +77,7 @@ class TestResolution:
             == "PRINCIPAL"
         )
 
-    def test_no_matching_option_stamps_the_unresolved_sentinel(self):
+    def test_no_matching_option_leaves_the_level_unset(self):
         assert (
             resolve_execution_level(
                 executor="codex",
@@ -86,7 +86,7 @@ class TestResolution:
                 records=RECORDS,
                 model=None,
             )
-            == "primary"
+            is None
         )
 
     def test_without_a_connection_the_shipped_scheme_labels(self):

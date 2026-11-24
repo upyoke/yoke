@@ -1,5 +1,6 @@
 """Store SQL NULL when session model facts resolve to no execution level."""
 
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_core.domain.db_backend import connection_is_postgres
 
 
@@ -36,14 +37,18 @@ def invariants(conn):
     column = _column(conn)
     if column is None or column[0] != "YES" or column[1] is not None:
         raise AssertionError(
-            "harness_sessions.execution_level must be nullable without a default. "
-            "Recovery: rehearse and rerun migration 0124_nullable_session_execution_level."
+            compose_refusal(
+                "harness_sessions.execution_level must be nullable without a default.",
+                recovery="Rehearse and rerun migration 0124_nullable_session_execution_level.",
+            )
         )
     remaining = conn.execute(
         "SELECT 1 FROM harness_sessions WHERE execution_level = 'primary' LIMIT 1"
     ).fetchone()
     if remaining is not None:
         raise AssertionError(
-            "harness_sessions.execution_level still holds the retired placeholder. "
-            "Recovery: rehearse and rerun migration 0124_nullable_session_execution_level."
+            compose_refusal(
+                "harness_sessions.execution_level still holds the retired placeholder.",
+                recovery="Rehearse and rerun migration 0124_nullable_session_execution_level.",
+            )
         )
