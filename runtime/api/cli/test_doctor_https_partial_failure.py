@@ -184,7 +184,7 @@ def test_failed_chunk_runs_local_fixes_and_reports_partial(error_code) -> None:
             side_effect=_relay,
         ),
         patch(
-            "yoke_cli.commands.adapters.doctor_https_run.persist_composed_receipt",
+            "yoke_cli.commands.adapters.doctor_https_receipt.persist_composed_receipt",
         ) as persist,
         redirect_stdout(StringIO()) as stdout,
     ):

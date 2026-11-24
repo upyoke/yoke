@@ -22,7 +22,7 @@ def test_loaded_manager_deadline_reserves_small_margin(
     monkeypatch.setattr(deadline.sys, "platform", platform)
     monkeypatch.setattr(deadline, "posix_uid", lambda: 501)
     monkeypatch.setattr(
-        deadline,
+        deadline.relay_instance,
         "resolve_relay_instance",
         lambda: SimpleNamespace(label="relay-instance"),
     )
@@ -69,7 +69,7 @@ def test_unreadable_deadline_uses_named_conservative_fallback(
     monkeypatch.setattr(deadline.sys, "platform", platform)
     monkeypatch.setattr(deadline, "posix_uid", lambda: 501)
     monkeypatch.setattr(
-        deadline,
+        deadline.relay_instance,
         "resolve_relay_instance",
         lambda: SimpleNamespace(label="relay-instance"),
     )
@@ -86,7 +86,7 @@ def test_unreadable_deadline_uses_named_conservative_fallback(
 def test_manager_query_failure_uses_fallback(monkeypatch):
     monkeypatch.setattr(deadline.sys, "platform", "linux")
     monkeypatch.setattr(
-        deadline,
+        deadline.relay_instance,
         "resolve_relay_instance",
         lambda: SimpleNamespace(label="relay-instance"),
     )

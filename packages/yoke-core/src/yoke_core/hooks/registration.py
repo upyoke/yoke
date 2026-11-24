@@ -91,10 +91,10 @@ def _register_from_hook(
 
     from yoke_core.hooks.helpers import (
         detect_entrypoint,
-        detect_executor,
         detect_native_thread_id,
         detect_provider,
     )
+    from yoke_core.hooks.helpers_identity import detect_executor
 
     facts = parse_hook_registration_facts(
         payload_json,

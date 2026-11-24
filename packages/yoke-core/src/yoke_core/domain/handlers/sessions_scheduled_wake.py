@@ -9,7 +9,7 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     HandlerOutcome,
 )
-from yoke_core.domain.db_helpers import connect
+from yoke_core.domain import db_helpers
 from yoke_core.domain.session_message_types import SessionMessageError
 from yoke_core.domain.session_scheduled_wake import schedule_session_wake
 
@@ -34,7 +34,7 @@ def handle_schedule(request: FunctionCallRequest) -> HandlerOutcome:
         session_id = request.actor.session_id
         if not session_id:
             raise ValueError("run this command in the session that needs the recheck")
-        with connect() as conn:
+        with db_helpers.connect() as conn:
             result = schedule_session_wake(
                 conn,
                 session_id=session_id,

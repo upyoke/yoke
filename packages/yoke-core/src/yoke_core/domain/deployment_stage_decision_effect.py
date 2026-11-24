@@ -34,10 +34,8 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Optional
 
-from yoke_core.domain.deployment_run_driver_notice import (
-    DRIVER,
-    push_run_scoped_notice,
-)
+from yoke_core.domain import deployment_run_driver_notice
+from yoke_core.domain.deployment_run_driver_notice import DRIVER
 
 #: A rejected stage closes its run as ``failed`` rather than ``cancelled`` so
 #: that this path and a re-execute of the same rejected stage give one answer:
@@ -211,7 +209,7 @@ def notify_deployment_stage_decision(
     identity = resolve_project(conn, int(project_id), required=False)
     if identity is None:
         return ""
-    return push_run_scoped_notice(
+    return deployment_run_driver_notice.push_run_scoped_notice(
         conn,
         run_id=run_id,
         project_id=int(project_id),

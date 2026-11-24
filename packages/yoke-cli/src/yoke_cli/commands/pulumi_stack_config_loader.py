@@ -9,12 +9,12 @@ import urllib.request
 
 from yoke_cli.api_urls import join_api_url
 from yoke_contracts.bounded_json_http import request_json
-from yoke_cli.transport.https import resolve_https_connection
+from yoke_cli.transport import https
 
 
 def load_project_renderer_settings_snapshot(project: str) -> Mapping[str, Any]:
     """Load the secret-free aggregate renderer snapshot over either transport."""
-    connection = resolve_https_connection()
+    connection = https.resolve_https_connection()
     if connection is not None:
         url = join_api_url(
             connection.api_url,

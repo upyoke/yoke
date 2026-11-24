@@ -9,9 +9,9 @@ from yoke_core.domain.dash_path_claim_posture import (
     activation_gate as _path_activation_gate,
     completion_gate as _path_completion_gate,
 )
+from yoke_core.domain import deployment_run_candidate_containment as containment
 from yoke_core.domain.deployment_run_candidate_containment import (
     UNDETERMINED as _CONTAINMENT_UNDETERMINED,
-    candidate_contains_commit,
 )
 from yoke_core.domain.delivery_evidence_ladder import (
     UNDETERMINED_DELIVERY as _DELIVERY_UNDETERMINED,
@@ -68,7 +68,7 @@ def _lineage_covers(
     item_id: int = 0,
     run_id: str = "",
 ) -> Optional[dict[str, Any]]:
-    verdict = candidate_contains_commit(
+    verdict = containment.candidate_contains_commit(
         conn,
         int(project_id),
         candidate_lineage=lineage,

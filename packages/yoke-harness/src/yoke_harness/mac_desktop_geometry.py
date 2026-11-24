@@ -3,7 +3,7 @@
 from yoke_harness.desktop_geometry import (
     MINIMUM_HEIGHT, MINIMUM_RESOLUTION, MINIMUM_WIDTH, is_desktop_resolution,
 )
-from yoke_harness.ssh_mac_gui_session import run_terminal_app_command
+from yoke_harness import ssh_mac_gui_session
 
 _CHANGE_MODE = r"""
 import CoreGraphics
@@ -60,7 +60,7 @@ def desktop_argv(argv):
 
 def ensure_mac_desktop(run):
     """Return the resolution measured in the console that Screen Sharing mirrors."""
-    result = run_terminal_app_command(
+    result = ssh_mac_gui_session.run_terminal_app_command(
         run, argv=("/bin/sh", "-c", _ENSURE), timeout=45,
     )
     resolution = result.stdout.strip()

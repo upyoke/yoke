@@ -27,7 +27,7 @@ from yoke_core.domain.backlog_queries import (
     _resolve_write_db_path,
 )
 from yoke_core.domain.backlog_structured_write_op import execute_structured_write
-from yoke_core.domain.db_helpers import connect
+from yoke_core.domain import db_helpers
 from yoke_core.domain.handlers.items_structured_field_models import (
     AppendAddendumRequest,
     AppendAddendumResponse,
@@ -94,7 +94,7 @@ def _require_item_target(request: FunctionCallRequest) -> Optional[int]:
 
 def _read_field(item_id: int, field: str) -> str:
     db_path = _resolve_write_db_path()
-    conn = connect(db_path)
+    conn = db_helpers.connect(db_path)
     try:
         return _query_item_field(conn, item_id, field) or ""
     finally:

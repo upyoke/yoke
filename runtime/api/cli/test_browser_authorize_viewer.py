@@ -69,7 +69,7 @@ def route(monkeypatch):
     monkeypatch.setattr(
         remote.browser_profile, "profile_project_key", lambda project: "acme"
     )
-    monkeypatch.setattr(remote, "ensure_handlers_loaded", lambda: None)
+    monkeypatch.setattr(remote._helpers, "ensure_handlers_loaded", lambda: None)
     monkeypatch.setattr(
         remote, "build_actor", lambda: SimpleNamespace(session_id="own")
     )
@@ -89,11 +89,9 @@ def route(monkeypatch):
         state["events"].append("gui")
         return state["result"]
 
-    from yoke_cli.commands import test_machine_desktop_lease as custody
 
-    monkeypatch.setattr(custody, "call_dispatcher", dispatch)
     monkeypatch.setattr(gui, "check_yoke_installation", lambda **kw: None)
-    monkeypatch.setattr(remote, "call_dispatcher", dispatch)
+    monkeypatch.setattr(remote.dispatcher, "call_dispatcher", dispatch)
     monkeypatch.setattr(gui, "run_gui_command", execute)
     return state
 

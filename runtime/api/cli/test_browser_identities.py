@@ -253,12 +253,12 @@ def test_remote_route_runs_local_human_gate_and_verifies_after_window(
     monkeypatch.setattr(gui, "check_yoke_installation", lambda **kw: None)
 
     document = {"identities": {"buyer": {"sites": list(SITES.values())}}}
-    monkeypatch.setattr(remote, "ensure_handlers_loaded", lambda: None)
+    monkeypatch.setattr(remote._helpers, "ensure_handlers_loaded", lambda: None)
     monkeypatch.setattr(
         remote, "build_actor", lambda: SimpleNamespace(session_id="own")
     )
     monkeypatch.setattr(
-        remote,
+        remote.dispatcher,
         "call_dispatcher",
         lambda **kw: SimpleNamespace(
             success=True,

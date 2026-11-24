@@ -73,7 +73,7 @@ def test_macos_measures_console_desktop_and_refuses_an_undersized_receipt(monkey
         assert "mode.width >= 1920 && mode.height >= 1080" in argv[2]
         return subprocess.CompletedProcess(argv, 0, resolution, "")
 
-    monkeypatch.setattr(mac, "run_terminal_app_command", task)
+    monkeypatch.setattr(mac.ssh_mac_gui_session, "run_terminal_app_command", task)
     if ok:
         assert mac.ensure_mac_desktop(None) == resolution
     else:
@@ -103,7 +103,7 @@ def test_native_windows_reset_sets_geometry_and_verify_checks_it(monkeypatch, se
         assert f"Write-Output ([YokeDesktopGeometry]::{method}())" in script
         return subprocess.CompletedProcess([], 0, f"{observed}\n{console.RECEIPT}\n", "")
 
-    monkeypatch.setattr(console, "desktop_script", task)
+    monkeypatch.setattr(console.desktop, "desktop_script", task)
     result = console.probe_console(object(), set_resolution=set_resolution)
     assert result.ok is ok
     if ok:

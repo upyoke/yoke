@@ -102,7 +102,7 @@ def machine(monkeypatch, tmp_path):
         monkeypatch.setattr(adapter, "build_actor", lambda session_id=None: actor)
         monkeypatch.setattr(adapter.machine_config, "yoke_home", lambda: Path(tmp_path))
         monkeypatch.setattr(adapter, "call_dispatcher", fake.dispatch)
-        monkeypatch.setattr(custody, "call_dispatcher", fake.dispatch)
+        monkeypatch.setattr(custody.dispatcher, "call_dispatcher", fake.dispatch)
         monkeypatch.setattr(cloud_machine_power, "power_on", fake.power_on)
         monkeypatch.setattr(
             "yoke_harness.test_machine_remote_exec.run_remote_command", fake.run

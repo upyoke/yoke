@@ -146,7 +146,7 @@ def cli(monkeypatch, tmp_path):
     held = FunctionCallResponse(
         success=True, function="c", version="v1", result={"claim_id": 7}
     )
-    monkeypatch.setattr(custody, "call_dispatcher", lambda **_: held)
+    monkeypatch.setattr(custody.dispatcher, "call_dispatcher", lambda **_: held)
     monkeypatch.setattr(cloud_machine_power, "power_on", lambda *a: None)
     monkeypatch.setattr(
         "yoke_harness.test_machine_remote_exec.run_remote_command",

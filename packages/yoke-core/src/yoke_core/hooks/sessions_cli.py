@@ -30,7 +30,7 @@ from __future__ import annotations
 import sys
 from typing import List, Optional
 
-from yoke_core.domain.db_helpers import connect
+from yoke_core.domain import db_helpers
 from yoke_core.domain.yok_n_parser import parse_item_argument
 from yoke_core.domain.sessions_analytics import SessionError
 
@@ -138,7 +138,7 @@ def main(argv: Optional[List[str]] = None) -> None:
             print(help_text, end="")
             sys.exit(0)
 
-    conn = connect()
+    conn = db_helpers.connect()
 
     try:
         if subcmd == "begin":

@@ -34,7 +34,7 @@ def test_admin_cli_reads_only_named_machine_secret_and_passes_it_to_product(
     lease = FunctionCallResponse(
         success=True, function="lease", version="v1", result={"claim_id": 7}
     )
-    monkeypatch.setattr(custody, "call_dispatcher", lambda **_: lease)
+    monkeypatch.setattr(custody.dispatcher, "call_dispatcher", lambda **_: lease)
     monkeypatch.setattr(cloud_machine_power, "power_on", lambda *a: None)
     monkeypatch.setattr(
         adapter,

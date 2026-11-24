@@ -5,7 +5,7 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 from yoke_contracts.api.function_call import FunctionError, HandlerOutcome
-from yoke_core.domain.db_helpers import connect
+from yoke_core.domain import db_helpers
 from yoke_core.domain.project_retirement import ProjectRetirementError, set_retirement
 
 
@@ -53,7 +53,7 @@ class RetirementResponse(BaseModel):
 
 def _handle(request, *, retired: bool):
     parsed = (RetireRequest if retired else UnretireRequest)(**request.payload)
-    conn = connect()
+    conn = db_helpers.connect()
     try:
         result = set_retirement(
             conn,

@@ -26,11 +26,10 @@ from yoke_cli import browser_node_toolchain
 from yoke_contracts.response_limits import DEFAULT_JSON_RESPONSE_LIMIT_BYTES
 from yoke_contracts.browser_daemon_api import DEFAULT_DAEMON_REQUEST_TIMEOUT_SECONDS
 from yoke_contracts.browser_client_errors import daemon_failure_message
-from yoke_harness import browser_runtime_home
+from yoke_harness import browser_runtime_home, browser_setup
 from yoke_contracts.browser_daemon_profile import canonical_profile, state_file_path
 from yoke_harness.browser_client_readiness import start_daemon
 from yoke_harness.browser_human_gate import refuse_during_human_gate
-from yoke_harness.browser_setup import ensure_browser_runtime
 
 
 @dataclass
@@ -216,7 +215,7 @@ def daemon_start(
     if not daemon_js.exists():
         raise RuntimeError(f"daemon.js not found at {daemon_js}")
 
-    env = ensure_browser_runtime(browser, toolchain, emit=_log)
+    env = browser_setup.ensure_browser_runtime(browser, toolchain, emit=_log)
 
     if requested_profile:
         _keep_profile_sign_in(Path(requested_profile))

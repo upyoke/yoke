@@ -23,9 +23,7 @@ from yoke_core.domain.deployment_run_composition_guard import (
     has_frozen_composition,
     terminal_run_refusal,
 )
-from yoke_core.domain.deployment_run_contained_items import (
-    record_attested_candidate_containment,
-)
+from yoke_core.domain import deployment_run_contained_items
 from yoke_core.domain.deployment_run_project_sources import (
     carried_project_ids,
     invalidate_run_source_facts,
@@ -203,7 +201,9 @@ def _admit(conn, run_id, candidate_containment):
             run_id,
             plan=plan.composition if plan is not None else None,
         )
-        record_attested_candidate_containment(conn, run_id, candidate_containment)
+        deployment_run_contained_items.record_attested_candidate_containment(
+            conn, run_id, candidate_containment
+        )
         if status == "failed":
             from yoke_core.domain.qa_deployment_run_settlement import (
                 restore_retry_obligations,

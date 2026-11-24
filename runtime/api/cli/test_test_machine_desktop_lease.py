@@ -36,7 +36,7 @@ def test_lease_survives_power_and_desktop_and_only_owned_hold_releases(
         if failure == "power":
             raise RuntimeError("cloud unavailable")
 
-    monkeypatch.setattr(custody, "call_dispatcher", dispatch)
+    monkeypatch.setattr(custody.dispatcher, "call_dispatcher", dispatch)
     monkeypatch.setattr(cloud_machine_power, "power_on", power)
     try:
         with custody.desktop_lease(
@@ -77,7 +77,7 @@ def test_own_holdover_is_taken_and_the_renewed_holdover_is_named(monkeypatch, ca
         }
         return SimpleNamespace(success=True, result=result, error=None)
 
-    monkeypatch.setattr(custody, "call_dispatcher", dispatch)
+    monkeypatch.setattr(custody.dispatcher, "call_dispatcher", dispatch)
     monkeypatch.setattr(cloud_machine_power, "power_on", lambda *a: None)
     with custody.desktop_lease(
         project="acme",
@@ -108,7 +108,7 @@ def test_a_release_without_holdover_names_none(monkeypatch, capsys):
         result = {"active_lease": {"id": 3, "session_id": "own"}}
         return SimpleNamespace(success=True, result=result, error=None)
 
-    monkeypatch.setattr(custody, "call_dispatcher", dispatch)
+    monkeypatch.setattr(custody.dispatcher, "call_dispatcher", dispatch)
     custody._report_holdover("lab", SimpleNamespace(session_id="own"))
     assert capsys.readouterr().err == ""
 
@@ -134,7 +134,7 @@ def test_a_walk_heartbeat_the_server_lacks_is_named_and_the_command_runs(
 ):
     error = SimpleNamespace(code="function_version_skew", message="server is older",
                             recovery_hint="Use the older command form.")
-    monkeypatch.setattr(custody, "call_dispatcher",
+    monkeypatch.setattr(custody.dispatcher, "call_dispatcher",
                         lambda **kw: SimpleNamespace(success=False, error=error))
     monkeypatch.setattr(cloud_machine_power, "power_on", lambda *a: None)
     ran = []
@@ -152,7 +152,7 @@ def test_a_walk_heartbeat_the_server_lacks_is_named_and_the_command_runs(
 
 def test_steering_assistance_leaves_foreign_lease_unchanged(monkeypatch):
     monkeypatch.setattr(
-        custody, "call_dispatcher", lambda **kw: pytest.fail("lease changed")
+        custody.dispatcher, "call_dispatcher", lambda **kw: pytest.fail("lease changed")
     )
     monkeypatch.setattr(cloud_machine_power, "power_on", lambda *a: None)
     with custody.desktop_lease(
@@ -285,7 +285,7 @@ def test_desktop_access_holds_lease_until_view_returns(monkeypatch, capsys, fail
         return {"viewer": "closed"}
 
     monkeypatch.setattr(cli, "call_dispatcher", dispatch)
-    monkeypatch.setattr(custody, "call_dispatcher", dispatch)
+    monkeypatch.setattr(custody.dispatcher, "call_dispatcher", dispatch)
     monkeypatch.setattr(
         cloud_machine_power, "power_on", lambda *a: events.append("power")
     )
@@ -311,7 +311,7 @@ def test_another_sessions_lapsed_holdover_is_acquired_not_refused(monkeypatch):
         events.append(kw["function_id"])
         return SimpleNamespace(success=True, result={"claim_id": 13}, error=None)
 
-    monkeypatch.setattr(custody, "call_dispatcher", dispatch)
+    monkeypatch.setattr(custody.dispatcher, "call_dispatcher", dispatch)
     monkeypatch.setattr(cloud_machine_power, "power_on", lambda *a: None)
     lapsed = {"id": 12, "session_id": "other", "holdover_expires_at": "2026-01-01T00:00:00Z"}
     with custody.desktop_lease(
