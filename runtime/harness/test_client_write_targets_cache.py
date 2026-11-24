@@ -55,3 +55,35 @@ def test_unchanged_repository_answers_spawn_no_git(tmp_path: Path, monkeypatch) 
     targets._ignored(str(repo), [os.path.join(str(repo), "a.txt")])
     assert "worktree" in spawned and "rev-parse" in spawned
     assert calls == ["check-ignore"]
+
+
+def test_routine_git_writes_inside_a_lane_keep_the_listing(tmp_path: Path, monkeypatch) -> None:
+    """Index and lock writes touch the entry folder, not the lane set."""
+    repo = _repo(tmp_path)
+    lane = tmp_path / "lane"
+    _git("worktree", "add", "-q", str(lane), cwd=repo)
+    targets._worktrees(str(repo))
+    entry = next((repo / ".git" / "worktrees").iterdir())
+    (entry / "index.lock").write_text("")
+    (entry / "index.lock").unlink()
+    os.utime(entry, (1, 1))
+    calls = []
+    real = targets._git
+    monkeypatch.setattr(
+        targets, "_git", lambda *a, **k: calls.append(a[1][0]) or real(*a, **k)
+    )
+
+    assert canonical_native_path(str(lane)) in targets._worktrees(str(repo))
+    assert calls == []
+
+
+def test_a_moved_lane_is_seen_on_the_next_hook(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    lane, moved = tmp_path / "lane", tmp_path / "moved"
+    _git("worktree", "add", "-q", str(lane), cwd=repo)
+    assert canonical_native_path(str(lane)) in targets._worktrees(str(repo))
+
+    _git("worktree", "move", str(lane), str(moved), cwd=repo)
+    listed = targets._worktrees(str(repo))
+    assert canonical_native_path(str(moved)) in listed
+    assert canonical_native_path(str(lane)) not in listed
