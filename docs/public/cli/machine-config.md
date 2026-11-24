@@ -17,7 +17,11 @@ A selected config's parent directory must belong to your account and prevent
 other users from writing. Shared read access and inherited Windows permissions
 are allowed when they grant no write access to other users. On Windows, remove
 other users' write access to repair an unsafe parent. Machine homes, secrets
-and lock files keep their stricter owner-private permissions.
+and lock files keep their stricter owner-private permissions. A Windows
+owner-private check rejects allow entries for other principals, including
+inherited entries that grant only read access. To repair the path, tighten
+its Windows permissions and remove the grant from the folder it inherits
+from, then rerun the command.
 
 A connection's `protected` boolean means it holds real data, regardless of its
 name or deployment target. Set it with `yoke connection set ENV --protected`;

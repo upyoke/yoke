@@ -18,7 +18,7 @@ _WRITE_ACCESS = 0x00000156 | 0x000D0000 | 0x50000000
 _INHERIT_ONLY_ACE = 0x08
 _ALLOW_ACE_TYPES = {0x00, 0x05, 0x09, 0x0B}
 _DENY_ACE_TYPES = {0x01, 0x06, 0x0A, 0x0C}
-_OBJECT_ACE_TYPES = {0x05, 0x0B}
+_OBJECT_ACE_TYPES = {0x05, 0x06, 0x0B, 0x0C}
 
 
 class _Acl(ctypes.Structure):
@@ -66,9 +66,6 @@ def _inspect(path: str | Path, *, check_writes: bool, directory: bool = True) ->
         ctypes.POINTER(ctypes.c_void_p), ctypes.c_void_p,
         ctypes.POINTER(ctypes.c_void_p),
     ]
-    advapi.GetAce.argtypes = [ctypes.c_void_p, wintypes.DWORD,
-                             ctypes.POINTER(ctypes.c_void_p)]
-    advapi.GetAce.restype = wintypes.BOOL
     dacl, owner, descriptor = ctypes.c_void_p(), ctypes.c_void_p(), ctypes.c_void_p()
     try:
         result = advapi.GetNamedSecurityInfoW(
@@ -86,31 +83,35 @@ def _inspect(path: str | Path, *, check_writes: bool, directory: bool = True) ->
             return False
         if not check_writes:
             return True
-        if not dacl.value:  # A null DACL grants everyone full access.
-            return False
         allowed = {user, private._OWNER_RIGHTS_SID, private._SYSTEM_SID,
                    private._ADMINISTRATORS_SID}
-        return _acl_is_others_unwritable(dacl, allowed, advapi, kernel)
+        return _acl_has_only_trusted_grants(dacl, allowed, advapi, kernel, any_access=False)
     finally:
         if descriptor.value:
             kernel.LocalFree(descriptor)
 
 
-def _acl_is_others_unwritable(dacl, allowed: set[str], advapi, kernel) -> bool:
+def _acl_has_only_trusted_grants(
+    dacl, allowed: set[str], advapi, kernel, *, any_access: bool,
+) -> bool:
+    advapi.IsValidAcl.argtypes = [ctypes.c_void_p]
+    advapi.IsValidAcl.restype = wintypes.BOOL
+    advapi.IsValidSid.argtypes = [ctypes.c_void_p]
+    advapi.IsValidSid.restype = wintypes.BOOL
+    advapi.GetAce.argtypes = [ctypes.c_void_p, wintypes.DWORD,
+                             ctypes.POINTER(ctypes.c_void_p)]
+    advapi.GetAce.restype = wintypes.BOOL
+    if not dacl.value or not advapi.IsValidAcl(dacl):
+        return False
+
     acl = ctypes.cast(dacl, ctypes.POINTER(_Acl)).contents
     for index in range(acl.count):
         pointer = ctypes.c_void_p()
         if not advapi.GetAce(dacl, index, ctypes.byref(pointer)) or not pointer.value:
             return False
         header = ctypes.cast(pointer, ctypes.POINTER(_AceHeader)).contents
-        if header.flags & _INHERIT_ONLY_ACE or header.kind in _DENY_ACE_TYPES:
-            continue
-        # Unknown DACL entries cannot establish that foreign writes are absent.
-        if header.kind not in _ALLOW_ACE_TYPES or header.size < 12:
+        if header.kind not in _ALLOW_ACE_TYPES | _DENY_ACE_TYPES or header.size < 16:
             return False
-        mask = ctypes.c_uint32.from_address(pointer.value + 4).value
-        if not mask & _WRITE_ACCESS:
-            continue
         offset = 8
         if header.kind in _OBJECT_ACE_TYPES:
             flags = ctypes.c_uint32.from_address(pointer.value + 8).value
@@ -120,6 +121,20 @@ def _acl_is_others_unwritable(dacl, allowed: set[str], advapi, kernel) -> bool:
         if header.size < offset + 8:
             return False
         sid = pointer.value + offset
-        if private._sid_string(sid, advapi, kernel) not in allowed:
+        # SubAuthorityCount is the second SID byte. Bound the variable-length
+        # SID inside this ACE before asking Win32 to validate or render it.
+        subauthorities = ctypes.c_ubyte.from_address(sid + 1).value
+        if header.size < offset + 8 + 4 * subauthorities or not advapi.IsValidSid(sid):
+            return False
+        if header.kind in _DENY_ACE_TYPES:
+            continue
+        if not any_access:
+            mask = ctypes.c_uint32.from_address(pointer.value + 4).value
+            if header.flags & _INHERIT_ONLY_ACE or not mask & _WRITE_ACCESS:
+                continue
+        try:
+            if private._sid_string(sid, advapi, kernel) not in allowed:
+                return False
+        except OSError:
             return False
     return True
