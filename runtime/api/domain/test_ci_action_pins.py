@@ -28,6 +28,7 @@ _EXPECTED_ACTIONS = {
 }
 _WORKFLOWS = (
     "workflows/yoke-ci.yml",
+    "workflows/yoke-suite.yml",
     "workflows/yoke-tests-selection.yml",
     "workflows/browser-runtime-tests.yml",
     "actions/yoke-test-runner/action.yml",
