@@ -6,6 +6,8 @@ import shlex
 import subprocess
 import sys
 
+from types import SimpleNamespace
+
 import pytest
 
 from yoke_cli.commands import test_machine_desktop_lease as custody
@@ -26,7 +28,7 @@ def test_admin_cli_reads_only_named_machine_secret_and_passes_it_to_product(
 ):
     calls = []
     reads = []
-    monkeypatch.setattr(adapter, "ensure_handlers_loaded", lambda: None)
+    monkeypatch.setattr(adapter, "_helpers", SimpleNamespace(ensure_handlers_loaded=lambda: None))
     monkeypatch.setattr(
         adapter, "build_actor", lambda **_: type("Actor", (), {"session_id": "mine"})()
     )
@@ -34,7 +36,7 @@ def test_admin_cli_reads_only_named_machine_secret_and_passes_it_to_product(
     lease = FunctionCallResponse(
         success=True, function="lease", version="v1", result={"claim_id": 7}
     )
-    monkeypatch.setattr(custody, "call_dispatcher", lambda **_: lease)
+    monkeypatch.setattr(custody.dispatcher, "call_dispatcher", lambda **_: lease)
     monkeypatch.setattr(cloud_machine_power, "power_on", lambda *a: None)
     monkeypatch.setattr(
         adapter,

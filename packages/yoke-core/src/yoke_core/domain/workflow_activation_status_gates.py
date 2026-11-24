@@ -28,7 +28,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from yoke_core.domain.db_helpers import connect
+from yoke_core.domain import db_helpers
 from yoke_core.domain.dependency_explanation import dependency_wait_summary, unmet_gate_action
 from yoke_core.domain.dependency_types import deployed_environment
 from yoke_core.domain.schema_common import _table_exists
@@ -80,7 +80,7 @@ def evaluate_check_hard_blocks(
     """
     from yoke_core.domain.check_hard_blocks import evaluate_blockers
 
-    gate_conn = conn if conn is not None else connect(db_path)
+    gate_conn = conn if conn is not None else db_helpers.connect(db_path)
     try:
         registry_present = _table_exists(gate_conn, "item_dependencies")
         blocked = (
@@ -135,7 +135,7 @@ def evaluate_claim_activation(
     """Refuse while a registered path claim has not taken its door lock."""
     from yoke_core.domain.path_claims_gate import gate_state_for_item
 
-    gate_conn = conn if conn is not None else connect(db_path)
+    gate_conn = conn if conn is not None else db_helpers.connect(db_path)
     try:
         pending = gate_state_for_item(gate_conn, int(item_id))
     finally:

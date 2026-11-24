@@ -6,7 +6,7 @@ from yoke_core.domain.project_identity import render_item_ref
 
 from typing import Any, Iterable, Optional
 
-from yoke_core.domain import db_backend
+from yoke_core.domain import db_backend, path_claims_register
 from yoke_core.domain.path_claim_task_bindings import (
     PathClaimTaskBindingError,
     bind_claim_to_task,
@@ -18,7 +18,6 @@ from yoke_core.domain.path_claims_register_symlink import (
     emit_decisions,
     expand_for_registration,
 )
-from yoke_core.domain.path_claims_register import register_for_item
 
 
 def _p(conn: Any) -> str:
@@ -142,7 +141,7 @@ def register_for_task(
             if existing is not None:
                 conn.commit()
                 return existing
-        claim_id = register_for_item(
+        claim_id = path_claims_register.register_for_item(
             conn,
             item_id=int(item_id),
             integration_target=integration_target,

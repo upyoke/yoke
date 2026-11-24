@@ -24,9 +24,7 @@ from yoke_cli.commands._helpers import (
     call_dispatcher,
 )
 from yoke_cli.commands.adapters.doctor_install import normalize_install_result
-from yoke_cli.commands.adapters.doctor_https_receipt import (
-    persist_composed_receipt,
-)
+from yoke_cli.commands.adapters import doctor_https_receipt
 from yoke_cli.commands.adapters.doctor_https_errors import (
     control_plane_failure_row,
     partial_error,
@@ -99,7 +97,7 @@ def dispatch_chunked(
                 if local_project_slugs
                 else "local_runtime"
             )
-        persist_composed_receipt(
+        doctor_https_receipt.persist_composed_receipt(
             local_result,
             session_id=session_id,
             timeout_s=timeout_s,
@@ -212,7 +210,7 @@ def dispatch_chunked(
         warnings=response.warnings,
     )
     if not relay_failed:
-        persist_composed_receipt(
+        doctor_https_receipt.persist_composed_receipt(
             result,
             session_id=session_id,
             timeout_s=timeout_s,

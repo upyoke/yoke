@@ -211,9 +211,9 @@ def test_ad_hoc_exec_windows_command_enters_wsl(monkeypatch, tmp_path):
     lease = FunctionCallResponse(
         success=True, function="lease", version="v1", result={"claim_id": 7}
     )
-    monkeypatch.setattr(custody, "call_dispatcher", lambda **kw: lease)
+    monkeypatch.setattr(custody.dispatcher, "call_dispatcher", lambda **kw: lease)
     monkeypatch.setattr(cloud_machine_power, "power_on", lambda *a: None)
-    monkeypatch.setattr(adapter, "ensure_handlers_loaded", lambda: None)
+    monkeypatch.setattr(adapter, "_helpers", SimpleNamespace(ensure_handlers_loaded=lambda: None))
     monkeypatch.setattr(
         adapter, "build_actor", lambda **kw: SimpleNamespace(session_id="mine")
     )
@@ -314,7 +314,7 @@ def test_interactive_windows_console_probe_requires_receipt(monkeypatch, wsl, re
         resolution = "" if wsl else "1920x1080\n"
         return subprocess.CompletedProcess([], 0, resolution + console.RECEIPT if ready else "", "")
 
-    monkeypatch.setattr(console, "desktop_script", task)
+    monkeypatch.setattr(console.desktop, "desktop_script", task)
     result = console.probe_console(control, wsl=wsl)
     assert result.ok is ready
     if ready:

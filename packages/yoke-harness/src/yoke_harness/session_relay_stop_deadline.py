@@ -10,10 +10,8 @@ import re
 import subprocess
 import sys
 
-from yoke_contracts.machine_config.relay_instance import (
-    LAUNCHD_USER_DOMAIN,
-    resolve_relay_instance,
-)
+from yoke_contracts.machine_config import relay_instance
+from yoke_contracts.machine_config.relay_instance import LAUNCHD_USER_DOMAIN
 
 # A short host allowance when the manager cannot answer; reserve time for exit.
 DEFAULT_STOP_TIMEOUT_SECONDS = 5.0
@@ -50,7 +48,7 @@ def read_stop_settlement_seconds() -> float:
         return 0.0
     timeout = DEFAULT_STOP_TIMEOUT_SECONDS
     try:
-        instance = resolve_relay_instance()
+        instance = relay_instance.resolve_relay_instance()
         if sys.platform == "linux":
             argv = [
                 "systemctl",

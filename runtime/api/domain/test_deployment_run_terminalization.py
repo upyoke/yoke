@@ -50,7 +50,7 @@ def _seed_run(test_db, run_id: str, status: str) -> None:
 
 def _bind_connection(monkeypatch, test_db) -> None:
     monkeypatch.setattr(
-        terminalization,
+        terminalization.db_helpers,
         "connect",
         lambda: _OpenConnection(test_db),
     )

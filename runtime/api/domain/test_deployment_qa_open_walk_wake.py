@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 
 from runtime.api.domain.deployment_qa_stage_wake_delivery_test_support import (
@@ -74,7 +76,7 @@ def _assert_takeover_notice(conn, monkeypatch, member: int) -> None:
         f"Member {member} has a live walk before takeover"
     )
 
-    push = deployment_qa_takeover_notice.push_member_notice
+    push = deployment_qa_takeover_notice.deployment_run_driver_notice.push_member_notice
     attempts = {}
 
     def observe(*args, **kwargs):
@@ -92,7 +94,11 @@ def _assert_takeover_notice(conn, monkeypatch, member: int) -> None:
         return outcome
 
     with monkeypatch.context() as patch:
-        patch.setattr(deployment_qa_takeover_notice, "push_member_notice", observe)
+        patch.setattr(
+            deployment_qa_takeover_notice,
+            "deployment_run_driver_notice",
+            SimpleNamespace(push_member_notice=observe),
+        )
         assert _take_over(conn) == OLD
 
     if _bodies(conn, f"deployment-qa-moved:{NEW}:{member}"):

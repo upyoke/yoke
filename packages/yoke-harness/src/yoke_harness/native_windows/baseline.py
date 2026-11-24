@@ -3,7 +3,7 @@
 from pathlib import PureWindowsPath
 
 from yoke_contracts.test_machine_types import HostActionResult
-from yoke_harness.native_windows.desktop import desktop_script
+from yoke_harness.native_windows import desktop
 from yoke_harness.native_windows.transport import quote
 from yoke_harness.native_windows.tasks import HELPERS as TASK_HELPERS
 from yoke_harness.native_windows.profile_path import HELPERS as PATH_HELPERS
@@ -311,7 +311,7 @@ def reach_baseline(control, name):
     # Users install from a local PowerShell. sshd runs its sessions under
     # Redirection Guard, which blocks uv's Python junction (astral-sh/uv#19616),
     # so install as the signed-in desktop user; SSH only verifies.
-    installed = desktop_script(control, script, timeout=1200)
+    installed = desktop.desktop_script(control, script, timeout=1200)
     if installed.returncode:
         return HostActionResult(
             False,

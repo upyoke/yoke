@@ -7,6 +7,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from types import SimpleNamespace
+
 import pytest
 
 from yoke_contracts.api.function_call import FunctionCallResponse
@@ -136,7 +138,7 @@ def _detail(
 @pytest.fixture
 def cli(monkeypatch, tmp_path):
     ran: list[dict[str, Any]] = []
-    monkeypatch.setattr(adapter, "ensure_handlers_loaded", lambda: None)
+    monkeypatch.setattr(adapter, "_helpers", SimpleNamespace(ensure_handlers_loaded=lambda: None))
     monkeypatch.setattr(
         adapter,
         "build_actor",
@@ -146,7 +148,7 @@ def cli(monkeypatch, tmp_path):
     held = FunctionCallResponse(
         success=True, function="c", version="v1", result={"claim_id": 7}
     )
-    monkeypatch.setattr(custody, "call_dispatcher", lambda **_: held)
+    monkeypatch.setattr(custody.dispatcher, "call_dispatcher", lambda **_: held)
     monkeypatch.setattr(cloud_machine_power, "power_on", lambda *a: None)
     monkeypatch.setattr(
         "yoke_harness.test_machine_remote_exec.run_remote_command",

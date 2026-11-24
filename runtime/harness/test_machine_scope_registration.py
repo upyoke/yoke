@@ -266,7 +266,6 @@ def test_harness_sessions_begin_outside_project_registers_machine_scope(
     from yoke_core.hooks import sessions_cli
 
     sid = str(uuid4())
-    monkeypatch.setattr(sessions_cli, "connect", db_helpers.connect)
     monkeypatch.setattr(
         "yoke_contracts.project_defaults.default_project_for_directory",
         lambda root: None,

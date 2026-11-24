@@ -20,7 +20,9 @@ def test_title_write_confirmation_and_clear(tmp_path, monkeypatch):
         conn.executescript(
             "CREATE TABLE harness_sessions(session_id TEXT PRIMARY KEY,harness_title TEXT); INSERT INTO harness_sessions VALUES ('chat',NULL);"
         )
-    monkeypatch.setattr(session_title, "connect", lambda: sqlite3.connect(database))
+    monkeypatch.setattr(
+        session_title, "db_helpers", SimpleNamespace(connect=lambda: sqlite3.connect(database))
+    )
     payload = client_fact(HARNESS_TITLE_KEY, "[PILLS]")
     assert session_title.confirmed_title("chat", payload) is None
     session_title.evaluate(SimpleNamespace(session_id="chat", payload=payload))
@@ -41,7 +43,9 @@ def test_absent_or_malformed_fact_cannot_clear_title(tmp_path, monkeypatch):
         conn.executescript(
             "CREATE TABLE harness_sessions(session_id TEXT PRIMARY KEY,harness_title TEXT); INSERT INTO harness_sessions VALUES ('chat','Keep');"
         )
-    monkeypatch.setattr(session_title, "connect", lambda: sqlite3.connect(database))
+    monkeypatch.setattr(
+        session_title, "db_helpers", SimpleNamespace(connect=lambda: sqlite3.connect(database))
+    )
     for payload in (
         {},
         {HARNESS_TITLE_KEY: {"schema": 1}},

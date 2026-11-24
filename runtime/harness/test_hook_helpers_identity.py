@@ -18,12 +18,12 @@ from yoke_core.hooks.helpers import (
     canonical_harness_id,
     compose_executor_from_entrypoint,
     detect_entrypoint,
-    detect_executor,
     detect_native_thread_id,
     detect_provider,
     is_claude,
     is_codex,
 )
+from yoke_core.hooks.helpers_identity import detect_executor
 
 
 #: The isolation every test runs under; a cleared environment keeps it, or

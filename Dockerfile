@@ -175,7 +175,7 @@ RUN YOKE_EXPECTED_ENGINE_VERSION="$YOKE_ENGINE_VERSION" python -c \
 
 # Fail the image build unless the installed product resolver can execute both
 # portability clients with all runtime shared-library dependencies present.
-RUN YOKE_MACHINE_HOME=/var/lib/yoke/.yoke python -c "from yoke_core.domain import universe_portability as p; import subprocess; [subprocess.run([p._postgres_executable(name), '--version'], check=True) for name in ('pg_restore', 'pg_dump')]"
+RUN YOKE_MACHINE_HOME=/var/lib/yoke/.yoke python -c "from yoke_core.domain import postgres_client_runtime as p; import subprocess; [subprocess.run([p.postgres_executable(name), '--version'], check=True) for name in ('pg_restore', 'pg_dump')]"
 
 USER yoke
 

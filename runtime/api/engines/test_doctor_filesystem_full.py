@@ -34,11 +34,17 @@ from runtime.api.engines._doctor_filesystem_full_test_helpers import (
 
 class TestDoctorHelpers:
     def test_resolve_repo_root_returns_git_toplevel(self):
-        with patch("yoke_core.engines.doctor_report._run", return_value=_cp(stdout="/repo\n")):
+        with (
+            patch("yoke_core.engines.doctor_report.bound_source_root_or_none", return_value=None),
+            patch("yoke_core.engines.doctor_report._run", return_value=_cp(stdout="/repo\n")),
+        ):
             assert _resolve_repo_root() == "/repo"
 
     def test_resolve_repo_root_returns_none_on_failure(self):
-        with patch("yoke_core.engines.doctor_report._run", return_value=_cp(returncode=1)):
+        with (
+            patch("yoke_core.engines.doctor_report.bound_source_root_or_none", return_value=None),
+            patch("yoke_core.engines.doctor_report._run", return_value=_cp(returncode=1)),
+        ):
             assert _resolve_repo_root() is None
 
     def test_resolve_main_root_from_worktree_gitfile(self, tmp_path):

@@ -216,7 +216,7 @@ def test_migration_first_rejects_new_run_membership_at_target_stage(
     target = _deployment_fixture(test_db, item_id, run_id)
     migration_conn, writer_conn = _connections(test_db)
     monkeypatch.setattr(
-        deployment_runs_crud_mutate,
+        deployment_runs_crud_mutate.db_helpers,
         "connect",
         lambda _path=None: writer_conn,
     )
@@ -288,7 +288,7 @@ def test_active_run_restoration_revalidates_linked_item_pins(
     test_db.commit()
     update_conn = connect_test_database(str(test_db.info.dbname))
     monkeypatch.setattr(
-        deployment_runs_crud_mutate,
+        deployment_runs_crud_mutate.db_helpers,
         "connect",
         lambda _path=None: update_conn,
     )

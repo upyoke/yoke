@@ -46,7 +46,7 @@ def test_https_snapshot_uses_authenticated_aggregate_route(monkeypatch):
         observed["kwargs"] = kwargs
         return SimpleNamespace(payload=_payload())
 
-    monkeypatch.setattr(loader, "resolve_https_connection", lambda: connection)
+    monkeypatch.setattr(loader.https, "resolve_https_connection", lambda: connection)
     monkeypatch.setattr(loader, "request_json", request_json)
 
     result = loader.load_project_renderer_settings_snapshot("customer app")

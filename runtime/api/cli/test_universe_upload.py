@@ -45,7 +45,6 @@ def setup_upload(monkeypatch, tmp_path, *, failure=None, expired_part=False):
     connection = HttpsConnection(
         "https://app.upyoke.com/api/orgs/destination", "private-token"
     )
-    monkeypatch.setattr(upload, "resolve_https_connection", lambda: connection)
     archive = tmp_path / "source.tar"
     body = b"a" * (2 << 20) + b"tail"
     archive.write_bytes(body)
@@ -91,7 +90,11 @@ def setup_upload(monkeypatch, tmp_path, *, failure=None, expired_part=False):
         assert request.method == "DELETE"
         return Response()
 
-    monkeypatch.setattr(upload, "relay_https", relay)
+    monkeypatch.setattr(
+        upload,
+        "https_transport",
+        SimpleNamespace(resolve_https_connection=lambda: connection, relay_https=relay),
+    )
     monkeypatch.setattr(upload, "_STORAGE", SimpleNamespace(open=open_request))
     return archive, body, calls, requests, parts
 
@@ -172,11 +175,11 @@ def test_upload_refuses_wrong_destination_before_admission(
 ):
     monkeypatch.setattr(
         upload,
-        "resolve_https_connection",
-        lambda: HttpsConnection(url, "secret") if url else None,
-    )
-    monkeypatch.setattr(
-        upload, "relay_https", lambda *_a, **_k: pytest.fail("must not admit")
+        "https_transport",
+        SimpleNamespace(
+            resolve_https_connection=lambda: HttpsConnection(url, "secret") if url else None,
+            relay_https=lambda *_a, **_k: pytest.fail("must not admit"),
+        ),
     )
     assert upload.universe_upload([str(tmp_path / "missing"), "--org", org]) == 1
     assert code in capsys.readouterr().err

@@ -34,7 +34,7 @@ def test_front_door_begin_renders_named_scope_refusal(monkeypatch, capsys):
         )
 
     monkeypatch.setattr(
-        sessions_cli, "connect", lambda: SimpleNamespace(close=lambda: None)
+        sessions_cli.db_helpers, "connect", lambda: SimpleNamespace(close=lambda: None)
     )
     monkeypatch.setattr(sessions_cli, "cmd_begin", refused)
     monkeypatch.setattr(

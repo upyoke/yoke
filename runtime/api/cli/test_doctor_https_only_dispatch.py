@@ -64,7 +64,7 @@ def test_https_only_checkout_declared_slug_skips_relayed_validation() -> None:
             side_effect=_forbid_relay,
         ),
         patch(
-            "yoke_cli.commands.adapters.doctor_https_run.persist_composed_receipt",
+            "yoke_cli.commands.adapters.doctor_https_receipt.persist_composed_receipt",
         ),
         redirect_stdout(StringIO()) as stdout,
     ):
@@ -130,7 +130,7 @@ def test_https_only_still_relays_unknown_slug(error_code: str) -> None:
             return_value=relay_error,
         ),
         patch(
-            "yoke_cli.commands.adapters.doctor_https_run.persist_composed_receipt",
+            "yoke_cli.commands.adapters.doctor_https_receipt.persist_composed_receipt",
         ),
         redirect_stdout(StringIO()) as stdout,
     ):
@@ -180,7 +180,7 @@ def test_https_only_composes_local_runtime_verdict() -> None:
             return_value=False,
         ),
         patch(
-            "yoke_cli.commands.adapters.doctor_https_run.persist_composed_receipt",
+            "yoke_cli.commands.adapters.doctor_https_receipt.persist_composed_receipt",
         ) as persist,
         redirect_stdout(StringIO()) as stdout,
     ):
@@ -234,7 +234,7 @@ def test_full_scope_composes_the_complete_caller_project_roster(monkeypatch):
         lambda **kwargs: rows if kwargs["slugs"] == ["first", "last"] else [],
     )
     monkeypatch.setattr(
-        runner, "persist_composed_receipt", lambda *args, **kwargs: None
+        runner.doctor_https_receipt, "persist_composed_receipt", lambda *args, **kwargs: None
     )
     monkeypatch.setattr(
         runner,

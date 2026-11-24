@@ -6,7 +6,8 @@ from typing import Any, Iterable
 
 from yoke_contracts.deployment_member_removal_teaching import REMOVAL_EFFECT
 
-from yoke_core.domain.db_helpers import connect, query_one, query_rows
+from yoke_core.domain import db_helpers
+from yoke_core.domain.db_helpers import query_one, query_rows
 from yoke_core.domain.deployment_run_member_removal_read import read_removal
 from yoke_core.domain.deployment_run_membership_removals import (
     record_membership_removals,
@@ -207,7 +208,7 @@ def cmd_remove_item(
         raise ValueError(
             "a membership removal needs --reason naming why this run must not deliver the item; it is recorded on the run for audit"
         )
-    conn = connect(db_path)
+    conn = db_helpers.connect(db_path)
     try:
         with bounded_run_write(conn, run_id):
             current = lock_current_read(

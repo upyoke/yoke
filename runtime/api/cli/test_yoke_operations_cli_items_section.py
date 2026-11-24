@@ -53,14 +53,17 @@ def _reset_captured() -> None:
 
 
 def _run_with_dispatch(stub, *argv: str, session_id: str = "test-session") -> int:
-    with patch.dict("os.environ", {"YOKE_SESSION_ID": session_id}):
-        with patch(
-            "yoke_core.domain.yoke_function_dispatch.dispatch",
-            side_effect=stub,
-        ):
-            with patch("yoke_cli.commands._helpers.ensure_handlers_loaded"):
-                with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
-                    return cli_main(list(argv))
+    with (
+        patch.dict("os.environ", {"YOKE_SESSION_ID": session_id}),
+        patch("yoke_core.domain.yoke_function_dispatch.dispatch", side_effect=stub),
+        patch(
+            "yoke_cli.commands.local_dispatch_preload._active_connection_is_protected_postgres",
+            return_value=True,
+        ),
+        redirect_stdout(io.StringIO()),
+        redirect_stderr(io.StringIO()),
+    ):
+        return cli_main(list(argv))
 
 
 class TestItemsSectionDispatch:

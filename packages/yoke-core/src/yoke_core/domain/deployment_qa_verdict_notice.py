@@ -23,10 +23,8 @@ from yoke_contracts.timestamps import parse_instant, utc_now
 from datetime import datetime
 from typing import Any, Optional
 
-from yoke_core.domain.deployment_run_driver_notice import (
-    DRIVER,
-    push_run_scoped_notice,
-)
+from yoke_core.domain import deployment_run_driver_notice
+from yoke_core.domain.deployment_run_driver_notice import DRIVER
 from yoke_core.domain.merge_queue_landing_notice import HOLDER, push_notice
 
 
@@ -160,7 +158,7 @@ def notify_deployment_qa_verdict(
         settle_subject(conn, run_id=run_id, stage=stage_name, member=member_item_id)
     key = verdict_idempotency_key(requirement_id, action)
     if member_item_id is None:
-        return push_run_scoped_notice(
+        return deployment_run_driver_notice.push_run_scoped_notice(
             conn,
             run_id=run_id,
             project_id=subject["project_id"],

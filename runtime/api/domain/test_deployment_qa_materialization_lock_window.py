@@ -132,7 +132,7 @@ def test_member_removal_costs_the_same_at_any_run_size(test_db, monkeypatch):
         test_db.commit()
         recorder = LockWindowRecorder(test_db)
         recorder.close = lambda: None  # the command closes its connection
-        monkeypatch.setattr(removal, "connect", lambda _path=None: recorder)
+        monkeypatch.setattr(removal.db_helpers, "connect", lambda _path=None: recorder)
         message = removal.cmd_remove_item(
             run_id, members[0], reason="split out of the release"
         )

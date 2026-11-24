@@ -18,6 +18,7 @@ from __future__ import annotations
 from runtime.api.deployment_runs_full_helpers_test_support import (db_path as db_path)
 
 from concurrent.futures import ThreadPoolExecutor
+from types import SimpleNamespace
 
 import pytest
 
@@ -84,14 +85,14 @@ class TestNextId:
 
 def _tracked_create_connections(monkeypatch) -> list:
     """Record every connection the creation write opens."""
-    real_connect = create_write.connect
+    real_connect = create_write.db_helpers.connect
     calls: list = []
 
     def tracked_connect(path=None):
         calls.append(path)
         return real_connect(path)
 
-    monkeypatch.setattr(create_write, "connect", tracked_connect)
+    monkeypatch.setattr(create_write, "db_helpers", SimpleNamespace(connect=tracked_connect))
     return calls
 
 

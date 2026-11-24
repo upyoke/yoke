@@ -183,7 +183,7 @@ def test_generic_hook_registration_uses_universal_lifecycle_client(
         lambda _script_dir: "",
     )
     monkeypatch.setattr(
-        "yoke_core.hooks.helpers.detect_executor",
+        "yoke_core.hooks.helpers_identity.detect_executor",
         lambda: "claude",
     )
     monkeypatch.setattr(

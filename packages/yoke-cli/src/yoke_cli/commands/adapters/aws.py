@@ -9,7 +9,8 @@ import subprocess
 import sys
 from typing import Any, Dict, List, Optional
 
-from yoke_cli.commands._helpers import ensure_handlers_loaded, parse_or_usage_error
+from yoke_cli.commands import _helpers
+from yoke_cli.commands._helpers import parse_or_usage_error
 from yoke_cli.config.project_selection import required_project_context
 from yoke_cli.config.project_slug_lookup import (
     ProjectSlugLookupError,
@@ -114,7 +115,7 @@ def _aws_admin_settings_or_none(
     project: str, *, session_id: Optional[str] = None
 ) -> Optional[Dict[str, Any]]:
     """Read the aws-admin settings document, or ``None`` when no row exists."""
-    ensure_handlers_loaded()
+    _helpers.ensure_handlers_loaded()
     response = call_dispatcher(
         function_id="projects.capability_settings.get",
         target=TargetRef(kind="global"),

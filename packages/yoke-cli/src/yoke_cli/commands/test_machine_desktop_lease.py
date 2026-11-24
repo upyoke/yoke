@@ -13,12 +13,12 @@ from contextlib import contextmanager
 
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.machine_qa_failures import host_control_failure
-from yoke_cli.transport.dispatcher import call_dispatcher
+from yoke_cli.transport import dispatcher
 from yoke_cli.commands.adapters.test_machine_operation import _power
 
 
 def _call(function, payload, actor):
-    response = call_dispatcher(
+    response = dispatcher.call_dispatcher(
         function_id=function,
         target=TargetRef(kind="global"),
         payload=payload,
@@ -103,7 +103,7 @@ def _heartbeat_walk(test_machine, actor):
     A server that predates the function, or a walk that cannot heartbeat,
     is named on stderr; the command still runs, as it did before.
     """
-    response = call_dispatcher(
+    response = dispatcher.call_dispatcher(
         function_id="test_machine.lease_execution_heartbeat",
         target=TargetRef(kind="global"),
         payload={"test_machine": test_machine},

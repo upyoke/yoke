@@ -9,7 +9,7 @@ from typing import Callable, Optional
 import psycopg
 from psycopg import conninfo
 
-from yoke_core.domain.postgres_client_runtime import postgres_executable
+from yoke_core.domain import postgres_client_runtime
 from yoke_core.domain.universe_portability_catalog import (
     catalog_data_targets,
     write_restore_list,
@@ -42,7 +42,6 @@ def restore_universe(
     timeout_s: int = DEFAULT_ARCHIVE_TIMEOUT_S,
     pg_restore: Optional[str] = None,
     finalize: Optional[Callable[[psycopg.Connection], None]] = None,
-    executable_resolver: Callable[[str], str] = postgres_executable,
 ) -> ArchiveInspection:
     """Restore archive data into a fresh deployed-code schema transactionally."""
     deadline = time.monotonic() + timeout_s
@@ -51,9 +50,8 @@ def restore_universe(
         max_bytes=max_bytes,
         timeout_s=remaining_timeout(deadline, "restore"),
         pg_restore=pg_restore,
-        executable_resolver=executable_resolver,
     )
-    executable = pg_restore or executable_resolver("pg_restore")
+    executable = pg_restore or postgres_client_runtime.postgres_executable("pg_restore")
     dbname = conninfo.conninfo_to_dict(dsn).get("dbname")
     if not dbname:
         raise UniversePortabilityError("the restore target DSN must name a database")

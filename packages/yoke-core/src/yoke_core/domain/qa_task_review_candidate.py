@@ -8,7 +8,8 @@ import subprocess
 import sys
 from typing import Any
 
-from yoke_core.domain.db_helpers import connect, query_one
+from yoke_core.domain import db_helpers
+from yoke_core.domain.db_helpers import query_one
 
 RECOVERY = (
     "Review the current committed task candidate, then retry review-insert "
@@ -23,7 +24,7 @@ def prepare_task_review_run(arguments: dict[str, Any]) -> dict[str, Any]:
         or arguments.get("verdict") != "pass"
     ):
         return arguments
-    with connect(path=arguments.get("db_path")) as conn:
+    with db_helpers.connect(path=arguments.get("db_path")) as conn:
         requirement = query_one(
             conn,
             "SELECT epic_id,task_num FROM qa_requirements WHERE id=%s",

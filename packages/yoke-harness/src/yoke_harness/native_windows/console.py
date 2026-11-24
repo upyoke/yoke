@@ -2,7 +2,7 @@
 
 from yoke_contracts.test_machine_types import HostActionResult
 from yoke_harness.desktop_geometry import is_desktop_resolution
-from yoke_harness.native_windows.desktop import desktop_script
+from yoke_harness.native_windows import desktop
 from yoke_harness.native_windows.display_geometry import DEFINITION
 
 RECOVERY = (
@@ -62,7 +62,7 @@ def probe_console(control, *, wsl=False, set_resolution=False):
     geometry = DEFINITION + f"Write-Output ([YokeDesktopGeometry]::{method}())\n"
     script = PROBE + (WSL_PROBE if wsl else geometry) + f"\nWrite-Output '{RECEIPT}'"
     try:
-        completed = desktop_script(control, script, timeout=30)
+        completed = desktop.desktop_script(control, script, timeout=30)
     except RuntimeError as exc:
         detail = str(exc)
     else:

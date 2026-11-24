@@ -86,7 +86,7 @@ def daemon_runtime(tmp_path, monkeypatch):
         env["PLAYWRIGHT_BROWSERS_PATH"] = str(cache)
         monkeypatch.setenv("PLAYWRIGHT_BROWSERS_PATH", str(cache))
     monkeypatch.setattr(
-        "yoke_harness.browser_client.ensure_browser_runtime",
+        "yoke_harness.browser_setup.ensure_browser_runtime",
         lambda *args, **kwargs: env,
     )
     return runtime

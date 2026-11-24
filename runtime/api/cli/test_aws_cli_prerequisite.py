@@ -196,7 +196,7 @@ def test_aws_exec_refuses_before_running_a_missing_executable(
         "import_module",
         lambda _name: fake_deploy_remote,
     )
-    monkeypatch.setattr(aws_adapter, "ensure_handlers_loaded", lambda: None)
+    monkeypatch.setattr(aws_adapter, "_helpers", types.SimpleNamespace(ensure_handlers_loaded=lambda: None))
     monkeypatch.setattr(aws_adapter, "resolve_project_slug", lambda ref: ref)
     monkeypatch.setattr(
         aws_adapter,

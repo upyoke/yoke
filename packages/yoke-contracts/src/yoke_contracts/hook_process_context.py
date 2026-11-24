@@ -23,7 +23,6 @@ _BASE_ENVIRONMENT = os.environ
 _BASE_GETCWD = os.getcwd
 _BASE_GETPID = os.getpid
 _BASE_GETPPID = os.getppid
-_BASE_POPEN = subprocess.Popen
 _BASE_STDOUT = sys.stdout
 _BASE_STDERR = sys.stderr
 
@@ -140,17 +139,6 @@ class _TextStreamProxy:
         return getattr(self._target(), name)
 
 
-class _ContextPopen(_BASE_POPEN):
-    """Give hook subprocesses the caller's environment and cwd by default."""
-
-    def __init__(self, *args, **kwargs) -> None:
-        current = _active()
-        if current is not None:
-            kwargs.setdefault("env", dict(current.process.environment))
-            kwargs.setdefault("cwd", current.process.cwd)
-        super().__init__(*args, **kwargs)
-
-
 def _getcwd() -> str:
     current = _active()
     return current.process.cwd if current else _BASE_GETCWD()
@@ -171,6 +159,17 @@ def install_process_context() -> None:
     global _INSTALLED
     if _INSTALLED:
         return
+
+    class _ContextPopen(subprocess.Popen):
+        """Give hook subprocesses the caller's environment and cwd by default."""
+
+        def __init__(self, *args, **kwargs) -> None:
+            current = _active()
+            if current is not None:
+                kwargs.setdefault("env", dict(current.process.environment))
+                kwargs.setdefault("cwd", current.process.cwd)
+            super().__init__(*args, **kwargs)
+
     os.environ = _EnvironmentProxy()  # type: ignore[assignment]
     os.getcwd = _getcwd  # type: ignore[assignment]
     os.getpid = _getpid  # type: ignore[assignment]

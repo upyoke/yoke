@@ -58,7 +58,7 @@ def console(monkeypatch):
         calls.append({"script": script, "timeout": timeout, "hidden": hidden})
         return subprocess.CompletedProcess([], 0, "", "")
 
-    monkeypatch.setattr(baseline, "desktop_script", desktop_script)
+    monkeypatch.setattr(baseline.desktop, "desktop_script", desktop_script)
     return calls
 
 
@@ -81,7 +81,7 @@ def test_console_install_failure_names_surface_and_recovery(monkeypatch, console
             [], 1, "", "windows_untrusted_mount_point: run from a local PowerShell"
         )
 
-    monkeypatch.setattr(baseline, "desktop_script", failing)
+    monkeypatch.setattr(baseline.desktop, "desktop_script", failing)
     control = _Control()
     result = baseline.reach_baseline(control, "shell-preconfigured")
     assert not result.ok
@@ -137,7 +137,7 @@ def test_console_install_failure_keeps_the_tail_of_both_streams(monkeypatch, con
             "python_bootstrap_failed: uv exited 2 while preparing Python 3.12.16",
         )
 
-    monkeypatch.setattr(baseline, "desktop_script", failing)
+    monkeypatch.setattr(baseline.desktop, "desktop_script", failing)
     result = baseline.reach_baseline(_Control(), "shell-preconfigured")
     recovery = result.evidence["recovery"]
     assert result.error_code == "windows_baseline_install_failed"
@@ -149,7 +149,7 @@ def test_console_install_failure_keeps_the_tail_of_both_streams(monkeypatch, con
 
 def test_silent_console_install_failure_still_names_a_recovery(monkeypatch, console):
     monkeypatch.setattr(
-        baseline, "desktop_script",
+        baseline.desktop, "desktop_script",
         lambda control, script, **kw: subprocess.CompletedProcess([], 3, "", ""),
     )
     result = baseline.reach_baseline(_Control(), "shell-preconfigured")

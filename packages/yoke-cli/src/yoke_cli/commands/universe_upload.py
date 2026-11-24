@@ -18,11 +18,8 @@ from xml.etree import ElementTree as ET
 from yoke_cli.commands._helpers import parse_or_usage_error
 from yoke_contracts.onboard_destinations import is_hosted_url
 from yoke_cli.transport.dispatcher import build_actor
-from yoke_cli.transport.https import (
-    TransportError,
-    relay_https,
-    resolve_https_connection,
-)
+from yoke_cli.transport import https as https_transport
+from yoke_cli.transport.https import TransportError
 from yoke_contracts.https_urlopen import NoRedirect
 from yoke_contracts.api.function_call import FunctionCallRequest, TargetRef
 
@@ -62,7 +59,7 @@ def _admit(connection, size, *, previous=None, numbers=None):
     payload = {"size": size}
     if previous:
         payload.update(upload_id=previous["upload_id"], part_numbers=numbers)
-    response = relay_https(
+    response = https_transport.relay_https(
         FunctionCallRequest(
             function="universe.upload.create",
             actor=build_actor(),
@@ -256,7 +253,7 @@ def universe_upload(args):
     if parsed is None:
         return 2
     try:
-        connection = resolve_https_connection()
+        connection = https_transport.resolve_https_connection()
         if connection is None or not is_hosted_url(connection.api_url):
             raise UploadRefused(
                 "upload_hosted_connection_required: connect to the destination org, then use `yoke --env DESTINATION universe upload ARCHIVE --org SLUG`"

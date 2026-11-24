@@ -236,7 +236,7 @@ def test_member_presentation_shares_reads_without_reusing_next_request(test_db):
     from yoke_core.domain.deployment_runs_crud_query import get_run
 
     with patch(
-        "yoke_core.domain.deployment_runs_crud_query.connect", return_value=full
+        "yoke_core.domain.db_helpers.connect", return_value=full
     ):
         stored = get_run(run_ids[0])
     assert json.loads(stored["bound_sources"]) == bound

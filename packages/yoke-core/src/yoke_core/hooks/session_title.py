@@ -1,7 +1,7 @@
 """Persist a native title observed by the client on prompt and Stop."""
 
 from yoke_contracts.hook_runner.client_facts import HARNESS_TITLE_KEY, read_client_fact
-from yoke_core.domain.db_helpers import connect
+from yoke_core.domain import db_helpers
 from yoke_core.domain.project_identity import placeholder
 from yoke_core.hooks.types import HookDecision, Next, Outcome
 
@@ -9,7 +9,7 @@ from yoke_core.hooks.types import HookDecision, Next, Outcome
 def evaluate(context):
     value = read_client_fact(context.payload, HARNESS_TITLE_KEY)
     if _valid_title_fact(context.payload) and context.session_id:
-        conn = connect()
+        conn = db_helpers.connect()
         try:
             p = placeholder(conn)
             conn.execute(
@@ -29,7 +29,7 @@ def confirmed_title(session_id, payload):
         return None
     conn = None
     try:
-        conn = connect()
+        conn = db_helpers.connect()
         row = conn.execute(
             f"SELECT harness_title FROM harness_sessions WHERE session_id={placeholder(conn)}",
             (session_id,),

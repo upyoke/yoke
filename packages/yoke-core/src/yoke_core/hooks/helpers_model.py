@@ -18,7 +18,8 @@ from yoke_contracts.session_model_facts import (
     is_placeholder_model as _is_placeholder_model,
 )
 
-from yoke_core.hooks.helpers_identity import detect_executor, is_codex
+from yoke_core.hooks import helpers_identity
+from yoke_core.hooks.helpers_identity import is_codex
 
 
 def _read_parent_argv() -> list[str]:
@@ -85,7 +86,7 @@ def detect_requested_model(
     """
     if os.environ.get("YOKE_MODEL"):
         return os.environ["YOKE_MODEL"]
-    if is_codex(executor or detect_executor()):
+    if is_codex(executor or helpers_identity.detect_executor()):
         codex_env = os.environ.get("CODEX_MODEL", "")
         if codex_env:
             return codex_env

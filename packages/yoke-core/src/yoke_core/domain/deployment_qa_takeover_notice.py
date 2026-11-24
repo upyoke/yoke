@@ -12,7 +12,7 @@ from typing import Any
 
 from yoke_core.domain.db_savepoint import SavepointLostError, savepoint
 from yoke_core.domain.deployment_qa_manual_wake import MANUAL_WAKE_RECHECK_INSTRUCTION
-from yoke_core.domain.deployment_run_driver_notice import push_member_notice
+from yoke_core.domain import deployment_run_driver_notice
 from yoke_core.domain.merge_queue_landing_notice import HOLDER
 from yoke_core.domain.session_message_types import SessionMessageError
 
@@ -199,7 +199,7 @@ def notify_moved_member_qa(
             )
             try:
                 with savepoint(conn, _SEND_SAVEPOINT, owns=False):
-                    push_member_notice(
+                    deployment_run_driver_notice.push_member_notice(
                         conn,
                         item_id=item_id,
                         project_id=project_id,

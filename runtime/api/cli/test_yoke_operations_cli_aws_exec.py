@@ -68,7 +68,7 @@ def test_aws_exec_relays_settings_and_uses_machine_capability_env(monkeypatch):
         "import_module",
         lambda name: fake_deploy_remote,
     )
-    monkeypatch.setattr(aws_adapter, "ensure_handlers_loaded", lambda: None)
+    monkeypatch.setattr(aws_adapter, "_helpers", types.SimpleNamespace(ensure_handlers_loaded=lambda: None))
 
     def fake_dispatcher(**kwargs):
         dispatcher_calls.append(kwargs)
@@ -160,7 +160,7 @@ def test_aws_exec_missing_region_refuses_before_subprocess(monkeypatch, capsys):
         "import_module",
         lambda name: fake_deploy_remote,
     )
-    monkeypatch.setattr(aws_adapter, "ensure_handlers_loaded", lambda: None)
+    monkeypatch.setattr(aws_adapter, "_helpers", types.SimpleNamespace(ensure_handlers_loaded=lambda: None))
     monkeypatch.setattr(
         aws_adapter,
         "call_dispatcher",
@@ -179,7 +179,7 @@ def test_aws_exec_missing_region_refuses_before_subprocess(monkeypatch, capsys):
 
 
 def test_aws_exec_settings_relay_failure_surfaces_error(monkeypatch, capsys):
-    monkeypatch.setattr(aws_adapter, "ensure_handlers_loaded", lambda: None)
+    monkeypatch.setattr(aws_adapter, "_helpers", types.SimpleNamespace(ensure_handlers_loaded=lambda: None))
     monkeypatch.setattr(
         aws_adapter,
         "call_dispatcher",
@@ -215,7 +215,7 @@ def test_aws_exec_reports_an_install_that_vanished_mid_call(monkeypatch, capsys)
         "import_module",
         lambda name: fake_deploy_remote,
     )
-    monkeypatch.setattr(aws_adapter, "ensure_handlers_loaded", lambda: None)
+    monkeypatch.setattr(aws_adapter, "_helpers", types.SimpleNamespace(ensure_handlers_loaded=lambda: None))
     monkeypatch.setattr(
         aws_adapter,
         "call_dispatcher",

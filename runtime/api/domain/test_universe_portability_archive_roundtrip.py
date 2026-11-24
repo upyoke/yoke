@@ -3,6 +3,7 @@
 import os
 import psycopg
 import pytest
+from yoke_core.domain import postgres_client_runtime
 from yoke_core.domain import universe_portability as portability
 from yoke_core.domain.schema_fingerprint import (
     fingerprint_portable_postgres_schema,
@@ -70,7 +71,7 @@ def test_real_dump_excludes_environment_instrumentation(tmp_path):
         inspection = portability.dump_universe(source_dsn, archive)
         catalog = portability._archive_catalog(
             archive,
-            executable=portability._postgres_executable("pg_restore"),
+            executable=postgres_client_runtime.postgres_executable("pg_restore"),
             timeout_s=portability.DEFAULT_ARCHIVE_TIMEOUT_S,
         )
         assert inspection.table_entries > 0
@@ -107,7 +108,7 @@ def test_real_dump_uses_one_exported_repeatable_read_snapshot(tmp_path):
         portability.dump_universe(source_dsn, archive, snapshot=snapshot)
         catalog = portability._archive_catalog(
             archive,
-            executable=portability._postgres_executable("pg_restore"),
+            executable=postgres_client_runtime.postgres_executable("pg_restore"),
             timeout_s=portability.DEFAULT_ARCHIVE_TIMEOUT_S,
         )
         assert "yoke_source_authority" not in catalog

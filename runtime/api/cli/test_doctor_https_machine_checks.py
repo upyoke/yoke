@@ -82,7 +82,9 @@ def test_machine_check_does_not_require_a_server_roster_entry(
     monkeypatch.setattr(compose, "machine_has_checkout_for", lambda p: False)
     monkeypatch.setattr(doctor, "collect_chunked", old_server)
     monkeypatch.setattr(
-        doctor, "persist_composed_receipt", lambda result, **kw: receipts.append(result)
+        doctor.doctor_https_receipt,
+        "persist_composed_receipt",
+        lambda result, **kw: receipts.append(result),
     )
     assert (
         doctor.dispatch_chunked(
@@ -128,7 +130,7 @@ def test_known_machine_check_does_not_run_twice_for_server_na(monkeypatch, capsy
         lambda **kw: calls.append(kw) or [{**row, "severity": "PASS"}],
     )
     monkeypatch.setattr(compose, "machine_has_checkout_for", lambda p: False)
-    monkeypatch.setattr(doctor, "persist_composed_receipt", lambda *a, **kw: None)
+    monkeypatch.setattr(doctor.doctor_https_receipt, "persist_composed_receipt", lambda *a, **kw: None)
     monkeypatch.setattr(
         doctor,
         "collect_chunked",
@@ -199,7 +201,7 @@ def test_https_cli_aggregates_control_plane_chunks_with_machine_results(
         lambda: True,
     )
     monkeypatch.setattr(doctor, "call_dispatcher", fake_call_dispatcher)
-    monkeypatch.setattr(doctor, "persist_composed_receipt", lambda *a, **kw: None)
+    monkeypatch.setattr(doctor.doctor_https_receipt, "persist_composed_receipt", lambda *a, **kw: None)
     monkeypatch.setattr(
         compose, "requested_local_machine_slugs", lambda p: (["machine"], [])
     )

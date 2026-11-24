@@ -25,6 +25,7 @@ pytest_plugins = [
     "yoke_contracts.testing.real_home_isolation",
     "runtime.running_environment_isolation",
     "runtime.sql_calendar_guard",
+    "runtime.stale_test_binding_guard",
 ]
 
 # ---------------------------------------------------------------------------

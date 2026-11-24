@@ -161,7 +161,7 @@ def test_a_binding_mismatch_is_reported_not_cancelled(test_db, seeded, monkeypat
 def test_terminalize_run_returns_the_cancellations(
     test_db, seeded, github, monkeypatch
 ):
-    monkeypatch.setattr(terminalization, "connect", lambda: _OpenConnection(test_db))
+    monkeypatch.setattr(terminalization.db_helpers, "connect", lambda: _OpenConnection(test_db))
 
     result = terminalization.terminalize_run(
         RUN, disposition="cancelled", reason="stale", actor_id=None, session_id="s"
@@ -185,7 +185,7 @@ def test_a_failed_status_write_cancels_after_its_commit(test_db, seeded, monkeyp
         lambda conn, run_id: cancelled.append(run_id) or [],
     )
     monkeypatch.setattr(
-        deployment_runs_crud_mutate, "connect", lambda *_: _OpenConnection(test_db)
+        deployment_runs_crud_mutate.db_helpers, "connect", lambda *_: _OpenConnection(test_db)
     )
 
     assert deployment_runs_crud_mutate.cmd_update(RUN, "status", "failed") is None

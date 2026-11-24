@@ -287,7 +287,7 @@ def test_migration_first_serializes_deployment_membership_removal(
     test_db.commit()
     migration_conn, removal_conn = _connections(test_db)
     monkeypatch.setattr(
-        deployment_runs_crud_mutate,
+        deployment_runs_crud_mutate.db_helpers,
         "connect",
         lambda _path=None: removal_conn,
     )

@@ -3,6 +3,7 @@
 import json
 import tarfile
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from botocore.exceptions import ClientError, NoCredentialsError
@@ -200,7 +201,9 @@ def test_deleted_qa_file_exports_manifest_and_visible_missing_summary(
     )
     assert report["artifacts"]["missing"] == 2
     assert "missing artifacts: 2" in lines[-1]
-    monkeypatch.setattr(cli, "resolve_https_connection", lambda: None)
+    monkeypatch.setattr(
+        cli, "https_transport", SimpleNamespace(resolve_https_connection=lambda: None)
+    )
     monkeypatch.setattr(cli.setup, "universe_export", lambda **_: report)
     assert cli.universe_export([]) == 0
     output = capsys.readouterr().out

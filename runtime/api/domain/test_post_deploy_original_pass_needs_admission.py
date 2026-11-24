@@ -222,7 +222,7 @@ def test_cancelled_newer_run_does_not_mask_the_delivered_qa(
     monkeypatch: pytest.MonkeyPatch,
 ):
     monkeypatch.setattr(
-        ladder,
+        ladder.containment,
         "candidate_contains_commit",
         lambda _conn, _project, *, candidate_lineage, commit_sha: ContainmentVerdict(
             CONTAINED if candidate_lineage == commit_sha else NOT_CONTAINED

@@ -82,12 +82,16 @@ def run_list(monkeypatch, argv, key, *, large=False, legacy=False):
 
     monkeypatch.setenv("YOKE_SESSION_ID", "test-session")
     out, err = io.StringIO(), io.StringIO()
-    with patch(
-        "yoke_core.domain.yoke_function_dispatch.dispatch", side_effect=dispatch
+    with (
+        patch("yoke_core.domain.yoke_function_dispatch.dispatch", side_effect=dispatch),
+        patch(
+            "yoke_cli.commands.local_dispatch_preload._active_connection_is_protected_postgres",
+            return_value=True,
+        ),
+        redirect_stdout(out),
+        redirect_stderr(err),
     ):
-        with patch("yoke_cli.commands._helpers.ensure_handlers_loaded"):
-            with redirect_stdout(out), redirect_stderr(err):
-                code = main(argv)
+        code = main(argv)
     return code, out.getvalue(), err.getvalue(), requests
 
 

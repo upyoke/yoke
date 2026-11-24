@@ -26,7 +26,8 @@ from yoke_contracts.timestamps import as_utc, format_instant, utc_now
 from typing import Any, Dict, Optional, Tuple
 
 from yoke_core.domain.deployment_runs_lock import lock_run
-from yoke_core.domain.db_helpers import connect, instant_parameter, query_one
+from yoke_core.domain import db_helpers
+from yoke_core.domain.db_helpers import instant_parameter, query_one
 from yoke_core.domain.events import build_envelope
 from yoke_core.domain.events_insert_sql import _INSERT_SQL
 from yoke_core.domain.events_write_conn import (
@@ -204,7 +205,7 @@ def terminalize_run(
     session_id: str,
 ) -> RunTerminalization:
     """Close one active run atomically, then cancel its dispatched workflows."""
-    conn = connect()
+    conn = db_helpers.connect()
     try:
         result = terminalize_run_on(
             conn,

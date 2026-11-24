@@ -10,7 +10,7 @@ from yoke_contracts.browser_identity import (
     BrowserIdentityError,
     select_declared_identity,
 )
-from yoke_cli.commands._helpers import ensure_handlers_loaded
+from yoke_cli.commands import _helpers
 from yoke_cli.config import browser_profile
 from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.config.project_slug_lookup import ProjectSlugLookupError
@@ -21,12 +21,13 @@ from yoke_contracts.machine_config.capability_secret_store import (
 from yoke_contracts.machine_config.test_machine import (
     TestMachineCapabilityError,
 )
-from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
+from yoke_cli.transport import dispatcher
+from yoke_cli.transport.dispatcher import build_actor
 from yoke_cli.transport.test_machine_response_field import read_test_machine_field
 
 
 def _read(function, payload, actor):
-    response = call_dispatcher(
+    response = dispatcher.call_dispatcher(
         function_id=function,
         target=TargetRef(kind="global"),
         payload=payload,
@@ -141,7 +142,7 @@ def authorize_remote(parsed) -> int:
                 "host without a route, run locally there with --declarations-json."
             )
         project = browser_profile.profile_project_key(parsed.project)
-        ensure_handlers_loaded()
+        _helpers.ensure_handlers_loaded()
         actor = build_actor()
         detail = _read(
             "test_machine.get",

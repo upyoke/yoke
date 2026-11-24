@@ -8,9 +8,6 @@ from typing import Callable, Mapping, Optional
 import psycopg
 
 from yoke_core.domain import universe_archive_output
-from yoke_core.domain.postgres_client_runtime import (
-    postgres_executable as _postgres_executable,
-)
 from yoke_core.domain.universe_portability_catalog import (
     validate_catalog as _validate_catalog,
     write_restore_list as _write_restore_list,
@@ -97,7 +94,6 @@ def _inspect_archive(
         max_bytes=max_bytes,
         timeout_s=timeout_s,
         pg_restore=pg_restore,
-        executable_resolver=_postgres_executable,
     )
 
 
@@ -114,7 +110,6 @@ def inspect_archive(
         max_bytes=max_bytes,
         timeout_s=timeout_s,
         pg_restore=pg_restore,
-        executable_resolver=_postgres_executable,
     )
 
 
@@ -135,7 +130,6 @@ def dump_universe(
         timeout_s=timeout_s,
         pg_dump=pg_dump,
         snapshot=snapshot,
-        executable_resolver=_postgres_executable,
         client_env_builder=postgres_client_env,
         archive_inspector=inspect_archive,
     )
@@ -158,7 +152,6 @@ def restore_universe(
         timeout_s=timeout_s,
         pg_restore=pg_restore,
         finalize=finalize,
-        executable_resolver=_postgres_executable,
     )
 
 
