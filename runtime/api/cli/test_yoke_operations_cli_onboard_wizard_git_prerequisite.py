@@ -22,6 +22,7 @@ from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     stub_path_doctor,
     type_text,
 )
+from runtime.api.cli.onboard_wizard_view_test_support import wait_for_view  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -149,8 +150,7 @@ def test_missing_git_retry_continues_after_install(monkeypatch) -> None:
             state["installed"] = True
             await pilot.press("down")  # Install Git -> Try again
             await pilot.press("enter")
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(pilot, "project.clone_url", "Input")
             assert _title(app) == "Clone a project from GitHub."
 
     asyncio.run(scenario())
@@ -184,9 +184,7 @@ def test_missing_git_install_action_runs_helper_then_continues(monkeypatch) -> N
             await pilot.pause()
             assert "install git" in _body_text(app).lower()
             await pilot.press("enter")
-            await app.workers.wait_for_complete()
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(pilot, "project.clone_url", "Input")
             assert state["install_calls"] == 1
             assert _title(app) == "Clone a project from GitHub."
             assert len(app._history) == project_depth + 1
@@ -258,14 +256,14 @@ def test_missing_git_macos_handoff_keeps_wizard_open(monkeypatch) -> None:
             await pilot.pause()
             assert "install apple tools" in _body_text(app).lower()
             await pilot.press("enter")
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(
+                pilot, "project.project_git_install_handoff", "SelectionList"
+            )
             body = _body_text(app).lower()
             assert "xcode-select --install" in body
             assert "check again" in body
             await pilot.press("enter")
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(pilot, "project.project_git_missing", "SelectionList")
             assert state["finalize_calls"] == 1
 
     asyncio.run(scenario())
@@ -295,8 +293,7 @@ def test_clone_url_probe_missing_git_is_not_repo_unreachable(monkeypatch) -> Non
             state["git_available"] = False
             await type_text(pilot, "https://github.com/antirez/kilo.git")
             await pilot.press("enter")
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(pilot, "project.clone_git_missing", "SelectionList")
             body = _body_text(app).lower()
             assert "git is required" in body
             assert "install git" in body
@@ -329,15 +326,16 @@ def test_project_git_retry_and_back_do_not_accumulate_recovery_views(
             for _ in range(2):
                 await pilot.press("down")  # Install Git -> Try again
                 await pilot.press("enter")
-                await app.workers.wait_for_complete()
-                await pilot.pause()
+                await wait_for_view(
+                    pilot, "project.project_git_missing", "SelectionList"
+                )
                 assert "git is required" in _body_text(app).lower()
                 assert len(app._history) == error_depth
 
             await pilot.press("down")  # Install Git -> Try again
             await pilot.press("down")  # Try again -> Back
             await pilot.press("enter")
-            await pilot.pause()
+            await wait_for_view(pilot, "project.mode", "SelectionList")
             assert _title(app) == "Set up a project."
             assert "git is required" not in _body_text(app).lower()
             assert len(app._history) == project_depth

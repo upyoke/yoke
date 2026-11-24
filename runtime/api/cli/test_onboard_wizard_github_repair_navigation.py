@@ -29,6 +29,7 @@ from yoke_cli.config import onboard_wizard_flow_publish  # noqa: E402
 from yoke_cli.config import onboard_wizard_flow_publish_manual  # noqa: E402
 from yoke_cli.config import onboard_wizard_project_github  # noqa: E402
 from yoke_cli.config import onboard_wizard_steps as steps  # noqa: E402
+from runtime.api.cli.onboard_wizard_view_test_support import wait_for_view  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -124,14 +125,12 @@ def test_permission_repair_check_reaches_project_without_reconnecting(
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
             await pilot.press("enter")
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(pilot, "github.machine_github_pending", "SelectionList")
             assert "GitHub App access needs repair" in _body_text(app)
             assert "https://github.com/settings/installations/123" in _body_text(app)
             repair_depth = len(app._history)
             await pilot.press("enter")
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(pilot, "project.mode", "SelectionList")
             assert len(app._history) == repair_depth
             assert "Success! Yoke GitHub App connected." in _body_text(app)
             assert app._history[-1].prompt.key == "project.mode"
@@ -158,17 +157,15 @@ def test_suspended_installation_remains_repairable_with_bounded_history(
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
             await pilot.press("enter")
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(pilot, "github.machine_github_pending", "SelectionList")
             repair_depth = len(app._history)
             assert "GitHub App access needs repair" in _body_text(app)
             await pilot.press("enter")
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(pilot, "github.machine_github_pending", "SelectionList")
             assert len(app._history) == repair_depth
             await pilot.press("down", "down")
             await pilot.press("enter")
-            await pilot.pause()
+            await wait_for_view(pilot, "github.machine", "SelectionList")
             assert len(app._history) == repair_depth - 1
 
     asyncio.run(scenario())
@@ -204,15 +201,14 @@ def test_project_access_refresh_not_ready_keeps_one_picker(
             await pilot.pause()
             picker_depth = len(app._history)
             await pilot.press("enter")
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(pilot, "project.project_github_access", "SelectionList")
             assert len(app._history) == picker_depth
             assert _row_values(app) == [
                 row.value for row in steps.PROJECT_GITHUB_ACCESS_ROWS
             ]
             await pilot.press("down", "down")
             await pilot.press("enter")
-            await pilot.pause()
+            await wait_for_view(pilot, "github.machine", "SelectionList")
             assert len(app._history) == picker_depth - 1
 
     asyncio.run(scenario())

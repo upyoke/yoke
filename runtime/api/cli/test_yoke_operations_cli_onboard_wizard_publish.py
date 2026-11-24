@@ -37,6 +37,7 @@ from runtime.api.cli.onboard_wizard_github_app_test_support import (  # noqa: E4
     select_connected_repository,
     stub_github_app_access,
 )
+from runtime.api.cli.onboard_wizard_view_test_support import wait_for_view  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -234,7 +235,7 @@ def test_changed_checkout_origin_back_returns_to_project_name(
             await _pick_mode(pilot, onboard_project.PROJECT_MODE_LOCAL_CHECKOUT)
             await type_text(pilot, str(checkout))
             await pilot.press("enter")
-            await app.workers.wait_for_complete()
+            await wait_for_view(pilot, "project.clone_outcome", "SelectionList")
             await pilot.press("enter")  # explicit read-only source destination
             subprocess.run(
                 [
@@ -308,8 +309,7 @@ def test_owner_picker_error_back_returns_to_publish_choice(monkeypatch) -> None:
             await pilot.press("enter")
             await accept_project_details(pilot)
             await pilot.press("enter")  # publish: Yes
-            await app.workers.wait_for_complete()
-            await pilot.pause(0.2)
+            await wait_for_view(pilot, "project.owner_picker_error", "SelectionList")
             assert "Couldn't load GitHub owners" in current_view_title()
             await pilot.press("down")  # Back
             await pilot.press("enter")

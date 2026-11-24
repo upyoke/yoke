@@ -96,7 +96,7 @@ def test_duplicate_private_always_keeps_upstream_skips_upstream_screen() -> None
             await pilot.press("down")  # move to "Duplicate it"
             await pilot.press("enter")
             await pilot.press("enter")  # new-repo visibility: Private (default)
-            await pilot.pause()
+            await wait_for_view(pilot, "project.details", "#onboard-input-slug")
             # Visibility lands directly on the name input — there is NO
             # keep-upstream selection screen in between.
             assert app.query_one("#onboard-input-slug", Input) is not None
@@ -262,7 +262,7 @@ def test_duplicate_without_app_connection_requires_an_explicit_destination(monke
             assert spy.applied is None
             assert app.result.project_clone_outcome == clone.CLONE_OUTCOME_MAKE_IT_MINE
             await pilot.press("down", "enter")  # decline App; return to destination choice
-            await pilot.pause()
+            await wait_for_view(pilot, "project.clone_outcome", "SelectionList")
             assert "Where should Yoke publish work from" in " ".join(
                 str(w.render()) for w in app.query("#onboard-body Static").results(Static)
             )

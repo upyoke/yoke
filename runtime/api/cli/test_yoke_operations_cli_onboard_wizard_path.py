@@ -26,6 +26,7 @@ from yoke_cli.config.onboard_wizard_widgets import (  # noqa: E402
     STEPPER_ORDER,
     Stepper,
 )
+from runtime.api.cli.onboard_wizard_view_test_support import wait_for_view  # noqa: E402
 
 UNSAFE_SCREEN_GLYPHS = set("☀✓✔✗●○◐⊘›•→▌─│┃━═—–…↵↑↓·")
 
@@ -222,8 +223,7 @@ def test_failed_install_stays_on_install_and_retry_advances(monkeypatch):
             assert "Retry Install" in text
             monkeypatch.setattr(path_doctor, "diagnose", _all_clear_diagnosis)
             await pilot.press("enter")
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(pilot, "project.mode", "SelectionList")
             assert app.query_one(Stepper).active != STEP_INSTALL
             assert all(view.step != STEP_INSTALL for view in app._history)
 

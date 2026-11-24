@@ -79,7 +79,7 @@ def test_clone_existing_yoke_project_offers_binding_upgrade(
             assert title == "Existing project found: ExternalWebapp."
             await pilot.press("down")  # Review details
             await pilot.press("enter")
-            await pilot.pause()
+            await wait_for_view(pilot, "project.existing_found", "SelectionList")
             body = _body_text(app)
             assert (
                 "The Yoke core database already has a project for this GitHub repo."
@@ -148,8 +148,9 @@ def test_clone_existing_yoke_project_access_error_blocks_setup(monkeypatch) -> N
             assert title == "✗ Can't use that Yoke project."
             error_depth = len(app._history)
             await pilot.press("enter")  # Try again
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(
+                pilot, "project.existing_project_lookup_error", "SelectionList"
+            )
             assert "Can't use that Yoke project." in _body_text(app)
             assert len(app._history) == error_depth
             await pilot.press("down")  # Back

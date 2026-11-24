@@ -26,6 +26,7 @@ from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     stub_path_doctor,
     type_text,
 )
+from runtime.api.cli.onboard_wizard_view_test_support import wait_for_view  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -150,7 +151,7 @@ def test_yoke_token_without_org_or_project_access_can_retry(monkeypatch) -> None
             assert app.result.token is None
             assert app.result.yoke_token_verification is None
             await pilot.press("enter")  # Try again
-            await pilot.pause()
+            await wait_for_view(pilot, "connect.server", "#onboard-input-credential")
             assert app.query_one("#onboard-input-credential", Input).password is True
 
     asyncio.run(scenario())
@@ -229,7 +230,7 @@ def test_yoke_token_prompt_error_can_retry(monkeypatch) -> None:
             assert "API token is unknown" in text
             error_depth = len(app._history)
             await pilot.press("enter")  # Try again
-            await pilot.pause()
+            await wait_for_view(pilot, "connect.server", "#onboard-input-credential")
             assert app.query_one("#onboard-input-credential", Input).password is True
             assert len(app._history) == error_depth
             await pilot.press("enter")  # populated URL -> token-source selector
@@ -246,7 +247,7 @@ def test_yoke_token_prompt_error_can_retry(monkeypatch) -> None:
             assert len(app._history) == error_depth
             await pilot.press("down")  # Back
             await pilot.press("enter")
-            await pilot.pause()
+            await wait_for_view(pilot, "connect.destination", "SelectionList")
             assert "Where should this Yoke universe live?" in _body_text(app)
             # The destination replaces the failed form while retaining the
             # install step as the only user-visible Back target.
@@ -259,8 +260,7 @@ def test_yoke_token_prompt_error_can_retry(monkeypatch) -> None:
 async def _advance_to_token(app, pilot) -> None:
     await advance_past_path(pilot)
     await pilot.press("enter")  # URL -> server sign-in discovery
-    await app.workers.wait_for_complete()
-    await pilot.pause()
+    await wait_for_view(pilot, "connect.machine_admission", "SelectionList")
     await pilot.press("down", "down", "enter")  # Use an API token
     await pilot.press("enter")  # server URL -> token-source selector
     await pilot.press("enter")  # Paste token -> credential field

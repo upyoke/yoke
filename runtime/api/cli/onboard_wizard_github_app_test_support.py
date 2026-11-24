@@ -108,8 +108,7 @@ async def connect_github_app(app: Any, pilot: Any) -> None:
     """Complete the stubbed browser flow and reach the project question."""
     await advance_past_path(pilot)
     await pilot.press("enter")
-    await app.workers.wait_for_complete()
-    await pilot.pause()
+    await wait_for_view(pilot, "project.mode", "SelectionList")
     assert app._history[-1].prompt.key == "project.mode"
 
 
@@ -124,8 +123,7 @@ async def select_connected_repository(app: Any, pilot: Any) -> None:
     for _ in range(index):
         await pilot.press("down")
     await pilot.press("enter")
-    await app.workers.wait_for_complete()
-    await pilot.pause()
+    await wait_for_view(pilot, "hosting.provider", "SelectionList")
     assert app.result.project_github_adoption == "app-binding", (
         app.result.project_github_repo,
         machine_config.github_config(app.result.config_path),

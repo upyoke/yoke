@@ -26,6 +26,7 @@ from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     advance_past_path,
     stub_path_doctor,
 )
+from runtime.api.cli.onboard_wizard_view_test_support import wait_for_view  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -128,12 +129,12 @@ def test_saved_authorization_retries_live_check_without_new_device_flow(
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
             await pilot.press("enter")
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(
+                pilot, "github.machine_github_live_check_retry", "SelectionList"
+            )
             assert "without repeating browser authorization" in _body_text(app)
             await pilot.press("enter")
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(pilot, "project.mode", "SelectionList")
             assert "Success! Yoke GitHub App connected." in _body_text(app)
             assert app._history[-1].prompt.key == "project.mode"
 
@@ -186,20 +187,17 @@ def test_stored_revoked_back_has_no_browser_and_reconnect_is_explicit(
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
             await pilot.press("enter")
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(pilot, "github.machine_github_error", "SelectionList")
             assert _row_values(app)[0] == "reconnect"
             await pilot.press("down", "down")
             await pilot.press("enter")
-            await pilot.pause()
+            await wait_for_view(pilot, "github.machine", "SelectionList")
             assert _row_values(app) == [row.value for row in steps.MACHINE_GITHUB_ROWS]
             assert calls == ["status"]
             await pilot.press("enter")
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(pilot, "github.machine_github_error", "SelectionList")
             await pilot.press("enter")
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(pilot, "project.mode", "SelectionList")
 
     asyncio.run(scenario())
 
@@ -246,20 +244,18 @@ def test_pending_check_still_pending_then_back_does_not_reload(
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
             await pilot.press("enter")
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(pilot, "github.machine_github_pending", "SelectionList")
             assert app.result.machine_github_saved is True
             assert "already saved" in _body_text(app)
             assert "yoke github disconnect" in _body_text(app)
             assert config.is_file()
             pending_depth = len(app._history)
             await pilot.press("enter")
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(pilot, "github.machine_github_pending", "SelectionList")
             assert len(app._history) == pending_depth
             await pilot.press("down", "down")
             await pilot.press("enter")
-            await pilot.pause()
+            await wait_for_view(pilot, "github.machine", "SelectionList")
             assert _row_values(app) == [row.value for row in steps.MACHINE_GITHUB_ROWS]
 
     asyncio.run(scenario())

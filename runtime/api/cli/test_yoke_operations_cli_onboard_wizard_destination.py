@@ -54,6 +54,7 @@ from runtime.api.cli.yoke_operations_cli_onboard_destination_test_support import
     _FakeEngine,
     _normalized_local_connection,
 )
+from runtime.api.cli.onboard_wizard_view_test_support import wait_for_view  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -144,7 +145,7 @@ def test_local_pick_names_existing_universe_on_rerun(
             summary_depth = len(app._history)
             await pilot.press("down")  # Back
             await pilot.press("enter")
-            await pilot.pause()
+            await wait_for_view(pilot, "connect.destination", "SelectionList")
             assert "Where should this Yoke universe live?" in _body_text(app)
             assert len(app._history) == summary_depth - 1
             await pilot.press("escape")
@@ -164,15 +165,14 @@ def test_server_pick_discovers_sign_in_before_explicit_token_entry() -> None:
             await pilot.press("enter")
             await type_text(pilot, "https://yoke.acme.test")
             await pilot.press("enter")  # URL -> sign-in discovery
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(pilot, "connect.machine_admission", "SelectionList")
             text = _body_text(app)
             assert "How should this machine join your team server?" in text
             assert "This is my own machine" in text
             assert "Enter invite code" in text
             assert "Use an API token" in text
             await pilot.press("down", "down", "enter")
-            await pilot.pause()
+            await wait_for_view(pilot, "connect.server", "#onboard-input-credential")
             await pilot.press("enter")  # URL -> token-source selector
             await pilot.press("enter")  # Paste token -> masked token field
             await pilot.pause()

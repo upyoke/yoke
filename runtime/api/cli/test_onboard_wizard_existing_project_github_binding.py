@@ -26,6 +26,7 @@ from yoke_contracts.machine_config import reader as machine_config  # noqa: E402
 from yoke_cli.config import onboard_local_checkout_identity  # noqa: E402
 from yoke_cli.config import onboard_machine_github  # noqa: E402
 from yoke_cli.config import onboard_wizard_flow_publish  # noqa: E402
+from runtime.api.cli.onboard_wizard_view_test_support import wait_for_view  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -122,20 +123,17 @@ def test_existing_backlog_project_can_bind_detected_checkout_origin(
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
             await pilot.press("enter")  # connect GitHub
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(pilot, "project.mode", "SelectionList")
             await pilot.press("down", "enter")  # existing folder
             await type_text(pilot, str(checkout))
             await pilot.press("enter")
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(pilot, "project.existing_found", "SelectionList")
             assert "Existing project found: Legacy." in _body_text(app)
             await pilot.press("enter")  # continue to GitHub adoption
-            await pilot.pause()
+            await wait_for_view(pilot, "project.github", "SelectionList")
             assert "How should Yoke manage this project on GitHub?" in _body_text(app)
             await pilot.press("enter")  # use connected installation
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(pilot, "hosting.provider", "SelectionList")
             assert "Connect your hosting provider?" in _body_text(app)
             assert [v.kind for v in app.result.board_art_variants] == [
                 "ASCII",
@@ -212,20 +210,18 @@ def test_new_project_keeps_existing_origin_and_reaches_binding(
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
             await pilot.press("enter")  # connect GitHub
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(pilot, "project.mode", "SelectionList")
             await pilot.press("down", "enter")  # existing folder
             await type_text(pilot, str(checkout))
             await pilot.press("enter")
-            await app.workers.wait_for_complete()
+            await wait_for_view(pilot, "project.details", "#onboard-input-slug")
             await pilot.press("enter")  # accept slug
             await pilot.press("enter")  # accept name; keep remote auto-routes
             await submit_public_item_prefix(pilot)
-            await pilot.pause()
+            await wait_for_view(pilot, "project.github", "SelectionList")
             assert "How should Yoke manage this project on GitHub?" in _body_text(app)
             await pilot.press("enter")
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(pilot, "hosting.provider", "SelectionList")
             assert "Connect your hosting provider?" in _body_text(app)
             assert [v.kind for v in app.result.board_art_variants] == [
                 "ASCII",

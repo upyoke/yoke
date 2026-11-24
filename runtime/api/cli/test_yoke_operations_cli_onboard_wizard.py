@@ -34,6 +34,7 @@ from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     stub_path_doctor,
     type_text,
 )
+from runtime.api.cli.onboard_wizard_view_test_support import wait_for_view  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -233,6 +234,7 @@ def test_fast_type_enter_type_across_inputs_collects_both_values() -> None:
             await pilot.press("down")  # machine github: Skip for now
             await pilot.press("enter")
             await pilot.press("down", "enter")  # project: existing folder (local-checkout)
+            await wait_for_view(pilot, "project.folder", "Input")
             # First input: checkout path, typed fast then Enter.
             await type_text(pilot, "/home/code/widget")
             await pilot.press("enter")

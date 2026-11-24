@@ -24,6 +24,7 @@ from runtime.api.cli.yoke_operations_cli_onboard_wizard_publish_capability_test_
 from yoke_cli.config import hosted_machine_browser
 from yoke_cli.config import onboard_wizard_flow_publish_manual as manual_flow
 from yoke_contracts import onboard_destinations as onboard_destinations
+from runtime.api.cli.onboard_wizard_view_test_support import wait_for_view
 
 
 @pytest.fixture(autouse=True)
@@ -103,8 +104,9 @@ def test_manual_create_refresh_selects_exact_repo_and_continues_in_run(
             assert "Check repositories" in _body_text(app)
             assert "grant the Yoke GitHub App access" not in _body_text(app)
             await pilot.press("enter")
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(
+                pilot, "project.manual_publish_repositories", "SelectionList"
+            )
             body = _body_text(app)
             assert "acme/manual-target" in body
             assert "other/widget" in body
@@ -112,7 +114,7 @@ def test_manual_create_refresh_selects_exact_repo_and_continues_in_run(
             await pilot.press("enter")  # pick acme/manual-target
             assert "How should Yoke manage this project on GitHub?" in _body_text(app)
             await pilot.press("enter")  # GitHub binding
-            await pilot.pause()
+            await wait_for_view(pilot, "hosting.provider", "SelectionList")
             assert "Connect your hosting provider?" in _body_text(app)
             assert [v.kind for v in app.result.board_art_variants] == [
                 "ASCII",

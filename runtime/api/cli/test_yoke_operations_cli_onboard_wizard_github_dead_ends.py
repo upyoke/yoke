@@ -144,7 +144,7 @@ def test_no_machine_token_drops_reuse_machine_row() -> None:
             await pilot.press("enter")  # name placeholder
             # clone skips the default-branch prompt (detected at URL step)
             await submit_public_item_prefix(pilot)
-            await pilot.pause()
+            await wait_for_view(pilot, "project.github", "SelectionList")
             values = _row_values(app)
             assert PROJECT_GITHUB_REUSE_MACHINE not in values
             assert GITHUB_ADOPTION_APP_BINDING not in values

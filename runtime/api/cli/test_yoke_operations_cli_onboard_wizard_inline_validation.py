@@ -36,6 +36,7 @@ from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     stub_path_doctor,
     type_text,
 )
+from runtime.api.cli.onboard_wizard_view_test_support import wait_for_view  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -95,8 +96,7 @@ def test_unreachable_clone_url_shows_recovery_then_retry_advances(
             await _pick_mode(pilot, onboard_project.PROJECT_MODE_CLONE_REMOTE)
             await type_text(pilot, "https://github.com/acme/missing.git")
             await pilot.press("enter")  # submit -> checking -> recovery
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(pilot, "project.clone_remote_error", "SelectionList")
             # The network probe now runs after a visible checking screen, then
             # lands on a recovery screen instead of blocking the input render.
             assert not _has_input(app)
@@ -106,9 +106,7 @@ def test_unreachable_clone_url_shows_recovery_then_retry_advances(
             state["reachable"] = True
             await pilot.press("down")  # Change URL -> Try again
             await pilot.press("enter")
-            await pilot.pause()
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(pilot, "project.clone_folder", "Input")
             assert app.result.project_remote_url == (
                 "https://github.com/acme/missing.git"
             )
@@ -143,8 +141,7 @@ def test_clone_url_probe_paints_checking_before_it_finishes(monkeypatch) -> None
             assert _title(app) == "Checking source repo."
             assert "Checking..." in _body_text(app)
             release.set()
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(pilot, "project.clone_folder", "Input")
             assert _title(app) == "Where should Yoke clone it?"
 
     asyncio.run(scenario())
@@ -168,9 +165,7 @@ def test_reachable_clone_url_caches_branch_without_a_second_probe(
             await _pick_mode(pilot, onboard_project.PROJECT_MODE_CLONE_REMOTE)
             await type_text(pilot, "https://github.com/acme/widgets.git")
             await pilot.press("enter")  # checking probe runs once -> advance
-            await app.workers.wait_for_complete()
-            await pilot.pause()
-            await pilot.pause()
+            await wait_for_view(pilot, "project.clone_folder", "Input")
 
     asyncio.run(scenario())
 
@@ -192,7 +187,7 @@ def test_empty_slug_blocks_inline_after_clearing_default() -> None:
             await _pick_mode(pilot, onboard_project.PROJECT_MODE_LOCAL_CHECKOUT)
             await type_text(pilot, "/home/code/widget")
             await pilot.press("enter")
-            await pilot.pause()
+            await wait_for_view(pilot, "project.details", "#onboard-input-slug")
             assert _title(app) == "Project details."
             field = app.query_one("#onboard-input-slug", Input)
             assert field.value == "widget"
@@ -203,7 +198,7 @@ def test_empty_slug_blocks_inline_after_clearing_default() -> None:
             assert "short project id" in _error_text(app).lower()
             await type_text(pilot, "widget")
             await pilot.press("enter")
-            await pilot.pause()
+            await wait_for_view(pilot, "project.details", "#onboard-input-name")
             assert app.focused.id == "onboard-input-name"
             assert _title(app) == "Project details."
 
@@ -219,7 +214,7 @@ def test_invalid_slug_blocks_inline_then_a_valid_one_advances() -> None:
             await _pick_mode(pilot, onboard_project.PROJECT_MODE_LOCAL_CHECKOUT)
             await type_text(pilot, "/home/code/widget")  # folder (stubbed-valid)
             await pilot.press("enter")
-            await pilot.pause()
+            await wait_for_view(pilot, "project.details", "#onboard-input-slug")
             # Slug step: an uppercase/space slug is rejected inline.
             assert _title(app) == "Project details."
             field = app.query_one("#onboard-input-slug", Input)
@@ -234,8 +229,7 @@ def test_invalid_slug_blocks_inline_then_a_valid_one_advances() -> None:
             field.value = ""
             await type_text(pilot, "good-slug")
             await pilot.press("enter")
-            await pilot.pause()
-            await pilot.pause()
+            await wait_for_view(pilot, "project.details", "#onboard-input-name")
             assert app.focused.id == "onboard-input-name"
             assert _title(app) == "Project details."
 
@@ -251,7 +245,7 @@ def test_very_long_slug_blocks_inline() -> None:
             await _pick_mode(pilot, onboard_project.PROJECT_MODE_LOCAL_CHECKOUT)
             await type_text(pilot, "/home/code/widget")
             await pilot.press("enter")
-            await pilot.pause()
+            await wait_for_view(pilot, "project.details", "#onboard-input-slug")
             assert _title(app) == "Project details."
             field = app.query_one("#onboard-input-slug", Input)
             field.value = ""
@@ -277,7 +271,7 @@ def test_empty_display_name_blocks_inline_after_clearing_default() -> None:
             await type_text(pilot, "/home/code/widget")
             await pilot.press("enter")
             await pilot.press("enter")  # accept slug placeholder
-            await pilot.pause()
+            await wait_for_view(pilot, "project.details", "#onboard-input-name")
             assert _title(app) == "Project details."
             field = app.query_one("#onboard-input-name", Input)
             assert field.value == "widget"
@@ -288,7 +282,7 @@ def test_empty_display_name_blocks_inline_after_clearing_default() -> None:
             assert "display name" in _error_text(app).lower()
             await type_text(pilot, "Widget")
             await pilot.press("enter")
-            await pilot.pause()
+            await wait_for_view(pilot, "project.details", "#onboard-input-branch")
             assert app.focused.id == "onboard-input-branch"
             assert _title(app) == "Project details."
 

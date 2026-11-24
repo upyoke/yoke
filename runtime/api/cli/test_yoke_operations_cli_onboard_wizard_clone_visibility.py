@@ -37,6 +37,7 @@ from runtime.api.cli.onboard_wizard_clone_visibility_support import (  # noqa: E
     wait_for_body_text,
     wait_for_selection,
 )
+from runtime.api.cli.onboard_wizard_view_test_support import wait_for_view  # noqa: E402
 
 _PRIVATE_REPOS = [
     github_publish.RepoRef(
@@ -80,7 +81,7 @@ def test_public_clone_routes_to_paste_url_input() -> None:
         async with app.run_test() as pilot:
             await start_clone(app, pilot, connect_github=True)
             await pilot.press("enter")  # visibility: Public (default)
-            await pilot.pause()
+            await wait_for_view(pilot, "project.clone_url", "Input")
             # The active view is the paste-URL Input, not a SelectionList.
             from textual.widgets import Input
 
@@ -117,7 +118,7 @@ def test_private_clone_lists_repos_and_sets_remote_from_pick() -> None:
             )]
             await type_text(pilot, "octocat")  # filter to the intended repository
             await pilot.press("enter")
-            await pilot.pause()
+            await wait_for_view(pilot, "project.clone_folder", "Input")
             assert app.result.project_remote_url == _PRIVATE_REPOS[0].clone_url
             # The pick feeds the post-URL routing: clone-folder input, then outcome.
             await pilot.press("enter")  # accept default folder -> clone-outcome
@@ -179,7 +180,7 @@ def test_empty_private_repo_access_has_manage_retry_and_back(
             assert opened == ["https://github.com/settings/installations/1"]
             await pilot.press("down", "down")
             await pilot.press("enter")
-            await pilot.pause()
+            await wait_for_view(pilot, "project.clone_visibility", "SelectionList")
             assert "Is the repo public or private?" in body_text(app)
             # Back keeps the visibility chosen before: Private.
             assert app.query_one(SelectionList).selected_value != "public"
@@ -292,7 +293,7 @@ def test_no_app_connection_omits_visibility_and_uses_paste_url() -> None:
             assert not selection, "no visibility screen without an App connection"
             await type_text(pilot, "https://github.com/acme/widgets.git")
             await pilot.press("enter")
-            await pilot.pause()
+            await wait_for_view(pilot, "project.clone_folder", "Input")
             assert (
                 app.result.project_remote_url == "https://github.com/acme/widgets.git"
             )

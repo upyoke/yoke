@@ -47,6 +47,7 @@ from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     skip_hosting,
     type_text,
 )
+from runtime.api.cli.onboard_wizard_view_test_support import wait_for_view  # noqa: E402
 
 
 # --------------------------------------------------------------------------- #
@@ -80,7 +81,7 @@ def test_skip_reaches_review_and_plans_the_skip(monkeypatch, tmp_path: Path) -> 
             await pilot.press("down")  # machine github: Skip for now
             await pilot.press("enter")
             await pilot.press("down", "enter")  # project: existing folder
-            await settle_checks(pilot)
+            await wait_for_view(pilot, "project.folder", "Input")
             await type_text(pilot, checkout_path)
             assert app.query_one("#onboard-body Input", Input).value == checkout_path
             await pilot.press("enter")
