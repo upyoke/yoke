@@ -255,7 +255,15 @@ def resolve_bash_path(
                 "git_bash_client_path_required: the Windows client's mount resolution "
                 "is missing; refresh the client installation and retry the command."
             )
-        expanded = _mount_path(expanded)
+        try:
+            expanded = _mount_path(expanded)
+        except BashPathResolutionError:
+            parent, _, leaf = expanded.rpartition("/")
+            if len(leaf.encode("utf-16-le", errors="surrogatepass")) // 2 <= 255:
+                raise
+            # cygpath can reject an unnameable component even though its
+            # containing mount is known. Translate that parent only.
+            expanded = ntpath.join(_mount_path(parent or "/"), leaf)
     if not is_absolute(expanded):
         if not cwd and facts is not None:
             raise BashPathResolutionError(

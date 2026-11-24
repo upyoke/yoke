@@ -79,7 +79,25 @@ def test_long_data_operand_keeps_the_whole_fact(repo, capsys, name):
         "ignored": False,
     }
     if long_operand is not None:
-        assert write_target(facts, long_operand)["path"]
+        entry = write_target(facts, long_operand)
+        assert entry["path"]
+        if name == "rooted":
+            assert Path(entry["path"]).is_absolute()
+            assert entry["ignored"] is None
+
+
+def test_non_ascii_ignore_answer_round_trips_through_git(repo):
+    ignored = repo / "雪.txt"
+    tracked = repo / "notes.txt"
+    (repo / ".gitignore").write_text("雪.txt\n", encoding="utf-8")
+
+    facts = _facts(repo, f"touch {ignored.as_posix()} {tracked.as_posix()}")
+
+    assert write_target(facts, ignored.as_posix()) == {
+        "path": str(ignored),
+        "ignored": True,
+    }
+    assert write_target(facts, tracked.as_posix())["ignored"] is False
 
 
 def test_repo_root_answers_no_repository_for_unnameable_paths(repo):

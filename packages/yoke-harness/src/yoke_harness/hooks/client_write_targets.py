@@ -118,6 +118,7 @@ def _git(
             input=stdin,
             capture_output=True,
             text=True,
+            encoding="utf-8",
             timeout=_GIT_TIMEOUT_S,
         )
     except (OSError, subprocess.SubprocessError):
