@@ -124,7 +124,7 @@ jobs:
           docker rm -f "yoke-suite-collection-pg-${{ github.run_id }}" || true
           if [ -n "${YOKE_PG_SOCKET_DIR:-}" ]; then sudo rm -rf -- "$YOKE_PG_SOCKET_DIR"; fi
   suite:
-    timeout-minutes: 30
+    timeout-minutes: 35
     name: suite (${{ matrix.os }}, ${{ matrix.shard }})
     needs: plan
     runs-on: ${{ matrix.runner }}
@@ -238,6 +238,20 @@ jobs:
           uv run --frozen python -m pytest -n 0 -q --capture=tee-sys \
             runtime/api/tools/test_ci_shards.py::test_shard_log_preserves_hung_worker_traceback_before_exit \
             | tee -a pytest-output.txt
+      - name: Repeat Windows custody regressions
+        if: matrix.os == 'windows' && matrix.shard == 1
+        timeout-minutes: 8
+        run: |
+          uv run --frozen python -m pytest -n 0 -q -s \
+            runtime/api/cli/test_platform_process.py::test_windows_group_child_snapshot_field_visibility
+          custody=runtime/harness/test_session_process_custody.py
+          settlement=runtime/harness/test_session_relay_resume_settlement.py
+          for attempt in {1..30}; do
+            printf 'Windows custody check %s/30\n' "$attempt"
+            uv run --frozen python -m pytest -n 0 -q \
+              "$custody::test_supervisor_exit_keeps_live_child_identity_and_reaps_group" \
+              "$settlement::test_default_spawn_settles_usage_across_custody_and_relay_directories"
+          done
       - name: Run pytest
         # End a hung step before the job deadline so artifact upload can run.
         timeout-minutes: 18

@@ -10,9 +10,78 @@ import psutil
 import pytest
 
 from yoke_contracts import platform_process as processes
+from yoke_contracts.process_ancestry import process_start_time
 
 
 pytestmark = pytest.mark.windows
+
+
+def test_start_identity_survives_denied_snapshot_fields(monkeypatch):
+    process = psutil.Process()
+    expected = processes.start_identity(process)
+
+    def denied(self):
+        raise psutil.AccessDenied(self.pid)
+
+    monkeypatch.setattr(psutil.Process, "cmdline", denied)
+    monkeypatch.setattr(psutil.Process, "username", denied)
+    assert process_start_time(process.pid) == str(expected)
+    assert processes.start_token(process.pid) == expected
+    assert processes.process_info(process.pid) is None
+
+
+def test_start_token_returns_none_for_exited_pid():
+    with subprocess.Popen([sys.executable, "-c", "pass"]) as process:
+        process.wait(timeout=5)
+        assert processes.start_token(process.pid) is None
+
+
+def test_start_token_returns_none_when_creation_time_is_denied(monkeypatch):
+    process = psutil.Process()
+
+    def denied(*args, **kwargs):
+        raise psutil.AccessDenied(process.pid)
+
+    if processes._MONOTONIC_START:
+        monkeypatch.setattr(type(process._proc), "create_time", denied)
+    else:
+        monkeypatch.setattr(psutil.Process, "create_time", denied)
+    assert processes.start_token(process.pid) is None
+
+
+@pytest.mark.windows_only(reason="Compares field visibility for a live native Windows child")
+def test_windows_group_child_snapshot_field_visibility():
+    script = (
+        'import subprocess,sys,time; '
+        'child=subprocess.Popen([sys.executable,"-c","import time; time.sleep(30)"]); '
+        'print(child.pid,flush=True); time.sleep(30)'
+    )
+    group = processes.spawn_group([sys.executable, "-c", script], stdout=subprocess.PIPE)
+    try:
+        process = psutil.Process(int(group.process.stdout.readline()))
+        reads = {
+            "status": process.status,
+            "cmdline": process.cmdline,
+            "ppid": process.ppid,
+            "start_identity": lambda: processes.start_identity(process),
+            "name": process.name,
+            "memory_info": process.memory_info,
+            "username": process.username,
+            "create_time": process.create_time,
+        }
+        outcomes = {}
+        with process.oneshot():
+            for field, read in reads.items():
+                try:
+                    read()
+                except (psutil.AccessDenied, psutil.NoSuchProcess) as exc:
+                    outcomes[field] = type(exc).__name__
+                else:
+                    outcomes[field] = "ok"
+        print(f"Windows group child PID {process.pid} snapshot reads: {outcomes}")
+        assert outcomes["start_identity"] == outcomes["create_time"] == "ok", outcomes
+    finally:
+        processes.stop_group(group, 1)
 
 
 def test_snapshot_and_ancestry_observe_current_process():

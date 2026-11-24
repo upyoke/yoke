@@ -44,10 +44,12 @@ fetches the product's own pinned Postgres engine, starts the disposable test
 cluster under the runner's temp directory and exports `YOKE_PG_DSN` to later
 steps. Pytest writes thread tracebacks to the shard log when a test takes
 longer than five minutes. The pytest step has an 18-minute timeout within
-the 30-minute job budget so the upload step can still save
+the 35-minute job budget so the upload step can still save
 `pytest-output-<os>-<shard>` with the streamed log and any JUnit report.
 The first Windows shard also repeats the repo picker and JavaScript contracts
 five times and saves the traceback from a deliberately stalled pytest worker.
+It probes snapshot fields on a live group child before running the two
+custody regressions 30 times each, with xdist disabled.
 The plan retains modules skipped before import on its collection OS
 so native runners still receive them, with conservative product-wheel fixture
 affinity because their fixture closure cannot be imported on the plan host.

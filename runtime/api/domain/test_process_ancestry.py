@@ -260,9 +260,8 @@ class TestPlatformProcessFacts(unittest.TestCase):
         entry = SimpleNamespace(pid=200, ppid=1, name="claude.exe", start_time=123.5)
         with (patch.object(process_ancestry.platform_process, "process_command_lines",
                            return_value=[entry]),
-              patch.object(process_ancestry.platform_process, "process_info",
-                           side_effect={200: entry}.get),
-              patch.object(process_ancestry.platform_process, "pid_alive", return_value=True)):
+              patch.object(process_ancestry.platform_process, "start_token",
+                           side_effect={200: entry.start_time}.get)):
             self.assertEqual(process_start_time(200), "123.5")
             self.assertIsNone(process_start_time(201))
             self.assertEqual(parent_map(), {200: 1})
