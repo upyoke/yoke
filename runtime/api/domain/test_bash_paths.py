@@ -2,6 +2,7 @@
 
 import os
 import subprocess
+from types import SimpleNamespace
 
 import pytest
 
@@ -48,6 +49,28 @@ def test_mount_conversion_uses_the_selected_git_installation(monkeypatch):
     assert paths._mount_path("/usr/bin") == "C:\\Git\\usr\\bin"
     assert calls == [["C:/Git/usr/bin/cygpath.exe", "-w", "--", "/usr/bin"]]
     paths._mount_path.cache_clear()
+
+
+def test_unnameable_windows_operand_keeps_its_mount_path(monkeypatch):
+    monkeypatch.setattr(paths, "os", SimpleNamespace(name="nt"))
+    filename = "x" * 300 + ".md"
+    converted = []
+
+    def mount_path(path):
+        converted.append(path)
+        if path == "/":
+            return r"C:\Git"
+        raise paths.BashPathResolutionError("cygpath rejected the operand")
+
+    monkeypatch.setattr(paths, "_mount_path", mount_path)
+    assert paths.resolve_bash_path("/" + filename, home="C:/home", canonical=False) == (
+        "C:\\Git\\" + filename
+    )
+    assert converted == ["/" + filename, "/"]
+
+    with pytest.raises(paths.BashPathResolutionError, match="cygpath rejected"):
+        paths.resolve_bash_path("/ordinary", home="C:/home", canonical=False)
+    assert converted[-1] == "/ordinary"
 
 
 @pytest.mark.windows_only(reason="real Git for Windows mount table")
