@@ -14,10 +14,8 @@ from yoke_contracts import platform_process
 from yoke_contracts.timestamps import parse_instant
 from urllib.request import Request, urlopen
 
-from yoke_cli.config.browser_profile_cookies import (
-    SignInCookieError,
-    keep_sign_in_cookies,
-)
+from yoke_cli.config import browser_profile_cookies
+from yoke_cli.config.browser_profile_cookies import SignInCookieError
 from yoke_contracts.bounded_json_http import (
     BoundedJsonHttpError,
     request_json,
@@ -26,10 +24,9 @@ from yoke_cli import browser_node_toolchain
 from yoke_contracts.response_limits import DEFAULT_JSON_RESPONSE_LIMIT_BYTES
 from yoke_contracts.browser_daemon_api import DEFAULT_DAEMON_REQUEST_TIMEOUT_SECONDS
 from yoke_contracts.browser_client_errors import daemon_failure_message
-from yoke_harness import browser_runtime_home, browser_setup
+from yoke_harness import browser_human_gate, browser_runtime_home, browser_setup
 from yoke_contracts.browser_daemon_profile import canonical_profile, state_file_path
 from yoke_harness.browser_client_readiness import start_daemon
-from yoke_harness.browser_human_gate import refuse_during_human_gate
 
 
 @dataclass
@@ -161,7 +158,7 @@ def _keep_profile_sign_in(profile: Path) -> None:
     an unauthorized project already does.
     """
     try:
-        kept = keep_sign_in_cookies(profile)
+        kept = browser_profile_cookies.keep_sign_in_cookies(profile)
     except SignInCookieError as exc:
         _log(f"[browser-runtime] Could not keep this profile's sign-in: {exc}")
         return
@@ -185,7 +182,7 @@ def daemon_start(
     """
     from yoke_harness.browser_check_profile import record_daemon_owner
 
-    refuse_during_human_gate(_browser_dir())
+    browser_human_gate.refuse_during_human_gate(_browser_dir())
     requested_profile = canonical_profile(profile_dir)
     state_path = _state_file_path(requested_profile)
     state = DaemonState.load(state_path)

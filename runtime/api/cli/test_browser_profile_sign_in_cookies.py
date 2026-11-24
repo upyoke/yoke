@@ -262,7 +262,7 @@ def test_the_daemon_keeps_the_sign_in_before_it_launches(
         assert Path(target) == profile
         return keep_sign_in_cookies(target)
 
-    monkeypatch.setattr(browser_client, "keep_sign_in_cookies", fake_keep)
+    monkeypatch.setattr(browser_client.browser_profile_cookies, "keep_sign_in_cookies", fake_keep)
     _stub_daemon_launch(monkeypatch, tmp_path, order)
 
     assert browser_client.daemon_start(profile_dir=str(profile))["status"] == "started"
