@@ -78,8 +78,8 @@ def _waiter(wait: Mapping[str, Any]) -> tuple[str, str]:
 def queue_entries(conn: Any) -> list[dict[str, Any]]:
     """The queue as operators read it: one entry per waiter, in order.
 
-    ``waits_for`` is ``any`` when any one of ``test_machines`` serves the
-    waiter, ``all`` when it needs every one (a simultaneous host set).
+    ``waits_for`` is ``any`` for a single need, ``slots`` for several needs
+    with alternatives grouped in ``needs``, and ``all`` for a host set.
     """
     entries: dict[tuple[str, str], dict[str, Any]] = {}
     lines: dict[str, list[dict[str, Any]]] = {}
@@ -102,6 +102,7 @@ def queue_entries(conn: Any) -> list[dict[str, Any]]:
                 "queued_at": key[0],
                 "wait_ids": [],
                 "test_machines": [],
+                "needs": {},
                 "waits_for": "all",
             },
         )
@@ -110,9 +111,11 @@ def queue_entries(conn: Any) -> list[dict[str, Any]]:
         entry["test_machines"].append(machine)
         entry["places"][machine] = places[str(wait["id"])]
         if wait["need_id"]:
-            entry["waits_for"] = "any"
+            entry["needs"].setdefault(str(wait["need_id"]), []).append(machine)
     for entry in entries.values():
         entry["test_machines"].sort()
+        if entry["needs"]:
+            entry["waits_for"] = "slots" if len(entry["needs"]) > 1 else "any"
     return list(entries.values())
 
 
@@ -121,6 +124,10 @@ def waits_for_text(entry: Mapping[str, Any]) -> str:
     machines = list(entry["test_machines"])
     if len(machines) == 1:
         return machines[0]
+    if entry["waits_for"] == "slots":
+        groups = sorted(sorted(hosts) for hosts in entry["needs"].values())
+        slots = [hosts[0] if len(hosts) == 1 else f"any of {', '.join(hosts)}" for hosts in groups]
+        return "one host per slot: " + "; ".join(slots)
     joined = ", ".join(machines)
     return f"any of {joined}" if entry["waits_for"] == "any" else f"all of {joined}"
 

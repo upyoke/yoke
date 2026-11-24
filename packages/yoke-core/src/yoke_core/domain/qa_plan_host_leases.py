@@ -215,7 +215,10 @@ def begin_case_host_contract(
                     MachineQaProtocolLeaseHeld, TestMachineHostUnhealthy, TestMachineFleetBusy,
                 ) as exc:
                     if slot_waits:
-                        raise TestMachineSlotsBusy(slot_waits, str(exc)) from None
+                        refused = exc.busy[0] if isinstance(exc, TestMachineFleetBusy) else exc
+                        raise TestMachineSlotsBusy(
+                            slot_waits, str(exc), refused.test_machine
+                        ) from None
                     if mixed and held and not isinstance(exc, TestMachineFleetBusy):
                         raise ValueError(
                             "qa_open_walk_host_set_changed: finish the open walks on their "

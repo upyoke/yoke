@@ -118,6 +118,11 @@ that OS. Run it through `yoke qa plan run`; direct case execution refuses
 it. The runner admits the set once every slot has a free, verified, healthy
 host, giving each slot a distinct one, and retains it through case execution
 and mission review. Completion or abort releases it; [completed captures remain reviewable](requirement-state.md).
+When a slot cannot be filled, the plan wait names an unavailable host from a
+blocked OS and gives the lease-holder or failed-verification reason for each
+unavailable eligible host of every blocked OS. Queue views show one host per slot,
+grouping the alternatives that can fill each slot.
+
 A case and its `inherit` chain retain their declared hosts. When multiple
 walks in one execution need different hosts, Yoke acquires the combined set
 at the execution's single queue place before preparing the walks. Each walk

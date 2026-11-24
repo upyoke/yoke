@@ -12,6 +12,7 @@ from runtime.api.domain.qa_member_machine_partitions_test_support import (
     seed_fleet_cases,
 )
 from yoke_core.domain.coordination_claims import acquire, active_claim, release
+from yoke_core.domain import qa_host_slot_turns
 from yoke_core.domain.qa_host_set_turns import execution_waits
 from yoke_core.domain.qa_plan_case_chain import INHERITED_PREDECESSOR_NOT_PASSED
 from yoke_core.domain.qa_plan_execution_state import (
@@ -90,6 +91,37 @@ def test_slot_case_is_admitted_on_one_host_per_slot(test_db, tmp_path, monkeypat
     }
     assert set(leases) == {"linux-lab", MAC, "windows-lab"}
     assert response.result_payload["execution"]["lease_id"] == leases[MAC]
+
+
+def test_slotted_wait_names_the_host_refused_after_selection(test_db, tmp_path, monkeypatch):
+    windows = "windows-lab"
+    seed_fleet_cases(
+        test_db, tmp_path, monkeypatch, {"linux-lab": "linux", windows: "windows"},
+        [{"case_key": "three-os", "hosts": {"test_machines": SLOTS}}],
+    )
+    seed_qa_session(test_db, SESSION, "holder", messageable=True)
+    held = acquire(test_db, make_qa_admission_target(windows), "holder")
+    execution = _begin(test_db)
+    unavailable = qa_host_slot_turns._unavailable
+    missed_lease = False
+
+    def before_lease(conn, name):
+        nonlocal missed_lease
+        if name == windows and not missed_lease:
+            missed_lease = True
+            return None
+        return unavailable(conn, name)
+
+    monkeypatch.setattr(qa_host_slot_turns, "_unavailable", before_lease)
+
+    response = _case_begin(execution)
+
+    assert response.primary_success, response.error
+    result = response.result_payload
+    assert result["state"] == "waiting", result
+    assert result["host_wait"]["test_machine"] == windows
+    assert active_claim(test_db, make_qa_admission_target(windows)).id == held.id
+    assert active_claim(test_db, make_qa_admission_target("linux-lab")) is None
 
 
 def test_inherit_chain_runs_on_the_openers_host_while_an_identical_host_idles(

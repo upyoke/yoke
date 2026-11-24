@@ -16,6 +16,7 @@ slot at once, or nothing, and the host passes to the next waiter.
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
@@ -34,13 +35,15 @@ SlotEligibility = tuple[tuple[str, tuple[str, ...]], ...]
 
 
 class TestMachineSlotsBusy(MachineQaProtocolError):
-    """Some slot has no available host; the case queues one need per slot."""
+    """Some OS has too few available hosts; the case queues one need per slot."""
 
-    def __init__(self, slots: tuple[tuple[str, ...], ...], rationale: str) -> None:
+    def __init__(
+        self, slots: tuple[tuple[str, ...], ...], rationale: str, test_machine: str
+    ) -> None:
         super().__init__(rationale)
         #: Per slot, the hosts its need waits on; no host is in two slots.
         self.slots = slots
-        self.test_machine = slots[0][0]
+        self.test_machine = test_machine
 
 
 def slot_eligibility(
@@ -116,14 +119,16 @@ def slot_waits(eligibility: SlotEligibility) -> tuple[tuple[str, ...], ...]:
     return tuple(tuple(names) for names in waits)
 
 
-def _free(conn: Any, name: str) -> bool:
+def _unavailable(conn: Any, name: str) -> str | None:
     from yoke_core.domain.coordination_claims import active_claim
     from yoke_core.domain.machine_qa_capability import host_claim_target
-    from yoke_core.domain.qa_host_health import host_unhealthy
+    from yoke_core.domain.qa_host_health import host_unhealthy, unhealthy_rationale
 
-    return active_claim(conn, host_claim_target(name)) is None and (
-        host_unhealthy(conn, name) is None
-    )
+    claim = active_claim(conn, host_claim_target(name))
+    if claim is not None:
+        return f"lease {claim.id} held by {claim.session_id}"
+    health = host_unhealthy(conn, name)
+    return unhealthy_rationale(health) if health is not None else None
 
 
 def select_slot_hosts(
@@ -150,18 +155,30 @@ def select_slot_hosts(
         if wait["state"] == "reserved"
     }
     names = sorted({name for _, hosts in eligibility for name in hosts})
+    unavailable = {
+        name: reason
+        for name in names
+        if name not in held and name not in reserved
+        if (reason := _unavailable(conn, name)) is not None
+    }
     available = sorted(
-        (n for n in names if n in held or n in reserved or _free(conn, n)),
+        (name for name in names if name not in unavailable),
         key=lambda n: (n not in held, n not in reserved, n),
     )
     picked = pick_slot_hosts(eligibility, available)
     if picked is None:
-        raise TestMachineSlotsBusy(
-            waits,
-            "no available host for every OS slot ("
-            + ", ".join(os_name for os_name, _ in eligibility)
-            + f"); free now: {', '.join(available) or 'none'}",
-        )
+        slot_oses = [os_name for os_name, _ in eligibility]
+        needed = Counter(slot_oses)
+        clauses = [f"no available host for every OS slot ({', '.join(slot_oses)})"]
+        blocked_hosts = []
+        for os_name, hosts in dict(eligibility).items():
+            blocked = [name for name in hosts if name in unavailable]
+            if len(hosts) - len(blocked) < needed[os_name]:
+                reasons = "; ".join(f"{name}: {unavailable[name]}" for name in blocked)
+                clauses.append(f"{os_name} slot waits on {reasons}")
+                blocked_hosts.extend(blocked)
+        clauses.append(f"free now: {', '.join(available) or 'none'}")
+        raise TestMachineSlotsBusy(waits, "; ".join(clauses), blocked_hosts[0])
     driver = next(i for i, slot in enumerate(case_slots(case)) if slot.get("driver"))
     return picked[driver], tuple(sorted(picked)), waits
 
@@ -218,7 +235,8 @@ def assign_slot_hosts(conn: Any, execution: Mapping[str, Any]) -> bool:
         (os_name, tuple(sorted(n for n in waits if oses.get(n) == os_name)))
         for os_name in slots
     )
-    picked = pick_slot_hosts(eligibility, sorted(n for n in waits if _free(conn, n)))
+    available = sorted(name for name in waits if _unavailable(conn, name) is None)
+    picked = pick_slot_hosts(eligibility, available)
     if picked is None:
         return False
     p = _p(conn)
