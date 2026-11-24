@@ -21,7 +21,11 @@ QA_PLAN_TABLES = {
             "Host-turn waits join qa_plan_executions.id through "
             "qa_plan_execution_id; execution_id is not a column here. "
             "An unreachable-host submission leaves a waiting row and releases "
-            "the execution's host lease until verification heals the host."
+            "the execution's host lease until verification heals the host. "
+            "The registered test_machine.operation.abort handler delegates to "
+            "machine_qa_execution_abort._release_operation, which preserves "
+            "a borrowed plan turn. Importing its former name _release "
+            "fails during test collection."
         ),
     },
     "test_machines": {
