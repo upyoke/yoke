@@ -161,6 +161,7 @@ to `awaiting_walk_review`; both retain the pending verdict bundle and custody.
 - [WSL desktop provisioning](windows-desktop-provisioning.md) — Prepare XFCE, Chromium and unattended WSL desktop access.
 - [WSL browser identities](windows-wsl-browser-identities.md) — Authorize browser identities in the WSL test desktop.
 - [Native Windows host provisioning](windows-native-host-provisioning.md) — Prepare a Windows lab profile and native desktop.
+- [Native Windows desktop and autologon](windows-native-desktop.md) — Set up and verify the lab console after a cold boot.
 - [Native Windows harness installation](windows-native-harnesses.md) — Install native harness CLIs and desktop apps, then prove sign-ins before goldens.
 - [Native Windows controller prerequisites](windows-native-controller.md) — Agents drive lab apps with `yoke qa mission desktop`; an RDP client is optional for people.
 - [Native Windows provisioning recovery](windows-native-provisioning-recovery.md) — Recover bounded administrator SSH, partial key ACLs and RDP setup.

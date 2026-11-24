@@ -33,5 +33,6 @@ $winlogon='HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon'
 Set-ItemProperty $winlogon -Name AutoAdminLogon -Value '1'
 Set-ItemProperty $winlogon -Name DefaultUserName -Value $name
 Set-ItemProperty $winlogon -Name DefaultDomainName -Value $env:COMPUTERNAME
+Remove-ItemProperty $winlogon -Name AutoLogonCount -ErrorAction SilentlyContinue
 Remove-ItemProperty $winlogon -Name DefaultPassword -ErrorAction SilentlyContinue
 """

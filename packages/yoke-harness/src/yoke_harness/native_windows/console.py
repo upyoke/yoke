@@ -6,7 +6,8 @@ from yoke_harness.native_windows.desktop import desktop_script
 from yoke_harness.native_windows.display_geometry import DEFINITION
 
 RECOVERY = (
-    "Check autologon in the VM console and repair Windows desktop provisioning if needed. "
+    "Release the lease so the next lease cold-boots and autologon signs in. "
+    "If autologon still fails, check the VM console and rerun Windows desktop provisioning. "
     "If an RDP viewer is connected, disconnect without signing out and retry."
 )
 PROBE = r"""
@@ -35,7 +36,7 @@ public static class YokeConsoleProbe {
 $session=[Diagnostics.Process]::GetCurrentProcess().SessionId
 if ($session -eq 0 -or $session -ne [YokeConsoleProbe]::WTSGetActiveConsoleSessionId() -or
     !(Get-Process explorer -ErrorAction SilentlyContinue | Where-Object SessionId -eq $session)) {
- throw 'windows_console_session_missing: check autologon in the VM console and repair Windows desktop provisioning'
+ throw 'windows_console_session_missing: release the lease so the next lease cold-boots and autologon signs in; if autologon still fails, check the VM console and rerun Windows desktop provisioning'
 }
 if (![YokeConsoleProbe]::InputDesktopReady()) {
  throw 'windows_console_locked: reconnect to the lab account, unlock and disconnect before retrying'
@@ -47,51 +48,6 @@ try {
  $graphics.CopyFromScreen([Windows.Forms.SystemInformation]::VirtualScreen.Location,[Drawing.Point]::Empty,$pixel.Size)
 } finally { $graphics.Dispose(); $pixel.Dispose() }
 """
-# WTS enumeration may be filtered by session permissions. Require visibility
-# into every interactive Winlogon session before treating an empty user as proof.
-SIGNED_OUT_PROBE = r"""
-Add-Type @'
-using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Runtime.InteropServices;
-public static class YokeWindowsSessions {
- [StructLayout(LayoutKind.Sequential)]
- public struct Session {
-  public int EnvironmentId, State, Id;
-  public IntPtr Name, Host, User, Domain, Farm;
- }
- enum BufferType { ProcessLevel0, ProcessLevel1, SessionLevel1 }
- const int Disconnected=4;
- [DllImport("wtsapi32.dll", SetLastError=true, ExactSpelling=true)]
- static extern bool WTSEnumerateSessionsExW(IntPtr server, ref int level, int filter,
-                                           out IntPtr buffer, out int count);
- [DllImport("wtsapi32.dll", ExactSpelling=true)]
- static extern bool WTSFreeMemoryExW(BufferType type, IntPtr buffer, int count);
- [DllImport("kernel32.dll")] static extern uint WTSGetActiveConsoleSessionId();
- public static bool SignedOut(int[] winlogonSessions) {
-  int level=1, count;
-  IntPtr buffer;
-  if (!WTSEnumerateSessionsExW(IntPtr.Zero, ref level, 0, out buffer, out count))
-   throw new Win32Exception(Marshal.GetLastWin32Error());
-  try {
-   var seen=new HashSet<int>();
-   for (int i=0; i<count; i++) {
-    var row=(Session)Marshal.PtrToStructure(
-        IntPtr.Add(buffer, i*Marshal.SizeOf(typeof(Session))), typeof(Session));
-    if (row.Id==0) continue;
-    if (row.User!=IntPtr.Zero || row.State==Disconnected) return false;
-    seen.Add(row.Id);
-   }
-   return seen.Contains(unchecked((int)WTSGetActiveConsoleSessionId()))
-       && winlogonSessions.Length>0 && seen.IsSupersetOf(winlogonSessions);
-  } finally { WTSFreeMemoryExW(BufferType.SessionLevel1, buffer, count); }
- }
-}
-'@
-$sessions=@(Get-Process -Name winlogon -ErrorAction Stop | Select-Object -ExpandProperty SessionId)
-if ([YokeWindowsSessions]::SignedOut([int[]]$sessions)) { 'YOKE_WINDOWS_SIGNED_OUT' }
-"""
 WSL_PROBE = r"""
 & wsl.exe --cd '~' -e /usr/bin/true
 if ($LASTEXITCODE -ne 0) {
@@ -99,16 +55,14 @@ if ($LASTEXITCODE -ne 0) {
 }
 """
 RECEIPT = "YOKE_WINDOWS_CONSOLE_READY"
-PROBE_TIMEOUT = 30
 
 
-def probe_console(control, *, wsl=False, set_resolution=False, retry=False):
+def probe_console(control, *, wsl=False, set_resolution=False):
     method = "Ensure" if set_resolution else "Observe"
     geometry = DEFINITION + f"Write-Output ([YokeDesktopGeometry]::{method}())\n"
     script = PROBE + (WSL_PROBE if wsl else geometry) + f"\nWrite-Output '{RECEIPT}'"
     try:
-        wait = {"announce_wait": False} if retry else {}
-        completed = desktop_script(control, script, timeout=PROBE_TIMEOUT, **wait)
+        completed = desktop_script(control, script, timeout=30)
     except RuntimeError as exc:
         detail = str(exc)
     else:

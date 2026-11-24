@@ -229,7 +229,7 @@ live identity/private routes/public denial; deallocation verified at 252 seconds
 No fresh login, disconnect, policy override or direct state edit was needed
 for that successful repair. Desktop/tools/sign-ins/goldens/native QA remain.
 
-See [tray startup and autologon](windows-native-harnesses.md#tray-startup-and-autologon)
+See [tray startup and autologon](windows-native-desktop.md#tray-startup-and-autologon)
 for guarded shortcut handling and the two required cold-boot proofs.
 
 ## Standard-user host-facts failure

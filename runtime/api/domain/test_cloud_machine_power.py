@@ -9,6 +9,7 @@ from runtime.api.domain.cloud_machine_power_test_support import (
 )
 
 
+import base64
 import json
 import subprocess
 
@@ -98,10 +99,12 @@ class _LoginRunner:
         self.answers = list(answers)
         self.calls: list[list[str]] = []
         self.inputs: list[str | None] = []
+        self.timeouts: list[float] = []
 
     def run(self, argv, *, timeout, input_text=None, **_kwargs):
         self.calls.append(list(argv))
         self.inputs.append(input_text)
+        self.timeouts.append(timeout)
         answer = self.answers.pop(0)
         if isinstance(answer, Exception):
             raise answer
@@ -145,7 +148,7 @@ def test_ssh_wait_on_a_non_windows_host_only_logs_in(ssh_key):
 
 
 def test_ssh_wait_timeout_refuses_with_the_last_error(ssh_key):
-    clock = iter([0.0, 0.0, 700.0])
+    clock = iter([0.0, 0.0, 700.0, 700.0])
     runner = _LoginRunner([CommandResult(255, "", "No route to host")])
     with pytest.raises(HostControlLocalError) as exc:
         wait_for_ssh_login(
@@ -189,13 +192,81 @@ def test_power_keeps_magicdns_host_without_public_address_read(
     assert "PublicIpAddress" not in str(runner.calls)
 
 
+NATIVE = {**CLOUD, "os": "windows", "user": r"LAB\yokeqa"}
+MISSING = CommandResult(3, "", "windows_console_session_missing")
+
+
+class _Clock:
+    now = 0.0
+
+    def read(self):
+        return self.now
+
+    def sleep(self, seconds):
+        self.now += seconds
+
+
 def test_native_windows_ssh_readiness_does_not_invoke_wsl(ssh_key):
     runner = _LoginRunner([OK])
-    wait_for_ssh_login(
-        "yoke", {**CLOUD, "os": "windows"}, lambda _: None, runner=runner
-    )
-    assert (
-        runner.calls[0][-1]
-        == 'powershell.exe -NoLogo -NoProfile -NonInteractive -Command "exit 0"'
-    )
+    wait_for_ssh_login("yoke", NATIVE, lambda _: None, runner=runner)
+    command = runner.calls[0][-1]
+    assert command.startswith("powershell.exe -NoLogo -NoProfile -NonInteractive -EncodedCommand ")
+    script = base64.b64decode(command.split()[-1]).decode("utf-16-le")
+    assert "$testUser='yokeqa'" in script
+    assert "quser.exe" in script and "'console'" in script and "Get-Process explorer" in script
+    assert "No User exists for *') {\n    Refuse-MissingConsole" in script
+    assert not any(verb in script.lower() for verb in ("cim", "wmi", "add-type", "wsl", "'active'"))
     assert runner.inputs == [None]
+
+
+def test_native_windows_waits_for_console_after_ssh(ssh_key):
+    clock = _Clock()
+    runner = _LoginRunner([MISSING, MISSING, OK])
+    output = []
+
+    wait_for_ssh_login("yoke", NATIVE, output.append, runner=runner, clock=clock.read, sleeper=clock.sleep)
+
+    assert len(runner.calls) == 3
+    assert len(output) == 3
+    assert "console session" in output[0]
+    assert "accepts SSH logins" in output[1]
+    assert "signed in at its console after 20.0s" in output[2]
+
+
+def test_native_windows_missing_console_warns_and_leaves_ssh_available(ssh_key):
+    clock = _Clock()
+    runner = _LoginRunner([MISSING, MISSING, MISSING])
+    output = []
+
+    wait_for_ssh_login(
+        "yoke", NATIVE, output.append, runner=runner,
+        timeout_s=25, clock=clock.read, sleeper=clock.sleep,
+    )
+
+    assert clock.now == 25.0
+    assert runner.timeouts == [25, 15, 5]
+    assert output[-1].startswith("windows_console_session_missing: Test Machine")
+    assert "within 25s" in output[-1]
+    assert "rerun Windows desktop provisioning" in output[-1]
+
+
+@pytest.mark.parametrize("failure", [
+    CommandResult(255, "", "Connection refused"),
+    CommandResult(1, "", "quser: Access is denied"),
+])
+def test_native_windows_other_failures_remain_ssh_unavailable(ssh_key, failure):
+    clock = _Clock()
+    runner = _LoginRunner([failure])
+    output = []
+
+    with pytest.raises(HostControlLocalError) as exc:
+        wait_for_ssh_login(
+            "yoke", NATIVE, output.append, runner=runner,
+            timeout_s=5, clock=clock.read, sleeper=clock.sleep,
+        )
+
+    assert exc.value.code == "ssh_unavailable"
+    assert exc.value.phase == "power"
+    assert failure.stderr in str(exc.value)
+    assert len(output) == 1
+    assert clock.now == 5.0

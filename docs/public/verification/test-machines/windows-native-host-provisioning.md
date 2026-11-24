@@ -131,8 +131,7 @@ see [the observed recovery](windows-native-provisioning-recovery.md#tailscale-qu
 Register the private MagicDNS name. Keep key-only SSH (TCP 22) and no public
 RDP. The Standard public IP supplies outbound traffic and bills until deleted.
 Registered power attaches `VM-yoke-power` to the sole NIC IP configuration,
-starts the VM and waits for MagicDNS SSH. Both stay allocated after lease release.
-Use the [manual stop procedure](host-provisioning.md#stop-a-cloud-test-machine).
+starts the VM and waits for MagicDNS SSH and the lab user's console session. When the final lease releases, the client deallocates the VM and deletes the public IP.
 Before registration, attach the bootstrap IP for each start. Use the NIC's
 resource group, NIC name and IP configuration name.
 `az network nic ip-config update --resource-group NIC_GROUP --nic-name NIC_NAME --name CONFIG_NAME --public-ip-address IP_ID`.
@@ -243,30 +242,7 @@ VirtualMachinePlatform and Linux distros absent.
 
 ## 3. Desktop and sign-ins
 
-Provisioning stores the lab account's autologon password in LSA and disables
-its locks. Reboot, close the viewer and run `yoke test-machine verify --test-machine VM`.
-The probe checks Explorer and an unlocked display in the interactive console.
-
-After restoring the profile, a native Windows reset reboots the host if it can
-prove every interactive account is signed out. It waits up to ten minutes for
-SSH and autologon before checking PATH and the baseline. Keep the default
-`SeShutdownPrivilege` for the lab account through the Users group so it can
-restart Windows over SSH. If the console is locked or an RDP session is still
-signed in, reconnect, unlock and disconnect without signing out. If autologon
-fails after a reboot, inspect the VM console and repair desktop provisioning.
-
-Follow the [Tailscale and bootstrap RDP guide](windows-native-harnesses.md#first-tailscale-login-and-bootstrap-desktop).
-Register RDP on port 3389 for `yokeqa` using `direct` and MagicDNS after tailnet
-proof, or `ssh-forward` and `127.0.0.1` during bootstrap. Use
-`yoke test-machine desktop-access --view` to reconnect and unlock.
-
-Disconnect without signing out. The administrator-owned `YokeQa-ReturnToConsole`
-task returns this account to the console. If it fails, check Task Scheduler's
-Last Run Result and confirm the console is free. With the viewer closed, `yoke test-machine screenshot` captures the desktop and
-`yoke qa mission desktop` drives its apps.
-
-Continue with [native harness installation and sign-ins](windows-native-harnesses.md)
-before capturing goldens.
+Follow [Native Windows desktop and autologon](windows-native-desktop.md) before installing harnesses and capturing goldens.
 
 ## 4. Register, capture and prove
 
