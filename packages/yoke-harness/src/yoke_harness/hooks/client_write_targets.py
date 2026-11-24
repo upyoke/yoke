@@ -158,18 +158,30 @@ def _git_dirs(repo: str) -> list[str]:
     return roots
 
 
+def _gitdir_mtime(entry: str) -> int | None:
+    try:
+        return os.stat(os.path.join(entry, "gitdir")).st_mtime_ns
+    except OSError:
+        return None
+
+
 def _worktrees_stamp(common_dir: str) -> tuple | None:
-    """Changes whenever Git adds, moves or removes a linked worktree."""
+    """Changes whenever Git adds, moves or removes a linked worktree.
+
+    Git writes a worktree's ``gitdir`` file only on add, move or repair.
+    The entry directories themselves change on every lock or index write
+    inside them, so their own timestamps would invalidate on routine Git use.
+    """
     directory = os.path.join(common_dir, "worktrees")
     try:
-        entries = sorted(
-            (entry.name, entry.stat().st_mtime_ns) for entry in os.scandir(directory)
-        )
-        return (os.stat(directory).st_mtime_ns, tuple(entries))
+        names = sorted(os.listdir(directory))
     except FileNotFoundError:
         return ("none",) if os.path.isdir(common_dir) else None
     except OSError:
         return None
+    return tuple(
+        (name, _gitdir_mtime(os.path.join(directory, name))) for name in names
+    )
 
 
 def _ignored(repo: str, paths: Iterable[str]) -> dict[str, bool | None]:
@@ -218,7 +230,9 @@ def _worktrees(repo: str) -> list[str]:
             for line in result.stdout.splitlines()
             if line.startswith("worktree ")
         ]
-        if stamp is not None:
+        # A worktree added while Git listed would make the listing older
+        # than its stamp; cache only an answer bracketed by one stamp.
+        if stamp is not None and _worktrees_stamp(dirs[0]) == stamp:
             _remember(_worktrees_cache, repo, (stamp, listed))
     return [canonical_native_path(path) for path in listed if os.path.isdir(path)]
 
