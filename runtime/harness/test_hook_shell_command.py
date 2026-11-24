@@ -7,8 +7,14 @@ import os
 import subprocess
 from pathlib import Path
 
+from yoke_contracts.harness_machine_hooks import HARNESS_MACHINE_HOOKS
 from yoke_contracts.hook_shell_command import hook_shell_command
 import pytest
+
+# The shells that run each declared Windows hook shell's text: Claude Code
+# runs Git Bash, or PowerShell without it; Codex runs cmd; Cursor PowerShell.
+_SHELLS_RUNNING = {"cmd": ("cmd",), "powershell": ("powershell", "git-bash")}
+_EXIT_SUFFIX = {"cmd": "", "powershell": "; exit $LASTEXITCODE"}
 
 
 @pytest.mark.posix_only(reason='POSIX shell execution')
@@ -69,10 +75,14 @@ def test_windows_commands_are_bare_and_keep_the_posix_context(
 
     command = windows_hook_command(harness, "PreToolUse", owner)
     suffix = f" --config-owner {owner}" if owner else ""
-    assert command == f"yoke hook evaluate PreToolUse --harness {harness}{suffix}"
-    assert not any(mark in command for mark in ("powershell", "Encoded", "$", "|", "'"))
-    argv = shlex.split(command)
-    assert argv == command.split()
+    exit_suffix = _EXIT_SUFFIX[HARNESS_MACHINE_HOOKS[harness].windows_hook_shell]
+    invocation = f"yoke hook evaluate PreToolUse --harness {harness}{suffix}"
+    assert command == invocation + exit_suffix
+    assert not any(
+        mark in invocation for mark in ("powershell", "Encoded", "$", "|", "'", ";")
+    )
+    argv = shlex.split(invocation)
+    assert argv == invocation.split()
 
     posix = evaluate_hook_command(harness, "PreToolUse", config_owner=owner)
     expected = dict(
@@ -227,12 +237,18 @@ def test_refresh_replaces_codex_entry_when_only_windows_command_changes(tmp_path
 
 @pytest.mark.windows
 @pytest.mark.windows_only(reason="executes native Windows hook shells")
-@pytest.mark.parametrize("harness", ["claude-code", "codex", "cursor"])
-@pytest.mark.parametrize("shell", ["cmd", "powershell", "git-bash"])
+@pytest.mark.parametrize(
+    ("harness", "shell"),
+    [
+        (harness_id, shell)
+        for harness_id, hooks in sorted(HARNESS_MACHINE_HOOKS.items())
+        for shell in _SHELLS_RUNNING[hooks.windows_hook_shell]
+    ],
+)
 def test_native_windows_command_keeps_stdin_args_and_exit_status(
     tmp_path, harness, shell
 ):
-    """The exact rendered text resolves the bin shim in every hook shell."""
+    """The exact rendered text keeps the exit status in each harness's shell."""
     import json
     import shutil
     import sys
@@ -283,7 +299,7 @@ def test_native_windows_command_keeps_stdin_args_and_exit_status(
     assert result.returncode == 7, result.stderr
     assert json.loads(result.stdout) == {
         "stdin": '{"hook":"input"}',
-        "args": command.split()[1:],
+        "args": command.split(";")[0].split()[1:],
     }
 
 

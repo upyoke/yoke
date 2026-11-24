@@ -8,6 +8,7 @@ import re
 import shlex
 import shutil
 
+from yoke_contracts.harness_machine_hooks import HARNESS_MACHINE_HOOKS
 from yoke_contracts.hook_runner.config_owner import CONFIG_OWNER_ENV_VAR
 
 
@@ -34,8 +35,13 @@ _OWNER = re.compile(
 )
 
 
+#: Ends a command run by Windows PowerShell or Git Bash with the hook's own
+#: exit status; see ``harness_machine_hooks.WindowsHookShell``.
+_POWERSHELL_EXIT = "; exit $LASTEXITCODE"
+
+
 def windows_hook_command(harness_id: str, verb: str, config_owner: str | None) -> str:
-    """One shell-neutral command line for every Windows hook shell.
+    """The Windows hook command line for the shell *harness_id* runs it in.
 
     A bare ``yoke`` resolves ``yoke.cmd`` under cmd and PowerShell and the
     sibling ``/bin/sh`` shim under Git Bash; ``yoke hook evaluate`` itself
@@ -44,6 +50,8 @@ def windows_hook_command(harness_id: str, verb: str, config_owner: str | None) -
     command = f"yoke hook evaluate {verb} {HOOK_HARNESS_OPTION} {harness_id}"
     if config_owner:
         command += f" {HOOK_CONFIG_OWNER_OPTION} {config_owner}"
+    if HARNESS_MACHINE_HOOKS[harness_id].windows_hook_shell == "powershell":
+        command += _POWERSHELL_EXIT
     return command
 
 

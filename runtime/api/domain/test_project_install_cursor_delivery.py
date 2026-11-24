@@ -4,11 +4,15 @@ from __future__ import annotations
 
 import json
 import os
+import shlex
 from yoke_contracts.hook_shell_command import hook_command_source
 from pathlib import Path
 
 import pytest
 
+from yoke_cli.commands.adapters.hook_invocation_context import (
+    apply_hook_invocation_context,
+)
 from yoke_cli.project_install.bundle_apply import apply_bundle
 from yoke_cli.project_install.hook_platform import native_bundle_hooks
 from yoke_contracts.cursor_permissions import (
@@ -28,6 +32,23 @@ from runtime.api.tools.source_project_bundle import (
 REPO_ROOT = Path(__file__).resolve().parents[3]
 CONTROL_ORIGIN = "control.example.test"
 OPERATOR_HOOK = {"command": "echo operator-owned", "timeout": 10}
+
+
+def _hook_executor(command: str) -> str | None:
+    """The ``YOKE_EXECUTOR`` one installed hook command gives ``yoke hook evaluate``."""
+    if "--harness" not in command:  # POSIX form: the env prefix sets it.
+        return "cursor" if "YOKE_EXECUTOR=cursor" in command else None
+    argv = shlex.split(command.split(";")[0], posix=False)
+    options = dict(zip(argv[4::2], argv[5::2]))
+    environ: dict[str, str] = {}
+    cwd = os.getcwd()
+    try:
+        apply_hook_invocation_context(
+            options["--harness"], argv[3], options.get("--config-owner"), environ
+        )
+    finally:
+        os.chdir(cwd)
+    return environ.get("YOKE_EXECUTOR")
 
 
 @pytest.fixture()
@@ -142,9 +163,7 @@ def test_hosted_bundle_install_and_refresh_preserve_cursor_content(
         if "yoke hook evaluate" in hook_command_source(entry["command"])
     ]
     assert commands and all(
-        ("YOKE_EXECUTOR='cursor'" if os.name == "nt" else "YOKE_EXECUTOR=cursor")
-        in command
-        for command in commands
+        _hook_executor(command) == "cursor" for command in commands
     )
 
     cursor_md = (root / "CURSOR.md").read_text(encoding="utf-8")
@@ -184,12 +203,14 @@ def test_source_bundle_covers_cursor_managed_surfaces(
     root.mkdir()
     apply_bundle(root, bundle, operation="refresh", source="source-test")
     assert (root / ".cursor/agents/yoke-architect.md").is_file()
-    assert (
-        "YOKE_EXECUTOR='cursor'" if os.name == "nt" else "YOKE_EXECUTOR=cursor"
-    ) in " ".join(
+    refreshed = [
         hook_command_source(entry["command"])
         for entries in _read_json(root, ".cursor/hooks.json")["hooks"].values()
         for entry in entries
+        if "yoke hook evaluate" in hook_command_source(entry["command"])
+    ]
+    assert refreshed and all(
+        _hook_executor(command) == "cursor" for command in refreshed
     )
     assert "<!-- BEGIN YOKE MANAGED BLOCK -->" in (root / "AGENTS.md").read_text(
         encoding="utf-8"

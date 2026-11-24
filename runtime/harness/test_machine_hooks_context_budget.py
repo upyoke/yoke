@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from yoke_contracts.hook_shell_command import hook_command_source
+from yoke_contracts.hook_shell_command import hook_command_owner, hook_command_source
 
 from yoke_cli.commands.adapters.hook_config_dedup import should_skip_config_duplicate
 from yoke_contracts.harness_machine_hooks import HARNESS_MACHINE_HOOKS, entry_commands
@@ -34,7 +34,6 @@ from yoke_core.hooks.hook_context_compose import composed_additional_context
 from yoke_core.hooks.types import HookDecision, Outcome
 from yoke_contracts.machine_hooks_render import render_user_hook_entries
 
-_OWNER = re.compile(r"YOKE_HOOK_CONFIG_OWNER=[\'\"]?([\w-]+)")
 _EVALUATE = re.compile(r"yoke hook evaluate (\w+)")
 
 
@@ -104,9 +103,9 @@ def _evaluations(
     count = 0
     for command in _fired(harness_id, native_event, in_project=in_project):
         command = hook_command_source(command)
-        owner = _OWNER.search(command)
+        owner = hook_command_owner(command)
         verb = _EVALUATE.search(command).group(1)
-        env = _environment(harness_id, root, owner.group(1) if owner else "")
+        env = _environment(harness_id, root, owner or "")
         if not env["YOKE_HOOK_CONFIG_OWNER"]:
             del env["YOKE_HOOK_CONFIG_OWNER"]
             count += 1  # unowned project commands never consult the rule
