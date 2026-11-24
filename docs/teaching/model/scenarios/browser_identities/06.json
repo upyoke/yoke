@@ -1,0 +1,15 @@
+{
+ "id": "06",
+ "title": "Authorize a self-hosted dashboard over SSH",
+ "status": "draft-copy",
+ "audience": "both",
+ "when": "A declared browser identity needs a token-link dashboard session",
+ "need": "Set sign_in.mode to token-link and use the active self-hosted origin for the site and its probe. Run authorize on the machine owning the browser profile, then verify it. Headless authorization works from SSH or an agent session. The resulting dashboard session belongs to the connection token's actor and counts like any browser sign-in.",
+ "disclosure": "current cue",
+ "surface": "Authorize help, browser identity reference, and the self-hosted dashboard sign-in page.",
+ "review": "Source regressions cover private link transfer, signed-in outcomes, and refusals for mismatched origins, missing connections and company sign-in.",
+ "gap": "Physical proof of dashboard launch, wake and resume is pending on native Windows and a second client OS.",
+ "recipes": ["yoke browser authorize --project P --identity operator", "yoke browser verify --project P --identity operator"],
+ "sources": ["docs/public/verification/browser-identities.md", "docs/public/self-hosting/browser-sign-in.md", "packages/yoke-cli/src/yoke_cli/commands/browser_authorize_self_host.py", "runtime/api/cli/test_browser_authorize_self_host.py"],
+ "position": 5
+}
