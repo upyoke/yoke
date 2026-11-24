@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import ctypes
+from ctypes import wintypes
 from pathlib import Path
 import subprocess
 
 import pytest
 
-from yoke_contracts import windows_private_directory
+from yoke_contracts import windows_others_unwritable_directory, windows_private_directory
 
 
 pytestmark = pytest.mark.windows_only(reason='Windows DACL contract')
@@ -59,7 +61,11 @@ def test_file_inherits_only_from_unwritable_parent(inherited_parent: Path) -> No
 
 @pytest.mark.parametrize(
     ("target", "grant"),
-    [("file", "*S-1-1-0:(R)"), ("parent", "*S-1-5-32-545:(W)")],
+    [
+        ("file", "*S-1-1-0:(R)"),
+        ("file", "*S-1-5-32-545:(R)"),
+        ("parent", "*S-1-5-32-545:(W)"),
+    ],
 )
 def test_inherited_file_rejects_untrusted_access(
     inherited_parent: Path, target: str, grant: str,
@@ -70,4 +76,55 @@ def test_inherited_file_rejects_untrusted_access(
         ["icacls", str(archive if target == "file" else inherited_parent), "/grant", grant],
         check=True,
     )
+    assert not windows_private_directory.is_private_file(archive)
+
+
+def test_file_rejects_inherited_users_read_grant(inherited_parent: Path) -> None:
+    subprocess.run(
+        ["icacls", str(inherited_parent), "/grant", "*S-1-5-32-545:(OI)(R)"],
+        check=True,
+    )
+    archive = inherited_parent / "universe.tar"
+    archive.write_bytes(b"archive")
+
+    assert windows_others_unwritable_directory.is_others_unwritable_directory(inherited_parent)
+    assert not windows_private_directory.is_private_file(archive)
+
+
+def test_directory_rejects_inherit_only_grant(tmp_path: Path) -> None:
+    profile = tmp_path / "profile"
+    windows_private_directory.create_private_directory(profile)
+    subprocess.run(
+        ["icacls", str(profile), "/grant", "*S-1-5-32-545:(OI)(IO)(R)"],
+        check=True,
+    )
+
+    assert not windows_private_directory.is_private_directory(profile)
+
+
+def test_directory_ignores_deny_only_ace(tmp_path: Path) -> None:
+    profile = tmp_path / "profile"
+    windows_private_directory.create_private_directory(profile)
+    subprocess.run(
+        ["icacls", str(profile), "/deny", "*S-1-5-32-545:(WD)"],
+        check=True,
+    )
+
+    assert windows_private_directory.is_private_directory(profile)
+
+
+def test_file_rejects_null_dacl(tmp_path: Path) -> None:
+    profile = tmp_path / "profile"
+    windows_private_directory.create_private_directory(profile)
+    archive = profile / "universe.tar"
+    archive.write_bytes(b"archive")
+    advapi = ctypes.WinDLL("advapi32", use_last_error=True)
+    set_security = advapi.SetNamedSecurityInfoW
+    set_security.argtypes = [wintypes.LPWSTR, wintypes.DWORD, wintypes.DWORD] + [
+        ctypes.c_void_p
+    ] * 4
+    set_security.restype = wintypes.DWORD
+    # SE_FILE_OBJECT, DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION.
+    assert set_security(str(archive), 1, 0x80000004, None, None, None, None) == 0
+
     assert not windows_private_directory.is_private_file(archive)
