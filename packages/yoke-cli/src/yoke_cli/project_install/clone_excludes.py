@@ -10,6 +10,7 @@ from yoke_cli.project_install import checkout_gate
 from yoke_contracts.filesystem_safety import atomic_replace_bytes
 from yoke_contracts.machine_config.checkout import LANES_DIR
 from yoke_contracts.project_contract.install_error import ProjectInstallError
+from yoke_contracts.refusal_recovery import compose_refusal
 
 KEY = "clone_excludes"
 ENTRIES = (f"/{LANES_DIR}/", "/.claude/settings.local.json")
@@ -26,8 +27,10 @@ def validate_entries(value: object, *, source: str) -> None:
 
 def _refusal(path: Path, reason: object) -> ProjectInstallError:
     return ProjectInstallError(
-        f"clone_exclude_unwritable: {path}: {reason}. "
-        "Repair Git metadata or permissions, then rerun yoke project install."
+        compose_refusal(
+            f"clone_exclude_unwritable: {path}: {reason}",
+            recovery="Repair Git metadata or permissions, then rerun yoke project install.",
+        )
     )
 
 
