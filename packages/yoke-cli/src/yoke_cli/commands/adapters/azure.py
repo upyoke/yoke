@@ -7,7 +7,8 @@ import json
 import subprocess
 import sys
 
-from yoke_cli.commands._helpers import ensure_handlers_loaded, parse_or_usage_error
+from yoke_cli.commands import _helpers
+from yoke_cli.commands._helpers import parse_or_usage_error
 from yoke_cli.config.project_selection import required_project_context
 from yoke_cli.config.project_slug_lookup import (
     resolve_project_slug,
@@ -59,7 +60,7 @@ def _project(parsed):
 
 
 def _settings(project):
-    ensure_handlers_loaded()
+    _helpers.ensure_handlers_loaded()
     response = call_dispatcher(
         function_id="projects.capability_settings.get",
         target=TargetRef(kind="global"),
