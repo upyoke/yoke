@@ -126,7 +126,7 @@ class TestNearestHarnessFamily:
         def _boom(*_args, **_kwargs):
             raise RuntimeError("process table unavailable")
 
-        monkeypatch.setattr(families, "process_table", _boom)
+        monkeypatch.setattr(families, "ancestry_table", _boom)
         monkeypatch.setattr(families, "_nearest_family_by_pid", {})
         assert families.nearest_harness_family() is None
 

@@ -35,7 +35,7 @@ from yoke_contracts.process_ancestry import (
     HARNESS_PROCESS_BASENAMES,
     MULTIPLEXED_PROCESS_BASENAMES,
     ancestor_pids,
-    process_table,
+    ancestry_table,
     process_basename,
 )
 
@@ -155,7 +155,7 @@ def _walk_for_family(
             # names against an injected tree would mix two process
             # worlds and classify by coincidence.
             return None
-        table = process_table()
+        table = ancestry_table(pid)
         parents = {ancestor: entry[0] for ancestor, entry in table.items()}
         resolve_name = {
             ancestor: entry[1] for ancestor, entry in table.items()
