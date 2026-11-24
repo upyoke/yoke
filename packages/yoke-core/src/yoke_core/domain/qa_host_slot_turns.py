@@ -3,9 +3,10 @@
 A slotted case lists OS slots in ``method_config.test_machines`` and maps a
 slot OS to its tags in ``capability_tags``. Slots of the driver's OS also carry
 the tags of cases inheriting the driver host. A slot's eligible hosts are the
-registered, verified hosts of its OS carrying its tags, so slots of one OS
-share one eligible set. Slots take hosts in order, each the lowest-named
-available host no earlier slot took.
+registered hosts of its OS carrying its tags with a verification result, so
+slots of one OS share one eligible set. Failed verification can block a wait.
+Slots take hosts in order, each the lowest-named available host no earlier
+slot took.
 
 While it waits, each slot is one any-of need at the execution's one queue
 place. One host carries one live wait per execution, so the eligible hosts of
@@ -16,14 +17,15 @@ slot at once, or nothing, and the host passes to the next waiter.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping, Sequence
+from collections import Counter
+from collections.abc import Collection, Iterable, Mapping, Sequence
 from typing import Any
 
 from yoke_contracts.machine_config.test_machine import (
     TestMachineCapabilityError,
     test_machine_capability_tags,
 )
-from yoke_core.domain.db_helpers import instant_parameter, query_one
+from yoke_core.domain.db_helpers import instant_parameter, query_one, query_rows
 from yoke_core.domain.machine_qa_execution_protocol import MachineQaProtocolError
 from yoke_core.domain.qa_plan_execution_store import marker as _p
 
@@ -34,22 +36,41 @@ SlotEligibility = tuple[tuple[str, tuple[str, ...]], ...]
 
 
 class TestMachineSlotsBusy(MachineQaProtocolError):
-    """Some slot has no available host; the case queues one need per slot."""
+    """Some OS has too few available hosts; the case queues one need per slot."""
 
-    def __init__(self, slots: tuple[tuple[str, ...], ...], rationale: str) -> None:
+    def __init__(
+        self, slots: tuple[tuple[str, ...], ...], rationale: str, test_machine: str
+    ) -> None:
         super().__init__(rationale)
         #: Per slot, the hosts its need waits on; no host is in two slots.
         self.slots = slots
-        self.test_machine = slots[0][0]
+        self.test_machine = test_machine
+
+
+def _failed_verifications(conn: Any) -> set[str]:
+    """Names whose current verification failed, even when verified_at is unset."""
+    return {
+        str(row["name"])
+        for row in query_rows(
+            conn,
+            "SELECT m.name FROM test_machines m "
+            "JOIN test_machine_verifications v ON v.test_machine_id=m.id "
+            "WHERE v.status='error' AND v.checked_at IS NOT NULL",
+        )
+    }
 
 
 def slot_eligibility(
-    conn: Any, case: Mapping[str, Any], cases: Sequence[Mapping[str, Any]]
+    conn: Any,
+    case: Mapping[str, Any],
+    cases: Sequence[Mapping[str, Any]],
+    *,
+    failed_verifications: Collection[str] = (),
 ) -> SlotEligibility:
     """Each slot of *case* with its eligible hosts under its OS's tags.
 
-    Refuses when an OS has fewer eligible hosts than slots, which no wait
-    can cure.
+    Queue admission can include hosts with failed verification so it can wait
+    for their recovery. Refuses when too few matching hosts have a result.
     """
     from yoke_core.domain.machine_qa_case_hosts import (
         case_slots,
@@ -73,7 +94,7 @@ def slot_eligibility(
             row.test_machine
             for row in rows
             if row.settings["os"] == os_name
-            and row.verified_at is not None
+            and (row.verified_at is not None or row.test_machine in failed_verifications)
             and tags.issubset(test_machine_capability_tags(row.settings))
         )
         needed = slots.count(os_name)
@@ -83,7 +104,7 @@ def slot_eligibility(
             raise TestMachineCapabilityError(
                 f"{TEST_MACHINE_SLOTS_UNAVAILABLE}: case {key!r} needs {needed} "
                 f"verified {os_name} Test Machines{tagged} at once, but only "
-                f"{len(names)} are registered ({', '.join(names) or 'none'}); "
+                f"{len(names)} matching hosts are registered ({', '.join(names) or 'none'}); "
                 "register and verify another matching Test Machine with `yoke "
                 "test-machine verify --test-machine NAME`, or rewrite the case's "
                 "method_config.test_machines slots"
@@ -116,14 +137,16 @@ def slot_waits(eligibility: SlotEligibility) -> tuple[tuple[str, ...], ...]:
     return tuple(tuple(names) for names in waits)
 
 
-def _free(conn: Any, name: str) -> bool:
+def _unavailable(conn: Any, name: str) -> str | None:
     from yoke_core.domain.coordination_claims import active_claim
     from yoke_core.domain.machine_qa_capability import host_claim_target
-    from yoke_core.domain.qa_host_health import host_unhealthy
+    from yoke_core.domain.qa_host_health import host_unhealthy, unhealthy_rationale
 
-    return active_claim(conn, host_claim_target(name)) is None and (
-        host_unhealthy(conn, name) is None
-    )
+    claim = active_claim(conn, host_claim_target(name))
+    if claim is not None:
+        return f"lease {claim.id} held by {claim.session_id}"
+    health = host_unhealthy(conn, name)
+    return unhealthy_rationale(health) if health is not None else None
 
 
 def select_slot_hosts(
@@ -141,7 +164,9 @@ def select_slot_hosts(
     from yoke_core.domain.qa_host_set_turns import execution_waits
     from yoke_core.domain.qa_plan_host_leases import held_hosts
 
-    eligibility = slot_eligibility(conn, case, cases)
+    eligibility = slot_eligibility(
+        conn, case, cases, failed_verifications=_failed_verifications(conn),
+    )
     waits = slot_waits(eligibility)
     held = held_hosts(conn, execution)
     reserved = {
@@ -150,18 +175,30 @@ def select_slot_hosts(
         if wait["state"] == "reserved"
     }
     names = sorted({name for _, hosts in eligibility for name in hosts})
+    unavailable = {
+        name: reason
+        for name in names
+        if name not in held and name not in reserved
+        if (reason := _unavailable(conn, name)) is not None
+    }
     available = sorted(
-        (n for n in names if n in held or n in reserved or _free(conn, n)),
+        (name for name in names if name not in unavailable),
         key=lambda n: (n not in held, n not in reserved, n),
     )
     picked = pick_slot_hosts(eligibility, available)
     if picked is None:
-        raise TestMachineSlotsBusy(
-            waits,
-            "no available host for every OS slot ("
-            + ", ".join(os_name for os_name, _ in eligibility)
-            + f"); free now: {', '.join(available) or 'none'}",
-        )
+        slot_oses = [os_name for os_name, _ in eligibility]
+        needed = Counter(slot_oses)
+        clauses = [f"no available host for every OS slot ({', '.join(slot_oses)})"]
+        blocked_hosts = []
+        for os_name, hosts in dict(eligibility).items():
+            blocked = [name for name in hosts if name in unavailable]
+            if len(hosts) - len(blocked) < needed[os_name]:
+                reasons = "; ".join(f"{name}: {unavailable[name]}" for name in blocked)
+                clauses.append(f"{os_name} slot waits on {reasons}")
+                blocked_hosts.extend(blocked)
+        clauses.append(f"free now: {', '.join(available) or 'none'}")
+        raise TestMachineSlotsBusy(waits, "; ".join(clauses), blocked_hosts[0])
     driver = next(i for i, slot in enumerate(case_slots(case)) if slot.get("driver"))
     return picked[driver], tuple(sorted(picked)), waits
 
@@ -201,10 +238,11 @@ def assign_slot_hosts(conn: Any, execution: Mapping[str, Any]) -> bool:
         for wait in execution_waits(conn, execution_id)
         if wait["state"] == "waiting" and wait["need_id"]
     }
+    failed_verifications = _failed_verifications(conn)
     oses = {
         row.test_machine: row.settings["os"]
         for row in test_machine_rows(conn)
-        if row.verified_at is not None
+        if row.verified_at is not None or row.test_machine in failed_verifications
     }
     needs: dict[str, set[str]] = {}
     for name, wait in waits.items():
@@ -218,7 +256,8 @@ def assign_slot_hosts(conn: Any, execution: Mapping[str, Any]) -> bool:
         (os_name, tuple(sorted(n for n in waits if oses.get(n) == os_name)))
         for os_name in slots
     )
-    picked = pick_slot_hosts(eligibility, sorted(n for n in waits if _free(conn, n)))
+    available = sorted(name for name in waits if _unavailable(conn, name) is None)
+    picked = pick_slot_hosts(eligibility, available)
     if picked is None:
         return False
     p = _p(conn)

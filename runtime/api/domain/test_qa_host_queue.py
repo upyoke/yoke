@@ -59,7 +59,7 @@ def _refused(conn, session_id, *, test_machine=None):
     return refused.value
 
 
-def _walk(conn, session_id, *, eligible=(), test_machine=None):
+def _walk(conn, session_id, *, eligible=(), test_machine=None, slots=()):
     """Queue one plan execution as the plan-case handler does."""
     execution_id = str(uuid4())
     conn.execute(
@@ -78,6 +78,7 @@ def _walk(conn, session_id, *, eligible=(), test_machine=None):
         test_machine=test_machine or eligible[0],
         rationale="all eligible hosts are in use",
         eligible=eligible,
+        slots=slots,
     )
     return execution_id
 
@@ -208,4 +209,21 @@ def test_the_fleet_report_shows_each_waiter_position_and_need(test_db, monkeypat
         f"Test Machine queue: session win-walk (execution {windows}) waits for "
         f"any of {WINDOWS[0]}, {WINDOWS[1]} (1st for {WINDOWS[0]}, 1st for {WINDOWS[1]})",
         f"Test Machine queue: session mac-behind (execution {later}) waits for {MAC} (2nd for {MAC})",
+    ]
+
+
+def test_the_fleet_report_shows_one_host_per_slot(test_db, monkeypatch):
+    _notices(monkeypatch)
+    _register_hosts(test_db)
+    seed_qa_session(test_db, "holder", "walker")
+    for name in WINDOWS:
+        _hold(test_db, name, "holder")
+    execution = _walk(test_db, "walker", test_machine=WINDOWS[0], slots=(WINDOWS, (MAC,)))
+
+    lines = reset_debt_lines(read_queue(test_db))
+
+    assert [line.split(" since ")[0] for line in lines] == [
+        f"Test Machine queue: session walker (execution {execution}) waits for one host per slot: "
+        f"{MAC}; any of {WINDOWS[0]}, {WINDOWS[1]} (1st for {MAC}, "
+        f"1st for {WINDOWS[0]}, 1st for {WINDOWS[1]})",
     ]

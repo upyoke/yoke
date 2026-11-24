@@ -32,7 +32,7 @@ class QueuedWalk(NamedTuple):
     """One waiter in the Test Machine queue; rides with reset debts.
 
     ``test_machine`` names what it waits for: one machine, ``any of`` the
-    machines that can serve it, or ``all of`` a simultaneous host set.
+    machines that can serve it, ``all of`` a host set, or ``one host per slot``.
     """
 
     test_machine: str
