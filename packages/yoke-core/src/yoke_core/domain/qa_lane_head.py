@@ -9,7 +9,11 @@ from yoke_core.domain.lane_head_record import reconcile_lane_head
 
 
 def reconcile_case_lane(case: dict, actor: ActorContext | None) -> str:
-    if not case.get("lane_path") or not case.get("lane_id"):
+    if (
+        not case.get("lane_path")
+        or not case.get("lane_id")
+        or case.get("lane_state", "active") != "active"
+    ):
         return ""
     head, error = reconcile_lane_head(
         str(case.get("project") or ""),

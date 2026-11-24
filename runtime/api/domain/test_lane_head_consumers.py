@@ -68,6 +68,15 @@ def test_case_reads_new_record_without_overwriting_explicit_sha(monkeypatch, lan
     ]
 
 
+def test_released_case_preserves_its_candidate(monkeypatch, lanes):
+    lane = lanes[1]
+    monkeypatch.setattr(qa_lane_head, "reconcile_lane_head", lambda *a, **k: pytest.fail("write"))
+    assert qa_lane_head.reconcile_case_lane(
+        {"lane_id": lane["id"], "lane_path": lane["path"], "lane_state": "released"},
+        None,
+    ) == ""
+
+
 def test_plan_refreshes_selected_case_lane(monkeypatch, lanes):
     lane = lanes[1]
     actor = ActorContext(session_id="plan-session")

@@ -99,6 +99,7 @@ def handle_case_execution_begin(
                 session_id=request.actor.session_id,
                 checkout_path=selection.checkout_path,
                 expected_branch=selection.expected_branch,
+                include_lane_state=True,
             )
             if result.get("standalone_execution_id") and (
                 result.get("runner_id") == "agent_mission"

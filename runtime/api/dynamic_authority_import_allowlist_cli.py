@@ -52,6 +52,20 @@ CLI_PACKAGE_DYNAMIC_AUTHORITY_IMPORTS = {
         "the supplied transport-aware dispatcher, with no local DB authority",
     ),
     (
+        "packages/yoke-cli/src/yoke_cli/commands/adapters/claims_path_flow.py",
+        "yoke_core.domain.lane_head_record",
+    ): (
+        "client_local_execution",
+        "boundary proof reconciles the checkout here and writes through snapshot dispatch",
+    ),
+    (
+        "packages/yoke-cli/src/yoke_cli/commands/adapters/epic_review.py",
+        "yoke_core.domain.lane_head_client",
+    ): (
+        "client_local_execution",
+        "the review adapter observes its task checkout locally and dispatches durable writes",
+    ),
+    (
         "packages/yoke-cli/src/yoke_cli/commands/adapters/config_actor_binding.py",
         "yoke_core.domain.control_plane_transport",
     ): (
