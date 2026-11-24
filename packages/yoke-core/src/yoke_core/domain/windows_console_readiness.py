@@ -9,6 +9,32 @@ _PROBE = r"""
 $ProgressPreference='SilentlyContinue'
 function Refuse-MissingConsole {
     [Console]::Error.WriteLine('windows_console_session_missing')
+    try {
+        $key=[Microsoft.Win32.Registry]::LocalMachine.OpenSubKey(
+            'SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon')
+        if ($null -eq $key) { throw 'Winlogon key unavailable' }
+        try {
+            $auto=$key.GetValue('AutoAdminLogon', '(absent)')
+            $defaultUser=$key.GetValue('DefaultUserName', '(absent)')
+            $domain=$key.GetValue('DefaultDomainName', '(absent)')
+            $hasCount=$key.GetValueNames() -contains 'AutoLogonCount'
+        } finally { $key.Dispose() }
+        [Console]::Error.WriteLine(
+            "AutoAdminLogon=$auto, DefaultUserName=$defaultUser, DefaultDomainName=$domain, AutoLogonCountPresent=$hasCount")
+        if ($auto -eq '0') {
+            [Console]::Error.WriteLine(
+                'Automatic sign-in is off. Rerun desktop provisioning, which validates the stored password.')
+        }
+    } catch {
+        [Console]::Error.WriteLine('Winlogon settings unavailable')
+    }
+    try { $enabled=(Get-LocalUser -Name $testUser -ErrorAction Stop).Enabled }
+    catch { $enabled='unavailable' }
+    try {
+        $account=[ADSI]("WinNT://$env:COMPUTERNAME/$testUser,user")
+        $locked=$account.psbase.InvokeGet('IsAccountLocked')
+    } catch { $locked='unavailable' }
+    [Console]::Error.WriteLine("AccountEnabled=$enabled, AccountLocked=$locked")
     exit 3
 }
 # quser can exit 1 even when it lists users. Read its rows and diagnostics.

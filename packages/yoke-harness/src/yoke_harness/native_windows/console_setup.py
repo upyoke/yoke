@@ -15,7 +15,7 @@ public static class YokeConsoleLogon {
 '@
 $token=[IntPtr]::Zero
 if (![YokeConsoleLogon]::LogonUser($name,$env:COMPUTERNAME,$password,2,0,[ref]$token)) {
- throw 'windows_console_credential_rejected: import the existing local Windows lab account password and rerun provisioning'
+ throw 'windows_console_credential_rejected: import the existing local Windows lab account password with yoke test-machine secret set --test-machine M --key desktop_password --value-file FILE, then rerun provisioning'
 }
 $null=[YokeConsoleLogon]::CloseHandle($token)
 """

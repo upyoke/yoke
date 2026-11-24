@@ -11,6 +11,7 @@ from runtime.api.domain.cloud_machine_power_test_support import (
 
 import base64
 import json
+import re
 import subprocess
 
 import pytest
@@ -215,6 +216,13 @@ def test_native_windows_ssh_readiness_does_not_invoke_wsl(ssh_key):
     assert "$testUser='yokeqa'" in script
     assert "quser.exe" in script and "'console'" in script and "Get-Process explorer" in script
     assert "No User exists for *') {\n    Refuse-MissingConsole" in script
+    assert {
+        "AutoAdminLogon", "DefaultUserName", "DefaultDomainName",
+    } == set(re.findall(r"\.GetValue\('([^']+)'", script))
+    assert "DefaultPassword" not in script
+    assert "GetValueNames() -contains 'AutoLogonCount'" in script
+    assert "Get-LocalUser -Name $testUser" in script and "IsAccountLocked" in script
+    assert "if ($auto -eq '0')" in script and "Automatic sign-in is off." in script
     assert not any(verb in script.lower() for verb in ("cim", "wmi", "add-type", "wsl", "'active'"))
     assert runner.inputs == [None]
 
@@ -235,7 +243,13 @@ def test_native_windows_waits_for_console_after_ssh(ssh_key):
 
 def test_native_windows_missing_console_warns_and_leaves_ssh_available(ssh_key):
     clock = _Clock()
-    runner = _LoginRunner([MISSING, MISSING, MISSING])
+    diagnostics = (
+        "AutoAdminLogon=0, DefaultUserName=yokeqa, DefaultDomainName=LAB, AutoLogonCountPresent=False",
+        "Automatic sign-in is off. Rerun desktop provisioning, which validates the stored password.",
+        "AccountEnabled=True, AccountLocked=False",
+    )
+    last = CommandResult(3, "", "\n".join((MISSING.stderr, *diagnostics)))
+    runner = _LoginRunner([MISSING, MISSING, last])
     output = []
 
     wait_for_ssh_login(
@@ -248,6 +262,8 @@ def test_native_windows_missing_console_warns_and_leaves_ssh_available(ssh_key):
     assert output[-1].startswith("windows_console_session_missing: Test Machine")
     assert "within 25s" in output[-1]
     assert "rerun Windows desktop provisioning" in output[-1]
+    assert all(detail in output[-1] for detail in diagnostics)
+    assert output[-1].count("windows_console_session_missing") == 1
 
 
 @pytest.mark.parametrize("failure", [

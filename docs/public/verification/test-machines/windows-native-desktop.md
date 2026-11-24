@@ -9,14 +9,24 @@ automatically after a cold boot. Start with [native Windows host provisioning](w
 
 ## Desktop and sign-ins
 
-Provisioning sets `AutoAdminLogon`, removes `AutoLogonCount` and stores the
-lab password in LSA. It disables locking for the dedicated test desktop. On
+Provisioning validates the stored desktop password against the local lab
+account before configuring autologon. A credential rejection gives the
+`yoke test-machine secret set --test-machine M --key desktop_password --value-file FILE`
+command for importing the account's current password. Provisioning then sets
+`AutoAdminLogon`, removes `AutoLogonCount` and stores the lab password in LSA.
+It disables locking for the dedicated test desktop. On
 a cold boot, Yoke waits up to ten minutes for SSH and Explorer in the lab
 account's console session before starting desktop work. An SSH session that
 reports `windows_console_session_missing` stays available for repair. Check
 the VM console and rerun Windows desktop provisioning. Close the viewer and
 run `yoke test-machine verify --test-machine VM` to check Explorer and an
 unlocked display in the interactive console.
+
+The warning reports `AutoAdminLogon` (whether automatic sign-in is enabled),
+`DefaultUserName` and `DefaultDomainName` (the configured account), and whether
+`AutoLogonCount` is present (a counter can limit automatic sign-ins). It also
+reports whether the lab account is enabled or locked. If `AutoAdminLogon=0`,
+rerun desktop provisioning to validate the stored password and restore autologon.
 
 Follow the [Tailscale and bootstrap RDP guide](windows-native-harnesses.md#first-tailscale-login-and-bootstrap-desktop).
 Register RDP on port 3389 for `yokeqa` using `direct` and MagicDNS after tailnet

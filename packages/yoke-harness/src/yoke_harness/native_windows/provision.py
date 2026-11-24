@@ -19,7 +19,10 @@ from yoke_harness.native_windows.stdin_frame import READ_FRAME_SCRIPT
 from yoke_harness.native_windows.admin import admin_script
 from yoke_harness.native_windows.autologon import SCRIPT as AUTOLOGON_SCRIPT
 from yoke_harness.native_windows.tailnet_startup import SCRIPT as TAILNET_STARTUP_SCRIPT
-from yoke_harness.native_windows.console_setup import console_settings_script
+from yoke_harness.native_windows.console_setup import (
+    VALIDATE_ACCOUNT_PASSWORD,
+    console_settings_script,
+)
 from yoke_harness.native_windows.display_geometry import console_display_task_script
 from yoke_harness.native_windows.firewall import SCRIPT as RDP_FIREWALL_SCRIPT
 from yoke_harness.native_windows.user_ssh import SCRIPT as USER_SSH_SCRIPT
@@ -189,6 +192,7 @@ $name=TEST_USER
 $password=[Text.Encoding]::UTF8.GetString((Read-YokeFrame))
 $secure=ConvertTo-SecureString $password -AsPlainText -Force
 PROFILE_CREATION
+VALIDATE_PASSWORD
 Add-LocalGroupMember -SID 'S-1-5-32-555' -Member $name -ErrorAction SilentlyContinue
 if((Get-LocalGroupMember -SID 'S-1-5-32-544').Name -contains "$env:COMPUTERNAME\$name"){throw 'windows_test_user_admin: remove the test user from Administrators and retry'}
 New-Item -ItemType Directory -Force "$homePath\.ssh",'C:\YokeQa\goldens' | Out-Null
@@ -206,6 +210,7 @@ Write-Output 'Native standard user, private golden directory and private desktop
         .replace("TAILNET_STARTUP", TAILNET_STARTUP_SCRIPT)
         .replace("PUBLIC_KEY", quote(public))
         .replace("PROFILE_CREATION", PROFILE_SCRIPT)
+        .replace("VALIDATE_PASSWORD", VALIDATE_ACCOUNT_PASSWORD)
         .replace("RDP_FIREWALL", RDP_FIREWALL_SCRIPT)
     )
     result = admin_script(

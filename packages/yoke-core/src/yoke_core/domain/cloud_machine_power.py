@@ -204,7 +204,8 @@ def wait_for_ssh_login(
                 if native_windows:
                     emit(f"  Test Machine {name}: {user} signed in at its console after {clock() - started:.1f}s")
                 return
-            last_error = (result.stderr or result.stdout).strip()[-300:] or (
+            limit = 450 if console_missing else 300
+            last_error = (result.stderr or result.stdout).strip()[-limit:] or (
                 f"ssh exited {result.returncode}"
             )
         delay = min(SSH_POLL_SECONDS, deadline - clock())
@@ -212,10 +213,12 @@ def wait_for_ssh_login(
             sleeper(delay)
     if console_missing:
         # Keep SSH and desktop access available to diagnose a broken autologon.
+        details = ' '.join(last_error.removeprefix(CONSOLE_MISSING).split())
         emit(
             f"{CONSOLE_MISSING}: Test Machine {name} booted but {user} never signed "
             f"in at its console within {timeout_s}s; autologon failed: rerun Windows "
             "desktop provisioning (see the native Windows desktop guide)"
+            + (f"; {details}" if details else "")
         )
         return
     raise _refused(
