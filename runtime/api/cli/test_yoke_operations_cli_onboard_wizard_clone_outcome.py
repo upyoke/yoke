@@ -27,12 +27,12 @@ from yoke_cli.config.onboard_wizard_widgets import SelectionList  # noqa: E402
 from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     advance_past_path,
     make_app,
-    settle_checks,
     stub_checkout_fetch,
     stub_path_doctor,
     stub_source_branch,
     type_text,
 )
+from runtime.api.cli.onboard_wizard_view_test_support import wait_for_view  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -62,13 +62,10 @@ def _stub_owners(monkeypatch):
     )
 
 
-async def _connect_machine_github_auth(app, pilot) -> None:
+async def _connect_machine_github_auth(pilot) -> None:
     await advance_past_path(pilot)
     await pilot.press("enter")  # machine github: connect account default
-    await app.workers.wait_for_complete()
-    await pilot.pause()
-    await pilot.pause()
-    await pilot.pause()
+    await wait_for_view(pilot, "project.mode", "SelectionList")
 
 
 async def _pick_mode(pilot, value: str) -> None:
@@ -188,15 +185,14 @@ def test_clone_outcome_screen_uses_source_access_and_origin(monkeypatch) -> None
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
-            await _connect_machine_github_auth(app, pilot)
+            await _connect_machine_github_auth(pilot)
             await _pick_mode(pilot, onboard_project.PROJECT_MODE_CLONE_REMOTE)
             await pilot.press("enter")  # visibility: Public -> paste-URL input
             await type_text(pilot, "https://github.com/acme/widgets.git")
             await pilot.press("enter")  # remote -> clone-folder input
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(pilot, "project.clone_folder", "Input")
             await pilot.press("enter")  # accept default folder -> fetch, source access
-            await settle_checks(pilot)  # both checks finish -> clone-outcome screen
+            await wait_for_view(pilot, "project.clone_outcome", "SelectionList")
             selection = app.query_one("#onboard-body SelectionList", SelectionList)
             values = [row.value for row in selection.rows]
             assert values == [
@@ -256,12 +252,11 @@ def test_empty_private_repo_picker_requires_app_access(monkeypatch) -> None:
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
-            await _connect_machine_github_auth(app, pilot)
+            await _connect_machine_github_auth(pilot)
             await _pick_mode(pilot, onboard_project.PROJECT_MODE_CLONE_REMOTE)
             await pilot.press("down")  # visibility: move to Private
             await pilot.press("enter")
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(pilot, "project.private_repo_empty", "SelectionList")
             from textual.widgets import Input
 
             assert not list(app.query("#onboard-body Input").results(Input))
@@ -296,15 +291,14 @@ def test_prior_partial_clone_offers_resume_then_continues(monkeypatch) -> None:
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
-            await _connect_machine_github_auth(app, pilot)
+            await _connect_machine_github_auth(pilot)
             await _pick_mode(pilot, onboard_project.PROJECT_MODE_CLONE_REMOTE)
             await pilot.press("enter")  # visibility: Public -> paste-URL input
             await type_text(pilot, "https://github.com/acme/widgets.git")
             await pilot.press("enter")  # remote -> clone-folder input
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(pilot, "project.clone_folder", "Input")
             await pilot.press("enter")  # accept default folder -> Resume screen
-            await pilot.pause()
+            await wait_for_view(pilot, "project.clone_resume", "SelectionList")
             body = " ".join(
                 str(w.render())
                 for w in app.query("#onboard-body Static").results(Static)
@@ -313,7 +307,7 @@ def test_prior_partial_clone_offers_resume_then_continues(monkeypatch) -> None:
             selection = app.query_one("#onboard-body SelectionList", SelectionList)
             assert [r.value for r in selection.rows] == ["resume", "choose-folder"]
             await pilot.press("enter")  # Resume (first row) -> fetch, source access
-            await settle_checks(pilot)  # both checks finish -> clone-outcome screen
+            await wait_for_view(pilot, "project.clone_outcome", "SelectionList")
             title = next(
                 str(w.render()) for w in app.query(".onboard-title").results(Static)
             )

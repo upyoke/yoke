@@ -22,6 +22,7 @@ from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     stub_path_doctor,
     type_text,
 )
+from runtime.api.cli.onboard_wizard_view_test_support import wait_for_view  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -92,16 +93,14 @@ def test_unlink_continues_setup_without_the_old_project(tmp_path, monkeypatch):
             await pilot.press("down", "enter")  # project: existing folder
             await type_text(pilot, str(checkout))
             await pilot.press("enter")
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(pilot, "project.stale_project_link", "SelectionList")
             body = _body_text(app)
             assert "linked to a project from a different Yoke install" in body
             assert "links this folder to project 1" in body
             assert "Unlink and set up fresh" in body
             assert "API token" not in body
             await pilot.press("enter")  # Unlink and set up fresh
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(pilot, "project.checkout_layer", "SelectionList")
             assert "different Yoke install" not in _body_text(app)
 
     asyncio.run(scenario())

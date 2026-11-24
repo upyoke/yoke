@@ -35,6 +35,7 @@ from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     skip_hosting,
     type_text,
 )
+from runtime.api.cli.onboard_wizard_view_test_support import wait_for_view  # noqa: E402
 
 
 def test_unavailable_app_skips_publish_and_keeps_project_local(
@@ -60,8 +61,7 @@ def test_unavailable_app_skips_publish_and_keeps_project_local(
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
             await pilot.press("enter")  # machine GitHub: connect (default)
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(pilot, "github.machine_github_error", "SelectionList")
             await pilot.press("down")  # choose disabled, not Reconnect
             await pilot.press("enter")  # App flow unavailable: disabled
             mode_index = next(

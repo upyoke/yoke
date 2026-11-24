@@ -23,6 +23,7 @@ from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     make_app,
     stub_path_doctor,
 )
+from runtime.api.cli.onboard_wizard_view_test_support import wait_for_view  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -135,7 +136,9 @@ def test_back_from_local_summary_repicks_cleanly(monkeypatch) -> None:
             assert app.query_one(Stepper).account_label == STEP_CONNECT_LABEL
             await pilot.press("up")  # repick: wrap local -> upyoke.com
             await pilot.press("enter")
-            await pilot.pause()
+            await wait_for_view(
+                pilot, "connect.hosted_machine_approval", "SelectionList"
+            )
             # The local detour left no residue: the hosted row sets its own
             # environment and goes straight to browser approval.
             assert app.result.env_name != local_universe_setup.LOCAL_ENV

@@ -25,6 +25,7 @@ from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     stub_path_doctor,
     type_text,
 )
+from runtime.api.cli.onboard_wizard_view_test_support import wait_for_view  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -93,32 +94,29 @@ def test_clone_remote_retry_edit_and_back_keep_history_bounded(
             await pilot.pause()
             await type_text(pilot, "https://github.com/acme/widgets.git")
             await pilot.press("enter")
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(pilot, "project.clone_remote_error", "SelectionList")
             error_depth = len(app._history)
             assert "couldn't reach that repo" in _body_text(app).lower()
 
             await pilot.press("down")  # Change URL -> Try again
             await pilot.press("enter")
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(pilot, "project.clone_remote_error", "SelectionList")
             assert "couldn't reach that repo" in _body_text(app).lower()
             assert len(app._history) == error_depth
 
             await pilot.press("enter")  # Change URL
-            await pilot.pause()
+            await wait_for_view(pilot, "project.clone_url", "Input")
             assert _title(app) == "Clone a project from GitHub."
             assert len(app._history) == error_depth - 1
 
             await type_text(pilot, "https://github.com/acme/other.git")
             await pilot.press("enter")
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(pilot, "project.clone_remote_error", "SelectionList")
             assert len(app._history) == error_depth
             await pilot.press("down")  # Change URL -> Try again
             await pilot.press("down")  # Try again -> Back
             await pilot.press("enter")
-            await pilot.pause()
+            await wait_for_view(pilot, "project.clone_url", "Input")
             assert _title(app) == "Clone a project from GitHub."
             assert "couldn't reach that repo" not in _body_text(app).lower()
             assert len(app._history) == error_depth - 1
@@ -170,14 +168,11 @@ def test_clone_git_install_replaces_missing_git_recovery_view(
             state["installed"] = False
             await type_text(pilot, "https://github.com/acme/widgets.git")
             await pilot.press("enter")
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(pilot, "project.clone_git_missing", "SelectionList")
             assert "git is required" in _body_text(app).lower()
 
             await pilot.press("enter")  # Install Git
-            await app.workers.wait_for_complete()
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(pilot, "project.clone_folder", "Input")
             assert state["install_calls"] == 1
             assert _title(app) == "Where should Yoke clone it?"
             assert len(app._history) == project_depth + 2
@@ -206,14 +201,13 @@ def test_connected_clone_remote_back_returns_to_visibility_without_stale_error(
             await pilot.press("enter")  # Public -> URL input
             await type_text(pilot, "https://github.com/acme/widgets.git")
             await pilot.press("enter")
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(pilot, "project.clone_remote_error", "SelectionList")
             assert "couldn't reach that repo" in _body_text(app).lower()
 
             await pilot.press("down")  # Change URL -> Try again
             await pilot.press("down")  # Try again -> Back
             await pilot.press("enter")
-            await pilot.pause()
+            await wait_for_view(pilot, "project.clone_url", "Input")
             assert _title(app) == "Clone a project from GitHub."
             assert "couldn't reach that repo" not in _body_text(app).lower()
             assert len(app._history) == project_depth + 2

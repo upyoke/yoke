@@ -23,6 +23,7 @@ from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     stub_path_doctor,
     type_text,
 )
+from runtime.api.cli.onboard_wizard_view_test_support import wait_for_view  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -111,7 +112,7 @@ def test_project_mode_preset_uses_selected_checkout(monkeypatch) -> None:
             await advance_past_path(pilot)
             await pilot.press("down")
             await pilot.press("enter")
-            await settle_checks(pilot)
+            await wait_for_view(pilot, "review.confirm", "SelectionList")
             await pilot.press("enter")
             await app.workers.wait_for_complete()
             await pilot.pause()
@@ -156,7 +157,7 @@ def test_clone_accepts_user_supplied_fork_and_target(monkeypatch) -> None:
             await pilot.press("enter")
             await type_text(pilot, "/home/me/my-yoke")
             await pilot.press("enter")
-            await settle_checks(pilot)
+            await wait_for_view(pilot, "review.confirm", "SelectionList")
             await pilot.press("enter")
             await app.workers.wait_for_complete()
             await pilot.pause()
@@ -186,7 +187,7 @@ def test_non_yoke_folder_shows_cause_and_required_recovery(
             await pilot.press("enter")  # Choose another checkout
             await type_text(pilot, str(conflict))
             await pilot.press("enter")
-            await settle_checks(pilot)
+            await wait_for_view(pilot, "project.dev_error", "SelectionList")
             captured = _body_text(app)
 
     asyncio.run(scenario())

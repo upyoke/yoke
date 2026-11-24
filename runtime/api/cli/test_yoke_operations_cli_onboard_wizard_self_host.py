@@ -34,6 +34,7 @@ from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     stub_path_doctor,
     type_text,
 )
+from runtime.api.cli.onboard_wizard_view_test_support import wait_for_view  # noqa: E402
 
 
 RAW_TOKEN = TOKEN_PREFIX + ("B" * TOKEN_BODY_LENGTH)
@@ -87,7 +88,7 @@ def test_picker_preview_is_exact_and_does_not_mutate_before_start(
             assert "reachable networking and TLS" in text
             assert calls == []
             await pilot.press("down", "enter")
-            await pilot.pause()
+            await wait_for_view(pilot, "connect.destination", "SelectionList")
             assert "Where should this Yoke universe live?" in _body_text(app)
 
     asyncio.run(scenario())
@@ -123,7 +124,7 @@ def test_success_shows_handoff_and_continue_rejoins_project_setup(
             assert app.result.token_file.endswith("self-host.token")
             assert RAW_TOKEN not in repr(app.result)
             await pilot.press("enter")
-            await pilot.pause()
+            await wait_for_view(pilot, "github.machine", "SelectionList")
             assert app.query_one(Stepper).active == STEP_GITHUB
 
     asyncio.run(scenario())
@@ -182,7 +183,7 @@ def test_prerequisite_refusal_names_docker_and_allows_back(
             assert app.query_one(SelectionList).rows[0].label == "Try again"
             assert not bundle_directory.exists()
             await pilot.press("down", "enter")
-            await pilot.pause()
+            await wait_for_view(pilot, "connect.admin_name", "Input")
             assert app._history[-1] is admin_view
 
     asyncio.run(scenario())
@@ -249,8 +250,7 @@ def test_existing_server_url_and_token_failure_both_teach_the_new_route(
             assert flow.NO_SERVER_GUIDANCE in _body_text(app)
             await type_text(pilot, "https://yoke.acme.test")
             await pilot.press("enter")  # discover the server's sign-in method
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(pilot, "connect.machine_admission", "SelectionList")
             assert app._history[-1].prompt.key == "connect.machine_admission"
             await pilot.press("down", "down", "enter", "enter", "enter")
             await type_text(pilot, RAW_TOKEN)

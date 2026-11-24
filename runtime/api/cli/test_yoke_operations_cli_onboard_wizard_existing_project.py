@@ -24,6 +24,7 @@ from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     stub_path_doctor,
     type_text,
 )
+from runtime.api.cli.onboard_wizard_view_test_support import wait_for_view  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -64,13 +65,12 @@ def test_local_checkout_manifest_project_id_skips_project_setup(
             await pilot.press("down", "enter")  # project: existing folder
             await type_text(pilot, str(checkout))
             await pilot.press("enter")
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(pilot, "project.existing_found", "SelectionList")
             body = _body_text(app)
             assert "Existing project found: ExternalWebapp." in body
             await pilot.press("down")  # Review details
             await pilot.press("enter")
-            await pilot.pause()
+            await wait_for_view(pilot, "project.existing_found", "SelectionList")
             body = _body_text(app)
             assert (
                 "Local project metadata matched a Yoke core database project." in body
@@ -148,17 +148,16 @@ def test_stored_checkout_project_id_shows_confirmation_picker(
             await advance_past_path(pilot)
             await pilot.press("down")  # machine github: Skip for now
             await pilot.press("enter")
-            await pilot.pause()
+            await wait_for_view(pilot, "project.stored_checkout", "SelectionList")
             assert "1 Yoke project already set up on this machine." in _body_text(app)
             assert str(checkout) in _body_text(app)
             await pilot.press("enter")  # stored mapping: reuse checkout
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(pilot, "project.existing_found", "SelectionList")
             body = _body_text(app)
             assert "Existing project found: ExternalWebapp." in body
             await pilot.press("down")  # Review details
             await pilot.press("enter")
-            await pilot.pause()
+            await wait_for_view(pilot, "project.existing_found", "SelectionList")
             body = _body_text(app)
             assert "Checkout:" in body
             assert (
@@ -229,8 +228,7 @@ def test_existing_project_with_board_art_skips_art_flow(
             await pilot.press("down", "enter")  # project: existing folder
             await type_text(pilot, str(checkout))
             await pilot.press("enter")
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(pilot, "project.existing_found", "SelectionList")
             assert "Existing project found: ExternalWebapp." in _body_text(app)
             await pilot.press("enter")  # continue -> hosting (art already saved)
             await skip_hosting(pilot)  # hosting: skip -> Finish

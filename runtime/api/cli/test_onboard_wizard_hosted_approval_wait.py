@@ -26,6 +26,7 @@ from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     make_app,
     stub_path_doctor,
 )
+from runtime.api.cli.onboard_wizard_view_test_support import wait_for_view  # noqa: E402
 
 COMPLETE_URL = "https://app.upyoke.com/connect?user_code=K7F2"
 FAILURE_REASON = "webbrowser.open returned False"
@@ -115,12 +116,14 @@ def test_escape_during_the_approval_wait_returns_to_the_picker(monkeypatch, tmp_
             await advance_past_path(pilot)
             await pilot.press("down", "down", "down")  # upyoke.com
             await pilot.press("enter")
-            await pilot.pause()
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(
+                pilot, "connect.hosted_machine_approval", "SelectionList"
+            )
             assert "Sign in and choose an organization." in _body_text(app)
             await pilot.press("enter")  # Continue -> the waiting view
-            await pilot.pause()
+            await wait_for_view(
+                pilot, "check.onboard-hosted-machine-poll", checking=True
+            )
             assert app._checking
             assert "Waiting for browser approval." in _body_text(app)
             assert "esc" in _body_text(app)
@@ -155,16 +158,18 @@ def test_every_approval_view_names_the_complete_url_and_the_browser_outcome(
             await advance_past_path(pilot)
             await pilot.press("down", "down", "down")
             await pilot.press("enter")
-            await pilot.pause()
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(
+                pilot, "connect.hosted_machine_approval", "SelectionList"
+            )
             first = _body_text(app)
             assert f"Open: {COMPLETE_URL}" in first
             assert "No browser available here. Open this link on any device" in first
             assert FAILURE_REASON in first
             assert "onboard-wizard.log" in first
             await pilot.press("enter")
-            await pilot.pause()
+            await wait_for_view(
+                pilot, "check.onboard-hosted-machine-poll", checking=True
+            )
             waiting = _body_text(app)
             assert f"Open: {COMPLETE_URL}" in waiting
             assert "Match code: K7F2" in waiting
@@ -192,11 +197,13 @@ def test_a_browser_that_opened_says_so_on_the_waiting_view(monkeypatch, tmp_path
             await advance_past_path(pilot)
             await pilot.press("down", "down", "down")
             await pilot.press("enter")
-            await pilot.pause()
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(
+                pilot, "connect.hosted_machine_approval", "SelectionList"
+            )
             await pilot.press("enter")
-            await pilot.pause()
+            await wait_for_view(
+                pilot, "check.onboard-hosted-machine-poll", checking=True
+            )
             assert "The browser was opened for you." in _body_text(app)
             seen["released"].set()
             await pilot.press("escape")
@@ -230,7 +237,9 @@ def test_escape_from_a_preset_hosted_run_steps_back_without_a_picker(
             await app.workers.wait_for_complete()
             await pilot.pause()
             await pilot.press("enter")
-            await pilot.pause()
+            await wait_for_view(
+                pilot, "check.onboard-hosted-machine-poll", checking=True
+            )
             assert app._checking
             await pilot.press("escape")
             await pilot.pause()

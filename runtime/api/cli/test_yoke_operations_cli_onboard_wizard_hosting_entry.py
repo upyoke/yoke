@@ -33,6 +33,7 @@ from runtime.api.cli.onboard_wizard_hosting_support import (  # noqa: E402,F401
     stub_identity,
 )
 from runtime.api.cli.onboard_wizard_test_helpers import make_app, type_text  # noqa: E402
+from runtime.api.cli.onboard_wizard_view_test_support import wait_for_view  # noqa: E402
 
 # Typed character by character through the pilot, so these stay to keys a
 # keyboard sends unshifted; the values themselves are shape-only to the wizard.
@@ -127,8 +128,7 @@ def test_enter_walks_the_boxes_then_commits_the_pair(
             assert hosting_steps.HOSTING_GUIDED_KEY_TITLE in body_text(app)
             await type_text(pilot, _TYPED_SECRET_ACCESS_KEY)
             await pilot.press("enter")
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(pilot, "review.confirm", "SelectionList")
             assert "aws-admin saved" in body_text(app)
 
     asyncio.run(scenario())

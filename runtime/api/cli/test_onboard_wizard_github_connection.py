@@ -19,6 +19,7 @@ from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     make_app,
     stub_path_doctor,
 )
+from runtime.api.cli.onboard_wizard_view_test_support import wait_for_view  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -57,8 +58,7 @@ def test_machine_github_connect_uses_browser_app_flow() -> None:
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
             await pilot.press("enter")
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(pilot, "project.mode", "SelectionList")
             text = _body_text(app)
             assert "Success! Yoke GitHub App connected for machine-user." in text
             assert "GitHub user: machine-user · App: yoke-product" in text
@@ -75,8 +75,7 @@ def test_machine_github_connect_uses_browser_app_flow() -> None:
             await pilot.pause()
             assert "Connect GitHub" in _body_text(app)
             await pilot.press("enter")
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(pilot, "project.mode", "SelectionList")
             assert app._history[-1].prompt.key == "project.mode"
             assert app.query_one(Stepper).active == STEP_PROJECT
             assert app.result.machine_github_choice == "connect"

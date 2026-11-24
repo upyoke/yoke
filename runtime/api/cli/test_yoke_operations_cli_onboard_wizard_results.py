@@ -18,6 +18,7 @@ from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     make_app,
     stub_path_doctor,
 )
+from runtime.api.cli.onboard_wizard_view_test_support import wait_for_view  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -69,7 +70,9 @@ def _failed_saved_project_report(
     return writer.summary(), checkout
 
 
-async def _apply_machine_only(app, expected_labels: list[str]) -> None:
+async def _apply_machine_only(
+    app, expected_view: str, expected_labels: list[str]
+) -> None:
     async with app.run_test() as pilot:
         await advance_past_path(pilot)
         await pilot.press("down")
@@ -79,8 +82,7 @@ async def _apply_machine_only(app, expected_labels: list[str]) -> None:
         await pilot.press("enter")
         await pilot.press("enter")
         # Apply runs in a worker thread; wait for it before reading the screen.
-        await app.workers.wait_for_complete()
-        await pilot.pause()
+        await wait_for_view(pilot, expected_view, "SelectionList")
         assert [
             row.label for row in app.query_one(SelectionList).rows
         ] == expected_labels
@@ -103,7 +105,11 @@ def test_apply_failure_stays_in_tui_until_exit() -> None:
     # A content collision is not retryable (same name fails again), so the menu
     # is Change answers / Exit — no "Try again".
     asyncio.run(
-        _apply_machine_only(app, ["Change answers", "Exit", "Show technical details"])
+        _apply_machine_only(
+            app,
+            "review.apply_failed",
+            ["Change answers", "Exit", "Show technical details"],
+        )
     )
 
     assert app.exit_code == 1
@@ -130,7 +136,9 @@ def test_apply_failure_offers_retry_when_retryable() -> None:
     # A transient failure can plausibly succeed on retry, so "Try again" leads.
     asyncio.run(
         _apply_machine_only(
-            app, ["Try again", "Change answers", "Exit", "Show technical details"]
+            app,
+            "review.apply_failed",
+            ["Try again", "Change answers", "Exit", "Show technical details"],
         )
     )
     assert app.exit_code == 1
@@ -166,8 +174,7 @@ def test_apply_retry_success_clears_prior_failure() -> None:
                 await pilot.press("down")
             await pilot.press("enter")
             await pilot.press("enter")
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(pilot, "review.apply_failed", "SelectionList")
             assert app.exit_code == 1
             assert app.last_error == "network error reaching install bundle"
             assert [row.label for row in app.query_one(SelectionList).rows] == [
@@ -178,8 +185,7 @@ def test_apply_retry_success_clears_prior_failure() -> None:
             ]
 
             await pilot.press("enter")
-            await app.workers.wait_for_complete()
-            await pilot.pause()
+            await wait_for_view(pilot, "review.done", "SelectionList")
             assert [row.label for row in app.query_one(SelectionList).rows] == [
                 "Exit",
                 "Show report",
@@ -296,7 +302,7 @@ def test_apply_success_stays_in_tui_with_report_action() -> None:
         return report
 
     app._apply_report = succeed
-    asyncio.run(_apply_machine_only(app, ["Exit", "Show report"]))
+    asyncio.run(_apply_machine_only(app, "review.done", ["Exit", "Show report"]))
 
     assert app.exit_code == 0
     assert app.report_path == "/tmp/onboard-report.json"
