@@ -44,6 +44,17 @@ def inherited_target(conn: Any, run_id: str, target: Mapping) -> bool:
     )
 
 
+def inherited_rebind(conn: Any, run_id: str, frozen: Mapping, current: Mapping) -> bool:
+    """Distinguish a successor's target rebind from unrelated target drift."""
+    def starting_run(target: Mapping) -> str:
+        identity = target.get("deployment") or {}
+        return str(identity.get("starting_run_id", identity.get("run_id")) or "")
+
+    return starting_run(current) == starting_run(frozen) and inherited_target(
+        conn, run_id, frozen
+    )
+
+
 def continued_subject(conn: Any, execution: Mapping, target: Mapping) -> dict | None:
     """Resolve moved work without demanding successor deployment acceptance.
 

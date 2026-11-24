@@ -43,5 +43,8 @@ def public_case_snapshots(conn, cases):
         )
     snapshots = public_result(snapshots, refs)
     for case in snapshots:
-        case["execution_target_digest"] = target_digest(case["execution_target"])
+        target = case["execution_target"]
+        if deployment := target.get("deployment"):
+            case["deployment_run_id"] = deployment["run_id"]
+        case["execution_target_digest"] = target_digest(target)
     return snapshots

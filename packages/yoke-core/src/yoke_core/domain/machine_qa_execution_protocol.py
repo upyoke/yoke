@@ -45,6 +45,10 @@ class MachineQaProtocolError(ValueError):
     """A begin/submit request violates the issued execution contract."""
 
 
+class MachineQaContractChanged(MachineQaProtocolError):
+    """The current contract differs from the one issued at begin."""
+
+
 class MachineQaProtocolLeaseHeld(MachineQaProtocolError):
     """The target host is already leased by another execution."""
 
@@ -59,9 +63,7 @@ class MachineQaProtocolLeaseHeld(MachineQaProtocolError):
     ) -> None:
         super().__init__(held_host(lease, test_machine))
         self.lease, self.test_machine, self.contention = lease, test_machine, contention
-        #: Every host the refused case needs; its plan waits on all of them.
         self.test_machines = test_machines
-        #: Every machine that could serve the refused walk; it waits for any one.
         self.eligible = eligible
 
 
@@ -319,9 +321,7 @@ def validate_host_control_submission(
             else None
         )
         if recovered is None:
-            raise MachineQaProtocolError(
-                "host-control target changed after execution began"
-            )
+            raise MachineQaContractChanged("host-control target changed after execution began")
         expected = recovered
     return lease, expected
 

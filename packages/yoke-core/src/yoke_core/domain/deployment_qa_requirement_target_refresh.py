@@ -32,7 +32,8 @@ def rebind_subject(conn, *, subject, target):
         "AND method_id IS NOT NULL AND execution_target_json IS NOT NULL "
         "AND execution_target_digest IS NOT NULL "
         "AND execution_target_digest IS DISTINCT FROM %s "
-        "AND COALESCE(execution_target_json::jsonb #>> '{deployment,shared_plan,group_id}', '')='' ORDER BY id",
+        "AND COALESCE(execution_target_json::jsonb #>> '{deployment,shared_plan,group_id}', '')='' "
+        "ORDER BY id FOR UPDATE",
         (
             str(subject["id"]),
             str(subject["stage"]["name"]),
@@ -140,14 +141,19 @@ def carry_execution_passes(conn, *, subject, target, execution):
                 attempts[requirement_id]["raw_result"]
             )
             if recorded == target_digest(frozen):
-                conn.execute(
-                    "UPDATE qa_requirements SET rebound_from_digest=%s,rebound_at=%s WHERE id=%s "
-                    "AND deployment_run_id=%s AND execution_target_digest=%s",
-                    (
-                        recorded,
-                        now,
-                        requirement_id,
-                        str(subject["id"]),
-                        target_digest(target),
-                    ),
+                credit_rebound_pass(
+                    conn,
+                    requirement_id=requirement_id,
+                    run_id=str(subject["id"]),
+                    current_digest=target_digest(target),
+                    recorded_digest=recorded,
                 )
+
+
+def credit_rebound_pass(conn, *, requirement_id, run_id, current_digest, recorded_digest):
+    """Mark frozen evidence current only while the credited target still owns the case."""
+    conn.execute(
+        "UPDATE qa_requirements SET rebound_from_digest=%s,rebound_at=%s WHERE id=%s "
+        "AND deployment_run_id=%s AND execution_target_digest=%s",
+        (recorded_digest, instant_parameter(conn, utc_now()), requirement_id, run_id, current_digest),
+    )

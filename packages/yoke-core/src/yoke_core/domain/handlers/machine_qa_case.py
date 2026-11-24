@@ -215,24 +215,25 @@ def handle_case_submit(request: FunctionCallRequest) -> HandlerOutcome:
         MachineQaProtocolError,
         commit_deferred_connection,
         complete_host_control_execution,
-        validate_host_control_submission,
+    )
+    from yoke_core.domain.machine_qa_submission_rebind import (
+        credit_single_case_pass,
+        lock_case_rebind,
+        validate_single_case_submission,
     )
 
     conn = connect()
     artifact_rollback = MachineQaArtifactRollback()
     try:
-        case = _load_case(conn, target)
-        lease, contract = validate_host_control_submission(
+        rebind = lock_case_rebind(conn, target)
+        current_case = _load_case(conn, target)
+        case, lease, contract = validate_single_case_submission(
             conn,
-            project=str(case["project"]),
-            session_id=request.actor.session_id,
-            actor_id=request.actor.actor_id,
-            lease_id=parsed.lease_id,
-            contract_digest=parsed.contract_digest,
-            operation="case",
-            baselines=tuple(contract_baseline(case)),
-            cases=(case,),
-            allow_recorded_replay=True,
+            current_case,
+            rebind=rebind,
+            actor=request.actor,
+            parsed=parsed,
+            baselines=contract_baseline(current_case),
         )
         if len(parsed.results) != 1:
             raise ValueError("single-case submission requires exactly one result")
@@ -272,6 +273,10 @@ def handle_case_submit(request: FunctionCallRequest) -> HandlerOutcome:
                     lease_id=lease.id,
                     contract_digest=parsed.contract_digest,
                     artifact_rollback=artifact_rollback,
+                )
+            if result["verdict"] == "pass":
+                credit_single_case_pass(
+                    conn, submitted_case=case, current_case=current_case,
                 )
         if lease.is_active:
             complete_host_control_execution(

@@ -22,7 +22,7 @@ def test_takeover_receipt_and_note_name_the_carried_executions() -> None:
     assert "exec-a" in out and "exec-b" in out
     assert f"{NEW} took over {OLD}" in err
     assert OPEN_WALKS_CARRY in err
-    assert "Carried open executions: exec-a, exec-b." in err
+    assert "Carried open plan walks: exec-a, exec-b." in err
 
 
 def test_a_server_without_carried_ids_says_none_carried() -> None:
@@ -31,7 +31,7 @@ def test_a_server_without_carried_ids_says_none_carried() -> None:
 
     assert rc == 0, err
     assert OPEN_WALKS_CARRY in err
-    assert "Carried open executions: none." in err
+    assert "Carried open plan walks: none." in err
 
 
 def test_create_help_teaches_the_carry() -> None:

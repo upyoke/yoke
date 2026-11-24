@@ -42,7 +42,7 @@ class TestMachineExecutionAbortResponse(BaseModel):
     reason: AbortReason
 
 
-def _release(
+def _release_operation(
     conn: Any,
     *,
     request: FunctionCallRequest,
@@ -53,7 +53,6 @@ def _release(
     operation: str,
     checks: Sequence[str] = (),
     baselines: Sequence[str] = (),
-    cases: Sequence[dict[str, Any]] = (),
     golden_destination: str | None = None,
     plan_execution_id: str | None = None,
 ) -> dict[str, Any]:
@@ -66,18 +65,14 @@ def _release(
         holds_plan_turn,
     )
 
-    mission = (
-        operation_mission(
-            conn,
-            lease_id=lease_id,
-            project=project,
-            actor=request.actor,
-            operation=operation,
-            baselines=baselines,
-            plan_execution_id=plan_execution_id,
-        )
-        if operation != "case"
-        else None
+    mission = operation_mission(
+        conn,
+        lease_id=lease_id,
+        project=project,
+        actor=request.actor,
+        operation=operation,
+        baselines=baselines,
+        plan_execution_id=plan_execution_id,
     )
     from yoke_core.domain.qa_host_queue import lock_host_queue
 
@@ -92,7 +87,6 @@ def _release(
         operation=operation,
         checks=checks,
         baselines=baselines,
-        cases=cases,
         golden_destination=golden_destination,
     )
     # Borrowed operations leave their host lease in the plan's custody.
@@ -151,7 +145,7 @@ def handle_operation_abort(request: FunctionCallRequest) -> HandlerOutcome:
 
     conn = db_helpers.connect()
     try:
-        result = _release(
+        result = _release_operation(
             conn,
             request=request,
             project=parsed.project,
@@ -179,17 +173,10 @@ def handle_operation_abort(request: FunctionCallRequest) -> HandlerOutcome:
     return HandlerOutcome(primary_success=True, result_payload=result)
 
 
-def _case_target(
-    request: FunctionCallRequest,
-    function_id: str,
-) -> int | HandlerOutcome:
+def handle_case_abort(request: FunctionCallRequest) -> HandlerOutcome:
     from yoke_core.domain.handlers.machine_qa_case import _target_requirement
 
-    return _target_requirement(request, function_id)
-
-
-def handle_case_abort(request: FunctionCallRequest) -> HandlerOutcome:
-    target = _case_target(request, "test_machine.case.abort")
+    target = _target_requirement(request, "test_machine.case.abort")
     if isinstance(target, HandlerOutcome):
         return target
     try:
@@ -199,29 +186,40 @@ def handle_case_abort(request: FunctionCallRequest) -> HandlerOutcome:
     except ValidationError as exc:
         return _failure("payload_invalid", str(exc))
     from yoke_core.domain import db_helpers
-    from yoke_core.domain.handlers.machine_qa_case import (
-        _load_case,
-        contract_baseline,
-    )
-    from yoke_core.domain.machine_qa_execution_protocol import (
-        MachineQaProtocolError,
-    )
+    from yoke_core.domain.coordination_claims import CoordinationClaimNotFoundError
+    from yoke_core.domain.host_lease_walk_heartbeat import lease_execution_id
+    from yoke_core.domain.machine_qa_execution_protocol import complete_host_control_execution
+    from yoke_core.domain.machine_qa_lease_messages import conflicting_lease, invalid_lease
+    from yoke_core.domain.machine_qa_submission_lease import _lock_submission_claim
+    from yoke_core.domain.qa_host_turns import HOST_TURN_REASON
 
     conn = db_helpers.connect()
     try:
-        case = _load_case(conn, target)
-        result = _release(
-            conn,
-            request=request,
-            project=str(case["project"]),
-            lease_id=parsed.lease_id,
-            contract_digest=parsed.contract_digest,
-            reason=parsed.reason,
-            operation="case",
-            baselines=tuple(contract_baseline(case)),
-            cases=(case,),
+        lease = _lock_submission_claim(conn, parsed.lease_id)
+        machine = lease.target.test_machine
+        if not machine:
+            raise ValueError(invalid_lease(lease.id, "it does not name a machine"))
+        actor_id = str(lease.actor_id) if lease.actor_id is not None else None
+        if lease.session_id != request.actor.session_id or actor_id != request.actor.actor_id:
+            raise ValueError(conflicting_lease(lease, machine, "a different session or actor owns it"))
+        if not lease.is_active:
+            raise ValueError(conflicting_lease(lease, machine, "the lease is no longer active"))
+        if (lease.reason or "").startswith(HOST_TURN_REASON) or lease_execution_id(conn, lease):
+            raise ValueError(
+                f"qa_case_abort_plan_lease: lease {lease.id} is held for a QA plan. "
+                "Use the plan's own abort command to finish the plan and release its host"
+            )
+        complete_host_control_execution(
+            conn, lease, reason=f"host-control-{parsed.reason.replace('_', '-')}",
         )
-    except (MachineQaProtocolError, TestMachineCapabilityError, ValueError) as exc:
+        result = {"lease_id": lease.id, "released": True, "reason": parsed.reason}
+    except CoordinationClaimNotFoundError:
+        conn.rollback()
+        return _failure(
+            "test_machine_case_abort_failed",
+            invalid_lease(parsed.lease_id, "no lease was issued with that id"),
+        )
+    except ValueError as exc:
         conn.rollback()
         return _failure("test_machine_case_abort_failed", str(exc))
     finally:
