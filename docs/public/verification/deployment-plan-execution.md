@@ -137,15 +137,12 @@ preparation.
 ## Shared host turns and starting state
 
 When a Test Machine is leased or unhealthy, the plan keeps its cursor and
-joins the same line as a refused `yoke claims coordination-claim acquire`.
-Each execution keeps its own place, even when its session queues another
-execution for the same machine or makes a manual acquire. If a new session
-adopts the execution, its old waits and reservations are cleared. Its next
-queue join retains the execution's place.
-The runner lists each host's position with the reserved turn first. Park until
-the host-turn notice wakes you. A set reserves hosts only at the front of
-every required line and returns partial reservations if it falls behind. Its
-first place survives retries, including recovery of an aborted shared walk.
+joins the line shared with manual `yoke claims coordination-claim acquire`
+waiters. Each execution keeps its own place across retries and recovery.
+Adoption clears the old waits and reservations and preserves that place.
+Park until the host-turn notice. The runner lists reserved turns first.
+A host set reserves only at the front of every line it needs and returns
+partial reservations if it falls behind.
 A healthy release serves the next eligible waiter. An unhealthy host stays
 free for `yoke test-machine verify` or `golden-capture`. A failed SSH connection
 records `ssh_unavailable` and queues. Leases power cloud hosts automatically.
