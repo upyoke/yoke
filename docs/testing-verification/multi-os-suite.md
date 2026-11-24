@@ -9,9 +9,7 @@ is layer 1 (test suite) of the multi-OS CI model: one workflow per layer, the
 OS as a matrix value. The required `windows-smoke` job is separate and
 unchanged.
 
-Nothing triggers it automatically: macOS runners stay out of automatic CI
-(`runtime/api/cli/test_github_workflow_runner_routing.py`). Dispatch it on any
-commit:
+Maintainers choose to run this suite on demand. Dispatch it on any commit:
 
 ```text
 yoke github-actions workflow dispatch upyoke/yoke yoke-suite.yml --ref main \
