@@ -96,6 +96,29 @@ standard `BROWSER` opener, with `%s` standing for the URL:
 BROWSER='yoke browser open --project P --identity buyer %s'
 ```
 
+## Self-hosted dashboards using token links
+
+Set `"sign_in": {"mode": "token-link"}` on the dashboard site in your
+browser-control declaration. Use the active self-hosted server's origin
+for both the site and the signed-in probe. On the machine that owns the
+profile, run:
+
+```text
+yoke browser authorize --project P --identity operator
+yoke browser verify --project P --identity operator
+```
+
+`authorize` uses the active connection's API token to sign the profile into
+the dashboard as that token's actor. On a Test Machine, use the QA walker's
+self-hosted connection. The command works from SSH and agent sessions
+without a display. Its saved session has the same privileges and counts
+the same as any dashboard sign-in, including for merge candidate review.
+If the link expires or was already used, rerun `authorize` for a fresh one.
+
+Token-link sites require the matching self-hosted connection. If the server
+uses company sign-in, remove the token-link declaration and authorize in the
+human window through the identity provider.
+
 ## Automatic sign-in for first-party test accounts
 
 Use a dedicated test account on your own application with synthetic data.

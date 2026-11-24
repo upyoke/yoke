@@ -223,3 +223,57 @@ for (const flow of ['declared', 'undeclared', 'no-return', 'owned-page']) {
     }
   });
 }
+
+test('token-link sign-in persists the redeemed cookie and keeps the link private', async () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'token-link-sign-in-'));
+  const code = 'selector.synthetic-single-use-code';
+  const paths = [];
+  let used = false;
+  const server = http.createServer((req, res) => {
+    paths.push(req.url);
+    if (req.url === '/me') {
+      res.writeHead((req.headers.cookie || '').includes('session=actor') ? 204 : 401);
+      res.end();
+      return;
+    }
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      const valid = req.url === '/redeem' && req.method === 'POST' && JSON.parse(body).code === code;
+      const accepted = valid && !used;
+      res.writeHead(accepted ? 200 : 401, {
+        'Content-Type': 'application/json',
+        ...(accepted ? { 'Set-Cookie': 'session=actor; Path=/; HttpOnly; Max-Age=3600' } : {}),
+      });
+      res.end(JSON.stringify(accepted ? { success: true } : {
+        error: { code: valid ? 'browser_sign_in_used' : 'browser_sign_in_invalid', message: code },
+      }));
+      used ||= accepted;
+    });
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const origin = `http://127.0.0.1:${server.address().port}`;
+  const profile = path.join(directory, 'profile');
+  const manifest = path.join(directory, 'manifest.json');
+  const probe = { site: 'yoke', url: `${origin}/me`, signed_in_status: 204 };
+  fs.writeFileSync(manifest, JSON.stringify({ sites: [{
+    site: 'yoke', probe, token_link: `${origin}/redeem#${code}`,
+  }] }), { mode: 0o600 });
+  try {
+    const signed = await runScript('authorize-automatic.js', [profile, manifest]);
+    assert.deepEqual(JSON.parse(signed.stdout).sites, [{ site: 'yoke', state: 'signed_in' }]);
+    const verified = await runScript('verify-sign-in.js', [
+      '--profile-dir', profile, '--checks', JSON.stringify([probe]),
+    ]);
+    assert.equal(JSON.parse(verified.stdout).sites[0].state, 'signed_in');
+    const replay = await runScript('authorize-automatic.js', [path.join(directory, 'replay'), manifest]);
+    assert.deepEqual(JSON.parse(replay.stdout).sites, [{ site: 'yoke', state: 'browser_sign_in_used' }]);
+    for (const result of [signed, verified, replay, paths]) {
+      assert.ok(!JSON.stringify(result).includes(code));
+    }
+    assert.deepEqual(paths, ['/redeem', '/me', '/me', '/redeem']);
+  } finally {
+    await new Promise(resolve => server.close(resolve));
+    fs.rmSync(directory, { recursive: true });
+  }
+});

@@ -10,6 +10,7 @@ import pytest
 
 from yoke_cli.config import hosted_machine_browser, browser_admission as admission
 from yoke_cli.commands import universe_ui as commands, universe_ui_remote as remote
+from yoke_cli.config import self_host_browser_sign_in as sign_in
 from yoke_contracts.browser_sign_in import (
     BROWSER_SIGN_IN_MAX_LENGTH,
     BROWSER_SIGN_IN_PATH,
@@ -30,7 +31,7 @@ def setup(monkeypatch, tmp_path):
         "env": "team",
         "credential_source": {"kind": "token_file", "path": str(token_path)},
     }
-    monkeypatch.setattr(remote.machine_config, "active_connection", lambda: connection)
+    monkeypatch.setattr(sign_in.machine_config, "active_connection", lambda: connection)
 
     def no_daemon():
         raise AssertionError("self-host must not start or inspect the local daemon")
@@ -60,7 +61,7 @@ def test_up_opens_server_door_with_active_credential(
         assert kwargs["sensitive_values"] == ("test-token",)
         return SimpleNamespace(payload={"auth_method": method, "sign_in_path": path})
 
-    monkeypatch.setattr(remote, "request_json", exchange)
+    monkeypatch.setattr(sign_in, "request_json", exchange)
     monkeypatch.setattr(
         commands,
         "open_url",
@@ -93,7 +94,7 @@ def test_no_browser_stays_quiet_without_printing_link(
     # The server owns entropy/length choices; the CLI validates the wire shape.
     path = BROWSER_SIGN_IN_REDEEM_PATH + "#" + code
     monkeypatch.setattr(
-        remote,
+        sign_in,
         "request_json",
         lambda *_args, **_kwargs: SimpleNamespace(
             payload={"auth_method": "token", "sign_in_path": path}
@@ -142,7 +143,7 @@ def test_invalid_server_response_cannot_open_external_url(
     setup, monkeypatch, capsys, payload
 ):
     monkeypatch.setattr(
-        remote,
+        sign_in,
         "request_json",
         lambda *_args, **_kwargs: SimpleNamespace(payload=payload),
     )
@@ -168,7 +169,7 @@ def test_invalid_server_response_cannot_open_external_url(
 )
 def test_malformed_or_oversized_link_code_refuses(setup, monkeypatch, capsys, code):
     monkeypatch.setattr(
-        remote,
+        sign_in,
         "request_json",
         lambda *_args, **_kwargs: SimpleNamespace(
             payload={
@@ -183,7 +184,7 @@ def test_malformed_or_oversized_link_code_refuses(setup, monkeypatch, capsys, co
 
 def test_missing_token_names_recovery(setup, monkeypatch, capsys):
     monkeypatch.setattr(
-        remote,
+        sign_in,
         "request_json",
         lambda *_args, **_kwargs: SimpleNamespace(payload={"auth_method": "token"}),
     )
@@ -197,7 +198,7 @@ def test_missing_token_names_recovery(setup, monkeypatch, capsys):
 def test_oidc_needs_no_api_token(setup, monkeypatch, capsys):
     setup["credential_source"]["path"] += ".missing"
     monkeypatch.setattr(
-        remote,
+        sign_in,
         "request_json",
         lambda *_args, **_kwargs: SimpleNamespace(payload={"auth_method": "oidc"}),
     )
@@ -213,7 +214,7 @@ def _no_http(*_args, **_kwargs):
 def test_status_names_the_self_host_workbench_without_http(
     setup, monkeypatch, capsys, entry
 ):
-    monkeypatch.setattr(remote, "request_json", _no_http)
+    monkeypatch.setattr(sign_in, "request_json", _no_http)
     assert getattr(commands, entry)([]) == 0
     out = capsys.readouterr().out
     assert out == (
@@ -224,7 +225,7 @@ def test_status_names_the_self_host_workbench_without_http(
 
 
 def test_status_json_reports_self_host_mode(setup, monkeypatch, capsys):
-    monkeypatch.setattr(remote, "request_json", _no_http)
+    monkeypatch.setattr(sign_in, "request_json", _no_http)
     assert commands.ui_status(["--json"]) == 0
     assert json.loads(capsys.readouterr().out) == {
         "ok": True,

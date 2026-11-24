@@ -17,7 +17,14 @@ browser-control --key sign-in.IDENTITY.SITE.FIELD --value-stdin` (or
 --value-file FILE). Yoke signs expired automatic sites in headless without a
 window or Keychain. Browser cases do this before their first step; verify
 only checks and never types. Keep Google, Microsoft and MFA sites human by
-omitting sign_in. Native Test Machine browser sign-in stays human.
+omitting sign_in.
+
+For a dashboard using a self-hosted API token, declare sign_in.mode token-link
+and use the active self-hosted connection's origin for the site and probe.
+Run authorize on the identity's machine over a terminal or SSH. This signs in
+headless as the connection token's actor. Agents can run it and the resulting
+session counts like any other browser sign-in. Company sign-in uses the human
+window instead.
 
 The command first checks every declared site headless on the identity's
 profile and reports each one (`buyer: google ok, yoke ok, paypal expired`).

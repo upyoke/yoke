@@ -5,10 +5,11 @@ const { chromium } = require('playwright');
 const { launchOptions } = require('./browser-executable');
 const { checkSites } = require('./verify-sign-in');
 const { signInSite } = require('./automatic-sign-in');
+const { redeemSignInLink } = require('./redeem-sign-in-link');
 
 async function main() {
-  // Both arguments are file paths. The manifest contains declarations and secret
-  // paths, never credential values. This context has no tracing or screenshots.
+  // Both arguments are file paths. The manifest is private and never logged.
+  // This context has no tracing or screenshots.
   const [profileDir, manifestPath] = process.argv.slice(2);
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
   const context = await chromium.launchPersistentContext(profileDir, {
@@ -17,7 +18,9 @@ async function main() {
   try {
     const sites = [];
     for (const entry of manifest.sites) {
-      const submitted = await signInSite(context, entry, entry.secret_files);
+      const submitted = entry.token_link
+        ? await redeemSignInLink(context, entry.token_link)
+        : await signInSite(context, entry, entry.secret_files);
       const checked = submitted.state === 'submitted'
         ? (await checkSites(context, [entry.probe]))[0] : submitted;
       // A site can echo a password in its URL or error response. Keep only

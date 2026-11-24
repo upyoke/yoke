@@ -2,6 +2,7 @@
 
 from dataclasses import replace
 
+from yoke_cli.commands.browser_authorize_self_host import authorize_token_sites
 from yoke_cli.config import browser_profile
 from yoke_harness import browser_identity_check
 from yoke_harness.browser_automatic_sign_in import sign_in_expired_sites
@@ -17,8 +18,12 @@ def reset_profile(client, runtime, project, identity):
     return browser_profile.remove_profile_dir(project, identity=identity.name)
 
 
-def authorize_automatic(client, runtime, project, identity, expired):
-    if not any(site.sign_in for site in expired):
+def _automatic(site):
+    return site.sign_in is not None or site.token_link
+
+
+def authorize_automatic(client, runtime, project, identity, expired, connection=None):
+    if not any(_automatic(site) for site in expired):
         return None, expired
     # authorize has already classified the sites. Pass that result rather than
     # probing twice before any credentials are typed.
@@ -33,21 +38,23 @@ def authorize_automatic(client, runtime, project, identity, expired):
         for s in identity.sites
     ]
     sites = sign_in_expired_sites(client, runtime, project, identity, sites)
-    return sites, [s for s in expired if s.sign_in is None]
+    if any(s.token_link for s in expired):
+        sites = authorize_token_sites(client, runtime, project, identity, sites, connection)
+    return sites, [s for s in expired if not _automatic(s)]
 
 
 def check_after_window(check, client, runtime, project, identity, automatic_sites):
     if automatic_sites is None:
         return check(client, runtime, project, identity)
     human = replace(
-        identity, sites=tuple(s for s in identity.sites if s.sign_in is None)
+        identity, sites=tuple(s for s in identity.sites if not _automatic(s))
     )
     outcomes = {s["site"]: s for s in check(client, runtime, project, human)}
     outcomes.update(
         {
             s["site"]: s
             for s in automatic_sites
-            if any(c.site == s["site"] and c.sign_in for c in identity.sites)
+            if any(c.site == s["site"] and _automatic(c) for c in identity.sites)
         }
     )
     return [outcomes[s.site] for s in identity.sites]
