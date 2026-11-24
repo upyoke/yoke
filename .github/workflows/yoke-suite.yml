@@ -10,8 +10,7 @@ name: yoke-suite
 # ci_shards groups with the product's own native Postgres engine
 # (yoke_core.tools.ci_suite_postgres) instead of a container.
 #
-# Dispatch-only: macOS runners stay out of automatic CI
-# (runtime/api/cli/test_github_workflow_runner_routing.py). See
+# Maintainers choose to run this suite on demand. See
 # docs/testing-verification/multi-os-suite.md.
 run-name: >-
   ${{ inputs.yoke_dispatch_id
