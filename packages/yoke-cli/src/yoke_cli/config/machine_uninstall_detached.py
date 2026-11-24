@@ -36,9 +36,16 @@ class Handoff:
         self.arm_file.write_text("armed", encoding="utf-8")
 
     def cancel(self) -> None:
-        self.process.terminate()
-        self.process.wait(timeout=10)
-        os.close(self.lock_descriptor)
+        try:
+            self.process.terminate()
+            self.process.wait(timeout=10)
+            os.close(self.lock_descriptor)
+            shutil.rmtree(self.log.parent)
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            raise RuntimeError(
+                f"uninstall_handoff_cleanup_failed: {exc}; once the detached worker "
+                f"has stopped, delete {self.log.parent} and retry uninstall."
+            ) from exc
 
 
 def temp_root(home: Path) -> Path:
@@ -75,8 +82,9 @@ def prepare(home: Path) -> Handoff:
     # Held until this process exits; the finisher's wait for it is the parent wait.
     descriptor = os.open(lock, os.O_RDWR | os.O_CREAT, 0o600)
     platform_file_lock.acquire_exclusive_nonblocking(descriptor)
-    with log.open("w", encoding="utf-8") as output:
-        try:
+    output = log.open("w", encoding="utf-8")
+    try:
+        with output:
             process = subprocess.Popen(
                 [
                     _base_python(),
@@ -96,16 +104,17 @@ def prepare(home: Path) -> Handoff:
                 cwd=root,
                 **_detached(),
             )
-        except PermissionError as exc:
-            if os.name != "nt":
-                raise
-            os.close(descriptor)
-            raise RuntimeError(
-                "uninstall_cli_handoff_failed: this process runs in a Windows job "
-                "that forbids breakaway, so a detached CLI removal would be killed "
-                "with it; after this uninstall exits, remove the releases by hand: "
-                f"{manual_removal(releases)}"
-            ) from exc
+    except PermissionError as exc:
+        os.close(descriptor)
+        shutil.rmtree(directory)
+        if os.name != "nt":
+            raise
+        raise RuntimeError(
+            "uninstall_cli_handoff_failed: this process runs in a Windows job "
+            "that forbids breakaway, so a detached CLI removal would be killed "
+            "with it; after this uninstall exits, remove the releases by hand: "
+            f"{manual_removal(releases)}"
+        ) from exc
     deadline = time.monotonic() + 10
     while not ready_file.is_file():
         if process.poll() is not None or time.monotonic() >= deadline:

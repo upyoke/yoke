@@ -150,9 +150,32 @@ def test_job_that_forbids_breakaway_refuses_the_handoff(tmp_path, monkeypatch):
         detached.prepare(tmp_path / "home")
     assert "forbids breakaway" in str(refusal.value)
     assert detached.manual_removal(tmp_path / "uv/yoke-cli-releases") in str(refusal.value)
+    assert not list(tmp_path.glob(f"{detached.HANDOFF_PREFIX}*"))
     assert len(closed) == 1
     with pytest.raises(OSError):
         os.fstat(closed[0])
+
+
+@pytest.mark.windows
+def test_cancel_removes_temp_folder_after_worker_exits(tmp_path):
+    folder = tmp_path / f"{detached.HANDOFF_PREFIX}cancelled"
+    folder.mkdir()
+    descriptor = os.open(folder / detached.LOCK_NAME, os.O_CREAT | os.O_RDWR)
+    events = []
+
+    def wait(*, timeout):
+        assert events == ["terminated"]
+        assert folder.is_dir()
+        os.fstat(descriptor)
+        events.append("exited")
+
+    process = SimpleNamespace(terminate=lambda: events.append("terminated"), wait=wait)
+    handoff = detached.Handoff(folder / "armed", folder / "result.log", process, descriptor, tmp_path)
+    handoff.cancel()
+    assert events == ["terminated", "exited"]
+    assert not folder.exists()
+    with pytest.raises(OSError):
+        os.fstat(descriptor)
 
 
 @pytest.mark.windows

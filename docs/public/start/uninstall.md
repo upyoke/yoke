@@ -47,10 +47,12 @@ A Git checkout must be on the project's default branch before its layer is
 removed. When the Yoke install that owns a project no longer answers, its layer
 is still removed and committed on the current branch, with a warning to merge
 that commit into the default branch.
-It first closes the identity browsers `yoke browser open` started and any
-Browser QA daemons, because their Chromium runs from the machine home; if one
-stays open, uninstall stops before it changes anything else. It then removes
-the relay and its workers, the selected project layers, Yoke's
+It first asks the identity browsers started by `yoke browser open` to close and
+stops Browser QA daemons. It waits up to 10 seconds for processes running from
+Yoke's Playwright cache, kills any that are still running, and reports the name
+and PID of each process it stops. If a process in the cache cannot be stopped,
+uninstall names it and stops before the relay or any other removal step. It then
+removes the relay and its workers, the selected project layers, Yoke's
 GitHub credentials and checkout helpers, its machine-wide hooks and their Codex
 trust, and the folder-trust settings it wrote into
 Claude Code, Codex and Cursor. It restores approval modes replaced during setup
@@ -70,7 +72,10 @@ worker removes the immutable CLI releases and launcher after commands release
 their environments, then Yoke's PATH blocks, so the log ends with `CLI: done`
 followed by `shell PATH: done`. The command prints the releases
 folder it removes and its result log, in a system temporary folder the worker
-removes once it succeeds. If that removal fails, `yoke` may already be gone, so the log names a command that
+removes once it succeeds. Uninstall also removes the folder when it cancels the
+handoff after a machine cleanup failure or when Windows denies worker
+breakaway. Worker failures preserve the log. If CLI removal fails, `yoke` may
+already be gone, so the log names a command that
 removes the folder without it: `Remove-Item -LiteralPath '\\?\<folder>' -Recurse
 -Force` on Windows, `rm -rf '<folder>'` elsewhere. On Windows the worker leaves
 the job of the session that started it, so it finishes after an SSH session

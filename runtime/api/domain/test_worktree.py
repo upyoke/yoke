@@ -62,7 +62,8 @@ class TestReadConfig:
 
 
 class TestResolvePlaywrightCache:
-    def test_with_project(self):
+    def test_with_project(self, monkeypatch):
+        monkeypatch.delenv("YOKE_MACHINE_HOME", raising=False)
         result = resolve_playwright_cache("externalwebapp", "/some/worktree")
         assert Path(result).parts[-3:] == (".yoke", "playwright-cache", "externalwebapp")
 
