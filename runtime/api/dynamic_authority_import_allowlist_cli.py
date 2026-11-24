@@ -59,11 +59,11 @@ CLI_PACKAGE_DYNAMIC_AUTHORITY_IMPORTS = {
         "boundary proof reconciles the checkout here and writes through snapshot dispatch",
     ),
     (
-        "packages/yoke-cli/src/yoke_cli/commands/adapters/epic_review.py",
+        "packages/yoke-cli/src/yoke_cli/commands/adapters/lane_head_local.py",
         "yoke_core.domain.lane_head_client",
     ): (
         "client_local_execution",
-        "the review adapter observes its task checkout locally and dispatches durable writes",
+        "review and lifecycle adapters observe the selected checkout and dispatch durable writes",
     ),
     (
         "packages/yoke-cli/src/yoke_cli/commands/adapters/config_actor_binding.py",

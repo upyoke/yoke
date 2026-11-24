@@ -117,7 +117,7 @@ def lane_path(item: dict[str, Any]) -> str:
     return str(lane.get("path") or "").strip()
 
 
-def stale_head_note(item: dict[str, Any]) -> str:
+def stale_head_note(item: dict[str, Any], *, as_json: bool = True) -> str:
     from yoke_core.domain.lane_head_record import local_lane_head
 
     lane = merge_source_lane(item)
@@ -127,10 +127,10 @@ def stale_head_note(item: dict[str, Any]) -> str:
     recorded = str(lane.get("commit_sha") or "")
     if error or not head or head == recorded:
         return ""
-    return (
-        f"lane head stale: lane at {head}, record at {recorded or '(none)'}; "
-        "the merge will record the lane head"
-    )
+    revisions = f"lane at {head}, record at {recorded or '(none)'}"
+    if as_json:
+        return f"lane head stale: {revisions}; the merge will record the lane head"
+    return f"record the stale lane head ({revisions})"
 
 
 def refresh_recorded_head(item: dict[str, Any], resolve_item):

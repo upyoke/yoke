@@ -198,4 +198,153 @@ def test_read_only_merge_reports_stale_queued_lane(monkeypatch, lanes):
     assert standalone_item_merge_lane.stale_head_note(item) == (
         f"lane head stale: lane at {NEW}, record at {OLD}; the merge will record the lane head"
     )
+    assert standalone_item_merge_lane.stale_head_note(item, as_json=False) == (
+        f"record the stale lane head (lane at {NEW}, record at {OLD})"
+    )
     assert lanes[1]["commit_sha"] == OLD
+
+
+def test_hook_free_deploy_execute_reconciles_each_phase_and_preserves_run_pin(tmp_path, monkeypatch):
+    """Exercise the actual execute ports against an isolated transport ledger."""
+    import subprocess
+
+    from yoke_cli.commands.adapters import project_snapshot
+    from yoke_contracts.api.function_call import FunctionCallResponse
+    from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
+    from yoke_core.domain import (
+        deploy_pipeline_run_context,
+        deploy_pipeline_run_updates,
+        deployment_qa_stage_dispatch as stage,
+    )
+
+    def git(*args):
+        return subprocess.run(
+            ["git", "-C", str(tmp_path), *args], check=True, capture_output=True, text=True
+        ).stdout.strip()
+
+    def advance(message):
+        git("commit", "--allow-empty", "-m", message)
+        return git("rev-parse", "HEAD")
+
+    git("init", "-b", "lane")
+    git("config", "user.email", "lane@example.org")
+    git("config", "user.name", "Lane")
+    git("config", "core.hooksPath", str(tmp_path / "disabled-hooks"))
+    pinned = advance("frozen release")
+    sibling = {
+        "id": 1, "path": str(tmp_path / "sibling"), "branch": "sibling",
+        "commit_sha": pinned, "state": "active",
+    }
+    selected = {
+        "id": 2, "path": str(tmp_path), "branch": "lane",
+        "commit_sha": pinned, "state": "active",
+    }
+    run = {"id": "run-fixture", "release_lineage": pinned, "status": "created"}
+    consumed = []
+    writes = []
+
+    def dispatch(*, function_id, target, payload, **kwargs):
+        if function_id == "deployment_runs.get":
+            assert target.workflow_run_id == run["id"]
+            assert payload == {"field": "member_items"}
+            result = {"value": [{"ref": "ITEM-9"}]}
+        elif function_id == "items.detail.get":
+            assert target.public_ref == "ITEM-9"
+            result = {"item": {
+                "project": {"slug": "fixture"}, "worktrees": [dict(sibling), dict(selected)],
+            }}
+        elif function_id == "project.snapshot.sync":
+            assert target.project_id == "fixture"
+            assert payload["repo_root"] == str(tmp_path)
+            head = payload["snapshots"][0]["commit_sha"]
+            selected["commit_sha"] = head
+            writes.append(head)
+            result = {"snapshots": [{"ref": "HEAD", "commit_sha": head, "lane_head_recorded": True}]}
+        else:
+            assert target.workflow_run_id == run["id"]
+            consumed.append((function_id, selected["commit_sha"], run["release_lineage"]))
+            if function_id == "deployment_runs.execution.context":
+                result = {"run": dict(run)}
+            elif function_id == "deployment_runs.execution.update":
+                assert payload["field"] == "status"
+                assert "release_lineage" not in payload
+                run["status"] = payload["value"]
+                result = {"updated": True}
+            elif function_id == stage.DISPATCH_DEPLOYMENT_QA_STAGE_FUNCTION:
+                assert payload == {"stage_name": "item-qa"}
+                result = {"code": -4, "message": "failed QA awaits handoff", "pending_plans": []}
+            else:
+                pytest.fail(f"unexpected transport call: {function_id}")
+        return FunctionCallResponse(
+            success=True, function=function_id, version="v1", result=result,
+        )
+
+    monkeypatch.setattr(deploy, "call_dispatcher", dispatch)
+    monkeypatch.setattr(get_structured_dispatch(), "call_dispatcher", dispatch)
+    monkeypatch.setattr(lane_head_record, "required_project", lambda project, **kw: project)
+    monkeypatch.setattr(project_snapshot, "_project_context", lambda project: project)
+    monkeypatch.setattr(project_snapshot, "assert_project_repository", lambda *a, **kw: None)
+    monkeypatch.setattr(project_snapshot, "ensure_handlers_loaded", lambda: None)
+    monkeypatch.setattr(project_snapshot, "call_dispatcher", dispatch)
+
+    with deployment_lane_heads.deployment_lane_head_scope(run["id"]):
+        start = advance("external commit before start")
+        assert deploy.execution_context(run["id"])["run"]["release_lineage"] == pinned
+        deploy_pipeline_run_updates.start_run(run["id"], None, str(tmp_path))
+        git("reset", "--hard", pinned)
+        assert deploy.execution_context(run["id"])["run"]["status"] == "executing"
+        handoff = advance("external commit before QA handoff")
+        assert stage.dispatch_deployment_qa_stage(
+            {"name": "item-qa"}, run_id=run["id"],
+        ) == (-4, "failed QA awaits handoff")
+        finish = advance("external commit before settlement")
+        deploy_pipeline_run_context._update_run_succeeded(run["id"], None)
+
+    assert writes == [start, pinned, handoff, finish]
+    assert consumed == [
+        ("deployment_runs.execution.context", start, pinned),
+        ("deployment_runs.execution.update", start, pinned),
+        ("deployment_runs.execution.context", pinned, pinned),
+        (stage.DISPATCH_DEPLOYMENT_QA_STAGE_FUNCTION, handoff, pinned),
+        ("deployment_runs.execution.update", finish, pinned),
+    ]
+    assert run["status"] == "succeeded"
+    assert run["release_lineage"] == sibling["commit_sha"] == pinned
+
+
+def test_typed_done_refreshes_a_stale_selected_lane_before_transition(monkeypatch, lanes):
+    from yoke_cli.commands.adapters import lifecycle_transition as cli
+
+    lane = lanes[0]
+    assert lane is not lanes[1]
+    calls = []
+
+    def dispatch(**kwargs):
+        assert kwargs["function_id"] == "done_transition.item_context"
+        assert kwargs["target"].public_ref == "ITEM-9"
+        calls.append("context")
+        return SimpleNamespace(
+            success=True,
+            result={"stage_id": "release", "project": "fixture", "lane": lane},
+        )
+
+    def reconcile(project, selected, **kwargs):
+        assert project == "fixture"
+        assert selected is lane
+        calls.append("snapshot")
+        return NEW, ""
+
+    def transition(**kwargs):
+        calls.append("transition")
+        assert kwargs["function_id"] == "lifecycle.transition.execute"
+        assert kwargs["payload"]["target_status"] == "done"
+        return 0
+
+    monkeypatch.setattr(lane_head_client, "get_structured_dispatch", lambda: SimpleNamespace(
+        build_actor=lambda session_id: ActorContext(session_id=session_id or "fixture"),
+        call_dispatcher=dispatch,
+    ))
+    monkeypatch.setattr(lane_head_client, "reconcile_lane_head", reconcile)
+    monkeypatch.setattr(cli, "dispatch_and_emit", transition)
+    assert cli.lifecycle_transition(["ITEM-9", "--from", "release", "--to", "done"]) == 0
+    assert calls == ["context", "snapshot", "transition"]

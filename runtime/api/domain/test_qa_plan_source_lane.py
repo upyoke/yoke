@@ -95,6 +95,31 @@ def test_plan_client_and_handler_select_named_epic_lane(epic_lanes, branch):
         assert case["lane_commit_sha"] == "a" * 40
 
 
+def test_plan_uses_canonical_checkout_for_preflight_and_admission(epic_lanes, tmp_path, monkeypatch):
+    from yoke_core.domain import qa_lane_head
+
+    item_id, paths = epic_lanes
+    registered = paths["first-worker"]
+    alias = tmp_path / "alias"
+    alias.symlink_to(registered, target_is_directory=True)
+    preflight_paths = []
+
+    def observe(_target, **kwargs):
+        preflight_paths.append(kwargs["checkout_path"])
+
+    monkeypatch.setattr(qa_lane_head, "reconcile_plan_lanes", observe)
+    result = qa_plan_execution.execute_plan(
+        public_ref=f"YOK-{item_id}",
+        transition_id="implemented",
+        checkout_path=alias,
+        expected_branch="first-worker",
+        expected_sha="a" * 40,
+        actor=ActorContext(actor_id="1", session_id="plan-owner"),
+    )
+    assert preflight_paths == [str(registered)]
+    assert [case["lane_path"] for case in result["requirements"]] == [str(registered)] * 2
+
+
 @pytest.mark.parametrize(
     "selection,session",
     [

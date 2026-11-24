@@ -102,7 +102,7 @@ def run(argv: List[str]) -> int:
         resolve_checkout=_resolve_checkout,
     )
     if args.check:
-        if note := stale_head_note(item):
+        if note := stale_head_note(item, as_json=as_json):
             readiness.merge_will.append(note)
         return readiness_gate.print_check(readiness, as_json=as_json)
     if not readiness.ready and hold.held_only_by_integration(readiness):

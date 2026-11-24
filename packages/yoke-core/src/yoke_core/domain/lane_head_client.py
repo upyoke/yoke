@@ -61,3 +61,31 @@ def reconcile_task_lane(target: TargetRef, *, session_id: str | None = None) -> 
     _, error = reconcile_lane_head(project, lane, session_id=session_id)
     if error:
         raise LaneHeadClientError(error)
+
+
+def reconcile_done_lane(
+    target: TargetRef, *, source_status: str | None = None, session_id: str | None = None
+) -> None:
+    """Refresh the done gate's selected checkout before sending the transition."""
+    dispatch = get_structured_dispatch()
+    actor = dispatch.build_actor(session_id=session_id)
+    response = dispatch.call_dispatcher(
+        function_id="done_transition.item_context", target=target, payload={}, actor=actor
+    )
+    if not response.success:
+        detail = response.error.message if response.error else "no done context returned"
+        raise LaneHeadClientError(
+            compose_refusal(
+                f"lane_context_unavailable: {detail}", recovery="rerun the same command"
+            )
+        )
+    context = response.result or {}
+    lane = context.get("lane")
+    current = context.get("stage_id")
+    if not lane or current == "done" or (source_status and source_status != current):
+        return
+    _, error = reconcile_lane_head(
+        str(context.get("project") or ""), lane, session_id=actor.session_id
+    )
+    if error:
+        raise LaneHeadClientError(error)

@@ -9,7 +9,9 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
     dispatch_and_emit,
     item_target,
+    usage_error,
 )
+from yoke_cli.commands.adapters.lane_head_local import lane_head_engine
 from yoke_cli.commands.adapters.workflow_execution_instructions import (
     write_transition_instructions,
 )
@@ -53,9 +55,18 @@ def lifecycle_transition(args: List[str]) -> int:
         payload["source_status"] = parsed.from_status
     if parsed.reason:
         payload["reason"] = parsed.reason
+    target = item_target("item", parsed.item, parsed.project)
+    if parsed.to_status == "done":
+        engine = lane_head_engine()
+        try:
+            engine.reconcile_done_lane(
+                target, source_status=parsed.from_status, session_id=parsed.session_id
+            )
+        except engine.LaneHeadClientError as exc:
+            return usage_error(str(exc))
     return dispatch_and_emit(
         function_id="lifecycle.transition.execute",
-        target=item_target("item", parsed.item, parsed.project),
+        target=target,
         payload=payload,
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
