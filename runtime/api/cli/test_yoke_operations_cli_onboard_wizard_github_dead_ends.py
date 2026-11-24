@@ -45,6 +45,8 @@ from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     type_text,
 )
 
+from runtime.api.cli.onboard_wizard_view_test_support import wait_for_view
+
 
 @pytest.fixture(autouse=True)
 def _stub_path_doctor(monkeypatch):
@@ -123,9 +125,9 @@ def test_no_machine_token_drops_reuse_machine_row() -> None:
                 "down"
             )  # machine github: Skip for now (no GitHub App user token)
             await pilot.press("enter")
-            await pilot.pause()  # GitHub choice -> project mode
+            await wait_for_view(pilot, "project.mode", "SelectionList")
             await _pick_mode(pilot, onboard_project.PROJECT_MODE_CLONE_REMOTE)
-            await pilot.pause()  # clone mode -> focused remote URL input
+            await wait_for_view(pilot, "project.clone_url", "Input")
             from textual.widgets import Input
 
             remote_input = app.query_one("#onboard-body Input", Input)

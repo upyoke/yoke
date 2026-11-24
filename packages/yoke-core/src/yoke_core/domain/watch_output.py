@@ -14,9 +14,9 @@ from yoke_core.domain.watch_headless_caller import (
 
 
 def unbuffered_child_environment(env: dict[str, str] | None) -> dict[str, str]:
-    """Return an isolated child environment with immediate Python output."""
+    """Return an isolated child environment with immediate UTF-8 Python output."""
     source = os.environ if env is None else env
-    return {**source, "PYTHONUNBUFFERED": "1"}
+    return {**source, "PYTHONUNBUFFERED": "1", "PYTHONIOENCODING": "utf-8"}
 
 
 def emit_immediate(line: str, *, progress_f: TextIO, out: TextIO) -> None:

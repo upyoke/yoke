@@ -199,7 +199,7 @@ def run_watcher(
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 bufsize=1,
-                text=True,
+                encoding="utf-8", errors="backslashreplace",
                 cwd=cwd,
                 env=_unbuffered_child_environment(env),
             )

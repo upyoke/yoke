@@ -21,7 +21,7 @@ def load_json_input(value: str, flag: str, *, as_text: bool = False) -> Any:
         if from_file:
             document = Path(value[1:]).read_text(encoding="utf-8-sig")
         elif from_stdin:
-            document = sys.stdin.read().removeprefix("\ufeff")
+            document = sys.stdin.read()
         else:
             document = value
     except (OSError, ValueError) as exc:

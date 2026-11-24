@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import io
+import os
 import sys
 import threading
 import time
 from pathlib import Path
+
+import pytest
 
 from yoke_core.domain import watch_runner as _watch_runner
 from yoke_core.domain.watch_throttle import Classification, LineClass
@@ -66,5 +69,31 @@ def test_explicit_environment_is_copied_and_forced_unbuffered() -> None:
 
     child = _watch_runner._unbuffered_child_environment(source)
 
-    assert child == {"PATH": "/usr/bin", "PYTHONUNBUFFERED": "1"}
+    assert child == {
+        "PATH": "/usr/bin",
+        "PYTHONUNBUFFERED": "1",
+        "PYTHONIOENCODING": "utf-8",
+    }
     assert source["PYTHONUNBUFFERED"] == "0"
+
+
+@pytest.mark.windows
+def test_watcher_captures_utf8_and_escapes_malformed_child_bytes(tmp_path: Path) -> None:
+    raw = tmp_path / "raw.log"
+    text = "MATCH café — ✓ 😀"
+    code = f"import sys; print({ascii(text)}); sys.stdout.buffer.write(b'bad\\xff\\n')"
+
+    result = _watch_runner.run_watcher(
+        argv=[sys.executable, "-c", code],
+        classifier=_summary_classifier,
+        raw_capture=raw,
+        progress_capture=tmp_path / "progress.log",
+        kind="encoding",
+        stdout_stream=io.StringIO(),
+        env={**os.environ, "PYTHONIOENCODING": "cp1252:strict"},
+    )
+
+    assert result == 0
+    capture = raw.read_text(encoding="utf-8")
+    assert f"{text}\n" in capture
+    assert "bad\\xff\n" in capture
