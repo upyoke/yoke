@@ -77,11 +77,6 @@ def _init_repo(tmp_path: Path):
             os.environ.update(prior)
 
 
-def test_strip_worktree_path() -> None:
-    path = Path("/tmp/repo/.worktrees/YOK-1339")
-    assert rebuild_board._strip_worktree_path(path) == Path("/tmp/repo")
-
-
 def test_splice_board_replaces_marker_block_and_strips_conflicts() -> None:
     existing = "\n".join(
         [

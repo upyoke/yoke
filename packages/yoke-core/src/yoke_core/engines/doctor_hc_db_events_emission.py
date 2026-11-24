@@ -20,6 +20,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import List
 
+from yoke_contracts.machine_config.checkout import LANES_DIR
 from yoke_contracts.refusal_recovery import compose_refusal
 
 import yoke_core.engines.doctor_report as _base
@@ -48,13 +49,13 @@ def _find_worktree_stray_dbs(main_root: Path) -> List[Path]:
     worktree is a code-execution surface, never a Yoke control plane, so
     any ``yoke.db`` there is a stray artifact an operator should review.
     """
-    worktrees_dir = main_root / ".worktrees"
-    if not worktrees_dir.is_dir():
+    lane_root = main_root / LANES_DIR
+    if not lane_root.is_dir():
         return []
     strays: List[Path] = []
     # Check both legacy (yoke/) and current (data/, runtime/) stray locations.
     stray_subdirs = ("yoke", "data", "runtime")
-    for branch_dir in list_directory(worktrees_dir):
+    for branch_dir in list_directory(lane_root):
         if not branch_dir.is_dir():
             continue
         for subdir in stray_subdirs:

@@ -70,7 +70,6 @@ def _seed_repo(root: Path, *, include_settings: bool = True) -> None:
             Path("../runtime/harness/claude/settings.json")
         )
 
-    (root / ".gitignore").write_text(".worktrees/\n", encoding="utf-8", newline="\n")
     (root / "AGENTS.md").write_text("rules\n", encoding="utf-8", newline="\n")
 
 
@@ -85,6 +84,8 @@ def test_all_critical_pass_with_no_gh(tmp_path, monkeypatch, capsys):
         return f"/usr/bin/{name}"
 
     def fake_run(cmd, capture_output=False, text=False):
+        if cmd[3:] == ["check-ignore", "-q", ".worktrees/x"]:
+            return CompletedProcess(cmd, 0)
         if cmd == ["git", "--version"]:
             return CompletedProcess(cmd, 0, stdout="git version 2.39.1\n", stderr="")
         raise AssertionError(f"unexpected command: {cmd}")
@@ -92,17 +93,12 @@ def test_all_critical_pass_with_no_gh(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr("yoke_core.domain.check_prerequisites.shutil.which", fake_which)
     monkeypatch.setattr("yoke_core.domain.check_prerequisites.subprocess.run", fake_run)
 
-    # The GitHub App auth-only build of the prereq check does not depend on the host
-    # gh CLI; the canonical resolver against the dev-shell DB may
-    # legitimately WARN, so accept either PASS or WARN here.
     assert run_checks(tmp_path) == 0
     out = capsys.readouterr().out
     assert "All critical checks passed" in out
     assert "Directory structure" in out
     assert "Permission rules configured" in out
-    # Migrated: the prereq table no longer teaches a host-gh install
-    # step. Banned strings built by concatenation so the
-    # grep recipes return zero hits anywhere in the live tree.
+    assert "lanes ignored" in out
     assert ("brew" + " install gh") not in out
     assert ("GitHub CLI" + " installed") not in out
     assert ("GitHub CLI" + " authenticated") not in out
@@ -136,6 +132,8 @@ def test_pre_commit_hook_uses_common_git_dir_for_linked_worktree(
         return f"{name}-bin"
 
     def fake_run(cmd, capture_output=False, text=False):
+        if cmd[3:] == ["check-ignore", "-q", ".worktrees/x"]:
+            return CompletedProcess(cmd, 0)
         if cmd == ["git", "--version"]:
             return CompletedProcess(cmd, 0, stdout="git version 2.39.1\n", stderr="")
         raise AssertionError(f"unexpected command: {cmd}")
@@ -160,6 +158,8 @@ def test_fails_when_git_too_old(tmp_path, monkeypatch, capsys):
         return f"/usr/bin/{name}"
 
     def fake_run(cmd, capture_output=False, text=False):
+        if cmd[3:] == ["check-ignore", "-q", ".worktrees/x"]:
+            return CompletedProcess(cmd, 0)
         if cmd == ["git", "--version"]:
             return CompletedProcess(cmd, 0, stdout="git version 2.14.0\n", stderr="")
         raise AssertionError(f"unexpected command: {cmd}")
@@ -184,6 +184,8 @@ def test_fails_when_permission_rules_missing(tmp_path, monkeypatch, capsys):
         return f"/usr/bin/{name}"
 
     def fake_run(cmd, capture_output=False, text=False):
+        if cmd[3:] == ["check-ignore", "-q", ".worktrees/x"]:
+            return CompletedProcess(cmd, 0)
         if cmd == ["git", "--version"]:
             return CompletedProcess(cmd, 0, stdout="git version 2.39.1\n", stderr="")
         raise AssertionError(f"unexpected command: {cmd}")
@@ -207,6 +209,8 @@ def test_warns_when_canonical_resolver_missing_app_auth(tmp_path, monkeypatch, c
         return None
 
     def fake_run(cmd, **_):
+        if cmd[3:] == ["check-ignore", "-q", ".worktrees/x"]:
+            return CompletedProcess(cmd, 0)
         if cmd == ["git", "--version"]:
             return CompletedProcess(cmd, 0, stdout="git version 2.39.1\n", stderr="")
         if cmd == ["gh", "extension", "list"]:
@@ -255,6 +259,8 @@ def test_strict_promotes_missing_app_credentials_to_critical_fail(
         return None
 
     def fake_run(cmd, **_):
+        if cmd[3:] == ["check-ignore", "-q", ".worktrees/x"]:
+            return CompletedProcess(cmd, 0)
         if cmd == ["git", "--version"]:
             return CompletedProcess(cmd, 0, stdout="git version 2.39.1\n", stderr="")
         if cmd == ["gh", "extension", "list"]:
@@ -303,6 +309,8 @@ def test_requires_canonical_agents_with_legacy_claude_present(
         return f"/usr/bin/{name}"
 
     def fake_run(cmd, capture_output=False, text=False):
+        if cmd[3:] == ["check-ignore", "-q", ".worktrees/x"]:
+            return CompletedProcess(cmd, 0)
         if cmd == ["git", "--version"]:
             return CompletedProcess(cmd, 0, stdout="git version 2.39.1\n", stderr="")
         raise AssertionError(f"unexpected command: {cmd}")

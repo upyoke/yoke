@@ -6,8 +6,7 @@ Foundation module for the worktree subsystem. Owns:
   ``.yoke/`` (yoke-root), retired DB-path guard, and
   ``resolve_named_path``;
 * the git-context helpers that path resolution depends on
-  (``_normalize_repo_root``, ``_resolve_repo_root_from_cwd``,
-  ``_strip_worktree_path``);
+  (``_normalize_repo_root``, ``_resolve_repo_root_from_cwd``);
 * the low-level subprocess primitive shared by every worktree sibling.
   Keeping these here (rather than in the front door) keeps the front
   door free of a sibling-imports-back-into-front-door cycle when
@@ -24,6 +23,7 @@ import subprocess
 from pathlib import Path
 from typing import List, Optional
 
+from yoke_contracts.machine_config.checkout import find_main_checkout, main_checkout
 from yoke_core.domain import machine_config
 
 
@@ -123,25 +123,8 @@ def git_output_path(text: str) -> str:
 
 def _normalize_repo_root(candidate: str) -> Optional[str]:
     """Resolve *candidate* to the owning main repo root."""
-    r = _run(["git", "-C", candidate, "rev-parse", "--show-toplevel"])
-    if r.returncode != 0:
-        return None
-    repo_root = git_output_path(r.stdout.strip())
-
-    git_dir_r = _run(["git", "-C", repo_root, "rev-parse", "--git-dir"])
-    common_dir_r = _run(["git", "-C", repo_root, "rev-parse", "--git-common-dir"])
-
-    if (
-        git_dir_r.returncode == 0
-        and common_dir_r.returncode == 0
-        and git_dir_r.stdout.strip() != common_dir_r.stdout.strip()
-    ):
-        # Inside a linked worktree — resolve to main repo root
-        common = common_dir_r.stdout.strip()
-        resolved = (Path(repo_root) / common / "..").resolve()
-        return str(resolved)
-
-    return repo_root
+    root = find_main_checkout(candidate)
+    return str(root) if root is not None else None
 
 
 def _resolve_root(
@@ -152,7 +135,7 @@ def _resolve_root(
 
     Resolution order:
     1. ``CLAUDE_PROJECT_DIR``
-    2. ``git rev-parse --show-toplevel``
+    2. Git worktree registration
 
     Retired root SQLite files are deliberately not used as repo-root
     authority.
@@ -172,39 +155,9 @@ def _resolve_root(
     return None
 
 
-def _strip_worktree_path(path: str) -> str:
-    """Resolve a linked-worktree path back to its main repo root."""
-    from yoke_core.domain import project_settings
-
-    candidate = Path(path)
-    # Machine-local read: worktrees_dir is a checkout layout fact, not
-    # shared project policy.
-    worktrees_dir = project_settings.get_project_str(
-        project_settings.checkout_root(str(candidate)),
-        "worktrees_dir",
-    )
-
-    parts = candidate.parts
-    for marker in (worktrees_dir, ".worktrees", ".claude/worktrees"):
-        marker_parts = Path(marker or "").parts
-        width = len(marker_parts)
-        if not width:
-            continue
-        # The marker must sit below the root and above a lane name.
-        for start in range(1, len(parts) - width):
-            if parts[start : start + width] == marker_parts:
-                return str(Path(*parts[:start]))
-    return str(candidate)
-
-
 def _resolve_live_state_root(main_root: str) -> str:
     """Return the project-local Yoke contract dir for *main_root*."""
     return os.path.join(main_root, ".yoke")
-
-
-def _resolve_config_path(repo_root: str) -> str:
-    """Return the machine config path."""
-    return str(machine_config.config_path())
 
 
 # ---------------------------------------------------------------------------
@@ -223,7 +176,7 @@ def resolve_main_root(
         raise RuntimeError(
             "Cannot resolve repo root. Not in a git repo and CLAUDE_PROJECT_DIR is not set.",
         )
-    return _strip_worktree_path(root)
+    return str(main_checkout(root))
 
 
 def resolve_worktree_root(
@@ -257,11 +210,9 @@ def resolve_yoke_root(
 
     if yoke_root_env:
         yoke_root = yoke_root_env.rstrip("/") or yoke_root_env
-        candidate = Path(_strip_worktree_path(yoke_root))
-        if candidate.name == ".yoke":
-            return str(candidate)
-        # Bare repo root — append .yoke/
-        return _resolve_live_state_root(str(candidate))
+        candidate = Path(yoke_root)
+        checkout = candidate.parent if candidate.name == ".yoke" else candidate
+        return _resolve_live_state_root(str(main_checkout(checkout)))
 
     return _resolve_live_state_root(
         resolve_main_root(cwd=cwd, claude_project_dir=claude_project_dir),

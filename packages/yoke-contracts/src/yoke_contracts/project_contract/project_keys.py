@@ -126,7 +126,4 @@ DEFAULT_STEERING_REPORT_INTERVAL_MINUTES = int(
     RECOGNIZED_PROJECT_KEYS["steering_report_interval_minutes"].default
 )
 
-LOCAL_PROJECT_KEYS = frozenset({"worktrees_dir"})
-DB_PROJECT_POLICY_KEYS = tuple(
-    key for key in RECOGNIZED_PROJECT_KEYS if key not in LOCAL_PROJECT_KEYS
-)
+DB_PROJECT_POLICY_KEYS = tuple(RECOGNIZED_PROJECT_KEYS)

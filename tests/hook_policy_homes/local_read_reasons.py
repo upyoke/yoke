@@ -67,8 +67,7 @@ AUTHORITY_TRANSPORT = (
     "from the hook payload.",
     (
         "yoke_cli.commands._helpers:client_project_context",
-        "yoke_cli.config.checkout_context:_git_toplevel",
-        "yoke_cli.config.checkout_context:_strip_worktree_path",
+        "yoke_contracts.machine_config.checkout:_git_worktrees",
         "yoke_cli.config.checkout_context:resolve_repo_root_from_cwd",
         "yoke_contracts.machine_config.reader:load_config",
         "yoke_cli.transport.dispatcher:_resolve_session_id",
@@ -213,13 +212,12 @@ CLIENT_PATH_CANONICALIZATION = (
 )
 
 UNRECORDED_LANE_PATH = (
-    "Derives a lane path from the evaluating machine's checkout mapping and "
-    "worktrees_dir setting, only for a lane row with no recorded path. "
+    "Derives a lane path under .worktrees from the evaluating machine's "
+    "checkout mapping, only for a lane row with no recorded path. "
     "Prepared lanes always record their path, so the authority never "
     "derives one.",
     (
         _C + "project_checkout_locations:checkout_for_project_id",
-        _C + "runtime_settings:read_all",
     ),
 )
 

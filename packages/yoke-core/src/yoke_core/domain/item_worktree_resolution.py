@@ -10,6 +10,7 @@ from __future__ import annotations
 import os
 from typing import Any, Optional
 
+from yoke_contracts.machine_config.checkout import LANES_DIR
 from yoke_core.domain import db_backend
 from yoke_core.domain.worktree_paths import _run, is_git_worktree
 
@@ -56,7 +57,6 @@ def recorded_item_worktree_records(
     conn: Any,
     item_id: int,
     repo_root: str,
-    worktrees_dir: str,
     *,
     active_only: bool = True,
     lane_role: Optional[str] = None,
@@ -100,7 +100,6 @@ def recorded_item_worktree_records(
             str(values.get("branch") or ""),
             str(values.get("path") or ""),
             repo_root,
-            worktrees_dir,
         )
         if not path or path in seen_paths:
             continue
@@ -115,7 +114,6 @@ def recorded_item_worktree_lanes(
     conn,
     item_id: int,
     repo_root: str,
-    worktrees_dir: str,
     *,
     active_only: bool = True,
 ) -> tuple[list[tuple[str, str]], str]:
@@ -124,7 +122,6 @@ def recorded_item_worktree_lanes(
         conn,
         item_id,
         repo_root,
-        worktrees_dir,
         active_only=active_only,
     )
     return [(str(row["branch"]), str(row["path"])) for row in records], "item-lanes"
@@ -203,12 +200,11 @@ def _complete_lane(
     branch: str,
     path: str,
     repo_root: str,
-    worktrees_dir: str,
 ) -> tuple[str, str]:
     branch = (branch or "").strip()
     path = (path or "").strip()
     if not path and branch:
-        path = os.path.join(repo_root, worktrees_dir, branch)
+        path = os.path.join(repo_root, LANES_DIR, branch)
     if not branch and path:
         branch = os.path.basename(path)
     return branch, path

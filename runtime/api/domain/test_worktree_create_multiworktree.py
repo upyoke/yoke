@@ -108,7 +108,7 @@ class TestCreateWorktreeMultiWorktree:
 
     def test_multiworktree_creation_ignores_retired_cap(self, git_repo, yoke_db):
         cfg = git_repo / "runtime" / "config"
-        cfg.write_text("worktrees_dir=.worktrees\nmax_active_worktrees=1\n")
+        cfg.write_text("max_active_worktrees=1\n")
         branches = ["epic-99203-x", "epic-99203-y"]
         seed_multiworktree_epic(yoke_db, 99203, branches, str(git_repo))
 

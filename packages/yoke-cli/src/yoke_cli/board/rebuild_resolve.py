@@ -8,7 +8,7 @@ from typing import Optional
 
 from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.config.project_selection import missing_project_context
-from yoke_cli.config.checkout_context import _strip_worktree_path
+from yoke_contracts.machine_config.checkout import main_checkout
 from yoke_contracts.machine_config.schema import DEFAULT_BOARD_PATH
 
 
@@ -17,11 +17,7 @@ class BoardProjectResolutionError(RuntimeError):
 
 
 def _normalized_path(path: Path) -> Path:
-    selected = Path(_strip_worktree_path(str(path.expanduser())))
-    try:
-        return selected.resolve()
-    except OSError:
-        return selected
+    return main_checkout(path)
 
 
 def _contains(parent: Path, child: Path) -> bool:

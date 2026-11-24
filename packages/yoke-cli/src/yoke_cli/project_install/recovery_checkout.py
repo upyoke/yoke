@@ -161,18 +161,12 @@ def plan(
             managed_markdown._read_current(root / entry["path"]), entry["content"]
         )
         add(entry["path"], text)
-    # These two append-only owners expose their canonical entries directly.
-    from yoke_cli.config.project_worktrees_ignore import (
-        WORKTREES_IGNORE_ENTRY,
-        planned_text,
-    )
+    from yoke_cli.config.project_worktrees_ignore import planned_text
 
     ignore = root / ".gitignore"
     text = ignore.read_text(encoding="utf-8") if ignore.is_file() else ""
-    for entry in (
-        WORKTREES_IGNORE_ENTRY,
-        *map(skill_discovery.ignore_entry, SKILL_DISCOVERY_LINKS),
-    ):
+    for rel in SKILL_DISCOVERY_LINKS:
+        entry = skill_discovery.ignore_entry(rel)
         planned = planned_text(text, entry)
         if planned != text:
             add(".gitignore", planned)

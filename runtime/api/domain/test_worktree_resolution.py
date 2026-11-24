@@ -90,7 +90,7 @@ class TestResolveItemWorktree:
         )
 
         (ext_repo / "runtime").mkdir()
-        (ext_repo / "runtime" / "config").write_text("worktrees_dir=.worktrees\n")
+        (ext_repo / "runtime" / "config").write_text("")
 
         # Create worktree in ext repo
         subprocess.run(

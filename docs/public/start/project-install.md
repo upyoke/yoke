@@ -48,7 +48,7 @@ layer is not permission to publish your work-in-progress — and a commit
 merely *titled* like an install counts as yours unless its changes stay
 inside what the install writes. Files it shares with you rather than owns are
 on your side of that line: it merges its hook entries into your
-`.claude/settings.json`, appends one line to your `.gitignore`, and writes
+`.claude/settings.json`, adds a skill-discovery line to your `.gitignore`, and writes
 into the file-line policy config, so it cannot tell its content there from
 yours. A commit it did not just make that touches one of those is reported —
 never pushed, and never rewritten while reconciling with the remote. And a
@@ -57,6 +57,11 @@ failed, as it is for `--no-commit`. Pass `--no-publish` to commit without
 pushing. A remote that has no such branch yet — a new empty repository —
 is not an unreadable remote: the install commit becomes its first push. Setup
 installs with publication deferred, then publishes as its own final step.
+
+Yoke creates lanes under `.worktrees/` and adds `/.worktrees/` and
+`/.claude/settings.local.json` to the clone's Git exclude file.
+`yoke dev setup` adds neither entry. The Yoke source checkout already
+ignores both paths.
 
 An unreachable remote does **not** stop the install, which is the one place
 it differs from starting other work. Creating a worktree refuses an

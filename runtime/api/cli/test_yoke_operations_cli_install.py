@@ -111,10 +111,9 @@ def test_install_then_refresh_then_uninstall_round_trip(
     assert report["snapshot_sync"]["repair_command"] == ""
     assert (repo / ".claude/skills/yoke/onboard/SKILL.md").is_file()
     assert (repo / ".yoke/install-manifest.json").is_file()
-    assert report["worktrees_ignore"]["status"] == "written"
-    assert report["worktrees_ignore"]["patch"] == ["+.worktrees/"]
+    assert report["clone_excludes"]["added"] == ["/.worktrees/", "/.claude/settings.local.json"]
     ignored = (repo / ".gitignore").read_text(encoding="utf-8")
-    assert ignored == ".worktrees/\n/.claude/skills/yoke\n"
+    assert ignored == "/.claude/skills/yoke\n"
     assert sorted(report["contract_files_written"]) == sorted(
         e["path"] for e in DEFAULT_CONTRACT_FILES
     )
@@ -144,8 +143,7 @@ def test_install_then_refresh_then_uninstall_round_trip(
     assert report["operation"] == "refresh"
     assert report["files_written"] == []
     assert report["contract_files_written"] == []
-    assert report["worktrees_ignore"]["status"] == "present"
-    assert report["worktrees_ignore"]["patch"] == []
+    assert report["clone_excludes"]["added"] == []
     assert ".yoke/lint-config" in report["contract_files_existing"]
     assert (repo / ".yoke/lint-config").read_text("utf-8") == (
         "lint_destructive_git=warn\n"

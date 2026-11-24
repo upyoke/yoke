@@ -151,7 +151,7 @@ def test_unsupported_manifest_schema_is_refused(repo) -> None:
         ("hook_entries", []),
         ("git_hooks", ["unknown-hook"]),
         ("git_hook_hashes", [".git/hooks/pre-commit"]),
-        ("worktrees_ignore_added", "yes"),
+        ("clone_excludes", ["*.py"]),
     ],
 )
 def test_malformed_prior_manifest_shape_fails_before_mutation(

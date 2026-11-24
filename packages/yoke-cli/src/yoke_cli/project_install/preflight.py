@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from yoke_cli.config import project_worktrees_ignore
+from yoke_cli.project_install import clone_excludes
 from yoke_cli.project_install import cursor_permissions as cursor_permissions_layer
 from yoke_cli.project_install import files as files_layer
 from yoke_cli.project_install import git_hooks as git_hooks_layer
@@ -122,7 +122,6 @@ def preflight_apply(
     cursor_permissions_preview = cursor_permissions_layer.preview_cursor_permissions(
         repo_root
     )
-    worktrees_ignore = project_worktrees_ignore.report(repo_root, apply=False)
     result = {
         "harness_health": harness_health,
         "install_recovery": recovery,
@@ -139,7 +138,7 @@ def preflight_apply(
             )
         ),
         "cursor_permissions_preview": cursor_permissions_preview,
-        "worktrees_ignore": worktrees_ignore,
+        "clone_excludes_would_add": clone_excludes.preview(repo_root),
     }
 
     from yoke_cli.project_install.recovery_checkout import plan

@@ -191,7 +191,7 @@ def test_client_path_round_trip_uses_portable_storage_form(test_db, monkeypatch,
         _request("item_worktrees.get", 983, payload={"lane_role": "worker"})
     )
     assert fetched.result_payload["worktree"]["path"] == normalize_repo_path(path)
-    resolved = recorded_item_worktree_records(test_db, 983, "/repo", ".worktrees")
+    resolved = recorded_item_worktree_records(test_db, 983, "/repo")
     assert next(row for row in resolved if row["id"] == lane["id"])["path"] == normalize_repo_path(path)
 
 

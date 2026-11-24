@@ -16,7 +16,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, List
 
-from yoke_cli.config import project_worktrees_ignore
+from yoke_cli.project_install import clone_excludes
 from yoke_cli.project_install import files as files_layer
 from yoke_cli.project_install import uninstall_commit, uninstall_lanes, uninstall_local_views
 from yoke_cli.project_install.installed_output_paths import YOKE_GITIGNORE_REL
@@ -103,14 +103,19 @@ def uninstall(
         },
         set(manifest.get("created_settings_files", [])),
     )
-    project_worktrees_ignore.report(root, apply=False)
+    shared_scope = owned_cleanup.scope_reason(root, manifest, config_path)
+    owned_excludes = manifest.get(clone_excludes.KEY, [])
+    if not shared_scope or (
+        remove_lanes and shared_scope == "registration_covers_git_worktrees"
+    ):
+        clone_excludes.remove(root, owned_excludes, check=True)
     commit_paths, commit_warnings = uninstall_commit.prepare(
         root, manifest, config_path
     )
     # Lanes settle before anything changes: an open lane refuses here, never
     # after the removal commit.
     lanes = uninstall_lanes.settle(
-        root, config_path, remove=remove_lanes, check=check
+        root, remove=remove_lanes, check=check
     )
     if check:
         return {
@@ -195,22 +200,15 @@ def uninstall(
         if shared_scope
         else skill_discovery.unignore(root, manifest.get("skill_discovery_links"))
     )
-    worktrees_ignore = (
-        project_worktrees_ignore.remove_owned_entry(
-            root,
-            created_file=bool(manifest.get("worktrees_ignore_created_file")),
-        )
-        if manifest.get("worktrees_ignore_added") and not shared_scope
-        else {"removed": False, "deleted_file": False}
-    )
     # Commit before retiring ownership: a commit failure leaves the manifest,
     # registration and trust in place for the same command's retry.
     commit_report = uninstall_commit.commit(root, commit_paths)
+    excludes_removed = [] if shared_scope else clone_excludes.remove(root, owned_excludes)
     local_cleanup = owned_cleanup.cleanup(root, manifest, config_path)
     if shared_scope:
         local_cleanup["complete"] = False
         warnings.append(
-            f"project_uninstall_{shared_scope}: Git hooks and the worktree ignore entry may serve other checkouts; resolve sharing or checkout identity, then rerun project uninstall."
+            f"project_uninstall_{shared_scope}: Git hooks and clone excludes may serve other checkouts; resolve sharing or checkout identity, then rerun project uninstall."
         )
     # One refusal per reason: every harness row repeats the registration's.
     reasons = {f"project_uninstall_{shared_scope}"} if shared_scope else set()
@@ -267,7 +265,7 @@ def uninstall(
         "managed_markdown_stripped_blocks": (
             managed_markdown_removed["stripped_blocks"]
         ),
-        "worktrees_ignore": worktrees_ignore,
+        "clone_excludes_removed": excludes_removed,
         "lanes_removed": lanes["removed"],
         "lane_branches_kept": lanes["branches_kept"],
         "settings_files_deleted": settings_deleted,

@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional, Sequence, Tuple
 
-from yoke_core.domain import project_settings
+from yoke_contracts.machine_config.checkout import LANES_DIR
 from yoke_core.domain.project_checkout_locations import checkout_for_project_slug
 from yoke_contracts.runtime_ports.repo_upstream_freshness import get_repo_upstream_freshness
 from yoke_core.domain.worktree_create_db import (
@@ -39,7 +39,6 @@ from yoke_core.domain.worktree_lane_plan import (
 )
 from yoke_core.domain.worktree_paths import (
     _normalize_repo_root,
-    _resolve_config_path,
     _resolve_repo_root_from_cwd,
 )
 from yoke_core.domain.worktree_provision import (
@@ -138,9 +137,6 @@ def create_worktree(
                 error=f"repo_root '{repo_root}' is not a git repository",
             )
 
-    if config_path is None:
-        config_path = _resolve_config_path(repo_root)
-
     # An explicit base is the caller's own choice and is taken as given. A
     # resolved one is brought current first: a lane cut from a stale default
     # branch starts the work behind, and nothing says so until the merge. A
@@ -167,12 +163,7 @@ def create_worktree(
             )
         base_branch = freshness.lane_base_ref or base_branch
 
-    wt_dir = project_settings.get_project_str(
-        repo_root,
-        "worktrees_dir",
-        config_path=config_path,
-    )
-    worktrees_dir = os.path.join(repo_root, wt_dir)
+    lane_root = os.path.join(repo_root, LANES_DIR)
 
     hosted_lane_authority = db_path is None and item_worktree_authority_is_https()
     authoritative_lanes = None
@@ -211,7 +202,6 @@ def create_worktree(
         raw_worktrees = resolve_worktree_lanes_for_item(
             item_id,
             repo_root,
-            wt_dir,
             db_path,
             authoritative_lanes=authoritative_lanes,
         )
@@ -239,7 +229,7 @@ def create_worktree(
     if plan.pending_worktree_count:
         retire_finished_lanes(repo_root, default_branch)
         dirty_error = dirty_main_error(
-            repo_root, worktrees_dir, needed_paths, source_root_prefixes
+            repo_root, needed_paths, source_root_prefixes
         )
         if dirty_error:
             primary = plan.primary or plan.worktrees[0]
@@ -253,7 +243,7 @@ def create_worktree(
             )
 
     # --- Per-worktree provisioning, in the order the sequence owns ---
-    os.makedirs(worktrees_dir, exist_ok=True)
+    os.makedirs(lane_root, exist_ok=True)
     provisioned = provision_planned_lanes(
         plan,
         item_id=item_id,

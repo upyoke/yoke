@@ -195,7 +195,6 @@ def check_dirty_main(
     repo_root: str,
     needed_paths: Sequence[str] = (),
     *,
-    worktrees_dir: str = "",
     source_root_prefixes: Sequence[str] = (),
 ) -> Tuple[bool, str, List[str]]:
     """Return ``(blocked, kind, paths)`` for dirt that must stop creation.
@@ -208,7 +207,6 @@ def check_dirty_main(
     blocked, kind, paths = overlapping_dirty_main(
         repo_root,
         needed_paths=needed_paths,
-        worktrees_dir=worktrees_dir,
         source_root_prefixes=source_root_prefixes,
     )
     return blocked, kind, list(paths)

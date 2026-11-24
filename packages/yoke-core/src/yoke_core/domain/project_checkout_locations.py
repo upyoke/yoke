@@ -5,12 +5,13 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Optional
 
+from yoke_contracts.machine_config.checkout import LANES_DIR
 from yoke_contracts.machine_config.schema import (
     mapped_checkouts,
     normalize_project_id,
 )
 
-from yoke_core.domain import db_backend, machine_config, project_settings
+from yoke_core.domain import db_backend, machine_config
 from yoke_core.domain.item_worktree_resolution import (
     recorded_item_worktree_records,
 )
@@ -131,16 +132,10 @@ def item_worktree_path(
     checkout = checkout_for_project_id(project_id, config_path=config_path)
     if checkout is None:
         return None
-    worktrees_dir = project_settings.get_project_str(
-        checkout,
-        "worktrees_dir",
-        config_path=config_path,
-    )
     lanes = recorded_item_worktree_records(
         conn,
         int(item_id),
         str(checkout),
-        worktrees_dir,
         active_only=True,
     )
     preferred = [
@@ -196,12 +191,7 @@ def worktree_path_for_branch(
     checkout = checkout_for_project_id(project_id, config_path=config_path)
     if checkout is None:
         return None
-    worktrees_dir = project_settings.get_project_str(
-        checkout,
-        "worktrees_dir",
-        config_path=config_path,
-    )
-    return checkout / worktrees_dir / branch_str
+    return checkout / LANES_DIR / branch_str
 
 
 def _placeholder(conn: Any) -> str:

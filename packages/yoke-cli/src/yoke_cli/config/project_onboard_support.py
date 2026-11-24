@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Any, Iterator, Mapping
 
 from yoke_cli.config import project_onboarding_handoff
-from yoke_cli.config import project_worktrees_ignore
 from yoke_cli.config.project_github_adoption import (
     with_github_adoption_report,
 )
@@ -64,7 +63,6 @@ def dry_run_report(
             public_item_prefix,
         ),
         "checkout": {"path": str(root), "mode": checkout_mode},
-        "worktrees_ignore": project_worktrees_ignore.report(root, apply=False),
         "plan": list(PLAN),
     }
     return with_github_adoption_report(
@@ -92,7 +90,6 @@ def project_dry_run(
         "applied": False,
         "project": dict(payload),
         "checkout": {"path": str(root), "mode": mode},
-        "worktrees_ignore": project_worktrees_ignore.report(root, apply=False),
         "plan": list(PLAN),
     }
     return with_github_adoption_report(
@@ -117,7 +114,6 @@ def applied_report(
     clone_outcome: Any | None = None,
 ) -> dict[str, Any]:
     project_id = int(project["id"])
-    worktrees_ignore = project_worktrees_ignore.report(root, apply=True)
     report = {
         "operation": operation,
         "applied": True,
@@ -128,7 +124,6 @@ def applied_report(
             "registered": True,
         },
         "install": dict(install),
-        "worktrees_ignore": worktrees_ignore,
         "capabilities": capabilities_report(api_result, binding_result),
     }
     resume = clone_resume_report(clone_outcome)

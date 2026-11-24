@@ -74,11 +74,6 @@ def preview_report(
         rel for rel, plan in hook_plans.items() if plan["deleted_file"]
     )
     git_hook_preview = preflight["git_hook_preview"]
-    worktrees_ignore = dict(preflight["worktrees_ignore"])
-    worktrees_ignore["owned_by_install"] = bool(
-        prior_manifest.get("worktrees_ignore_added")
-    )
-    worktrees_ignore["would_add"] = not worktrees_ignore["present"]
     return {
         "install_drift": {
             k: preflight["install_recovery"][k]
@@ -122,7 +117,7 @@ def preview_report(
             git_hook_preview.installed + git_hook_preview.updated
         ),
         "git_hook_actions": git_hook_preview.actions,
-        "worktrees_ignore": worktrees_ignore,
+        "clone_excludes_would_add": preflight["clone_excludes_would_add"],
         "snapshot_sync": {
             "status": "skipped",
             "reason": "preview performs no external or server snapshot writes",

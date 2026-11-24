@@ -1,7 +1,6 @@
 """Yoke lane worktrees a project uninstall must settle before it changes anything.
 
-A lane is a linked Git worktree inside the checkout's lanes directory
-(``settings.worktrees_dir``, default ``.worktrees``). Its branch holds the
+A lane is a linked Git worktree inside the checkout's ``.worktrees/`` directory. Its branch holds the
 lane's commits, so removing a clean lane loses nothing; a lane with
 uncommitted changes is never removed. Every refusal fires before the
 uninstall removes a file or makes its commit.
@@ -11,12 +10,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from yoke_contracts.machine_config import reader as machine_config
-from yoke_cli.project_install import checkout_gate, owned_cleanup
+from yoke_contracts.machine_config.checkout import LANES_DIR
+from yoke_cli.project_install import checkout_gate
 from yoke_contracts.project_contract.install_error import ProjectInstallError
 
 
-def settle(root: Path, config_path, *, remove: bool, check: bool = False) -> dict:
+def settle(root: Path, *, remove: bool, check: bool = False) -> dict:
     """Remove clean lanes when *remove*; otherwise refuse while any lane exists.
 
     *check* runs every refusal and removes nothing. The report names each
@@ -25,7 +24,7 @@ def settle(root: Path, config_path, *, remove: bool, check: bool = False) -> dic
     report: dict = {"removed": [], "branches_kept": []}
     if not checkout_gate.is_git_checkout(root):
         return report  # Lanes are Git worktrees; a plain folder has none.
-    lanes_dir = owned_cleanup.lanes_dir(root, machine_config.load_config(config_path))
+    lanes_dir = root / LANES_DIR
     lanes = {
         lane: branch
         for lane, branch in _linked_worktrees(root).items()

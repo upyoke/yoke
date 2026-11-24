@@ -118,6 +118,8 @@ def _patch_shutil_no_gh(monkeypatch):
         return f"/usr/bin/{name}"
 
     def fake_run(cmd, capture_output=False, text=False):
+        if cmd[3:] == ["check-ignore", "-q", ".worktrees/x"]:
+            return CompletedProcess(cmd, 0, stdout="", stderr="")
         if cmd == ["git", "--version"]:
             return CompletedProcess(cmd, 0, stdout="git version 2.39.1\n", stderr="")
         raise AssertionError(f"unexpected command: {cmd}")
@@ -147,6 +149,8 @@ def test_messaging_emits_no_brew_install_gh(tmp_path, monkeypatch, capsys):
         return f"/usr/bin/{name}"
 
     def fake_run(cmd, capture_output=False, text=False):
+        if cmd[3:] == ["check-ignore", "-q", ".worktrees/x"]:
+            return CompletedProcess(cmd, 0, stdout="", stderr="")
         if cmd == ["git", "--version"]:
             return CompletedProcess(cmd, 0, stdout="git version 2.39.1\n", stderr="")
         raise AssertionError(f"unexpected command: {cmd}")

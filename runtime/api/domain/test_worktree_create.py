@@ -229,7 +229,7 @@ class TestCreateWorktree:
 
     def test_retired_cap_does_not_block_creation(self, git_repo, yoke_db):
         cfg = git_repo / "runtime" / "config"
-        cfg.write_text("worktrees_dir=.worktrees\nmax_active_worktrees=2\n")
+        cfg.write_text("max_active_worktrees=2\n")
         config_path = str(cfg)
 
         for lane_item in (1, 2, 3):
@@ -249,7 +249,7 @@ class TestCreateWorktree:
 
     def test_creation_sweeps_finished_lanes(self, git_repo, yoke_db):
         cfg = git_repo / "runtime" / "config"
-        cfg.write_text("worktrees_dir=.worktrees\n")
+        cfg.write_text("")
         config_path = str(cfg)
         for lane_item in (1, 2):
             seed_lane_item(yoke_db, lane_item)

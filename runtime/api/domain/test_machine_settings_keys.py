@@ -8,12 +8,10 @@ from yoke_contracts.machine_config.settings_keys import (
     db_owned_capability_for,
     db_owned_settings,
     is_recognized,
-    machine_setting_default,
     unrecognized_settings,
 )
 from yoke_contracts.project_contract.project_keys import (
     DB_PROJECT_POLICY_KEYS,
-    LOCAL_PROJECT_KEYS,
     PROJECT_POLICY_CAPABILITY,
 )
 
@@ -29,10 +27,10 @@ def test_machine_keys_do_not_shadow_db_owned_project_policy() -> None:
         assert key not in MACHINE_SETTING_KEYS, key
 
 
-def test_local_project_keys_resolve_their_project_default() -> None:
-    for key in LOCAL_PROJECT_KEYS:
-        assert is_recognized(key)
-        assert machine_setting_default(key) == str(MACHINE_SETTING_KEYS[key].default)
+def test_retired_lane_folder_setting_is_reported():
+    key = "worktrees_dir"
+    assert not is_recognized(key)
+    assert unrecognized_settings({key: ".wt"}) == (key,)
 
 
 def test_db_owned_keys_name_their_owning_capability() -> None:

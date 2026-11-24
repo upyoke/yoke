@@ -14,14 +14,12 @@ from pathlib import Path
 from typing import Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain import project_settings
 from yoke_core.domain.item_worktree_resolution import (
     recorded_item_worktree_lanes,
     resolve_live_branch,
 )
 from yoke_core.domain.project_checkout_locations import checkout_for_project
 from yoke_core.domain.worktree_paths import (
-    _resolve_config_path,
     _resolve_repo_root_from_cwd,
     is_git_worktree,
     resolve_main_root,
@@ -138,19 +136,10 @@ def resolve_item_worktree(
                 f"could not resolve repo root for project '{item_project}'"
             )
 
-        # Resolve worktrees dir
-        config_path = _resolve_config_path(repo_root)
-        wt_dir = project_settings.get_project_str(
-            repo_root,
-            "worktrees_dir",
-            config_path=config_path,
-        )
-
         lanes, lane_scope = recorded_item_worktree_lanes(
             conn,
             item_num,
             repo_root,
-            wt_dir,
         )
         if lanes:
             paths = tuple(path for _, path in lanes)

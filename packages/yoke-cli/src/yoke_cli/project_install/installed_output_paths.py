@@ -48,11 +48,7 @@ def owned_paths(report: Mapping[str, Any] | None) -> list[str]:
             paths.extend(str(key) for key in mapping if key)
     if report.get("gitignore_ignores_backfilled"):
         paths.append(YOKE_GITIGNORE_REL)
-    worktrees = report.get("worktrees_ignore") or {}
-    if (
-        isinstance(worktrees, dict)
-        and (worktrees.get("applied") or worktrees.get("status") == "written")
-    ) or report.get("skill_discovery_ignored"):
+    if report.get("skill_discovery_ignored"):
         paths.append(GITIGNORE_REL)
     if report.get("settings_permissions_actions") or report.get(
         "settings_status_line_actions"

@@ -51,7 +51,7 @@ def test_preview_reports_changes_without_target_writes(
     assert report["snapshot_sync"]["status"] == "skipped"
     assert report["files_would_write"]
     assert report["git_hooks_would_install_or_update"] == len(GIT_HOOK_NAMES)
-    assert report["worktrees_ignore"]["would_add"] is True
+    assert report["clone_excludes_would_add"] == ["/.worktrees/", "/.claude/settings.local.json"]
     assert _project_tree(target) == before
     assert not (target / ".yoke/install-manifest.json").exists()
 
@@ -204,21 +204,22 @@ def test_preview_reports_non_file_convergence_when_source_files_unchanged(
         stale_shim.encode("utf-8")
     ).hexdigest()
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
-    (target / ".gitignore").write_text("", encoding="utf-8")
+    exclude = target / ".git/info/exclude"
+    exclude.write_text(exclude.read_text().replace("/.worktrees/\n", ""), encoding="utf-8")
 
     assert cli_main(base) == 0
     preview = json.loads(capsys.readouterr().out)
     assert preview["files_would_write"] == []
     assert preview["hooks_would_add"][".claude/settings.json"]
     assert preview["git_hooks_would_install_or_update"] == 1
-    assert preview["worktrees_ignore"]["would_add"] is True
+    assert preview["clone_excludes_would_add"] == ["/.worktrees/"]
 
     assert cli_main([*base[:-1], "--force", "--no-commit", "--apply", "--json"]) == 0
     capsys.readouterr()
     assert pre_commit.read_text(encoding="utf-8") == git_hooks_layer.render_git_hook(
         git_hooks_layer.PRE_COMMIT_SHIM
     )
-    assert ".worktrees/" in (target / ".gitignore").read_text(encoding="utf-8")
+    assert "/.worktrees/" in exclude.read_text(encoding="utf-8").splitlines()
 
 
 def test_apply_requires_manifest_lineage_before_writes(

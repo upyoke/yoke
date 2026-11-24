@@ -18,7 +18,6 @@ from typing import Any, Mapping, MutableMapping, Sequence
 
 from yoke_contracts.board.policy_settings import board_settings_defaults
 from yoke_contracts.project_contract.project_keys import (
-    LOCAL_PROJECT_KEYS,
     PROJECT_POLICY_CAPABILITY,
     RECOGNIZED_PROJECT_KEYS,
     RETIRED_CAPABILITY_KEYS,
@@ -30,9 +29,7 @@ from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.project_identity import row_value
 from yoke_core.domain.schema_common import _table_exists
 
-_PROJECT_POLICY_KEYS = tuple(
-    key for key in RECOGNIZED_PROJECT_KEYS if key not in LOCAL_PROJECT_KEYS
-)
+_PROJECT_POLICY_KEYS = tuple(RECOGNIZED_PROJECT_KEYS)
 
 
 @dataclass(frozen=True)

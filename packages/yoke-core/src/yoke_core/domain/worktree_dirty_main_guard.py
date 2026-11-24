@@ -10,9 +10,9 @@ roots, top-level dot-directories without indexed files are also scratch.
 
 from __future__ import annotations
 
+from yoke_contracts.machine_config.checkout import LANES_DIR
 from yoke_core.domain.public_item_target import public_item_target
 
-import os
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
@@ -51,8 +51,6 @@ class DirtyMainVerdict:
 
 def list_dirty_main_paths(
     repo_root: str,
-    *,
-    worktrees_dir: str = "",
 ) -> tuple[tuple[str, ...], tuple[str, ...]]:
     """Return ``(tracked_or_staged, untracked)`` dirty paths on main."""
     tracked_run = _run(["git", "-C", repo_root, "diff", "--name-only"])
@@ -69,15 +67,12 @@ def list_dirty_main_paths(
     untracked_run = _run(
         ["git", "-C", repo_root, "ls-files", "--others", "--exclude-standard"]
     )
-    worktrees_rel = ""
-    if worktrees_dir:
-        worktrees_rel = os.path.relpath(worktrees_dir, repo_root).rstrip("/")
     untracked = tuple(
         path.strip()
         for path in untracked_run.stdout.splitlines()
         if path.strip()
         and path.strip() not in _UNTRACKED_EXEMPT_NAMES
-        and not (worktrees_rel and path.strip().startswith(worktrees_rel + "/"))
+        and not path.strip().startswith(f"{LANES_DIR}/")
     )
     return tracked, untracked
 
@@ -106,11 +101,10 @@ def overlapping_dirty_main(
     repo_root: str,
     needed_paths: Sequence[str] = (),
     *,
-    worktrees_dir: str = "",
     source_root_prefixes: Sequence[str] = (),
 ) -> tuple[bool, str, tuple[str, ...]]:
     """Return ``(blocked, kind, paths)`` for this lane."""
-    tracked, untracked = list_dirty_main_paths(repo_root, worktrees_dir=worktrees_dir)
+    tracked, untracked = list_dirty_main_paths(repo_root)
     blocked, kind, paths, _scratch = decide_dirty_main(
         needed_paths,
         tracked,
@@ -292,7 +286,6 @@ def evaluate_dirty_main_for_item(
     item_id: int,
     public_ref: str,
     session_id: str = "",
-    worktrees_dir: str = "",
     needed_paths: Sequence[str] | None = None,
     source_root_prefixes: Sequence[str] | None = None,
 ) -> DirtyMainVerdict:
@@ -305,7 +298,7 @@ def evaluate_dirty_main_for_item(
         if source_root_prefixes is not None
         else lane_source_root_prefixes(item_id)
     )
-    tracked, untracked = list_dirty_main_paths(repo_root, worktrees_dir=worktrees_dir)
+    tracked, untracked = list_dirty_main_paths(repo_root)
     blocked, kind, paths, scratch = decide_dirty_main(
         needed,
         tracked,

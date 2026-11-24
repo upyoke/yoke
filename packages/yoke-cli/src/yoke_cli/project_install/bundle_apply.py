@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, List
 
-from yoke_cli.config import project_worktrees_ignore
+from yoke_cli.project_install import clone_excludes
 from yoke_cli.project_install import cursor_permissions as cursor_permissions_layer
 from yoke_cli.project_install import files as files_layer
 from yoke_cli.project_install import git_hooks as git_hooks_layer
@@ -55,8 +55,7 @@ _MANIFEST_OWNED_KEYS = frozenset(
         "created_settings_files",
         "hook_entries",
         "git_hook_hashes",
-        "worktrees_ignore_added",
-        "worktrees_ignore_created_file",
+        clone_excludes.KEY,
         "managed_markdown",
         "skill_discovery_links",
         "settings_permissions",
@@ -110,7 +109,7 @@ def apply_bundle(
         preserved_files,
     )
 
-    install_recovery.begin(repo_root, preflight["install_recovery"])
+    excludes = install_recovery.begin(repo_root, preflight["install_recovery"], old_manifest)
     hashes, written = files_layer.apply_files(repo_root, bundle_files)
     hashes.update(preserved_files)
     pruned, skipped, warnings = files_layer.prune_files(
@@ -207,20 +206,11 @@ def apply_bundle(
         preflight["owned_git_hook_hashes"],
     )
     warnings.extend(git_hooks.warnings)
-    worktrees_ignore = project_worktrees_ignore.report(repo_root, apply=True)
     discovery_ignored = skill_discovery.ignore(repo_root)
     git_hook_hashes = git_hooks_layer.managed_git_hook_hashes(
         repo_root,
         preflight["git_hook_specs"],
     )
-    worktrees_ignore_added = bool(
-        old_manifest.get("worktrees_ignore_added") or worktrees_ignore["applied"]
-    )
-    worktrees_ignore_created_file = bool(
-        old_manifest.get("worktrees_ignore_created_file")
-        or worktrees_ignore.get("created_file")
-    )
-
     # Canonical AGENTS.md and the .claude/settings.json permissions region run
     # after the hook reconcile above so the settings file already exists; both
     # own only their marked region and preserve operator content around it.
@@ -278,8 +268,7 @@ def apply_bundle(
             "created_settings_files": sorted(created_settings),
             "hook_entries": hook_entries,
             "git_hook_hashes": git_hook_hashes,
-            "worktrees_ignore_added": worktrees_ignore_added,
-            "worktrees_ignore_created_file": worktrees_ignore_created_file,
+            clone_excludes.KEY: excludes["owned"],
             "managed_markdown": managed_markdown_records,
             "skill_discovery_links": dict(bundle["skill_discovery_links"]),
             "settings_permissions": settings_permissions_record,
@@ -333,7 +322,7 @@ def apply_bundle(
         hook_trust_report.REPORT_KEY: hook_trust,
         "git_hooks_installed_or_updated": (git_hooks.installed + git_hooks.updated),
         "git_hook_actions": git_hooks.actions,
-        "worktrees_ignore": worktrees_ignore,
+        clone_excludes.KEY: excludes,
         "managed_markdown_actions": managed_markdown_report["actions"],
         "managed_markdown_written": managed_markdown_report["written"],
         "settings_permissions_actions": settings_permissions_report["actions"],

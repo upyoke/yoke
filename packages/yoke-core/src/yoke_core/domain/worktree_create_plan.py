@@ -61,7 +61,6 @@ class WorktreeCreationPlan:
 def resolve_worktrees_for_item(
     item_id: int,
     repo_root: str,
-    wt_dir: str,
     db_path: Optional[str] = None,
 ) -> List[Tuple[str, str]]:
     """Return ``(branch, path)`` worktree pairs for ``item_id``.
@@ -74,7 +73,6 @@ def resolve_worktrees_for_item(
         for branch, path, *_rest in resolve_worktree_lanes_for_item(
             item_id,
             repo_root,
-            wt_dir,
             db_path,
         )
     ]
@@ -157,7 +155,6 @@ def preflight_worktree_plan(
 
 def dirty_main_error(
     repo_root: str,
-    worktrees_dir: str,
     needed_paths: Sequence[str] = (),
     source_root_prefixes: Sequence[str] = (),
 ) -> Optional[str]:
@@ -168,7 +165,6 @@ def dirty_main_error(
     blocked, kind, paths = overlapping_dirty_main(
         repo_root,
         needed_paths=needed_paths,
-        worktrees_dir=worktrees_dir,
         source_root_prefixes=source_root_prefixes,
     )
     if not blocked:

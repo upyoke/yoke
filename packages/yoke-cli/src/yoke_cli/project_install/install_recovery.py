@@ -16,7 +16,7 @@ from yoke_contracts.project_contract.installed_layer import (
     INSTALLED_LAYER_MARKDOWN_RELS,
 )
 
-from yoke_cli.project_install import checkout_gate
+from yoke_cli.project_install import checkout_gate, clone_excludes
 from yoke_contracts.project_contract.install_error import ProjectInstallError
 from yoke_cli.project_install.files import (
     assert_safe_bundle_paths,
@@ -57,7 +57,11 @@ def pending_record(root: Path) -> dict[str, Any]:
         return {}
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
-        if not isinstance(value, dict) or set(value) != {"files", "checkout"}:
+        if (
+            not isinstance(value, dict)
+            or set(value) - {"files", "checkout", clone_excludes.KEY}
+            or not {"files", "checkout"} <= set(value)
+        ):
             raise ValueError("invalid recovery record")
         files = value["files"]
         checkout = value["checkout"]
@@ -81,6 +85,7 @@ def pending_record(root: Path) -> dict[str, Any]:
         assert_resolved_targets_within(
             root, checkout, context="install recovery checkout"
         )
+        clone_excludes.validate_entries(value.get(clone_excludes.KEY, []), source="install recovery")
         return value
     except (OSError, ValueError) as exc:
         raise ProjectInstallError(
@@ -197,27 +202,7 @@ def plan(root: Path, bundle: dict[str, Any], prior: dict[str, Any]) -> dict[str,
     }
 
 
-def begin(root: Path, plan: dict[str, Any]) -> None:
-    # Recovery is machine-local even when an older serving bundle lacks its ignore.
-    if checkout_gate.is_git_checkout(root):
-        result = checkout_gate.run_git(root, "rev-parse", "--git-path", "info/exclude")
-        if result.returncode:
-            raise ProjectInstallError(
-                "install_recovery_ignore_unreadable: repair Git metadata, then rerun refresh; files were preserved"
-            )
-        exclude = Path(result.stdout.strip())
-        if not exclude.is_absolute():
-            exclude = root / exclude
-        text = exclude.read_text(encoding="utf-8") if exclude.is_file() else ""
-        entry = "/" + PENDING_REL
-        if entry not in text.splitlines():
-            atomic_text(
-                exclude,
-                text
-                + ("\n" if text and not text.endswith("\n") else "")
-                + entry
-                + "\n",
-            )
+def begin(root: Path, plan: dict[str, Any], manifest: dict[str, Any]) -> dict:
     value = {"files": plan["candidate"], "checkout": plan["checkout"]}
     previous = pending_record(root)
     if previous.get("files") == value["files"]:
@@ -225,7 +210,22 @@ def begin(root: Path, plan: dict[str, Any]) -> None:
             value["checkout"][rel] = sorted(
                 set(states) | set(value["checkout"].get(rel, []))
             )
-    atomic_text(root / PENDING_REL, json.dumps(value, sort_keys=True) + "\n")
+
+    # Keep exclude ownership recoverable until the manifest is written.
+    def record(added: list[str]) -> None:
+        prior = set(manifest.get(clone_excludes.KEY, [])) | set(previous.get(clone_excludes.KEY, []))
+        value[clone_excludes.KEY] = [
+            entry for entry in clone_excludes.ENTRIES if entry in prior or entry in added
+        ]
+        atomic_text(root / PENDING_REL, json.dumps(value, sort_keys=True) + "\n")
+
+    added = []
+    if checkout_gate.is_git_checkout(root):
+        clone_excludes.append(root, ("/" + PENDING_REL,))
+        added = clone_excludes.append(root, clone_excludes.ENTRIES, before_write=record)
+    else:
+        record([])
+    return {"added": added, "owned": value[clone_excludes.KEY]}
 
 
 def record_manifest(root: Path, content: str) -> None:

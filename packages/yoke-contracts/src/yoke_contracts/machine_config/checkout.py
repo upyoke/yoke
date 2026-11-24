@@ -7,6 +7,9 @@ from yoke_contracts.machine_config.schema_connections import MachineConfigContra
 from yoke_contracts import terminal_detached_process
 
 
+LANES_DIR = ".worktrees"
+
+
 # A checkout's primary never changes while the checkout exists, and the
 # machine-local hook resident asks for the same few paths on every hook, so
 # each answer is kept for the life of the process. Bounded by clearing: the
@@ -18,8 +21,18 @@ _PRIMARY_CACHE_LIMIT = 256
 def main_checkout(root: str | Path) -> Path:
     """Return Git's primary checkout, or the supplied root outside Git."""
     root = Path(root).expanduser().resolve()
-    if not any((parent / ".git").exists() for parent in (root, *root.parents)):
-        return root
+    return find_main_checkout(root) or root
+
+
+def find_main_checkout(root: str | Path) -> Path | None:
+    """Find the primary Git checkout, returning None outside a Git repo."""
+    root = Path(root).expanduser().resolve()
+    if not any(
+        (parent / ".git").exists()
+        or ((parent / "HEAD").is_file() and (parent / "objects").is_dir())
+        for parent in (root, *root.parents)
+    ):
+        return None
     primary = _PRIMARY_BY_ROOT.get(root)
     if primary is None:
         primary = _git_main_checkout(root)
