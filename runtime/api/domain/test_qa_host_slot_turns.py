@@ -20,9 +20,13 @@ from yoke_core.domain.coordination_claims import acquire, active_claim, release
 from yoke_core.domain.db_helpers import query_one
 from yoke_core.domain.machine_qa_capability import replace_test_machine_settings
 from yoke_core.domain.machine_qa_case_machine import MachineConstraintError
+from yoke_core.domain.machine_verification_recording import record_test_machine_verification
+from yoke_core.domain.qa_host_health import host_unhealthy, unhealthy_rationale
 from yoke_core.domain.qa_host_set_turns import record_host_wait
 from yoke_core.domain.qa_host_slot_turns import (
+    TestMachineSlotsBusy as SlotsBusy,
     assign_slot_hosts,
+    select_slot_hosts,
     slot_eligibility,
     slot_waits,
 )
@@ -38,7 +42,7 @@ TWO_LINUX = {
 }
 
 
-def _register(conn, name, os_name, tags=""):
+def _register(conn, name, os_name, tags="", *, verified=True):
     replace_test_machine_settings(
         conn,
         power_project="yoke",
@@ -49,7 +53,8 @@ def _register(conn, name, os_name, tags=""):
         },
         base_settings=None,
     )
-    verify_fixture_host(conn, name)
+    if verified:
+        verify_fixture_host(conn, name)
 
 
 @pytest.fixture
@@ -105,9 +110,12 @@ def test_one_free_linux_host_acquires_nothing_and_both_waits_keep_their_place(
 ):
     busy = acquire(test_db, make_qa_admission_target(LINUX[1]), "holder")
     execution = _execution(test_db, "walker")
+    with pytest.raises(SlotsBusy) as refused:
+        select_slot_hosts(test_db, execution, TWO_LINUX, [TWO_LINUX])
+    assert refused.value.test_machine == LINUX[1]
     record_host_wait(
-        test_db, execution, test_machine=LINUX[0], rationale="slots busy",
-        slots=slot_waits(slot_eligibility(test_db, TWO_LINUX, [TWO_LINUX])),
+        test_db, execution, test_machine=refused.value.test_machine,
+        rationale=str(refused.value), slots=refused.value.slots,
     )
     before = _waits(test_db, execution["id"])
     assert [(row[0], row[1]) for row in before] == [
@@ -202,3 +210,62 @@ def test_inheriting_case_tag_binds_every_slot_of_the_driver_os(test_db, mixed_fl
         ("macos", ("mac-tagged-2", "mac-tagged-3")),
         ("macos", ("mac-tagged-2", "mac-tagged-3")),
     )
+
+
+def test_slotted_wait_names_the_leased_host_and_each_slot(test_db, mixed_fleet):
+    seed_qa_session(test_db, "walker", "holder")
+    execution = _execution(test_db, "walker")
+    held = acquire(test_db, make_qa_admission_target("win-a"), "holder")
+    case = _slotted(MAC_AND_WINDOWS, {"macos": ["macos:15"]})
+
+    with pytest.raises(SlotsBusy) as refused:
+        select_slot_hosts(test_db, execution, case, [case])
+
+    busy = refused.value
+    assert busy.test_machine == "win-a"
+    assert str(busy) == (
+        "no available host for every OS slot (macos, windows); "
+        f"windows slot waits on win-a: lease {held.id} held by holder; "
+        "free now: mac-tagged, mac-tagged-2"
+    )
+    waiting = record_host_wait(
+        test_db, execution, test_machine=busy.test_machine, slots=busy.slots, rationale=str(busy),
+    )
+    assert waiting["host_wait"]["test_machine"] == "win-a"
+    assert waiting["host_wait"]["rationale"] == str(busy)
+    assert waiting["host_wait"]["waits_for"] == "one host per slot: any of mac-tagged, mac-tagged-2; win-a"
+
+
+def test_slotted_wait_explains_failed_verification_and_resumes_after_repair(
+    test_db, mixed_fleet, monkeypatch,
+):
+    _notices(monkeypatch)
+    _register(test_db, "win-unverified", "windows", verified=False)
+    seed_qa_session(test_db, "walker", messageable=True)
+    execution = _execution(test_db, "walker")
+    case = _slotted(MAC_AND_WINDOWS, {"macos": ["macos:15"]})
+    record_test_machine_verification(
+        test_db, test_machine="win-a", status="error",
+        checks=[{"name": "verify", "ok": False}], error_code="ssh_unavailable",
+    )
+
+    with pytest.raises(SlotsBusy) as refused:
+        select_slot_hosts(test_db, execution, case, [case])
+
+    health = host_unhealthy(test_db, "win-a")
+    assert health is not None
+    busy = refused.value
+    assert busy.test_machine == "win-a"
+    assert f"windows slot waits on win-a: {unhealthy_rationale(health)}" in str(busy)
+    assert busy.slots == (("mac-tagged", "mac-tagged-2"), ("win-a",))
+    waiting = record_host_wait(
+        test_db, execution, test_machine=busy.test_machine, slots=busy.slots, rationale=str(busy),
+    )
+    assert waiting["host_wait"]["state"] == "waiting"
+    assert assign_slot_hosts(test_db, execution) is False
+
+    verify_fixture_host(test_db, "win-a")
+
+    assert assign_slot_hosts(test_db, execution) is True
+    assert active_claim(test_db, make_qa_admission_target("win-a")).session_id == "walker"
+    assert active_claim(test_db, make_qa_admission_target("win-unverified")) is None

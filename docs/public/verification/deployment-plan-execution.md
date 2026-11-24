@@ -98,34 +98,31 @@ stays in its opener's group. Each group runs an immutable roster with its own
 lease and the same frozen target. Sessions walk separate plans concurrently,
 one live execution per session and target. Begin skips held groups and aborts
 abandoned holders. Plan order holds across machine groups.
-A waiting host or independent review stops the command. Re-enter the same
-scoped command while review is pending to reprint that bundle without
-recapturing. Once a verdict batch is recorded, the same command reprints
-passing verdicts and does not capture those settled requirements; a new
-capture of a passed requirement uses --replaces. A failed or undetermined
-verdict stays open: rerunning begins a fresh execution that captures it
-again. After review settles, rerun to continue any remaining hosts.
-Completed scoped cases with passing evidence are retained. The member is
-accepted only when every required case passes. Omit --test-machine for this
-multi-machine form: a single host pin cannot satisfy conflicting constraints.
+A host wait or independent review stops the command. Rerun the same scoped
+command to reprint a pending review bundle or its recorded passes. Use
+`--replaces` to recapture a passed case. Rerunning failed or undetermined
+cases starts a fresh execution. Rerun after review to continue remaining
+hosts. The member is accepted once every required case passes. Omit
+`--test-machine` for groups that need different hosts.
 
-For one case that needs several hosts simultaneously, list one OS slot per
-host in `method_config.test_machines`, such as
-`[{"os":"linux"},{"os":"macos","driver":true}]`: at least two slots, exactly one
-`driver`, and no singular `os` beside them. Its `capability_tags` is an object
-from slot OS to tags, such as `{"macos":["macos:15"]}`, applied to every slot of
-that OS. Run it through `yoke qa plan run`; direct case execution refuses
-it. The runner admits the set once every slot has a free, verified, healthy
-host, giving each slot a distinct one, and retains it through case execution
-and mission review. Completion or abort releases it; [completed captures remain reviewable](requirement-state.md).
-A case and its `inherit` chain retain their declared hosts. When multiple
-walks in one execution need different hosts, Yoke acquires the combined set
-at the execution's single queue place before preparing the walks. Each walk
-uses its own recorded driver at walk-start and walk-end. Walk one mission
-at a time. A retry inside a chain never reacquires lost custody. Definition-time validation
-refuses `inherited_driver_mismatch` when a follower declares a different `os`
-or slots: drop them so it inherits the opener's hosts, or start a new chain
-from a named baseline. Only the chain's opener selects hosts.
+For simultaneous hosts, list at least two OS slots in `method_config.test_machines`
+with exactly one `driver` and no singular `os`, e.g.
+`[{"os":"linux"},{"os":"macos","driver":true}]`. Map each slot OS to its
+`capability_tags`, e.g. `{"macos":["macos:15"]}`, to tag every slot of that OS.
+Use `yoke qa plan run`. Each slot takes a distinct free, verified, healthy host.
+The set stays leased through review and releases on completion or abort.
+[Completed captures remain reviewable](requirement-state.md).
+A wait names a host from a blocked OS and gives the lease or verification failure
+for each unavailable eligible host of every blocked OS. A failed verification
+can queue for repair. A host without a verification result is ineligible.
+Queue views show one host per slot and group its alternatives.
+
+An `inherit` chain retains the opener's hosts. Multiple walks in one execution
+acquire their combined hosts at one queue place before preparation. Walk one
+mission at a time on its recorded driver through walk-end. A retry inside a
+chain never reacquires lost custody. If a follower declares different hosts,
+`inherited_driver_mismatch` asks you to drop its OS or slots or start a new
+chain from a named baseline. Only the opener selects hosts.
 
 An exploratory mission walks after captures and may inherit only at a chain's
 tail; no case may inherit after it. Item and deployment scopes isolate the
