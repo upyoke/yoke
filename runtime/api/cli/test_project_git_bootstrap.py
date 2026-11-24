@@ -63,7 +63,11 @@ def test_plain_folder_inits_gitignore_and_commit(tmp_path: Path) -> None:
     assert result.committed is True
     assert (checkout / ".git").is_dir()
     ignore = (checkout / ".gitignore").read_text(encoding="utf-8")
-    assert ".worktrees/" in ignore
+    assert ".worktrees/" not in ignore
+    assert ".claude/settings.local.json" not in ignore
+    exclude = (checkout / ".git/info/exclude").read_text(encoding="utf-8")
+    assert "/.worktrees/" not in exclude.splitlines()
+    assert "/.claude/settings.local.json" not in exclude.splitlines()
     assert "*.iso" in ignore
     assert "*.mp4" in ignore
     head = subprocess.run(

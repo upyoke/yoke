@@ -9,7 +9,7 @@ import pytest
 from yoke_cli.config.checkout_context import resolve_repo_root_from_cwd
 from yoke_contracts.machine_config.checkout import main_checkout
 from yoke_contracts.machine_config.schema_connections import MachineConfigContractError
-from yoke_core.domain.rebuild_board import resolve_main_repo_root
+from yoke_core.domain.rebuild_board import resolve_main_repo_root, try_resolve_main_repo_root
 from yoke_core.domain.worktree_paths import resolve_main_root
 
 
@@ -47,6 +47,8 @@ def test_checkout_identity_refuses_broken_git_metadata(tmp_path):
     (tmp_path / ".git").write_text("invalid worktree pointer", encoding="utf-8")
     with pytest.raises(MachineConfigContractError, match="checkout_identity_unavailable"):
         resolve_repo_root_from_cwd(str(tmp_path))
+    with pytest.raises(MachineConfigContractError, match="checkout_identity_unavailable"):
+        try_resolve_main_repo_root(str(tmp_path))
 
 
 def test_checkout_identity_refuses_bare_repo(tmp_path):

@@ -50,6 +50,8 @@ def _git_init(root) -> None:
     import subprocess
 
     subprocess.run(["git", "init", "-q", "-b", "trunk"], cwd=root, check=True)
+    for key, value in (("user.name", "Yoke Test"), ("user.email", "tests@example.invalid")):
+        subprocess.run(["git", "config", "--local", key, value], cwd=root, check=True)
 
 
 def test_manifest_and_report_record_copy_mode(repo) -> None:

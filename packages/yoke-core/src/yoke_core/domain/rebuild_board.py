@@ -20,6 +20,7 @@ from typing import Iterable
 
 from yoke_contracts.board.phase_timer import PhaseRecorder, measure_phase
 from yoke_contracts.machine_config.checkout import find_main_checkout, main_checkout
+from yoke_contracts.machine_config.schema_connections import MachineConfigContractError
 from yoke_core.domain import machine_config, rebuild_board_outcome as outcome, schema
 from yoke_core.domain.rebuild_board_file_write import write_live_text
 from yoke_core.domain.rebuild_board_render import (
@@ -74,15 +75,12 @@ def resolve_main_repo_root(repo_arg: str | None = None) -> Path:
 
 
 def try_resolve_main_repo_root(repo_arg: str | None = None) -> Path | None:
-    """Like :func:`resolve_main_repo_root` but returns ``None`` when no local
-    checkout exists, instead of raising.
-
-    Server-side (no ``.git``, no ``CLAUDE_PROJECT_DIR``, server cwd not a repo)
-    the board is a client-local view. A missing checkout skips rebuild.
-    """
+    """Skip rebuild without a local checkout. Surface broken Git metadata."""
     try:
         return resolve_main_repo_root(repo_arg)
-    except FileNotFoundError:
+    except MachineConfigContractError:
+        raise
+    except (FileNotFoundError, RuntimeError):
         return None
 
 
