@@ -49,16 +49,19 @@ def test_task_get_returns_legacy_pipe_row() -> None:
         patch.object(handlers, "_open_connection", _fake_conn),
         patch("yoke_core.domain.epic_parsing.render_item_ref", return_value="ITEM-81"),
     ):
-        with patch.object(handlers.epic, "task_get", return_value="7|42|1|Task"):
-            outcome = handlers.handle_task_get(
-                _request("workflow_item.epic_task.get"),
-            )
+        with patch(
+            "yoke_core.domain.epic_resolution.task_get_row",
+            return_value={"id": 7, "epic_id": 42, "task_num": 1, "title": "Task",
+                          "item_worktree_id": 19, "status": "implementing"},
+        ):
+            outcome = handlers.handle_task_get(_request("workflow_item.epic_task.get"))
 
     assert outcome.primary_success
     assert outcome.result_payload == {
         "epic_id": 42,
         "task_num": 1,
-        "body": "7|ITEM-81|1|Task",
+        "body": "7|ITEM-81|1|Task|19|||implementing|",
+        "worktree_id": 19,
     }
 
 

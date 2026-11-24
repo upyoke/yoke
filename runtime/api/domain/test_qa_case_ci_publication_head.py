@@ -191,4 +191,5 @@ def test_full_sha_stamp_preserves_snapshot_authorization_refusal(
     assert git(origin, "rev-parse", "refs/heads/schema-worker") == sha
     warning = capsys.readouterr().err
     assert "actor cannot write" in warning
-    assert "project snapshot sync" in warning and "--head-only" in warning
+    assert "rerun the same command" in warning
+    assert "project snapshot sync" not in warning

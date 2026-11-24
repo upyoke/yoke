@@ -123,7 +123,11 @@ def test_item_operations_reconcile_only_selected_lane(monkeypatch, lanes, operat
         ))
         lane_head_client.reconcile_task_lane(task, session_id="tester")
     else:
-        context = SimpleNamespace(lane_branch=lanes[0]["branch"])
+        context = SimpleNamespace(project="fixture", lane=lanes[0])
+        monkeypatch.setattr(
+            lane_head_record, "reconcile_lane_head",
+            lambda project, lane: (calls.append(lane["id"]) or NEW, ""),
+        )
         monkeypatch.setattr(done_transition_item_context, "load_done_item_context_over_transport",
                             lambda ref: context)
         assert done_transition_preconditions.load_done_context_with_current_lane("ITEM-9") is context
@@ -153,12 +157,33 @@ def test_deploy_driver_refreshes_member_without_rewriting_run_pin(monkeypatch, l
                         lambda project, lane: (events.append(lane["id"]) or NEW, ""))
     monkeypatch.setattr(deploy, "_call",
                         lambda function, run_id, payload: events.append(payload) or {"updated": True})
-    if operation == "context":
-        deploy.execution_context("run-fixture")
-        assert events == [lanes[1]["id"], {}]
-    else:
-        deploy.update_run_field("run-fixture", "status", operation)
-        assert events == [lanes[1]["id"], {"field": "status", "value": operation}]
+    with deployment_lane_heads.deployment_lane_head_scope("run-fixture"):
+        if operation == "context":
+            deploy.execution_context("run-fixture")
+            assert events == [lanes[1]["id"], {}]
+        else:
+            deploy.update_run_field("run-fixture", "status", operation)
+            assert events == [lanes[1]["id"], {"field": "status", "value": operation}]
+
+
+def test_deploy_driver_refreshes_before_qa_failure_handoff(monkeypatch):
+    from yoke_core.domain import deployment_qa_stage_dispatch as qa_dispatch
+    from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
+
+    events = []
+    run_id = "run-fixture"
+    monkeypatch.setattr(
+        deployment_lane_heads, "reconcile_member_lanes",
+        lambda selected_run: events.append(("reconcile", selected_run)),
+    )
+
+    def dispatch(**kwargs):
+        events.append(("dispatch", kwargs["target"].workflow_run_id))
+        return SimpleNamespace(success=True, result={"code": 0})
+
+    monkeypatch.setattr(get_structured_dispatch(), "call_dispatcher", dispatch)
+    assert qa_dispatch.dispatch_deployment_qa_stage({"name": "item-qa"}, run_id=run_id) == (0, "")
+    assert events == [("reconcile", run_id), ("dispatch", run_id)]
 
 
 def test_read_only_merge_reports_stale_queued_lane(monkeypatch, lanes):

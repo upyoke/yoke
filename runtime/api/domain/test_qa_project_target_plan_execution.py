@@ -176,6 +176,7 @@ def test_plan_execution_passes_the_runtime_base_url_to_the_command_runner() -> N
     assert result["review_status"] is None
     assert execute.call_args.kwargs["base_url"] == "https://preview.example.test"
     assert calls == [
+        "qa.requirement.list",
         "qa.plan_execution.begin",
         "qa.plan_execution.heartbeat",
         "qa.plan_execution.advance",
@@ -343,6 +344,7 @@ class TestRefusedRunLeavesNoActiveExecution:
     def test_no_case_runs_before_the_refusal(self) -> None:
         calls, _ = _refused_base_url_calls(abort_result=None)
         assert [call["function_id"] for call in calls] == [
+            "qa.requirement.list",
             "qa.plan_execution.begin",
             "qa.plan_execution.abort",
         ]

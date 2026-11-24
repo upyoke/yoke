@@ -222,8 +222,8 @@ def test_head_recording_failure_warns_without_failing_update(
     warning = capsys.readouterr().err
     assert "lane_head_record_failed" in warning
     assert str(failure) in warning
-    assert "yoke project snapshot sync" in warning
-    assert "--head-only" in warning
+    assert "Rerun the same command" in warning
+    assert "project snapshot sync" not in warning
 
 
 def test_failed_lane_update_does_not_record_head(monkeypatch, record_head):

@@ -33,20 +33,6 @@ def read_item_lanes(
     return str((item.get("project") or {}).get("slug") or ""), active_lanes(item)
 
 
-def reconcile_named_lane(
-    target: TargetRef, branch: str, *, actor: ActorContext | None = None
-) -> None:
-    project, lanes = read_item_lanes(target, actor=actor)
-    lane = next((lane for lane in lanes if lane.get("branch") == branch), None)
-    if lane is None:
-        return
-    _, error = reconcile_lane_head(
-        project, lane, session_id=actor.session_id if actor else None
-    )
-    if error:
-        raise LaneHeadClientError(error)
-
-
 def reconcile_task_lane(target: TargetRef, *, session_id: str | None = None) -> None:
     dispatch = get_structured_dispatch()
     actor = dispatch.build_actor(session_id=session_id)

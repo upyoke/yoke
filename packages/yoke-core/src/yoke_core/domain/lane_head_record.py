@@ -147,7 +147,7 @@ def record_lane_head(
         return ""
     detail = str(result.get("message") or status or "snapshot sync failed")
     repair = result.get("repair_command")
-    return f"{detail}. Recovery: run `{repair}`" if repair else detail
+    return compose_refusal(detail, recovery=f"run `{repair}`").rstrip(".") if repair else detail
 
 
 def _published_checkout_matches(

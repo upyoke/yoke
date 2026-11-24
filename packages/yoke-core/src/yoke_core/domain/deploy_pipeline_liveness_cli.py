@@ -18,6 +18,7 @@ from yoke_core.domain import deploy_pipeline
 from yoke_core.domain.deploy_pipeline_control_plane import (
     DeploymentControlPlaneError,
 )
+from yoke_core.domain.deployment_lane_heads import deployment_lane_head_scope
 from yoke_core.domain.deploy_pipeline_driver_client import (
     DriverLivenessPump,
     attach_driver,
@@ -134,7 +135,10 @@ def _drive(argv: List[str], run_id: str) -> int:
             except DeploymentControlPlaneError as exc:
                 print(f"error: {exc}", file=sys.stderr)
                 return 2
-            with DriverLivenessPump(run_id, phase=PHASE_EXECUTING).running():
+            with (
+                DriverLivenessPump(run_id, phase=PHASE_EXECUTING).running(),
+                deployment_lane_head_scope(run_id),
+            ):
                 return deploy_pipeline.main(argv)
         with SessionLivenessPump().running():
             return deploy_pipeline.main(argv)

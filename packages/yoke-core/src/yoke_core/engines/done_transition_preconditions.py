@@ -60,15 +60,14 @@ def enforce_preconditions(
 
 def load_done_context_with_current_lane(item_ref: str):
     """Read the done transition's branch and reconcile it before its gates."""
-    from yoke_core.domain.lane_head_client import LaneHeadClientError, reconcile_named_lane
+    from yoke_core.domain.lane_head_record import reconcile_lane_head
     from yoke_core.engines.done_transition_item_context import (
         load_done_item_context_over_transport,
     )
 
     context = load_done_item_context_over_transport(item_ref)
-    if context is not None and context.lane_branch not in ("", "null"):
-        try:
-            reconcile_named_lane(public_item_target(item_ref), context.lane_branch)
-        except LaneHeadClientError as exc:
-            return str(exc)
+    if context is not None and context.lane:
+        _, error = reconcile_lane_head(context.project, context.lane)
+        if error:
+            return error
     return context
