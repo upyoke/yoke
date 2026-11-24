@@ -6,6 +6,7 @@ later, so the refusal it leaves behind is the only record of what differed.
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
@@ -16,6 +17,7 @@ from yoke_core.tools.session_relay_release import (
     RelayReleaseError,
     relay_release_status,
 )
+from yoke_core.tools import session_relay_release_install
 from yoke_core.tools.session_relay_release_install import pin_relay_release
 
 
@@ -50,3 +52,23 @@ def test_an_unresolved_connection_names_what_the_absent_manifest_means(
     assert "https connection did not resolve, or the handshake failed" in message
     assert "yoke --env prod status" in message
     assert "yoke --env prod relay install" in message
+
+
+def test_foreground_pin_observes_served_release_after_taking_custody(tmp_path, monkeypatch):
+    instance = relay_instance(tmp_path)
+    held = False
+
+    @contextmanager
+    def acquire(state_dir):
+        nonlocal held
+        assert state_dir == instance.state_dir
+        held = True
+        yield
+
+    def fetch(_environment):
+        assert held
+        return None
+
+    monkeypatch.setattr(session_relay_release_install, "release_install_lock", acquire)
+    with pytest.raises(RelayReleaseError, match="returned no manifest"):
+        pin_relay_release(instance=instance, fetch_manifest=fetch)

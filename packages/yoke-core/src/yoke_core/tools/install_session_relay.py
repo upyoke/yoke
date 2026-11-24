@@ -135,7 +135,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     if getattr(status, "reason", ""):
         print(f"session relay: {status.reason}", file=sys.stderr)
-    runnable = _runnable(instance, refresh_served=parsed.action != "uninstall")
+    # Install already converged the release under the pin lock. Validate its
+    # receipt instead of comparing it to a second, potentially newer snapshot.
+    runnable = _runnable(instance, refresh_served=parsed.action == "status")
     if parsed.action == "uninstall":
         healthy = not relay_service_present(status) and not status.loaded
     else:

@@ -3,9 +3,8 @@
 The project layer is bound to exactly one CLI release, so setup never applies
 a layer built for another release. Setup checks the served release when it
 starts (``setup_release_start``); this module owns the install and re-run both
-checks share, and the follow when Apply still meets a different release (the
-server moved while the wizard was open, or the start could not know the server
-yet). Then setup installs exactly that release while it holds the apply lock
+checks share. Apply checks again before machine steps and still validates
+the project layer in case the server could not be checked earlier. Then setup installs exactly that release while it holds the apply lock
 (the lock the relay's release follow also takes), records
 ``cli_followed_release`` in the run report, and the command re-runs itself as
 ``yoke setup --resume RUN-ID`` on the new CLI once the lock is released. A
@@ -52,12 +51,13 @@ class ReleaseFollowed(Exception):
         self.yoke_bin = yoke_bin
         # Answers given before the follow that the rerun must not ask again.
         self.carried_args: list[str] = []
-        then = (
-            f"to match the project layer the server supplied; resuming setup run {run_id}"
-            if run_id
-            else f"because {server} serves it; restarting setup on it"
+        reason = (
+            f"because {server} serves it"
+            if server
+            else "to match the project layer the server supplied"
         )
-        super().__init__(f"installed Yoke {served} in place of {running} {then}")
+        then = f"resuming setup run {run_id}" if run_id else "restarting setup on it"
+        super().__init__(f"installed Yoke {served} in place of {running} {reason}; {then}")
 
     def record(self) -> dict[str, str]:
         return {"from": self.running, "to": self.served}
@@ -96,7 +96,7 @@ def install_served(
         raise ProjectInstallError(str(exc)) from exc
     except FollowBlocked as exc:
         raise ProjectInstallError(mismatch.refusal(str(exc))) from exc
-    return ReleaseFollowed(run_id, mismatch.running, mismatch.target, yoke_bin)
+    return ReleaseFollowed(run_id, mismatch.running, mismatch.target, yoke_bin, server=mismatch.server)
 
 
 def _blocking_cause(

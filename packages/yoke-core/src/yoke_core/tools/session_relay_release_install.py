@@ -54,21 +54,16 @@ def pin_relay_release(
 ) -> RelayReleaseStatus:
     """Converge stable runtime identity and the atomic release pointer."""
     selected = instance or resolve_relay_instance()
-    try:
-        observed = served_build or fetch_served_build(
-            selected, fetch_manifest=fetch_manifest
-        )
-        observed = str(observed)
-        release = release_version_from_build(observed)
-        index = distribution_index_for_instance(selected)
-    except RelayReleaseError as exc:
-        refusal = _with_recovery(selected, exc.code, str(exc))
-        _record_failure(selected, refusal.code, str(refusal), str(served_build or ""))
-        raise refusal from exc
-
+    observed = str(served_build or "")
     try:
         create_private_directory(selected.state_dir)
         with release_install_lock(selected.state_dir):
+            # A foreground installer may have queued behind the daemon's pin.
+            # Observe the server with custody so it cannot reuse an older
+            # observation after the holder has published the new release.
+            observed = observed or fetch_served_build(selected, fetch_manifest=fetch_manifest)
+            release = release_version_from_build(observed)
+            index = distribution_index_for_instance(selected)
             runtime_python = ensure_relay_runtime(
                 selected.state_dir,
                 create_runtime=create_runtime,
