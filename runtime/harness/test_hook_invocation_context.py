@@ -69,7 +69,10 @@ def test_cursor_walk_peels_a_deleted_lane_and_enters_its_checkout(
         monkeypatch.setattr(os, "getcwd", deleted_cwd)
     else:
         missing.rmdir()
-    apply_hook_invocation_context("cursor", verb, owner, environ)
+    try:
+        apply_hook_invocation_context("cursor", verb, owner, environ)
+    finally:  # Fixture teardown reads the real cwd.
+        monkeypatch.setattr(os, "getcwd", real_getcwd)
     assert Path(environ["YOKE_ROOT"]) == checkout
     assert Path(real_getcwd()) == checkout.resolve()
     assert environ["YOKE_EXECUTOR"] == "cursor"
