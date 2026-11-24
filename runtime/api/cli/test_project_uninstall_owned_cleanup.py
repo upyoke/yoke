@@ -35,7 +35,7 @@ def test_uninstall_only_exact_owned_entries_and_preserves_shared_state(installed
         "connection_projects": {"local": [{"checkout": str(other), "project_id": 8}]},
     }
     assert read_json(trust.claude_state_path()) == {
-        "projects": {str(other): {"hasTrustDialogAccepted": True}},
+        "projects": {trust.claude_trust_key(other): {"hasTrustDialogAccepted": True}},
         "signIn": "keep",
     }
     codex = parse_config((Path.home() / ".codex/config.toml").read_text())
@@ -56,7 +56,7 @@ def test_changed_trust_is_preserved_and_uninstall_completes(installed, family):
     if family == "claude-code":
         target = trust.claude_state_path()
         payload = read_json(target)
-        payload["projects"][str(root)]["hasTrustDialogAccepted"] = False
+        payload["projects"][trust.claude_trust_key(root)]["hasTrustDialogAccepted"] = False
         target.write_text(json.dumps(payload))
     elif family == "codex":
         target = Path.home() / ".codex/config.toml"
@@ -139,7 +139,7 @@ def test_unrecorded_and_legacy_trust_is_preserved(installed):
     root, _, config = installed
     with ledger.mutation() as entries:
         for entry in list(entries):
-            if entry.get("kind") == "json" and str(root) in entry.get("keys", []):
+            if entry.get("kind") == "json" and trust.claude_trust_key(root) in entry.get("keys", []):
                 entries.remove(entry)
             elif entry.get("kind") == "created_file":
                 entry.pop("sha256", None)
@@ -161,7 +161,7 @@ def test_parent_folder_trust_is_neither_reported_nor_touched(installed, family):
     if family == "claude-code":
         target = trust.claude_state_path()
         payload = read_json(target)
-        payload["projects"][parent] = {"hasTrustDialogAccepted": True}
+        payload["projects"][trust.claude_trust_key(parent)] = {"hasTrustDialogAccepted": True}
         target.write_text(json.dumps(payload))
     elif family == "codex":
         target = Path.home() / ".codex/config.toml"
@@ -177,7 +177,9 @@ def test_parent_folder_trust_is_neither_reported_nor_touched(installed, family):
     report = uninstall(root, config_path=config)
     assert report["outcome"] == "complete", report
     assert {row["status"] for row in report["local_cleanup"]["trust"]} == {"removed"}
-    assert json.dumps(parent)[1:-1] in target.read_text() and not trust.cursor_trust_file(root).exists()
+    expected_parent = trust.claude_trust_key(parent) if family == "claude-code" else parent
+    assert json.dumps(expected_parent)[1:-1] in target.read_text()
+    assert not trust.cursor_trust_file(root).exists()
     if family == "cursor":
         assert target.read_bytes() == before
 

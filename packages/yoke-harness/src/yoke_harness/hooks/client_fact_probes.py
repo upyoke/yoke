@@ -15,6 +15,7 @@ from typing import Mapping
 
 from yoke_contracts.hook_runner import client_facts as cf
 from yoke_contracts.hook_runner.bash_paths import (
+    BashPathResolutionError,
     shell_path_spellings,
     resolve_bash_path,
     is_under,
@@ -58,7 +59,10 @@ def capture_files_fact(payload: Mapping[str, object]) -> dict:
                     or len(files) >= _MAX_CAPTURE_FILES
                 ):
                     continue
-                path = resolve_bash_path(raw)
+                try:
+                    path = resolve_bash_path(raw)
+                except BashPathResolutionError:
+                    continue
                 if any(is_under(path, root) for root in native_roots):
                     files[raw] = capture_state(path)
                     parent = raw.rsplit("/", 1)[0]

@@ -12,6 +12,8 @@ import os
 import subprocess
 from typing import Any, Dict, List
 
+import pytest
+
 from yoke_core.domain.yaml_helper import load_document
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -112,6 +114,7 @@ def test_bridge_receives_owner_endpoint_as_a_required_input() -> None:
     )
 
 
+@pytest.mark.posix_only(reason="release workflow steps run on Linux runners")
 def test_current_factory_failure_still_stops_release(tmp_path) -> None:
     factory = next(
         step for step in _bridge_steps()

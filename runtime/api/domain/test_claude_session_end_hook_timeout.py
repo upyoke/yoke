@@ -40,7 +40,7 @@ def test_only_session_end_gains_a_timeout_in_both_layers() -> None:
 def test_committed_claude_settings_match_the_render() -> None:
     rendered = render_claude_settings_json()
     for rel in ("runtime/harness/claude/settings.json", ".claude/settings.json"):
-        assert (REPO_ROOT / rel).read_text() == rendered, rel
+        assert (REPO_ROOT / rel).read_text(encoding="utf-8") == rendered, rel
     assert json.loads(rendered)["hooks"]["SessionEnd"][0]["hooks"][0]["timeout"] == 15
 
 

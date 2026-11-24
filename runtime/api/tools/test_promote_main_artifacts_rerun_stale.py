@@ -130,6 +130,7 @@ def retry():
     return subject.main(["rerun-stale", "--repo", REPO, "--source-sha", SHA, "--tag", TAG])
 
 
+@pytest.mark.posix_only(reason="release workflow steps run on Linux runners")
 def test_incident_retry_reruns_and_waits_in_dependency_order(factories):
     calls = factories()
     assert retry() == 0
@@ -140,6 +141,7 @@ def test_incident_retry_reruns_and_waits_in_dependency_order(factories):
     ]
 
 
+@pytest.mark.posix_only(reason="release workflow steps run on Linux runners")
 def test_retry_leaves_current_failures_green_and_in_flight_runs_alone(factories):
     calls = factories(downstream={
         20: {"conclusion": "success", "updated_at": EARLY},
@@ -150,6 +152,7 @@ def test_retry_leaves_current_failures_green_and_in_flight_runs_alone(factories)
     assert not calls.exists()
 
 
+@pytest.mark.posix_only(reason="release workflow steps run on Linux runners")
 def test_retry_leaves_failures_alone_when_the_root_factory_is_down(factories):
     calls = factories(downstream={10: {"conclusion": "failure"}})
     assert retry() == 0
@@ -157,6 +160,7 @@ def test_retry_leaves_failures_alone_when_the_root_factory_is_down(factories):
 
 
 @pytest.mark.parametrize("wait_code", [1, 3, 4])
+@pytest.mark.posix_only(reason="release workflow steps run on Linux runners")
 def test_wait_failure_or_timeout_stops_the_edge_walk(factories, capfd, wait_code):
     calls = factories(wait_code=wait_code)
     assert retry() == (0 if wait_code == 3 else 1)
@@ -169,6 +173,7 @@ def test_wait_failure_or_timeout_stops_the_edge_walk(factories, capfd, wait_code
         assert f"wait exited {wait_code}" in output.err
 
 
+@pytest.mark.posix_only(reason="release workflow steps run on Linux runners")
 def test_rerun_refusal_keeps_gh_diagnostic(factories, capfd):
     calls = factories(refuse=True)
     assert retry() == 1

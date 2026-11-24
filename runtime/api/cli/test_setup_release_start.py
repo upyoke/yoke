@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from types import SimpleNamespace
 
 import pytest
@@ -117,10 +118,14 @@ def test_failed_install_refuses_with_update_recovery(host, monkeypatch, capsys):
 def test_setup_reruns_the_same_command_with_the_follow_marker(host, monkeypatch):
     calls = []
     monkeypatch.setattr(onboard, "_onboard", lambda _parsed: _start())
-    monkeypatch.setattr(setup_release_follow.os, "name", "posix")
     monkeypatch.setattr(
-        setup_release_follow.os, "execve",
-        lambda path, argv, env: calls.append((path, argv, env)),
+        setup_release_follow,
+        "os",
+        SimpleNamespace(
+            name="posix",
+            environ=os.environ,
+            execve=lambda path, argv, env: calls.append((path, argv, env)),
+        ),
     )
     onboard.onboard(["--tui", "--connect", API, "--machine-github", "disabled"])
 

@@ -71,7 +71,13 @@ def test_up_refuses_an_env_name_the_launcher_cannot_pass(machine_home, env):
 def _gone_within(processes, seconds: float) -> list:
     deadline = time.monotonic() + seconds
     while True:
-        alive = [p for p in processes if p.is_running() and p.status() != psutil.STATUS_ZOMBIE]
+        alive = []
+        for process in processes:
+            try:
+                if process.is_running() and process.status() != psutil.STATUS_ZOMBIE:
+                    alive.append(process)
+            except psutil.NoSuchProcess:
+                continue
         if not alive or time.monotonic() >= deadline:
             return alive
         time.sleep(0.05)
