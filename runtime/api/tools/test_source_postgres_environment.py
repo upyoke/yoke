@@ -9,6 +9,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from runtime.api.tools.source_env_test_support import source_env
 from yoke_cli.config import local_universe_setup
 from yoke_contracts.owner_private_path import create_owner_private_directory
 from yoke_core.domain import qa_case_command_stream
@@ -29,9 +30,7 @@ def test_repeated_source_homes_keep_cluster_and_binary_identity(tmp_path, monkey
     (machine / "config.json").write_text(
         json.dumps({"temp_root": str(tmp_path / "scratch")})
     )
-    # Real PATH/HOME/TMPDIR: a bare env sends git to the slow macOS xcrun shim.
-    env = {key: os.environ[key] for key in ("PATH", "HOME", "TMPDIR") if key in os.environ}
-    env.update(YOKE_MACHINE_HOME=str(machine), YOKE_SESSION_ID="fixture")
+    env = source_env(YOKE_MACHINE_HOME=str(machine), YOKE_SESSION_ID="fixture")
     identities = []
     for _ in range(2):
         with source_machine_home.isolated_machine_home(env) as child:
@@ -93,7 +92,7 @@ def test_disposable_cluster_uses_pinned_binaries(tmp_path, monkeypatch, capsys):
 def test_evidence_cleanup_on_interrupt(tmp_path, monkeypatch, interruption):
     visited = []
     monkeypatch.setattr(reclaim, "destroy_evidence_clusters", visited.append)
-    env = {"YOKE_MACHINE_HOME": str(tmp_path), "YOKE_SESSION_ID": "fixture"}
+    env = source_env(YOKE_MACHINE_HOME=str(tmp_path), YOKE_SESSION_ID="fixture")
     with pytest.raises(interruption):
         with source_machine_home.isolated_machine_home(env) as child:
             evidence = Path(child["YOKE_SCRATCH_ROOT"])
@@ -113,7 +112,7 @@ def test_stop_signal_unwinds_and_restores_handler(tmp_path, monkeypatch, stop_si
     previous = signal.getsignal(stop_signal)
     with pytest.raises(SystemExit) as ended:
         with source_machine_home.isolated_machine_home(
-            {"YOKE_MACHINE_HOME": str(tmp_path), "YOKE_SESSION_ID": "fixture"}
+            source_env(YOKE_MACHINE_HOME=str(tmp_path), YOKE_SESSION_ID="fixture")
         ):
             signal.raise_signal(stop_signal)
     assert ended.value.code == 128 + stop_signal
@@ -249,7 +248,7 @@ def test_missing_initdb_keeps_binary_discovery_available(
     machine = tmp_path / "disposable-machine"
     if cache_directory:
         (machine / "postgres/17.11.1/bin").mkdir(parents=True)
-    incoming = {"YOKE_MACHINE_HOME": str(machine)}
+    incoming = source_env(YOKE_MACHINE_HOME=str(machine))
     env = shared_postgres_environment(incoming)
     assert "YOKE_PG_BIN_DIR" not in env
     discovered = tmp_path / "available-binaries"

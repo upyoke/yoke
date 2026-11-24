@@ -12,17 +12,10 @@ import tempfile
 
 import pytest
 
+from runtime.api.tools.source_env_test_support import source_env
 from yoke_core.domain.source_python_environment import SourcePythonEnvironment
 from yoke_core.tools import source_dev_run
 from yoke_core.tools.source_machine_home import isolated_machine_home
-
-
-def _source_env(**overrides: str) -> dict[str, str]:
-    # Keep the runner's Git on PATH rather than falling back to the macOS xcrun shim.
-    return {
-        **{key: os.environ[key] for key in ("PATH", "HOME", "TMPDIR") if key in os.environ},
-        **overrides,
-    }
 
 
 def _seed(home):
@@ -114,7 +107,7 @@ def test_snapshot_selects_explicit_config_and_rebases_default_paths(
     tmp_path, config_override
 ):
     config, original, _ = _seed(tmp_path / "machine")
-    env = _source_env(YOKE_SESSION_ID="fixture-session")
+    env = source_env(YOKE_SESSION_ID="fixture-session")
     if config_override:
         env["YOKE_MACHINE_CONFIG_FILE"] = str(config)
     else:
@@ -153,7 +146,7 @@ def test_symlinked_machine_home_rebases_both_aliases(tmp_path):
     config.write_text(json.dumps(payload))
     original = config.read_bytes()
     with isolated_machine_home(
-        _source_env(YOKE_MACHINE_HOME=str(alias), YOKE_SESSION_ID="fixture")
+        source_env(YOKE_MACHINE_HOME=str(alias), YOKE_SESSION_ID="fixture")
     ) as child:
         target = Path(child["YOKE_MACHINE_HOME"])
         copied = json.loads((target / "config.json").read_text())
@@ -170,7 +163,7 @@ def test_watcher_evidence_outlives_disposable_machine_settings(tmp_path, monkeyp
     monkeypatch.setattr("tempfile.tempdir", str(long_temp))
     config, original, _ = _seed(tmp_path / "machine")
     with isolated_machine_home(
-        _source_env(YOKE_MACHINE_HOME=str(config.parent), YOKE_SESSION_ID="fixture")
+        source_env(YOKE_MACHINE_HOME=str(config.parent), YOKE_SESSION_ID="fixture")
     ) as child:
         home = Path(child["YOKE_MACHINE_HOME"])
         evidence = Path(child["YOKE_SCRATCH_ROOT"])
@@ -202,7 +195,7 @@ def test_snapshot_copies_secrets_without_browser_runtime_links(tmp_path):
             server.bind(str(address))
             (profile / "SingletonSocket").symlink_to(address)
             with isolated_machine_home(
-                _source_env(YOKE_MACHINE_HOME=str(config.parent), YOKE_SESSION_ID="fixture")
+                source_env(YOKE_MACHINE_HOME=str(config.parent), YOKE_SESSION_ID="fixture")
             ) as child:
                 copied = Path(child["YOKE_MACHINE_HOME"]) / "secrets" / "profile"
                 assert {p.name for p in copied.iterdir()} == {"credential-link"}
@@ -245,7 +238,7 @@ def test_snapshot_skips_live_browser_profiles_and_stray_special_files(
         monkeypatch.chdir(secrets)
         stray.bind("socket")
         with isolated_machine_home(
-            _source_env(YOKE_MACHINE_HOME=str(config.parent), YOKE_SESSION_ID="fixture")
+            source_env(YOKE_MACHINE_HOME=str(config.parent), YOKE_SESSION_ID="fixture")
         ) as child:
             target = Path(child["YOKE_MACHINE_HOME"])
             assert not (target / profile.relative_to(config.parent)).exists()
@@ -268,7 +261,7 @@ def test_snapshot_skips_browser_check_profiles_and_preserves_other_secrets(tmp_p
     original = config.read_bytes()
 
     with isolated_machine_home(
-        _source_env(YOKE_MACHINE_HOME=str(config.parent), YOKE_SESSION_ID="fixture")
+        source_env(YOKE_MACHINE_HOME=str(config.parent), YOKE_SESSION_ID="fixture")
     ) as child:
         target = Path(child["YOKE_MACHINE_HOME"])
         copied_check = target / check.relative_to(config.parent)
@@ -297,6 +290,6 @@ def test_snapshot_unreadable_secret_names_failed_path(tmp_path, monkeypatch):
     monkeypatch.setattr(shutil, "copyfile", copyfile)
     with pytest.raises(OSError, match=re.escape(repr(str(token)))):
         with isolated_machine_home(
-            _source_env(YOKE_MACHINE_HOME=str(config.parent), YOKE_SESSION_ID="fixture")
+            source_env(YOKE_MACHINE_HOME=str(config.parent), YOKE_SESSION_ID="fixture")
         ):
             pytest.fail("unreadable secrets must refuse the snapshot")
