@@ -30,8 +30,11 @@ printed run ID. When a lane changes
 uses that branch's workflow definition.
 
 Windows shards provision Git Bash and enable Developer Mode for symlinks.
-Both native runners provision ripgrep before pytest. macOS also provisions
-fish for the installer shell-context checks.
+Windows uses the pinned ripgrep release. On a cache miss, the workflow checks
+the archive SHA256 against the published pin before extracting and caching
+`rg.exe`. The provisioning log records the verified digest or the cache hit
+and the binary version. macOS also provisions ripgrep and fish for the
+installer shell-context checks.
 
 ## How a run is laid out
 
@@ -46,13 +49,16 @@ steps. Pytest writes thread tracebacks to the shard log when a test takes
 longer than five minutes. The pytest step has an 18-minute timeout within
 the 30-minute job budget so the upload step can still save
 `pytest-output-<os>-<shard>` with the streamed log and any JUnit report.
+The shard keeps its pytest verdict if this diagnostic upload fails. The plan
+job's artifact uploads must succeed so the shards can run.
 The first Windows shard also repeats the repo picker and JavaScript contracts
 five times and saves the traceback from a deliberately stalled pytest worker.
 The plan retains modules skipped before import on its collection OS
 so native runners still receive them, with conservative product-wheel fixture
 affinity because their fixture closure cannot be imported on the plan host.
-Coverage manifests name these collection skips explicitly; each test and each
-module skip must appear exactly once in the shard reports.
+Coverage manifests name these collection skips explicitly. When evaluating
+coverage, each test and module skip must appear exactly once in the shard
+reports, and missing reports block that coverage check.
 
 The free macOS runner pool caps concurrency, so macOS shards queue; read
 runtime from each job's own start and finish times, not the run's wall clock.

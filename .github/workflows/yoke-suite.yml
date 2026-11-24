@@ -134,6 +134,9 @@ jobs:
     env:
       PYTHONUNBUFFERED: "1"
       YOKE_CI_PYTHON_SCOPE: all
+      RIPGREP_VERSION: "15.2.0"
+      # From the release's ripgrep-15.2.0-x86_64-pc-windows-msvc.zip.sha256 asset.
+      RIPGREP_SHA256: "71b2fef860abe467217a538ff31de02f5258807c0129f771846f87bd029aafc5"
     strategy:
       fail-fast: false
       matrix:
@@ -181,12 +184,22 @@ jobs:
           git config --global user.email "ci@yoke.local"
           git config --global user.name "Yoke CI"
           git config --global init.defaultBranch main
+      - name: Restore Windows ripgrep cache
+        id: ripgrep-cache
+        if: matrix.os == 'windows'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/yoke-ripgrep
+          key: yoke-ripgrep-windows-x64-${{ env.RIPGREP_VERSION }}-${{ env.RIPGREP_SHA256 }}
       - name: Provision Windows shell and symlinks
         if: matrix.os == 'windows'
         shell: pwsh
+        env:
+          RIPGREP_CACHE_HIT: ${{ steps.ripgrep-cache.outputs.cache-hit }}
         run: |
           $gitRoot = Join-Path $env:ProgramFiles 'Git'
           $gitBash = Join-Path $gitRoot 'bin/bash.exe'
+          # This Chocolatey fallback is rarely needed on windows-2025, which ships Git Bash.
           if (-not (Test-Path $gitBash)) {
             choco install git --yes --no-progress
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -195,11 +208,23 @@ jobs:
           & $gitBash --version
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Add-Content -Path $env:GITHUB_ENV -Value "YOKE_CI_GIT_BASH=$gitBash"
-          $ripgrep = (Get-Command rg.exe -CommandType Application -ErrorAction SilentlyContinue).Source
-          if (-not $ripgrep) {
-            choco install ripgrep --yes --no-progress
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-            $ripgrep = Join-Path $env:ChocolateyInstall 'bin/rg.exe'
+          $ripgrepDir = Join-Path $env:RUNNER_TEMP 'yoke-ripgrep'
+          $ripgrep = Join-Path $ripgrepDir 'rg.exe'
+          if ($env:RIPGREP_CACHE_HIT -ne 'true') {
+            $asset = "ripgrep-$env:RIPGREP_VERSION-x86_64-pc-windows-msvc"
+            $archive = Join-Path $env:RUNNER_TEMP "$asset.zip"
+            $url = "https://github.com/BurntSushi/ripgrep/releases/download/$env:RIPGREP_VERSION/$asset.zip"
+            Invoke-WebRequest -Uri $url -OutFile $archive -TimeoutSec 60
+            $digest = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash
+            if ($digest -ne $env:RIPGREP_SHA256) {
+              throw "ripgrep SHA256 mismatch for $($asset): expected $env:RIPGREP_SHA256, got $digest. Verify the upstream release checksum before updating the pin."
+            }
+            Write-Host "Verified ripgrep archive SHA256: $digest"
+            Expand-Archive -LiteralPath $archive -DestinationPath $env:RUNNER_TEMP
+            New-Item -ItemType Directory -Path $ripgrepDir -Force | Out-Null
+            Copy-Item -LiteralPath (Join-Path $env:RUNNER_TEMP "$asset/rg.exe") -Destination $ripgrep
+          } else {
+            Write-Host "Ripgrep cache hit for $env:RIPGREP_VERSION"
           }
           if (-not (Test-Path -LiteralPath $ripgrep -PathType Leaf)) {
             throw "Windows runner could not locate ripgrep after provisioning: $ripgrep"
@@ -212,6 +237,12 @@ jobs:
           New-ItemProperty -Path $unlock -Name AllowDevelopmentWithoutDevLicense -Value 1 -PropertyType DWord -Force | Out-Null
           python -c "from pathlib import Path; from tempfile import TemporaryDirectory; d = TemporaryDirectory(); p = Path(d.name); (p / 'link').symlink_to(p, target_is_directory=True); assert (p / 'link').is_symlink()"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Save Windows ripgrep cache
+        if: matrix.os == 'windows' && steps.ripgrep-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/yoke-ripgrep
+          key: ${{ steps.ripgrep-cache.outputs.cache-primary-key }}
       - name: Provision macOS shell and search tools
         if: matrix.os == 'macos'
         run: |
@@ -252,6 +283,7 @@ jobs:
           -- -v --max-worker-restart=0 -o faulthandler_timeout=300
       - name: Upload pytest output
         if: always()
+        continue-on-error: true # shard-coverage names missing reports and blocks the run
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: pytest-output-${{ matrix.os }}-${{ matrix.shard }}
