@@ -39,7 +39,8 @@ from yoke_cli.config.universe_export_download import (
     UniverseExportDownloadError,
     download_universe,
 )
-from yoke_cli.transport.https import TransportError, resolve_https_connection
+from yoke_cli.transport import https as https_transport
+from yoke_cli.transport.https import TransportError
 
 AdapterFn = Callable[[List[str]], int]
 
@@ -188,7 +189,7 @@ def universe_export(args: List[str]) -> int:
         parser.error("--pause-source cannot be combined with --estimate")
     emit = _emit_for(parsed.json_mode)
     try:
-        connection = resolve_https_connection()
+        connection = https_transport.resolve_https_connection()
         if connection is not None and onboard_destinations.is_hosted_url(
             connection.api_url
         ):

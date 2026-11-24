@@ -9,7 +9,8 @@ from yoke_cli.commands._helpers import parse_or_usage_error
 from yoke_cli.config import local_universe_setup as setup
 from yoke_contracts import onboard_destinations as onboard_destinations
 from yoke_cli.api_urls import join_api_url
-from yoke_cli.transport.https import TransportError, resolve_https_connection
+from yoke_cli.transport import https as https_transport
+from yoke_cli.transport.https import TransportError
 from yoke_contracts.https_urlopen import open_no_redirect
 from yoke_cli.commands.universe_upload import UPLOAD_USAGE, universe_upload
 
@@ -31,7 +32,7 @@ def universe_resume(args):
     if parsed is None:
         return 2
     try:
-        connection = resolve_https_connection()
+        connection = https_transport.resolve_https_connection()
         if connection is None:
             report = setup.universe_resume()
         elif onboard_destinations.is_hosted_url(connection.api_url):

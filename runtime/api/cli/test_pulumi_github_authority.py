@@ -49,8 +49,10 @@ def test_https_loader_verifies_binding_permissions_and_service_profile(
 
     monkeypatch.setattr(
         authority,
-        "resolve_https_connection",
-        lambda: SimpleNamespace(api_url="https://api.upyoke.com"),
+        "https_transport",
+        SimpleNamespace(
+            resolve_https_connection=lambda: SimpleNamespace(api_url="https://api.upyoke.com")
+        ),
     )
     loader = authority.build_pulumi_github_auth_loader(
         session_id="session", dispatch=dispatch, token_loader=token_loader
@@ -100,7 +102,9 @@ def test_loader_rejects_missing_permission_before_token_refresh(monkeypatch):
 
 def test_token_failure_does_not_echo_sensitive_cause(monkeypatch):
     monkeypatch.setattr(
-        authority, "resolve_https_connection", lambda: None
+        authority,
+        "https_transport",
+        SimpleNamespace(resolve_https_connection=lambda: None),
     )
     loader = authority.build_pulumi_github_auth_loader(
         session_id=None,

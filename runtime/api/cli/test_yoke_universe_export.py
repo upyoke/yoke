@@ -110,7 +110,9 @@ def test_export_uses_self_host_https_download(monkeypatch, capsys, tmp_path):
         env="self-host",
     )
     calls = []
-    monkeypatch.setattr(commands, "resolve_https_connection", lambda: connection)
+    monkeypatch.setattr(
+        commands, "https_transport", SimpleNamespace(resolve_https_connection=lambda: connection)
+    )
     monkeypatch.setattr(
         commands,
         "download_universe",
@@ -136,7 +138,9 @@ def test_hosted_export_stays_on_platform_guidance(monkeypatch, capsys):
         token="token",
         env="stage",
     )
-    monkeypatch.setattr(commands, "resolve_https_connection", lambda: connection)
+    monkeypatch.setattr(
+        commands, "https_transport", SimpleNamespace(resolve_https_connection=lambda: connection)
+    )
     monkeypatch.setattr(
         setup,
         "_export_engine",
@@ -167,7 +171,9 @@ def test_export_estimate_and_exclusion_reach_selected_authority(
         api_url="https://yoke.example.test", token="test", env="self-host"
     )
     monkeypatch.setattr(
-        commands, "resolve_https_connection", lambda: connection if remote else None
+        commands,
+        "https_transport",
+        SimpleNamespace(resolve_https_connection=lambda: connection if remote else None),
     )
     result = {
         "estimate": True,
@@ -209,7 +215,9 @@ def test_local_estimate_uses_the_export_engine(monkeypatch):
 def test_resume_preserves_named_local_recovery(monkeypatch, capsys):
     from yoke_cli.commands import universe_transfer
 
-    monkeypatch.setattr(universe_transfer, "resolve_https_connection", lambda: None)
+    monkeypatch.setattr(
+        universe_transfer, "https_transport", SimpleNamespace(resolve_https_connection=lambda: None)
+    )
 
     def busy():
         raise setup.LocalUniverseSetupError(
@@ -226,8 +234,12 @@ def test_hosted_resume_names_dashboard_control(monkeypatch, capsys):
 
     monkeypatch.setattr(
         universe_transfer,
-        "resolve_https_connection",
-        lambda: HttpsConnection("https://app.stage.upyoke.com/api/orgs/acme", "token"),
+        "https_transport",
+        SimpleNamespace(
+            resolve_https_connection=lambda: HttpsConnection(
+                "https://app.stage.upyoke.com/api/orgs/acme", "token"
+            )
+        ),
     )
     assert universe_transfer.universe_resume([]) == 1
     assert "Resume source" in capsys.readouterr().err

@@ -8,6 +8,7 @@ import io
 import json
 
 from contextlib import redirect_stderr, redirect_stdout
+from types import SimpleNamespace
 
 from typing import Any, Dict, List
 
@@ -19,7 +20,8 @@ from yoke_cli.commands.adapters import github_actions_workflow as workflow_mod
 
 from yoke_cli.main import main as cli_main
 
-from yoke_cli.transport.https import HttpsConnection
+from yoke_cli.transport import dispatcher, https
+from yoke_cli.transport.https import HttpsConnection, ServerHandshake, TransportError
 
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
@@ -66,13 +68,25 @@ def _run(
     with patch.dict("os.environ", {"YOKE_SESSION_ID": "test-session"}):
         with (
             patch.object(workflow_mod, "ensure_handlers_loaded"),
-            patch(
-                "yoke_cli.transport.https.resolve_https_connection",
-                return_value=_CONNECTION,
+            patch.object(
+                https,
+                "active_connection",
+                return_value={
+                    "transport": "https",
+                    "api_url": _CONNECTION.api_url,
+                    "env": _CONNECTION.env,
+                },
             ),
-            patch(
-                "yoke_cli.transport.https.relay_https",
-                side_effect=relay,
+            patch.object(https, "resolve_token", return_value=_CONNECTION.token),
+            patch.object(
+                dispatcher,
+                "https_transport",
+                SimpleNamespace(
+                    ServerHandshake=ServerHandshake,
+                    TransportError=TransportError,
+                    resolve_https_connection=https.resolve_https_connection,
+                    relay_https=relay,
+                ),
             ),
         ):
             with (

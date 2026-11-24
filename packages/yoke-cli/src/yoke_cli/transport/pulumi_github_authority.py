@@ -9,7 +9,7 @@ from typing import Any, Callable
 
 from yoke_cli.config import github_local_user_access
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
-from yoke_cli.transport.https import resolve_https_connection
+from yoke_cli.transport import https as https_transport
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.github_app_installation_permissions import (
     permission_level_satisfies,
@@ -105,7 +105,7 @@ def build_pulumi_github_auth_loader(
                     "inconsistent; provide one repository-bound GITHUB_TOKEN"
                 )
             return PulumiGithubAuth(repo=repo, token=token)
-        connection = resolve_https_connection()
+        connection = https_transport.resolve_https_connection()
         try:
             token = token_loader(
                 service_api_url=(connection.api_url if connection else None),
