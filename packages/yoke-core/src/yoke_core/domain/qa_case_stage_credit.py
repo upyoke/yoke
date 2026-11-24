@@ -82,6 +82,10 @@ def execute_authorized_case(
         refuse_stored_host_names(case)
     except MachineConstraintError as exc:
         raise cases.QaCaseExecutionError(str(exc)) from exc
+    from yoke_core.domain.qa_lane_head import reconcile_case_lane
+
+    if reconcile_case_lane(case, actor):
+        case = cases.fetch_case_execution_context(requirement_id, actor=actor, **selection)
     runner_options = {
         "base_url": base_url,
         "expected_branch": expected_branch,

@@ -36,10 +36,10 @@ Provide concrete result and verification text. `--verification-status`
 accepts `approved`, `completed`, `passed`, or `satisfied`.
 Read `yoke merge item --help` for target and pull-request options.
 
-Before readiness on an actual merge, Yoke compares the local lane HEAD with
-its recorded candidate. A missed hook recording is repaired and re-read before
-QA and landing use that candidate. A failed recording names the `project snapshot
-sync --head-only` recovery; `--check` stays read-only.
+Before checking readiness for a merge, Yoke records the selected local lane’s
+current HEAD if it differs from the recorded candidate. If recording fails,
+fix the reported cause and rerun the merge. The read-only `--check` reports both
+commits when the lane head is stale.
 
 For a standalone landing with declared `ci_workflow_file`, retry the same
 command after fixing post-push CI. Without that declaration, observed push

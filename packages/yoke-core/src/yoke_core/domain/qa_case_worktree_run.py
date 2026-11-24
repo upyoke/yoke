@@ -52,6 +52,7 @@ def execute_worktree_case(
     *,
     base_url: str = "",
     timeout_seconds: Optional[int] = None,
+    expected_sha: Optional[str] = None,
     checkout_path: Optional[str | Path] = None,
     allow_tree_mismatch: bool = False,
     actor: Optional[ActorContext] = None,
@@ -89,6 +90,12 @@ def execute_worktree_case(
         # binding decision below compares it against the tree this case answers
         # for.
         tree = verification_tree_binding.resolve_tree_identity(checkout)
+        if expected_sha and (tree is None or tree.head_sha != expected_sha):
+            actual = tree.head_sha if tree else "unreadable"
+            raise QaCaseExecutionError(
+                f"qa_expected_revision_mismatch: {checkout} is at {actual}, expected "
+                f"{expected_sha}. Restore the expected checkout, then rerun the same command."
+            )
         # A case whose lane branch has no live worktree falls back to the
         # project checkout, so the gate run can land in main while the
         # session's claimed lane sits untouched. The verdict this produces is

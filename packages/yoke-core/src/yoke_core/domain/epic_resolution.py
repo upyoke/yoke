@@ -24,6 +24,10 @@ def _p(conn) -> str:
 
 def task_get(conn, epic_id: str, task_num: int) -> str:
     """Get one task row (pipe-delimited)."""
+    return _pipe_row(task_get_row(conn, epic_id, task_num), TASK_COLUMNS)
+
+
+def task_get_row(conn, epic_id: str, task_num: int) -> dict:
     row = query_one(
         conn,
         """SELECT id, epic_id, task_num, title, item_worktree_id,
@@ -33,7 +37,7 @@ def task_get(conn, epic_id: str, task_num: int) -> str:
     )
     if row is None:
         raise LookupError(f"task '{epic_id}/{task_num}' not found")
-    return _pipe_row(row, TASK_COLUMNS)
+    return dict(row)
 
 
 def task_list(conn, epic_id: str) -> str:

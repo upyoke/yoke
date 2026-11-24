@@ -291,7 +291,7 @@ def test_missed_hook_records_repair_before_candidate_reads(repo, monkeypatch, re
         {"branch": "lane", "path": str(repo), "commit_sha": old}
     ]}
     events = []
-    def record(project, checkout):
+    def record(project, checkout, **_kwargs):
         events.append((project, checkout))
         return record_error
     def refresh():
@@ -301,8 +301,8 @@ def test_missed_hook_records_repair_before_candidate_reads(repo, monkeypatch, re
     refreshed, error = lane.refresh_recorded_head(item, refresh)
     assert events[0] == ("example", str(repo))
     if record_error:
-        assert "merge_lane_head_unrecorded" in error
-        assert "--head-only" in error
+        assert "lane_head_unrecorded" in error
+        assert "rerun the same command" in error
         assert events == [("example", str(repo))]
     else:
         assert not error
@@ -317,7 +317,7 @@ def test_deferred_head_recording_refuses_stale_reread(repo, monkeypatch):
     item = {"project": {"slug": "example"}, "worktrees": [
         {"branch": "lane", "path": str(repo), "commit_sha": _git(repo, "rev-parse", "main")}
     ]}
-    monkeypatch.setattr(lane_head_record, "record_lane_head", lambda *_a: "")
+    monkeypatch.setattr(lane_head_record, "record_lane_head", lambda *_a, **_kw: "")
     _, error = lane.refresh_recorded_head(item, lambda: (item, ""))
-    assert "merge_lane_head_unrecorded" in error
-    assert "--head-only" in error
+    assert "lane_head_unrecorded" in error
+    assert "rerun the same command" in error

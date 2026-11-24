@@ -12,7 +12,6 @@ is not landing.
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any, Optional
 
 from yoke_contracts.refusal_recovery import compose_refusal
@@ -36,9 +35,16 @@ def _queued_head(item: dict[str, Any]) -> str:
     return str((item.get("merge_queue") or {}).get("head_sha") or "").strip()
 
 
+def _merge_lane_key(lane: dict[str, Any]) -> tuple:
+    return lane.get("id"), lane.get("branch"), lane.get("path")
+
+
 def merge_source_lane(item: dict[str, Any]) -> Optional[dict[str, Any]]:
     """The sole active lane, the lane at the queued head, or the integration lane."""
     lanes = active_lanes(item)
+    selected = item.get("_selected_merge_lane")
+    if selected is not None:
+        return next((lane for lane in lanes if _merge_lane_key(lane) == selected), None)
     if len(lanes) == 1:
         return lanes[0]
     queued_head = _queued_head(item)
@@ -111,36 +117,43 @@ def lane_path(item: dict[str, Any]) -> str:
     return str(lane.get("path") or "").strip()
 
 
-def refresh_recorded_head(item: dict[str, Any], resolve_item):
-    """Record a missed local HEAD move before commit-bound readiness reads."""
-    from yoke_core.domain import lane_head_record
-    from yoke_core.domain import standalone_item_merge_git as git
+def stale_head_note(item: dict[str, Any]) -> str:
+    from yoke_core.domain.lane_head_record import local_lane_head
 
     lane = merge_source_lane(item)
-    checkout = lane_path(item)
-    if lane is None or not checkout:
-        return item, ""
-    head = git.git_out(checkout, "rev-parse", "HEAD")
-    if not head and Path(checkout).is_dir():
-        return item, compose_refusal(
-            "merge_lane_head_unreadable: local lane HEAD could not be read",
-            recovery=f"repair the Git checkout at {checkout}, then retry merge",
-        )
-    if not head or head == str(lane.get("commit_sha") or "").strip():
+    if lane is None:
+        return ""
+    head, error = local_lane_head(lane)
+    recorded = str(lane.get("commit_sha") or "")
+    if error or not head or head == recorded:
+        return ""
+    return (
+        f"lane head stale: lane at {head}, record at {recorded or '(none)'}; "
+        "the merge will record the lane head"
+    )
+
+
+def refresh_recorded_head(item: dict[str, Any], resolve_item):
+    """Record the local merge source before commit-bound readiness reads."""
+    from yoke_core.domain.lane_head_record import reconcile_lane_head
+
+    lane = merge_source_lane(item)
+    if lane is None:
         return item, ""
     project = str((item.get("project") or {}).get("slug") or "")
-    repair = lane_head_record.rerecord_command(project, checkout)
-    detail = lane_head_record.record_lane_head(project, checkout)
-    if detail:
-        return item, compose_refusal(
-            f"merge_lane_head_unrecorded: {detail}", recovery=f"run `{repair}`, then retry merge"
-        )
+    head, error = reconcile_lane_head(project, lane)
+    if error or not head:
+        return item, error
     refreshed, error = resolve_item()
+    if refreshed:
+        # A moved queued lane no longer matches the queue's old commit.
+        # Keep the selected lane so readiness can judge that mismatch.
+        refreshed = {**refreshed, "_selected_merge_lane": _merge_lane_key(lane)}
     current = merge_source_lane(refreshed) if refreshed else None
     if error or current is None or current.get("commit_sha") != head:
         return item, compose_refusal(
-            f"merge_lane_head_unrecorded: {error or 'recorded candidate does not match lane HEAD'}",
-            recovery=f"run `{repair}`, then retry merge",
+            f"lane_head_unrecorded: {error or 'recorded candidate does not match lane HEAD'}",
+            recovery="rerun the same command",
         )
     return refreshed, ""
 
@@ -152,4 +165,5 @@ __all__ = [
     "lane_resolution_error",
     "merge_source_lane",
     "refresh_recorded_head",
+    "stale_head_note",
 ]

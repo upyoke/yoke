@@ -52,6 +52,7 @@ class ChainReadResponse(BodyResponse):
 
 class TaskBodyResponse(BodyResponse):
     task_num: int
+    worktree_id: Optional[int] = None
 
 
 class MessageResponse(BaseModel):

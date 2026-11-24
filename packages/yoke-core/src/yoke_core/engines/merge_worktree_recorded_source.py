@@ -2,7 +2,24 @@
 
 from __future__ import annotations
 
-from yoke_core.domain.merge_context import MergeContext
+import shlex
+
+from yoke_core.domain.merge_context import MergeArgs, MergeContext
+
+
+def reconcile_epic_source(args: MergeArgs, epic: dict) -> None:
+    """Bind the requested epic branch before any comparison uses its SHA."""
+    from yoke_core.domain.lane_head_record import reconcile_lane_head
+    from yoke_core.domain.standalone_item_merge_lane import active_lanes
+
+    lane = next((row for row in active_lanes(epic) if row.get("branch") == args.branch), None)
+    if lane is None:
+        return
+    project = str((epic.get("project") or {}).get("slug") or "")
+    head, error = reconcile_lane_head(project, lane)
+    if error:
+        raise RuntimeError(error)
+    args.source_sha = head or lane.get("commit_sha") or args.source_sha
 
 
 def bind_recorded_source(ctx: MergeContext, current_branch_sha: str) -> str:
@@ -43,12 +60,13 @@ def bind_recorded_source(ctx: MergeContext, current_branch_sha: str) -> str:
         return ""
     if not _is_ancestor(ctx, current_branch_sha, source_sha):
         worktree = ctx.worktree_path or ctx.repo_root
+        inspect = shlex.join([
+            "git", "-C", str(worktree), "log", "--oneline", "--left-right",
+            f"{source_sha}...{current_branch_sha}",
+        ])
         return (
-            f"lane {ctx.args.branch!r} at {current_branch_sha[:12]} and its "
-            f"recorded HEAD {source_sha[:12]} have diverged; inspect with "
-            f"`git -C {worktree} log --oneline {source_sha}..{current_branch_sha}` "
-            "and once the correct side is confirmed, resync the record with "
-            f"`yoke project snapshot sync --head-only {worktree}`"
+            f"lane {ctx.args.branch!r} at {current_branch_sha} and its "
+            f"recorded HEAD {source_sha} have diverged; inspect with `{inspect}`"
         )
     checked_out_worktree = _checked_out_worktree(ctx)
     if checked_out_worktree:

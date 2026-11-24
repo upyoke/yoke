@@ -84,14 +84,18 @@ def handle_task_get(request: FunctionCallRequest) -> HandlerOutcome:
     if err:
         return err
     epic_id, task_num = ids
+    from yoke_core.domain.epic_parsing import TASK_COLUMNS, _pipe_row
+    from yoke_core.domain.epic_resolution import task_get_row
+
     with _open_connection() as conn:
         try:
-            body = public_epic_pipe_rows(
-                conn, epic_id, epic.task_get(conn, str(epic_id), task_num)
-            )
+            task = task_get_row(conn, str(epic_id), task_num)
+            body = public_epic_pipe_rows(conn, epic_id, _pipe_row(task, TASK_COLUMNS))
         except LookupError as exc:
             return _not_found(str(exc))
-    response = TaskBodyResponse(epic_id=epic_id, task_num=task_num, body=body)
+    response = TaskBodyResponse(
+        epic_id=epic_id, task_num=task_num, body=body, worktree_id=task["item_worktree_id"]
+    )
     return HandlerOutcome(
         result_payload=response.model_dump(),
         primary_success=True,

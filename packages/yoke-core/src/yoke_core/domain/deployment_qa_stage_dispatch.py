@@ -101,6 +101,13 @@ def dispatch_deployment_qa_stage(
         redispatch_after_connection_loss,
     )
 
+    from yoke_core.domain.deploy_pipeline_control_plane import DeploymentControlPlaneError
+    from yoke_core.domain.deployment_lane_heads import reconcile_member_lanes
+
+    try:
+        reconcile_member_lanes(run_id)
+    except DeploymentControlPlaneError as exc:
+        return -5, str(exc)
     # Lost idempotent dispatches retry, then stop the driver resumably.
     response = redispatch_after_connection_loss(
         lambda request_id: call_dispatcher(

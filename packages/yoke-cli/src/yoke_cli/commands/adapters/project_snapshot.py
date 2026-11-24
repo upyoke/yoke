@@ -177,8 +177,6 @@ def sync_local_snapshot_for_write(
         )
         assert_project_repository(plan.repo_root, project_id, session_id=session_id, timeout_s=timeout_s)
         if head_only:
-            # Identity-only callers match the git hook shims: no blob scan,
-            # and the server stores no snapshot for them.
             response = _dispatch_sync_payload(
                 project=project_id,
                 payload=identity_sync_payload(
@@ -232,7 +230,10 @@ def sync_local_snapshot_for_write(
             message,
             repair,
         )
-    return _sync_status(True, "ok", "", "")
+    return {
+        **_sync_status(True, "ok", "", ""),
+        "snapshots": (response.result or {}).get("snapshots") or [],
+    }
 
 
 def _sync_status(
@@ -295,8 +296,8 @@ def _write_repair(
     retry_command: str,
     snapshot_repair: str,
 ) -> str:
-    # Only a response-deadline timeout recommends retry. Auth/validation
-    # refusals keep an empty repair so the named original error stands.
+    # Auth/validation
+    # refusals retain their own recovery.
     if _RESPONSE_TIMEOUT_MARKER in message:
         return retry_command
     if str(code).startswith("snapshot_") or not code:
@@ -311,7 +312,6 @@ def _failure_warning(message: str, repair: str) -> str:
 
 
 def _sync_outcome_line(response: Any, *, repair: Optional[str] = None) -> str:
-    """Use a note for designed deferrals and a warning for failures."""
     error = getattr(response, "error", None)
     message = (getattr(error, "message", "") or "") or "snapshot sync failed"
     if _is_snapshot_deferral(response):
