@@ -195,12 +195,14 @@ PROFILE_CREATION
 VALIDATE_PASSWORD
 Add-LocalGroupMember -SID 'S-1-5-32-555' -Member $name -ErrorAction SilentlyContinue
 if((Get-LocalGroupMember -SID 'S-1-5-32-544').Name -contains "$env:COMPUTERNAME\$name"){throw 'windows_test_user_admin: remove the test user from Administrators and retry'}
-New-Item -ItemType Directory -Force "$homePath\.ssh",'C:\YokeQa\goldens' | Out-Null
+New-Item -ItemType Directory -Force "$homePath\.ssh",'C:\YokeQa' | Out-Null
 USER_SSH_ACCESS
+# Fresh goldens inherit this grant. Do not walk or re-ACL sealed goldens.
+Invoke-YokeAcl 'C:\YokeQa' /grant "${name}:(OI)(CI)M"
+New-Item -ItemType Directory -Force 'C:\YokeQa\goldens' | Out-Null
 PRIVATE_ROOT
 TAILNET_STARTUP
 Disable-YokeTailnetTrayStartup -UserHome $homePath -UserSid $sid | ConvertTo-Json -Compress
-Invoke-YokeAcl 'C:\YokeQa' /grant "${name}:(OI)(CI)M" /T
 Set-ItemProperty 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name fDenyTSConnections -Value 0
 RDP_FIREWALL
 Write-Output 'Native standard user, private golden directory and private desktop routes ready.'

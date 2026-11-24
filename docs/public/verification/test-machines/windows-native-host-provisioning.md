@@ -182,8 +182,9 @@ key for the administrator bootstrap in
 Administrators/SYSTEM. Validate the effective configuration and restart sshd.
 
 For an **existing** VM the provisioner creates the standard account/profile,
-authorizes its `.ssh\authorized_keys`, prepares goldens, and enables private RDP over the
-tailnet or an SSH forward:
+authorizes its `.ssh\authorized_keys`, and enables private RDP over the tailnet
+or an SSH forward. It grants inheritable access on `C:\YokeQa` before creating
+the golden directory and preserves the ACLs on sealed golden contents:
 
 ```text
 python -m yoke_harness.native_windows.provision --project P --machine VM --host ADDRESS --resource-group GROUP --admin-user ADMIN --test-user yokeqa

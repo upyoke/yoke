@@ -77,6 +77,10 @@ def test_provisioning_failure_stops_setup_and_redacts_secret(monkeypatch, failur
     assert len(calls) == 2
     setup = calls[1]
     assert setup.index(SCRIPT) < setup.index(VALIDATE_ACCOUNT_PASSWORD) < setup.index(AUTOLOGON_SCRIPT)
+    grant = r'''Invoke-YokeAcl 'C:\YokeQa' /grant "${name}:(OI)(CI)M"'''
+    goldens = r"New-Item -ItemType Directory -Force 'C:\YokeQa\goldens'"
+    assert grant in setup.splitlines()
+    assert setup.index(VALIDATE_ACCOUNT_PASSWORD) < setup.index(grant) < setup.index(goldens)
 
 
 def powershell(script, *, timeout=45):
