@@ -21,9 +21,9 @@ from yoke_core.domain.machine_registry import register_machine
 from yoke_core.domain.overview_machine_activation import (
     MACHINE_MODULE_CONNECT_HARNESS,
     MACHINE_MODULE_MACHINE_CONNECTED,
-    every_machine_has_harness,
     latch_machine_activations,
     machine_module_rows,
+    read_owner_activations,
     read_registered_machines,
 )
 
@@ -140,7 +140,6 @@ def test_latch_is_monotone_per_machine_and_module(test_db):
         rows[MACHINE_B]["connected_at"]
         and rows[MACHINE_B]["harness_activated_at"] is None
     )
-    assert every_machine_has_harness(list(rows.values())) is False
     first = rows[MACHINE_A]["harness_activated_at"]
 
     # The signal disappears; the latch does not.
@@ -286,3 +285,26 @@ def test_onboarding_and_machine_detail_agree_on_installation(test_db, monkeypatc
     desktop = next(row for row in actual["harnesses"] if row["key"] == "cursor-desktop")
     assert desktop["status"] == "not_installed"
     assert desktop["version"] is None
+
+
+def test_owner_activations_include_retired_machines_and_scope_by_owner(test_db):
+    owner, teammate = _actor(test_db), _actor(test_db)
+    _seed_relay(test_db, MACHINE_A, "retired", actor_id=owner)
+    _seed_relay(test_db, MACHINE_B, "live", actor_id=teammate)
+    test_db.execute(
+        "UPDATE machines SET retired_at = %s WHERE machine_id = %s",
+        (iso8601_now(), MACHINE_A),
+    )
+    for machine_id, day in ((MACHINE_A, 1), (MACHINE_B, 2)):
+        test_db.execute(
+            "INSERT INTO overview_machine_activation_facts "
+            "(machine_id, module_key, activated_at) VALUES (%s, %s, %s)",
+            (machine_id, MACHINE_MODULE_CONNECT_HARNESS, f"2026-08-0{day}T00:00:00Z"),
+        )
+    test_db.commit()
+
+    owner_latch = {MACHINE_MODULE_CONNECT_HARNESS: parse_instant("2026-08-01T00:00:00Z")}
+    teammate_latch = {MACHINE_MODULE_CONNECT_HARNESS: parse_instant("2026-08-02T00:00:00Z")}
+    assert read_owner_activations(test_db, owner) == owner_latch
+    assert read_owner_activations(test_db, teammate) == teammate_latch
+    assert read_owner_activations(test_db, None) == owner_latch

@@ -334,7 +334,7 @@ class TestProxyMutations:
         assert anonymous.json()["success"] is True
         assert seen[1] is None
 
-    def test_latch_persists_through_the_proxy(self, ui_client, test_db):
+    def test_host_wizard_fact_through_proxy(self, ui_client, test_db):
         first = _call(
             ui_client,
             {
@@ -344,7 +344,7 @@ class TestProxyMutations:
         ).json()
         wizard = first["result"]["modules"][0]
         assert wizard["state"] == "activated"
-        row = test_db.execute(
+        assert wizard["activated_at"] is None
+        assert not test_db.execute(
             "SELECT module_key FROM overview_activation_facts"
         ).fetchall()
-        assert [r[0] for r in row] == ["finish_installation_wizard"]

@@ -284,8 +284,9 @@ Both kinds carry stored creation time and nullable authoritative inviter name.
 [Invitation details](../projects/teammate-invitations.md) owns refs and refusal recovery.
 [Actors and org roles](actors.md) owns roster, state and role changes.
 
-Overview activation reads/latches universe setup facts; hiding removes a module until the caller
-explicitly resets onboarding preferences. Per-machine connect facts include approval/hook health,
+Overview activation reads and latches each person's setup facts through their machines and the
+universe's onboard run. Hiding removes a module until the caller explicitly resets onboarding
+preferences. Per-machine connect facts include approval/hook health,
 and onboarding facts retain live outcomes, next action/blocker and superseding deployment. Latching
 never rewrites current evidence. Model/auth/identity/migration runtime operations keep their own
 permission and serving-floor contracts; command help names the reachable repair.

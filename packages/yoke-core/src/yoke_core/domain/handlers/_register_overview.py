@@ -4,9 +4,8 @@ All ids are browser-proxied UI surfaces (``adapter_status=
 "internal"``): the workbench dispatches them through the local
 ``yoke ui`` proxy or the hosted doorman, so no agent CLI adapter exists.
 ``overview.vitals.get`` is the actor-visible state/momentum projection.
-``overview.activation.get`` declares its one sanctioned side effect —
-the universe-scoped monotone activation latch; the dismiss/restore pair
-are ordinary actor-scoped mutations. ``ambient_session_required=False``
+``overview.activation.get`` latches per-machine steps and the universe's
+Run onboard step; the dismiss/restore pair are ordinary actor-scoped mutations. ``ambient_session_required=False``
 because a browser has no harness session: the local proxy or hosted
 doorman binds the acting actor, and the handlers refuse actor-scoped
 writes when none is bound.

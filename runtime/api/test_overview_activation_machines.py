@@ -1,10 +1,8 @@
-"""The harness activation module answered per registered machine.
+"""Live machine rows inside the viewer's onboarding steps.
 
-Drives ``overview.activation.get`` against a universe with more than one
-machine: the wizard row counts and names them, the harness module carries
-one row per machine with its own state and hook health, the module reads
-next up while any machine has connected nothing, and every latch is
-monotone per machine.
+Drives ``overview.activation.get`` with multiple registered machines.
+The wizard counts and names them. Each harness row keeps its own state,
+hook health and monotone latch.
 """
 
 from __future__ import annotations
@@ -80,7 +78,7 @@ def _health(machine):
     }
 
 
-def test_a_relay_only_machine_stays_next_up_beside_a_connected_one(test_db):
+def test_one_connected_machine_activates_the_module_beside_a_pending_one(test_db):
     _seed_relay(test_db, MACHINE_A, "alpha-box")
     _seed_relay(test_db, MACHINE_B, "beta-box")
     _seed_session(
@@ -103,11 +101,11 @@ def test_a_relay_only_machine_stays_next_up_beside_a_connected_one(test_db):
     assert wizard["state"] == "activated"
 
     harness = modules["connect_harness"]
-    assert harness["state"] == "in_progress"
-    assert harness["activated_at"] is None
+    assert harness["state"] == "activated"
     rows = _machines(harness)
     alpha, beta = rows[MACHINE_A], rows[MACHINE_B]
     assert alpha["state"] == "activated" and alpha["activated_at"]
+    assert harness["activated_at"] == alpha["activated_at"]
     assert alpha["connected"]["executor"] == "claude-code"
     assert alpha["surfaces"] == ["claude-cli", "codex-cli"]
     assert _health(alpha) == {
@@ -135,21 +133,7 @@ def test_a_relay_only_machine_stays_next_up_beside_a_connected_one(test_db):
         "claude-desktop",
         "codex-desktop",
     }
-    # Later modules stay locked behind the pending machine.
-    assert modules["run_onboard"]["state"] == "not_started"
-
-
-def test_every_machine_connected_activates_the_module(test_db):
-    _seed_relay(test_db, MACHINE_A, "alpha-box")
-    _seed_relay(test_db, MACHINE_B, "beta-box")
-    _seed_session(test_db, "s-a", MACHINE_A)
-    _seed_session(test_db, "s-b", MACHINE_B, executor="codex", surface="codex-cli")
-
-    harness = _modules()["connect_harness"]
-
-    assert harness["state"] == "activated"
-    assert harness["activated_at"]
-    assert all(row["state"] == "activated" for row in harness["machines"])
+    assert modules["run_onboard"]["state"] == "in_progress"
 
 
 def test_the_harness_latch_holds_per_machine_when_sessions_vanish(test_db):
@@ -168,25 +152,12 @@ def test_the_harness_latch_holds_per_machine_when_sessions_vanish(test_db):
     # A machine that registers afterwards starts with no latch of its own.
     _seed_relay(test_db, MACHINE_B, "beta-box")
     later = _modules()["connect_harness"]
-    assert later["state"] == "in_progress"
-    assert _machines(later)[MACHINE_A]["activated_at"] == activated_at
-    assert _machines(later)[MACHINE_B]["activated_at"] is None
-
-
-def test_a_universe_latch_row_for_the_harness_module_is_inert(test_db):
-    test_db.execute(
-        "INSERT INTO overview_activation_facts (module_key, activated_at) "
-        "VALUES ('connect_harness', %s)",
-        (iso8601_now(),),
-    )
-    test_db.commit()
-
-    harness = _modules(payload={"host_facts": {"machine_connected": True}})[
-        "connect_harness"
-    ]
-
-    assert harness["state"] == "in_progress"
-    assert harness["machines"] == []
+    assert later["state"] == "activated"
+    assert later["activated_at"] == activated_at
+    rows = _machines(later)
+    assert rows[MACHINE_A]["activated_at"] == activated_at
+    assert rows[MACHINE_B]["state"] == "in_progress"
+    assert rows[MACHINE_B]["activated_at"] is None
 
 
 def test_hook_health_regresses_per_machine_under_a_held_latch(test_db):
@@ -209,30 +180,6 @@ def test_hook_health_regresses_per_machine_under_a_held_latch(test_db):
     again = _machines(_modules()["connect_harness"])[MACHINE_A]
     assert again["state"] == "activated"
     assert _health(again)["codex"] == "red"
-
-
-def test_the_machine_row_answers_for_the_viewer_not_the_universe(test_db):
-    from yoke_core.domain.actors import seed_human_actor
-
-    _seed_relay(test_db, MACHINE_A, "first-box")
-    invitee = seed_human_actor(test_db, "invitee")
-    test_db.commit()
-    outcome = handle_overview_activation_get(
-        FunctionCallRequest(
-            function="overview.activation.get",
-            actor=ActorContext(actor_id=str(invitee), session_id=""),
-            target=TargetRef(kind="global"),
-            payload={"host_facts": {"machine_connected": False}},
-        )
-    )
-    assert outcome.primary_success, outcome.error
-    wizard = {m["key"]: m for m in outcome.result_payload["modules"]}[
-        "finish_installation_wizard"
-    ]
-    row = next(s for s in wizard["submodules"] if s["key"] == "machine_universe")
-    # Another actor's connected machine is not the invitee's progress.
-    assert row["done"] is False
-    assert row["machines"] == []
 
 
 def test_retired_and_unregistered_machines_do_not_block_harness_setup(test_db):

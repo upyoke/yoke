@@ -89,21 +89,21 @@ def test_activation_facts_are_unique_per_module_key(conn):
     create_ui_preference_tables(conn)
     conn.execute(
         "INSERT INTO overview_activation_facts (module_key, activated_at) "
-        "VALUES ('connect_harness', %s)",
+        "VALUES ('run_onboard', %s)",
         (FIRST_ACTIVATION_AT,),
     )
     conn.commit()
     # The monotone latch inserts with conflict-skip, never a second row.
     conn.execute(
         "INSERT INTO overview_activation_facts (module_key, activated_at) "
-        "VALUES ('connect_harness', %s) "
+        "VALUES ('run_onboard', %s) "
         "ON CONFLICT (module_key) DO NOTHING",
         (parse_instant("2026-02-02T00:00:00Z"),),
     )
     conn.commit()
     row = conn.execute(
         "SELECT activated_at FROM overview_activation_facts "
-        "WHERE module_key = 'connect_harness'"
+        "WHERE module_key = 'run_onboard'"
     ).fetchone()
     assert row[0] == FIRST_ACTIVATION_AT
 

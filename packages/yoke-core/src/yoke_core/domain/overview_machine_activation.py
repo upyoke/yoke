@@ -1,25 +1,17 @@
-"""Per-machine facts and latches behind the Overview's machine-keyed modules.
+"""Machine history behind the Overview's per-person onboarding steps.
 
-Two activation modules answer for a machine rather than for the universe:
-whether a machine is connected, and whether a harness has run from it. A
-universe is shared by many people and many machines, so a second machine
-viewing the same organization must not read the first machine's history
-as its own — "claude-code connected 21m ago" with every harness target
-green, while it has connected nothing.
+A person's wizard and harness steps use the earliest latch across machines
+they own, including retired machines. A local universe without a bound actor
+uses every owned machine's history.
 
-Machine identity is read in exactly one place, :func:`read_registered_machines`.
-The machine registry supplies live identities, names and registration facts.
-Retired and unregistered machines are excluded. Relays supply installed
-surfaces and liveness; sessions supply harness activity for each live machine.
-
-The read is scoped to the viewing actor through registry ownership. Without
-a bound actor (a local single-actor universe), all live machines are listed.
+The machine registry supplies live identities, names and registration facts
+for display. Relays supply installed surfaces and liveness, and sessions
+supply harness activity. Each live machine has its own rows and hook health.
+A machine that has yet to connect a harness still shows its own next step.
 
 The latch is monotone per ``(machine_id, module_key)`` in
-``overview_machine_activation_facts``: once a machine has been observed
-satisfying a module, the row keeps it activated for that machine even if the
-signal later disappears. A new machine starts with no rows, so it reads
-"next up" on its own account.
+``overview_machine_activation_facts``. Once a machine satisfies a step, its
+row preserves that time even after its session history disappears.
 """
 
 from __future__ import annotations
@@ -266,9 +258,17 @@ def machine_module_rows(
     return rows
 
 
-def every_machine_has_harness(rows: Sequence[Dict[str, Any]]) -> bool:
-    """The harness module's own signal: no listed machine is still pending."""
-    return bool(rows) and all(row["harness_activated_at"] for row in rows)
+def read_owner_activations(conn: Any, actor_id: Optional[int]) -> Dict[str, datetime]:
+    """Read the earliest step latch across the viewer's live and retired machines."""
+    owner_filter = "WHERE m.owner_actor_id = %s " if actor_id is not None else ""
+    params = (actor_id,) if actor_id is not None else ()
+    rows = conn.execute(
+        f"SELECT f.module_key, MIN(f.activated_at) FROM {FACTS_TABLE} f "
+        "JOIN machines m ON m.machine_id = f.machine_id "
+        f"{owner_filter}GROUP BY f.module_key",
+        params,
+    ).fetchall()
+    return {str(key): parse_instant(activated_at) for key, activated_at in rows}
 
 
 __all__ = [
@@ -276,8 +276,8 @@ __all__ = [
     "MACHINE_MODULE_CONNECT_HARNESS",
     "MACHINE_MODULE_KEYS",
     "MACHINE_MODULE_MACHINE_CONNECTED",
-    "every_machine_has_harness",
     "latch_machine_activations",
     "machine_module_rows",
+    "read_owner_activations",
     "read_registered_machines",
 ]
