@@ -147,10 +147,12 @@ validates that metadata before mirroring the profile and verifies it afterward;
 older goldens without it require recapture rather than guessing a registry type.
 Before mirroring, reset stops the test user's processes that run from the
 resettable profile or WindowsApps, checking ownership under that account. It
-leaves running executables in preserved directories and the Widgets packages
-Windows restarts itself (`MicrosoftWindows.Client.WebExperience`,
-`Microsoft.WidgetsPlatformRuntime`, `Microsoft.StartExperiencesApp`), whose
-state lives in preserved `AppData/Local/Packages`. A failed SSH process
+leaves executables in preserved directories running. Windows launches the Widgets
+packages (`MicrosoftWindows.Client.WebExperience`, `Microsoft.WidgetsPlatformRuntime`,
+and `Microsoft.StartExperiencesApp`) and the Microsoft Store package
+(`Microsoft.WindowsStore`) on its own. Every process in these packages stays
+running through reset because its state lives in preserved `AppData/Local/Packages`.
+A failed SSH process
 discovery names the session to check. Desktop-session stops relist until clear;
 one still running at 20 seconds refuses `windows_reset_profile_process_running`.
 After restore, reset reopens them there and reports `profile_processes_stopped`

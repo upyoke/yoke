@@ -1,4 +1,4 @@
-"""Reset leaves the shell packages Windows restarts on its own running."""
+"""Reset leaves packages that Windows launches on its own running."""
 
 import json
 import re
@@ -18,6 +18,8 @@ WIDGETS = (
     r"Microsoft.WidgetsPlatformRuntime_1.6.1.0_x64__8wekyb3d8bbwe\WidgetService\WidgetService.exe",
     r"Microsoft.StartExperiencesApp_1.36.1.0_x64__8wekyb3d8bbwe\MicrosoftStartFeedProvider.exe",
 )
+STORE_EXTENSION = r"Microsoft.WindowsStore_22610.1401.10.0_x64__8wekyb3d8bbwe\StoreDesktopExtension.exe"
+STORE_UI = r"Microsoft.WindowsStore_22610.1401.10.0_x64__8wekyb3d8bbwe\WinStore.App.exe"
 TERMINAL = r"Microsoft.WindowsTerminal_1.21.10351.0_x64__8wekyb3d8bbwe\WindowsTerminal.exe"
 POSTGRES = HOME + r"\.yoke\postgres\17.11.1\bin\postgres.exe"
 
@@ -26,12 +28,15 @@ def _package_directory(relative):
     return relative.split("\\")[0]
 
 
-def test_shell_restarted_pattern_matches_only_the_named_packages():
-    pattern = re.compile(processes._shell_restarted_pattern(), re.IGNORECASE)
-    for relative in WIDGETS:
+def test_windows_launched_pattern_matches_only_the_named_packages():
+    pattern = re.compile(processes._windows_launched_pattern(), re.IGNORECASE)
+    for relative in (*WIDGETS, STORE_EXTENSION, STORE_UI):
         assert pattern.search(_package_directory(relative)), relative
     for other in (
         TERMINAL,
+        r"Microsoft.WindowsStore_22610.1401.10.0_x64__otherpublisher\StoreDesktopExtension.exe",
+        r"Contoso.Microsoft.WindowsStore_22610.1401.10.0_x64__8wekyb3d8bbwe\WinStore.App.exe",
+        r"OpenAI.Codex_1.0.0.0_x64__2p2nqsd0c76g0\Codex.exe",
         r"Microsoft.WidgetsPlatformRuntime_1.6.1.0_x64__otherpublisher\x.exe",
         r"Contoso.MicrosoftWindows.Client.WebExperience_1.0.0.0_x64__cw5n1h2txyewy\x.exe",
     ):
@@ -39,18 +44,18 @@ def test_shell_restarted_pattern_matches_only_the_named_packages():
 
 
 @pytest.mark.parametrize("desktop", [False, True])
-def test_every_reset_scan_skips_shell_restarted_packages(desktop):
+def test_every_reset_scan_skips_windows_launched_packages(desktop):
     scripts = (
         processes.profile_process_stop_script(HOME, PRESERVED_DIRECTORIES, desktop=desktop),
         processes.profile_process_discovery_script(HOME, PRESERVED_DIRECTORIES),
     )
     for script in scripts:
-        assert "$shellRestarted=" + quote(processes._shell_restarted_pattern()) in script
-        assert script.index("$shellRestarted=") < script.index("function Get-YokeProfileProcesses")
-        assert "-match $shellRestarted){continue}" in script
+        assert "$windowsLaunched=" + quote(processes._windows_launched_pattern()) in script
+        assert script.index("$windowsLaunched=") < script.index("function Get-YokeProfileProcesses")
+        assert "-match $windowsLaunched){continue}" in script
 
 
-def _fixture(desktop, relatives, restarts=None):
+def _fixture(desktop, relatives, restarts, process_session):
     # restarts=None keeps exited entries listed, so the SSH rescan sees a survivor.
     # Otherwise exited entries leave the listing and each of the next `restarts`
     # stops starts a replacement; -1 restarts on every stop.
@@ -60,12 +65,13 @@ $windowsAppsRoot=Join-Path $env:ProgramFiles 'WindowsApps'
 $relatives=ConvertFrom-Json -InputObject {quote(json.dumps(relatives))}
 $hideExited=${'true' if restarts is not None else 'false'}
 $restarts={restarts or 0}
+$processSession={process_session}
 """ + r"""
 $entries=@()
 $stops=@()
 foreach($relative in @($relatives)){
  $path=if($relative -like 'C:\*'){$relative}else{Join-Path $windowsAppsRoot $relative}
- $entries+= [pscustomobject]@{Id=$entries.Count+1;Path=$path;SessionId=1;MainWindowHandle=1;HasExited=$false}
+ $entries+= [pscustomobject]@{Id=$entries.Count+1;Path=$path;SessionId=$processSession;MainWindowHandle=1;HasExited=$false}
 }
 function Get-Process($Id){if($Id -eq $PID){@{SessionId=1}}else{$script:entries | Where-Object {!$hideExited -or !$_.HasExited}}}
 function Get-YokeOwnedExecutable($processId){if($processId -ne $PID){$script:entries[$processId-1].Path}}
@@ -92,11 +98,11 @@ try {
 """
 
 
-def _run(tmp_path, monkeypatch, desktop, relatives, restarts=None):
+def _run(tmp_path, monkeypatch, desktop, relatives, restarts=None, *, process_session=1):
     monkeypatch.setattr(processes, "_PROCESS_IDENTITY", "")
     script_file = tmp_path / "shell-packages.ps1"
     script_file.write_text(
-        "$ErrorActionPreference='Stop'\n" + _fixture(desktop, relatives, restarts),
+        "$ErrorActionPreference='Stop'\n" + _fixture(desktop, relatives, restarts, process_session),
         encoding="utf-8-sig",
     )
     result = subprocess.run(
@@ -113,7 +119,7 @@ def _run(tmp_path, monkeypatch, desktop, relatives, restarts=None):
 
 
 @pytest.mark.windows_only(reason="requires Windows PowerShell")
-def test_ssh_rescan_ignores_shell_packages_and_still_refuses_terminal(tmp_path, monkeypatch):
+def test_ssh_rescan_ignores_widgets_and_still_refuses_terminal(tmp_path, monkeypatch):
     widgets_only, records = _run(tmp_path, monkeypatch, False, list(WIDGETS))
     assert widgets_only.returncode == 0, widgets_only.stderr
     assert records["FIXTURE_STOPS "] == [] and records[processes.STOPPED_MARKER] == []
@@ -127,8 +133,29 @@ def test_ssh_rescan_ignores_shell_packages_and_still_refuses_terminal(tmp_path, 
 
 
 @pytest.mark.windows_only(reason="requires Windows PowerShell")
-def test_desktop_targets_name_no_shell_package(tmp_path, monkeypatch):
-    result, records = _run(tmp_path, monkeypatch, True, [*WIDGETS, TERMINAL])
+def test_ssh_rescan_ignores_store_extension_in_the_console_session(tmp_path, monkeypatch):
+    result, records = _run(tmp_path, monkeypatch, False, [STORE_EXTENSION], process_session=2)
+    assert result.returncode == 0, result.stderr
+    assert records["FIXTURE_STOPS "] == []
+    assert records[processes.STOPPED_MARKER] == []
+
+    refused, records = _run(
+        tmp_path, monkeypatch, False, [STORE_EXTENSION, TERMINAL], process_session=2,
+    )
+    assert refused.returncode != 0
+    assert "windows_reset_profile_process_running" in refused.stderr
+    reason = "test-user processes are still running from the resettable profile or WindowsApps:"
+    assert reason in " ".join(refused.stderr.split())
+    assert "WindowsTerminal.exe" in refused.stderr
+    assert "StoreDesktopExtension" not in refused.stderr
+    assert records["FIXTURE_STOPS "] == []
+
+
+@pytest.mark.windows_only(reason="requires Windows PowerShell")
+def test_desktop_targets_name_only_terminal_among_windows_launched_packages(tmp_path, monkeypatch):
+    result, records = _run(
+        tmp_path, monkeypatch, True, [*WIDGETS, STORE_EXTENSION, STORE_UI, TERMINAL],
+    )
     assert result.returncode == 0, result.stderr
     terminal = r"C:\Program Files\WindowsApps" + "\\" + TERMINAL
     assert records["FIXTURE_STOPS "] == [terminal]
@@ -157,4 +184,4 @@ def test_stop_pass_refuses_at_deadline_naming_the_latest_restart(tmp_path, monke
     assert "windows_reset_profile_process_running" in result.stderr
     latest = len(records["FIXTURE_STOPS "]) + 1
     # PowerShell wraps long error lines, so compare without whitespace.
-    assert f"open:{latest}{POSTGRES}" in "".join(result.stderr.split())
+    assert f"WindowsApps:{latest}{POSTGRES}" in "".join(result.stderr.split())

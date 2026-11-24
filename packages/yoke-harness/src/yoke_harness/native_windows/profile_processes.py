@@ -12,14 +12,14 @@ STOPPED_MARKER = "YOKE_RESET_PROCESSES_STOPPED "
 TARGETS_MARKER = "YOKE_RESET_DESKTOP_TARGETS "
 RELAUNCHED_MARKER = "YOKE_RESET_DESKTOP_RELAUNCHED "
 
-# Shell packages Windows restarts on its own within seconds of a stop. Stopping
-# them cannot hold, and the Widgets board has no window to relaunch. Their state
-# lives under the preserved AppData/Local/Packages, so they hold no files in the
-# mirrored profile; a lock there would still fail robocopy loudly.
-SHELL_RESTARTED_PACKAGES = (
+# Windows launches each of these packages on its own. Their state lives in the
+# preserved AppData/Local/Packages, so every process in these packages stays
+# running through reset. Reset skips stopping, waiting on, and relaunching them.
+WINDOWS_LAUNCHED_PACKAGES = (
     ("MicrosoftWindows.Client.WebExperience", "cw5n1h2txyewy"),
     ("Microsoft.WidgetsPlatformRuntime", "8wekyb3d8bbwe"),
     ("Microsoft.StartExperiencesApp", "8wekyb3d8bbwe"),
+    ("Microsoft.WindowsStore", "8wekyb3d8bbwe"),
 )
 
 # The SSH test user has no WMI namespace grant. Limited process handles can
@@ -72,7 +72,7 @@ function Get-YokeProfileProcesses {
   $packaged=$exe.StartsWith($windowsApps+'\',[StringComparison]::OrdinalIgnoreCase)
   if(!$packaged -and !$exe.StartsWith($profileRoot+'\',[StringComparison]::OrdinalIgnoreCase)){continue}
   if(@($stopPreserved | Where-Object {$exe.StartsWith($_+'\',[StringComparison]::OrdinalIgnoreCase)}).Count){continue}
-  if($packaged -and $exe.Substring($windowsApps.Length+1).Split('\')[0] -match $shellRestarted){continue}
+  if($packaged -and $exe.Substring($windowsApps.Length+1).Split('\')[0] -match $windowsLaunched){continue}
   [pscustomobject]@{process=$proc;path=$exe;packaged=$packaged}
  }
 }
@@ -149,7 +149,7 @@ if(!$clear){
 """
 
 _REFUSE = r"""if($alive.Count){
- throw ('windows_reset_profile_process_running: test-user processes kept their files open: '+(($alive | ForEach-Object {[string]$_.process.Id+' '+$_.path}) -join ', ')+'. End them from the signed-in test session, then rerun yoke test-machine reset')
+ throw ('windows_reset_profile_process_running: test-user processes are still running from the resettable profile or WindowsApps: '+(($alive | ForEach-Object {[string]$_.process.Id+' '+$_.path}) -join ', ')+'. End them from the signed-in test session, then rerun yoke test-machine reset')
 }
 Write-Output ('YOKE_RESET_PROCESSES_STOPPED '+(ConvertTo-Json -Compress -InputObject @($stopped | ForEach-Object {$_.path})))
 """
@@ -194,15 +194,15 @@ _RELAUNCH_RESULT = r"""function Write-YokeRelaunchResult($target,$failure){
 def _preamble(home, preserved):
     skipped = ",".join(quote(str(PureWindowsPath(home) / p)) for p in preserved)
     return (
-        f"$stopPreserved=@({skipped})\n$shellRestarted={quote(_shell_restarted_pattern())}\n"
+        f"$stopPreserved=@({skipped})\n$windowsLaunched={quote(_windows_launched_pattern())}\n"
         + _PROCESS_IDENTITY + _LIST
     )
 
 
-def _shell_restarted_pattern():
+def _windows_launched_pattern():
     # A WindowsApps directory is Name_Version_Arch_ResourceId_PublisherId.
     names = "|".join(
-        f"{re.escape(name)}_.+_{publisher}" for name, publisher in SHELL_RESTARTED_PACKAGES
+        f"{re.escape(name)}_.+_{publisher}" for name, publisher in WINDOWS_LAUNCHED_PACKAGES
     )
     return f"^(?:{names})$"
 
