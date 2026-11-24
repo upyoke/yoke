@@ -76,6 +76,9 @@ credits inherited attempts to their ancestor through `verdict_run_id`
 (`qa_verdict_owner_run`).
 
 Members the older run already closed stay with it and keep their history.
+A takeover sets aside unfinished frozen members on the older run and preserves
+their QA for the release that enrolls them after thaw. Freezing an item during
+an active run leaves its membership in place until a takeover or explicit removal.
 A member whose hard-block blocker neither moves, enrolls in the newer run as
 carried work, nor has shipped does not move: it is set aside on the older run
 with its QA, the newer run's notice names it and its blocker, and the first

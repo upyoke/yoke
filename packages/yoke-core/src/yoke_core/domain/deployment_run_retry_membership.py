@@ -1,12 +1,12 @@
 """Carry a retried run's frozen membership onto its replacement run.
 
 A retry re-runs one candidate that already failed: the same pinned release
-lineage, the same artifact, and therefore the same items. Creating it without
+lineage and artifact, with the previous admission for items that are not frozen. Creating it without
 that membership turned the sanctioned recovery for a failed item deploy into
 an environment-level release, and the item it was recovering could never reach
 its completion gate no matter how often its deployment actually succeeded.
 
-The membership is copied, never recomputed. Re-deriving it from whatever main
+Eligible membership is copied, never recomputed. Re-deriving it from whatever main
 holds now would attach items the retried candidate does not contain, and the
 frozen requirement snapshot is the candidate's own acceptance contract — it
 travels with the candidate. It carries no verdict: what each member must still
@@ -18,6 +18,7 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_core.domain.db_helpers import instant_parameter, utc_now
+from yoke_core.domain.deployment_run_landed_closeout import flag_frozen_item_ids
 
 
 MEMBER_COLUMNS = (
@@ -53,17 +54,16 @@ def copy_frozen_members(
     source_run_id: str,
     target_run_id: str,
 ) -> tuple[int, ...]:
-    """Copy the retried run's members onto the retry, in the caller's transaction.
+    """Copy eligible members to the retry in the caller's transaction.
 
-    The caller owns the commit, so a failure here rolls the new run back with
-    the membership rather than leaving a member-less retry that can never
-    satisfy its own completion gate.
-
-    An environment-level source has no members, so its retry stays
-    environment-level: the empty copy is the correct answer rather than a
-    reason to look elsewhere for membership.
+    The retry stays environment-level when the source has no members or
+    every source member is frozen.
     """
     members = frozen_members(conn, source_run_id)
+    frozen_ids = flag_frozen_item_ids(
+        conn, (int(member["item_id"]) for member in members)
+    )
+    members = [member for member in members if int(member["item_id"]) not in frozen_ids]
     added_at = instant_parameter(conn, utc_now())
     for member in members:
         conn.execute(

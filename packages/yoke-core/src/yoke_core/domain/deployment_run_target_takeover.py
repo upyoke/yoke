@@ -43,7 +43,6 @@ def takeover_available(conn: Any) -> bool:
     )
 
 
-
 def has_shared_gates(stages: list[dict[str, Any]]) -> bool:
     """Run-level QA or approval holds every member until it passes."""
     return any(
@@ -51,7 +50,6 @@ def has_shared_gates(stages: list[dict[str, Any]]) -> bool:
         or (stage.get("step_runner") == "qa" and stage.get("scope") == "run")
         for stage in stages
     )
-
 
 
 def _members(conn: Any, run_id: str) -> list[dict[str, Any]]:
@@ -203,6 +201,10 @@ def _supersede(
         takeover_shipping,
     )
     from yoke_core.domain.deployment_run_composition_freeze import member_ids
+    from yoke_core.domain.deployment_run_landed_closeout import flag_frozen_item_ids
+    from yoke_core.domain.deployment_run_member_set_aside import (
+        set_aside_frozen_members,
+    )
     from yoke_core.domain.deployment_runs_lock import lock_run_with_stable_membership
 
     new_run_id = str(new_run["id"])
@@ -216,6 +218,10 @@ def _supersede(
         if status != old["status"]:
             return False
     moving = _moving_members(conn, old)
+    frozen_ids = flag_frozen_item_ids(
+        conn, (int(member["item_id"]) for member in moving)
+    )
+    moving = [member for member in moving if int(member["item_id"]) not in frozen_ids]
     # A member whose blocker neither moves nor has shipped would refuse this
     # run's composition; it waits on the older run for a later release.
     moving_ids = [int(member["item_id"]) for member in moving]
@@ -280,13 +286,16 @@ def _supersede(
             transferred_to_run_id=new_run_id,
         )
     if apply:
+        set_aside_frozen_members(
+            conn, old_id, frozen_ids, session_id=session_id, actor_id=actor_id
+        )
         set_aside_blocked_members(
             conn, old_id, blocked, session_id=session_id, actor_id=actor_id
         )
     else:
         conn.execute(
             "DELETE FROM deployment_run_items WHERE run_id=%s AND item_id=ANY(%s)",
-            (old_id, sorted(blocked)),
+            (old_id, sorted(blocked.keys() | frozen_ids)),
         )
     conn.execute(
         f"UPDATE deployment_runs SET {SUPERSEDED_BY_COLUMN}=%s WHERE id=%s",

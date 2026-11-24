@@ -19,13 +19,15 @@ def github_open_corrections(monkeypatch):
     monkeypatch.setattr(guard, "read_pr_landing_state", open_unarmed)
 
 
-def test_admission_refuses_an_open_unarmed_correction_before_writing_membership():
-    conn = observer_connection()
-    record_attempt(conn, 101, "43", enqueued_at=None)
+def test_admission_refuses_an_open_unarmed_correction_before_writing_membership(test_db):
+    from runtime.api.fixtures.backlog_inserts import insert_item
+
+    insert_item(test_db, id=101, workflow_id="dash", status="release")
+    record_attempt(test_db, 101, "43", enqueued_at=None)
     with pytest.raises(ValueError, match="item_landing_open:.*#43"):
-        admit_run_items(conn, run_id="candidate", members=[MemberAdmission(101)])
-    close_attempt(conn, 101, "43", "closed without merging")
-    require_closed_landing(conn, 101)
+        admit_run_items(test_db, run_id="candidate", members=[MemberAdmission(101)])
+    close_attempt(test_db, 101, "43", "closed without merging")
+    require_closed_landing(test_db, 101)
 
 
 def test_containment_sets_aside_an_open_correction_for_a_recorded_snapshot(test_db):

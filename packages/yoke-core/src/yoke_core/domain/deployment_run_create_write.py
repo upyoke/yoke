@@ -109,8 +109,8 @@ def create_run(project: str, flow: str, **spec) -> CreatedRun:
     (``replayed=True``); a different request raises
     :class:`~yoke_core.domain.deployment_run_create_idempotency.IdempotencyKeyConflict`.
     ``environment`` overrides the flow's registered target.
-    ``inherit_members_from`` copies a retry's frozen membership in the same
-    transaction, so a retry is never committed member-less. A run waiting
+    ``inherit_members_from`` copies eligible retry members in the same
+    transaction. The retry may have no members. A run waiting
     only on item QA on the same flow and target is taken over in that
     transaction (:mod:`~yoke_core.domain.deployment_run_target_takeover`);
     *session_id* and *actor_id* are the creator, audited on its removals.

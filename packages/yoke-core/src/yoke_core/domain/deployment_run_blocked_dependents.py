@@ -22,6 +22,7 @@ from typing import Any
 from yoke_core.domain.deployment_run_dependency_readiness import (
     unshipped_dependency_pairs,
 )
+from yoke_core.domain.deployment_run_landed_closeout import flag_frozen_item_ids
 from yoke_core.domain.item_ref_render import render_item_ref_lookup
 
 BLOCKED_SET_ASIDE_REASON = (
@@ -74,7 +75,8 @@ def takeover_shipping(
         "AND COALESCE(b.merge_queue_landed_at,b.merged_at) IS NOT NULL",
         (ids,),
     ).fetchall()
-    landed = sorted({int(row[0]) for row in rows} - set(ids) - shipping)
+    landed = {int(row[0]) for row in rows} - set(ids) - shipping
+    landed -= flag_frozen_item_ids(conn, landed)
     for item_id, item in read_pinned_items(conn, landed).items():
         runtime = item.require_runtime(conn, item_id)
         if (

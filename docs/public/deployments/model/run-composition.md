@@ -11,7 +11,8 @@ Read how creation and start complete a run's membership from its candidate, how 
 **Composition completes candidate membership.** Run creation and item-bound
 composition (`deployment_runs.start_for_item`,
 `deployment_runs.validate_composition`) enroll every delivery-ready item the
-pinned candidate carries and the run does not hold, through the same admission
+pinned candidate carries, excluding frozen items and landings already held
+by a release, through the same admission
 validation `add_item` uses. Creation validates provisionally in its insertion
 transaction and rolls back on refusal. It runs that validation twice in one read
 scope: first before the creation lock, on a provisional `run-unlocked-*` row
@@ -113,7 +114,14 @@ this run cannot admit, an underivable carried set; refused creation rolls back
 the run, so there is no run to update. A commit no item owns ships freely with
 its SHA, subject and author recorded under its project, and a retry (recorded
 `retry_of`; a takeover is not one) of a run that already froze its members
-reuses that membership rather than deriving against a moved baseline.
+reuses that membership after dropping frozen items. A retry can have zero
+members if all of its source members are frozen.
+
+A frozen item's merged code still ships with the pinned candidate. Its item QA
+and delivery close-out wait for enrollment. An explicit add or item-bound
+creation refuses a frozen item and names `yoke items thaw PREFIX-N`. After a
+thaw, automatic enrollment considers the landing again. An inherited operator
+park still applies until the item lands again or is explicitly added.
 
 A member never waits in a run on a blocker that run does not ship
 (`deployment_run_blocked_dependents`). A takeover moves the older run's
