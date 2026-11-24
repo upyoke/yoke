@@ -168,33 +168,46 @@ def _difference(observed: str, expected: str, *, account_name: str = "") -> str:
     return "; ".join(compare(desired, actual, local(desired.tag)))
 
 
-def relay_task_state(label: str, runner: Runner) -> str:
+def _read_task(label: str, runner: Runner, *, include_xml: bool = False) -> str:
     name = label.replace("'", "''")
+    xml = "; $task.Xml" if include_xml else ""
     return _checked([
         "powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
-        "$s=New-Object -ComObject Schedule.Service; $s.Connect(); "
-        f"[int]$s.GetFolder('\\').GetTask('{name}').State",
+        "$ErrorActionPreference='Stop'; [Console]::OutputEncoding=[Text.Encoding]::UTF8; "
+        "$s=New-Object -ComObject Schedule.Service; $s.Connect(); $root=$s.GetFolder('\\'); "
+        f"try {{ $task=$root.GetTask('{name}') }} catch {{ "
+        # HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND) from this named lookup.
+        "if ($_.Exception.GetBaseException().HResult -eq 0x80070002) { 'missing'; exit 0 }; "
+        f"throw }}; [int]$task.State{xml}",
     ], runner)
 
 
-def relay_task_status(*, instance=None, home=None, environ=None, runner= subprocess.run) -> RelayTaskStatus:
+def relay_task_state(label: str, runner: Runner) -> str:
+    state = _read_task(label, runner)
+    if state == "missing":
+        raise _unavailable(f"the scheduled task {label} is missing")
+    return state
+
+
+def relay_task_status(*, instance=None, home=None, environ=None, runner=subprocess.run,
+                      account: tuple[str, str] | None = None) -> RelayTaskStatus:
     selected = instance or resolve_relay_instance()
     present = current = loaded = enabled = False
     reason = ""
     available = True
     try:
-        sid, name = _account(runner)
-        # Query the scheduler itself first: a failed task query must not hide a
-        # policy/service restriction as an absent task.
-        _checked(["schtasks", "/Query", "/FO", "CSV", "/NH"], runner)
-        result = _run(["schtasks", "/Query", "/TN", selected.label, "/XML"], runner)
-        present = result.returncode == 0
-        if present:
+        output = _read_task(selected.label, runner, include_xml=True)
+        if output != "missing":
+            state, _, xml = output.partition("\n")
+            state = state.rstrip("\r")
+            if state not in {"0", "1", "2", "3", "4"} or not xml:
+                raise _unavailable(f"Task Scheduler returned incomplete status for {selected.label}")
+            present = True
+            sid, name = account or _account(runner)
             difference = _difference(
-                result.stdout, relay_task_document(selected, user_sid=sid), account_name=name
+                xml, relay_task_document(selected, user_sid=sid), account_name=name
             )
             current = not difference
-            state = relay_task_state(selected.label, runner)
             loaded = state == "4"
             enabled = state in {"2", "3", "4"}
             if state == "1":
@@ -216,11 +229,11 @@ def install_relay_task(*, instance=None, home=None, environ: Mapping[str, str] |
     selected = instance or resolve_relay_instance()
     if refusal := door_relay_refusal(selected):
         raise RelayInstallError(refusal, code=USE_HTTPS_ENV)
-    sid, _name = _account(runner)
-    _checked(["schtasks", "/Query", "/FO", "CSV", "/NH"], runner)
-    prior = relay_task_status(instance=selected, runner=runner)
+    account = _account(runner)
+    read_status = partial(relay_task_status, instance=selected, runner=runner, account=account)
+    prior = read_status()
     if not prior.supported:
-        raise _unavailable(prior.reason)
+        raise RelayInstallError(prior.reason, code="relay_task_scheduler_unavailable")
     try:
         launcher = relay_install.converge_relay_launcher(selected, pin_release=pin_release)
     except RelayReleaseError as exc:
@@ -250,18 +263,18 @@ def install_relay_task(*, instance=None, home=None, environ: Mapping[str, str] |
     )
     write_owner_private(selected.state_dir / "task-runner.py", body)
     path = selected.state_dir / "task.xml"
-    write_owner_private(path, relay_task_document(selected, user_sid=sid).encode("utf-16"))
+    write_owner_private(path, relay_task_document(selected, user_sid=account[0]).encode("utf-16"))
     _checked(["schtasks", "/Create", "/TN", selected.label, "/XML", str(path), "/F"], runner)
     if prior.loaded:
         _checked(["schtasks", "/End", "/TN", selected.label], runner)
     _checked(["schtasks", "/Run", "/TN", selected.label], runner)
-    status = relay_task_status(instance=selected, runner=runner)
+    status = read_status()
     deadline = time.monotonic() + 5
     if status.task_current and not status.reason and not status.loaded:
         announce_designed_wait("scheduled relay startup", max_wait_seconds=5, cadence="every 100ms")
     while status.task_current and not status.reason and not status.loaded and time.monotonic() < deadline:
         time.sleep(0.1)
-        status = relay_task_status(instance=selected, runner=runner)
+        status = read_status()
     if status.reason or not (status.task_current and status.loaded):
         raise _unavailable(status.reason or "the task did not enter the running state; inspect its history")
     return status
