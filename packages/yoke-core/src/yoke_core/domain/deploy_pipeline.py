@@ -303,7 +303,7 @@ def run_pipeline(
                 print(line, file=sys.stderr)
             print(exec_diag, file=sys.stderr)
             return EXIT_AWAITING_QA
-        if exec_rc == -5:  # driver source drift
+        if exec_rc == -5:  # local driver preflight refused
             print(exec_diag, file=sys.stderr)
             return EXIT_STAGE_FAILED
 

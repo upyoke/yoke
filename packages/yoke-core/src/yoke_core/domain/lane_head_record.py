@@ -1,83 +1,107 @@
-"""Persist a lane's current HEAD as the candidate the control plane records.
+"""Read a local lane's Git HEAD and record its candidate through snapshot sync.
 
-``item_worktrees.commit_sha`` is what every later question about "which
-commit is this lane offering" reads -- the merge boundary's accepted-sha
-comparison above all. The managed git hooks keep it current on every HEAD
-move git announces: post-commit for commits, post-merge for merges and
-pulls (fast-forward or not), post-rewrite for rebases, post-checkout for
-branch switches and fast-forward rebases. A ``git reset`` announces nothing,
-so it still needs ``rerecord_command``.
-
-The hooks are not enough on their own. They exist only where ``yoke project
-install`` wrote them, run under a hook's short deadline, and are skipped
-during gate-owned rebase replay. A row left on a commit the lane moved off
-makes the gate record its CI run against the new head while the merge
-boundary still compares the old one, and the two never meet again: the
-merge refuses with a stale candidate, and the retry rebases once more. So
-whatever Yoke itself does to move a lane's HEAD also records it here.
-
-The write goes through the registered ``project.snapshot.sync`` surface the
-post-commit hook itself drives, rather than touching the row directly. That
-is what keeps it correct on a relayed https project, where there is no local
-database to write to and the server performs the same
-``record_head_for_checkout`` call. ``head_only`` asks for the hook's fast
-identity-only shape -- HEAD's commit, no full tree content scan.
-
-Recording is always best-effort, for the same reason the hook's is: it runs
-after the work it describes has already happened, so a failure here has
-nothing to unwind and must never be turned into one. It is reported rather
-than swallowed, because a lane whose head went unrecorded is exactly the
-state that is invisible until a merge refuses days later.
-
-Best-effort is not the same as hurried. The snapshot surface defaults its
-relay deadline to the git post-commit hook's, which is short so a hook can
-never leave a developer waiting on ``git commit``. Nothing waits on a
-recording taken after a publish or a rebase, so that budget buys nothing
-here and costs the whole write: the deadline expired mid-response and left
-the row holding a commit the lane had moved off. Every caller in this module
-therefore asks for the relay's ordinary deadline instead.
+Commands reconcile the selected checkout before they consume its candidate.
+The registered snapshot write also works when the project uses an HTTPS relay.
+Operations that have already moved or published HEAD report recording failures
+as warnings because the Git operation itself has already succeeded.
 """
 
 from __future__ import annotations
 
 from yoke_contracts.runtime_ports.project_snapshot import get_project_snapshot
 
-import shlex
 import re
 import subprocess
 import sys
 from pathlib import Path
+from collections.abc import Mapping
 from typing import TextIO
+
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_core.domain.project_attribution import (
     UnattributedProjectError,
     required_project,
 )
 
 
-def rerecord_command(project: str, checkout_path: str) -> str:
-    """The command that records ``checkout_path``'s HEAD on its own.
+def _git(checkout: Path, *args: str) -> str:
+    return subprocess.run(
+        ["git", "-C", str(checkout), *args],
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    ).stdout.strip()
 
-    ``--head-only`` asks the snapshot surface for HEAD's identity and
-    nothing else, so it moves the candidate without anything being
-    committed. That is what makes it the recovery a lane whose work is
-    finished can actually perform -- unlike waiting for a next commit,
-    which such a lane has no reason to make.
-    """
-    return shlex.join(
-        [
-            "yoke",
-            "project",
-            "snapshot",
-            "sync",
-            str(checkout_path),
-            "--project",
-            str(project),
-            "--head-only",
-        ]
+
+def local_lane_head(lane: Mapping[str, object]) -> tuple[str, str]:
+    """Return the selected checkout's stable HEAD, or a named refusal."""
+    path = str(lane.get("path") or lane.get("worktree_path") or "").strip()
+    if not path:
+        return "", ""
+    checkout = Path(path)
+    try:
+        checkout.stat()
+    except FileNotFoundError:
+        return "", ""
+    except OSError:
+        return "", _unreadable(checkout)
+    try:
+        if Path(_git(checkout, "rev-parse", "--show-toplevel")).resolve() != checkout.resolve():
+            return "", _unreadable(checkout)
+        for marker, operation in (
+            ("rebase-merge", "rebase"),
+            ("rebase-apply", "rebase"),
+            ("MERGE_HEAD", "merge"),
+        ):
+            git_path = _git(checkout, "rev-parse", "--git-path", marker)
+            if (checkout / git_path).exists():
+                return "", compose_refusal(
+                    f"lane_head_{operation}_in_progress: {checkout}",
+                    recovery=f"finish or abort the Git {operation}, then rerun the same command",
+                )
+        head = _git(checkout, "rev-parse", "--verify", "HEAD^{commit}")
+        branch = _git(checkout, "rev-parse", "--abbrev-ref", "HEAD")
+    except (OSError, subprocess.SubprocessError):
+        return "", _unreadable(checkout)
+    expected = str(lane.get("branch") or "").strip()
+    if expected and branch != expected:
+        return "", compose_refusal(
+            f"lane_head_branch_mismatch: {checkout} is on {branch!r}, expected {expected!r}",
+            recovery=f"restore the recorded branch {expected!r}, then rerun the same command",
+        )
+    return head, ""
+
+
+def _unreadable(checkout: Path) -> str:
+    return compose_refusal(
+        f"lane_head_unreadable: could not read Git HEAD at {checkout}",
+        recovery="repair the Git checkout, then rerun the same command",
     )
 
 
-def record_lane_head(project: str, checkout_path: str) -> str:
+def reconcile_lane_head(
+    project: str, lane: Mapping[str, object], *, session_id: str | None = None
+) -> tuple[str, str]:
+    """Return a newly recorded HEAD and any refusal. Empty HEAD means no write."""
+    head, error = local_lane_head(lane)
+    if error or not head or head == str(lane.get("commit_sha") or "").strip():
+        return "", error
+    checkout = str(lane.get("path") or lane.get("worktree_path"))
+    try:
+        detail = record_lane_head(project, checkout, expected_head=head, session_id=session_id)
+    except Exception as exc:
+        detail = str(exc) or type(exc).__name__
+    if detail:
+        return "", compose_refusal(
+            f"lane_head_unrecorded: {detail}", recovery="rerun the same command"
+        )
+    return head, ""
+
+
+def record_lane_head(
+    project: str, checkout_path: str, *, expected_head: str = "", session_id: str | None = None
+) -> str:
     """Record ``checkout_path``'s HEAD as its lane candidate.
 
     Returns why the recording did not happen and what records it after all,
@@ -100,34 +124,33 @@ def record_lane_head(project: str, checkout_path: str) -> str:
     except UnattributedProjectError as exc:
         return str(exc)
 
-    rerecord = rerecord_command(resolved, str(checkout_path))
     result = sync_local_snapshot_for_write(
         project=resolved,
         repo_root=str(checkout_path),
         integration_target=None,
-        session_id=None,
+        session_id=session_id,
         head_only=True,
         # The hook's deadline is the surface default; this is not a hook.
         timeout_s=None,
-        retry_command=rerecord,
     )
-    # ``deferred`` is a recording the surface accepted and will complete;
-    # it is not a failure to report.
-    if result.get("status") in ("ok", "deferred"):
+    status = result.get("status")
+    if status == "ok":
+        if expected_head and not any(
+            row.get("ref") == "HEAD"
+            and row.get("commit_sha") == expected_head
+            and row.get("lane_head_recorded")
+            for row in result.get("snapshots") or ()
+        ):
+            return f"snapshot did not confirm lane HEAD {expected_head}"
         return ""
-    detail = str(
-        result.get("message") or result.get("status") or "snapshot sync failed"
-    )
-    # The surface withholds a repair where retrying cannot be the answer --
-    # an authorization refusal answers the same way however often it is
-    # asked. Naming the re-record anyway is still honest there: it is what
-    # takes the stamp once the named reason is dealt with.
-    repair = str(result.get("repair_command") or "") or rerecord
-    return f"{detail}; record it with `{repair}`, which needs no commit"
+    if status == "deferred" and not expected_head:
+        return ""
+    detail = str(result.get("message") or status or "snapshot sync failed")
+    repair = result.get("repair_command")
+    return compose_refusal(detail, recovery=f"run `{repair}`").rstrip(".") if repair else detail
 
 
 def _published_checkout_matches(
-    project: str,
     checkout_path: str,
     selected_checkout: str | None,
     branch: str | None,
@@ -141,21 +164,11 @@ def _published_checkout_matches(
     if not checkout.is_dir() or Path(selected_checkout).resolve() != checkout:
         return False
     try:
-
-        def git(*args: str) -> str:
-            return subprocess.run(
-                ["git", "-C", str(checkout), *args],
-                check=True,
-                capture_output=True,
-                text=True,
-                timeout=30,
-            ).stdout.strip()
-
         matches = (
             re.fullmatch(r"[0-9a-f]{40}", source_ref) is not None
-            and git("symbolic-ref", "--quiet", "--short", "HEAD") == branch
-            and git("rev-parse", "HEAD") == source_ref
-            and not git("status", "--porcelain", "--untracked-files=normal")
+            and _git(checkout, "symbolic-ref", "--quiet", "--short", "HEAD") == branch
+            and _git(checkout, "rev-parse", "HEAD") == source_ref
+            and not _git(checkout, "status", "--porcelain", "--untracked-files=normal")
         )
     except (OSError, subprocess.SubprocessError):
         matches = False
@@ -164,7 +177,7 @@ def _published_checkout_matches(
             "warning: qa_published_head_unproven: selected checkout is not the "
             f"clean published {branch}@{source_ref}; no candidate was stamped. "
             "Restore that exact live lane identity under its matching claim, "
-            f"then run `{rerecord_command(project, checkout_path)}`.",
+            "then rerun the same command.",
             file=stream or sys.stderr,
         )
     return matches
@@ -192,7 +205,6 @@ def record_published_lane_head(
     The registered surface retains all claim and ownership checks.
     """
     if source_ref != "HEAD" and _published_checkout_matches(
-        project,
         checkout_path,
         selected_checkout,
         branch,
@@ -207,9 +219,10 @@ def record_published_lane_head(
         print(
             f"warning: published lane head at {checkout_path} was not "
             f"recorded as its candidate; a merge may refuse this lane as "
-            f"stale until it is: {detail}",
+            f"stale until it is: {detail}. Resolve the reported cause, then "
+            "rerun the same command.",
             file=stream or sys.stderr,
         )
 
 
-__all__ = ["record_lane_head", "record_published_lane_head", "rerecord_command"]
+__all__ = ["local_lane_head", "reconcile_lane_head", "record_lane_head", "record_published_lane_head"]

@@ -100,6 +100,8 @@ def test_unconfirmed_pre_case_pause_reenters_exact_execution_from_saved_receipt(
 
         def transport(**kwargs):
             function = kwargs["function_id"]
+            if function == "qa.requirement.list":
+                return _response(kwargs, result={"rows": []})
             if function == "qa.plan_execution.begin":
                 return _response(kwargs, result=view)
             request = FunctionCallRequest(

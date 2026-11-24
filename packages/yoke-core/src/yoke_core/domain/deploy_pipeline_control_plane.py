@@ -122,6 +122,9 @@ def _call(function_id: str, run_id: str, payload: Dict[str, Any]) -> Dict[str, A
 
 def execution_context(run_id: str) -> Dict[str, Any]:
     """Return the locked run, member, and immutable stage projection."""
+    from yoke_core.domain.deployment_lane_heads import reconcile_member_lanes
+
+    reconcile_member_lanes(run_id)
     return _call("deployment_runs.execution.context", run_id, {})
 
 
@@ -163,6 +166,10 @@ def update_run_field(
     candidate_containment: Optional[Dict[str, Any]] = None,
 ) -> None:
     """Write one execution-owned run field through serving authority."""
+    if field == "status" and value in {"executing", "succeeded"}:
+        from yoke_core.domain.deployment_lane_heads import reconcile_member_lanes
+
+        reconcile_member_lanes(run_id)
     payload: Dict[str, Any] = {"field": field, "value": value}
     if candidate_containment is not None:
         payload["candidate_containment"] = candidate_containment

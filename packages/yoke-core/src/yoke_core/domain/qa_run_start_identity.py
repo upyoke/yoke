@@ -54,7 +54,7 @@ def stamp_start_commit(conn: Any, columns: dict[str, Any]) -> None:
 
 
 def retain_start_commit(existing_raw: Any, incoming_raw: Any) -> Any:
-    if recorded_head_sha(incoming_raw):
-        return incoming_raw
-    sha = recorded_head_sha(existing_raw)
-    return wrap_evidence(incoming_raw, sha) if sha else incoming_raw
+    started_sha = recorded_head_sha(existing_raw)
+    if started_sha and recorded_head_sha(incoming_raw) != started_sha:
+        return wrap_evidence(incoming_raw, started_sha)
+    return incoming_raw

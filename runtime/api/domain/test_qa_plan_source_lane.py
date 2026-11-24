@@ -51,6 +51,8 @@ def epic_lanes(test_db, tmp_path, monkeypatch):
     monkeypatch.setattr(db_helpers, "connect", lambda: connection)
 
     def call(**kwargs):
+        if kwargs["function_id"] == "qa.requirement.list":
+            return {"rows": []}
         assert kwargs["function_id"] == "qa.plan_execution.begin"
         outcome = handle_plan_execution_begin(
             FunctionCallRequest(

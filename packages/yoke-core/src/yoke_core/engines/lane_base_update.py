@@ -106,11 +106,9 @@ def bring_lane_current(
     except Exception as exc:
         detail = str(exc) or type(exc).__name__
     if detail:
-        repair = lane_head_record.rerecord_command(project, str(checkout))
         print(
             f"warning: lane_head_record_failed: updated lane {branch!r}, but "
-            f"could not record its new head: {detail}. Run `{repair}` "
-            "before merging.",
+            f"could not record its new head: {detail}. Rerun the same command.",
             file=sys.stderr,
         )
     return True

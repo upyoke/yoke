@@ -56,3 +56,18 @@ def enforce_preconditions(
     print("\n=== Done preconditions guard ===", file=sys.stderr)
     print(f"Blocked: {reason}", file=sys.stderr)
     return reason
+
+
+def load_done_context_with_current_lane(item_ref: str):
+    """Read the done transition's branch and reconcile it before its gates."""
+    from yoke_core.domain.lane_head_record import reconcile_lane_head
+    from yoke_core.engines.done_transition_item_context import (
+        load_done_item_context_over_transport,
+    )
+
+    context = load_done_item_context_over_transport(item_ref)
+    if context is not None and context.lane:
+        _, error = reconcile_lane_head(context.project, context.lane)
+        if error:
+            return error
+    return context

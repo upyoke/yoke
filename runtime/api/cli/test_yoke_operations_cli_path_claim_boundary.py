@@ -65,9 +65,9 @@ def test_boundary_prove_observes_recorded_lane_then_relays_proof(tmp_path):
             side_effect=_dispatch,
         ),
         patch(
-            "yoke_cli.commands.adapters.claims_path_flow.sync_local_snapshot_for_write",
-            return_value={"status": "ok"},
-        ) as sync,
+            "yoke_core.domain.lane_head_record.reconcile_lane_head",
+            return_value=("a" * 40, ""),
+        ) as reconcile,
         redirect_stdout(out),
         redirect_stderr(err),
     ):
@@ -92,15 +92,7 @@ def test_boundary_prove_observes_recorded_lane_then_relays_proof(tmp_path):
     assert calls[-2][4] == {"local_only": True}
     assert calls[-1][1].public_ref == "YOK-7777"
     assert calls[-1][2] == {"proof": proof}
-    sync.assert_called_once_with(
-        project="yoke",
-        repo_root=str(lane),
-        integration_target=None,
-        session_id=None,
-        head_only=True,
-        timeout_s=None,
-        retry_command="yoke claims path boundary-prove --item YOK-7777",
-    )
+    reconcile.assert_called_once_with("yoke", context["lane"], session_id=None)
     assert (
         "public ref: YOK-7777" in out.getvalue()
         and "rung id: remote_integration_ref" in out.getvalue()
@@ -113,6 +105,9 @@ def test_boundary_prove_timeout_retries_original_command(tmp_path):
     from runtime.api.cli.project_snapshot_cli_test_helpers import make_repo
 
     lane = make_repo(tmp_path)
+    from subprocess import run
+
+    run(["git", "-C", str(lane), "branch", "-M", "YOK-7777"], check=True)
     context = {
         "public_ref": f"YOK-{7777}",
         "project": {"id": 1, "slug": "yoke"},
@@ -172,11 +167,11 @@ def test_boundary_prove_timeout_retries_original_command(tmp_path):
     assert snapshot_calls[0]["timeout_s"] is not HOOK_WRITE_TIMEOUT_S
     refusal = err.getvalue()
     assert "exceeded the time limit" in refusal
-    assert "yoke claims path boundary-prove --item YOK-7777" in refusal
+    assert "rerun the same command" in refusal
     assert "yoke project snapshot sync" not in refusal
 
 
-def test_boundary_prove_auth_refusal_does_not_teach_retry(tmp_path):
+def test_boundary_prove_reports_snapshot_authority_refusal(tmp_path):
     lane = tmp_path / "lane"
     lane.mkdir()
     context = {
@@ -205,12 +200,12 @@ def test_boundary_prove_auth_refusal_does_not_teach_retry(tmp_path):
             ),
         ),
         patch(
-            "yoke_cli.commands.adapters.claims_path_flow.sync_local_snapshot_for_write",
-            return_value={
-                "status": "failed",
-                "message": "actor cannot write",
-                "repair_command": "",
-            },
+            "yoke_core.domain.lane_head_record.record_lane_head",
+            return_value="actor cannot write",
+        ),
+        patch(
+            "yoke_core.domain.lane_head_record.local_lane_head",
+            return_value=("b" * 40, ""),
         ),
         redirect_stdout(out),
         redirect_stderr(err),
@@ -219,5 +214,5 @@ def test_boundary_prove_auth_refusal_does_not_teach_retry(tmp_path):
     assert rc == 1
     refusal = err.getvalue()
     assert "actor cannot write" in refusal
-    assert "boundary-prove" not in refusal
+    assert "lane_head_unrecorded" in refusal
     assert "yoke project snapshot sync" not in refusal

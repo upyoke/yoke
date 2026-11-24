@@ -13,7 +13,6 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from yoke_core.domain import lane_head_record
 from yoke_core.domain.merge_context import MergeArgs, MergeContext
 from yoke_core.engines.merge_worktree_recorded_source import (
     bind_recorded_source,
@@ -157,9 +156,6 @@ def test_interrupted_merge_retry_preserves_progress_and_worktree(
             # deadline that keeps ``git commit`` responsive -- expiring it
             # is what leaves the retry's recorded source a step behind.
             "timeout_s": None,
-            "retry_command": lane_head_record.rerecord_command(
-                "yoke", str(lane_dir),
-            ),
         }
     ]
 

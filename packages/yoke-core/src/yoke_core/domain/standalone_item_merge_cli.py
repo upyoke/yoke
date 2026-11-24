@@ -38,7 +38,7 @@ from yoke_core.domain.standalone_item_merge_checkout import (
     ensure_usable_cwd as _ensure_usable_cwd,
     resolve_checkout as _resolve_checkout,
 )
-from yoke_core.domain.standalone_item_merge_lane import active_lanes, lane_path, refresh_recorded_head
+from yoke_core.domain.standalone_item_merge_lane import active_lanes, lane_path, refresh_recorded_head, stale_head_note
 from yoke_core.domain.engine_runtime_ports import get_terminal_lane_cleanup
 record_terminal_lane_close_out = get_terminal_lane_cleanup().record_terminal_lane_close_out
 
@@ -102,6 +102,8 @@ def run(argv: List[str]) -> int:
         resolve_checkout=_resolve_checkout,
     )
     if args.check:
+        if note := stale_head_note(item):
+            readiness.merge_will.append(note)
         return readiness_gate.print_check(readiness, as_json=as_json)
     if not readiness.ready and hold.held_only_by_integration(readiness):
         # Only the merge is held: publish the lane and its pull request first.

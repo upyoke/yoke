@@ -2,22 +2,19 @@
 
 from __future__ import annotations
 
-import tempfile
-
 import os
 import sys
+import tempfile
 
 from yoke_core.domain.workflow_behavior import (
     generates_task_graph,
     release_note_category,
     requires_plan_simulation,
 )
-from yoke_core.engines.done_transition_item_context import (
-    load_done_item_context_over_transport,
-)
 from yoke_core.engines.done_transition_finalize import finish_done_transition
 from yoke_core.engines.done_transition_preconditions import (
     enforce_preconditions as _enforce_preconditions,
+    load_done_context_with_current_lane,
 )
 from yoke_core.engines.done_transition_branch_lookup import (
     branch_exists_for_item,
@@ -74,7 +71,10 @@ def run(
     _reseat_runtime_paths(repo_root)
     result.add_step("1")
     print(f"YOKE_REPO_ROOT={repo_root}")
-    context = load_done_item_context_over_transport(item_ref)
+    context = load_done_context_with_current_lane(item_ref)
+    if isinstance(context, str):
+        print(f"Error: {context}", file=sys.stderr)
+        return result.fail(result_file, 2, "2")
     if context is None:
         print(f"Error: {ITEM_NOT_FOUND}.", file=sys.stderr)
         return result.fail(result_file, 2, "2")

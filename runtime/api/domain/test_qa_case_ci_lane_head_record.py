@@ -162,10 +162,6 @@ def test_publishing_a_lane_records_its_head(tmp_path, recorded):
             "session_id": None,
             "head_only": True,
             "timeout_s": None,
-            "retry_command": lane_head_record.rerecord_command(
-                "widgets",
-                str(checkout),
-            ),
         }
     ]
 
@@ -270,24 +266,17 @@ def test_an_unrecorded_candidate_names_a_recovery_a_finished_lane_can_take(
     assert warning == (
         f"warning: published lane head at {checkout} was not recorded as "
         "its candidate; a merge may refuse this lane as stale until it "
-        "is: HTTPS function relay response exceeded the time limit; "
-        f"record it with `{repair}`, which needs no commit"
+        "is: HTTPS function relay response exceeded the time limit. "
+        f"Recovery: run `{repair}`. Resolve the reported cause, then rerun the same command."
     )
     assert "next commit" not in warning
 
 
-def test_a_withheld_repair_still_names_what_records_the_candidate(
+def test_a_withheld_repair_names_the_snapshot_cause(
     tmp_path,
     monkeypatch,
     capsys,
 ):
-    """A refusal no retry answers still leaves the lane needing the stamp.
-
-    The snapshot surface withholds a repair where asking again cannot be
-    the answer, so the named reason stands alone. The lane's candidate is
-    unrecorded either way, so the command that records it is named too --
-    as what to run once that reason is dealt with, not as a retry.
-    """
     monkeypatch.setattr(
         project_snapshot,
         "sync_local_snapshot_for_write",
@@ -303,8 +292,8 @@ def test_a_withheld_repair_still_names_what_records_the_candidate(
 
     warning = capsys.readouterr().err
     assert "actor cannot write" in warning
-    assert lane_head_record.rerecord_command("widgets", str(checkout)) in warning
-    assert "needs no commit" in warning
+    assert "rerun the same command" in warning
+    assert "snapshot sync" not in warning
 
 
 def test_a_failed_recording_does_not_unpublish_the_lane(tmp_path, monkeypatch):

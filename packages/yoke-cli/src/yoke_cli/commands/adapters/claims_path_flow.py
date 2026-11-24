@@ -138,31 +138,24 @@ def claims_path_boundary_prove(args: List[str]) -> int:
             "lane; a landed item needs no proof, so re-run its close-out "
             "(`yoke merge item`), which proves the boundary from the merge",
         )
-    retry = f"yoke claims path boundary-prove --item {parsed.item}"
-    sync = sync_local_snapshot_for_write(
-        project=str((context.get("project") or {}).get("slug") or ""),
-        repo_root=repo_path,
-        integration_target=None,
+    engine = importlib.import_module("yoke_core.domain.lane_head_record")
+    head, error = engine.reconcile_lane_head(
+        str((context.get("project") or {}).get("slug") or ""),
+        lane,
         session_id=parsed.session_id,
-        head_only=True,
-        timeout_s=None,
-        retry_command=retry,
     )
-    if sync["status"] != "ok":
-        message = str(sync.get("message") or "lane HEAD snapshot sync failed")
-        repair = str(sync.get("repair_command") or "")
-        if repair:
-            message = f"{message}; retry `{repair}`"
-        return _local_error("boundary_head_sync_failed", message)
-    current = call_dispatcher(
-        function_id="claims.path.boundary_context",
-        target=target,
-        payload={},
-        actor=actor,
-    )
-    if not current.success:
-        return emit_response(current, json_mode=parsed.json_mode)
-    context = (current.result or {}).get("context") or {}
+    if error:
+        return _local_error(error.partition(":")[0], error)
+    if head:
+        current = call_dispatcher(
+            function_id="claims.path.boundary_context",
+            target=target,
+            payload={},
+            actor=actor,
+        )
+        if not current.success:
+            return emit_response(current, json_mode=parsed.json_mode)
+        context = (current.result or {}).get("context") or {}
     observation = call_dispatcher(
         function_id="claims.path.boundary_observe",
         target=TargetRef(kind="global"),

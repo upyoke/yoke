@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from importlib import import_module
 from typing import Dict, List
 
 from yoke_cli.commands._helpers import (
@@ -165,9 +166,17 @@ def epic_task_review_insert(args: List[str]) -> int:
         )
     except ValueError as exc:
         return usage_error(str(exc))
+    target = _epic_task_target(parsed)
+    if parsed.verdict == "pass" and parsed.head_sha:
+        engine = import_module("yoke_core.domain.lane_head_client")
+        try:
+            engine.reconcile_task_lane(target, session_id=parsed.session_id)
+        except engine.LaneHeadClientError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
     return dispatch_and_emit(
         function_id="workflow_item.epic_task.review_insert",
-        target=_epic_task_target(parsed),
+        target=target,
         payload={
             "verdict": parsed.verdict,
             "body": body,

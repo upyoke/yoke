@@ -85,6 +85,7 @@ def test_advance_failure_aborts_and_never_reports_the_case_complete() -> None:
     assert result["results"][0]["case_outcome"] == "error"
     assert "cursor persistence unavailable" in result["results"][0]["error"]
     assert calls == [
+        "qa.requirement.list",
         "qa.plan_execution.begin",
         "qa.plan_execution.heartbeat",
         "qa.plan_execution.advance",
@@ -122,6 +123,7 @@ def test_interrupt_aborts_before_propagating_to_the_operator() -> None:
         )
 
     assert calls == [
+        "qa.requirement.list",
         "qa.plan_execution.begin",
         "qa.plan_execution.heartbeat",
         "qa.plan_execution.abort",
@@ -199,6 +201,7 @@ def test_busy_checkin_during_mission_setup_preserves_execution() -> None:
     assert result["results"] == []
     assert "qa_checkin_busy:" in result["recovery"]
     assert calls == [
+        "qa.requirement.list",
         "qa.plan_execution.begin",
         "qa.plan_execution.heartbeat",
         "qa.plan_execution.heartbeat",

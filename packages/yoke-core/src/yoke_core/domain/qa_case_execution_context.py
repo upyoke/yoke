@@ -75,6 +75,7 @@ def get_case_execution_context(
     checkout_path: str | None = None,
     expected_branch: str | None = None,
     include_waived: bool = False,
+    include_lane_state: bool = False,
 ) -> dict[str, Any]:
     """Return the runner contract; *include_waived* serves a walk's frozen case."""
     marker = _p(conn)
@@ -83,7 +84,7 @@ def get_case_execution_context(
         "SELECT q.id AS requirement_id, q.item_id, q.task_num, q.deployment_run_id, "
         "q.deployment_stage,q.deployment_member_item_id,q.standalone_execution_id, "
         "q.plan_id, q.target_env, q.waived_at, "
-        "q.plan_case_key, q.method_id, q.qa_kind, q.instructions, "
+        "q.plan_case_key, q.method_id, q.qa_kind, q.qa_phase, q.instructions, "
         "q.expected_outcome, q.method_config, q.host_baseline, "
         "q.starting_state, q.starting_state_reason, q.workflow_transition_id, q.entry_surface, "
         "q.required_completion, q.method_name, q.runner_id, "
@@ -252,7 +253,8 @@ def get_case_execution_context(
                 session_id=session_id,
                 checkout_path=checkout_path,
                 expected_branch=expected_branch,
-                case=context,
+                case={**context, "qa_phase": row["qa_phase"]},
+                include_lane_state=include_lane_state,
             )
         )
     except SourceLaneError as exc:

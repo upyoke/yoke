@@ -148,8 +148,8 @@ def _build_local_boundary_proof(context: dict, repo_path: str) -> dict:
     head_sha = resolve_worktree_head(repo_path)
     if head_sha != str(lane.get("commit_sha") or ""):
         raise BoundaryProofError(
-            "the recorded lane revision is stale; run `yoke project snapshot "
-            "sync <LANE> --head-only` and retry"
+            "boundary_lane_head_changed: the lane HEAD changed after reconciliation; "
+            "rerun `yoke claims path boundary-prove`"
         )
     targets = sorted({str(claim["integration_target"]) for claim in claims})
     rung_id, template = _local_rung(repo_path, targets)

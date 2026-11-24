@@ -172,6 +172,22 @@ def execute_plan(
         )
 
     try:
+        if public_ref and transition_id and not resume_execution_id and adopted_execution is None:
+            from yoke_core.domain.qa_case_execution import QaCaseExecutionError
+            from yoke_core.domain.qa_lane_head import reconcile_plan_lanes
+
+            try:
+                reconcile_plan_lanes(
+                    target,
+                    transition_id=transition_id,
+                    requirement_id=requirement_id,
+                    checkout_path=begin_payload["checkout_path"],
+                    expected_branch=expected_branch,
+                    actor=resolved_actor,
+                    call=_call_plan_function,
+                )
+            except QaCaseExecutionError as exc:
+                raise QaPlanExecutionError(str(exc)) from exc
         execution = adopted_execution or begin_call()
     except QaPlanExecutionError as exc:
         from yoke_core.domain.qa_plan_empty_roster import as_discharged_plan_result

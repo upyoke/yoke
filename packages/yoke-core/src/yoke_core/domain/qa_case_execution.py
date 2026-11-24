@@ -233,6 +233,7 @@ def execute_case_context(
             checkout_path=checkout_path,
             allow_tree_mismatch=allow_tree_mismatch,
             actor=actor,
+            **({"expected_sha": expected_sha} if expected_sha else {}),
             **({"liveness": liveness} if liveness is not None else {}),
         )
     if runner_id == "ci_run":

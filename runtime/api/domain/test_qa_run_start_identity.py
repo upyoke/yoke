@@ -68,7 +68,7 @@ def test_run_start_identity_survives_new_evidence_and_lane_advance(test_db, runn
     raw = test_db.execute(
         "SELECT raw_result FROM qa_runs WHERE id=%s", (run.run_id,)
     ).fetchone()[0]
-    assert recorded_head_sha(raw) == LATER
+    assert recorded_head_sha(raw) == START
     assert json.loads(raw)["evidence"] == "finished"
 
 

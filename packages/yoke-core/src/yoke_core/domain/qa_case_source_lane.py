@@ -24,6 +24,7 @@ def resolve_source_lane(
     checkout_path: str | None = None,
     expected_branch: str | None = None,
     case: dict | None = None,
+    include_lane_state: bool = False,
 ) -> dict:
     if case and (
         case.get("deployment_run_id")
@@ -90,4 +91,5 @@ def resolve_source_lane(
         "lane_branch": selected["branch"],
         "lane_path": selected["path"],
         "lane_commit_sha": selected["commit_sha"],
+        **({"lane_state": selected["state"]} if include_lane_state else {}),
     }

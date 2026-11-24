@@ -92,7 +92,7 @@ def test_unrecorded_correction_lands_and_publishes_after_red_post_push(tmp_path,
     item = {"project": {"slug": "example"}, "worktrees": [
         {"branch": "ITEM-1", "path": str(root), "commit_sha": first}
     ]}
-    def record(*_a):
+    def record(*_a, **_kw):
         item["worktrees"][0]["commit_sha"] = repair
         return ""
     monkeypatch.setattr(lane_head_record, "record_lane_head", record)

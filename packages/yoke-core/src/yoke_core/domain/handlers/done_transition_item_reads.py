@@ -64,6 +64,7 @@ class ItemContextResponse(BaseModel):
     title: Optional[str] = None
     stage_id: Optional[str] = None
     lane_branch: Optional[str] = None
+    lane: Optional[Dict[str, Any]] = None
     project: Optional[str] = None
     public_ref: Optional[str] = None
     workflow: Optional[WorkflowRuntimeModel] = None
@@ -168,6 +169,7 @@ def handle_item_context(request: FunctionCallRequest) -> HandlerOutcome:
             "title": context.title,
             "stage_id": context.stage_id,
             "lane_branch": context.lane_branch,
+            "lane": context.lane,
             "project": context.project,
             "public_ref": context.public_ref,
             "workflow": {

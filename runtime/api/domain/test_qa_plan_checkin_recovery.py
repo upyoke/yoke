@@ -119,9 +119,11 @@ def test_permission_refusal_is_blocked_without_retry_or_case(monkeypatch):
 
     def transport(**kwargs):
         calls.append(kwargs["function_id"])
+        if kwargs["function_id"] == "qa.requirement.list":
+            return _response(kwargs, result={"rows": []})
         return (
             _response(kwargs, result=_begin_result())
-            if len(calls) == 1
+            if kwargs["function_id"] == "qa.plan_execution.begin"
             else _response(kwargs, code="permission_denied")
         )
 
@@ -132,7 +134,7 @@ def test_permission_refusal_is_blocked_without_retry_or_case(monkeypatch):
         )
     assert result["state"] == "blocked_on_precondition"
     assert "permission_denied" in result["recovery"]
-    assert calls == ["qa.plan_execution.begin", "qa.plan_execution.heartbeat"]
+    assert calls == ["qa.requirement.list", "qa.plan_execution.begin", "qa.plan_execution.heartbeat"]
     case.assert_not_called()
 
 

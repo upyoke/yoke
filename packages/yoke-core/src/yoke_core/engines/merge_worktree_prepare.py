@@ -96,6 +96,7 @@ def resolve_context(args: MergeArgs) -> MergeContext:
     # Resolve the epic through its complete public selector, server-side.
     ctx.epic_id = args.epic_ref
     if ctx.epic_id:
+        item = {}
         try:
             detail = call_dispatcher(
                 function_id="items.detail.get",
@@ -104,10 +105,13 @@ def resolve_context(args: MergeArgs) -> MergeContext:
             )
             if detail.success:
                 item = (detail.result or {}).get("item") or {}
-                if item.get("public_ref") is not None:
-                    ctx.epic_id = str(item["public_ref"])
         except Exception:  # noqa: BLE001 - DB context is advisory here.
             pass
+        if item.get("public_ref") is not None:
+            ctx.epic_id = str(item["public_ref"])
+        from yoke_core.engines.merge_worktree_recorded_source import reconcile_epic_source
+
+        reconcile_epic_source(args, item)
 
     # Guard: an item branch with no epic lane is a standalone merge, which
     # carries item bookkeeping (merged_at, evidence, status) the engine does
