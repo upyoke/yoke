@@ -262,8 +262,13 @@ def scheduled(tmp_path):
         if argv[0] == "whoami":
             content = f'"MACHINE\\user","{sid}"\n'
         elif argv[0] == "powershell.exe":
+            assert f".GetTask('{mine.label}')" in argv[-1]
             ended = {change[3] for change in changes if change[1] == "/End"}
-            content = "3\n" if any(f"'{label}'" in argv[-1] for label in ended) else "4\n"
+            content = "missing" if mine.label not in documents else (
+                "3\n" if mine.label in ended else "4\n"
+            )
+            if "$task.Xml" in argv[-1] and mine.label in documents:
+                content += documents[mine.label]
         elif argv[1:4] == ["/Query", "/FO", "CSV"]:
             content = "".join(f'"\\{label}","N/A","Running"\n' for label in documents)
         elif argv[1] == "/Query":

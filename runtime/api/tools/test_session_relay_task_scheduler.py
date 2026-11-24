@@ -21,6 +21,7 @@ class Scheduler:
         self.state = "3"
         self.commands = []
         self.restricted = False
+        self.startup_states = []
 
     def __call__(self, argv, **kwargs):
         self.commands.append(argv)
@@ -39,10 +40,17 @@ class Scheduler:
             self.state = "3"
         elif "/Delete" in argv:
             self.xml = ""
-        elif "/XML" in argv:
-            code, out = (0, self.xml) if self.xml else (1, "not found")
+        elif argv == ["schtasks", "/Query", "/FO", "CSV", "/NH"]:
+            raise subprocess.TimeoutExpired(argv, kwargs["timeout"])
         elif argv[0] == "powershell.exe":
-            out = self.state
+            assert f".GetTask('{self.instance.label}')" in argv[-1]
+            out = "missing"
+            if self.xml:
+                out = self.startup_states.pop(0) if self.startup_states else self.state
+                if "$task.Xml" in argv[-1]:
+                    out = f"{out}\r\n{self.xml}"
+        else:
+            pytest.fail(f"Unexpected scheduler command: {argv}")
         return subprocess.CompletedProcess(argv, code, out, err)
 
 
@@ -105,6 +113,25 @@ def test_install_status_and_uninstall_roundtrip(tmp_path, monkeypatch):
     assert not (instance.state_dir / "task-runner.py").exists()
 
 
+def test_install_polls_only_the_named_task_when_the_full_listing_would_time_out(
+    tmp_path, monkeypatch
+):
+    instance = relay_instance(tmp_path)
+    runner = Scheduler(instance)
+    runner.startup_states = ["3", "2", "4"]
+    monkeypatch.setattr(tasks.relay_install, "converge_relay_launcher", lambda *a, **k: None)
+    sleeps = []
+    monkeypatch.setattr(tasks.time, "sleep", sleeps.append)
+
+    status = tasks.install_relay_task(instance=instance, runner=runner)
+
+    assert status.task_present and status.task_current and status.loaded
+    assert sleeps == [0.1, 0.1]
+    assert [argv[0] for argv in runner.commands].count("whoami") == 1
+    assert [argv[0] for argv in runner.commands].count("powershell.exe") == 4
+    assert not any(argv[:2] == ["schtasks", "/Query"] for argv in runner.commands)
+
+
 def test_signout_and_reboot_before_login_are_unavailable_next_login_runs(tmp_path):
     instance = relay_instance(tmp_path)
     runner = Scheduler(instance)
@@ -156,13 +183,17 @@ def test_windows_dispatch_and_unknown_os_refusal(monkeypatch):
         service.relay_service_operation("install")
 
 
-def test_scheduler_xml_decodes_utf16_export(tmp_path):
-    instance = relay_instance(tmp_path)
+def test_named_task_status_decodes_utf8_xml(tmp_path):
+    fixture_root = tmp_path / "réseau"
+    fixture_root.mkdir()
+    instance = relay_instance(fixture_root)
     xml = tasks.relay_task_document(instance, user_sid=SID)
-    def run(argv, **kwargs):
-        return subprocess.CompletedProcess(argv, 0, xml.encode("utf-16"), b"")
-    result = tasks._run(["schtasks", "/Query", "/XML"], run)
-    assert result.stdout == xml
+
+    def run(argv, **_kwargs):
+        return subprocess.CompletedProcess(argv, 0, f"4\r\n{xml}".encode(), b"")
+
+    status = tasks.relay_task_status(instance=instance, runner=run, account=(SID, "user"))
+    assert status.task_current and status.loaded
 
 
 def test_release_refusal_remains_a_named_installer_error(tmp_path, monkeypatch):
