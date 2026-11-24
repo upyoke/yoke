@@ -5,6 +5,9 @@ from __future__ import annotations
 import argparse
 import sys
 
+from yoke_contracts.refusal_recovery import compose_refusal
+from yoke_contracts.standard_streams import UTF8_BOM_ENCODING
+
 
 def add_text_file_pair(
     group: argparse._MutuallyExclusiveGroup,
@@ -32,8 +35,13 @@ def resolve_text_file(value: str | None, file_path: str | None, flag: str) -> st
     if not file_path:
         return value
     try:
-        with open(file_path, "r", encoding="utf-8") as fh:
+        with open(file_path, "r", encoding=UTF8_BOM_ENCODING) as fh:
             return fh.read()
+    except UnicodeDecodeError as exc:
+        raise ValueError(compose_refusal(
+            f"text_file_invalid_utf8: {flag} requires a UTF-8 file",
+            recovery=f"Save the file as UTF-8 and pass it again with {flag}",
+        )) from exc
     except OSError as exc:
         raise ValueError(f"cannot read {flag}: {exc}") from exc
 

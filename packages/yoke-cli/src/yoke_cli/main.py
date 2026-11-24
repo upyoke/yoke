@@ -32,9 +32,24 @@ def main(argv: Optional[List[str]] = None) -> int:
         )
         return 1
     from yoke_cli.config.native_windows_terminal import configure
+    from yoke_contracts.standard_streams import InvalidStdinEncoding, use_utf8_stdin
 
-    configure()  # UTF-8 streams before any output, hooks included.
-    argv = list(sys.argv[1:] if argv is None else argv)
+    configure()  # UTF-8 output on Windows, hooks included.
+    use_utf8_stdin()
+    try:
+        return _run_command(list(sys.argv[1:] if argv is None else argv))
+    except InvalidStdinEncoding as exc:
+        from yoke_contracts.refusal_recovery import compose_refusal
+
+        # An undecodable hook payload cannot be evaluated or forwarded.
+        print(
+            compose_refusal(str(exc), recovery="Encode the input as UTF-8 and retry"),
+            file=sys.stderr,
+        )
+        return 1
+
+
+def _run_command(argv: List[str]) -> int:
     if argv[:2] == _HOOK_EVALUATE_COMMAND:
         from yoke_cli import sandbox_denial
         from yoke_cli.commands.adapters.hooks import hook_evaluate
