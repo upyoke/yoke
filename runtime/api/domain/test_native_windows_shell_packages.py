@@ -184,4 +184,4 @@ def test_stop_pass_refuses_at_deadline_naming_the_latest_restart(tmp_path, monke
     assert "windows_reset_profile_process_running" in result.stderr
     latest = len(records["FIXTURE_STOPS "]) + 1
     # PowerShell wraps long error lines, so compare without whitespace.
-    assert f"open:{latest}{POSTGRES}" in "".join(result.stderr.split())
+    assert f"WindowsApps:{latest}{POSTGRES}" in "".join(result.stderr.split())
