@@ -124,7 +124,7 @@ jobs:
           docker rm -f "yoke-suite-collection-pg-${{ github.run_id }}" || true
           if [ -n "${YOKE_PG_SOCKET_DIR:-}" ]; then sudo rm -rf -- "$YOKE_PG_SOCKET_DIR"; fi
   suite:
-    timeout-minutes: ${{ matrix.os == 'windows' && matrix.shard == 1 && 35 || 30 }}
+    timeout-minutes: 35
     name: suite (${{ matrix.os }}, ${{ matrix.shard }})
     needs: plan
     runs-on: ${{ matrix.runner }}
