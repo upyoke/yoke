@@ -213,6 +213,7 @@ jobs:
           if ($env:RIPGREP_CACHE_HIT -ne 'true') {
             $asset = "ripgrep-$env:RIPGREP_VERSION-x86_64-pc-windows-msvc"
             $archive = Join-Path $env:RUNNER_TEMP "$asset.zip"
+            # artifact-fetch-allow: this Windows CI tool is fetched only on a cache miss, with a timeout and a published SHA256 check before extraction.
             $url = "https://github.com/BurntSushi/ripgrep/releases/download/$env:RIPGREP_VERSION/$asset.zip"
             Invoke-WebRequest -Uri $url -OutFile $archive -TimeoutSec 60
             $digest = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash
