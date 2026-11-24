@@ -226,14 +226,11 @@ each upkeep cycle until setup releases the lock. Only the active connection's
 relay follows releases for the installed CLI. A local universe serves from the
 installed CLI itself.
 
-Setup installs exactly the release its server serves before any project
-question, at start or right after sign-in, and reruns the same command on it.
-Apply checks the served release under the setup lock before changing the
-machine. If the release moved, setup installs it, records
-`cli_followed_release` and resumes at Review with the run's answers. The relay
-installer waits for any pin already holding the release lock before selecting
-the served release. If setup cannot follow, it stops naming the exact
-`yoke update --version VERSION` command.
+Setup checks the served release at start or after sign-in, before project
+questions. It installs the exact release and reruns the command on it.
+Apply checks again under the setup lock before changing the machine. Setup
+records a follow as `cli_followed_release` and resumes Review with saved answers.
+A follow failure names the exact `yoke update --version VERSION` command.
 Other commands warn when the CLI is older than the served release.
 `yoke update --version VERSION` installs that exact release, older or newer: it
 prints `Downgraded` when that release is older than the installed CLI, and names
