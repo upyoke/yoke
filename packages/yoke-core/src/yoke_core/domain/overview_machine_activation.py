@@ -266,9 +266,9 @@ def machine_module_rows(
     return rows
 
 
-def every_machine_has_harness(rows: Sequence[Dict[str, Any]]) -> bool:
-    """The harness module's own signal: no listed machine is still pending."""
-    return bool(rows) and all(row["harness_activated_at"] for row in rows)
+def any_machine_has_harness(rows: Sequence[Dict[str, Any]]) -> bool:
+    """Whether a listed machine has connected a harness."""
+    return any(row["harness_activated_at"] for row in rows)
 
 
 __all__ = [
@@ -276,7 +276,7 @@ __all__ = [
     "MACHINE_MODULE_CONNECT_HARNESS",
     "MACHINE_MODULE_KEYS",
     "MACHINE_MODULE_MACHINE_CONNECTED",
-    "every_machine_has_harness",
+    "any_machine_has_harness",
     "latch_machine_activations",
     "machine_module_rows",
     "read_registered_machines",

@@ -1,0 +1,9 @@
+{
+ "id": "connect-harness",
+ "title": "Connecting a harness on one machine completes setup for the viewer",
+ "status": "observed",
+ "form": "Know",
+ "text": "Connect a harness completes when a supported harness connects on any of the viewer's registered machines. The module shows the earliest connection. Each pending machine keeps its own Next up cue in the Onboarding dialog when the dialog is available.",
+ "topics": ["workbench/onboarding"],
+ "sources": ["packages/yoke-core/src/yoke_core/domain/overview_activation_read.py", "packages/yoke-core/src/yoke_core/ui/static/universe_onboarding_machines.js", "runtime/api/test_overview_activation_machines.py"]
+}

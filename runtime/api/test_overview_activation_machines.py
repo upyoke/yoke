@@ -1,19 +1,20 @@
-"""The harness activation module answered per registered machine.
+"""The harness module completes once any of the viewer's machines connects.
 
-Drives ``overview.activation.get`` against a universe with more than one
-machine: the wizard row counts and names them, the harness module carries
-one row per machine with its own state and hook health, the module reads
-next up while any machine has connected nothing, and every latch is
-monotone per machine.
+Drives ``overview.activation.get`` with multiple registered machines.
+The wizard counts and names them. Each harness row keeps its own state,
+hook health and monotone latch.
 """
 
 from __future__ import annotations
+
+from datetime import datetime, timezone
 
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
     TargetRef,
 )
+from yoke_core.domain import overview_machine_activation
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.machine_registry import register_machine
 from yoke_core.domain.handlers.overview_activation import (
@@ -80,7 +81,7 @@ def _health(machine):
     }
 
 
-def test_a_relay_only_machine_stays_next_up_beside_a_connected_one(test_db):
+def test_one_connected_machine_activates_the_module_beside_a_pending_one(test_db):
     _seed_relay(test_db, MACHINE_A, "alpha-box")
     _seed_relay(test_db, MACHINE_B, "beta-box")
     _seed_session(
@@ -103,11 +104,11 @@ def test_a_relay_only_machine_stays_next_up_beside_a_connected_one(test_db):
     assert wizard["state"] == "activated"
 
     harness = modules["connect_harness"]
-    assert harness["state"] == "in_progress"
-    assert harness["activated_at"] is None
+    assert harness["state"] == "activated"
     rows = _machines(harness)
     alpha, beta = rows[MACHINE_A], rows[MACHINE_B]
     assert alpha["state"] == "activated" and alpha["activated_at"]
+    assert harness["activated_at"] == alpha["activated_at"]
     assert alpha["connected"]["executor"] == "claude-code"
     assert alpha["surfaces"] == ["claude-cli", "codex-cli"]
     assert _health(alpha) == {
@@ -135,21 +136,28 @@ def test_a_relay_only_machine_stays_next_up_beside_a_connected_one(test_db):
         "claude-desktop",
         "codex-desktop",
     }
-    # Later modules stay locked behind the pending machine.
-    assert modules["run_onboard"]["state"] == "not_started"
+    assert modules["run_onboard"]["state"] == "in_progress"
 
 
-def test_every_machine_connected_activates_the_module(test_db):
+def test_two_connected_machines_keep_the_earliest_activation(test_db, monkeypatch):
     _seed_relay(test_db, MACHINE_A, "alpha-box")
     _seed_relay(test_db, MACHINE_B, "beta-box")
+    latch_times = iter(
+        (datetime(2026, 11, day, tzinfo=timezone.utc) for day in (23, 24))
+    )
+    monkeypatch.setattr(overview_machine_activation, "utc_now", lambda: next(latch_times))
     _seed_session(test_db, "s-a", MACHINE_A)
+    first = _modules()["connect_harness"]
     _seed_session(test_db, "s-b", MACHINE_B, executor="codex", surface="codex-cli")
 
     harness = _modules()["connect_harness"]
+    rows = _machines(harness)
 
     assert harness["state"] == "activated"
-    assert harness["activated_at"]
-    assert all(row["state"] == "activated" for row in harness["machines"])
+    assert all(row["state"] == "activated" for row in rows.values())
+    assert harness["activated_at"] == first["activated_at"]
+    assert harness["activated_at"] == rows[MACHINE_A]["activated_at"]
+    assert rows[MACHINE_A]["activated_at"] < rows[MACHINE_B]["activated_at"]
 
 
 def test_the_harness_latch_holds_per_machine_when_sessions_vanish(test_db):
@@ -168,9 +176,12 @@ def test_the_harness_latch_holds_per_machine_when_sessions_vanish(test_db):
     # A machine that registers afterwards starts with no latch of its own.
     _seed_relay(test_db, MACHINE_B, "beta-box")
     later = _modules()["connect_harness"]
-    assert later["state"] == "in_progress"
-    assert _machines(later)[MACHINE_A]["activated_at"] == activated_at
-    assert _machines(later)[MACHINE_B]["activated_at"] is None
+    assert later["state"] == "activated"
+    assert later["activated_at"] == activated_at
+    rows = _machines(later)
+    assert rows[MACHINE_A]["activated_at"] == activated_at
+    assert rows[MACHINE_B]["state"] == "in_progress"
+    assert rows[MACHINE_B]["activated_at"] is None
 
 
 def test_a_universe_latch_row_for_the_harness_module_is_inert(test_db):

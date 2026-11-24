@@ -18,18 +18,16 @@ viewer's own hosted machine connection, forwarded verbatim in ``host_facts``):
   (``project_github_repo_bindings`` with a non-revoked status) and hosting
   (an ``aws-admin`` ``project_capabilities`` row — declared, no verifier
   writes ``verified_at`` today) are the recommended tail.
-* ``connect_harness`` — answered per registered machine, never for the
-  universe: each machine lists the harnesses that ran from it and its own
-  hook health, latched per ``(machine, module)``. The module reads
-  activated only when every listed machine has connected a harness, so a
-  machine that registered a relay and ran nothing stays "next up" on its
-  own account instead of inheriting another machine's history.
+* ``connect_harness`` — answers for the viewer and activates once any of
+  their registered machines has connected a harness. Each row carries its
+  own harness history, hook health and per-machine latch. A machine that
+  has run nothing stays "next up" on its own row without reopening the module.
 * ``run_onboard`` — an onboarding checklist run whose project's first item
   is done, or one its project's deployments superseded
   (:mod:`yoke_core.domain.overview_onboard_progress`). The first item done
   is activation itself, so this module completes on it.
 
-Latched activation is monotone: once a module's signal has been observed
+Universe latches are monotone: once a module's signal has been observed
 satisfied, the fact row keeps it activated even if the signal later
 disappears. Missing optional tables read as "no signal", never an error,
 so the derivation works against a universe born before those surfaces.
@@ -51,7 +49,7 @@ from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.harness_machine_state import read_harness_machine_reports
 from yoke_core.domain.overview_machine_activation import (
-    every_machine_has_harness,
+    any_machine_has_harness,
     machine_module_rows,
     read_registered_machines,
 )
@@ -252,9 +250,10 @@ def compute_activation(
         MODULE_RUN_ONBOARD: run_is_complete(signals["onboard_progress"]),
     }
     latched = latch_activations(conn, satisfied)
-    if every_machine_has_harness(signals["machines"]):
-        latched[MODULE_CONNECT_HARNESS] = max(
-            row["harness_activated_at"] for row in signals["machines"]
+    machines = signals["machines"]
+    if any_machine_has_harness(machines):
+        latched[MODULE_CONNECT_HARNESS] = min(
+            row["harness_activated_at"] for row in machines if row["harness_activated_at"]
         )
     dismissed = read_dismissed_modules(conn, actor_id)
 

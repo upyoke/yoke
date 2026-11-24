@@ -21,7 +21,7 @@ from yoke_core.domain.machine_registry import register_machine
 from yoke_core.domain.overview_machine_activation import (
     MACHINE_MODULE_CONNECT_HARNESS,
     MACHINE_MODULE_MACHINE_CONNECTED,
-    every_machine_has_harness,
+    any_machine_has_harness,
     latch_machine_activations,
     machine_module_rows,
     read_registered_machines,
@@ -140,7 +140,8 @@ def test_latch_is_monotone_per_machine_and_module(test_db):
         rows[MACHINE_B]["connected_at"]
         and rows[MACHINE_B]["harness_activated_at"] is None
     )
-    assert every_machine_has_harness(list(rows.values())) is False
+    assert any_machine_has_harness(list(rows.values())) is True
+    assert any_machine_has_harness([]) is False
     first = rows[MACHINE_A]["harness_activated_at"]
 
     # The signal disappears; the latch does not.
