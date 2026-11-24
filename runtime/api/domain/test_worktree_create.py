@@ -80,9 +80,6 @@ def test_creation_sweeps_default_branch_independently_of_lane_base(
         monkeypatch.setattr(worktree_create, name, Mock(return_value=value))
     sweep = Mock()
     monkeypatch.setattr(worktree_create, "retire_finished_lanes", sweep)
-    monkeypatch.setattr(
-        worktree_create.project_settings, "get_project_str", lambda *a, **k: ".worktrees"
-    )
 
     result = create_worktree(
         TEST_ITEM_ID, base_branch=requested_base, repo_root=str(tmp_path),
