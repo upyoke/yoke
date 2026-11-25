@@ -27,6 +27,8 @@ def directory_readiness(config_path: Path) -> dict[str, bool]:
 
 
 def setup_directories(config_path: Path, *, reuse=None, progress=None) -> None:
+    if reuse is not None and all(reuse.get(key) for key in RUNTIME_DIRECTORY_NAMES):
+        return
     paths = directory_paths(config_path)
     steps = tuple(
         ("create-runtime-dir", key)
