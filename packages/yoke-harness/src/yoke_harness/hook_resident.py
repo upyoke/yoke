@@ -260,7 +260,11 @@ class _ResidentHandler(socketserver.BaseRequestHandler):
             from yoke_harness.hook_resident_client_wall import reply_with_client_wall
 
             reply_with_client_wall(
-                self.request, response, request, self.server.observations, client_wall_target
+                self.request,
+                response,
+                request,
+                self.server.observations if client_wall_target is not None else None,
+                client_wall_target,
             )
         finally:
             send_held_denial_audits(held_audits)

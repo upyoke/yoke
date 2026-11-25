@@ -20,7 +20,6 @@ _DENY = {"status": "ok", "stdout": '{"deny": true}', "stderr": "", "exit_code": 
 
 class _Server:
     loaded_revision = "rev"
-    observations = None
 
     def __init__(self, timeline: list[str]) -> None:
         self.timeline = timeline
