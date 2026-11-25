@@ -60,12 +60,18 @@ def test_desktop_receipt_is_staged_then_moved_and_cleanup_owns_the_stage():
     result = desktop_script(Control(), "Write-Output ok", timeout=5)
 
     assert result.returncode == 0
-    wrapper = next(text for path, text in uploads.items() if not path.endswith(".command.ps1"))
-    receipt = next(path for path in uploads if path.endswith(".command.ps1")).replace(".command.ps1", ".json")
+    command_path = next(path for path in uploads if path.endswith(".command.ps1"))
+    root = command_path.removesuffix(".command.ps1")
+    supervisor = uploads[root + ".ps1"]
+    worker = uploads[root + ".worker.ps1"]
+    receipt, worker_result = root + ".json", root + ".worker.json"
     staged = receipt + ".tmp"
-    success, failure = wrapper.split("} catch {")
-    for branch in (success, failure):
-        assert f"Set-Content -Encoding UTF8 '{staged}'" in branch
-        assert f"Move-Item -LiteralPath '{staged}' -Destination '{receipt}' -Force" in branch
-        assert f"Set-Content -Encoding UTF8 '{receipt}'" not in branch
-    assert f"'{staged}'" in scripts[-1]
+    assert f"Set-Content -Encoding UTF8 '{worker_result}'" in worker
+    assert f"Move-Item -LiteralPath '{worker_result}' -Destination '{receipt}'" in supervisor
+    assert supervisor.index(f"Set-Content -Encoding UTF8 '{staged}'") < supervisor.index(
+        f"Move-Item -LiteralPath '{staged}' -Destination '{receipt}'"
+    )
+    for script in (supervisor, worker):
+        assert f"Set-Content -Encoding UTF8 '{receipt}'" not in script
+    for path in (worker_result, staged):
+        assert f"'{path}'" in scripts[-1]

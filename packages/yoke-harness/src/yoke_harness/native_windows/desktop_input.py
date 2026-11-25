@@ -12,6 +12,7 @@ from yoke_contracts.test_machine_types import HostActionResult
 from yoke_harness.desktop_geometry import is_desktop_resolution
 from yoke_harness.native_windows.desktop import desktop_script
 from yoke_harness.native_windows.desktop_input_helper import HELPER
+from yoke_harness.native_windows.desktop_job import RECOVERY, TIMEOUT, UNRESOLVED
 from yoke_harness.native_windows.display_geometry import DEFINITION
 from yoke_harness.native_windows.transport import quote
 
@@ -62,10 +63,11 @@ def drive_desktop(control, raw_request, *, secrets=()):
     )
     ran = desktop_script(control, script, timeout=request["wait_seconds"] + 60, hidden=True)
     if ran.returncode == 124:
+        unresolved = UNRESOLVED in ran.stderr
         return _failure(
-            "windows_desktop_task_timeout",
-            "the desktop task did not finish",
-            "Unlock the auto-logged-on test session, inspect Task Scheduler, then retry",
+            UNRESOLVED if unresolved else TIMEOUT,
+            ran.stderr,
+            RECOVERY if unresolved else "Inspect the command and desktop session before retrying.",
         )
     try:
         row = json.loads(base64.b64decode(ran.stdout.strip().splitlines()[-1]))
