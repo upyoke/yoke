@@ -115,6 +115,7 @@ def write_payload(
     cfg_path: Path,
     *,
     allow_unconfigured: bool = False,
+    seed_machine_id: bool = True,
 ) -> None:
     """Validate and atomically replace one machine-config payload.
 
@@ -122,14 +123,16 @@ def write_payload(
     connection is selected and retirement of the last connection. Neither
     operation may invent authority just to persist directories or identity.
     The shape stays an error for ``yoke status``, where an unconfigured
-    machine should be reported. Retired keys nothing reads any more are
-    dropped here, so a machine converges on its next config write.
+    machine should be reported. Set ``seed_machine_id=False`` for writes
+    that must preserve the presence or absence of an existing identity.
+    Retired keys are dropped on the next config write.
     """
     try:
         assert_write_owned(cfg_path)
     except MachineConfigOwnershipError as exc:
         raise MachineConfigWriteError(str(exc)) from exc
-    payload.setdefault(contract.MACHINE_ID_KEY, str(uuid.uuid4()))
+    if seed_machine_id and contract.MACHINE_ID_KEY not in payload:
+        payload[contract.MACHINE_ID_KEY] = str(uuid.uuid4())
     strip_retired_keys(payload)
     tolerated = (
         {"active_env_required", "connections_required"}

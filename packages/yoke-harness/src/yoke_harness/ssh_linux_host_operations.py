@@ -139,8 +139,6 @@ class SshLinuxHostOperations(
                 "golden_baseline_not_declared",
             )
         retirement = retire_reset_identity(self)
-        if not retirement.ok:
-            return retirement
         restored = archive_operation(self, "reset", self.golden_baseline_path)
         if not restored.ok:
             return HostActionResult(
