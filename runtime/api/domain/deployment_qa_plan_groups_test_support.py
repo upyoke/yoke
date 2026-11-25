@@ -53,15 +53,15 @@ def _attach(conn, member, plan_id):
     conn.commit()
 
 
-def _begin(conn, member=None):
-    seed_registered_qa_launch(conn, "plan-group-qa", actor_id=2)
+def _begin(conn, member=None, *, actor_id=2):
+    seed_registered_qa_launch(conn, "plan-group-qa", actor_id=actor_id)
     return begin_plan_execution(
         conn,
         deployment_run_id=RUN,
         deployment_stage="item-qa",
         deployment_member_item_id=member,
         plan=SLUG,
-        actor_id="2",
+        actor_id=str(actor_id),
         session_id="plan-group-qa",
     )
 
