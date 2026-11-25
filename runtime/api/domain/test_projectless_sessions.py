@@ -152,9 +152,9 @@ def test_concurrent_reap_and_hook_no_premature_end(world, monkeypatch):
     _stale(world, monkeypatch)
     original = cleanup.reclaim_facts
 
-    def acquired_before_recheck(conn, rows):
+    def acquired_before_recheck(conn, rows, **kwargs):
         insert_steering_claim(conn, "registration", project_id=1)
-        return original(conn, rows)
+        return original(conn, rows, **kwargs)
 
     monkeypatch.setattr(cleanup, "reclaim_facts", acquired_before_recheck)
     assert cleanup.clean_stale_harness_sessions(world.conn)["total_reclaimed"] == 0
