@@ -25,18 +25,18 @@ def run(args: List[str]) -> int:
         description=(
             "Stop an ordered QA execution. In-flight host work retains custody "
             "until restore proof is recorded. The owner stops its own execution. "
-            "A live steering seat stops another session's live execution: the "
+            "Its live launcher or a covering steering seat may also stop it: the "
             "receipt reads outcome stop_requested, and the owner's runner stops "
             "at its next case or heartbeat, cleans up its host and settles it. "
-            "Any session may abandon an execution whose owner has not "
-            "heartbeated for 30 minutes and is not parked."
+            "Any session may abandon a waiting or review-held execution after its owner ends. "
+            "Other executions may be abandoned after 30 minutes of silence when the owner is not parked."
         ),
         epilog=(
             "qa_abort_restore_pending means cancellation is recorded: keep the "
             "runner connected through cleanup, then retry. Failed restoration "
             "retains the lease and names operator recovery. "
             "qa_execution_stop_requires_steering means another session still "
-            "drives the walk: acquire a steering seat with yoke claims steering "
+            "drives the walk. Ask its launcher or acquire a steering seat with yoke claims steering "
             "acquire --project P --reason TEXT and rerun, or ask the owner. "
             "See yoke qa plan run --help."
         ),

@@ -268,10 +268,13 @@ yoke qa plan abort --execution-id EXECUTION_ID \
 
 `qa_checkin_busy` pauses setup or cases as `blocked_on_precondition`; keep custody
 and resume the same execution after contention clears. Other setup errors fail.
-Owners can abort ended runs; settled walks report state. A steering abort returns
-`stop_request`; the owner stops at its next case, heartbeat or
-[walk-end](exploration-evidence.md). Without a seat,
-`qa_execution_stop_requires_steering` refuses.
+Owners can abort ended runs. Settled walks report their state. The live
+session that launched a worker and a covering steering seat can both abort
+its execution. If its runner is still driving the walk, the abort returns
+`stop_request`. The runner stops at its next case, heartbeat or
+[walk-end](exploration-evidence.md). When a launched QA worker ends with
+live work or leaves a requested walk without a result message, its launcher
+receives the execution subject and recovery command.
 
 An in-flight host abort first records cancellation. Until the interrupted
 case's cleanup proof is recorded, `qa_abort_restore_pending` retains custody.

@@ -30,6 +30,7 @@ REASON_HEARTBEAT_STALE = "heartbeat_stale"
 REASON_PROGRESS_STALE = "progress_stale"
 REASON_FRESH = "fresh"
 REASON_ACTIVE_WORK_CLAIM = "active_work_claim"
+REASON_LIVE_QA_EXECUTION = "live_qa_execution"
 REASON_KEEPALIVE_HELD = "keepalive_held"
 REASON_WAKE_DELIVERY_IN_FLIGHT = "wake_delivery_in_flight"
 
@@ -201,6 +202,7 @@ def classify_activity(
     evidence: ReclaimActivityEvidence,
     *,
     holds_work_claim: bool,
+    owns_live_qa_execution: bool = False,
     progress_threshold_minutes: Optional[int] = None,
     now: Optional[datetime] = None,
 ) -> ReclaimClassification:
@@ -212,6 +214,9 @@ def classify_activity(
 
     if holds_work_claim:
         return ReclaimClassification(False, REASON_ACTIVE_WORK_CLAIM, evidence)
+
+    if owns_live_qa_execution:
+        return ReclaimClassification(False, REASON_LIVE_QA_EXECUTION, evidence)
 
     in_flight = evidence.is_in_flight(now=now)
     if not in_flight and activity_is_stale(
