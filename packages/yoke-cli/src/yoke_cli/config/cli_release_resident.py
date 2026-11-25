@@ -7,13 +7,30 @@ import sys
 from yoke_cli.config import cli_release_runtime as runtime
 
 
+def _running_generation() -> Path | None:
+    environment = Path(sys.executable).parent.parent.resolve()
+    generation = environment.parent.parent
+    if environment.parts[-2:] == ("tools", "yoke-cli") and generation.parent.name == "releases":
+        return generation
+    return None
+
+
+def running_release_superseded() -> bool:
+    """Check current only when the stable CLI launcher owns this process."""
+    if not runtime.STARTED_BY_LAUNCHER:
+        return False
+    try:
+        running = _running_generation()
+        return running is not None and runtime._generation(running.parent.parent) != running
+    except (OSError, RuntimeError, UnicodeError):
+        return False
+
+
 def hold_release(*, current: bool = False) -> Path | None:
     """Lease this Python's release, or the current one, until exit and across an
     exec (an inheritable descriptor); None when this Python runs from none."""
-    environment = Path(sys.executable).parent.parent.resolve()
-    generation = environment.parent.parent
-    released = environment.parts[-2:] == ("tools", "yoke-cli")
-    if not released or generation.parent.name != "releases":
+    generation = _running_generation()
+    if generation is None:
         return None
     if current:
         generation = runtime._generation(generation.parent.parent)

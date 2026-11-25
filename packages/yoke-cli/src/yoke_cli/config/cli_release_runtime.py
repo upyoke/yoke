@@ -18,9 +18,9 @@ import tempfile
 import time
 
 WINDOWS = os.name == "nt"
+STARTED_BY_LAUNCHER = False
 if WINDOWS:
     import msvcrt
-
 LOCK_SOURCE = None
 if LOCK_SOURCE is None:
     from yoke_contracts import platform_file_lock as locking
@@ -28,7 +28,6 @@ else:
     import types
     locking = types.ModuleType("platform_file_lock")
     exec(compile(LOCK_SOURCE, "<platform_file_lock>", "exec"), locking.__dict__)
-
 INSTALL_ROOT = None
 RECOVERY = "rerun the public installer or yoke update to repair the CLI"
 PROBES = (["--version"], ["--help"], "github credential-helper refresh --check-only --json".split())
@@ -52,9 +51,11 @@ try:
     binding = detect()
     if binding['kind'] != 'packaged_wheel' or not binding['version']:
         sys.exit('released_cli_required: CLI must be a versioned wheel; ' + sys.argv[1])
+    from yoke_cli.config import cli_release_runtime
     from yoke_cli.main import main
 except (ImportError, OSError) as exc:
     sys.exit('released_cli_unavailable: ' + str(exc) + '; ' + sys.argv[1])
+cli_release_runtime.STARTED_BY_LAUNCHER = True
 sys.exit(main(sys.argv[3:]) or 0)
 """
 ENTRY = ["-I", "-c", RELEASE_ENTRY, RECOVERY]
@@ -283,7 +284,6 @@ def activate(root: Path, generation: Path, bin_dir: Path, version: str) -> None:
             print(f"cli_cleanup_deferred: {exc}; {CLEANUP_RETRY}", file=sys.stderr)
 
 def launch(root: Path, arguments: list[str]) -> int:
-    """Run a command, or with ``--python`` the release's Python, in the current release."""
     generation = None
     try:
         for attempt in range(3):

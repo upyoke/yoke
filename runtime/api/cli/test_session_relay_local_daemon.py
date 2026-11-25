@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+import pytest
+
 from yoke_cli.commands.adapters import session_control_relay_release as release_cli
+from yoke_cli.config.cli_release_resident import running_release_superseded
 from yoke_contracts.machine_config import relay_instance as session_relay_instance
 from yoke_core.tools import session_relay_release
 from yoke_core.tools import session_relay_release_install
@@ -15,7 +18,7 @@ def test_local_universe_daemon_serves_without_following_a_release(
     monkeypatch,
     tmp_path,
 ) -> None:
-    """A local relay already runs the build its own machine serves.
+    """A local relay follows its installed CLI release.
 
     Passing no ``pin_served_release`` is what turns release-following off in
     the daemon loop, so the relay never reaches for a served build, a
@@ -61,6 +64,10 @@ def test_local_universe_daemon_serves_without_following_a_release(
     assert daemon_call.get("pin_served_release") is None
     assert "pinned_release" not in daemon_call
     assert "reload_argv" not in daemon_call
+    assert daemon_call["reload_check"] is running_release_superseded
+    with pytest.raises(SystemExit) as exc:
+        daemon_call["reload_exec"](None, executable=None)
+    assert exc.value.code == 75
 
 
 def test_local_universe_daemon_runs_upkeep_after_each_cycle_maintenance(

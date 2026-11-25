@@ -25,9 +25,11 @@ backs off exponentially. A credential rejected for good stops the daemon with
 exit 0, which the service manager does not restart.
 
 A new served build installs on a background thread beside the running
-release while the loop keeps polling, then ends in ``exec`` rather than exit.
-A failed install leaves the prior process and venv working and is not retried
-for the same build (see ``session_relay_release_pin``).
+release while the loop keeps polling. After draining, the daemon restarts on
+the new pin. A failed install leaves the prior process working and is not
+retried for the same build (see ``session_relay_release_pin``).
+For a local universe, a changed installed release drains the daemon and exits
+so the service supervisor reruns the stable CLI launcher.
 """
 
 from __future__ import annotations
@@ -36,7 +38,7 @@ from dataclasses import dataclass
 import logging
 from pathlib import Path
 import random
-import signal
+import sys
 import time
 from typing import Callable, Sequence
 
@@ -62,6 +64,11 @@ from yoke_harness.session_relay_schedule import (
 from yoke_harness.session_relay_process_restart import exec_relay_release
 from yoke_harness.session_relay_release_pin import PinServedRelease, ReleasePinner
 from yoke_harness.session_relay_stop_deadline import read_stop_settlement_seconds
+from yoke_harness.session_relay_stop_request import (
+    StopRequest,
+    install_signal_handlers,
+    restore_signal_handlers,
+)
 
 
 # How long the loop waits between cadence checks. The server owns the poll
@@ -101,57 +108,6 @@ class DaemonOutcome:
     last_state: str = ""
 
 
-class _StopRequest:
-    """Publish the main thread's stop reason and deadline start to workers."""
-
-    def __init__(self) -> None:
-        self._state = ("", 0.0)
-
-    def set(self, reason: str, *, replace: bool = False) -> None:
-        # SIGTERM can interrupt the main thread while it holds a lock.
-        # Publish both values together without acquiring one in the handler.
-        if not self.reason or replace:
-            self._state = (reason, time.monotonic())
-
-    @property
-    def reason(self) -> str:
-        return self._state[0]
-
-    @property
-    def requested_at(self) -> float:
-        return self._state[1]
-
-    def is_set(self) -> bool:
-        return bool(self.reason)
-
-
-def _install_signal_handlers(stop: _StopRequest) -> dict[int, object]:
-    """Route termination signals into the stop request; return what they replaced."""
-
-    def handle(signum: int, _frame: object) -> None:
-        if not stop.reason.startswith("signal:"):
-            stop.set(f"signal:{signal.Signals(signum).name}", replace=True)
-            raise RelayStopRequested()
-
-    previous: dict[int, object] = {}
-    for signum in (signal.SIGTERM, signal.SIGINT):
-        try:
-            previous[signum] = signal.signal(signum, handle)
-        except ValueError:
-            # Not the main thread — a caller driving the loop directly owns
-            # its own stop signal, so this is not an error.
-            _LOGGER.debug("relay daemon could not install %s handler", signum)
-    return previous
-
-
-def _restore_signal_handlers(previous: dict[int, object]) -> None:
-    for signum, handler in previous.items():
-        try:
-            signal.signal(signum, handler)  # type: ignore[arg-type]
-        except (ValueError, TypeError):
-            _LOGGER.debug("relay daemon could not restore %s handler", signum)
-
-
 def serve_forever(
     *,
     state_dir: Path | None = None,
@@ -161,6 +117,7 @@ def serve_forever(
     idle_tick_seconds: float = IDLE_TICK_SECONDS,
     drain_timeout_seconds: float = DRAIN_TIMEOUT_SECONDS,
     max_job_workers: int = 4,
+    reload_check: Callable[[], bool] | None = None,
     reload_argv: Sequence[str] | None = None,
     reload_exec: Callable[..., None] = exec_relay_release,
     pinned_release: str = "",
@@ -171,15 +128,15 @@ def serve_forever(
     install_signals: bool = True,
     **cycle_kwargs: object,
 ) -> DaemonOutcome:
-    """Serve until a signal, a successful release repin, or a direct cap.
+    """Serve until a signal, a release restart, or a direct cap.
 
     ``stop_after_cycles`` bounds the loop for callers that drive it
     directly; the installed service leaves it unset and runs until the
     machine stops it.
     """
-    stop = _StopRequest()
+    stop = StopRequest()
     stop_settlement_seconds = read_stop_settlement_seconds()
-    prior_handlers = _install_signal_handlers(stop) if install_signals else {}
+    prior_handlers = install_signal_handlers(stop) if install_signals else {}
     try:
         return _serve_under_lock(
             stop,
@@ -191,6 +148,7 @@ def serve_forever(
             drain_timeout_seconds=drain_timeout_seconds,
             stop_settlement_seconds=stop_settlement_seconds,
             max_job_workers=max_job_workers,
+            reload_check=reload_check,
             reload_argv=reload_argv,
             reload_exec=reload_exec,
             pinned_release=pinned_release,
@@ -199,11 +157,11 @@ def serve_forever(
             **cycle_kwargs,
         )
     finally:
-        _restore_signal_handlers(prior_handlers)
+        restore_signal_handlers(prior_handlers)
 
 
 def _serve_under_lock(
-    stop: _StopRequest,
+    stop: StopRequest,
     *,
     state_dir: Path | None,
     cycle: Callable[..., ServeOnceOutcome],
@@ -213,6 +171,7 @@ def _serve_under_lock(
     drain_timeout_seconds: float,
     stop_settlement_seconds: float,
     max_job_workers: int,
+    reload_check: Callable[[], bool] | None,
     reload_argv: Sequence[str] | None,
     reload_exec: Callable[..., None],
     pinned_release: str,
@@ -244,6 +203,14 @@ def _serve_under_lock(
         replacement: Path | None = None
         try:
             while not stop.is_set():
+                if reload_check is not None and reload_check():
+                    stop.set("installed_release_changed")
+                    print(
+                        "relay reloading: installed release changed (installed_release_changed)",
+                        file=sys.stderr,
+                        flush=True,
+                    )
+                    break
                 observation_before = served_build_observer() if pinner else None
                 try:
                     if cycle_maintenance is not None:
@@ -326,9 +293,9 @@ def _serve_under_lock(
             jobs_settled=supervisor.settled,
             last_state=last_state,
         )
-    if result.reason == "served_build_changed" and replacement is not None:
-        # Outside the lock: the pinned replacement takes it immediately.
-        reload_exec(reload_argv, executable=str(replacement))
+    # Restart outside the lock so the replacement can acquire it.
+    if result.reason in {"installed_release_changed", "served_build_changed"}:
+        reload_exec(reload_argv, executable=str(replacement) if replacement else None)
     return result
 
 
