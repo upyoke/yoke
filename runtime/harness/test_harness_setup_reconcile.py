@@ -294,3 +294,38 @@ def test_lane_setup_refreshes_changed_source_trust(machine, lane_differs):
         r for r in again.rows if r.harness_id == "codex" and r.facet == "hook_trust"
     )
     assert row.outcome == ("refused" if lane_differs else "already_set")
+
+
+@pytest.mark.windows_only(reason="Reconciles both drive spellings of a native checkout")
+def test_reconcile_repairs_missing_lowercase_codex_trust(machine):
+    from yoke_contracts.codex_hook_trust import codex_hook_hashes
+    from yoke_contracts.codex_hook_trust_toml import append_hook_entries, _toml_string
+    from yoke_contracts.harness_folder_trust import codex_path_spellings
+
+    home, root, _ = machine
+    codex = home / ".codex"
+    codex.mkdir()
+    upper, lower = codex_path_spellings(root)
+    hooks = root / ".codex/hooks.json"
+    config = f'[projects.{_toml_string(upper)}]\ntrust_level = "trusted"\n'
+    (codex / "config.toml").write_text(
+        append_hook_entries(config, Path(codex_path_spellings(hooks)[0]), codex_hook_hashes(hooks))
+    )
+
+    def trust_rows(result):
+        return {
+            row.facet: row
+            for row in result.rows
+            if row.harness_id == "codex" and row.target_path == str(root)
+            and row.facet in ("folder_trust", "hook_trust")
+        }
+
+    before = trust_rows(setup.inspect_harness_setup(paths=[root]))
+    assert {facet: row.outcome for facet, row in before.items()} == {
+        "folder_trust": "refused", "hook_trust": "refused",
+    }
+    assert all(lower in row.detail for row in before.values())
+    repaired = trust_rows(setup.reconcile_harness_setup(paths=[root]))
+    assert {facet: row.outcome for facet, row in repaired.items()} == {
+        "folder_trust": "written", "hook_trust": "written",
+    }

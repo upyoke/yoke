@@ -35,11 +35,14 @@ from yoke_contracts.codex_hook_trust_store import (
     HOOKS_RELATIVE_PATH,
 )
 from yoke_contracts.codex_hook_trust_toml import (
+    TRUSTED_HASH_KEY,
+    all_hook_entries,
     append_hook_entries,
     mutate,
     entries_for as _entries_for,
     read_trust_state as _read_trust_state,
 )
+from yoke_contracts.harness_folder_trust import codex_path_spellings
 
 
 REASON_NO_SOURCE_HOOKS = "source checkout exposes no Codex hooks file"
@@ -69,6 +72,7 @@ class HookTrustResult:
     stale: Tuple[str, ...] = ()
     blocked_reason: str = ""
     write_error: str = ""
+    untrusted_paths: Tuple[str, ...] = ()
 
     @property
     def hooks_fire(self) -> bool:
@@ -93,6 +97,8 @@ class HookTrustResult:
             parts.append(f"{len(self.missing)} untrusted: {', '.join(self.missing)}")
         if self.stale:
             parts.append(f"{len(self.stale)} modified: {', '.join(self.stale)}")
+        if self.untrusted_paths:
+            parts.append(f"affected paths: {', '.join(self.untrusted_paths)}")
         return "; ".join(parts)
 
 
@@ -196,25 +202,32 @@ def inspect_hook_trust(
     if read_error:
         return _blocked(result, read_error)
 
-    target_entries = _entries_for(state, target_hooks)
     try:
         target_hashes = codex_hook_hashes(target_hooks)
     except CodexHookIdentityError as exc:
         return _blocked(result, f"{REASON_UNREADABLE_HOOKS}: {exc}")
-    target_trusted, target_stale = _current_trust(target_entries, target_hashes)
-    already = tuple(
-        sorted(
-            suffix
-            for suffix, trusted_hash in source_trusted.items()
-            if target_trusted.get(suffix) == trusted_hash
+    already, missing, stale = set(), set(), set()
+    affected_paths = []
+    paths = codex_path_spellings(target_hooks)
+    for path in paths:
+        target_entries = _entries_for(state, Path(path))
+        target_trusted, target_stale = _current_trust(target_entries, target_hashes)
+        target_missing = source_trusted.keys() - target_entries.keys()
+        already.update(
+            key
+            for key, digest in source_trusted.items()
+            if target_trusted.get(key) == digest
         )
-    )
-    missing = tuple(sorted(set(source_trusted) - set(target_entries)))
+        missing.update(target_missing)
+        stale.update(target_stale)
+        if len(paths) > 1 and (target_missing or target_stale):
+            affected_paths.append(path)
     result = _with(
         result,
-        already_trusted=already,
-        missing=missing,
-        stale=target_stale,
+        already_trusted=tuple(sorted(already)),
+        missing=tuple(sorted(missing)),
+        stale=tuple(sorted(stale)),
+        untrusted_paths=tuple(affected_paths),
     )
     if not identical:
         return _blocked(result, REASON_CONTENT_DIFFERS)
@@ -237,28 +250,49 @@ def mirror_hook_trust(
     if result.blocked_reason or result.stale or not result.missing:
         return result
 
-    state, reason = _read_trust_state(path)
-    if reason:  # pragma: no cover - inspect already read the same file
-        return _blocked(result, reason)
-    source_entries = _entries_for(state, Path(result.source_hooks_path))
-
     def plan(text, document):
-        current = document.get("hooks", {}).get("state", {})
-        mirrored = []
-        additions = {}
-        for suffix in result.missing:
-            key = f"{result.target_hooks_path}:{suffix}"
-            if key not in current:
-                additions[suffix] = source_entries[suffix]
-                mirrored.append(suffix)
-        updated = append_hook_entries(text, Path(result.target_hooks_path), additions)
-        return updated, tuple(mirrored)
+        current = all_hook_entries(document)
+        source = Path(result.source_hooks_path)
+        identical, read_error = _same_content(source, Path(result.target_hooks_path))
+        if not identical:
+            raise ValueError(read_error or REASON_CONTENT_DIFFERS)
+        expected = codex_hook_hashes(source)
+        source_digests = {}
+        for suffix in result.source_trusted:
+            digest = expected.get(suffix)
+            entry = current.get(f"{source}:{suffix}")
+            if (
+                not digest
+                or not isinstance(entry, dict)
+                or entry.get(TRUSTED_HASH_KEY) != digest
+            ):
+                raise ValueError(
+                    "source hook trust changed; refresh the checkout and retry"
+                )
+            source_digests[suffix] = digest
+        mirrored = set()
+        for spelling in codex_path_spellings(result.target_hooks_path):
+            additions = {}
+            for suffix, digest in source_digests.items():
+                target_key = f"{spelling}:{suffix}"
+                if target_key not in current:
+                    additions[suffix] = digest
+                    continue
+                entry = current[target_key]
+                if not isinstance(entry, dict) or entry.get(TRUSTED_HASH_KEY) != digest:
+                    raise ValueError(
+                        f"hook trust changed for {target_key}; re-trust in Codex"
+                    )
+            if additions:
+                text = append_hook_entries(text, Path(spelling), additions)
+                mirrored.update(additions)
+        return text, tuple(sorted(mirrored))
 
     try:
         mirrored = mutate(path, plan)
     except (OSError, RuntimeError, ValueError) as exc:
         return _with(result, write_error=f"could not update {path}: {exc}")
-    return _with(result, mirrored=mirrored, missing=())
+    return _with(result, mirrored=mirrored, missing=(), untrusted_paths=())
 
 
 def _blocked(result: HookTrustResult, reason: str) -> HookTrustResult:

@@ -79,7 +79,9 @@ def _codex_trusted(
 
     hooks_path = spec.trust_config_path(environ)
     standing = inspect_hook_file_trust(
-        hooks_path, config_path=spec.home_path(environ) / "config.toml"
+        hooks_path,
+        config_path=spec.home_path(environ) / "config.toml",
+        spellings=(str(hooks_path),),
     )
     document, _ = load_user_config(hooks_path)
     owned = owned_handler_suffixes(document or {}, owned_command_check(spec))

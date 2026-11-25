@@ -29,7 +29,7 @@ def test_install_trusts_yoke_handlers_and_reinstall_is_a_noop(tmp_path):
     env, hooks, config = _codex(tmp_path)
     [result] = ensure_machine_hooks(["codex"], env)
     assert result.outcome == "installed", result.line()
-    assert inspect_hook_file_trust(hooks, config_path=config).approved
+    assert inspect_hook_file_trust(hooks, config_path=config, spellings=(str(hooks),)).approved
     text = config.read_text()
 
     ensure_machine_hooks(["codex"], env)
@@ -54,10 +54,10 @@ def test_changed_file_is_retrusted(tmp_path):
     handler = document["hooks"]["Stop"][0]["hooks"][0]
     handler["commandWindows" if os.name == "nt" else "command"] += " --stale"
     hooks.write_text(json.dumps(document))
-    assert not inspect_hook_file_trust(hooks, config_path=config).approved
+    assert not inspect_hook_file_trust(hooks, config_path=config, spellings=(str(hooks),)).approved
 
     ensure_machine_hooks(["codex"], env)
-    assert inspect_hook_file_trust(hooks, config_path=config).approved
+    assert inspect_hook_file_trust(hooks, config_path=config, spellings=(str(hooks),)).approved
 
 
 def test_uninstall_removes_yoke_trust_and_keeps_unrelated_config(tmp_path):

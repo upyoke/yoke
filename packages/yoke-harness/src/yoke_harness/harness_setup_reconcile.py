@@ -21,6 +21,7 @@ from yoke_contracts.codex_lane_hook_trust import inspect_hook_trust, mirror_hook
 from yoke_contracts.harness_folder_trust import (
     claude_state_path,
     claude_trust_key,
+    codex_path_spellings,
     cursor_trust_file,
 )
 from yoke_contracts.harness_folder_trust_grant import grant_folder_trust
@@ -97,9 +98,13 @@ def _folder(path: Path, harness: str) -> tuple[bool, str]:
     elif harness == "codex":
         target = posture.codex_config_path()
         doc = _document(target)
-        ready = (
-            doc.get("projects", {}).get(str(path), {}).get("trust_level") == "trusted"
-        )
+        projects = doc.get("projects", {})
+        missing = [
+            key
+            for key in codex_path_spellings(path)
+            if projects.get(key, {}).get("trust_level") != "trusted"
+        ]
+        return not missing, f"folder_trust_missing: {target}: {', '.join(missing)}"
     else:
         target = cursor_trust_file(path)
         ready = _document(target).get("workspacePath") == str(path)

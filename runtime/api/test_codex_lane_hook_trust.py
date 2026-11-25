@@ -15,6 +15,7 @@ import os
 from pathlib import Path
 
 from yoke_contracts.codex_hook_trust_toml import _toml_string
+from yoke_contracts.harness_folder_trust import codex_path_spellings
 
 import pytest
 
@@ -125,10 +126,11 @@ def test_mirroring_grants_the_worktree_the_source_hashes(lanes, lane_newline):
     target_hooks = worktree / ".codex" / "hooks.json"
     for suffix in SUFFIXES:
         source_key = f"{source / '.codex' / 'hooks.json'}:{suffix}"
-        assert (
-            state[f"{target_hooks}:{suffix}"]["trusted_hash"]
-            == state[source_key]["trusted_hash"]
-        )
+        for spelling in codex_path_spellings(target_hooks):
+            assert (
+                state[f"{spelling}:{suffix}"]["trusted_hash"]
+                == state[source_key]["trusted_hash"]
+            )
 
 
 def test_mirroring_leaves_existing_config_bytes_untouched(lanes):
@@ -146,7 +148,7 @@ def test_mirroring_appends_a_separator_when_the_config_lacks_one(lanes):
 
     mirror_hook_trust(str(source), str(worktree), config_path=config)
 
-    assert len(_state(config)) == 2 * len(SUFFIXES)
+    assert len(_state(config)) == (1 + len(codex_path_spellings(worktree))) * len(SUFFIXES)
 
 
 def test_mirroring_twice_writes_nothing_the_second_time(lanes):
@@ -289,3 +291,25 @@ def test_stale_source_blocks_mirroring_without_marking_lane_modified(lanes):
     assert result.stale == ()
     assert result.mirrored == ()
     assert config.read_bytes() == before
+
+
+@pytest.mark.windows_only(reason="Codex uses both drive-letter spellings on native Windows")
+def test_mirroring_repairs_the_missing_lowercase_lane_path(lanes):
+    source, worktree, config = lanes
+    hooks = worktree / ".codex/hooks.json"
+    upper, lower = codex_path_spellings(hooks)
+    hashes = codex_hook_hashes(hooks)
+    original = _config(config, {
+        **_trust_for(source),
+        **{f"{upper}:{suffix}": digest for suffix, digest in hashes.items()},
+    }).read_bytes()
+
+    result = inspect_hook_trust(str(source), str(worktree), config_path=config)
+    assert not result.hooks_fire
+    assert result.untrusted_paths == (lower,)
+    assert lower in result.summary()
+
+    result = mirror_hook_trust(str(source), str(worktree), config_path=config)
+    assert result.hooks_fire
+    assert config.read_bytes().startswith(original)
+    assert {key: _state(config)[f"{lower}:{key}"]["trusted_hash"] for key in hashes} == hashes
