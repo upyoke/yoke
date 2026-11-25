@@ -237,6 +237,10 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
         "the local-universe UI server runs the engine on this machine by design",
     ),
     (
+        "packages/yoke-cli/src/yoke_cli/config/db_admin_box_mode.py",
+        "psycopg",
+    ): ("source_dev_admin", "explicit db-admin setup validates the local DSN before writes"),
+    (
         "packages/yoke-cli/src/yoke_cli/config/db_admin_setup.py",
         "yoke_core.domain.deploy_environment_settings",
     ): ("source_dev_admin", "explicit db-admin setup environment resolver"),
