@@ -80,6 +80,7 @@ def build_envelope(rec: EventRecord) -> Dict[str, Any]:
     # tool_input: truncated command for Bash, file_path for file ops
     if rec.command:
         context["tool_input"] = rec.command[:2048]
+        context["shell_kind"] = rec.shell_kind
     elif rec.file_path:
         context["tool_input"] = rec.file_path
 
