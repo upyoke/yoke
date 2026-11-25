@@ -123,9 +123,10 @@ def test_expired_attempt_keeps_unbound_launch_until_registration_deadline(
         job_kind="launch",
         job_id=launch_id,
         lease_id=job.lease_id,
-        result_code="outcome_unknown",
+        result_code="native_created",
+        native_session_id=WORKER,
         adapter_revision="codex-relay-v4",
-        evidence={"result_code": "transport_exception"},
+        evidence={"result_code": "accepted"},
         now=SETTLED_AT,
     )
     assert get_launch(conn, launch_id) == before
