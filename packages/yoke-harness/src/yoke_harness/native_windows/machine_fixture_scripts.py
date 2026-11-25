@@ -110,13 +110,28 @@ if(($verify.rules -join ',') -ne RULE_IDS -or $verify.appidsvc -ne 'Running'){th
 APPLOCKER_UNDO = (
     APPLOCKER_HELPERS
     + r"""
-if(@(Get-YokeAppLockerIds).Count -or (Get-YokeSrpRuleCount)){Set-YokeAppLockerPolicy '<AppLockerPolicy Version="1" />'}
+# An empty document leaves existing collections in place; replace each one.
+if(@(Get-YokeAppLockerIds).Count -or (Get-YokeSrpRuleCount)){Set-YokeAppLockerPolicy EMPTY_POLICY}
+# The running AppIDSvc applies a policy change asynchronously.
+$deadline=[DateTime]::UtcNow.AddSeconds(60)
+while((@(Get-YokeAppLockerIds).Count -or (Get-YokeSrpRuleCount)) -and [DateTime]::UtcNow -lt $deadline){Start-Sleep -Milliseconds 500}
 # AppIDSvc stays as Windows runs it: Windows 11 starts it with no rules, and
 # without rules AppLocker enforces nothing (decision request 16091).
 $verify=[ordered]@{rules=@(Get-YokeAppLockerIds);srp_rules=(Get-YokeSrpRuleCount)}
-if($verify.rules.Count -or $verify.srp_rules){throw 'applocker_not_undone: clear the local AppLocker policy'}
+if($verify.rules.Count -or $verify.srp_rules){throw ('applocker_not_undone: clear the local AppLocker policy; '+($verify | ConvertTo-Json -Compress))}
 """
 )
+
+
+EMPTY_POLICY = (
+    '<AppLockerPolicy Version="1">'
+    + "".join(
+        f'<RuleCollection Type="{kind}" EnforcementMode="NotConfigured" />'
+        for kind in ("Appx", "Dll", "Exe", "Msi", "Script")
+    )
+    + "</AppLockerPolicy>"
+)
+APPLOCKER_UNDO = APPLOCKER_UNDO.replace("EMPTY_POLICY", "'" + EMPTY_POLICY + "'")
 
 
 def applocker_setup() -> str:
