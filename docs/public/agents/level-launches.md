@@ -144,6 +144,16 @@ active item claim prevents recovery. Yoke refuses `launch_taken_over`, names the
 takeover and tells the delayed worker to stop without claiming work. Inspect the
 named launch or session and coordinate with its holder before restaffing.
 
+## Successful launch status
+
+Use `yoke session-control launch get LAUNCH-ID --full` or `--json` to inspect a
+successful launch. The native phase reads `native_running` until the relay
+records a measured exit for the process that started the session. It then reads
+`native_exited` with the timestamp in `result_evidence.native_exit_at`. A later
+resume leaves that launch timestamp intact. When a launch succeeds after a
+deadline or registration refusal, look under `previous_launch_*` for the
+earlier result.
+
 ## Unregistered launch failures
 
 The steering report shows unregistered launch failures immediately, without an

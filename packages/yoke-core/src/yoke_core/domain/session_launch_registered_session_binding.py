@@ -19,6 +19,10 @@ from yoke_core.domain.session_launch_model_stamp import (
 from yoke_core.domain.session_launch_registration_grace import (
     hold_launch_registration_grace,
 )
+from yoke_core.domain.session_launch_settlement import (
+    settled_native_phase,
+    successful_launch_evidence,
+)
 from yoke_core.domain.session_launch_store import (
     canonical_json,
     marker,
@@ -26,7 +30,7 @@ from yoke_core.domain.session_launch_store import (
     value,
 )
 from yoke_core.domain.session_launch_types import LaunchRecord, SessionLaunchError
-from yoke_core.domain.session_relay_evidence import merge_redacted_evidence
+from yoke_core.domain.session_relay_evidence import merge_redacted_evidence, redacted_evidence
 from yoke_core.domain.sessions_analytics import SessionError
 
 
@@ -157,11 +161,18 @@ def preserve_bound_launch_report(
     """Keep native diagnostics without replacing hook delivery or work entry."""
     from yoke_core.domain.session_launch_native_progress import native_launch_updates
 
+    report = dict(evidence or {})
+    report.pop("native_exit_at", None)
+    telemetry = native_launch_updates(evidence, observed_at=now)
+    merged = merge_redacted_evidence(launch.result_evidence, report)
+    if launch.state == "succeeded":
+        settled = successful_launch_evidence(merged)
+        telemetry["native_launch_phase"] = settled_native_phase(settled)
+        merged = redacted_evidence(settled)
+    elif launch.native_launch_phase == "native_exited":
+        telemetry.pop("native_launch_phase", None)
     return update_launch(
-        conn,
-        launch.launch_id,
-        result_evidence=merge_redacted_evidence(launch.result_evidence, evidence),
-        **native_launch_updates(evidence, observed_at=now),
+        conn, launch.launch_id, result_evidence=merged, **telemetry,
     )
 
 

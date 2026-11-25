@@ -10,6 +10,7 @@ from yoke_cli.commands.adapters.session_control_launch_status_output import (
     _launch_identity,
     _instruction_delivery,
     _launch_recovery,
+    _native_exit_rows,
 )
 from yoke_contracts.session_control.evidence import redacted_evidence_document
 from yoke_cli.commands.adapters.session_control_human_output import (
@@ -45,10 +46,13 @@ def _result_evidence(launch: Mapping[str, Any]) -> str | None:
 
 def _diagnostic_fields(launch: Mapping[str, Any]) -> list[tuple[str, Any]]:
     evidence = launch.get("result_evidence")
-    return native_diagnostic_fields(
+    fields = native_diagnostic_fields(
         evidence if isinstance(evidence, Mapping) else None,
         fallback_machine=launch.get("assigned_machine_id"),
     )
+    if launch.get("state") == "succeeded":
+        return [(label, value) for label, value in fields if label != "Recovery"]
+    return fields
 
 
 def _write_launch_detail(
@@ -73,6 +77,7 @@ def _write_launch_detail(
                     ("Registered session", launch.get("registered_session_id")),
                     ("Identity correlation", _launch_identity(launch)),
                     ("Instruction delivery", _instruction_delivery(launch)),
+                    *_native_exit_rows(launch),
                     ("Message ID", launch.get("message_id")),
                     ("Recovery", _launch_recovery(launch)),
                     (
@@ -114,6 +119,7 @@ def _write_launch_detail(
         ("Registered session", launch.get("registered_session_id")),
         ("Identity correlation", _launch_identity(launch)),
         ("Instruction delivery", _instruction_delivery(launch)),
+        *_native_exit_rows(launch),
         ("Recovery", _launch_recovery(launch)),
         *_diagnostic_fields(launch),
         ("Result evidence", _result_evidence(launch)),

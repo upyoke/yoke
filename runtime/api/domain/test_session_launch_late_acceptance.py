@@ -10,16 +10,19 @@ import pytest
 from runtime.api.domain.session_launch_test_support import launch_connection
 from runtime.api.fixtures.backlog import insert_item
 from yoke_contracts.session_control.capabilities import SESSION_SURFACE_CAPABILITIES
-from yoke_contracts.timestamps import parse_instant
+from yoke_contracts.timestamps import format_instant, parse_instant
 from yoke_core.domain import db_backend
 from yoke_core.domain.session_launch_deadlines import settle_launch_deadlines
+from yoke_core.domain.session_launch_projection import public_launch_record
 from yoke_core.domain.session_launch_registration import prepare_launch_registration
+from yoke_core.domain.session_launch_registered_session_binding import preserve_bound_launch_report
 from yoke_core.domain.session_launch_store import (
     attestation_digest, get_launch, marker, update_launch,
 )
 from yoke_core.domain.session_launch_types import SessionLaunchError
 from yoke_core.domain.session_message_receipts import acknowledge_message
 from yoke_core.domain.session_message_types import SessionMessageError
+from yoke_core.domain.session_native_process_observation import record_native_process_gone
 from yoke_core.domain.work_claim_targets import make_item_target
 
 NOW = "2026-08-22T12:00:00Z"
@@ -158,3 +161,90 @@ def test_takeover_refuses_late_worker(context, takeover, operation):
     assert expected in str(refused.value)
     assert "Stop this worker" in str(refused.value)
     assert get_launch(conn, launch.launch_id).state != "awaiting_registration"
+
+
+def test_deadline_failure_becomes_history_after_late_acknowledgement(context):
+    conn, *_ = context
+    launch, session = seed(context)
+    failed = settle_launch_deadlines(conn, launch_id=launch.launch_id, now=DEADLINE)[0]
+    assert failed.result_code == "launch_acknowledgement_missing"
+    assert json.loads(failed.result_evidence)["recovery"]
+
+    acknowledge_message(conn, message_id=launch.message_id, session_id=session, now=parse_instant(LATE))
+    claim(context, session)
+    settled = settle_launch_deadlines(conn, launch_id=launch.launch_id, now=LATE)[0]
+
+    assert settled.state == "succeeded"
+    assert settled.result_code == "registered_and_acknowledged"
+    evidence = json.loads(settled.result_evidence)
+    assert evidence["previous_launch_result"] == "launch_acknowledgement_missing"
+    assert evidence["previous_launch_state"] == "failed"
+    assert evidence["previous_launch_closure_reason"] == "deadline_expiry"
+    assert evidence["previous_launch_receipt_state"] == "pending"
+    assert evidence.keys().isdisjoint({"result_code", "closure_reason", "receipt_state", "recovery"})
+
+
+def test_late_cursor_binding_retires_registration_failure(context):
+    conn, *_ = context
+    launch, session = seed(context, surface="cursor-cli", bound=False)
+    update_launch(
+        conn, launch.launch_id, state="failed", result_code="registration_deadline",
+        native_launch_phase="registration_pending",
+        result_evidence=json.dumps({
+            "result_code": "registration_window_closed",
+            "registration_refusal_code": "registration_window_closed",
+            "sign_in_recovery": "Sign in to Cursor.",
+        }),
+    )
+    conn.commit()
+    prepare_launch_registration(conn, launch_id=launch.launch_id, attestation=session, session_id=session, now=LATE)
+    acknowledge_message(conn, message_id=launch.message_id, session_id=session, now=parse_instant(LATE))
+    claim(context, session)
+    settled = settle_launch_deadlines(conn, launch_id=launch.launch_id, now=LATE)[0]
+    projected = public_launch_record(settled)
+
+    assert projected["state"] == "succeeded"
+    assert projected["native_launch_phase"] == "native_running"
+    evidence = projected["result_evidence"]
+    assert evidence["previous_launch_result"] == "registration_window_closed"
+    assert evidence["previous_launch_registration_refusal_code"] == "registration_window_closed"
+    assert all(key.startswith("previous_") for key, val in evidence.items() if val == "registration_window_closed")
+    assert evidence.keys().isdisjoint({"result_code", "registration_refusal_code", "sign_in_recovery"})
+
+
+@pytest.mark.parametrize("exit_before_acknowledgement", [False, True])
+def test_launch_keeps_its_native_exit_across_later_observations(context, exit_before_acknowledgement):
+    conn, *_ = context
+    launch, session = seed(context)
+    update_launch(conn, launch.launch_id, native_launch_pid=4242, native_launch_phase="registration_pending")
+    claim(context, session, at=NOW)
+    exit_at = "2026-08-22T12:01:00Z"
+    resume_at = "2026-08-22T12:02:00Z"
+
+    # The resume's capture is about its own native, even when the relay
+    # reports the old launch PID among the other dead session processes.
+    record_native_process_gone(conn, session, {
+        "launch_id": launch.launch_id, "pids": [4242, 4343], "native_pid": 4343,
+        "native_exit_at": resume_at,
+    })
+    if exit_before_acknowledgement:
+        record_native_process_gone(conn, session, {"pids": [4242], "native_exit_at": exit_at})
+    acknowledge_message(conn, message_id=launch.message_id, session_id=session, now=parse_instant(NOW))
+    projected = public_launch_record(get_launch(conn, launch.launch_id))
+    assert projected["state"] == "succeeded"
+    if not exit_before_acknowledgement:
+        assert projected["native_launch_phase"] == "native_running"
+        assert projected["result_evidence"].get("native_exit_at") is None
+        record_native_process_gone(conn, session, {"pids": [4242], "native_exit_at": exit_at})
+
+    record_native_process_gone(conn, session, {"pids": [4242], "native_exit_at": resume_at})
+    settled = get_launch(conn, launch.launch_id)
+    assert json.loads(settled.result_evidence)["native_exit_at"] == format_instant(exit_at)
+    reported = preserve_bound_launch_report(conn, settled, {
+        "native_launch_phase": "registration_pending", "native_exit_at": resume_at,
+        "result_code": "registration_window_closed", "recovery": "Retry.",
+    }, now=parse_instant(resume_at))
+    projected = public_launch_record(reported)
+    assert reported.native_launch_phase == projected["native_launch_phase"] == "native_exited"
+    assert projected["result_evidence"]["native_exit_at"] == format_instant(exit_at)
+    assert projected["result_evidence"].keys().isdisjoint({"result_code", "recovery"})

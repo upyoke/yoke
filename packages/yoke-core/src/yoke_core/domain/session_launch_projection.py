@@ -9,6 +9,10 @@ from yoke_contracts.timestamps import temporal_wire
 from yoke_contracts.session_control.evidence import redacted_evidence_document
 from yoke_core.domain import json_helper
 from yoke_core.domain.item_ref_render import render_item_refs
+from yoke_core.domain.session_launch_settlement import (
+    settled_native_phase,
+    successful_launch_evidence,
+)
 from yoke_core.domain.session_launch_types import LaunchRecord
 from yoke_core.domain.session_launch_visibility import launch_visibility
 
@@ -68,6 +72,9 @@ def public_launch_record(launch: LaunchRecord, conn=None) -> dict[str, Any]:
     """Project one launch without request identity, secrets, or native payloads."""
     result = {field: getattr(launch, field) for field in _PUBLIC_FIELDS}
     evidence = _safe_result_evidence(launch.result_evidence)
+    if launch.state == "succeeded":
+        evidence = successful_launch_evidence(evidence)
+        result["native_launch_phase"] = settled_native_phase(evidence)
     phase = evidence.get("launch_phase_reached")
     result.update(
         launch_visibility(
