@@ -66,7 +66,8 @@ printf %s "$REPORT" | yoke say <route> --stdin --idempotency-key "qa-walk-result
 
 Use `--item REF` for item or member QA so the report reaches the current holder.
 For a plan group or itemless standalone plan use `--session LAUNCHER_SESSION_ID`.
-On `zero_recipients` or a skipped receipt, send it to `--steering`.
+On `zero_recipients` or a skipped receipt, send it to `--steering` with
+`qa-walk-result:EXECUTION_ID:steering` so the fallback route has its own retry key.
 
 The launcher rereads `partitions` after each report and launches newly free
 walks. If a partition is free while a recorded launch is still starting, wait

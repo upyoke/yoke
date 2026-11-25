@@ -155,7 +155,7 @@ def check_browser_evidence_present(
         "  capture; it resolves that capture in place and needs no --raw-result.",
         "  Do not begin a plan against hosts.app to attach a local-preview review.",
         f"  Remediation: `yoke qa plan partitions --item {name} --transition {transition_name}` lists the attached cases.",
-        "  Run command-only and lane cases and launch free walks as taught in .yoke/docs/verification/walking.md#launch-a-walker; then retry the transition.",
+        "  Run lane cases with `yoke qa case run --requirement-id <id>`. Run command-only partitions and launch free walks using .yoke/docs/verification/walking.md#launch-a-walker, then retry the lifecycle transition.",
     ]
     rows = query_rows(
         conn,
