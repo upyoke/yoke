@@ -91,9 +91,9 @@ def test_failed_preparation_persists_qa_error_and_successful_baseline_receipt(
     )
     assert ready.primary_success, ready.error
     result = ready.result_payload["result"]
-    assert result["verdict"] == "error"
+    assert result["verdict"] is None
     assert emitted[-1]["event_name"] == "QARunCaptured"
-    assert emitted[-1]["verdict"] == "error"
+    assert emitted[-1]["verdict"] is None
     assert emitted[-1]["verdict_reason"] == result["error"]
     assert result["case_outcome"] == "blocked_on_precondition"
     assert result["preparation"] == preparation
@@ -101,7 +101,7 @@ def test_failed_preparation_persists_qa_error_and_successful_baseline_receipt(
         "SELECT verdict,case_outcome,execution_status,verdict_reason,raw_result FROM qa_runs WHERE id=%s",
         (result["run_id"],),
     ).fetchone()
-    assert row["verdict"] == "error"
+    assert row["verdict"] is None
     assert row["case_outcome"] == "blocked_on_precondition"
     assert row["execution_status"] == "capture_failed"
     assert row["verdict_reason"] == "PermissionError: journal is read-only"
