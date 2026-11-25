@@ -126,6 +126,10 @@ def test_item_message_names_the_stage_and_member_bound_invocation():
     assert "Launch each free walk in an itemless CLI session" in body
     assert "--partition KEY" in body
     assert "qa-walk:EXT-541:item-qa:KEY:1" in body
+    assert "launch preview --project PROJECT --item EXT-541" in body
+    assert "launch create --project PROJECT --level LEVEL" in body
+    assert "The holder retains its work claim" in body
+    assert "held partitions and their host queues" in body
 
 
 def test_run_message_names_driver_execution_and_review_recovery():

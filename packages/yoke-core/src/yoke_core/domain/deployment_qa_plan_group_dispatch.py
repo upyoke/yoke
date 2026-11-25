@@ -187,10 +187,9 @@ def notify_plan_groups_wait(
         "attaches its plan. The driver runs automatic cases; review or manual "
         "evidence is pending. Read the partitions for each group:\n"
         + "\n".join(lines)
-        + "\nFor each free walk, send the same subject flags to a new session in "
-        "`yoke qa plan run --deployment-run-id RUN --stage STAGE --plan PLAN --partition KEY`. "
-        "Launch with `yoke session-control launch create --project PROJECT --raw-instructions --stdin "
-        "--idempotency-key qa-walk:RUN:STAGE:KEY:1`. "
+        + "\nFor each free walk, launch an itemless CLI session using the walking guide. "
+        "Pass your own level explicitly as --level and carry the exact subject and partition key. "
+        "Keep the work claim with its holder. Use key qa-walk:RUN:STAGE:PLAN:-:KEY:1. "
         + f"\nThen re-drive the run with `{deploy_command(run_id)}`. Check '{yoke_command()} deployment-runs get {run_id}'."
     )
     _deliver(

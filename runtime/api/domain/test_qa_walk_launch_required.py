@@ -48,6 +48,8 @@ def test_walk_refuses_without_registered_itemless_walk_launch(
     body = str(refusal.value)
     assert "yoke qa plan partitions" in body
     assert "qa-walk:SUBJECT:SCOPE:KEY:ATTEMPT" in body
+    assert "launch create --project P --level LEVEL" in body
+    assert "skip claim acquisition and use delegated QA access" in body
     assert "staff a relay machine serving claude-cli, codex-cli or cursor-cli" in body
 
 

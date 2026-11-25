@@ -27,14 +27,18 @@ printf %s "$INSTRUCTIONS" | yoke session-control launch create --project P \
 Choose `claude-cli`, `codex-cli` or `cursor-cli` per launch to spread walks across
 harnesses. Use the `requested_level` from `yoke session-control launch preview
 --project P --item ITEM` for item and member QA. Use your own level for a
-plan group or an itemless standalone plan. Supply no `--item` to launch create.
+plan group or an itemless standalone plan. Pass that value explicitly as
+`--level` on launch create. Supply no `--item` to launch create.
 Use the item or member ref, `RUN:STAGE:PLAN` for a plan group, or `PLAN@SHA` for
 standalone as SUBJECT. Use the transition or stage for SCOPE and `-` for groups
 and standalone. Reuse the same ATTEMPT if the launch reply was lost. Use a new ATTEMPT
 only when replacing a launch that ended or failed to start.
 
 Put the exact subject flags, partition key, launcher level and report route in
-INSTRUCTIONS. For an item, include the lane branch and SHA from the partition
+INSTRUCTIONS. Tell item and member walkers to use delegated QA access.
+The work claim stays with the launcher. Launch only the exact free key and
+leave held partitions and their host queues in place. For an item, include
+the lane branch and SHA from the partition
 read. For a standalone checkout, give the source SHA and tell the walker to
 run `git worktree add --detach <scratch>/src SHA` in the project repository.
 Record the subject, partition, launch ID and attempt in the item's Progress Log
