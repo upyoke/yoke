@@ -1,10 +1,13 @@
+import sys
 from functools import partial
+from importlib import import_module
 from pathlib import Path
 from types import MethodType, ModuleType
 from unittest.mock import MagicMock
 
 import pytest
 
+from runtime import stale_test_binding_guard
 from runtime.stale_test_binding_guard import find_stale_test_bindings
 
 
@@ -129,3 +132,28 @@ def test_reports_module_reimported_under_the_same_name():
     ) == [
         (reimported.__name__, "apply", "unittest.mock"),
     ]
+
+
+def test_pre_import_binds_alias_before_source_is_patched(tmp_path, monkeypatch):
+    package = tmp_path / "yoke_binding_probe"
+    package.mkdir()
+    (package / "__init__.py").write_text("", encoding="utf-8")
+    (package / "source.py").write_text("operation = len\n", encoding="utf-8")
+    (package / "consumer.py").write_text(
+        "from .source import operation\n", encoding="utf-8"
+    )
+    source_name = f"{package.name}.source"
+    consumer_name = f"{package.name}.consumer"
+    monkeypatch.syspath_prepend(str(tmp_path))
+    monkeypatch.setattr(stale_test_binding_guard, "_PRODUCT_PACKAGES", (package.name,))
+    try:
+        stale_test_binding_guard.pytest_configure()
+        before = {name: id(module) for name, module in sys.modules.copy().items()}
+        with monkeypatch.context() as patch:
+            patch.setattr(import_module(source_name), "operation", MagicMock())
+            consumer = import_module(consumer_name)
+        assert consumer.operation is len
+        assert find_stale_test_bindings(before, sys.modules.copy()) == []
+    finally:
+        for name in (consumer_name, source_name, package.name):
+            sys.modules.pop(name, None)

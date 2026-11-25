@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import pkgutil
 import sys
 from collections.abc import Mapping
 from functools import partial
+from importlib import import_module
 from pathlib import Path
 from types import FunctionType, MethodType, ModuleType
 from unittest.mock import NonCallableMock
@@ -15,6 +17,25 @@ import pytest
 _MODULES_BEFORE = pytest.StashKey[dict[str, int]]()
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _TEST_ROOTS = (_REPO_ROOT / "runtime", _REPO_ROOT / "tests")
+_PRODUCT_PACKAGES = ("yoke_core", "yoke_cli", "yoke_harness", "yoke_contracts")
+
+
+def pytest_configure() -> None:
+    """Bind product import aliases before test fixtures can patch their sources."""
+    for package_name in _PRODUCT_PACKAGES:
+        module_name = package_name
+        try:
+            package = import_module(package_name)
+            for _, module_name, _ in pkgutil.walk_packages(
+                package.__path__, f"{package_name}."
+            ):
+                import_module(module_name)
+        except Exception as exc:
+            pytest.exit(
+                f"Product pre-import failed for {module_name}: {type(exc).__name__}: "
+                f"{exc}. Repair the import and rerun pytest.",
+                returncode=pytest.ExitCode.TESTS_FAILED,
+            )
 
 
 def _is_test_code(module: ModuleType | None) -> bool:
