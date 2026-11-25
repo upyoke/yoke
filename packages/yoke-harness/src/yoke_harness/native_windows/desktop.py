@@ -67,7 +67,9 @@ try {{
         control.upload_remote_text(source, wrapper)
         uploads_complete = True
         diagnostics["phase"] = "task_start"
-        start = control._run(create_interactive_task(name, path, arguments, timeout))
+        start = control._run(create_interactive_task(
+            name, path, arguments, timeout, getattr(control, "task_logon_type", 3)
+        ))
         require_task_result(control, start, phase="desktop_task_start")
         announce_designed_wait("native Windows desktop task", max_wait_seconds=timeout)
         diagnostics["phase"] = "receipt"

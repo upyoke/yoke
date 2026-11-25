@@ -7,16 +7,19 @@ import pytest
 
 from yoke_contracts.test_machine_types import HostActionResult
 from yoke_harness.native_windows import baseline
+from runtime.api.domain.native_windows_machine_fixture_test_support import FakeSystemRunner
 
 
-class _Control:
+class _Control(FakeSystemRunner):
     home = r"C:\Users\yokeqa"
+    golden_baseline_path = r"C:\YokeQa\goldens\g1"
     path_state = SimpleNamespace(
         yoke_bin=r"C:\Users\yokeqa\.local\bin\yoke.cmd",
         tool_bin_dir=r"C:\Users\yokeqa\.local\bin",
     )
 
     def __init__(self, *, equivalent=True):
+        super().__init__()
         self.ssh_scripts = []
         self.ssh_commands = []
         self.equivalent = equivalent
@@ -96,7 +99,7 @@ def test_fresh_host_proves_user_equivalence_and_never_installs(console):
     result = baseline.reach_baseline(control, "fresh-host")
     assert result.ok
     assert result.evidence["user_equivalence"] == {"probes": "passed"}
-    assert control.calls == ["reset", "prove"]
+    assert control.calls == ["undo_fixtures", "reset", "prove"]
     assert console == []
 
 

@@ -232,6 +232,16 @@ for that successful repair. Desktop/tools/sign-ins/goldens/native QA remain.
 See [tray startup and autologon](windows-native-desktop.md#tray-startup-and-autologon)
 for guarded shortcut handling and the two required cold-boot proofs.
 
+## Machine drift after a fixture walk
+
+A reset that fails `probe_machine_drift` names each drift in its probe row.
+Run a plain `yoke test-machine reset --test-machine NAME`: it runs every
+fixture undo as SYSTEM before it restores. A failed undo leaves the lab
+`machine_needs_repair` with the undo's verify records; repair the named
+state, or check Azure access with `yoke azure admin-status --project P`, and
+reset again. If the drift survives, [rebuild in place](windows-native-host-provisioning.md#rebuild-in-place-last-resort).
+Never grant the test user rights to clear drift by hand.
+
 ## Standard-user host-facts failure
 
 A registered screenshot reached SSH as `winnative\yokeqa`, then reported

@@ -122,11 +122,62 @@ def test_host_facts_reject_missing_consumed_metadata(key):
     assert error.value.code == "native_windows_host_facts_invalid"
 
 
-def test_host_facts_distinguish_actual_admin_from_probe_failure():
+def test_admin_token_without_elevated_refuses_every_command():
+    # The refusal waits for the first command, so a reset can undo the grant first.
+    transport = control(json.dumps(FACTS | {"admin": True}))
+    transport._host = "host"
+    transport._user = "qa"
+    assert transport._host_facts()["admin"] is True
     with pytest.raises(HostControlLocalError) as error:
-        control(json.dumps(FACTS | {"admin": True}))._host_facts()
+        transport._ssh_argv("Write-Output ok")
     assert error.value.code == "native_windows_test_user_required"
     assert "this token is an administrator" in str(error.value)
+    assert "--fixture grant-admin --undo" in error.value.recovery_hint
+
+
+def test_refresh_after_undo_clears_the_admin_refusal():
+    transport = control(json.dumps(FACTS | {"admin": True}))
+    transport._host_facts()
+    transport._run = lambda *a, **kw: subprocess.CompletedProcess([], 0, json.dumps(FACTS), "")
+    assert transport.refresh_host_facts() == FACTS
+    assert transport.admin_refusal is None
+
+
+def test_refresh_with_the_grant_still_present_refuses():
+    transport = control(json.dumps(FACTS | {"admin": True}))
+    with pytest.raises(HostControlLocalError) as error:
+        transport.refresh_host_facts()
+    assert error.value.code == "native_windows_test_user_required"
+
+
+def test_elevated_accepts_an_admin_token():
+    transport = control(json.dumps(FACTS | {"admin": True}))
+    transport.elevated = True
+    assert transport._host_facts()["admin"] is True
+    assert transport.admin_refusal is None
+
+
+def test_elevated_without_an_admin_token_refuses_by_name():
+    transport = control(json.dumps(FACTS))
+    transport.elevated = True
+    with pytest.raises(HostControlLocalError) as error:
+        transport._host_facts()
+    assert error.value.code == "native_windows_elevation_not_granted"
+    assert "--fixture grant-admin" in error.value.recovery_hint
+
+
+def test_second_user_logs_in_with_a_separate_l_argument():
+    transport = object.__new__(WindowsTransport)
+    transport._key_path = "key"
+    transport._host = "lab.example.ts.net"
+    transport._user = "yokeqa"
+    transport._control_path = None
+    transport.os = "windows"
+    transport.login_user = "Zoë Tester"
+    argv = transport._ssh_argv("Write-Output ok")
+    at = argv.index("-l")
+    assert argv[at : at + 3] == ["-l", "Zoë Tester", "lab.example.ts.net"]
+    assert not any("@" in value for value in argv[:-1])
 
 
 def test_wsl_ssh_account_can_own_its_windows_desktop_even_if_administrator():

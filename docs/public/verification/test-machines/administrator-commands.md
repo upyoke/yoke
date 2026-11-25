@@ -45,8 +45,12 @@ yoke test-machine exec --test-machine NAME -- xcrun simctl create SIMULATOR_NAME
 ```
 
 For Linux package setup, pass the host's package manager and its unattended
-option through `--admin`. Windows administrator commands are unsupported
-and refuse by name. A missing, unreadable or invalid credential names
+option through `--admin`. Windows `--admin` refuses by name: the lab's SSH
+user is a standard account. Machine-wide Windows test state comes from the
+walker's SYSTEM fixtures, `yoke qa mission host-command --fixture NAME
+[--undo]`; every native Windows reset undoes every fixture before it restores
+([machine-wide fixtures](windows-native-host-provisioning.md#machine-wide-qa-fixtures)).
+A missing, unreadable or invalid credential names
 `test-machine:NAME.desktop_password` and the import command above; repair
 that stored credential before retrying. If sudo rejects authentication,
 verify the registered user's administrator rights and the stored password.

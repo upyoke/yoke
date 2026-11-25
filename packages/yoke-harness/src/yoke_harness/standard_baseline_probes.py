@@ -170,6 +170,10 @@ sys.exit(0 if ok else EXIT['probe_check_unmet'])
 """,
             )
         )
+    if os_name == "windows":
+        from yoke_harness.native_windows.machine_baseline_probe import PROBE_NAME, probe_program
+
+        probes.append(_probe(PROBE_NAME, probe_program()))
     if os_name == "linux":
         probes.append(
             _probe(

@@ -226,6 +226,13 @@ For an existing key file, validate its trusted owner and repair explicit file
 grants **before** writing; an empty protected DACL otherwise denies the write.
 Keep final owner/exact-three-SID ACL checks; never take ownership/reset accounts.
 
+The provisioner always ensures the **second local user** `Zoë Tester`
+too; it has no flag for it. That standard account gets its profile, the
+project key in its `.ssh\authorized_keys` and `OpenSSH Users` membership.
+Its password is generated, set and thrown away: key logon and S4U tasks need
+none, so Yoke stores no secret for it. Rerun the provisioner on an existing
+lab to add it.
+
 For administrator-SSH repair, stale-process audit, partial key/RDP
 recovery and observed window outcomes, follow
 [native Windows provisioning recovery](windows-native-provisioning-recovery.md).
@@ -275,3 +282,57 @@ Record a scripted check with WSL absent, a real desktop PNG, a profile/PATH/
 scheduled-task reset roundtrip, an interrupted policy-case restoration and
 the provider's running power state after release. These are machine
 receipts, separate from the plan's final integrated Windows acceptance pass.
+
+## Machine-wide QA fixtures
+
+Exploratory walkers reach machine-wide Windows state through
+`yoke qa mission host-command`, checked against the walk's lease:
+
+- `--fixture NAME [--undo]` runs one idempotent fixture as SYSTEM through
+  `az vm run-command invoke --command-id RunPowerShellScript` and prints its
+  verify record: `grant-admin`, `system-proxy-root-ca` (a pinned, SHA-256
+  checked mitmproxy on `127.0.0.1:18080` with its CA in `LocalMachine\Root`,
+  WinHTTP and machine-wide WinINET), `applocker`, `task-scheduler-restricted`
+  or `second-user`. A failure refuses `machine_fixture_failed` with the
+  script's stderr and records.
+- `--elevated` runs as the test user with its `grant-admin` token and refuses
+  `native_windows_elevation_not_granted` without one. Without it, an admin
+  token refuses `native_windows_test_user_required`, so a grant that was
+  never undone fails every later command loudly.
+- `--second-user` connects as `Zoë Tester` (`ssh -l`). That user has no
+  console session, so `--second-user --gui-session` runs one S4U task; when
+  Windows refuses it, the cell records the refusal.
+
+Every native Windows reset first runs every undo, in one run-command, then
+restores the profile and runs the probes. A failed undo fails the reset with
+its verify records and leaves the lab `machine_needs_repair`. The
+`machine-baseline` standard probe then seals what is left: AppLocker rules or
+a running AppIDSvc, a WinHTTP or WinINET proxy, the fixture CA, a mitmproxy
+process or port, files under `C:\YokeQa\fixtures`, the Task Scheduler
+policy, an administrator test user, or a missing, disabled or administrator
+second user fail it as `probe_machine_drift`. The recovery is a plain
+`yoke test-machine reset`. The probe cannot read the second user's profile;
+the `second-user` undo removes Yoke and uv from it as SYSTEM and fails with
+its record if either remains.
+
+### Rebuild in place (last resort)
+
+When a reset still fails `probe_machine_drift` or the undo, there is no
+OS-disk restore: goldens copy only the profile. Rebuild the VM's single
+managed OS disk from its marketplace image; both disks exist only during the
+swap, so nothing keeps billing:
+
+```text
+az vm deallocate --resource-group GROUP --name VM
+az vm show --resource-group GROUP --name VM --query "{image:storageProfile.imageReference,disk:storageProfile.osDisk.managedDisk.id,location:location}" -o json
+az disk create --resource-group GROUP --name VM-os-rebuild --location LOCATION --image-reference PUBLISHER:OFFER:SKU:VERSION
+az vm update --resource-group GROUP --name VM --os-disk VM-os-rebuild
+az vm start --resource-group GROUP --name VM
+az disk delete --ids OLD_OS_DISK_ID --yes
+```
+
+Delete the old disk only after the new one boots and a
+`RunPowerShellScript` invocation returns. Then rerun sections 2 to 4 of this
+guide. A person approves the Tailscale AuthURL and signs the harnesses back
+in.
+

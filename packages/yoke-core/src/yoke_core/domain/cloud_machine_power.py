@@ -230,6 +230,20 @@ def wait_for_ssh_login(
     )
 
 
+def registered_power_project(settings: Mapping[str, str]) -> str:
+    """The project whose credentials power this cloud Test Machine, as registered now."""
+    name = str(settings["resource_name"])
+    detail = _call("test_machine.get", {"test_machine": name})
+    project = detail.get("power_project")
+    if not project or detail.get("settings", {}).get("cloud_instance_id") != settings.get("cloud_instance_id"):
+        raise _refused(
+            "test_machine_power_registration_changed",
+            f"Test Machine {name} has no power project or its cloud instance changed",
+            "read the current settings with yoke test-machine get and retry",
+        )
+    return str(project)
+
+
 def power_on(
     project: str,
     settings: Mapping[str, str],
@@ -245,14 +259,7 @@ def power_on(
     if not instance_id:
         return
     name = str(settings["resource_name"])
-    detail = _call("test_machine.get", {"test_machine": name})
-    project = detail.get("power_project")
-    if not project or detail.get("settings", {}).get("cloud_instance_id") != instance_id:
-        raise _refused(
-            "test_machine_power_registration_changed",
-            f"Test Machine {name} has no power project or its cloud instance changed",
-            "read the current settings with yoke test-machine get and retry",
-        )
+    project = registered_power_project(settings)
     read_command = (
         f"yoke {settings.get('cloud_provider', 'aws')} admin-status --project {project}"
     )
@@ -328,6 +335,8 @@ def machine_power(
 
 
 __all__ = [
+    "machine_power",
     "power_on",
+    "registered_power_project",
     "wait_for_ssh_login",
 ]

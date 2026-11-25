@@ -229,6 +229,27 @@ Write-Output 'Native standard user, private golden directory and private desktop
             + result.stderr.replace(password, "[REDACTED]")[-1200:]
         )
     print(result.stdout.replace(password, "[REDACTED]"))
+    ensure_second_user(key, host, admin_user, test_user, public)
+
+
+def ensure_second_user(key, host, admin_user, test_user, public):
+    """Every lab carries the second local user the machine-wide QA cells need."""
+    from yoke_contracts.machine_fixture_verify import verify_records
+    from yoke_harness.native_windows.machine_fixtures import (
+        SECOND_USER,
+        FixtureContext,
+        fixture_script,
+    )
+
+    script = fixture_script(FixtureContext(test_user, "", public), "second-user", "setup")
+    result = admin_script(key, host, admin_user, script)
+    records = verify_records(result.stdout)
+    if result.returncode or not records or records[-1].get("ok") is not True:
+        raise RuntimeError(
+            "windows_second_user_provision_failed: inspect the second-user verify record; "
+            + (result.stderr + result.stdout)[-1200:]
+        )
+    print(f"Second local user {SECOND_USER} ready for key logon; no password stored.")
 
 
 def main():

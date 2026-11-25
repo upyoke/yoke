@@ -94,7 +94,9 @@ def test_desktop_task_uses_interactive_user_and_is_cleaned(hidden):
     result = desktop_script(control, "exit 7", timeout=1, hidden=hidden)
     assert result.returncode == 7
     assert result.stdout == "native"
-    assert "Principal.LogonType=3" in scripts[0]
+    # The console user's interactive token (3), never S4U or a stored password.
+    assert "Principal.LogonType=$logonType" in scripts[0]
+    assert scripts[0].rstrip().endswith(" 1 3; $task.Run($null) | Out-Null")
     assert "Principal.RunLevel=0" in scripts[0]
     assert "Remove-YokeTask 'YokeQa-" in scripts[-1]
     path, args = ("conhost.exe", "'--headless powershell.exe -NoLogo -NoProfile -File ") if hidden else ("powershell.exe", "'-NoLogo -NoProfile -WindowStyle Normal -File ")

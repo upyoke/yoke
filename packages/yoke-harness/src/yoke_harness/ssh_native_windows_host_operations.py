@@ -6,6 +6,7 @@ from yoke_contracts.test_machine_types import HostActionResult
 from yoke_harness.native_windows.baseline import profile_operation, reach_baseline
 from yoke_harness.native_windows.console import probe_console, verify_console
 from yoke_harness.native_windows.desktop import capture_desktop
+from yoke_harness.native_windows.machine_fixtures import SECOND_USER, apply_fixture
 from yoke_contracts.machine_qa_failures import bounded_machine_qa_diagnostic
 from yoke_harness.native_windows.mission import WindowsMissionOperations
 from yoke_harness.native_windows.transport import (
@@ -45,6 +46,12 @@ $page=$info.PageSize.ToUInt64()
 
 class SshNativeWindowsHostOperations(WindowsMissionOperations, WindowsTransport):
     """A standard Windows user; no WSL commands or Linux desktop intermediates."""
+
+    SECOND_USER = SECOND_USER
+
+    def machine_fixture(self, name, *, undo):
+        """Apply or undo one machine-wide fixture as SYSTEM; see machine_fixtures."""
+        return apply_fixture(self, name, undo=undo)
 
     def check_connection(self):
         commit = self._run(COMMIT_MEMORY_PROBE, timeout=20)

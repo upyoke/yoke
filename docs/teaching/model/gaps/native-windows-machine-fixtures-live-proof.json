@@ -1,0 +1,8 @@
+{
+ "id": "native-windows-machine-fixtures-live-proof",
+ "title": "Prove native Windows machine fixtures and the drift seal on a lab",
+ "status": "observed",
+ "text": "Source tests cover the fixture library, the undo every native Windows reset runs before it restores, the machine-baseline drift checks, the Azure run-command runner and the host-command --fixture, --elevated and --second-user flags; the disposable Windows runner proves the scripts parse and that task-scheduler-restricted, grant-admin and applocker apply and undo idempotently. Still owed on the shipped release: plan 19862 rerun on a native lab with every machine-wide 5b cell recording pass or fail, passing undo records, a fresh-host reset passing machine-baseline, and proof that a planted applocker fixture left unreset fails the reset as probe_machine_drift and a plain reset clears it.",
+ "surfaces": [],
+ "sources": ["docs/public/verification/test-machines/windows-native-host-provisioning.md", "docs/public/verification/test-machines/windows-native-provisioning-recovery.md", "packages/yoke-harness/src/yoke_harness/native_windows/machine_fixtures.py", "packages/yoke-harness/src/yoke_harness/native_windows/machine_baseline_probe.py"]
+}

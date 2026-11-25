@@ -280,22 +280,21 @@ def prepare_agent_mission_contract(
 
 
 def execute_agent_mission_host_command(
-    raw_contract: dict[str, Any],
-    *,
-    argv: list[str],
-    gui_session: bool,
-    timeout_seconds: int,
+    raw_contract: dict[str, Any], *, argv: list[str], gui_session: bool,
+    timeout_seconds: int, elevated: bool = False, second_user: bool = False,
 ) -> dict[str, Any]:
     """Run one lease-authorized walker command and return redacted output."""
+    from yoke_core.domain.agent_mission_host_fixture import windows_host_variant
+
     if raw_contract.get("operation") == "host_command":
         contract = HostControlExecutionContract.model_validate(raw_contract)
     else:
         contract = _mission_contract(raw_contract)
     execution = _execution(contract)
     record_host_packages = get_qa_host_package_fixture().record_host_packages
-
+    control = windows_host_variant(execution, elevated=elevated, second_user=second_user)
     try:
-        completed = execution.control.run_command(
+        completed = control.run_command(
             argv,
             required_session_context=GUI_SESSION_CONTEXT if gui_session else None,
             timeout=timeout_seconds,

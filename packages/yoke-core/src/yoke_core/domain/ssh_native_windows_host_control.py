@@ -13,14 +13,34 @@ SshNativeWindowsHostOperations = (
 
 
 class SshNativeWindowsHostControl(SshNativeWindowsHostOperations):
-    def __init__(self, material):
+    def __init__(self, material, *, elevated=False, login_user=None):
         self.material = material
         self._pending_terminal_size = (120, 40)
         super().__init__(
             settings=material.settings,
             key_path=material.secret_paths["ssh_private_key"],
             secret_values=tuple(material.secrets.values()),
+            elevated=elevated,
+            login_user=login_user,
         )
+
+    def variant(self, *, elevated=False, second_user=False):
+        """The same lab as the elevated test user or as the second local user."""
+        return type(self)(
+            self.material,
+            elevated=elevated,
+            login_user=self.SECOND_USER if second_user else None,
+        )
+
+    def run_system_script(self, script, *, timeout):
+        from yoke_core.domain.native_windows_machine_fixtures import run_system_script
+
+        return run_system_script(self.material, script, timeout=timeout)
+
+    def project_public_key(self):
+        from yoke_core.domain.native_windows_machine_fixtures import project_public_key
+
+        return project_public_key(self.material)
 
     def read_text(self, path):
         return self.read_remote_text(path)
