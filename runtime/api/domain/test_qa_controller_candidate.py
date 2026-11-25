@@ -239,17 +239,36 @@ def test_candidate_controller_runs_the_roster_itself(monkeypatch, served):
     assert plan.ran_in_process
 
 
-def test_adopted_execution_skips_a_second_begin(monkeypatch, served):
+def test_candidate_handoff_entry_point_skips_a_second_begin(monkeypatch, served, tmp_path):
+    from yoke_contracts.runtime_ports import structured_dispatch
+
     _identity(monkeypatch, CANDIDATE)
     plan = _Plan(monkeypatch)
-    qa_plan_execution.execute_plan(
-        deployment_run_id="run-1",
-        deployment_stage="item-qa",
-        plan="P",
-        project="yoke",
-        adopted_execution=_execution(),
-        actor=SimpleNamespace(session_id="sess-1", actor_id=None),
+
+    def build_actor(*, session_id):
+        assert session_id == "sess-1"
+        return SimpleNamespace(session_id=session_id, actor_id=None)
+
+    monkeypatch.setattr(
+        structured_dispatch,
+        "get_structured_dispatch",
+        lambda: SimpleNamespace(build_actor=build_actor),
     )
+    request = tmp_path / "request.json"
+    response = tmp_path / "response.json"
+    request.write_text(json.dumps({
+        "session_id": "sess-1",
+        "execution": _execution(),
+        "plan_kwargs": {
+            "deployment_run_id": "run-1",
+            "deployment_stage": "item-qa",
+            "plan": "P",
+            "project": "yoke",
+        },
+    }), encoding="utf-8")
+
+    assert handoff.main([str(request), str(response)]) == 0
+    assert json.loads(response.read_text(encoding="utf-8"))["result"]["state"] == "passed"
     assert plan.ran_in_process
     assert "qa.plan_execution.begin" not in plan.calls
     assert "qa.plan.materialize" not in plan.calls
