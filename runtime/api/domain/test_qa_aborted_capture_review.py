@@ -2,6 +2,7 @@
 
 import pytest
 
+from runtime.api.domain.machine_qa_session_seed import seed_qa_session
 from runtime.api.fixtures.qa_captured_plan_review_fixture import captured_plan_review
 from runtime.api.domain.qa_verdict_citation_test_support import cite_case
 
@@ -39,6 +40,7 @@ def test_closed_deployment_still_authorizes_its_bound_capture_review(
 
     item_id, run_id = 9781, "run-review-after-closure"
     _, original, _ = captured_plan_review(test_db, item_id)
+    seed_qa_session(test_db, "review-session", actor_id=7, messageable=True)
     plan_id = int(
         test_db.execute(
             "SELECT plan_id FROM qa_requirements WHERE id=%s", (original,)
