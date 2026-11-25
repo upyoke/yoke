@@ -19,9 +19,9 @@ item-QA member's owner was woken, and renders one row per live run.
 It decides nothing. There is no timeout and no auto-cancel here on
 purpose: a run that has been at a stage for hours is *reported*, and a
 person reads the row and chooses. The only rows marked as needing action
-are the ones the run cannot leave by itself — a determinate failing
-verdict, a resolved decision the runner has not acted on, and a run
-still at ``created`` with nothing outstanding and no live driver. A
+include a determinate failing verdict, a resolved decision the runner
+has not acted on, and a run still at ``created`` without a live driver,
+even when it carries QA from a predecessor. A
 ``created`` run with a live driver is already inside a silent phase
 (the self-deploy freeze is the worked case). An ``executing`` run with
 nothing outstanding is already being driven: the row names the stage it
@@ -46,6 +46,7 @@ from yoke_core.domain.deployment_qa_manual_wake import (
     ManualWakeRequirement,
 )
 from yoke_core.domain.deployment_run_completion_preconditions import redrive_recovery
+from yoke_core.domain.deploy_pipeline_environment import watch_deploy_command
 from yoke_core.domain.deployment_run_red_requirements import RedRequirement
 from yoke_core.domain.deployment_run_unpassable_blocking_qa import (
     PinQaDiagnosis,
@@ -120,28 +121,19 @@ class DeploymentRunProgress:
     qa_notice_stalled: bool = False
 
     @property
-    def needs_action(self) -> bool:
-        """True when nothing the run is waiting for can arrive by itself.
+    def start_needed(self) -> bool:
+        """A created run needs a driver before it can reach its QA gates."""
+        return self.status == RunStatus.CREATED and not self.driver_phase
 
-        Outstanding QA is not that signal on its own. A run still at
-        ``created`` with nothing outstanding is waiting to be driven only
-        when no live driver is attached; a live driver in a silent freeze
-        is already in flight even while status stays ``created``. One
-        already ``executing`` with nothing outstanding is in flight, and
-        recommending a re-drive there invites a second dispatch against a
-        live release.
-        """
-        waiting_to_be_driven = (
-            self.status == RunStatus.CREATED
-            and self.outstanding == 0
-            and not self.driver_phase
-        )
+    @property
+    def needs_action(self) -> bool:
+        """Whether steering has a deployment action to take."""
         return (
             self.qa_notice_stalled
             or self.completion.blocked
             or bool(self.red)
             or self.answered_decision is not None
-            or waiting_to_be_driven
+            or self.start_needed
         )
 
     def recovery(self) -> str:
@@ -151,8 +143,14 @@ class DeploymentRunProgress:
             return f"Live driver {self.driver_phase} owns this run; read its progress before recovery."
         if self.pin_qa.unpassable:
             return self.pin_qa.supersede_recovery(self.run_id)
-        if self.status == RunStatus.CREATED and self.outstanding == 0:
-            return f"Nothing is outstanding; re-drive {self.run_id} with `yoke watch deploy -- {self.run_id}` to start it."
+        if self.start_needed:
+            return (
+                f"Start this run with `{watch_deploy_command(self.run_id)}`, using "
+                "the connection that owns it. If it replaces its own serving API, "
+                "use that connection's paired `*-db-admin` driver connection. "
+                "If start refuses with `target_occupied`, follow the refusal and "
+                "re-drive this same run when the named holder frees the target."
+            )
         if self.answered_decision is not None:
             return (
                 f"Answer recorded; re-drive {self.run_id} with `yoke watch deploy -- {self.run_id}` so the runner acts on it: "
