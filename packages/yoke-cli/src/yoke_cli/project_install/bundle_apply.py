@@ -8,7 +8,7 @@ from typing import Any, Dict, List
 from yoke_cli.project_install import clone_excludes
 from yoke_cli.project_install import cursor_permissions as cursor_permissions_layer
 from yoke_cli.project_install import files as files_layer
-from yoke_cli.project_install import git_hooks as git_hooks_layer
+from yoke_cli.project_install import retired_git_hooks
 from yoke_cli.project_install import hooks as hooks_layer
 from yoke_cli.project_install import managed_markdown as managed_markdown_layer
 from yoke_cli.project_install import (
@@ -54,7 +54,6 @@ _MANIFEST_OWNED_KEYS = frozenset(
         "strategy_files",
         "created_settings_files",
         "hook_entries",
-        "git_hook_hashes",
         clone_excludes.KEY,
         "managed_markdown",
         "skill_discovery_links",
@@ -80,7 +79,6 @@ def apply_bundle(
     """Apply a resolved bundle to ``repo_root`` (the network-free core)."""
     _validate_bundle(bundle)
     bundle = native_bundle_hooks(bundle)
-    git_hooks_layer.assert_pre_commit_runtime_available()
     old_manifest = (
         prior_manifest
         if prior_manifest is not None
@@ -109,6 +107,10 @@ def apply_bundle(
         preserved_files,
     )
 
+    hook_warnings: list[str] = []
+    git_hooks_removed = retired_git_hooks.remove(
+        repo_root, manifest=old_manifest, warnings=hook_warnings
+    )
     excludes = install_recovery.begin(repo_root, preflight["install_recovery"], old_manifest)
     hashes, written = files_layer.apply_files(repo_root, bundle_files)
     hashes.update(preserved_files)
@@ -117,6 +119,7 @@ def apply_bundle(
         preflight["install_recovery"]["prior_files"],
         hashes,
     )
+    warnings.extend(hook_warnings)
     discovery_written = skill_discovery.apply(
         repo_root, old_manifest.get("skill_discovery_links")
     )
@@ -137,9 +140,7 @@ def apply_bundle(
         YOKE_GITIGNORE_REL,
         lambda: files_layer.reconcile_gitignore(repo_root, contract_files),
     )
-    # The install writes the managed rules files AND the gate that measures
-    # them, so it also exempts them — otherwise a project's first commit fails
-    # on the install's own output.
+    # Keep generated rules exempt from the authored-file checks.
     file_line_exceptions = follow_installer_edit(
         repo_root,
         contract_map,
@@ -198,19 +199,7 @@ def apply_bundle(
         if teaching and (result["added"] or result["removed"]):
             hook_trust.append(teaching)
 
-    git_hooks = git_hooks_layer.BootstrapResult()
-    git_hooks_layer.install_git_hooks(
-        repo_root,
-        git_hooks,
-        preflight["git_hook_specs"],
-        preflight["owned_git_hook_hashes"],
-    )
-    warnings.extend(git_hooks.warnings)
     discovery_ignored = skill_discovery.ignore(repo_root)
-    git_hook_hashes = git_hooks_layer.managed_git_hook_hashes(
-        repo_root,
-        preflight["git_hook_specs"],
-    )
     # Canonical AGENTS.md and the .claude/settings.json permissions region run
     # after the hook reconcile above so the settings file already exists; both
     # own only their marked region and preserve operator content around it.
@@ -267,7 +256,6 @@ def apply_bundle(
             "strategy_files": strategy_map,
             "created_settings_files": sorted(created_settings),
             "hook_entries": hook_entries,
-            "git_hook_hashes": git_hook_hashes,
             clone_excludes.KEY: excludes["owned"],
             "managed_markdown": managed_markdown_records,
             "skill_discovery_links": dict(bundle["skill_discovery_links"]),
@@ -320,8 +308,7 @@ def apply_bundle(
         "hooks_added": hooks_added,
         "hooks_removed": hooks_removed,
         hook_trust_report.REPORT_KEY: hook_trust,
-        "git_hooks_installed_or_updated": (git_hooks.installed + git_hooks.updated),
-        "git_hook_actions": git_hooks.actions,
+        "git_hooks_removed": git_hooks_removed,
         clone_excludes.KEY: excludes,
         "managed_markdown_actions": managed_markdown_report["actions"],
         "managed_markdown_written": managed_markdown_report["written"],

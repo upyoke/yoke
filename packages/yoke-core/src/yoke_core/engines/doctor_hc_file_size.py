@@ -3,8 +3,7 @@
 Reports authored violations as FAIL, temporary exceptions over limit
 as WARN, and exclusion counts as informational context.
 ``.yoke/project.config`` carries both the ``file_line_limit`` key
-and the ``file_line_exception`` globs — the same checked-in policy the
-pre-commit hook reads, so this check and the hook always agree.
+and the ``file_line_exception`` globs that the harness and merge preflight use.
 """
 
 from __future__ import annotations

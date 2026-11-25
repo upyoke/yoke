@@ -72,11 +72,7 @@ from yoke_cli.commands.core import (
     TOOL_SHAPED_SUBCOMMANDS as _CORE_SUBCOMMANDS,
     CORE_USAGE as _CORE_USAGE,
 )
-from yoke_cli.commands.git_hook import (
-    AdapterFn,
-    TOOL_SHAPED_SUBCOMMANDS as _GIT_SUBCOMMANDS,
-    TOOL_SHAPED_USAGE as _GIT_USAGE,
-)
+from yoke_cli.commands.adapter_types import AdapterFn
 from yoke_cli.commands.hook_latency_benchmark import (
     TOOL_SHAPED_SUBCOMMANDS as _HOOK_BENCHMARK_SUBCOMMANDS,
     TOOL_SHAPED_USAGE as _HOOK_BENCHMARK_USAGE,
@@ -182,7 +178,6 @@ TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
     **_DEPLOYMENT_EXECUTE_SUBCOMMANDS,
     **_DIRECT_WORKFLOW_WORKTREE_SUBCOMMANDS,
     **_CORE_SUBCOMMANDS,
-    **_GIT_SUBCOMMANDS,
     **_HOOK_BENCHMARK_SUBCOMMANDS,
     **_INSTALLER_LOCAL_SUBCOMMANDS,
     **_LOCAL_UNIVERSE_SUBCOMMANDS,
@@ -224,7 +219,6 @@ TOOL_SHAPED_USAGE: Dict[str, str] = {
     **_DEPLOYMENT_EXECUTE_USAGE,
     **_DIRECT_WORKFLOW_WORKTREE_USAGE,
     **_CORE_USAGE,
-    **_GIT_USAGE,
     **_HOOK_BENCHMARK_USAGE,
     **_INSTALLER_LOCAL_USAGE,
     **_LOCAL_UNIVERSE_USAGE,

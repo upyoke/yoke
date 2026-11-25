@@ -10,7 +10,6 @@ import subprocess
 
 import pytest
 
-from yoke_contracts.git_hook_markers import HEAD_RECORDING_SKIP_ENV
 
 from yoke_cli.config import (
     onboard_apply_report,
@@ -27,7 +26,6 @@ from runtime.api.cli.project_install_publication_test_support import (
 
 @pytest.fixture(autouse=True)
 def isolated_machine(tmp_path, monkeypatch):
-    monkeypatch.setenv(HEAD_RECORDING_SKIP_ENV, "1")
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
     monkeypatch.delenv("YOKE_MACHINE_CONFIG_FILE", raising=False)
     monkeypatch.delenv("YOKE_ENV", raising=False)

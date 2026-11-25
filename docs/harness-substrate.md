@@ -203,10 +203,9 @@ protects edits at two tool boundaries:
    --add-paths PATH --reason R --item PREFIX-N`. Narrative owners are
    `path_claim_bash_guard_narrative` and `worktree_preflight`.
 
-The installed pre-commit hook checks authored-file limits.
-It does not check path claims or work-item status. Selected Dash path-claim
-posture also checks surveyed paths before activation and merged paths at
-completion.
+Harness edit checks and merge preflight enforce authored-file limits.
+Selected Dash path-claim posture checks surveyed paths before activation and
+merged paths at completion.
 
 Rewrite ambiguous shell into parseable operations first. The Bash parser's
 `# lint:no-worktree-path-check` sentinel records `suppression_attempted` and allows

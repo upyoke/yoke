@@ -31,8 +31,8 @@ for those review notes. Scenario checks still establish whether teaching works.
 it and refuses before packaging an invalid corpus, and bundle assembly validates
 the served corpus again, including gitless wheel and container trees, before
 delivery. A Yoke source checkout's `.yoke/docs` is a gitignored copy that
-`yoke dev setup`, lane preparation and the checkout's git hooks regenerate;
-editing it repairs nothing. Successful validation is cached only for that root
+`yoke dev setup` and lane preparation regenerate.
+Edit the source under `docs/public/`. Successful validation is cached only for that root
 and its content digest.
 
 ## Refusals and review signals

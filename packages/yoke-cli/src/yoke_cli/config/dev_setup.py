@@ -84,7 +84,6 @@ def build_report(
         report["message"] = "write plan only; rerun with --yes to apply"
         return report
 
-    # Source-link precedes editable install, which replaces this product wheel.
     provisioned = install_source_checkout(
         root,
         editable_install=False,
@@ -92,14 +91,12 @@ def build_report(
     )
     report["applied"] = True
     report["source_link"] = provisioned["source_link"]
+    report["git_hooks_removed"] = provisioned["source_link"].get("git_hooks_removed", [])
     if with_test_postgres:
         postgres_report = _start_disposable_postgres()
         secret = postgres_report["dsn"]
         report["disposable_postgres"] = postgres_report
-    wants_config = (
-        secret is not None or bool(postgres) or bool(authority) or set_active_env
-    )
-    if wants_config:
+    if secret is not None or postgres or authority or set_active_env:
         configured = _configure_admin_connection(
             env_name=env_name,
             dsn=secret,
@@ -151,8 +148,11 @@ def render_human(report: Mapping[str, Any]) -> str:
     ]
     for step in report["plan"]["steps"]:
         lines.append(f"  - {step['action']}: {step['target']}")
-    credentials = report.get("source_link", {}).get("git_credentials")
-    if credentials is not None:
+    source_link = report.get("source_link", {})
+    for hook in source_link.get("git_hooks_removed", []):
+        lines.append(f"  Removed retired Git hook: {hook}")
+    lines.extend(f"  Warning: {warning}" for warning in source_link.get("warnings", []))
+    if (credentials := source_link.get("git_credentials")) is not None:
         lines.append(f"  GitHub sign-in: {json.dumps(credentials)}")
     editable = report.get("editable_install")
     if editable is not None:
@@ -168,8 +168,7 @@ def render_human(report: Mapping[str, Any]) -> str:
             )
     if not report["applied"]:
         lines.extend(["", "Rerun with --yes to apply this plan."])
-    lines.append("")
-    return "\n".join(lines)
+    return "\n".join(lines) + "\n"
 
 
 def _plan(
@@ -186,7 +185,7 @@ def _plan(
     steps = [
         {"action": "validate-source-checkout", "target": str(root)},
         {"action": "repair-source-links", "target": str(root)},
-        {"action": "install-git-hooks", "target": str(root / ".git/hooks")},
+        {"action": "remove-retired-git-hooks", "target": str(root)},
     ]
     if editable_install:
         steps.append({"action": "editable-install", "target": str(root)})

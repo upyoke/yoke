@@ -56,7 +56,7 @@ def test_dev_setup_dry_run_detects_source_checkout_without_mutating(
     assert [step["action"] for step in payload["plan"]["steps"]] == [
         "validate-source-checkout",
         "repair-source-links",
-        "install-git-hooks",
+        "remove-retired-git-hooks",
     ]
     assert _tree_snapshot(checkout) == before
 

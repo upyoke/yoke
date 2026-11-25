@@ -12,7 +12,6 @@ from pathlib import Path
 
 from yoke_contracts.install_advice import install_command
 from yoke_contracts.api_urls import DISTRIBUTION_PROD_URL, DISTRIBUTION_STAGE_URL
-from yoke_cli.project_install.managed_git_hooks import managed_git_hook_specs
 from yoke_contracts.machine_config.paths import select_read_config
 from yoke_core.domain.main_agent_packet import render_install_advisory_block
 from unittest.mock import patch
@@ -92,8 +91,6 @@ def main() -> None:
             assert install_command() == expected
             with patch("shutil.which", return_value=None):
                 assert expected in render_install_advisory_block()
-            for spec in managed_git_hook_specs():
-                assert expected in spec["content"]
     print(
         f"PASS: {args.environment} served onboarding and machine repair advice use {origin}"
     )

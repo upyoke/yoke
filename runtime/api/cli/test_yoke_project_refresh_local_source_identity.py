@@ -10,8 +10,6 @@ from yoke_contracts.project_contract.installed_layer import (
     INSTALLED_LAYER_RECEIPT_REL,
 )
 from yoke_cli.main import main as cli_main
-from yoke_cli.project_install import managed_git_hooks
-from runtime.api.tools import source_project_bundle
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -75,52 +73,6 @@ def test_source_process_enforces_explicit_checkout_origin(
     captured = capsys.readouterr()
     assert "ambient Yoke source fallback was refused" in captured.err
     assert _project_tree(target) == before
-
-
-def test_source_bundle_versions_selected_git_hook_content(monkeypatch) -> None:
-    baseline = source_project_bundle.build_source_bundle(
-        REPO_ROOT,
-        project_id=50,
-        project_slug="git-hook-source",
-    )
-    baseline_files = {entry["path"]: entry for entry in baseline["files"]}
-    baseline_receipt = json.loads(
-        baseline_files[INSTALLED_LAYER_RECEIPT_REL]["content"]
-    )
-    source_head = subprocess.run(
-        ["git", "-C", str(REPO_ROOT), "rev-parse", "HEAD"],
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout.strip()
-    assert baseline_receipt["source_engine_release"] == baseline["yoke_version"]
-    assert baseline_receipt["source_build"] == source_head
-    selected = managed_git_hooks.PRE_COMMIT_SHIM.replace(
-        "# Hard-fails",
-        "# selected source behavior\n# Hard-fails",
-    )
-    # ``managed_git_hooks`` is the single source of truth for shim content:
-    # ``managed_git_hook_specs`` (which the source bundle serializes) reads the
-    # ``_SHIM_BY_HOOK`` mapping built at import, and the ``git_hooks`` module
-    # only re-exports these names. Patch the mapping so a source dev's selected
-    # pre-commit shim reaches the built bundle.
-    monkeypatch.setitem(managed_git_hooks._SHIM_BY_HOOK, "pre-commit", selected)
-
-    refreshed = source_project_bundle.build_source_bundle(
-        REPO_ROOT,
-        project_id=50,
-        project_slug="git-hook-source",
-    )
-
-    hooks = {entry["name"]: entry for entry in refreshed["managed_git_hooks"]}
-    refreshed_files = {entry["path"]: entry for entry in refreshed["files"]}
-    refreshed_receipt = json.loads(
-        refreshed_files[INSTALLED_LAYER_RECEIPT_REL]["content"]
-    )
-    assert hooks["pre-commit"]["content"] == managed_git_hooks.render_git_hook(selected)
-    assert refreshed["yoke_version"] != baseline["yoke_version"]
-    assert refreshed_receipt["source_engine_release"] == refreshed["yoke_version"]
-    assert refreshed_receipt["source_build"] == source_head
 
 
 def test_source_refresh_writes_checkout_head(tmp_path, capsys) -> None:

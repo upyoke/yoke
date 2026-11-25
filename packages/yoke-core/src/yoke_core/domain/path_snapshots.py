@@ -221,7 +221,7 @@ def ensure_snapshot_at(conn: Any, project_id: int | str, commit_sha: str) -> int
     if absent or content-less.
 
     Lazy: callers that only need *a* snapshot at a SHA — activate flows,
-    boundary checks, post-commit hooks — go through this helper rather
+    and boundary checks — go through this helper rather
     than querying ``path_snapshots`` directly. Inline build avoids the
     cold-start surprise where a freshly-cloned tree refuses operations
     until ``path_snapshots <project>`` is run by hand.

@@ -91,7 +91,6 @@ _REPO_ACTIONS = {
     "project-install-agent-rules",
     "project-install-tool-permissions",
     "project-install-harness-hooks",
-    "project-install-git-hooks",
     "project-write-board-art",
 }
 _CORE_ACTIONS = {

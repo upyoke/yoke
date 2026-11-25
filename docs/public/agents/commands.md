@@ -14,8 +14,7 @@ Target harness manifests own available tools/hooks. Source maintainers use
 Invoke the installed `yoke` skill with `/yoke`, for example `/yoke onboard`.
 Select `yoke` in the skill picker; onboarding is a route within that skill.
 
-The authored-file limit is the project's `file_line_limit`, enforced where files are
-readable by pre-commit, survey and Doctor. Active work-claim rows authorize
+Agent edits and merge preflight enforce the project's `file_line_limit`. Active work-claim rows authorize
 registered lanes. File Budget and path claims are
 independent effective workflow policies; parity applies only when both are
 enabled. Turning either off does not waive the file limit. Read
@@ -81,9 +80,9 @@ These are operator CLI helpers, distinct from lifecycle slash commands:
 | `yoke dash --title TEXT --spec-file PATH` / `yoke task --title TEXT --spec-file PATH` (or `--stdin`) | File direct work after resolving execution instructions; Dash owns a lane; Task is laneless and merge-free, and refuses projects with a code repository (code project work -> `yoke dash`) |
 | `yoke board art variant create` | Create and preview board-art variants |
 | `yoke project snapshot sync [CHECKOUT]` | Sync committed path inventory |
-| `yoke git pre-commit` | Installed commit gate hook |
-| `yoke git post-commit` / `post-merge` / `post-rewrite` / `post-checkout` | Installed hooks that record the lane head after every HEAD move |
 
+Yoke installs no Git hooks. Refresh an older installation to remove its shims.
+For direct Git commits, run `yoke check file-line --staged` to check file length.
 Read each operation's `--help` for payload and authority before acting.
 
 ## Delivery skill boundaries

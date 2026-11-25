@@ -60,9 +60,7 @@ _PROJECT_INSTALL = _commands(
 _SOURCE_DEV = _commands(
     "agents render|agents render check|aws exec|azure exec|board rebuild|dev setup|dev db-admin exec|dev db-admin setup|github-actions runners status|merge audit|packets budget get|packets check|packets render|packets startup-delivery get|resync|schema converge|scratch dispatch-inputs|usher reconcile-github"
 )
-_HOOKS = _commands("hook evaluate") | {
-    "yoke " + " ".join(key) for key in TOOL_SHAPED_SUBCOMMANDS if key[0] == "git"
-}
+_HOOKS = _commands("hook evaluate")
 _HOOK_HELPERS = frozenset(
     {
         "helper yoke_cli.commands.adapters.hook_inprocess",

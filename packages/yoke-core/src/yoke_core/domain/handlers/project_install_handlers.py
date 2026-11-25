@@ -48,7 +48,7 @@ class ProjectInstallResponse(BaseModel):
     manifest: str
     machine_config_newly_registered: bool
     warnings: List[str]
-    # Copy-strategy fields (absent from source-link reports).
+    git_hooks_removed: Optional[List[str]] = None
     project_id: Optional[int] = None
     project_slug: Optional[str] = None
     files_written: Optional[List[str]] = None
