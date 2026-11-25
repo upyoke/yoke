@@ -101,7 +101,7 @@ def test_released_reservation_aborts_the_waiting_execution_and_upkeep_wakes_it(
     assert state == "aborted"
     assert reason.startswith("qa_host_turn_released: ")
     assert f"QA host {MACHINE}" in reason
-    assert f"yoke qa plan run --item YOK-{MEMBER} --stage {ITEM_QA_STAGE}" in reason
+    assert f"yoke qa plan partitions --item YOK-{MEMBER} --stage {ITEM_QA_STAGE}" in reason
     assert active_claim(conn, target) is None
     assert _report(conn)[MEMBER] == DRIVERLESS
 

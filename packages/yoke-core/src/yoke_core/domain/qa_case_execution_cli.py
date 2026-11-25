@@ -60,11 +60,10 @@ whatever subject that requirement is already bound to. It is the right form for
 an item's own verification gate -- the Command case that is a Dash item's single
 full run.
 
-A mission starts a one-requirement plan execution with the existing retained
-lease, walker dispatch, review bundle and main-agent verdict. Exit 12 requires
-the returned typed review continuation; it is not a passing verdict. Other open
-requirements are untouched. A mission that inherits predecessor state requires
-its ordered plan instead. Repeating the case command resumes its pending review.
+For agent-judged or Test Machine walks, the owing session reads its plan
+partitions and launches an itemless walker. Follow the recipe in
+.yoke/docs/verification/walking.md#launch-a-walker. The walker's ordered
+partition keeps an inherited mission with its predecessor.
 
 For other runners, this is not the form that credits a deployment stage. A deployment QA stage
 credits only the requirements bound to its own stage name, and an item-scoped
@@ -73,7 +72,7 @@ run, a stage, and a member, this command refuses and prints the invocation
 that would credit the stage, rather than exiting zero with a pass the stage
 ignores:
 
-  yoke qa plan run --item PREFIX-N --stage STAGE --project P
+  yoke qa plan partitions --item PREFIX-N --stage STAGE --deployment-run-id RUN --project P
 
 Add `--plan PLAN` for a stage that names no cases, or with `--replaces
 CASE_KEY=FAILED_REQUIREMENT_ID` for every case in a correction-only plan.
@@ -81,7 +80,7 @@ A named stage refuses an unrelated plan. An existing corrected direct case
 uses `yoke qa requirement supersede --declare-replacement` before this scoped
 plan run, without `--plan`.
 
-See `yoke qa plan run --help` for the full subject/scope matrix, and
+See `yoke qa plan partitions --help` to choose the subject, and
 `yoke merge item --help` for the close-out that follows a credited stage.
 """
 

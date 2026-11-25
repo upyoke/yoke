@@ -89,14 +89,14 @@ def _abort_orphaned(conn: Any, execution_id: str, *, test_machine: str) -> None:
         reason=(
             f"{HOST_TURN_RELEASED_REASON}: the reserved turn on QA host "
             f"{test_machine} was released before this execution took it; "
-            f"start a fresh run with `{rerun_command(conn, execution)}`"
+            f"read partitions with `{read_partitions_command(conn, execution)}`"
         ),
         commit=False,
     )
 
 
-def rerun_command(conn: Any, execution: Mapping[str, Any]) -> str:
-    """The fresh ``yoke qa plan run`` for the subject *execution* walked."""
+def read_partitions_command(conn: Any, execution: Mapping[str, Any]) -> str:
+    """Read the partitions of the subject the ended execution walked."""
     from yoke_core.domain.project_identity import render_item_ref
 
     stage = execution.get("deployment_stage")
@@ -123,11 +123,11 @@ def rerun_command(conn: Any, execution: Mapping[str, Any]) -> str:
             (int(plan_id),),
         )
         project = f" --project {row['slug']}" if row is not None else ""
-        return f"yoke qa plan run --plan {plan_id}{project}"
+        return f"yoke qa plan partitions --plan {plan_id}{project}"
     item_id, transition = execution.get("item_id"), execution.get("transition_id")
     if item_id is not None and transition:
         return (
-            f"yoke qa plan run --item {render_item_ref(conn, int(item_id))} "
+            f"yoke qa plan partitions --item {render_item_ref(conn, int(item_id))} "
             f"--transition {transition}"
         )
-    return "yoke qa plan run with this execution's subject flags (see --help)"
+    return "yoke qa plan partitions with this execution's subject flags (see --help)"
