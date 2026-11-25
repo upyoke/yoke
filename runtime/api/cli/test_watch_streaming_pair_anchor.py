@@ -7,10 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from yoke_core.tools._watch_streaming_pair import (
-    _anchor_directory,
-    print_streaming_pair,
-)
+from yoke_core.tools._watch_foreground_command import _anchor_directory
+from yoke_core.tools._watch_streaming_pair import print_streaming_pair
 
 
 def _uv_project(directory: Path) -> None:
