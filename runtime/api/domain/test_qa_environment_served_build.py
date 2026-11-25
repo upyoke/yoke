@@ -65,13 +65,13 @@ def test_bridge_probes_owner_by_id_and_records_begin_and_result(test_db, monkeyp
     assert urls == ["https://api.upyoke.com/served-build"] * 3
 
 
-def _assert_changed_build_pass(conn, run_id):
+def _assert_changed_build_pass(conn, run_id, *, served=OTHER):
     row = conn.execute(
         "SELECT verdict,served_build_sha,served_build_status,raw_result FROM qa_runs WHERE id=%s",
         (run_id,),
     ).fetchone()
-    assert tuple(row[:3]) == ("pass", OTHER, "served_build_changed")
-    assert json.loads(row[3])["served_build_changed"] == {"began_sha": SHA, "served_sha": OTHER}
+    assert tuple(row[:3]) == ("pass", served, "served_build_changed")
+    assert json.loads(row[3])["served_build_changed"] == {"began_sha": SHA, "served_sha": served}
 
 
 def test_changed_build_records_pass_on_completion(test_db, monkeypatch):
@@ -84,7 +84,10 @@ def test_changed_build_records_pass_on_completion(test_db, monkeypatch):
     _assert_changed_build_pass(test_db, written.run_id)
 
 
-def test_build_change_records_pass_without_an_execution(test_db, monkeypatch):
+@pytest.mark.parametrize(
+    ("capture_sha", "verdict_sha"), [(None, OTHER), (OTHER, OTHER), (OTHER, "c" * 40), (OTHER, SHA)],
+)
+def test_build_change_records_pass_without_an_execution(test_db, monkeypatch, capture_sha, verdict_sha):
     _, plan, _ = _setup(test_db, monkeypatch)
     target = resolve_plan_execution_target(test_db, plan_id=plan["id"])
     insert_item(test_db, id=42, title="Remote QA")
@@ -101,9 +104,27 @@ def test_build_change_records_pass_without_an_execution(test_db, monkeypatch):
     assert tuple(row) == (SHA, "observed")
     assert test_db.execute("SELECT COUNT(*) FROM qa_plan_executions").fetchone()[0] == 0
 
-    monkeypatch.setattr(probe, "fetch_served_revision", lambda _: probe.ServedRevisionRead(status=200, body=OTHER))
+    if capture_sha:
+        monkeypatch.setattr(
+            probe, "fetch_served_revision",
+            lambda _: probe.ServedRevisionRead(status=200, body=capture_sha),
+        )
+        update_qa_run(test_db, written.run_id, {"execution_status": "captured"})
+
+    monkeypatch.setattr(
+        probe, "fetch_served_revision",
+        lambda _: probe.ServedRevisionRead(status=200, body=verdict_sha),
+    )
     update_qa_run(test_db, written.run_id, {"verdict": "pass"})
-    _assert_changed_build_pass(test_db, written.run_id)
+    if verdict_sha != SHA:
+        _assert_changed_build_pass(test_db, written.run_id, served=verdict_sha)
+    else:
+        row = test_db.execute(
+            "SELECT verdict,served_build_sha,served_build_status,raw_result "
+            "FROM qa_runs WHERE id=%s", (written.run_id,),
+        ).fetchone()
+        assert tuple(row[:3]) == ("pass", SHA, "observed")
+        assert "served_build_changed" not in json.loads(row[3])
 
 
 @pytest.mark.parametrize("read", [probe.ServedRevisionRead(error="offline"), probe.ServedRevisionRead(status=200, body="unknown")])

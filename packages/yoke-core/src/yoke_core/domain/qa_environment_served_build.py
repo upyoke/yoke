@@ -119,21 +119,36 @@ def bind_run_build(conn: Any, columns: dict, *, run_id: int | None = None) -> No
                 "begin a case execution before recording its result"
             )
         return
-    expected = str((execution or {}).get("served_build_sha") or prior.get("served_build_sha") or "")
+    expected = str((execution or {}).get("served_build_sha") or _run_begin_sha(prior))
     build = observe_build(conn, target, expected=expected)
     began = build.pop("began_build_sha", None)
     columns.update(build)
-    if began:
-        _record_build_change(columns, prior, began=began, served=build["served_build_sha"])
+    if began or prior.get("served_build_status") == "served_build_changed":
+        payload = _result_payload(columns.get("raw_result", prior.get("raw_result")))
+        if began:
+            payload["served_build_changed"] = {
+                "began_sha": began, "served_sha": build["served_build_sha"],
+            }
+        else:
+            payload.pop("served_build_changed", None)
+        columns["raw_result"] = json.dumps(payload, sort_keys=True, separators=(",", ":"))
 
 
-def _record_build_change(columns: dict, prior: Mapping[str, Any], *, began: str, served: str) -> None:
-    """Keep both SHAs in the run's evidence beside its served_build_changed status."""
-    raw = columns.get("raw_result", prior.get("raw_result"))
+def _run_begin_sha(prior: Mapping[str, Any]) -> str:
+    """A capture can observe a redeploy before a later write sets the verdict."""
+    served = str(prior.get("served_build_sha") or "")
+    if prior.get("served_build_status") == "served_build_changed":
+        change = _result_payload(prior.get("raw_result")).get("served_build_changed")
+        if isinstance(change, dict) and change.get("served_sha") == served:
+            began = str(change.get("began_sha") or "")
+            if probe.is_full_revision(began):
+                return began
+    return served
+
+
+def _result_payload(raw: Any) -> dict:
     try:
         parsed = json.loads(raw) if isinstance(raw, str) else raw
     except ValueError:
         parsed = None
-    payload = dict(parsed) if isinstance(parsed, dict) else ({"evidence": raw} if raw else {})
-    payload["served_build_changed"] = {"began_sha": began, "served_sha": served}
-    columns["raw_result"] = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return dict(parsed) if isinstance(parsed, dict) else ({"evidence": raw} if raw else {})
