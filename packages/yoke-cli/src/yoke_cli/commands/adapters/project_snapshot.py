@@ -30,18 +30,16 @@ from yoke_cli.transport.dispatcher import (
     emit_response,
 )
 from yoke_contracts.api.function_call import TargetRef
-from yoke_contracts.git_hook_markers import HEAD_RECORDING_GIT_HOOKS
-from yoke_contracts.hook_diagnostics import format_hook_diagnostic
 from yoke_contracts.path_snapshot import (
     PathSnapshotSyncPayload,
 )
 
-HOOK_WRITE_TIMEOUT_S = 8.0
+SNAPSHOT_WRITE_TIMEOUT_S = 8.0
 _RESPONSE_TIMEOUT_MARKER = "exceeded the time limit"
 
 PROJECT_SNAPSHOT_SYNC_USAGE = (
     "yoke project snapshot sync [REPO_ROOT] [--project P] "
-    "[--integration-target BRANCH] [--head-only] [--hook GIT_HOOK] "
+    "[--integration-target BRANCH] [--head-only] "
     "[--session-id S] [--json]"
 )
 
@@ -68,12 +66,6 @@ def project_snapshot_sync(args: List[str]) -> int:
             "The fast re-stamp for a lane whose recorded head went stale."
         ),
     )
-    parser.add_argument(
-        "--hook",
-        dest="hook_name",
-        choices=HEAD_RECORDING_GIT_HOOKS,
-        help="Hook-safe mode for GIT_HOOK: label failures with it, exit 0.",
-    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, PROJECT_SNAPSHOT_SYNC_USAGE)
@@ -81,21 +73,17 @@ def project_snapshot_sync(args: List[str]) -> int:
         return 2
 
     project = _project_context(parsed.project)
-    hook_mode = parsed.hook_name is not None
     try:
         plan = plan_sync(
             parsed.repo_root,
             integration_target=parsed.integration_target,
             head_only=parsed.head_only,
         )
-        assert_project_repository(plan.repo_root, project, session_id=parsed.session_id,
-                                  timeout_s=HOOK_WRITE_TIMEOUT_S if hook_mode else None)
-        if parsed.head_only and not hook_mode:
+        assert_project_repository(plan.repo_root, project, session_id=parsed.session_id)
+        if parsed.head_only:
             response = _dispatch_sync_payload(
                 project=project,
-                payload=identity_sync_payload(
-                    plan, project_id=project, hook_mode=False
-                ),
+                payload=identity_sync_payload(plan, project_id=project),
                 session_id=parsed.session_id,
                 timeout_s=None,
             )
@@ -103,45 +91,12 @@ def project_snapshot_sync(args: List[str]) -> int:
             response = sync_snapshots(
                 project=project,
                 plan=plan,
-                contents=not hook_mode,
-                hook_mode=hook_mode,
                 session_id=parsed.session_id,
-                timeout_s=HOOK_WRITE_TIMEOUT_S if hook_mode else None,
+                timeout_s=None,
             )
     except (ProjectSnapshotScanError, ProjectRepositoryIdentityError) as exc:
-        label = "warning" if hook_mode else "error"
-        message = f"{label}: {exc}"
-        if hook_mode:
-            message = format_hook_diagnostic(parsed.hook_name, message)
-        print(message, file=sys.stderr)
-        return 0 if hook_mode else 1
-    except Exception as exc:
-        if hook_mode:
-            message = str(exc) or type(exc).__name__
-            print(
-                format_hook_diagnostic(
-                    parsed.hook_name,
-                    _failure_warning(
-                        message,
-                        _write_repair(
-                            message,
-                            code="",
-                            retry_command="",
-                            snapshot_repair="yoke project snapshot sync",
-                        ),
-                    ),
-                ),
-                file=sys.stderr,
-            )
-            return 0
-        raise
-    if hook_mode:
-        if not response.success:
-            print(
-                format_hook_diagnostic(parsed.hook_name, _sync_outcome_line(response)),
-                file=sys.stderr,
-            )
-        return 0
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
     return emit_response(
         response,
         json_mode=parsed.json_mode,
@@ -156,7 +111,7 @@ def sync_local_snapshot_for_write(
     integration_target: Optional[str],
     session_id: Optional[str],
     head_only: bool = False,
-    timeout_s: Optional[float] = HOOK_WRITE_TIMEOUT_S,
+    timeout_s: Optional[float] = SNAPSHOT_WRITE_TIMEOUT_S,
     retry_command: str = "",
     stderr: TextIO = sys.stderr,
 ) -> dict[str, Any]:
@@ -179,9 +134,7 @@ def sync_local_snapshot_for_write(
         if head_only:
             response = _dispatch_sync_payload(
                 project=project_id,
-                payload=identity_sync_payload(
-                    plan, project_id=project_id, hook_mode=True
-                ),
+                payload=identity_sync_payload(plan, project_id=project_id),
                 session_id=session_id,
                 timeout_s=timeout_s,
             )
@@ -189,8 +142,7 @@ def sync_local_snapshot_for_write(
             response = sync_snapshots(
                 project=project_id,
                 plan=plan,
-                contents=True,
-                hook_mode=True,
+                defer_large_uploads=True,
                 session_id=session_id,
                 timeout_s=timeout_s,
             )
@@ -343,7 +295,6 @@ def _write_human(response: Any, stdout, stderr) -> None:
 
 
 __all__ = [
-    "HOOK_WRITE_TIMEOUT_S",
     "PROJECT_SNAPSHOT_SYNC_USAGE",
     "project_snapshot_sync",
     "sync_local_snapshot_for_write",

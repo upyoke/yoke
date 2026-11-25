@@ -123,16 +123,16 @@ def test_shared_checkout_scope_is_preserved(installed, sharing):
         collision.mkdir()
         writer.register_project(collision, 9, path=config)
         assert trust.cursor_trust_file(collision) == trust.cursor_trust_file(root)
-    hooks = {p: p.read_bytes() for p in (root / ".git/hooks").iterdir() if p.is_file()}
-    ignore_before = (root / ".gitignore").read_bytes()
-    before = config.read_bytes(), trust.claude_state_path().read_bytes()
+    hook = root / ".git/hooks/pre-commit"
+    hook.write_bytes(b'#!/bin/sh\n# yoke-pre-commit hook installed by `yoke project install`\n'
+                     b'exec yoke git pre-commit "$@"\n')
+    kept = (config, trust.claude_state_path(), root / ".gitignore")
+    before = [path.read_bytes() for path in kept]
     report = uninstall(root, config_path=config)
     assert report["outcome"] == "partial"
-    assert (config.read_bytes(), trust.claude_state_path().read_bytes()) == before
+    assert [path.read_bytes() for path in kept] == before
     assert machine_config.project_id(other, config) == 8
-    assert {p: p.read_bytes() for p in hooks} == hooks
-    assert report["git_hooks_preserved_reason"]
-    assert (root / ".gitignore").read_bytes() == ignore_before
+    assert report["git_hooks_removed"] == ["pre-commit"] and not hook.exists()
 
 
 def test_unrecorded_and_legacy_trust_is_preserved(installed):

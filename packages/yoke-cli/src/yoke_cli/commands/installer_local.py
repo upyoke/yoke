@@ -48,7 +48,7 @@ from yoke_cli.commands.adapters.source_dev_run import (
 )
 from yoke_cli.commands.adapters.yokepedia import yokepedia
 from yoke_cli.commands.adapters.pulumi import pulumi_exec
-from yoke_cli.commands.git_hook import AdapterFn
+from yoke_cli.commands.adapter_types import AdapterFn
 from yoke_cli.commands.flag_adapters import (
     dev_db_admin_exec,
     dev_db_admin_setup,

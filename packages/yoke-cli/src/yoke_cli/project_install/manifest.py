@@ -18,7 +18,6 @@ from yoke_cli.project_install.files import (
     assert_safe_bundle_paths,
 )
 from yoke_contracts.project_contract.install_error import ProjectInstallError
-from yoke_cli.project_install.managed_git_hooks import GIT_HOOK_NAMES
 from yoke_contracts.cursor_permissions import CURSOR_PERMISSIONS_MANIFEST_KEY
 from yoke_cli.project_install.settings_status_line import (
     STATUS_LINE_MANIFEST_KEY,
@@ -208,23 +207,9 @@ def validate_manifest(manifest: Any, *, source: str = "install manifest") -> Non
     files = _path_map(manifest, "files", source=source)
     contracts = _path_map(manifest, "contract_files", source=source)
     strategies = _path_map(manifest, "strategy_files", source=source)
-    git_hook_hashes = _path_map(manifest, "git_hook_hashes", source=source)
     assert_safe_bundle_paths(files)
     _assert_safe_prior_contract_paths(contracts)
     _assert_safe_prior_strategy_paths(strategies)
-    allowed_git_hooks = {f".git/hooks/{name}" for name in GIT_HOOK_NAMES}
-    if set(git_hook_hashes) - allowed_git_hooks:
-        raise ProjectInstallError(
-            f"{source} git_hook_hashes names an unknown managed hook path"
-        )
-    named_git_hooks = manifest.get("git_hooks", [])
-    if (
-        not isinstance(named_git_hooks, list)
-        or not all(name in GIT_HOOK_NAMES for name in named_git_hooks)
-    ):
-        raise ProjectInstallError(
-            f"{source} git_hooks must contain only managed hook names"
-        )
     created = manifest.get("created_settings_files", [])
     if (
         not isinstance(created, list)

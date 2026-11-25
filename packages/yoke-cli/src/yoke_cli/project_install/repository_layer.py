@@ -14,11 +14,7 @@ from typing import Any, Dict
 from yoke_contracts.refusal_recovery import compose_refusal
 
 from yoke_cli.project_install.bundle_apply import apply_bundle
-from yoke_cli.project_install.files import MODE_COPY
 from yoke_contracts.project_contract.install_error import ProjectInstallError
-from yoke_cli.project_install.hooks_path_check import (
-    collect_hooks_path_warnings,
-)
 
 
 def write_repository_layer(
@@ -39,11 +35,6 @@ def write_repository_layer(
         repo_root, bundle, operation=operation, source=source, retain_pending=True
     )
     report["codex_hook_trust"] = mint_codex_hook_trust(repo_root)
-    # A clean copy install can still be shadowed at commit time: a
-    # core.hooksPath override sends git elsewhere, or a missing `yoke`
-    # launcher leaves the shims unable to exec. Surface both loudly.
-    if mode == MODE_COPY:
-        report.setdefault("warnings", []).extend(collect_hooks_path_warnings(repo_root))
     return report
 
 

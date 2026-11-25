@@ -12,7 +12,7 @@ import sys
 from contextlib import contextmanager
 from typing import Dict, List, Tuple
 
-from yoke_cli.commands.git_hook import AdapterFn
+from yoke_cli.commands.adapter_types import AdapterFn
 from yoke_cli.board import rebuild as board_rebuild_flow
 from yoke_cli.board.outcome import printed as _printed_outcome
 from yoke_contracts.machine_config import reader as machine_config

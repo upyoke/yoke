@@ -24,7 +24,7 @@ from yoke_contracts.path_snapshot_chunks import (
 
 
 # Finalize materializes contents and refreshes changed-HEAD context (up to 39s
-# observed); the short hook write budget only covers staging operations.
+# observed); the short write budget only covers staging operations.
 FINALIZE_RESPONSE_TIMEOUT_S = 60.0
 
 
@@ -35,15 +35,13 @@ def offer_begin(
     upload_id: str,
     ref: SyncRef,
     base_candidates: List[str],
-    contents_included: bool,
-    hook_mode: bool,
     session_id: Optional[str],
     timeout_s: Optional[float],
 ) -> FunctionCallResponse:
     """Open ``ref``'s upload before scanning any file.
 
-    The server settles it at once when it already holds the commit (or the
-    upload is identity-only), and otherwise names the first of
+    The server settles it at once when it already holds the commit
+    and otherwise names the first of
     ``base_candidates`` it holds a snapshot for in ``base_commit_sha``.
     """
     begin = PathSnapshotChunkSyncPayload(
@@ -57,10 +55,8 @@ def offer_begin(
             file_count=0,
             chunk_count=0,
             warnings=ref.warnings,
-            contents_included=contents_included,
             base_candidates=base_candidates,
         ),
-        hook_mode=hook_mode,
     )
     return dispatch_chunk_payload(
         project=project, payload=begin, session_id=session_id, timeout_s=timeout_s
@@ -74,7 +70,6 @@ def upload_snapshot(
     upload_id: str,
     upload: SnapshotUpload,
     defer_multi_chunk: bool,
-    hook_mode: bool,
     session_id: Optional[str],
     timeout_s: Optional[float],
 ) -> FunctionCallResponse:
@@ -89,7 +84,6 @@ def upload_snapshot(
         repo_root=repo_root,
         upload=upload,
         defer_multi_chunk=defer_multi_chunk,
-        hook_mode=hook_mode,
         session_id=session_id,
         timeout_s=timeout_s,
     )
@@ -114,7 +108,6 @@ def _upload_once(
     upload_id: str,
     upload: SnapshotUpload,
     defer_multi_chunk: bool,
-    hook_mode: bool,
     session_id: Optional[str],
     timeout_s: Optional[float],
 ) -> FunctionCallResponse:
@@ -123,7 +116,6 @@ def _upload_once(
         project=project,
         repo_root=repo_root,
         upload_id=upload_id,
-        hook_mode=hook_mode,
     )
     if defer_multi_chunk and len(chunks) > 1:
         abort_chunk_upload(
@@ -147,7 +139,6 @@ def _upload_once(
                 symlinks=upload.symlinks,
                 warnings=upload.warnings,
             ),
-            hook_mode=hook_mode,
         ),
         *(
             PathSnapshotChunkSyncPayload(
@@ -157,7 +148,6 @@ def _upload_once(
                 operation="append",
                 chunk_index=index,
                 files=files,
-                hook_mode=hook_mode,
             )
             for index, files in enumerate(chunks)
         ),
@@ -167,7 +157,6 @@ def _upload_once(
             upload_id=upload_id,
             operation="finalize",
             delta=upload.delta,
-            hook_mode=hook_mode,
         ),
     ]
     response: Optional[FunctionCallResponse] = None

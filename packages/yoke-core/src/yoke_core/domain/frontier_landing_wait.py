@@ -8,7 +8,7 @@ ready invites a worker who can do nothing but wait, so it waits instead,
 naming each blocker and what the blocker still has to do.
 
 A lane has committed work when its active implementation lane records a
-commit (``item_worktrees.commit_sha``, written by the post-commit snapshot).
+commit (``item_worktrees.commit_sha``, written when Yoke reconciles HEAD).
 
 This one rule and its sentence feed every surface that says what is ready:
 the Frontier computation the scheduler, ``frontier.list`` (the web Frontier

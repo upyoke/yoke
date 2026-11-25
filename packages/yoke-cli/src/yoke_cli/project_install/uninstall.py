@@ -22,7 +22,7 @@ from yoke_cli.project_install import uninstall_commit, uninstall_lanes, uninstal
 from yoke_cli.project_install.installed_output_paths import YOKE_GITIGNORE_REL
 from yoke_cli.project_install import owned_cleanup
 from yoke_cli.project_install import skill_discovery
-from yoke_cli.project_install import git_hooks as git_hooks_layer
+from yoke_cli.project_install import retired_git_hooks
 from yoke_cli.project_install import hooks as hooks_layer
 from yoke_cli.project_install import managed_markdown as managed_markdown_layer
 from yoke_cli.project_install import (
@@ -84,11 +84,9 @@ def uninstall(
             *dict(manifest.get("files", {})),
             *dict(manifest.get("contract_files", {})),
             *dict(manifest.get("strategy_files", {})),
-            *dict(manifest.get("git_hook_hashes", {})),
             *list(manifest.get("created_settings_files", [])),
             *dict(manifest.get("hook_entries", {})),
             *dict(manifest.get("managed_markdown", {})),
-            *(f".git/hooks/{name}" for name in git_hooks_layer.GIT_HOOK_NAMES),
             files_layer.MANIFEST_REL,
             PENDING_REL,
         ],
@@ -124,12 +122,14 @@ def uninstall(
             "warnings": commit_warnings,
         }
     shared_scope = owned_cleanup.scope_reason(root, manifest, config_path)
+    hook_warnings: List[str] = []
+    git_hooks_removed = retired_git_hooks.remove(root, manifest=manifest, warnings=hook_warnings)
     file_records = dict(manifest.get("files") or {})
     discovery_removed = skill_discovery.remove(
         root, manifest.get("skill_discovery_links")
     )
     removed, skipped, absent, warnings = remove_manifest_files(root, file_records)
-    warnings.extend(commit_warnings)
+    warnings.extend([*commit_warnings, *hook_warnings])
     warnings.extend(uninstall_lanes.kept_branches_warning(root, lanes["branches_kept"]))
     # Contract files: remove only installer-created files still byte-equal
     # to their seeded content; edited ones are preserved with a warning and
@@ -186,15 +186,6 @@ def uninstall(
     # Strategy files are planning content that outlives the tooling —
     # uninstall never removes them, tracked or not.
     strategy_preserved = sorted(dict(manifest.get("strategy_files") or {}))
-    owned_git_hooks = dict(manifest.get("git_hook_hashes") or {})
-    git_hooks_removed = (
-        []
-        if shared_scope
-        else git_hooks_layer.remove_yoke_git_hooks(
-            root,
-            owned_git_hooks,
-        )
-    )
     discovery_unignored = (
         []
         if shared_scope
@@ -208,7 +199,7 @@ def uninstall(
     if shared_scope:
         local_cleanup["complete"] = False
         warnings.append(
-            f"project_uninstall_{shared_scope}: Git hooks and clone excludes may serve other checkouts; resolve sharing or checkout identity, then rerun project uninstall."
+            f"project_uninstall_{shared_scope}: Clone excludes may serve other checkouts; resolve sharing or checkout identity, then rerun project uninstall."
         )
     # One refusal per reason: every harness row repeats the registration's.
     reasons = {f"project_uninstall_{shared_scope}"} if shared_scope else set()
@@ -257,7 +248,6 @@ def uninstall(
         "board_views_removed": board_views_removed,
         "hooks_removed": hooks_removed,
         "git_hooks_removed": git_hooks_removed,
-        "git_hooks_preserved_reason": shared_scope,
         "settings_permissions_removed": settings_permissions_removed,
         "settings_status_line_removed": settings_status_line_removed,
         "cursor_permissions_removed": cursor_permissions_removed,

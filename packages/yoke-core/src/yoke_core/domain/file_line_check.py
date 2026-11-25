@@ -96,8 +96,8 @@ __all__ = (
 def resolved_policy(repo_root: pathlib.Path):
     """Resolve the limit and exception globs from checked-in project policy.
 
-    This is deliberately the same call the offline pre-commit checker
-    makes, so the git hook and this source-dev checker can never disagree
+    This is deliberately the same call the offline checker
+    uses, so both resolve the same project policy
     about the limit.
     """
     return resolve_file_line_policy(repo_root)

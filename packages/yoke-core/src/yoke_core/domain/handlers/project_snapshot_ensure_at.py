@@ -3,8 +3,7 @@
 Lazily ensures a path snapshot exists for ``(project, commit_sha)``,
 building it server-side when absent. This is the transport-aware form of
 :func:`yoke_core.domain.path_snapshots.ensure_snapshot_at`: callers that
-resolve a commit SHA from their local checkout (post-merge cache pre-warm,
-post-commit hooks) relay the write here so the snapshot lands on the
+resolve a commit SHA from their local checkout (such as post-merge cache pre-warm) relay the write here so the snapshot lands on the
 connected control plane — dispatched in-process against a local Postgres
 connection, or over https server-side — without opening a bare local
 ``connect()``.

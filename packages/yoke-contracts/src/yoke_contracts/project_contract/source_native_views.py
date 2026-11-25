@@ -5,7 +5,7 @@ path (``.claude/agents``, ``.codex/hooks.json`` ...). A Yoke source checkout
 tracks only the rendered sources under ``runtime/harness`` and ``.agents``;
 the native paths are gitignored views that ``yoke agents render`` and
 ``refresh_source_installed_views`` (run by ``yoke dev setup``, lane
-preparation and the checkout's head-moving git hooks) recreate. ``platform_links`` chooses a
+preparation) recreate. ``platform_links`` chooses a
 symlink, a junction or a copy, so drift compares content, not link targets.
 """
 

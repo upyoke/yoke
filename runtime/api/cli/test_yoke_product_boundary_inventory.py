@@ -51,10 +51,7 @@ def test_registry_operation_and_tool_shaped_surfaces_are_present():
     rows = _rows()
     assert rows["yoke items get"].function_id == "items.get.run"
     assert rows["yoke check file-line"].disposition == (inventory.CLIENT_LOCAL_HELPER)
-    assert rows["yoke git pre-commit"].disposition == inventory.HOOK_LOCAL_SUBSET
-    assert rows["yoke git pre-commit"].import_edges == ()
-    assert rows["yoke git post-commit"].disposition == inventory.HOOK_LOCAL_SUBSET
-    assert rows["yoke git post-commit"].import_edges == ()
+    assert not any(command.startswith("yoke git ") for command in rows)
     assert rows["yoke qa case run"].disposition == inventory.CLIENT_LOCAL_HELPER
     assert rows["yoke qa case run"].import_edges == ()
     assert "yoke qa browser run" not in rows

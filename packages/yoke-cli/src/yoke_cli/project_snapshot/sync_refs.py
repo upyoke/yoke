@@ -71,7 +71,6 @@ def identity_sync_payload(
     plan: SyncPlan,
     *,
     project_id: Optional[str],
-    hook_mode: bool,
 ) -> PathSnapshotSyncPayload:
     """The payload that records commit identities and stores no snapshot."""
     return PathSnapshotSyncPayload(
@@ -88,7 +87,6 @@ def identity_sync_payload(
             )
             for ref in plan.refs
         ],
-        hook_mode=hook_mode,
     )
 
 

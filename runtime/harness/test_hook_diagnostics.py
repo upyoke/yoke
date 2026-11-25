@@ -17,7 +17,6 @@ from yoke_core.hooks.decision_render import (
 )
 from yoke_core.hooks.types import HookDecision, Outcome
 from yoke_harness.hooks.decision_render import merge_allow_stdout, write_hook_output
-from yoke_harness.git_hooks import pre_commit
 from yoke_cli.project_snapshot import identity_sync_payload, plan_sync
 
 
@@ -27,23 +26,6 @@ def test_labels_preserve_multiline_recovery_and_do_not_repeat():
     assert labeled == "yoke (pre-commit): " + body
     assert format_hook_diagnostic("pre-commit", labeled) == labeled
     assert format_hook_diagnostic("pre-commit", "") == ""
-
-
-def test_successful_pre_commit_is_silent(monkeypatch, capsys):
-    monkeypatch.setattr(pre_commit, "_git_name_only", lambda args: [])
-    monkeypatch.setattr(pre_commit, "_resolve_repo_root", lambda: None)
-    assert pre_commit.run() == 0
-    assert capsys.readouterr() == ("", "")
-
-
-def test_diverged_staging_warning_is_labeled_and_actionable(monkeypatch, capsys):
-    monkeypatch.setattr(pre_commit, "_git_name_only", lambda args: ["app.py"])
-    monkeypatch.setattr(pre_commit, "_resolve_repo_root", lambda: None)
-    assert pre_commit.run() == 0
-    out = capsys.readouterr()
-    assert out.out == ""
-    assert out.err.startswith("yoke (pre-commit): WARNING:")
-    assert "git add <file>" in out.err
 
 
 def test_identity_only_scan_is_silent_and_preserves_head(tmp_path, capsys):
@@ -60,7 +42,7 @@ def test_identity_only_scan_is_silent_and_preserves_head(tmp_path, capsys):
     git("config", "user.name", "Test")
     git("-c", "core.hooksPath=/dev/null", "commit", "--allow-empty", "-m", "initial")
     plan = plan_sync(tmp_path, integration_target=None, head_only=True)
-    payload = identity_sync_payload(plan, project_id="demo", hook_mode=True)
+    payload = identity_sync_payload(plan, project_id="demo")
     assert payload.snapshots[0].commit_sha == git("rev-parse", "HEAD")
     assert not payload.snapshots[0].contents_included
     assert capsys.readouterr() == ("", "")

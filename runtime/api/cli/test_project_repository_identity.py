@@ -91,7 +91,6 @@ def test_prewrite_sync_refuses_before_dispatch(repo, bound, monkeypatch):
 def test_install_refuses_before_checkout_or_repository_changes(repo, bound, monkeypatch):
     origin(repo, "git@github.com:other/repo.git")
     monkeypatch.setattr(runner.source_dev, "resolve_mode", lambda *a: ("copy", "test"))
-    monkeypatch.setattr(runner.git_hooks_layer, "assert_pre_commit_runtime_available", lambda: None)
     monkeypatch.setattr(runner, "_resolve_project_id", lambda *a: (42, True))
     monkeypatch.setattr(runner, "_resolve_bundle", lambda *a, **k: ({}, "test"))
     monkeypatch.setattr(runner, "validate_bundle_for_project", lambda *a: None)

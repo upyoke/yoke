@@ -1,7 +1,6 @@
 """Environment authority stays intact through user-facing repair advice."""
 
 import json
-import subprocess
 
 import pytest
 
@@ -42,7 +41,7 @@ def configure(tmp_path, monkeypatch):
 
 
 @pytest.mark.parametrize("origin", [DISTRIBUTION_STAGE_URL, DISTRIBUTION_PROD_URL])
-def test_recorded_origin_reaches_advisory_shims_and_standalone_launcher(
+def test_recorded_origin_reaches_advisory_and_standalone_launcher(
     configure, origin, tmp_path, monkeypatch
 ):
     configure(origin)
@@ -50,13 +49,9 @@ def test_recorded_origin_reaches_advisory_shims_and_standalone_launcher(
     assert install_advice.install_command() == command
     from yoke_core.domain import main_agent_packet
     from yoke_core.tools.install_yoke_launcher_core import write_launcher
-    from yoke_cli.project_install.managed_git_hooks import managed_git_hook_specs
 
     monkeypatch.setattr(main_agent_packet.shutil, "which", lambda name: None)
     assert command in main_agent_packet.render_install_advisory_block()
-    for spec in managed_git_hook_specs():
-        assert command in spec["content"]
-        subprocess.run(["sh", "-n"], input=spec["content"], text=True, check=True)
     launcher = tmp_path / "launcher"
     write_launcher(launcher)
     namespace = {}

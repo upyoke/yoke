@@ -1,10 +1,4 @@
-"""Hook-mode chunked HTTPS tests for project snapshot sync.
-
-The git lane-head hooks send HEAD identity only, which settles at begin.
-Claim writes sync contents in hook mode: a cold full inventory that needs
-more than one chunk is deferred off the write path, while a delta over a
-base the server holds always uploads.
-"""
+"""Pre-write sync defers cold full uploads and sends bounded deltas."""
 
 from __future__ import annotations
 
@@ -22,8 +16,6 @@ from runtime.api.cli.project_snapshot_cli_test_helpers import (
     CALLS,
     head_sha,
     make_repo,
-    non_progress_err,
-    run_cli,
 )
 
 
@@ -80,46 +72,7 @@ def _write_sync(
         )
 
 
-def test_hook_mode_identity_only_settles_at_begin(tmp_path: Path) -> None:
-    repo = make_repo(tmp_path)
-    commit_sha = head_sha(repo)
-    begin_identity_only = _ok(
-        {
-            "project_id": 3,
-            "status": "identity_only",
-            "snapshot_id": None,
-            "snapshots": [
-                {
-                    "status": "identity_only",
-                    "ref": "HEAD",
-                    "commit_sha": commit_sha,
-                    "snapshot_id": None,
-                }
-            ],
-            "warnings": [],
-        }
-    )
-    with _https_connection():
-        rc, out, err = run_cli(
-            "project",
-            "snapshot",
-            "sync",
-            str(repo),
-            "--project",
-            "demo",
-            "--head-only",
-            "--hook",
-            "post-commit",
-            responses=[begin_identity_only],
-        )
-    assert rc == 0
-    assert out == ""
-    assert non_progress_err(err) == ""
-    assert [call["payload"]["operation"] for call in CALLS] == ["begin"]
-    assert CALLS[0]["payload"]["snapshot"]["contents_included"] is False
-
-
-def test_hook_mode_defers_a_cold_multi_chunk_inventory(tmp_path: Path) -> None:
+def test_prewrite_sync_defers_a_cold_multi_chunk_inventory(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
     # The server names no base, so the full inventory would need chunks.
     status = _write_sync(
@@ -129,7 +82,7 @@ def test_hook_mode_defers_a_cold_multi_chunk_inventory(tmp_path: Path) -> None:
     assert [call["payload"]["operation"] for call in CALLS] == ["begin", "abort"]
 
 
-def test_hook_mode_uploads_a_delta_over_a_held_base(tmp_path: Path) -> None:
+def test_prewrite_sync_uploads_a_delta_over_a_held_base(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
     base = head_sha(repo)
     (repo / "src" / "app.py").write_text("import sys\n")

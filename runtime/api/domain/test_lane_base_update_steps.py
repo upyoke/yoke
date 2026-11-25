@@ -11,7 +11,6 @@ from unittest import mock
 
 import pytest
 
-from yoke_contracts.git_hook_markers import HEAD_RECORDING_SKIP_ENV
 from yoke_core.engines import lane_base_update
 from yoke_core.engines.lane_base_update import LaneBaseUpdateRefused
 
@@ -67,7 +66,7 @@ def test_a_lane_behind_the_base_is_fetched_then_rebased(monkeypatch, record_head
     record_head.assert_called_once_with("yoke", "/tmp/tree")
 
 
-def test_lane_rebase_marks_replayed_commits_to_skip_snapshot_sync(monkeypatch):
+def test_lane_rebase_preserves_process_runner_budget(monkeypatch):
     observed = {}
 
     def run(argv, **kwargs):
@@ -78,7 +77,7 @@ def test_lane_rebase_marks_replayed_commits_to_skip_snapshot_sync(monkeypatch):
 
     lane_base_update.git("/tmp/tree", "rebase", "origin/main", timeout=600)
 
-    assert observed["env"][HEAD_RECORDING_SKIP_ENV] == "1"
+    assert observed["timeout"] == 600
 
 
 def test_a_lane_containing_the_base_keeps_its_merge_topology(monkeypatch, record_head):

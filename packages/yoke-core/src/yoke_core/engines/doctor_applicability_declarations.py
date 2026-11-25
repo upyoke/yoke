@@ -191,7 +191,6 @@ _SHAPES = (
             "cross-project-commits",
             "file-line-limit",
             "flow-workflow-exists",
-            "gate-liveness",
             "launcher-authority",
             "main-checkout",
             "orphaned-stashes",

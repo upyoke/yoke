@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 
 from yoke_cli.commands._helpers import parse_or_usage_error
-from yoke_cli.commands.git_hook import AdapterFn
+from yoke_cli.commands.adapter_types import AdapterFn
 from yoke_cli.commands.board_art.loop import (
     _append_variant,
     _emit_variant,

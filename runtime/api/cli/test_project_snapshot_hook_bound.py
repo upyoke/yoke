@@ -5,9 +5,7 @@ from __future__ import annotations
 import io
 from pathlib import Path
 
-import pytest
 
-from yoke_cli.commands.adapters.project_snapshot import HOOK_WRITE_TIMEOUT_S
 from yoke_cli.project_snapshot import identity_sync_payload, plan_sync, scanner
 from yoke_cli.project_snapshot.scan_progress import ScanProgress
 from yoke_cli.project_snapshot.scanner_blobs import blob_sources
@@ -31,13 +29,12 @@ def test_identity_scan_skips_blob_reads(tmp_path: Path, monkeypatch) -> None:
         boom,
     )
     plan = plan_sync(repo, integration_target="main", head_only=True)
-    payload = identity_sync_payload(plan, project_id="demo", hook_mode=True)
-    assert payload.hook_mode is True
+    payload = identity_sync_payload(plan, project_id="demo")
     assert payload.snapshots[0].files == []
     assert payload.snapshots[0].contents_included is False
 
 
-def test_hook_cli_records_identity_without_reading_file_contents(
+def test_head_only_cli_records_identity_without_reading_file_contents(
     tmp_path: Path, monkeypatch
 ) -> None:
     repo = make_repo(tmp_path)
@@ -71,48 +68,13 @@ def test_hook_cli_records_identity_without_reading_file_contents(
         "--project",
         "demo",
         "--head-only",
-        "--hook",
-        "post-commit",
         responses=[begin],
     )
     assert rc == 0
-    assert out == ""
+    assert f"identity_only: HEAD {head_sha(repo)}" in out
     assert err == ""
-    assert [call["payload"]["operation"] for call in CALLS] == ["begin"]
-    snapshot = CALLS[0]["payload"]["snapshot"]
-    assert snapshot["file_count"] == 0
-    assert snapshot["contents_included"] is False
-    assert snapshot["base_candidates"] == []
-    assert CALLS[0]["timeout_s"] == HOOK_WRITE_TIMEOUT_S
-
-
-@pytest.mark.parametrize("hook", ["post-commit", "post-merge", "post-checkout"])
-def test_hook_cli_reports_an_unsettled_identity_begin(
-    tmp_path: Path, hook: str
-) -> None:
-    repo = make_repo(tmp_path)
-    begin = FunctionCallResponse(
-        success=True,
-        function="project.snapshot.sync",
-        version="v1",
-        result={"status": "chunk_upload_started"},
-    )
-    rc, out, err = run_cli(
-        "project",
-        "snapshot",
-        "sync",
-        str(repo),
-        "--project",
-        "demo",
-        "--head-only",
-        "--hook",
-        hook,
-        responses=[begin],
-    )
-    assert rc == 0
-    assert out == ""
-    assert err.startswith(f"yoke ({hook}): ")
-    assert "was not settled at begin" in err
+    assert CALLS[0]["payload"]["snapshots"][0]["contents_included"] is False
+    assert CALLS[0]["timeout_s"] is None
 
 
 def test_full_scan_emits_progress_and_still_reads_files(

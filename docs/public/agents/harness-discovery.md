@@ -131,17 +131,9 @@ allow Stop with `hook_stop_safety_unavailable`; they never relax tool guards.
 Cursor's declared Stop contract still returns `{}` without a follow-up;
 its SessionEnd cannot continue the turn.
 
-Human diagnostics inside Git and harness tools begin with “yoke (<hook>): ”,
-for example “yoke (pre-commit): ERROR: file-line-limit gate blocked this commit.”
-Pre-commit refuses staged edits to installer-owned docs, skills and agent
-definitions unless their bytes match a shipped release. Proof accepts this CLI’s packaged
-bundle or hashes from annotated tags accepted by the shared release-version validator. Send changes to Yoke
-with `yoke feedback --to yoke`, or keep them in a project-owned file; restore
-release bytes with `yoke project refresh` before committing again. Yoke's
-source inputs and generated bundle copies remain editable in its source checkout.
-Follow the repair in that diagnostic. Successful checks and the identity-only
-lane-head recordings after commits, merges, rebases and checkouts stay quiet. Required orientation, instructions,
-continuations, handoffs and recovery still arrive through their normal owner.
+Human hook diagnostics begin with “yoke (<hook>): ” and name the recovery to
+follow. Successful checks stay quiet. Orientation, instructions, continuations,
+handoffs and recovery arrive through their normal hook events.
 JSON replies, delivery markers and machine identifiers retain their wire form;
 the shared context composer budgets the combined delivery for each harness.
 Inspect hook configuration with `yoke hook --help`.

@@ -19,7 +19,6 @@ HARNESS_HOOKS_LINE = (
     "Install harness hooks in .claude/settings.json, "
     ".codex/hooks.json, and .cursor/hooks.json"
 )
-GIT_HOOKS_LINE = "Install Git hooks that guard commits and track your current commit"
 
 
 def step_target(plan: dict, action: str) -> str:
@@ -72,4 +71,3 @@ def assert_post_checkout_install_destinations(
     assert AGENT_RULES_LINE in repo
     assert TOOL_PERMISSIONS_LINE in repo
     assert any(line.startswith(HARNESS_HOOKS_LINE) for line in repo)
-    assert GIT_HOOKS_LINE in repo

@@ -76,7 +76,6 @@ def _begin_head_upload(
     *,
     file_count: int,
     chunk_count: int,
-    hook_mode: bool,
     contents_included: bool = True,
 ):
     return sync_chunk(
@@ -93,7 +92,6 @@ def _begin_head_upload(
                 chunk_count=chunk_count,
                 contents_included=contents_included,
             ),
-            hook_mode=hook_mode,
         ),
         _unused_sync_payload,
     )
@@ -119,7 +117,7 @@ def test_narrowing_refuses_before_any_lane_head_is_synced(lane) -> None:
 
 
 def test_deferred_inventory_still_binds_the_lane_head(lane) -> None:
-    result = _begin_head_upload(file_count=4000, chunk_count=6, hook_mode=True)
+    result = _begin_head_upload(file_count=4000, chunk_count=6)
 
     assert result["status"] == "chunk_upload_started"
     assert result["lane_head_recorded"] is True
@@ -133,7 +131,7 @@ def test_deferred_inventory_still_binds_the_lane_head(lane) -> None:
 
 
 def test_narrowing_succeeds_while_the_inventory_is_deferred(lane) -> None:
-    _begin_head_upload(file_count=4000, chunk_count=6, hook_mode=True)
+    _begin_head_upload(file_count=4000, chunk_count=6)
     sync_chunk(
         None,
         PathSnapshotChunkSyncPayload(
@@ -161,7 +159,7 @@ def test_reused_inventory_still_binds_the_lane_head(lane, monkeypatch) -> None:
         lambda *_a, **_k: 4242,
     )
 
-    result = _begin_head_upload(file_count=4000, chunk_count=6, hook_mode=False)
+    result = _begin_head_upload(file_count=4000, chunk_count=6)
 
     assert result["status"] == "reused"
     assert result["lane_head_recorded"] is True
@@ -181,7 +179,7 @@ def test_identity_only_begin_binds_the_lane_head_and_stages_nothing(
     lane,
 ) -> None:
     result = _begin_head_upload(
-        file_count=0, chunk_count=0, hook_mode=True, contents_included=False
+        file_count=0, chunk_count=0, contents_included=False
     )
 
     assert result["status"] == "identity_only"

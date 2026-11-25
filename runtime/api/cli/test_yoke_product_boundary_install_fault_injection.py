@@ -304,11 +304,10 @@ def _assert_installed_project_layer(checkout: Path) -> None:
         ".agents/skills/yoke/onboard/SKILL.md",
         ".claude/settings.json",
         ".codex/hooks.json",
-        ".git/hooks/pre-commit",
-        ".git/hooks/post-commit",
         ".yoke/install-manifest.json",
         ".yoke/project.config",
     } <= installed
+    assert all(path.endswith(".sample") for path in installed if path.startswith(".git/hooks/"))
     # The engine reaches machines through the wheel channel, never as source
     # trees copied into a managed project checkout.
     for forbidden_rel in (

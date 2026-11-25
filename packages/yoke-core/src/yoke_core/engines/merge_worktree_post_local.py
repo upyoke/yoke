@@ -23,9 +23,7 @@ def _parent():
 def _ensure_snapshot_for_project(ctx: MergeContext) -> None:
     """Pre-warm the path-snapshot cache for the project's HEAD after merge.
 
-    Defense in depth alongside the global ``post-commit`` hook installed
-    by ``yoke project install`` (shim owner:
-    :mod:`yoke_cli.project_install.git_hooks`). Failures here
+    Failures here
     are advisory — a snapshot miss does not roll back a successful
     merge; the next activate call will surface a clearer error.
     """
@@ -213,10 +211,7 @@ def do_local_merge(ctx: MergeContext) -> int:
             return 5
     _print(f"Merged {ctx.args.branch} into {ctx.args.target} successfully.")
 
-    # Defense-in-depth: sync the path-snapshot cache for the new HEAD on
-    # the integration branch so subsequent activate / boundary callers do
-    # not hit a cold-start miss before the post-commit hook has fired (or
-    # on fresh clones where the operator has not yet installed the hook).
+    # Warm the cache for subsequent path claim activation and boundary checks.
     _ensure_snapshot_for_project(ctx)
 
     # Schema refresh

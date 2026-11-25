@@ -80,11 +80,6 @@ def install_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     repo = local_only_checkout(tmp_path)
     (repo / ".yoke").mkdir(parents=True)
     monkeypatch.setattr(
-        runner.git_hooks_layer,
-        "assert_pre_commit_runtime_available",
-        lambda: None,
-    )
-    monkeypatch.setattr(
         runner,
         "_resolve_bundle",
         lambda *_args, **_kwargs: (make_bundle(), "test"),
