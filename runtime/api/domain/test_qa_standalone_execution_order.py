@@ -67,12 +67,9 @@ def test_same_second_new_execution_without_requirements_is_latest(
             ).fetchone()[0]
             == 0
         )
-        for latest in (
-            standalone._latest(conn, plan["id"]),
-            latest_plan_execution(conn, standalone_plan_id=plan["id"]),
-        ):
-            assert latest["id"] == "1" * 32
-            assert latest["execution_order"] > old["execution_order"]
+        latest = latest_plan_execution(conn, standalone_plan_id=plan["id"])
+        assert latest["id"] == "1" * 32
+        assert latest["execution_order"] > old["execution_order"]
 
 
 def test_additive_boot_assigns_order_and_converges_idempotently():
@@ -83,10 +80,10 @@ def test_additive_boot_assigns_order_and_converges_idempotently():
         # Recreate the pre-column shape in this disposable fixture database.
         conn.execute("ALTER TABLE qa_plan_executions DROP COLUMN execution_order")
         converge_qa_plan_execution_schema(conn)
-        first_order = standalone._latest(conn, plan["id"])["execution_order"]
+        first_order = latest_plan_execution(conn, standalone_plan_id=plan["id"])["execution_order"]
         converge_qa_plan_execution_schema(conn)
         assert_qa_plan_execution_schema_invariants(conn)
-        assert standalone._latest(conn, plan["id"])["execution_order"] == first_order
+        assert latest_plan_execution(conn, standalone_plan_id=plan["id"])["execution_order"] == first_order
         new = _begin(conn)
         assert new["execution_order"] > first_order
 
@@ -98,7 +95,6 @@ def test_live_owner_precedes_later_terminal_history():
         _empty_execution(
             conn, plan["id"], "later-terminal", "aborted", live["created_at"]
         )
-        assert standalone._latest(conn, plan["id"])["id"] == live["id"]
         assert (
             latest_plan_execution(conn, standalone_plan_id=plan["id"])["id"]
             == live["id"]

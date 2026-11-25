@@ -1,4 +1,4 @@
-"""A single case on a busy item transition names the live execution that blocks it."""
+"""A single case respects the live custody of its own partition."""
 
 from __future__ import annotations
 
@@ -20,7 +20,9 @@ from yoke_core.domain.qa_plan_execution_target_snapshot import (
 )
 
 
-def _begin_case(conn: Any, tmp_path: Any, requirement_id: int) -> dict[str, Any]:
+def _begin_case(
+    conn: Any, tmp_path: Any, requirement_id: int, *, session_id: str = SESSION
+) -> dict[str, Any]:
     return begin_plan_execution(
         conn,
         item_id=ITEM_ID,
@@ -29,7 +31,7 @@ def _begin_case(conn: Any, tmp_path: Any, requirement_id: int) -> dict[str, Any]
         checkout_path=str(tmp_path / BRANCH),
         expected_branch=BRANCH,
         actor_id="1",
-        session_id=SESSION,
+        session_id=session_id,
     )
 
 
@@ -47,7 +49,7 @@ def _live_case(conn: Any, tmp_path: Any, monkeypatch: Any) -> tuple[dict, dict]:
     return ids, live
 
 
-def test_another_case_refuses_naming_the_live_execution_and_its_resume(
+def test_one_sessions_live_cursor_names_the_execution_and_its_resume(
     test_db: Any, tmp_path: Any, monkeypatch: Any
 ) -> None:
     ids, live = _live_case(test_db, tmp_path, monkeypatch)
@@ -58,16 +60,14 @@ def test_another_case_refuses_naming_the_live_execution_and_its_resume(
     test_db.rollback()
 
     message = str(refusal.value)
-    assert message.startswith("qa_single_case_scope_busy:")
+    assert message.startswith("qa_partition_unavailable:")
     assert str(live["id"]) in message
-    assert f"requirement {ids['full-suite']}" in message
-    assert f"yoke qa case run --requirement-id {ids['full-suite']}" in message
-    assert f"yoke qa plan abort --execution-id {live['id']}" in message
+    assert f"yoke qa plan run --resume-execution-id {live['id']}" in message
     assert "target_env" not in message
     assert _row(test_db, str(live["id"])) == before
 
 
-def test_a_live_execution_awaiting_review_names_the_review_command(
+def test_disjoint_sessions_can_run_while_another_partition_awaits_review(
     test_db: Any, tmp_path: Any, monkeypatch: Any
 ) -> None:
     ids, live = _live_case(test_db, tmp_path, monkeypatch)
@@ -78,16 +78,22 @@ def test_a_live_execution_awaiting_review_names_the_review_command(
     test_db.commit()
     before = _row(test_db, str(live["id"]))
 
-    with pytest.raises(QaPlanExecutionStateError) as refusal:
-        _begin_case(test_db, tmp_path, ids["receiving-mission"])
+    # Only this storage-level fixture shares its source lane. Dispatcher tests
+    # exercise the production launch grant for a second session.
+    from yoke_core.domain import qa_case_source_lane as source
+    actual_lanes = source.claimed_worktrees
+    monkeypatch.setattr(
+        source, "claimed_worktrees",
+        lambda conn, *, session_id: actual_lanes(conn, session_id=SESSION),
+    )
+    with pytest.raises(QaPlanExecutionStateError, match=f"qa_partition_unavailable:.*{live['id']}"):
+        _begin_case(test_db, tmp_path, ids["full-suite"], session_id="other-walker")
     test_db.rollback()
-
-    message = str(refusal.value)
-    assert message.startswith("qa_single_case_scope_busy:")
-    assert "(awaiting_walk_review)" in message
-    assert "yoke qa plan review-begin --item " in message
-    assert f"--execution-id {live['id']}" in message
-    assert "review-submit" in message
+    disjoint = _begin_case(
+        test_db, tmp_path, ids["receiving-mission"], session_id="other-walker",
+    )
+    assert [row["requirement_id"] for row in disjoint["roster"]] == [ids["receiving-mission"]]
+    assert disjoint["session_id"] == "other-walker"
     assert _row(test_db, str(live["id"])) == before
 
 

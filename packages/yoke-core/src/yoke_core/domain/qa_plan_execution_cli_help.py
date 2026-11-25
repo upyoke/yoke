@@ -9,7 +9,7 @@ Pick the subject, then the scope
 Select an item, deployment run, or manual project plan.
 
   yoke qa plan run --plan PLAN --project P
-      Run a project plan now, recording standalone evidence without changing
+      Run a partition of a project plan, recording standalone evidence without changing
       any item or deployment gate. Command cases require --checkout-path and
       --expected-sha (full SHA); command-ci also requires --expected-branch
       naming a published branch or tag at that commit. Its named workflow
@@ -22,9 +22,8 @@ Select an item, deployment run, or manual project plan.
       Requires --transition; does not accept --plan, because an item uses the
       plans already attached to it. For multiple active lanes, hold the matching
       item/task claim and select its exact registered --checkout-path PATH
-      --expected-branch BRANCH --expected-sha FULL_SHA. Cases whose newest
-      run passed at the lane's recorded head are skipped; the rest run one
-      execution target at a time, each after the previous one passed.
+      --expected-branch BRANCH --expected-sha FULL_SHA. The claim holder
+      runs cases marked lane with yoke qa case run --requirement-id ID.
 
   --item PREFIX-N --stage STAGE [--plan PLAN] [--project PROJECT]
       Fresh item QA uses its current completion authority, including a carrier
@@ -84,18 +83,13 @@ far the default branch has moved. --checkout-path overrides that tree and is
 refused unless it sits at the candidate; --allow-tree-mismatch declares the
 case reads nothing from the checkout.
 
-For a deployment member whose cases require several Test Machines, the scoped
-command automatically executes one immutable roster per machine. Each roster
-holds its own lease and participates in that host's FIFO. It keeps the same
-run, stage and frozen item-case or plan-group target.
-A host wait or pending agent verdict stops the command. Re-enter the same
-scoped command while review is pending to reprint that bundle without
-recapturing. Once a verdict batch is recorded, the same command reprints
-those verdicts and does not capture the settled requirements; a new capture
-uses --replaces. After review settles, rerun to continue any remaining hosts.
-Completed scoped cases with passing evidence are retained. The member is
-accepted only when every required case passes. Omit --test-machine for this
-multi-machine form: a single host pin cannot satisfy conflicting constraints.
+Read yoke qa plan partitions with the same subject flags. Start one session
+per free partition using --partition KEY. Each partition holds one immutable
+chain on one execution target. Host leases serialize turns for partitions
+using the same machine. Only declared after_case_key relationships make an
+independent partition wait for a pass. An inherit case stays in its chain.
+Resume a pending review with --resume-execution-id ID. Completed passing
+evidence is retained. The member is accepted once every required case passes.
 
 Recover an unknown response on the same execution
 ------------------------------------------------

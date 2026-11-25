@@ -57,7 +57,8 @@ def test_each_host_has_its_own_execution_and_member_waits_for_both(
     assert deployment_qa_stage_status(
         test_db, run_id=RUN, stage_name="item-qa", member_item_id=MEMBER
     )["accepted"]
-    assert _begin(test_db)["state"] == "completed"
+    with pytest.raises(ValueError, match="qa_plan_nothing_owed"):
+        _begin(test_db)
     assert (
         test_db.execute(
             "SELECT COUNT(*) FROM qa_requirements WHERE deployment_run_id=%s AND deployment_stage='item-qa' AND deployment_member_item_id=%s AND method_id IS NOT NULL",
@@ -77,6 +78,28 @@ def test_a_host_pin_cannot_drop_another_required_host(test_db, tmp_path, monkeyp
     pinned = _begin(test_db, test_machine=MACHINES[0])
     assert [case["case_key"] for case in pinned["roster"]] == [MACHINES[0]]
     assert pinned["remaining_requirement_count"] == 1
+
+
+def test_disjoint_member_partitions_are_live_in_parallel(test_db, tmp_path, monkeypatch):
+    from yoke_core.domain.qa_plan_execution_begin import begin_plan_execution
+    from yoke_core.domain.qa_plan_partition_custody import PartitionUnavailable
+    from yoke_core.domain.qa_plan_partition_chains import partition_key
+
+    _seed(test_db, tmp_path, monkeypatch)
+    first = _begin(test_db)
+
+    def begin(session, key=None):
+        return begin_plan_execution(
+            test_db, deployment_run_id=RUN, deployment_stage="item-qa",
+            deployment_member_item_id=MEMBER, actor_id="1", session_id=session,
+            partition=key,
+        )
+
+    second = begin("second-walker")
+    assert first["session_id"] != second["session_id"]
+    assert {first["roster"][0]["case_key"], second["roster"][0]["case_key"]} == set(MACHINES)
+    with pytest.raises(PartitionUnavailable, match=f"held by execution {first['id']}"):
+        begin("third-walker", partition_key(first["roster"]))
 
 
 def test_waiting_second_host_keeps_its_partition_and_fifo(

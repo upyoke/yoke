@@ -1,13 +1,10 @@
 """Deferred mission walks keep the state their predecessor prepared."""
 
-from unittest.mock import patch
-
 import pytest
 
 from runtime.api.domain.qa_member_machine_partitions_test_support import SESSION, _seed
 from yoke_core.domain.qa_plan_chain_hosts import chain_host_groups
-from yoke_core.domain.qa_plan_execution_store import QaPlanExecutionStateError
-from yoke_core.domain.qa_plan_item_target_partition import item_target_partition
+from yoke_core.domain.qa_plan_partition_chains import roster_partitions
 from yoke_core.domain.qa_standalone_execution import begin_standalone_execution
 
 
@@ -15,17 +12,22 @@ SLOTS = [{"os": "linux"}, {"os": "macos", "driver": True}]
 
 
 def _roster():
-    common = {"plan_id": 1, "baseline_position": 1, "execution_target_digest": "target"}
+    common = {
+        "plan_id": 1, "baseline_position": 1, "execution_target_digest": "target",
+        "verdict_path": "automatic",
+    }
     return [
         {
             **common,
             "requirement_id": 1,
+            "case_key": "prepare",
             "runner_id": "host_control",
             "method_config": {"test_machines": SLOTS},
         },
         {
             **common,
             "requirement_id": 2,
+            "case_key": "walk",
             "starting_state": "inherit",
             "runner_id": "agent_mission",
             "method_config": {"test_machines": SLOTS},
@@ -33,31 +35,17 @@ def _roster():
         {
             **common,
             "requirement_id": 3,
+            "case_key": "independent",
             "runner_id": "host_control",
             "method_config": {"os": "macos"},
         },
     ]
 
 
-@pytest.mark.parametrize("passed", [set(), {1}])
-def test_item_execution_isolates_a_mission_chain_on_the_same_target(passed):
+def test_item_execution_isolates_a_mission_chain_on_the_same_target():
     roster = _roster()
-    module = "yoke_core.domain.qa_plan_item_target_partition"
-    with (
-        patch(
-            f"{module}.candidate_passed_requirements", return_value=("a" * 40, passed)
-        ),
-        patch(f"{module}.live_plan_execution_id", return_value=None),
-    ):
-        _, selected, remaining = item_target_partition(
-            None,
-            roster,
-            item_id=1,
-            transition_id="reviewing-implementation",
-            settle=lambda rows: (None, rows),
-        )
-    assert [row["requirement_id"] for row in selected] == [1, 2]
-    assert remaining == 1
+    partitions = roster_partitions(roster)
+    assert [[row["requirement_id"] for row in part.roster] for part in partitions] == [[1, 2], [3]]
     # Before admission a chain names no host: it carries its opener's slots.
     assert chain_host_groups(roster)[1] == ("macos", ("linux", "macos"), 1, None)
     assert chain_host_groups(roster)[3] == (None, (), None, "macos")
@@ -71,7 +59,7 @@ def test_mission_chain_does_not_cross_a_plan_or_baseline_boundary():
 
 
 @pytest.mark.parametrize("trailing", [False, True])
-def test_standalone_mission_chain_requires_its_own_plan(
+def test_standalone_partition_keeps_the_inherited_mission_with_its_opener(
     test_db, tmp_path, monkeypatch, trailing
 ):
     _seed(test_db, tmp_path, monkeypatch, inherit=True, mission=True, trailing=trailing)
@@ -92,16 +80,17 @@ def test_standalone_mission_chain_requires_its_own_plan(
             checkout_path=str(tmp_path),
         )
 
+    execution = begin()
+    assert len(execution["roster"]) == 2
+    assert execution["roster"][-1]["starting_state"] == "inherit"
     if trailing:
-        with pytest.raises(
-            QaPlanExecutionStateError, match="inherited_mission_requires_isolated_plan"
-        ) as error:
-            begin()
-        assert "separate plan" in str(error.value)
-    else:
-        execution = begin()
-        assert len(execution["roster"]) == 2
-        assert execution["roster"][-1]["starting_state"] == "inherit"
+        another = begin_standalone_execution(
+            test_db, plan="host-check-0", project="yoke", actor_id="2",
+            session_id="another-walker", source_revision="a" * 40,
+            checkout_path=str(tmp_path),
+        )
+        assert len(another["roster"]) == 1
+        assert another["id"] != execution["id"]
 
 
 def test_each_chain_baseline_takes_only_its_own_chain_hosts(

@@ -12,7 +12,6 @@ from runtime.api.domain.deployment_run_qa_plan_execution_test_support import (
 from runtime.api.fixtures.pg_testdb import test_database
 from yoke_core.domain.qa_plan_attachments import materialize_for_deployment_run
 from yoke_core.domain.qa_plan_execution_state import begin_plan_execution
-from yoke_core.domain.qa_member_plan_execution import execute_serial_partitions
 
 
 def test_deployment_roster_selects_one_requirement_without_a_plan_filter():
@@ -46,17 +45,6 @@ def test_deployment_roster_selects_one_requirement_without_a_plan_filter():
             ).fetchone()[0]
             == 0
         )
-
-
-def test_single_requirement_never_continues_into_sibling_partitions():
-    runner = Mock(return_value={"state": "passed", "remaining_requirement_count": 5})
-    result = execute_serial_partitions(runner)(
-        requirement_id=51,
-        deployment_stage="item-qa",
-        deployment_member="member",
-    )
-    runner.assert_called_once()
-    assert result["remaining_requirement_count"] == 5
 
 
 def test_selected_shared_subject_retries_a_changed_run_before_starting():

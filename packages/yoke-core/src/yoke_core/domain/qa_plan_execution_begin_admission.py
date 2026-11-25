@@ -124,12 +124,10 @@ def prepare_roster(
     The answer is a settled review to reprint or a completed execution that
     already covers the roster; neither writes.
     """
-    from yoke_core.domain.qa_member_machine_partitions import member_machine_partition
     from yoke_core.domain.qa_plan_execution_roster import validate_roster_machine
     from yoke_core.domain.qa_plan_execution_target_snapshot import (
         execution_target_for_roster,
     )
-    from yoke_core.domain.qa_plan_item_target_partition import item_target_partition
     from yoke_core.domain.qa_plan_settled_review import open_unsettled_roster
 
     if item_id is not None or deployment_stage is not None:
@@ -172,30 +170,11 @@ def prepare_roster(
         session_id=session_id,
     )
 
-    def settle(source: list[dict[str, Any]]) -> tuple[Any, list[dict[str, Any]]]:
-        return open_unsettled_roster(
-            conn, source, item_id=item_id, transition_id=transition_id, **scope
-        )
-
-    item_remaining = None
-    if item_id is None:
-        reprint, roster = settle(roster)
-    else:
-        reprint, roster, item_remaining = item_target_partition(
-            conn,
-            roster,
-            item_id=int(item_id),
-            transition_id=str(transition_id),
-            settle=settle,
-        )
+    reprint, roster = open_unsettled_roster(
+        conn, roster, item_id=item_id, transition_id=transition_id, **scope
+    )
     if reprint:
         return reprint
-    roster, remaining, completed = member_machine_partition(
-        conn, roster, **scope, test_machine=test_machine, session_id=session_id
-    )
-    if completed is not None:
-        return {**completed, "remaining_requirement_count": remaining}
-    remaining = item_remaining if remaining is None else remaining
     validate_roster_machine(conn, roster, test_machine)
     digest = roster_digest(roster)
     execution_target, execution_target_digest = execution_target_for_roster(roster)
@@ -206,7 +185,7 @@ def prepare_roster(
             "materialized QA roster does not match the active deployment target"
         )
     return PreparedRoster(
-        roster, remaining, digest, execution_target, execution_target_digest
+        roster, None, digest, execution_target, execution_target_digest
     )
 
 
@@ -253,6 +232,12 @@ def _prepare_partition_roster(
         allow_failed=partition is None,
     )
     if selected is None:
+        if item_id is not None:
+            raise QaPlanExecutionStateError(
+                "qa_plan_roster_passed_at_candidate: every partition already passed. "
+                "Read each partition with `yoke qa plan partitions` or the "
+                "recorded results with `yoke qa requirement list`."
+            )
         from yoke_core.domain.qa_plan_nothing_owed import nothing_owed
 
         raise nothing_owed(
