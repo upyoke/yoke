@@ -8,6 +8,9 @@ import json
 
 from yoke_contracts.session_control.launch_bootstrap import (
     AUTOMATIC_LAUNCH_REGISTRATION_TEACHING,
+    LAUNCH_BOOTSTRAP_CLAIM_FIRST,
+    LAUNCH_BOOTSTRAP_CONTINUATION,
+    LAUNCH_BOOTSTRAP_REFUSAL,
     native_launch_bootstrap,
 )
 from yoke_core.domain.session_launch_execution import (
@@ -78,6 +81,27 @@ def test_bootstrap_says_opening_hook_registration_is_automatic() -> None:
 
     assert AUTOMATIC_LAUNCH_REGISTRATION_TEACHING in bootstrap
     assert "register, pull your message" not in bootstrap
+
+
+def test_bootstrap_carries_out_the_acknowledged_mandate_after_the_check() -> None:
+    """An itemless worker that acknowledged its delivery still has work to do."""
+    bootstrap = native_launch_bootstrap("launch-example")
+
+    assert LAUNCH_BOOTSTRAP_CONTINUATION == (
+        "After this check, carry out the acknowledged launch instructions."
+    )
+    claim_first = bootstrap.index(LAUNCH_BOOTSTRAP_CLAIM_FIRST)
+    continuation = bootstrap.index(LAUNCH_BOOTSTRAP_CONTINUATION)
+    refusal = bootstrap.index(LAUNCH_BOOTSTRAP_REFUSAL)
+    assert claim_first < continuation < refusal
+    assert bootstrap.endswith(LAUNCH_BOOTSTRAP_REFUSAL)
+    for refusal_code in (
+        "launch_registration_pending",
+        "launch_registration_mismatch",
+        "launch_message_unavailable",
+    ):
+        assert refusal_code in bootstrap
+    assert "yoke messages acknowledge MESSAGE-ID" in bootstrap
 
 
 def test_launch_binding_takes_a_live_registration_grace() -> None:

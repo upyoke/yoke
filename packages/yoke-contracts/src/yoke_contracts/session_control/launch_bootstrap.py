@@ -17,6 +17,14 @@ worker spent 79 tool calls reading the codebase, was auto-ended claim-free
 mid-mandate, and left its item looking untouched.  Claiming first makes that
 reaping structurally impossible for a worker that is actually working.
 
+The continuation clause closes the gap the acknowledgement shortcut opened.
+"Skip the rest of this check" once the delivery block is in context, and a
+claim-first clause that speaks only to assigned items, left an itemless
+worker with no instruction past the acknowledgement: a relay-launched Codex
+worker acknowledged its raw mandate and ended its turn without doing it or
+replying.  The mandate itself stays in its delivery message; the bootstrap
+only says to carry it out once the check is done.
+
 Registration is two steps on every surface: the opening hook registers the
 session, then the launch binds to it.  Where the harness names the session
 before it starts (Claude, Codex) both happen in that one hook, and the hook
@@ -73,14 +81,18 @@ LAUNCH_BOOTSTRAP_CLAIM_FIRST = (
     '"<why you are claiming it>"`, with the assigned ref in place of '
     "PREFIX-N."
 )
+LAUNCH_BOOTSTRAP_CONTINUATION = (
+    "After this check, carry out the acknowledged launch instructions."
+)
 
 
 def native_launch_bootstrap(launch_id: str) -> str:
-    """Return the launch sentence: act, claim first, and stop if unregistered."""
+    """Return the launch sentence: acknowledge, claim first, carry out, or stop."""
     return (
         f"Yoke launch `{launch_id}`: {AUTOMATIC_LAUNCH_REGISTRATION_TEACHING} "
         f"{LAUNCH_BOOTSTRAP_MESSAGE_READ.replace('LAUNCH-ID', launch_id)} "
-        f"{LAUNCH_BOOTSTRAP_CLAIM_FIRST} {LAUNCH_BOOTSTRAP_REFUSAL}"
+        f"{LAUNCH_BOOTSTRAP_CLAIM_FIRST} {LAUNCH_BOOTSTRAP_CONTINUATION} "
+        f"{LAUNCH_BOOTSTRAP_REFUSAL}"
     )
 
 
@@ -93,6 +105,7 @@ def native_launch_bootstrap_sha256(launch_id: str) -> str:
 __all__ = [
     "AUTOMATIC_LAUNCH_REGISTRATION_TEACHING",
     "LAUNCH_BOOTSTRAP_CLAIM_FIRST",
+    "LAUNCH_BOOTSTRAP_CONTINUATION",
     "LAUNCH_BOOTSTRAP_REFUSAL",
     "LAUNCH_REGISTRATION_RECHECK_LIMIT",
     "native_launch_bootstrap",
