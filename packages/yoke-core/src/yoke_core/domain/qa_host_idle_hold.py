@@ -257,7 +257,7 @@ def _release_reason(conn: Any, claim: Any, row: dict, away: str, limit: timedelt
         (claim.id, claim.reason or "", HOST_SET_REASON),
     )
     if executions:
-        reason += f"; read partitions with `{read_partitions_command(conn, executions[0])}`"
+        reason += f"; inspect QA with `{read_partitions_command(conn, executions[0])}`"
     return reason
 
 

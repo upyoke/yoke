@@ -98,7 +98,7 @@ def _require_registered_walk_launch(conn: Any, session_id: str) -> None:
         return
     raise QaWalkNeedsLaunchedSession(
         compose_refusal(
-            f"{QaWalkNeedsLaunchedSession.code}: fresh QA walks require an itemless QA walker launch",
+            f"{QaWalkNeedsLaunchedSession.code}: fresh QA walks require an itemless session launch",
             recovery=_WALK_LAUNCH_RECOVERY,
         )
     )

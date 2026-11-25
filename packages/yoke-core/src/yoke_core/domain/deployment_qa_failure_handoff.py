@@ -44,10 +44,13 @@ def retry_command_for_stage(
     member_ref: str | None,
     member_id: int | None,
     project: str | None,
+    plan: str | int | None = None,
 ) -> str:
     """Item stages retry by item; run stages keep the run id."""
     if not member_ref and member_id is None:
-        return f"yoke qa plan partitions --deployment-run-id {run_id} --stage {stage}"
+        if plan is None:
+            return f"yoke deployment runs get {run_id}"
+        return f"yoke qa plan partitions --deployment-run-id {run_id} --stage {stage} --plan {plan}"
     if not member_ref:
         member_ref = render_item_ref(conn, int(member_id))
     if not project and member_id is not None:

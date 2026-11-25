@@ -43,7 +43,10 @@ def test_printed_release_recipes_parse(test_db):
     )
     recipes.append(miss["recovery"])
     recipes += [retry_command_for_stage(test_db, run_id=RUN, stage="item-qa",
-        member_ref=None, member_id=None, project=None)]
+        member_ref=None, member_id=None, project=None, plan=SLUG)]
+    assert retry_command_for_stage(
+        test_db, run_id=RUN, stage="item-qa", member_ref=None, member_id=None, project=None,
+    ) == f"yoke deployment runs get {RUN}"
     with pytest.raises(ValueError) as unattached:
         _begin_open_group(test_db, None, {"plan": SLUG, "deployment_member_item_id": MEMBERS[2]},
                           RUN, "item-qa", {})

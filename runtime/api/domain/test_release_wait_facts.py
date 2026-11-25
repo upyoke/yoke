@@ -92,8 +92,8 @@ def test_attached_plans_are_listed_and_old_plan_copies_owe_nothing(monkeypatch):
         "YOK-1",
     )[0]
     assert owes == (
-        "owes delivery: item-scoped QA stage item-qa (requirements 41); the stage "
-        f"credits only {facts.stage_recipe(obligation, 'YOK-1')}; attached post-deploy "
+        "owes delivery: item-scoped QA stage item-qa (requirements 41); "
+        f"read the stage partitions with {facts.stage_recipe(obligation, 'YOK-1')}; attached post-deploy "
         "plans 7, 9 freeze ownership at item QA entry: single-member plans wake "
         "their member holder; shared plans belong to the driver"
     )

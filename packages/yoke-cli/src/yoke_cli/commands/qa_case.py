@@ -123,7 +123,9 @@ def qa_plan_run(args: List[str]) -> int:
 def qa_plan_partitions(args: List[str]) -> int:
     if show_delegate_help(
         args, QA_PLAN_PARTITIONS_USAGE,
-        "Read each partition's cases, hosts and custody. Item reads also record the lane head.",
+        "Read each partition's cases, hosts and custody. Item reads also record the lane head. "
+        "Walk launch: .yoke/docs/verification/walking.md#launch-a-walker. "
+        "Failed item QA recovery: .yoke/docs/verification/failed-item-qa.md.",
     ):
         return 0
     return run_execution_module("yoke_core.domain.qa_plan_partitions_cli", args)

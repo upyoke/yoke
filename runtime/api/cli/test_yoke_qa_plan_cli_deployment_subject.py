@@ -95,9 +95,9 @@ def test_failure_notice_help_reaches_installed_recovery_without_execution(
     notice = failure_handoff_message(
         run_id="run-example", stage="member-qa", item_ref="APP-1", requirement_ids=(1,)
     )
-    assert "yoke qa plan run --help" in notice
+    assert "yoke qa plan partitions --help" in notice
     with mock.patch.object(qa_case, "run_execution_module") as execute:
-        assert qa_case.qa_plan_run(["--help"]) == 0
+        assert qa_case.qa_plan_partitions(["--help"]) == 0
     execute.assert_not_called()
     help_text = capsys.readouterr().out
     installed_recipe = ".yoke/docs/verification/failed-item-qa.md"

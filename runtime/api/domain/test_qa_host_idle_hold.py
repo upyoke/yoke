@@ -118,7 +118,7 @@ def _assert_released_and_waiter_woken(conn, review_walk, bodies):
     assert current["state"] == "aborted"
     assert current["release_reason"].startswith(IDLE_HOLD_RELEASED_REASON)
     assert (
-        "read partitions with `yoke qa plan partitions --item" in current["release_reason"]
+        "inspect QA with `yoke qa plan partitions --item" in current["release_reason"]
     )
     assert active_claim(conn, make_qa_admission_target(machine)).session_id == "next"
     assert f"QA host turn ready: {machine}" in bodies[0]

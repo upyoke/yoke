@@ -233,7 +233,7 @@ def case_failures(
             f"yoke qa plan partitions --item {member_ref_lookup(conn, [member_item_id])(member_item_id)} "
             f"--stage {stage_name} --deployment-run-id {run_id}"
             if member_item_id is not None
-            else f"yoke qa plan partitions --deployment-run-id {run_id} --stage {stage_name}"
+            else f"yoke deployment runs get {run_id}"
         )
         return [
             CaseFailure(
