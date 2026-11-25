@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import socket
 import time
 from dataclasses import dataclass
 from typing import Any
@@ -9,8 +10,12 @@ from typing import Any
 from yoke_contracts.hook_evaluator_protocol import (
     HOOK_CLIENT_WALL_BATCH_FIELD,
     HookClientWallReport,
+    HookEvaluatorProtocolError,
     HookEvaluatorRequest,
+    receive_frame,
+    send_frame,
 )
+from yoke_contracts.hook_resident_routing import message_probe_key
 from yoke_contracts.hook_process_context import (
     HookProcessContext,
     activate_process_context,
@@ -24,6 +29,7 @@ class PendingClientWall:
     authorization: str
     client_wall_ms: int
     enqueued_at: float
+    session_key: str
 
     batch_field = HOOK_CLIENT_WALL_BATCH_FIELD
 
@@ -66,6 +72,7 @@ def record_resident_client_wall(
                         authorization=target[1],
                         client_wall_ms=report.client_wall_ms,
                         enqueued_at=time.monotonic(),
+                        session_key=message_probe_key(request.stdin),
                     )
                 )
                 return
@@ -76,4 +83,34 @@ def record_resident_client_wall(
         return
 
 
-__all__ = ["PendingClientWall", "record_resident_client_wall"]
+def reply_with_client_wall(
+    peer: Any,
+    response: dict[str, Any],
+    request: HookEvaluatorRequest | None,
+    queue: Any,
+    target: tuple[str, str] | None,
+) -> None:
+    """Send the evaluated result, then collect its optional timing frame."""
+    timing_id = (
+        request.client_timing_id
+        if request is not None and response.get("status") == "ok"
+        else ""
+    )
+    if target is not None and timing_id:
+        queue.expect_client_wall(timing_id, message_probe_key(request.stdin))
+    try:
+        send_frame(peer, response)
+        if timing_id:
+            peer.settimeout(0.25)
+            report = HookClientWallReport.from_mapping(receive_frame(peer))
+            record_resident_client_wall(
+                queue=queue, request=request, report=report, target=target
+            )
+    except (HookEvaluatorProtocolError, OSError, socket.timeout):
+        return
+    finally:
+        if target is not None and timing_id:
+            queue.finish_client_wall(timing_id)
+
+
+__all__ = ["PendingClientWall", "record_resident_client_wall", "reply_with_client_wall"]

@@ -11,7 +11,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 from yoke_cli.transport.https import HttpsConnection
-from yoke_harness import hook_resident
+from yoke_harness import hook_resident, hook_resident_client_wall
 from yoke_harness.hooks import denial_relay
 from yoke_harness.hooks.deadline import HookDeadline
 
@@ -51,7 +51,7 @@ def _handle(monkeypatch, timeline: list[str]) -> None:
     monkeypatch.setattr(hook_resident, "receive_request", lambda *_a: request)
     monkeypatch.setattr(hook_resident, "same_revision", lambda *_a: True)
     monkeypatch.setattr(
-        hook_resident,
+        hook_resident_client_wall,
         "send_frame",
         lambda _peer, frame: timeline.append(f"reply:{frame['stdout']}"),
     )

@@ -19,6 +19,7 @@ from yoke_contracts.hook_resident_routing import is_read_only_tool_event
 from yoke_contracts.refusal_recovery import compose_refusal
 
 from yoke_core.api.http_auth import require_auth_context
+from yoke_core.api.launch_machine_actor import session_actor_for
 from yoke_core.domain import db_helpers
 from yoke_core.domain.session_scope_identity import (
     HOOK_SCOPE_UNAVAILABLE,
@@ -149,8 +150,12 @@ def post_hook_observation_batch(
     validated: list[dict[str, Any]] = []
     with authority as conn:
         for observation, hook_request, session_id in stamped:
+            try:
+                actor_id = session_actor_for(auth, session_id, conn=conn)
+            except Exception:
+                return _scope_denial(HOOK_SCOPE_UNAVAILABLE)
             decision = authorize_hook_request(
-                auth.actor_id,
+                actor_id,
                 hook_request.project_id,
                 [session_id],
                 machine_id=hook_request.machine_id,
@@ -168,7 +173,7 @@ def post_hook_observation_batch(
                 identity_stamped=True,
                 project_id=decision.project_id,
                 machine_id=hook_request.machine_id,
-                actor_id=auth.actor_id,
+                actor_id=actor_id,
             )
             _, effective_payload = runtime.request_payload(hook_request.model_dump())
             if not is_read_only_tool_event(
@@ -184,9 +189,7 @@ def post_hook_observation_batch(
             validated.append(raw)
 
     try:
-        accepted, model_confirmations = runtime.persist_observation_batch(
-            validated, actor_id=auth.actor_id
-        )
+        accepted, model_confirmations = runtime.persist_observation_batch(validated)
     except Exception as exc:
         return _error(
             503,
@@ -223,7 +226,9 @@ def post_hook_client_wall(
     try:
         from yoke_core.domain.hook_client_wall import record_client_wall_reports
 
-        accepted = record_client_wall_reports(reports, actor_id=auth.actor_id)
+        accepted = record_client_wall_reports(
+            reports, actor_id=auth.actor_id, machine_id=auth.machine_id
+        )
     except PermissionError:
         return _error(
             403,

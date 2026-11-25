@@ -201,3 +201,53 @@ def test_a_cursor_shell_post_tool_use_inside_the_window_still_leases(
 
     assert control_plane.evaluated == ["PostToolUse", "PostToolUse"]
     assert port.leased == [("session-top", "PostToolUse", 10)] * 2
+
+
+@pytest.mark.parametrize("terminal_event", ["Stop", "SessionEnd"])
+def test_terminal_hook_delivers_queued_read_completion_first(
+    terminal_event, port: FakePort, tmp_path
+) -> None:
+    from yoke_harness.hook_resident_client_wall import PendingClientWall
+    from yoke_harness.hook_resident_observations import ObservationQueue
+
+    control_plane = _ControlPlane("claude-cli")
+    server = _resident(control_plane)
+    delivered = []
+    timing_id = "last-tool-timing"
+    session_key = "session-top"
+
+    def deliver(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        if request.url.path.endswith("/telemetry/batch"):
+            observations = body["observations"]
+            delivered.extend(entry["hook_request"]["event_name"] for entry in observations)
+            # This frame was still in flight when the terminal hook arrived.
+            server.observations.enqueue(
+                PendingClientWall(
+                    timing_id, "https://control-plane.test/v1/hooks/telemetry/client-wall",
+                    "Bearer test", 10, time.monotonic(), session_key,
+                )
+            )
+            server.observations.finish_client_wall(timing_id)
+            return httpx.Response(200, json={"accepted": len(observations)})
+        if request.url.path.endswith("/client-wall"):
+            delivered.append("client-wall")
+            assert body["client_wall_reports"][0]["event_id"] == timing_id
+            return httpx.Response(200, json={"accepted": 1})
+        delivered.append(body["event_name"])
+        return control_plane(request)
+
+    server.http_opener._client.close()
+    server.http_opener._client = httpx.Client(transport=httpx.MockTransport(deliver))
+    server.observations = ObservationQueue(server.http_opener)
+    try:
+        _tool_event(server, "PreToolUse", tmp_path)
+        _tool_event(server, "PostToolUse", tmp_path)
+        server.observations.expect_client_wall(timing_id, session_key)
+        assert delivered == ["PreToolUse"]
+        assert server.observations.drain(0, session_key="different-session")
+        _tool_event(server, terminal_event, tmp_path)
+        assert delivered == ["PreToolUse", "PostToolUse", "client-wall", terminal_event]
+    finally:
+        server.observations.close()
+        server.http_opener.close()
