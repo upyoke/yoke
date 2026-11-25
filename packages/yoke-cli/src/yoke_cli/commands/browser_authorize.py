@@ -57,7 +57,7 @@ def browser_authorize(args: List[str]) -> int:
     parser.add_argument(
         "--url",
         default=None,
-        help="Always open a window at this URL, even when every site is signed in.",
+        help="Open this URL in the sign-in window, even when all sites are signed in.",
     )
     parser.add_argument(
         "--reset",
@@ -158,6 +158,14 @@ def browser_authorize(args: List[str]) -> int:
 
     try:
         from yoke_cli.commands.browser_authorize_automatic import authorize_automatic
+        from yoke_harness.browser_live_profile import require_closed_profile
+
+        profile = browser_profile.authorized_profile_dir(
+            project_key, identity=identity.name
+        )
+        if profile is not None:
+            browser_identity_check.stop_profile_daemon(browser_client, profile)
+            require_closed_profile(profile)
 
         automatic_sites, expired = authorize_automatic(
             browser_client, runtime, project_key, identity, expired, connection
