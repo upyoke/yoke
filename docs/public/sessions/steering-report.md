@@ -144,7 +144,8 @@ Native-held rows name the native and, when measurable, the smaller of its
 no-output age from the capture's own clock and time since the session's latest
 recorded tool call. The row dates the chosen measurement; file mtime is not
 activity. Pending mail delivers at that session's next tool call or when its
-turn ends. A turn that ended while a background command still runs keeps a
+turn ends. A running-turn row names `yoke sessions terminate` only once that
+silence reaches the 45-minute in-flight ceiling or was never measured. A turn that ended while a background command still runs keeps a
 headless Claude native alive; it takes its next turn, and delivers, when that
 command returns. The row then names the turn's end and the first shell
 command under the native, by pid and program words only, never options or
