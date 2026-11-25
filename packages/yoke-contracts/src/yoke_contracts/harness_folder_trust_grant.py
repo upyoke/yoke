@@ -119,21 +119,22 @@ def _grant_codex(path: str, config_path: Optional[Path]) -> List[str]:
         # trust table, so trusting a path reuses it rather than re-deriving
         # the TOML surgery. Posture keys already present are left untouched.
         updated, record = plan(text, path)
-        return (updated if record["trusted_checkout"] else text), record
+        return (updated if record["trusted_checkouts"] else text), record
 
     try:
         record = mutate(target, trust)
     except CodexHookTrustStoreError as exc:
         return [f"codex: {exc}"]
-    if not changed(record) or not record["trusted_checkout"]:
-        return []
-    granted = [f"codex: trusted {path}"]
+    conflicts = [f"codex: {conflict}" for conflict in record["conflicts"]]
+    if not changed(record) or not record["trusted_checkouts"]:
+        return conflicts
+    granted = [f"codex: trusted {key}" for key in record["trusted_checkouts"]]
     if record["set_keys"]:
         granted.append(
             f"codex: also set {', '.join(record['set_keys'])} "
             f"(approval policy {CODEX_APPROVAL_POLICY!r})"
         )
-    return granted + record_written(target, record)
+    return granted + conflicts + record_written(target, record)
 
 
 def _grant_cursor(path: str, trust_file: Optional[Path]) -> List[str]:

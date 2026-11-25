@@ -127,7 +127,12 @@ def hc_worktree_hook_trust(
         elif result.blocked_reason:
             blocked.append(f"{label}: {result.blocked_reason}")
         elif result.dead_zone:
-            dead.append(f"{label}: none of {len(result.source_trusted)} trusted")
+            detail = (
+                result.summary()
+                if result.untrusted_paths
+                else f"none of {len(result.source_trusted)} trusted"
+            )
+            dead.append(f"{label}: {detail}")
         elif not result.hooks_fire:
             partial.append(f"{label}: {result.summary()}")
 

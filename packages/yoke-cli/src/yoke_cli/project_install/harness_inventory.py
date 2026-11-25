@@ -2,8 +2,7 @@
 
 Lives in the CLI package so product install never imports ``yoke_core``.
 Codex is approved only when every normalized hook handler matches the
-``trusted_hash`` stored for this checkout's literal ``.codex/hooks.json``
-path.
+``trusted_hash`` stored for every literal spelling of ``.codex/hooks.json``.
 """
 
 from __future__ import annotations
@@ -19,8 +18,8 @@ from yoke_contracts.codex_hook_trust import (
     codex_hooks_are_approved,
     normalized_codex_hook_hashes,
 )
-
-import tomllib
+from yoke_contracts.codex_hook_trust_toml import entries_for, read_trust_state
+from yoke_contracts.harness_folder_trust import codex_path_spellings
 
 
 def _exists(path: Path) -> bool:
@@ -53,30 +52,6 @@ def _codex_hooks(checkout: Path) -> Path:
     return checkout / ".codex" / "hooks.json"
 
 
-def _codex_trust_entries(hooks: Path) -> dict[str, str]:
-    home = Path(os.environ.get("CODEX_HOME") or (Path.home() / ".codex"))
-    config = home / "config.toml"
-    if not _exists(config):
-        return {}
-    try:
-        with config.open("rb") as handle:
-            data = tomllib.load(handle)
-    except (OSError, ValueError):
-        return {}
-    state = ((data.get("hooks") or {}).get("state")) or {}
-    if not isinstance(state, dict):
-        return {}
-    prefix = f"{hooks}:"
-    entries: dict[str, str] = {}
-    for key, entry in state.items():
-        if not isinstance(key, str) or not key.startswith(prefix):
-            continue
-        trusted_hash = entry.get("trusted_hash") if isinstance(entry, dict) else None
-        if isinstance(trusted_hash, str) and trusted_hash:
-            entries[key[len(prefix) :]] = trusted_hash
-    return entries
-
-
 def _codex_report(checkout: Path) -> Optional[dict[str, Any]]:
     home = Path(os.environ.get("CODEX_HOME") or (Path.home() / ".codex"))
     config_present = _dir_present(home) or _exists(home / "config.toml")
@@ -89,9 +64,13 @@ def _codex_report(checkout: Path) -> Optional[dict[str, Any]]:
         malformed = True
     approval = "not_applicable"
     if glue_present:
+        state, _ = read_trust_state(home / "config.toml")
         approval = (
             "approved"
-            if codex_hooks_are_approved(payload, _codex_trust_entries(hooks))
+            if all(
+                codex_hooks_are_approved(payload, entries_for(state, Path(spelling)))
+                for spelling in codex_path_spellings(hooks)
+            )
             else "unapproved"
         )
     if not (config_present or glue_present):

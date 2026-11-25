@@ -14,6 +14,7 @@ from yoke_cli.project_install.harness_inventory import (
 )
 from yoke_contracts.codex_hook_trust import normalized_codex_hook_hashes
 from yoke_contracts.codex_hook_trust_toml import append_hook_entries
+from yoke_contracts.harness_folder_trust import codex_path_spellings
 
 
 COLLECTORS = (collect_cli_inventory,)
@@ -45,9 +46,10 @@ def _write_hooks(checkout: Path, payload: object) -> Path:
 def _write_config(home: Path, hooks: Path, trusted: dict[str, str]) -> None:
     home.mkdir(parents=True, exist_ok=True)
     # The product's writer escapes the path key (Windows backslashes included).
-    (home / "config.toml").write_text(
-        append_hook_entries("", hooks, trusted), encoding="utf-8"
-    )
+    text = ""
+    for spelling in codex_path_spellings(hooks):
+        text = append_hook_entries(text, Path(spelling), trusted)
+    (home / "config.toml").write_text(text, encoding="utf-8")
 
 
 def _report(collector, checkout: Path) -> dict:
@@ -240,3 +242,20 @@ def test_machine_inventory_reports_an_installed_pack_missing_its_tool(
     assert row["tool"] == "docker"
     assert row["code"] == "pack-prerequisite-missing"
     assert row["install_recipe"] == "brew install --cask docker"
+
+
+@pytest.mark.windows_only(reason="Native Windows has two literal keys for checkout hooks")
+def test_inventory_needs_both_drive_spellings(monkeypatch, tmp_path):
+    payload = _payload()
+    checkout = tmp_path / "project"
+    hooks = _write_hooks(checkout, payload)
+    home = tmp_path / "codex-home"
+    home.mkdir()
+    monkeypatch.setenv("CODEX_HOME", str(home))
+    hashes = normalized_codex_hook_hashes(payload)
+    upper, _ = codex_path_spellings(hooks)
+    (home / "config.toml").write_text(append_hook_entries("", Path(upper), hashes))
+
+    assert _report(collect_cli_inventory, checkout)["approval_state"] == "unapproved"
+    _write_config(home, hooks, hashes)
+    assert _report(collect_cli_inventory, checkout)["approval_state"] == "approved"

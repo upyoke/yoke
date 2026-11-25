@@ -240,3 +240,46 @@ def test_unremovable_lock_sidecar_is_recorded_for_uninstall(tmp_path, monkeypatc
     assert harness_settings_ledger.read() == [
         harness_settings_ledger.created_file_entry(lock_path)
     ]
+
+
+@pytest.mark.parametrize(
+    "path, expected",
+    [
+        (r"C:\a\b", (r"C:\a\b", r"c:\a\b")),
+        (r"c:\a", (r"C:\a", r"c:\a")),
+        ("/home/a", ("/home/a",)),
+        (r"\\srv\share\a", (r"\\srv\share\a",)),
+        ("relative", ("relative",)),
+    ],
+)
+def test_codex_path_spellings(path, expected):
+    from pathlib import Path
+
+    from yoke_contracts.harness_folder_trust import codex_path_spellings
+
+    assert codex_path_spellings(path) == tuple(str(Path(key)) for key in expected)
+
+
+@pytest.mark.parametrize("conflict", [False, True])
+def test_codex_folder_grant_records_each_new_drive_spelling(tmp_path, monkeypatch, conflict):
+    from yoke_contracts import harness_settings_ledger
+    from yoke_contracts.harness_folder_trust_grant import grant_folder_trust
+
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
+    config = tmp_path / "config.toml"
+    upper, lower = r"C:\Checkout", r"c:\Checkout"
+    if conflict:
+        config.write_text(
+            f"[projects.{json.dumps(upper)}]\ntrust_level = 'untrusted'\n",
+            encoding="utf-8",
+        )
+    reports = grant_folder_trust(lower, harnesses=("codex",), codex_config=config)
+
+    projects = tomllib.loads(config.read_text(encoding="utf-8"))["projects"]
+    assert projects[upper]["trust_level"] == ("untrusted" if conflict else "trusted")
+    assert projects[lower]["trust_level"] == "trusted"
+    entries = harness_settings_ledger.read()
+    assert [entry["trust_key"] for entry in entries if entry["kind"] == "codex_trust"] == (
+        [lower] if conflict else [upper, lower]
+    )
+    assert any(upper in line and "untrusted" in line for line in reports) is conflict

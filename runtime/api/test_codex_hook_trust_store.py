@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 from yoke_contracts.codex_hook_trust_toml import _toml_string
@@ -11,6 +12,7 @@ import pytest
 
 import tomllib
 
+from yoke_contracts.harness_folder_trust import codex_path_spellings
 from yoke_contracts.codex_hook_trust import codex_hook_hashes
 from yoke_contracts.codex_hook_trust_store import (
     CodexHookTrustStoreError,
@@ -74,7 +76,8 @@ def _state(config: Path) -> dict:
 def _trust(checkout: Path) -> list[tuple[str, str]]:
     hooks = checkout / ".codex/hooks.json"
     return [
-        (f"{hooks}:{suffix}", digest)
+        (f"{spelling}:{suffix}", digest)
+        for spelling in codex_path_spellings(hooks)
         for suffix, digest in codex_hook_hashes(hooks).items()
     ]
 
@@ -97,7 +100,8 @@ def test_install_mints_exact_hashes_and_replaces_stale_same_path(tmp_path: Path)
 
     assert result.changed is True
     assert result.hook_entries_removed == 2
-    assert result.hook_entries_written == 2
+    assert result.hook_entries_written == len(_trust(checkout))
+    assert len(_trust(checkout)) == (4 if os.name == "nt" else 2)
     assert inspect_hook_file_trust(hooks, config_path=config).approved is True
     state = _state(config)
     assert str(foreign) in state["projects"]
@@ -145,21 +149,21 @@ def test_retired_worktree_loses_hook_and_project_trust_only(tmp_path: Path):
     config = _config(
         tmp_path / "config.toml",
         [*_trust(lane), *_trust(live)],
-        [str(lane), str(live)],
+        [*codex_path_spellings(lane), str(live)],
     )
 
     result = remove_checkout_trust(lane, config_path=config)
 
-    assert result.hook_entries_removed == 2
-    assert result.project_entries_removed == 1
+    assert result.hook_entries_removed == len(_trust(lane))
+    assert result.project_entries_removed == len(codex_path_spellings(lane))
     state = _state(config)
-    assert str(lane) not in state["projects"]
+    assert not set(codex_path_spellings(lane)) & state["projects"].keys()
     assert str(live) in state["projects"]
     assert all(
         not key.startswith(f"{lane / '.codex/hooks.json'}:")
         for key in state["hooks"]["state"]
     )
-    assert len(state["hooks"]["state"]) == 2
+    assert len(state["hooks"]["state"]) == len(_trust(live))
 
 
 def test_sweep_dry_run_then_removes_only_deleted_paths(tmp_path: Path):
@@ -180,17 +184,17 @@ def test_sweep_dry_run_then_removes_only_deleted_paths(tmp_path: Path):
     scan = stale_trust_scan(config_path=config)
     preview = sweep_stale_trust(config_path=config, dry_run=True)
 
-    assert len(scan.hook_keys) == 2
-    assert scan.hook_paths == (str(gone_hooks),)
+    assert len(scan.hook_keys) == len(gone_entries)
+    assert scan.hook_paths == codex_path_spellings(gone_hooks)
     assert scan.project_paths == (str(gone),)
     assert preview.changed is True
     assert preview.dry_run is True
     assert config.read_bytes() == before
 
     applied = sweep_stale_trust(config_path=config)
-    assert applied.hook_entries_removed == 2
+    assert applied.hook_entries_removed == len(gone_entries)
     assert applied.project_entries_removed == 1
-    assert applied.stale_hook_paths == 1
+    assert applied.stale_hook_paths == len(codex_path_spellings(gone_hooks))
     assert (
         inspect_hook_file_trust(live / ".codex/hooks.json", config_path=config).approved
         is True
@@ -249,3 +253,30 @@ def test_removing_start_source_filter_renews_trust(tmp_path):
     assert not inspect_hook_file_trust(hooks, config_path=config).approved
     mint_installed_checkout_trust(checkout, config_path=config)
     assert inspect_hook_file_trust(hooks, config_path=config).approved
+
+
+@pytest.mark.windows_only(reason="Needs two literal keys for one native checkout")
+@pytest.mark.parametrize("lower_digest", [None, "sha256:modified"])
+def test_inspection_names_missing_or_modified_drive_spelling(tmp_path, lower_digest):
+    checkout = _checkout(tmp_path, "project")
+    hooks = checkout / ".codex/hooks.json"
+    upper, lower = codex_path_spellings(hooks)
+    expected = codex_hook_hashes(hooks)
+    entries = [(f"{upper}:{suffix}", digest) for suffix, digest in expected.items()]
+    if lower_digest:
+        entries.extend((f"{lower}:{suffix}", lower_digest) for suffix in expected)
+    config = _config(tmp_path / "config.toml", entries)
+
+    result = inspect_hook_file_trust(hooks, config_path=config)
+    assert not result.approved
+    assert set(result.modified if lower_digest else result.missing) == {
+        f"{lower}:{suffix}" for suffix in expected
+    }
+    assert lower in result.summary()
+    mint_installed_checkout_trust(checkout, config_path=config)
+    assert _state(config)["hooks"]["state"] == {
+        f"{path}:{suffix}": {"trusted_hash": digest}
+        for path in (upper, lower)
+        for suffix, digest in expected.items()
+    }
+    assert not mint_installed_checkout_trust(checkout, config_path=config).changed

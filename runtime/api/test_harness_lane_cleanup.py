@@ -289,3 +289,23 @@ def test_json_edit_records_a_left_lock_sidecar_and_revert_removes_it(
     ]
     harness_settings_revert.revert_recorded()
     assert not lock_path.exists()
+
+
+@pytest.mark.windows_only(reason="Windows Path matches both drive-letter cases")
+def test_retirement_removes_both_codex_drive_spellings(configs):
+    from yoke_contracts.harness_folder_trust import codex_path_spellings
+
+    root, lane, codex, _, _ = configs
+    foreign = f'[projects.{json.dumps(str(root))}]\ntrust_level = "trusted"\n'
+    text = foreign
+    for spelling in codex_path_spellings(lane):
+        text += f'[projects.{json.dumps(spelling)}]\ntrust_level = "trusted"\n'
+    for spelling in codex_path_spellings(lane / ".codex/hooks.json"):
+        text += (
+            f'[hooks.state.{json.dumps(spelling + ":session_start:0:0")}]\n'
+            'trusted_hash = "owned"\n'
+        )
+    codex.write_bytes(text.encode("utf-8"))
+
+    assert cleanup_lane_configs(checkout=lane)["ok"]
+    assert codex.read_bytes() == foreign.encode("utf-8")

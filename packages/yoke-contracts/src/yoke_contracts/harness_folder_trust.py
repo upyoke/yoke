@@ -77,8 +77,16 @@ def cursor_trust_file(checkout: str | Path) -> Path:
 
 
 def trust_key(checkout: str | Path) -> str:
-    """Return the native absolute path Codex and Cursor key folder trust by."""
+    """Return the native path Cursor records as the trusted workspace."""
     return str(Path(checkout).expanduser())
+
+
+def codex_path_spellings(path: str | Path) -> tuple[str, ...]:
+    """Return the literal trust paths used by Codex Desktop and VS Code."""
+    native = str(Path(path).expanduser())
+    if re.match(r"^[A-Za-z]:\\", native):
+        return native[0].upper() + native[1:], native[0].lower() + native[1:]
+    return (native,)
 
 
 def claude_trust_key(checkout: str | Path) -> str:
@@ -95,6 +103,7 @@ __all__ = [
     "TRUSTED_HARNESSES",
     "claude_state_path",
     "claude_trust_key",
+    "codex_path_spellings",
     "cursor_project_slug",
     "cursor_projects_root",
     "cursor_trust_file",

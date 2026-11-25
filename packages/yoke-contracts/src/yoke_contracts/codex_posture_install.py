@@ -46,8 +46,7 @@ def configure_codex_unattended_posture(
     actions: List[str] = []
     if changed(record):
         granted = list(record["set_keys"])
-        if record["trusted_checkout"]:
-            granted.append(f"trusted {record['trusted_checkout']}")
+        granted.extend(f"trusted {key}" for key in record["trusted_checkouts"])
         actions.append(
             f"codex: enabled unattended mode in {target} ({', '.join(granted)})"
         )

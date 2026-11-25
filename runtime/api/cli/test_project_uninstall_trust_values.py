@@ -84,3 +84,32 @@ def test_later_harness_home_keeps_unrecorded_trust(installed, monkeypatch):
     assert all(
         row["status"] != "preserved" for row in report["local_cleanup"]["trust"]
     )
+
+
+def test_uninstall_drops_owned_checkout_and_lane_drive_spellings(installed):
+    from yoke_contracts.codex_hook_trust_toml import append_hook_entries
+    from yoke_contracts.harness_folder_trust_grant import grant_folder_trust
+
+    root, other, config = installed
+    lane = root / ".worktrees/lane"
+    lane.mkdir(parents=True)
+    (root / ".git/info/exclude").write_text(".worktrees/\n")
+    grant_folder_trust(lane)
+    codex = Path.home() / ".codex/config.toml"
+    text = codex.read_text(encoding="utf-8")
+    digest = {"session_start:0:0": "sha256:" + "0" * 64}
+    for owned in (root, lane):
+        for spelling in trust.codex_path_spellings(owned / ".codex/hooks.json"):
+            text = append_hook_entries(text, Path(spelling), digest)
+    foreign = append_hook_entries("", other / ".codex/hooks.json", digest).strip()
+    codex.write_text(text + "\n" + foreign + "\n", encoding="utf-8")
+
+    report = uninstall(root, config_path=config)
+    assert report["outcome"] == "complete", report
+
+    remaining = codex.read_text(encoding="utf-8")
+    parsed = parse_config(remaining)
+    for owned in (root, lane):
+        assert not set(trust.codex_path_spellings(owned)) & parsed["projects"].keys()
+    assert set(parsed["hooks"]["state"]) == {f"{other / '.codex/hooks.json'}:session_start:0:0"}
+    assert foreign + "\n" in remaining

@@ -52,6 +52,10 @@ source trust. If the lane's hooks differ, restore them to match the trusted
 source, then run `yoke doctor run --only harness-setup --fix`. To keep an
 intentional lane-only change, open the lane in Codex and use **Hooks → Trust**.
 
+On Windows, Yoke records both drive-letter spellings, such as `C:\` and
+`c:\`, for folder and hook trust. The Codex VS Code extension looks up
+the lowercase drive letter.
+
 Yoke serializes its folder trust, posture, hook trust and owned-setting removal
 against the resolved configuration file, including symlink aliases. Each update
 reads current state under the same private lock and atomically replaces the

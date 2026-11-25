@@ -118,11 +118,6 @@ def claude_config_path() -> Path:
     return Path(CLAUDE_APP_CONFIG_PATH).expanduser()
 
 
-def codex_project_trust_key(checkout: str | Path) -> str:
-    """Return the ``projects`` sub-table key naming one checkout."""
-    return str(Path(checkout).expanduser())
-
-
 def codex_posture_problems(config: Mapping[str, Any]) -> Tuple[str, ...]:
     """Name every Codex posture key that still leaves the harness prompting."""
     problems = []
@@ -323,7 +318,6 @@ __all__ = [
     "managed_config_paths",
     "codex_config_path",
     "codex_posture_problems",
-    "codex_project_trust_key",
     "cursor_config_path",
     "cursor_posture_problems",
     "posture_plan_step",

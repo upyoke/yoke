@@ -121,11 +121,19 @@ def _revert_codex_hook_trust(
     if not config.is_file():
         return []
     stated = checkout.expanduser()
-    exact = {str(hooks_file_for(stated)), str(hooks_file_for(stated.resolve()))}
+    exact = {
+        key
+        for path in (stated, stated.resolve())
+        for key in trust.codex_path_spellings(hooks_file_for(path))
+    }
     prefixes: tuple[str, ...] = ()
     if lanes_dir is not None:
         lanes = lanes_dir.expanduser()
-        prefixes = (f"{lanes}{os.sep}", f"{lanes.resolve()}{os.sep}")
+        prefixes = tuple(
+            f"{key}{os.sep}"
+            for path in (lanes, lanes.resolve())
+            for key in trust.codex_path_spellings(path)
+        )
 
     def owned(path: str) -> bool:
         return path in exact or (bool(prefixes) and path.startswith(prefixes))

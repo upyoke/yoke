@@ -5,9 +5,12 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+
+import pytest
 from pathlib import Path
 
-from yoke_contracts.codex_hook_trust_toml import _toml_string
+from yoke_contracts.codex_hook_trust_toml import _toml_string, append_hook_entries
+from yoke_contracts.harness_folder_trust import codex_path_spellings
 
 from yoke_core.domain.codex_hook_trust_identity import codex_hook_hashes
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
@@ -26,17 +29,13 @@ def _checkout(root: Path) -> Path:
 
 
 def _write_trust(config: Path, checkouts: tuple[Path, ...]) -> None:
-    lines = ['model = "gpt-5.6-luna"\n']
+    text = 'model = "gpt-5.6-luna"\n'
     for checkout in checkouts:
         hooks = checkout / ".codex/hooks.json"
-        for suffix, digest in sorted(codex_hook_hashes(hooks).items()):
-            lines.extend(
-                [
-                    f"\n[hooks.state.{_toml_string(f'{hooks}:{suffix}')}]\n",
-                    f'trusted_hash = "{digest}"\n',
-                ]
-            )
-    config.write_text("".join(lines), encoding="utf-8")
+        hashes = codex_hook_hashes(hooks)
+        for spelling in codex_path_spellings(hooks):
+            text = append_hook_entries(text, Path(spelling), hashes)
+    config.write_text(text, encoding="utf-8")
 
 
 def _seed(tmp_path: Path) -> tuple[Path, Path, Path]:
@@ -180,3 +179,16 @@ trust_level = "trusted"
     assert "1 hook entries across 1 deleted hooks paths" in result.detail
     assert "1 deleted project entries" in result.detail
     assert "yoke codex hook-trust sweep" in result.detail
+
+
+@pytest.mark.windows_only(reason="Native Windows has a lowercase drive alias for checkout hooks")
+def test_doctor_requires_both_main_checkout_hook_spellings(monkeypatch, tmp_path):
+    source, worktree, config = _seed(tmp_path)
+    hooks = source / ".codex/hooks.json"
+    upper, lower = codex_path_spellings(hooks)
+    config.write_text(append_hook_entries("", Path(upper), codex_hook_hashes(hooks)))
+
+    result = _run(monkeypatch, source, worktree, config)
+    assert result.result == "FAIL"
+    assert lower in result.detail
+    assert "yoke project refresh" in result.detail

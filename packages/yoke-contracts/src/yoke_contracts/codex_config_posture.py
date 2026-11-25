@@ -16,12 +16,12 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from yoke_contracts import harness_settings_ledger as ledger
+from yoke_contracts.harness_folder_trust import codex_path_spellings
 from yoke_contracts.harness_unattended_posture import (
     CODEX_POSTURE_KEYS,
     CODEX_PROJECTS_TABLE,
     CODEX_TRUST_LEVEL,
     CODEX_TRUST_LEVEL_KEY,
-    codex_project_trust_key,
 )
 
 import tomllib
@@ -49,8 +49,8 @@ def _toml_string(value: str) -> str:
     return f'"{escaped}"'
 
 
-def _trust_table_header(checkout: str) -> str:
-    key = _toml_string(codex_project_trust_key(checkout))
+def _trust_table_header(checkout_key: str) -> str:
+    key = _toml_string(checkout_key)
     return f"[{CODEX_PROJECTS_TABLE}.{key}]"
 
 
@@ -84,14 +84,14 @@ def _new_record() -> Dict[str, Any]:
         "set_keys": [],
         "previous": {},
         "conflicts": [],
-        "trusted_checkout": "",
+        "trusted_checkouts": [],
         "created_file": False,
     }
 
 
 def changed(record: Dict[str, Any]) -> bool:
     """True when this run's plan writes anything."""
-    return bool(record["set_keys"] or record["trusted_checkout"])
+    return bool(record["set_keys"] or record["trusted_checkouts"])
 
 
 def plan(text: str, checkout: Optional[str] = None) -> Tuple[str, Dict[str, Any]]:
@@ -111,8 +111,7 @@ def plan(text: str, checkout: Optional[str] = None) -> Tuple[str, Dict[str, Any]
         wanted.append((key, value))
         record["set_keys"].append(key)
 
-    trust_key = codex_project_trust_key(checkout) if checkout else ""
-    if trust_key:
+    for trust_key in codex_path_spellings(checkout) if checkout else ():
         entry = (config.get(CODEX_PROJECTS_TABLE) or {}).get(trust_key)
         entry = entry if isinstance(entry, dict) else {}
         if entry.get(CODEX_TRUST_LEVEL_KEY) != CODEX_TRUST_LEVEL:
@@ -123,7 +122,7 @@ def plan(text: str, checkout: Optional[str] = None) -> Tuple[str, Dict[str, Any]
                     f"{CODEX_TRUST_LEVEL!r})"
                 )
             else:
-                record["trusted_checkout"] = trust_key
+                record["trusted_checkouts"].append(trust_key)
 
     if not changed(record):
         return text, record
@@ -150,10 +149,10 @@ def _apply(text: str, wanted: List[Tuple[str, str]], record: Dict[str, Any]) -> 
         if end < len(lines) and lines[end].strip():
             inserts.append("")
         lines[end:end] = inserts
-    if record["trusted_checkout"]:
+    for checkout_key in record["trusted_checkouts"]:
         block = [
             "",
-            _trust_table_header(record["trusted_checkout"]),
+            _trust_table_header(checkout_key),
             f"{CODEX_TRUST_LEVEL_KEY} = {_toml_string(CODEX_TRUST_LEVEL)}",
         ]
         while lines and not lines[-1].strip():
@@ -174,8 +173,9 @@ def record_written(target: Path, record: Dict[str, Any]) -> List[str]:
         )
         for k in record["set_keys"]
     ]
-    if record["trusted_checkout"]:
-        entries.append(ledger.codex_trust_entry(target, record["trusted_checkout"]))
+    entries.extend(
+        ledger.codex_trust_entry(target, key) for key in record["trusted_checkouts"]
+    )
     reports = (ledger.record(entry) for entry in entries)
     return [f"codex: {report}" for report in reports if report]
 

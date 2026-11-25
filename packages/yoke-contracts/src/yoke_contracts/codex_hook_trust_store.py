@@ -17,6 +17,12 @@ from yoke_contracts.codex_hook_trust import (
     CodexHookIdentityError,
     codex_hook_hashes,
 )
+from yoke_contracts.codex_hook_trust_sweep import (
+    StaleTrustScan,
+    TrustMutation,
+    stale_trust_scan,
+    sweep_stale_trust,
+)
 from yoke_contracts.codex_hook_trust_toml import (
     CodexHookTrustStoreError,
     TRUSTED_HASH_KEY,
@@ -26,12 +32,11 @@ from yoke_contracts.codex_hook_trust_toml import (
     filter_tables as _filter_tables,
     hook_path as _hook_path,
     mutate as _mutate,
-    path_is_gone as _path_is_gone,
     project_entries as _project_entries,
-    read_config as _read_config,
     read_trust_state,
 )
 from yoke_contracts.harness_unattended_posture import codex_config_path
+from yoke_contracts.harness_folder_trust import codex_path_spellings
 
 
 HOOKS_RELATIVE_PATH = Path(".codex/hooks.json")
@@ -71,52 +76,6 @@ class HookFileTrust:
         return "; ".join(parts) or "no normalized hook handlers"
 
 
-@dataclass(frozen=True)
-class StaleTrustScan:
-    """Trust table keys whose literal filesystem targets are gone."""
-
-    config_path: str
-    hook_keys: tuple[str, ...] = ()
-    hook_paths: tuple[str, ...] = ()
-    project_paths: tuple[str, ...] = ()
-    skipped_reason: str = ""
-
-    def payload(self) -> dict[str, object]:
-        return {
-            "config_path": self.config_path,
-            "stale_hook_entries": len(self.hook_keys),
-            "stale_hook_paths": len(self.hook_paths),
-            "stale_project_entries": len(self.project_paths),
-            "skipped_reason": self.skipped_reason,
-        }
-
-
-@dataclass(frozen=True)
-class TrustMutation:
-    """Count-only receipt for one config mutation."""
-
-    config_path: str
-    hook_entries_removed: int = 0
-    hook_entries_written: int = 0
-    project_entries_removed: int = 0
-    stale_hook_paths: int = 0
-    changed: bool = False
-    dry_run: bool = False
-    skipped_reason: str = ""
-
-    def payload(self) -> dict[str, object]:
-        return {
-            "config_path": self.config_path,
-            "hook_entries_removed": self.hook_entries_removed,
-            "hook_entries_written": self.hook_entries_written,
-            "project_entries_removed": self.project_entries_removed,
-            "stale_hook_paths": self.stale_hook_paths,
-            "changed": self.changed,
-            "dry_run": self.dry_run,
-            "skipped_reason": self.skipped_reason,
-        }
-
-
 def hooks_file_for(checkout: str | Path) -> Path:
     return Path(checkout).expanduser() / HOOKS_RELATIVE_PATH
 
@@ -134,9 +93,12 @@ def retrust_recovery(checkout: str | Path, *, lane: bool = False) -> str:
 
 
 def inspect_hook_file_trust(
-    hooks_path: Path, *, config_path: Optional[Path] = None
+    hooks_path: Path,
+    *,
+    config_path: Optional[Path] = None,
+    spellings: Optional[tuple[str, ...]] = None,
 ) -> HookFileTrust:
-    """Compare one current hooks file with its exact persisted trust set."""
+    """Compare current hashes with the persisted set for each literal path."""
     selected = config_path or codex_config_path()
     try:
         expected = codex_hook_hashes(hooks_path)
@@ -147,7 +109,18 @@ def inspect_hook_file_trust(
         return HookFileTrust(
             str(hooks_path), tuple(sorted(expected)), blocked_reason=reason
         )
-    persisted = entries_for(state, hooks_path)
+    paths = spellings or codex_path_spellings(hooks_path)
+    if len(paths) == 1:
+        persisted = entries_for(state, Path(paths[0]))
+    else:
+        expected = {
+            f"{path}:{key}": digest for path in paths for key, digest in expected.items()
+        }
+        persisted = {
+            f"{path}:{key}": digest
+            for path in paths
+            for key, digest in entries_for(state, Path(path)).items()
+        }
     trusted = tuple(
         sorted(key for key, digest in expected.items() if persisted.get(key) == digest)
     )
@@ -185,30 +158,33 @@ def mint_installed_checkout_trust(
         raise CodexHookTrustStoreError(
             f"could not normalize {hooks_path}: {exc}"
         ) from exc
+    paths = codex_path_spellings(hooks_path)
 
     def plan(text: str, document: dict[str, Any]) -> tuple[str, TrustMutation]:
         state = _all_hook_entries(document)
-        existing = {key for key in state if _hook_path(key) == str(hooks_path)}
-        current = entries_for(
-            {
-                key: str(value.get(TRUSTED_HASH_KEY) or "")
-                for key, value in state.items()
-                if isinstance(value, dict)
-            },
-            hooks_path,
-        )
-        if current == expected and len(existing) == len(expected):
+        existing = {key for key in state if _hook_path(key) in paths}
+        wanted = {
+            f"{path}:{key}": digest for path in paths for key, digest in expected.items()
+        }
+        current = {
+            key: state[key].get(TRUSTED_HASH_KEY)
+            for key in existing
+            if isinstance(state[key], dict)
+        }
+        if current == wanted and existing == wanted.keys():
             return text, TrustMutation(str(selected))
         filtered, hook_count, _ = _filter_tables(text, existing, set())
         if hook_count != len(existing):
             raise CodexHookTrustStoreError(
                 "hook trust uses an unsupported inline TOML layout"
             )
-        updated = _append_hook_entries(filtered, hooks_path, expected)
+        updated = filtered
+        for path in paths:
+            updated = _append_hook_entries(updated, Path(path), expected)
         return updated, TrustMutation(
             str(selected),
             hook_entries_removed=hook_count,
-            hook_entries_written=len(expected),
+            hook_entries_written=len(wanted),
             changed=True,
         )
 
@@ -226,16 +202,14 @@ def remove_checkout_trust(
         raise CodexHookTrustStoreError(
             f"Codex config is not a regular file: {selected}"
         )
-    checkout_key = str(Path(checkout).expanduser())
-    hooks_path = str(hooks_file_for(checkout_key))
+    checkout_keys = set(codex_path_spellings(checkout))
+    hooks_paths = codex_path_spellings(hooks_file_for(checkout))
 
     def plan(text: str, document: dict[str, Any]) -> tuple[str, TrustMutation]:
         hook_keys = {
-            key for key in _all_hook_entries(document) if _hook_path(key) == hooks_path
+            key for key in _all_hook_entries(document) if _hook_path(key) in hooks_paths
         }
-        projects = (
-            {checkout_key} if checkout_key in _project_entries(document) else set()
-        )
+        projects = checkout_keys & _project_entries(document).keys()
         updated, hook_count, project_count = _filter_tables(text, hook_keys, projects)
         if hook_count != len(hook_keys) or project_count != len(projects):
             raise CodexHookTrustStoreError(
@@ -248,68 +222,6 @@ def remove_checkout_trust(
             changed=bool(hook_count or project_count),
         )
 
-    return _mutate(selected, plan)
-
-
-def stale_trust_scan(*, config_path: Optional[Path] = None) -> StaleTrustScan:
-    """Resolve every deleted literal path without changing the config."""
-    selected = config_path or codex_config_path()
-    if not selected.exists():
-        return StaleTrustScan(str(selected), skipped_reason="Codex config is absent")
-    if not selected.is_file():
-        raise CodexHookTrustStoreError(
-            f"Codex config is not a regular file: {selected}"
-        )
-    _, document = _read_config(selected)
-    hook_keys = tuple(
-        sorted(
-            key
-            for key in _all_hook_entries(document)
-            if (path := _hook_path(key)) is not None and _path_is_gone(path)
-        )
-    )
-    hook_paths = tuple(
-        sorted({_hook_path(key) for key in hook_keys if _hook_path(key)})
-    )
-    project_paths = tuple(
-        sorted(path for path in _project_entries(document) if _path_is_gone(path))
-    )
-    return StaleTrustScan(str(selected), hook_keys, hook_paths, project_paths)
-
-
-def sweep_stale_trust(
-    *, config_path: Optional[Path] = None, dry_run: bool = False
-) -> TrustMutation:
-    """Drop only trust tables whose literal filesystem paths are gone."""
-    selected = config_path or codex_config_path()
-    scan = stale_trust_scan(config_path=selected)
-    if scan.skipped_reason:
-        return TrustMutation(
-            str(selected), dry_run=dry_run, skipped_reason=scan.skipped_reason
-        )
-
-    def plan(text: str, _document: dict[str, Any]) -> tuple[str, TrustMutation]:
-        updated, hook_count, project_count = _filter_tables(
-            text, set(scan.hook_keys), set(scan.project_paths)
-        )
-        if hook_count != len(scan.hook_keys) or project_count != len(
-            scan.project_paths
-        ):
-            raise CodexHookTrustStoreError(
-                "stale trust uses an unsupported inline TOML layout"
-            )
-        return updated, TrustMutation(
-            str(selected),
-            hook_entries_removed=hook_count,
-            project_entries_removed=project_count,
-            stale_hook_paths=len(scan.hook_paths),
-            changed=bool(hook_count or project_count),
-            dry_run=dry_run,
-        )
-
-    if dry_run:
-        text, document = _read_config(selected)
-        return plan(text, document)[1]
     return _mutate(selected, plan)
 
 
