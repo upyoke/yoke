@@ -17,9 +17,6 @@ from yoke_core.domain.qa_plan_execution_store import (
 )
 
 
-# Enable only in the serving release selected for enforcement.
-ENFORCE_WALK_LAUNCH = False
-
 _WALK_LAUNCH_PREFIX = "qa-walk:"
 
 WALK_LAUNCH_GUIDANCE = (
@@ -64,7 +61,7 @@ def require_scoped_walk_launch(
     **scope: Any,
 ) -> None:
     """Preserve a scoped execution the same session can already resume."""
-    if not ENFORCE_WALK_LAUNCH or not _is_walk(roster):
+    if not _is_walk(roster):
         return
     execution_id = live_plan_execution_id(
         conn,
@@ -84,7 +81,7 @@ def require_walk_launch(
     conn: Any, roster: Sequence[Mapping[str, Any]], *, session_id: str
 ) -> None:
     """Check launch authority before freezing a new standalone walk roster."""
-    if ENFORCE_WALK_LAUNCH and _is_walk(roster):
+    if _is_walk(roster):
         _require_registered_walk_launch(conn, session_id)
 
 

@@ -11,8 +11,7 @@ from yoke_core.domain.qa_walk_launch_required import require_walk_launch
 
 
 @pytest.fixture
-def launches(monkeypatch):
-    monkeypatch.setattr(guard, "ENFORCE_WALK_LAUNCH", True)
+def launches():
     with closing(sqlite3.connect(":memory:")) as conn:
         conn.execute(
             "CREATE TABLE session_launches (registered_session_id TEXT, "
@@ -99,7 +98,7 @@ def test_scoped_walk_holder_cannot_freeze_fresh_walk(launches, monkeypatch):
     assert refusal.value.code == "qa_walk_needs_launched_session"
 
 
-def test_standalone_resume_survives_enabling_enforcement(monkeypatch):
+def test_standalone_resume_survives_the_walk_launch_requirement(monkeypatch):
     from runtime.api.domain.qa_plan_standalone_execution_test_support import _begin
     from runtime.api.fixtures.pg_testdb import test_database
     from yoke_core.domain.qa_plan_management import create_plan, replace_plan_cases
@@ -118,14 +117,13 @@ def test_standalone_resume_survives_enabling_enforcement(monkeypatch):
             }],
         )
         conn.commit()
-        monkeypatch.setattr(guard, "ENFORCE_WALK_LAUNCH", True)
         with pytest.raises(guard.QaWalkNeedsLaunchedSession):
             _begin(conn)
         conn.rollback()
         assert conn.execute("SELECT COUNT(*) FROM qa_plan_executions").fetchone()[0] == 0
 
-        monkeypatch.setattr(guard, "ENFORCE_WALK_LAUNCH", False)
-        live = _begin(conn)
-        monkeypatch.setattr(guard, "ENFORCE_WALK_LAUNCH", True)
+        with monkeypatch.context() as before_release:
+            before_release.setattr(guard, "_require_registered_walk_launch", lambda *_: None)
+            live = _begin(conn)
 
         assert _begin(conn)["id"] == live["id"]
