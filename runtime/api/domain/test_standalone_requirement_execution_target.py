@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from runtime.api.domain.machine_qa_session_seed import seed_registered_qa_launch
 from runtime.api.domain.standalone_requirement_execution_target_test_support import (
     PREVIEW_URL as PREVIEW_URL,
     TRANSITION as TRANSITION,
@@ -197,6 +198,7 @@ def test_update_then_begin_uses_persisted_snapshot() -> None:
         )
         assert result.ok, result.message
         assert not has_current_passing_run(conn, int(requirement["id"]))
+        seed_registered_qa_launch(conn, 'standalone-bound-begin', actor_id=7)
         execution = begin_plan_execution(
             conn,
             item_id=6406,

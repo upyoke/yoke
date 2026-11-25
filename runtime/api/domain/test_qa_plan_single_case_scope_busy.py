@@ -6,6 +6,7 @@ from typing import Any
 
 import pytest
 
+from runtime.api.domain.machine_qa_session_seed import seed_registered_qa_launch
 from runtime.api.domain.test_qa_plan_item_target_partition import (
     BRANCH,
     ITEM_ID,
@@ -23,6 +24,7 @@ from yoke_core.domain.qa_plan_execution_target_snapshot import (
 def _begin_case(
     conn: Any, tmp_path: Any, requirement_id: int, *, session_id: str = SESSION
 ) -> dict[str, Any]:
+    seed_registered_qa_launch(conn, session_id, actor_id=1)
     return begin_plan_execution(
         conn,
         item_id=ITEM_ID,

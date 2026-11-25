@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from runtime.api.domain.machine_qa_session_seed import seed_registered_qa_launch
 from runtime.api.domain.machine_qa_plan_execution_test_support import (
     ACTOR as ACTOR,
     _active_lease_count as _active_lease_count,
@@ -41,6 +42,7 @@ def test_ordered_plan_reuses_one_machine_lease_until_final_abort(
     item_id = 4420
     materialize_installer_campaign(test_db, item_id=item_id)
     configure_test_machine(test_db, tmp_path, monkeypatch)
+    seed_registered_qa_launch(test_db, ACTOR.session_id, actor_id=int(ACTOR.actor_id))
     execution = begin_plan_execution(
         test_db,
         item_id=item_id,
@@ -139,6 +141,7 @@ def test_machine_lease_waiting_state_resumes_at_the_same_cursor(
     item_id = 4421
     materialize_installer_campaign(test_db, item_id=item_id)
     configure_test_machine(test_db, tmp_path, monkeypatch)
+    seed_registered_qa_launch(test_db, ACTOR.session_id, actor_id=int(ACTOR.actor_id))
     execution = begin_plan_execution(
         test_db,
         item_id=item_id,
@@ -214,6 +217,7 @@ def test_machine_lease_acquisition_defers_commit_until_plan_attachment(
     item_id = 4422
     materialize_installer_campaign(test_db, item_id=item_id)
     configure_test_machine(test_db, tmp_path, monkeypatch)
+    seed_registered_qa_launch(test_db, ACTOR.session_id, actor_id=int(ACTOR.actor_id))
     execution = begin_plan_execution(
         test_db,
         item_id=item_id,
@@ -263,6 +267,7 @@ def test_active_plan_lease_refuses_a_different_machine_pin(
     item_id = 4423
     materialize_installer_campaign(test_db, item_id=item_id)
     configure_test_machine(test_db, tmp_path, monkeypatch)
+    seed_registered_qa_launch(test_db, ACTOR.session_id, actor_id=int(ACTOR.actor_id))
     execution = begin_plan_execution(
         test_db,
         item_id=item_id,

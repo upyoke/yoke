@@ -6,6 +6,7 @@ from typing import Any
 
 import pytest
 
+from runtime.api.domain.machine_qa_session_seed import seed_registered_qa_launch
 from runtime.api.domain.machine_qa_host_test_support import configure_test_machine
 from runtime.api.fixtures.backlog import insert_item_worktree
 from runtime.api.fixtures.backlog_inserts import insert_item
@@ -127,6 +128,7 @@ def _pass(conn: Any, requirement_id: int, *, head_sha: str) -> None:
 
 
 def _begin(conn: Any, tmp_path: Any) -> dict[str, Any]:
+    seed_registered_qa_launch(conn, SESSION, actor_id=1)
     return begin_plan_execution(
         conn,
         item_id=ITEM_ID,

@@ -12,6 +12,7 @@ from runtime.api.domain.deployment_qa_stage_execution_test_support import (
     _seed_run,
     _stages,
 )
+from runtime.api.domain.machine_qa_session_seed import seed_registered_qa_launch
 from runtime.api.fixtures.carried_release_candidate import (
     git,
     insert_run,
@@ -222,13 +223,17 @@ def test_driver_runs_candidate_plans_beside_a_pending_review(tmp_path, monkeypat
         _transport(monkeypatch, actor)
         ensure_groups(conn, RUN, "item-qa")
         conn.commit()
+        walk_session = "release-review-walk"
+        seed_registered_qa_launch(
+            conn, walk_session, requester_session_id=DRIVER_SESSION, actor_id=int(actor.actor_id),
+        )
         review = begin_plan_execution(
             conn,
             deployment_run_id=RUN,
             deployment_stage="item-qa",
             plan="review",
             actor_id=actor.actor_id,
-            session_id=actor.session_id,
+            session_id=walk_session,
         )
         conn.execute(
             "UPDATE qa_plan_executions SET state='awaiting_walk_review' WHERE id=%s",

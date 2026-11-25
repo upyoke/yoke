@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from runtime.api.domain.machine_qa_session_seed import seed_registered_qa_launch
 from runtime.api.domain.machine_qa_host_test_support import (
     TEST_MACHINE_SETTINGS,
     _terminal_recipe,
@@ -106,6 +107,7 @@ def _seed(conn, tmp_path, monkeypatch, *plans):
 
 
 def _begin(conn, session, plan=FIRST, *, partition=None):
+    seed_registered_qa_launch(conn, session, actor_id=1)
     return begin_plan_execution(
         conn,
         deployment_run_id=RUN,

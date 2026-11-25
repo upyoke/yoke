@@ -5,6 +5,7 @@ import json
 
 import pytest
 
+from runtime.api.domain.machine_qa_session_seed import seed_registered_qa_launch
 from runtime.api.domain.deployment_qa_stage_execution_test_support import (
     _complete_case,
     _plan,
@@ -53,6 +54,7 @@ def _attach(conn, member, plan_id):
 
 
 def _begin(conn, member=None):
+    seed_registered_qa_launch(conn, "plan-group-qa", actor_id=2)
     return begin_plan_execution(
         conn,
         deployment_run_id=RUN,

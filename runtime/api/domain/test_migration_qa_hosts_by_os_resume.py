@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 
+from runtime.api.domain.machine_qa_session_seed import seed_registered_qa_launch
 from runtime.api.domain.migration_qa_hosts_by_os_test_support import migration
 from runtime.api.domain.qa_plan_execution_authority_test_support import (
     _materialize_two_cases,
@@ -35,6 +36,7 @@ _LEGACY_KIND = "test-machine:lin-1"
 
 
 def _begin(conn, item_id):
+    seed_registered_qa_launch(conn, OWNER["session_id"], actor_id=int(OWNER["actor_id"]))
     return begin_plan_execution(conn, item_id=item_id, transition_id="implemented", **OWNER)
 
 

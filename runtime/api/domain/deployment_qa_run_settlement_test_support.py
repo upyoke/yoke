@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 import pytest
 
+from runtime.api.domain.machine_qa_session_seed import seed_registered_qa_launch
 from runtime.api.domain.deployment_qa_stage_execution_test_support import (
     _complete_case,
     _plan,
@@ -82,6 +83,7 @@ def exercise_late_verdict(test_db):
         deployment_stage="member-qa",
         deployment_member_item_id=item_id,
     )
+    seed_registered_qa_launch(test_db, "late-verdict", actor_id=2)
     execution = begin_plan_execution(
         test_db,
         deployment_run_id=run_id,

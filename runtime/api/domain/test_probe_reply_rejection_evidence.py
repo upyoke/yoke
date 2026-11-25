@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from runtime.api.domain.machine_qa_session_seed import seed_registered_qa_launch
 from runtime.api.domain.probe_reply_rejection_evidence_test_support import (
     _artifacts as _artifacts,
     _blocked_result as _blocked_result,
@@ -228,6 +229,7 @@ def test_a_mission_whose_baseline_rejected_a_reply_names_it_on_its_run(
     code, stdout = _sealed_stdout(monkeypatch, capsys, SECRET)
     configure_test_machine(test_db, tmp_path, monkeypatch)
     requirement_id = _materialize_mission(test_db, item_id=4066)
+    seed_registered_qa_launch(test_db, ACTOR.session_id, actor_id=int(ACTOR.actor_id))
     execution_id = str(
         begin_plan_execution(
             test_db,

@@ -1,5 +1,6 @@
 """Manual project plans own fresh snapshots without item or delivery gates."""
 
+from runtime.api.domain.machine_qa_session_seed import seed_registered_qa_launch
 from runtime.api.domain.qa_plan_standalone_execution_test_support import (
     SHA as SHA,
     _begin as _begin,
@@ -204,6 +205,7 @@ def test_inheriting_case_is_blocked_when_its_own_predecessor_failed(
     configure_test_machine(test_db, tmp_path, monkeypatch)
     plan = _plan(test_db)
     _machine_chain(test_db, plan["id"])
+    seed_registered_qa_launch(test_db, "manual-owner", actor_id=7)
     old = _begin(test_db)
     finish_plan_execution(test_db, old, state="aborted", reason="new-run")
     current = _begin(test_db)
@@ -270,6 +272,7 @@ def test_standalone_machine_chain_resets_once_and_restores_after_its_last_case(
     configure_test_machine(test_db, tmp_path, monkeypatch)
     plan = _plan(test_db)
     _machine_chain(test_db, plan["id"], method=method)
+    seed_registered_qa_launch(test_db, 'session-machine-plan', actor_id=1)
     execution = begin_standalone_execution(
         test_db,
         plan="manual-proof",

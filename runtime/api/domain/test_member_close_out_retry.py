@@ -15,6 +15,7 @@ from uuid import uuid4
 
 import pytest
 
+from runtime.api.domain.machine_qa_session_seed import seed_registered_qa_launch
 from runtime.api.domain.independent_member_delivery_close_out_test_support import (
     MEMBER_A,
     MEMBER_B,
@@ -212,6 +213,7 @@ def test_owner_review_closes_accepted_member_while_a_sibling_waits(
             deployment_stage="item-qa",
             deployment_member_item_id=member,
         )
+    seed_registered_qa_launch(test_db, HOLDER_A, actor_id=1)
     execution = begin_plan_execution(
         test_db,
         deployment_run_id=RUN_ID,

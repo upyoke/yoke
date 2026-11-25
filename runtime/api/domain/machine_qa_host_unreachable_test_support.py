@@ -9,6 +9,7 @@ from typing import Any
 
 import pytest
 
+from runtime.api.domain.machine_qa_session_seed import seed_registered_qa_launch
 from runtime.api.domain.machine_qa_host_test_support import (
     configure_test_machine,
     materialize_installer_campaign,
@@ -58,6 +59,7 @@ from yoke_core.domain.work_claim_targets import make_qa_admission_target
 def _plan(conn: Any, tmp_path: Path, monkeypatch: Any) -> tuple[dict, dict]:
     materialize_installer_campaign(conn, item_id=ITEM_ID)
     configure_test_machine(conn, tmp_path, monkeypatch)
+    seed_registered_qa_launch(conn, ACTOR.session_id, actor_id=int(ACTOR.actor_id))
     execution = begin_plan_execution(
         conn,
         item_id=ITEM_ID,

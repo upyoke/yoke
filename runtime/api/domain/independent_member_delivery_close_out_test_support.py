@@ -7,6 +7,7 @@ from typing import Any
 
 import pytest
 
+from runtime.api.domain.machine_qa_session_seed import seed_registered_qa_launch
 from runtime.api.domain.deployment_qa_stage_execution_test_support import (
     _environment,
     _plan,
@@ -91,6 +92,7 @@ def _settle(
         deployment_stage=stage,
         deployment_member_item_id=member,
     )
+    seed_registered_qa_launch(conn, f"{stage}-{member}", actor_id=2)
     execution = begin_plan_execution(
         conn,
         deployment_run_id=run_id,

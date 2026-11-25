@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from runtime.api.domain.machine_qa_session_seed import seed_registered_qa_launch
 from runtime.api.domain.qa_plan_execution_parked_continuation_test_support import (
     LONG_AGO as LONG_AGO,
     MISSION_ACTOR as MISSION_ACTOR,
@@ -221,6 +222,7 @@ def test_continuation_is_refused_when_the_sweep_did_not_settle_the_prior_walk(
 ) -> None:
     configure_test_machine(test_db, tmp_path, monkeypatch)
     _materialize_mission(test_db, item_id=4904)
+    seed_registered_qa_launch(test_db, MISSION_ACTOR.session_id, actor_id=int(MISSION_ACTOR.actor_id))
     execution = begin_plan_execution(
         test_db,
         item_id=4904,
@@ -257,6 +259,7 @@ def test_continuation_is_refused_while_the_execution_is_still_live(
 ) -> None:
     configure_test_machine(test_db, tmp_path, monkeypatch)
     _materialize_mission(test_db, item_id=4905)
+    seed_registered_qa_launch(test_db, MISSION_ACTOR.session_id, actor_id=int(MISSION_ACTOR.actor_id))
     begin_plan_execution(
         test_db,
         item_id=4905,

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from runtime.api.domain.machine_qa_session_seed import seed_registered_qa_launch
 from runtime.api.domain.qa_member_machine_partitions_test_support import (
     MACHINES as MACHINES,
     MEMBER as MEMBER,
@@ -92,6 +93,7 @@ def test_disjoint_member_partitions_are_live_in_parallel(test_db, tmp_path, monk
     )
 
     def begin(session, key):
+        seed_registered_qa_launch(test_db, session, actor_id=1)
         return begin_plan_execution(
             test_db, deployment_run_id=RUN, deployment_stage="item-qa",
             deployment_member_item_id=MEMBER, actor_id="1", session_id=session,

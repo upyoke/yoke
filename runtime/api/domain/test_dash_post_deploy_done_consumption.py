@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from runtime.api.domain.machine_qa_session_seed import seed_registered_qa_launch
 from runtime.api.domain.dash_post_deploy_done_consumption_test_support import (
     _accept_member_qa as _accept_member_qa,
     _bind_original as _bind_original,
@@ -179,6 +180,7 @@ def test_required_human_pending_blocks_done_after_scoped_cases_pass(
         deployment_stage="member-qa",
         deployment_member_item_id=item_id,
     )
+    seed_registered_qa_launch(test_db, 'qa-human-pending', actor_id=2)
     execution = begin_plan_execution(
         test_db,
         deployment_run_id="run-human-pending",

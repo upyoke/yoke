@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from runtime.api.domain.machine_qa_session_seed import seed_registered_qa_launch
 from runtime.api.domain.machine_qa_chain_restore_test_support import _contract
 from yoke_core.domain import machine_qa_local_execution as local
 from yoke_core.domain.machine_qa_phase_heartbeat import (
@@ -106,6 +107,7 @@ def test_server_retains_lease_until_submitted_restore_proof(
     item_id = 4550
     materialize_installer_campaign(test_db, item_id=item_id)
     configure_test_machine(test_db, tmp_path, monkeypatch)
+    seed_registered_qa_launch(test_db, ACTOR.session_id, actor_id=int(ACTOR.actor_id))
     execution = begin_plan_execution(
         test_db,
         item_id=item_id,

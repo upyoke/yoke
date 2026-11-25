@@ -2,6 +2,7 @@
 
 import json
 
+from runtime.api.domain.machine_qa_session_seed import seed_registered_qa_launch
 from runtime.api.domain.machine_qa_host_test_support import (
     configure_test_machine,
 )
@@ -31,6 +32,7 @@ def test_failed_preparation_persists_qa_error_and_successful_baseline_receipt(
     item_id = 4821
     configure_test_machine(test_db, tmp_path, monkeypatch)
     requirement_id = _materialize_mission(test_db, item_id=item_id)
+    seed_registered_qa_launch(test_db, ACTOR.session_id, actor_id=int(ACTOR.actor_id))
     execution = begin_plan_execution(
         test_db,
         item_id=item_id,
