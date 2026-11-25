@@ -1,4 +1,4 @@
-"""Authorize exactly the partition assigned to a claimless QA walker."""
+"""Authorize exactly the partition assigned to a claimless walk session."""
 
 from __future__ import annotations
 

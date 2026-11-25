@@ -157,7 +157,7 @@ READ_COMMAND_ROUTES = frozenset(
         "projects resolve-by-github-repo|qa activity list|qa artifact get|"
         "qa artifact presign|qa artifact read|qa browser-context get|"
         "qa gate-summary|qa method get|qa method list|qa methods get|"
-        "qa methods list|qa plan get|qa plan list|qa plan partitions|qa requirement get|"
+        "qa methods list|qa plan get|qa plan list|qa requirement get|"
         "qa requirement list|qa run get|qa run list|readiness check|"
         "readiness prd-validate|scratch dispatch-inputs|"
         "session-control launch get|session-control launch list|"
