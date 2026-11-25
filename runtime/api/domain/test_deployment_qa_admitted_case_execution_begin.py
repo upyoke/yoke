@@ -21,6 +21,7 @@ from runtime.api.domain.machine_qa_host_test_support import (
 from runtime.api.domain.deployment_qa_admission_execution_test_support import (
     _seed_selected_requirement_run,
 )
+from runtime.api.domain.machine_qa_session_seed import seed_registered_qa_launch
 from runtime.api.fixtures.backlog_inserts import insert_item
 from yoke_contracts.api.function_call import (
     ActorContext,
@@ -108,6 +109,7 @@ def test_an_admitted_copy_stores_no_position_of_its_own(
 def test_an_admitted_mission_copy_begins_without_a_roster_drift_refusal(
     test_db, admitted_mission_requirement
 ) -> None:
+    seed_registered_qa_launch(test_db, SESSION_ID)
     execution = begin_plan_execution(
         test_db,
         deployment_run_id=RUN_ID,

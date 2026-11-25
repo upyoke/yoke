@@ -79,4 +79,56 @@ def seed_qa_session(
     conn.commit()
 
 
-__all__ = ["seed_qa_session"]
+def seed_registered_qa_launch(
+    conn: Any,
+    session_id: str,
+    *,
+    requester_session_id: str | None = None,
+    key: str | None = None,
+) -> str:
+    """Record the real launch and opening message rows for a fixture worker."""
+    from datetime import timedelta
+    from uuid import uuid4
+
+    from yoke_core.domain.session_launch_store import insert_instruction_message
+
+    worker = conn.execute(
+        "SELECT actor_id, project_id FROM harness_sessions WHERE session_id=%s",
+        (session_id,),
+    ).fetchone()
+    requester = requester_session_id or f"{session_id}-launcher"
+    if requester_session_id is None:
+        seed_qa_session(conn, requester, actor_id=worker["actor_id"])
+    launch_id = str(uuid4())
+    message_id = str(uuid4())
+    now = utc_now()
+    deadline = now + timedelta(minutes=10)
+    insert_instruction_message(
+        conn,
+        message_id=message_id,
+        launch_id=launch_id,
+        actor_id=worker["actor_id"],
+        session_id=requester,
+        sender_surface=None,
+        project_id=worker["project_id"],
+        body="Walk QA.",
+        created_at=now,
+        expires_at=deadline,
+    )
+    conn.execute(
+        "INSERT INTO session_launches (launch_id,requester_actor_id,"
+        "requester_session_id,project_id,requested_surface,selected_surface,"
+        "message_id,idempotency_key,state,registered_session_id,created_at,deadline_at) "
+        "VALUES (%s,%s,%s,%s,'codex-cli','codex-cli',%s,%s,'succeeded',%s,%s,%s)",
+        (launch_id, worker["actor_id"], requester, worker["project_id"],
+         message_id, key or f"qa-walk:PLAN@SHA:-:{session_id}:1", session_id, now, deadline),
+    )
+    conn.execute(
+        "UPDATE harness_sessions SET first_completed_work_at=%s WHERE session_id=%s",
+        (now, session_id),
+    )
+    conn.commit()
+    return launch_id
+
+
+__all__ = ["seed_qa_session", "seed_registered_qa_launch"]

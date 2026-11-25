@@ -15,7 +15,10 @@ from runtime.api.domain.agent_mission_qa_test_support import (
     _request,
 )
 from runtime.api.domain.machine_qa_host_test_support import configure_test_machine
-from runtime.api.domain.machine_qa_session_seed import seed_qa_session
+from runtime.api.domain.machine_qa_session_seed import (
+    seed_qa_session,
+    seed_registered_qa_launch,
+)
 from runtime.api.domain.machine_qa_test_support import FakeHostControl
 from runtime.api.domain.qa_host_turns_test_support import _execution_wait, _notices
 from yoke_contracts.timestamps import utc_now
@@ -55,6 +58,7 @@ def review_walk(test_db, tmp_path, monkeypatch):
     """A mission walk in awaiting_walk_review holding its primary host lease."""
     configure_test_machine(test_db, tmp_path, monkeypatch)
     seed_qa_session(test_db, ACTOR.session_id)
+    seed_registered_qa_launch(test_db, ACTOR.session_id)
     requirement = _materialize_mission(test_db, item_id=ITEM)
     execution = begin_plan_execution(
         test_db,

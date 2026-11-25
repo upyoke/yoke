@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from datetime import timedelta
-from uuid import uuid4
-
 import pytest
 
-from runtime.api.domain.machine_qa_session_seed import seed_qa_session
+from runtime.api.domain.machine_qa_session_seed import (
+    seed_qa_session,
+    seed_registered_qa_launch,
+)
 from runtime.api.domain.qa_plan_execution_authority_test_support import (
     _materialize_two_cases,
 )
@@ -22,7 +22,6 @@ from yoke_core.domain.qa_plan_execution_state import (
 )
 from yoke_core.domain.qa_plan_execution_stop import stop_plan_execution
 from yoke_core.domain.session_launch_abandonment import settle_and_notify
-from yoke_core.domain.session_launch_store import insert_instruction_message
 from yoke_core.domain.session_message_service import send_message
 from yoke_core.domain.sessions_render_end import end_session
 
@@ -30,34 +29,10 @@ OWNER, LAUNCHER, OTHER_LAUNCHER = "walker", "launcher", "other-launcher"
 ITEM = 4909
 
 
-def _message(conn, *, launch_id, sender, body):
-    now = utc_now()
-    message_id = str(uuid4())
-    insert_instruction_message(
-        conn, message_id=message_id, launch_id=launch_id, actor_id=1,
-        session_id=sender, sender_surface=None, project_id=1,
-        body=body, created_at=now, expires_at=now + timedelta(minutes=10),
-    )
-    return message_id
-
-
 def _launch(conn, *, requester, worker, key):
-    launch_id = str(uuid4())
-    now = utc_now()
-    message_id = _message(conn, launch_id=launch_id, sender=requester, body="Walk QA.")
-    conn.execute(
-        "INSERT INTO session_launches "
-        "(launch_id,requester_actor_id,requester_session_id,project_id,requested_surface,"
-        "selected_surface,message_id,idempotency_key,state,registered_session_id,created_at,deadline_at) "
-        "VALUES (%s,1,%s,1,'codex-cli','codex-cli',%s,%s,'succeeded',%s,%s,%s)",
-        (launch_id, requester, message_id, key, worker, now, now + timedelta(minutes=10)),
+    return seed_registered_qa_launch(
+        conn, worker, requester_session_id=requester, key=key,
     )
-    conn.execute(
-        "UPDATE harness_sessions SET first_completed_work_at=%s WHERE session_id=%s",
-        (now, worker),
-    )
-    conn.commit()
-    return launch_id
 
 
 @pytest.fixture
