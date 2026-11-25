@@ -181,6 +181,11 @@ def prepare_roster(
         raise QaPlanExecutionStateError(
             "materialized QA roster does not match the active deployment target"
         )
+    from yoke_core.domain.qa_walk_launch_required import require_scoped_walk_launch
+    require_scoped_walk_launch(
+        conn, roster, session_id=session_id, execution_target_digest=execution_target_digest,
+        item_id=item_id, transition_id=transition_id, **scope,
+    )
     return PreparedRoster(
         roster, remaining, digest, execution_target, execution_target_digest
     )

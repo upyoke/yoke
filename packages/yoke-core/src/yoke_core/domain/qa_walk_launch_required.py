@@ -9,8 +9,16 @@ from yoke_contracts.qa_case_starting_state import is_host_command, needs_test_ma
 from yoke_contracts.refusal_recovery import compose_refusal
 
 from yoke_core.domain.db_helpers import query_one
-from yoke_core.domain.qa_plan_execution_store import QaPlanExecutionStateError, marker
+from yoke_core.domain.qa_plan_execution_store import (
+    QaPlanExecutionStateError,
+    live_plan_execution_id,
+    marker,
+    select_plan_execution,
+)
 
+
+# Enable only in the serving release selected for enforcement.
+ENFORCE_WALK_LAUNCH = False
 
 _WALK_LAUNCH_PREFIX = "qa-walk:"
 
@@ -39,17 +47,45 @@ class QaWalkNeedsLaunchedSession(QaPlanExecutionStateError):
     code = "qa_walk_needs_launched_session"
 
 
-def require_walk_launch(
-    conn: Any, roster: Sequence[Mapping[str, Any]], *, session_id: str
-) -> None:
-    """Check launch authority before freezing a new walk roster."""
-    if not any(
+def _is_walk(roster: Sequence[Mapping[str, Any]]) -> bool:
+    return any(
         needs_test_machine(case)
         or is_host_command(case)
         or case.get("verdict_path", "automatic") != "automatic"
         for case in roster
-    ):
+    )
+
+
+def require_scoped_walk_launch(
+    conn: Any,
+    roster: Sequence[Mapping[str, Any]],
+    *,
+    session_id: str,
+    execution_target_digest: str,
+    **scope: Any,
+) -> None:
+    """Preserve a scoped execution the same session can already resume."""
+    if not ENFORCE_WALK_LAUNCH or not _is_walk(roster):
         return
+    execution_id = live_plan_execution_id(
+        conn, **scope, session_id=session_id, execution_target_digest=execution_target_digest
+    )
+    if execution_id is not None:
+        execution = select_plan_execution(conn, execution_id, lock=False)
+        if execution.get("session_id") == session_id:
+            return
+    _require_registered_walk_launch(conn, session_id)
+
+
+def require_walk_launch(
+    conn: Any, roster: Sequence[Mapping[str, Any]], *, session_id: str
+) -> None:
+    """Check launch authority before freezing a new standalone walk roster."""
+    if ENFORCE_WALK_LAUNCH and _is_walk(roster):
+        _require_registered_walk_launch(conn, session_id)
+
+
+def _require_registered_walk_launch(conn: Any, session_id: str) -> None:
     param = marker(conn)
     launch = query_one(
         conn,

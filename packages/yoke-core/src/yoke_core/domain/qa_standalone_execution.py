@@ -277,6 +277,8 @@ def begin_standalone_execution(
             "chain to a separate plan, or attach the plan to an item or "
             "deployment stage for automatic execution partitioning"
         )
+    from yoke_core.domain.qa_walk_launch_required import require_walk_launch
+    require_walk_launch(conn, roster, session_id=session_id)
     validate_roster_machine(conn, roster, test_machine)
     if continuation:
         require_same_mission_roster(continuation, roster)

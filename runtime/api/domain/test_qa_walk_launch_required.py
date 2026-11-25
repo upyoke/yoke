@@ -6,11 +6,13 @@ from contextlib import closing
 import pytest
 
 from yoke_core.domain.qa_plan_execution_store import QaPlanExecutionStateError
+from yoke_core.domain import qa_walk_launch_required as guard
 from yoke_core.domain.qa_walk_launch_required import require_walk_launch
 
 
 @pytest.fixture
-def launches():
+def launches(monkeypatch):
+    monkeypatch.setattr(guard, "ENFORCE_WALK_LAUNCH", True)
     with closing(sqlite3.connect(":memory:")) as conn:
         conn.execute(
             "CREATE TABLE session_launches (registered_session_id TEXT, "
@@ -73,3 +75,25 @@ def test_automatic_hostless_partitions_need_no_launch(launches, runner):
         launches, [{"runner_id": runner, "verdict_path": "automatic"}],
         session_id="holder",
     )
+
+
+def test_scoped_walk_resume_does_not_need_launch(launches, monkeypatch):
+    monkeypatch.setattr(guard, "live_plan_execution_id", lambda *args, **kwargs: "live")
+    monkeypatch.setattr(
+        guard, "select_plan_execution", lambda *args, **kwargs: {"session_id": "owner"}
+    )
+
+    guard.require_scoped_walk_launch(
+        launches, [{"runner_id": "agent_mission", "verdict_path": "agent"}],
+        session_id="owner", item_id=19, transition_id="review", execution_target_digest="target",
+    )
+
+
+def test_scoped_walk_holder_cannot_freeze_fresh_walk(launches, monkeypatch):
+    monkeypatch.setattr(guard, "live_plan_execution_id", lambda *args, **kwargs: None)
+    with pytest.raises(guard.QaWalkNeedsLaunchedSession) as refusal:
+        guard.require_scoped_walk_launch(
+            launches, [{"runner_id": "agent_mission", "verdict_path": "agent"}],
+            session_id="holder", item_id=19, transition_id="review", execution_target_digest="target",
+        )
+    assert refusal.value.code == "qa_walk_needs_launched_session"
