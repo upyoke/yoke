@@ -16,6 +16,7 @@ import subprocess
 import pytest
 
 from runtime.api.domain import deployment_run_target_takeover_test_support as takeover
+from runtime.api.domain.machine_qa_session_seed import seed_registered_qa_launch
 from runtime.api.domain.agent_mission_qa_test_support import ACTOR
 from runtime.api.domain.machine_qa_host_test_support import configure_test_machine
 from runtime.api.domain.machine_qa_test_support import FakeHostControl
@@ -203,6 +204,7 @@ def test_taken_over_mission_walk_commands_its_host_and_ends(
     test_db, tmp_path, monkeypatch, waive_mission,
 ):
     configure_test_machine(test_db, tmp_path, monkeypatch)
+    seed_registered_qa_launch(test_db, ACTOR.session_id)
     # Suppress only the external review wake sent to the run's driver session.
     monkeypatch.setattr(
         "yoke_core.domain.qa_plan_agent_review_wake.notify_scoped_agent_review",

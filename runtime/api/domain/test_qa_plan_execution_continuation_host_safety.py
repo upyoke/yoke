@@ -6,6 +6,7 @@ from typing import Any
 
 import pytest
 
+from runtime.api.domain.machine_qa_session_seed import seed_registered_qa_launch
 from runtime.api.domain.machine_operation_test_support import operation_receipts
 from runtime.api.domain.machine_qa_host_test_support import (
     configure_test_machine,
@@ -133,6 +134,7 @@ def test_fresh_mission_resets_for_its_docket_and_again_at_walk_start(
 
     item_id = 4911
     configure_test_machine(test_db, tmp_path, monkeypatch)
+    seed_registered_qa_launch(test_db, MISSION_ACTOR.session_id)
     _materialize_mission(test_db, item_id=item_id)
     execution = begin_plan_execution(
         test_db,

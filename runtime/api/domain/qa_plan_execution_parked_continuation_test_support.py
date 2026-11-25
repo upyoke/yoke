@@ -11,7 +11,7 @@ from runtime.api.domain.machine_qa_host_test_support import (
     configure_test_machine,
 )
 
-from runtime.api.domain.machine_qa_session_seed import seed_qa_session
+from runtime.api.domain.machine_qa_session_seed import seed_qa_session, seed_registered_qa_launch
 
 from runtime.api.domain.agent_mission_qa_test_support import _materialize_mission
 
@@ -70,6 +70,7 @@ def _swept_mission(
 ) -> tuple[int, dict[str, Any]]:
     """Settle one mission execution exactly the way the stale sweep does."""
     configure_test_machine(conn, tmp_path, monkeypatch)
+    seed_registered_qa_launch(conn, ACTOR.session_id)
     requirement_id = _materialize_mission(conn, item_id=item_id)
     execution = begin_plan_execution(
         conn,

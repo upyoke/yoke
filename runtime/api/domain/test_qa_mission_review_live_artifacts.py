@@ -8,6 +8,7 @@ from typing import Any
 import pytest
 
 from runtime.api.domain import qa_execution_walk_states_test_support as walk_states
+from runtime.api.domain.machine_qa_session_seed import seed_registered_qa_launch
 from runtime.api.domain.agent_mission_qa_test_support import (
     ACTOR,
     FakeHostControl,
@@ -31,6 +32,7 @@ from yoke_core.domain.qa_plan_execution_reconcile import _valid_capture
 
 def _prepared_mission(test_db: Any, tmp_path: Any, monkeypatch: Any, item_id: int):
     configure_test_machine(test_db, tmp_path, monkeypatch)
+    seed_registered_qa_launch(test_db, ACTOR.session_id)
     requirement_id = _materialize_mission(test_db, item_id=item_id)
     execution_id = str(
         begin_plan_execution(
