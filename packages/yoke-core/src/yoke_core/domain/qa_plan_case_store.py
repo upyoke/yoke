@@ -16,6 +16,19 @@ from yoke_contracts.qa_case_wake_path import WakePathError, normalize_wake_path
 from yoke_core.domain.qa_plan_management import QaPlanError, _json, _placeholder
 
 
+def require_earlier_predecessors(cases: list[dict[str, Any]]) -> None:
+    """Refuse missing, forward or self references in position order."""
+    seen = set()
+    for case in cases:
+        after = case.get("after_case_key")
+        if after is not None and (not isinstance(after, str) or after not in seen):
+            raise QaPlanError(
+                f"qa_plan_case_predecessor_invalid: case {case['case_key']!r} names "
+                f"after_case_key={after!r}; name a case earlier in this plan"
+            )
+        seen.add(case["case_key"])
+
+
 def apply_starting_states(
     cases: list[dict[str, Any]],
     *,

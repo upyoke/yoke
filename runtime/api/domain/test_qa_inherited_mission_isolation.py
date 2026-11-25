@@ -110,6 +110,7 @@ def test_each_chain_baseline_takes_only_its_own_chain_hosts(
     from yoke_core.domain.qa_plan_management import replace_plan_cases
     from yoke_core.domain.qa_plan_execution_state import (
         advance_plan_execution,
+        finish_plan_execution,
         lock_plan_execution,
     )
     from yoke_core.domain.qa_plan_host_leases import execution_host_leases
@@ -177,9 +178,21 @@ def test_each_chain_baseline_takes_only_its_own_chain_hosts(
         requirement_id=opener["requirement_id"],
         result={"requirement_id": opener["requirement_id"], "case_outcome": "passed"},
     )
-    response = _case_begin(current, 1)
+    finish_plan_execution(test_db, current, state="completed", reason="first-partition")
+    from yoke_core.domain.qa_standalone_partitions import standalone_partition_views
+
+    partitions = standalone_partition_views(
+        test_db, execution["standalone_plan_id"], source_revision="a" * 40,
+    )
+    second = begin_standalone_execution(
+        test_db, plan="host-check-0", project="yoke", actor_id="1", session_id=SESSION,
+        source_revision="a" * 40, checkout_path=str(tmp_path),
+        partition=partitions[1].partition.key,
+    )
+    assert second["id"] != execution["id"]
+    response = _case_begin(second, 0)
     assert response.primary_success, response.error
-    current = lock_plan_execution(test_db, execution["id"])
+    current = lock_plan_execution(test_db, second["id"])
     # The opener's baseline is not covered, so its slots are acquired anew; the
     # idle identical mac stays free.
     assert {
@@ -190,15 +203,15 @@ def test_each_chain_baseline_takes_only_its_own_chain_hosts(
         "SELECT released_at FROM work_claims WHERE id=%s", (old_lease,)
     ).fetchone()[0]
 
-    opener = current["roster"][1]
+    opener = current["roster"][0]
     advance_plan_execution(
         test_db,
         current,
-        ordinal=1,
+        ordinal=0,
         requirement_id=opener["requirement_id"],
         result={"requirement_id": opener["requirement_id"], "case_outcome": "passed"},
     )
-    response = _case_begin(current, 2)
+    response = _case_begin(current, 1)
     assert response.primary_success, response.error
     assert len(execution_host_leases(test_db, current)) == 2
 

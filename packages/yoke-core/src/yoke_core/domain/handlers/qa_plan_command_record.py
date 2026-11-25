@@ -79,7 +79,7 @@ def _record(conn, execution, case, parsed) -> int:
     if not isinstance(raw, dict):
         raise ValueError("Command proof must be a JSON object.")
     frozen_sha = case.get("lane_commit_sha") or case.get("standalone_source_revision")
-    if frozen_sha and recorded_head_sha(raw) != frozen_sha:
+    if frozen_sha and recorded_head_sha(parsed.raw_result) != frozen_sha:
         raise ValueError(
             f"qa_lane_moved: command proof does not name frozen commit {frozen_sha}; "
             "restore the checkout at that SHA before running the partition"

@@ -255,17 +255,7 @@ def _validated_cases(cases: list[dict]) -> list[dict]:
                 "required_completion": raw.get("required_completion"),
             }
         )
-    ordered = sorted(result, key=lambda case: case["position"])
-    seen = set()
-    for case in ordered:
-        after = case["after_case_key"]
-        if after is not None and (not isinstance(after, str) or after not in seen):
-            raise QaPlanError(
-                f"qa_plan_case_predecessor_invalid: case {case['case_key']!r} names "
-                f"after_case_key={after!r}; name a case earlier in this plan"
-            )
-        seen.add(case["case_key"])
-    return ordered
+    return sorted(result, key=lambda case: case["position"])
 
 
 def _validated_plan_cases(
@@ -312,9 +302,11 @@ def _validated_plan_cases(
         )
         validate_case_targets(conn, plan=plan, case=case)
     from yoke_core.domain.qa_plan_case_store import (
+        require_earlier_predecessors,
         apply_starting_states,
         apply_wake_paths,
     )
+    require_earlier_predecessors(cases)
 
     apply_wake_paths(cases)
     apply_starting_states(
