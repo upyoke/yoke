@@ -35,7 +35,6 @@ def settle_expired_relay_leases(conn: Any, *, now: datetime | str) -> int:
     """Close unreported jobs at their own deadlines without guessing outcomes."""
     from yoke_core.domain.session_launch_deadlines import settle_launch_deadlines
 
-    settle_launch_deadlines(conn, now=now)
     p = marker(conn)
     rows = conn.execute(
         "SELECT DISTINCT relay_id,batch_id FROM session_launch_attempts "
@@ -52,6 +51,8 @@ def settle_expired_relay_leases(conn: Any, *, now: datetime | str) -> int:
         clear_relay_batch_when_drained(
             conn, relay_id=str(relay_id), batch_id=str(batch_id)
         )
+    # Settle relay-owned attempts while a silent launch is still launching.
+    settle_launch_deadlines(conn, now=now)
     conn.commit()
     return changed
 

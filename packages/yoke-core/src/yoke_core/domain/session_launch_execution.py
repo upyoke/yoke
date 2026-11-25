@@ -101,7 +101,7 @@ def expire_launch_attempt(
     result_code: str,
     now: datetime | str,
 ) -> LaunchRecord:
-    """Close an abandoned attempt, retaining its progress evidence."""
+    """Close an abandoned attempt without undoing launch registration."""
     begin_mutation(conn)
     try:
         launch = get_launch(conn, launch_id, for_update=True)
@@ -120,7 +120,6 @@ def expire_launch_attempt(
             started_at=value(attempt, "started_at", 2),
             now=now,
         )
-        merged = merge_redacted_evidence(value(attempt, "evidence", 6), evidence)
         _complete_attempt(
             conn,
             attempt_id=str(value(attempt, "attempt_id", 0)),
@@ -131,16 +130,18 @@ def expire_launch_attempt(
             evidence=evidence,
             prior_evidence=value(attempt, "evidence", 6),
         )
-        result = update_launch(
-            conn,
-            launch_id,
-            delivery_changed_at=now,
-            state="outcome_unknown",
-            result_code=result_code,
-            result_evidence=merged,
-        )
+        if launch.state == "launching":
+            merged = merge_redacted_evidence(value(attempt, "evidence", 6), evidence)
+            launch = update_launch(
+                conn,
+                launch_id,
+                delivery_changed_at=now,
+                state="outcome_unknown",
+                result_code=result_code,
+                result_evidence=merged,
+            )
         conn.commit()
-        return result
+        return launch
     except Exception:
         conn.rollback()
         raise
