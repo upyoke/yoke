@@ -213,6 +213,7 @@ def _run_onboard_flow(
     assert "product-token" not in applied.stdout
     assert "product-token" not in config.read_text("utf-8")
     assert is_owner_private_file(config)
+    assert _tree_snapshot(checkout) == before_checkout, "Advanced setup changed the checkout"
 
     # The stub answers only the registry, so /v1/health 404s: no control plane.
     status = _run(
@@ -238,5 +239,5 @@ def _run_onboard_flow(
     assert status_payload["connection"]["transport"] == "https"
     assert status_payload["connection"]["credential_source"]["present"] is True
 
-    assert _tree_snapshot(checkout) == before_checkout
+    assert _tree_snapshot(checkout) == before_checkout, "Status changed the checkout"
     assert not gh_marker.exists()
