@@ -4,8 +4,7 @@
 [Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Verification](index.md) > Standalone plans
 <!-- /yoke:breadcrumbs -->
 
-Read a saved plan at its pinned revision, then follow the
-[walker launch recipe](walking.md#launch-a-walker) for its free walks:
+Read a saved plan at its pinned revision and [launch free walks](walking.md#launch-a-walker).
 
 ```text
 yoke qa plan partitions --plan PLAN --project P --expected-branch REF --expected-sha SHA
@@ -21,7 +20,6 @@ and random execution ids do not determine that order. The identity column is
 added on boot to existing databases; historical rows receive an order at that
 convergence, which cannot recover their original same-second creation order.
 Unsupported runners or missing capabilities refuse before any case executes.
-For missions, follow [Walking QA missions](walking.md).
 
 Commands require `--checkout-path PATH --expected-sha FULL_SHA`: the checkout
 must be clean at that commit. CI cases require the SHA and `--expected-branch REF`,
