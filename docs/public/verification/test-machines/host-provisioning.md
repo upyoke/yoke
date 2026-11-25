@@ -104,6 +104,18 @@ provider capacity, transport waits for service recovery, and authentication
 advice requires native auth evidence. Unknown nonzero failures need local
 diagnostics. Preserve the failed capture and golden; a failure never seals.
 
+A harness real-request probe that times out after its harness started, with no
+reply and no error event, reads `harness_provider_unavailable`, not
+`baseline_probe_failed`. Yoke retries one such stall per probe run after 60
+seconds on its own; an owed reset within 10 minutes of a provider-unavailable
+one skips that retry. The debt stays owed, and the next execution retries the
+reset with no manual command; the unstarted case records
+`blocked_on_precondition` with no verdict, so its stage waits instead of
+failing. The same events also come from a blocked network path on the host, so
+suspect the host when the code escalates to `machine_needs_repair` (two
+provider-unavailable resets more than 30 minutes apart), or when a timeout has
+no events at all.
+
 Never delete or move a registered golden or its sidecars by hand, including
 through `yoke test-machine exec`. Registrations for the same host and user
 can keep separate goldens. To replace a golden, run

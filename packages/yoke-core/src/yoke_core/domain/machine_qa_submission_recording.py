@@ -171,10 +171,15 @@ def record_submitted_case(
     ensure_secret_free_result(evidence)
     from yoke_core.domain.machine_qa_chain_restore import capture_allows_chain
 
-    reset_blocked = (
-        evidence.get("case_started") is False
-        and result.error_code == "machine_needs_repair"
+    from yoke_contracts.harness_provider_unavailable import (
+        PROVIDER_UNAVAILABLE_ERROR_CODE,
     )
+
+    # A failed owed reset owes that reset, not a restore of a case never begun.
+    reset_blocked = evidence.get("case_started") is False and result.error_code in {
+        "machine_needs_repair",
+        PROVIDER_UNAVAILABLE_ERROR_CODE,
+    }
     if not reset_blocked and (
         "starting_state_restore" in evidence
         or case.get("ends_chain")

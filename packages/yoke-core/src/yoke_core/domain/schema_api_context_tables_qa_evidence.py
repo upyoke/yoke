@@ -47,7 +47,7 @@ QA_EVIDENCE_TABLES: dict[str, dict] = {
             "There is no `error_message` column: `verdict_reason` holds the "
             "summary; mission preparation diagnostics and baseline receipts "
             "live in `raw_result.preparation.evidence`. Preparation failure "
-            "uses `verdict=error`, `case_outcome=blocked_on_precondition` "
+            "uses a NULL `verdict`, `case_outcome=blocked_on_precondition` "
             "and `execution_status=capture_failed`; `error` is not a stored "
             "case_outcome. "
             "JSON: `json_helper.dumps_compact` / `dumps_pretty`, no `dumps` export. "

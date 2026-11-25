@@ -48,7 +48,7 @@ def mission_review_cases(
             continue
         reason = run["capture_degraded_reason"]
         if (
-            run["verdict"] == "error"
+            run["verdict"] is None
             and run["case_outcome"] == "blocked_on_precondition"
             and str(reason or "").startswith("mission_setup_blocked:")
         ):
@@ -71,7 +71,11 @@ def mission_review_cases(
 def settle_stopped_mission_dockets(
     conn: Any, execution: dict[str, Any], *, reason: str
 ) -> None:
-    """Keep diagnostics, but never offer a setup-only docket for judgment."""
+    """Keep diagnostics, but never offer a setup-only docket for judgment.
+
+    The docket keeps a NULL verdict: a walk that never started proves nothing
+    about the product, so the gate reads it as unrun rather than red.
+    """
     if not reason.startswith("blocked_on_precondition:"):
         return
     missions = {
@@ -114,7 +118,6 @@ def settle_stopped_mission_dockets(
             {
                 "execution_status": "capture_failed",
                 "case_outcome": "blocked_on_precondition",
-                "verdict": "error",
                 "verdict_reason": diagnostic,
                 "capture_degraded_reason": diagnostic,
             },
@@ -151,6 +154,6 @@ def stopped_mission_guidance(
         "'blocked_on_precondition: <prerequisite and recovery>'` "
         "(at most 200 characters; cite the Progress Log for detail). "
         "Diagnostics and restore receipts alone are not product proof; "
-        "the stopped docket settles as mission_setup_blocked/error "
-        "without human review. Resolve the prerequisite before a fresh run. "
+        "the stopped docket settles as mission_setup_blocked with no verdict "
+        "and without human review. Resolve the prerequisite before a fresh run. "
     )

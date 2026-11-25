@@ -70,6 +70,19 @@ def owed_reset(conn, test_machine):
     return OwedReset(owed["checks"][0]["name"], attempt)
 
 
+def provider_unavailable_at(debt):
+    """When the debt's latest reset attempt read provider-unavailable, if it did."""
+    from yoke_contracts.harness_provider_unavailable import (
+        PROVIDER_UNAVAILABLE_ERROR_CODE,
+    )
+    from yoke_contracts.timestamps import format_instant
+
+    attempt = debt.attempt if debt else None
+    if attempt is None or attempt["error_code"] != PROVIDER_UNAVAILABLE_ERROR_CODE:
+        return None
+    return format_instant(attempt["performed_at"])
+
+
 def reset_owed(conn, test_machine):
     debt = owed_reset(conn, test_machine)
     return debt.baseline if debt else None
@@ -123,13 +136,22 @@ def record_owed_reset(conn, contract, evidence):
                 contract.settings["resource_name"], baseline
             )
         )
+    from yoke_contracts.timestamps import parse_instant
+    from yoke_core.domain.machine_reset_recovery import owed_reset_failure
+
+    test_machine = contract.settings["resource_name"]
+    prior = provider_unavailable_at(owed_reset(conn, test_machine))
     record_test_machine_operation(
         conn,
-        test_machine=contract.settings["resource_name"],
+        test_machine=test_machine,
         operation="reset",
         status="verified" if ok else "error",
         checks=[{**receipt, "name": baseline, "ok": ok}],
-        error_code=None if ok else "machine_needs_repair",
+        error_code=None
+        if ok
+        else owed_reset_failure(
+            receipt, prior_unavailable_at=parse_instant(prior) if prior else None
+        )[0],
         lease_id=contract.lease_id,
         contract_digest=contract.contract_digest,
         commit=False,

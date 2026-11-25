@@ -115,14 +115,15 @@ def _issue(
         settings.pop(GOLDEN_BASELINE_PATH_KEY, None)
     from yoke_core.domain.machine_qa_execution_contract import public_case_snapshots
 
-    from yoke_core.domain.machine_reset_debt import reset_owed
+    from yoke_core.domain.machine_reset_debt import owed_reset, provider_unavailable_at
 
     from yoke_core.domain.machine_qa_operator_browser import operator_identity
 
-    owed = reset_owed(conn, settings["resource_name"]) if cases else None
+    debt = owed_reset(conn, settings["resource_name"]) if cases else None
     return issue_execution_contract(
         operator_identity=operator_identity(conn, test_machine.project_id, cases),
-        reset_owed_baseline=owed,
+        reset_owed_baseline=debt.baseline if debt else None,
+        reset_owed_provider_unavailable_at=provider_unavailable_at(debt),
         operation=operation,
         lease_id=lease.id,
         lease_key=lease.key,
