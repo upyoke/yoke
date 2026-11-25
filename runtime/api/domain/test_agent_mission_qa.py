@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from runtime.api.domain.machine_qa_session_seed import seed_registered_qa_launch
 from runtime.api.domain.agent_mission_qa_test_support import (
     ACTOR as ACTOR,
     _materialize_mission as _materialize_mission,
@@ -80,6 +81,7 @@ def test_mission_parks_resumes_and_persists_the_main_report(
     item_id = 4550
     configure_test_machine(test_db, tmp_path, monkeypatch)
     requirement_id = _materialize_mission(test_db, item_id=item_id)
+    seed_registered_qa_launch(test_db, ACTOR.session_id)
     execution = begin_plan_execution(
         test_db,
         item_id=item_id,

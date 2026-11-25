@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import pytest
 
+from runtime.api.domain.machine_qa_session_seed import seed_registered_qa_launch
 from runtime.api.domain.machine_qa_host_test_support import (
     TEST_MACHINE_SETTINGS,
     _terminal_recipe,
@@ -93,6 +94,7 @@ def _seed(
     run_scope=False,
 ):
     configure_test_machine(conn, tmp_path, monkeypatch)
+    seed_registered_qa_launch(conn, SESSION)
     register_second_host(conn)
     plan = create_plan(
         conn,

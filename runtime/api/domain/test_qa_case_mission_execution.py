@@ -4,6 +4,7 @@ from unittest.mock import Mock
 
 import pytest
 
+from runtime.api.domain.machine_qa_session_seed import seed_registered_qa_launch
 from runtime.api.domain.qa_plan_execution_authority_test_support import (
     _materialize_two_cases,
 )
@@ -246,6 +247,7 @@ def test_single_mission_reaches_review_and_verdict_with_sibling_untouched(
         "SELECT * FROM qa_requirements WHERE id=%s", (sibling,)
     ).fetchone()
     before = dict(before)
+    seed_registered_qa_launch(test_db, ACTOR.session_id)
     execution = begin_plan_execution(
         test_db,
         item_id=item_id,
