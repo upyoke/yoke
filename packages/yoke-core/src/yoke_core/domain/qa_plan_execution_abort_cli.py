@@ -28,8 +28,8 @@ def run(args: List[str]) -> int:
             "Its live launcher or a covering steering seat may also stop it: the "
             "receipt reads outcome stop_requested, and the owner's runner stops "
             "at its next case or heartbeat, cleans up its host and settles it. "
-            "Any session may abandon a waiting or review-held execution after its owner ends. "
-            "Other executions may be abandoned after 30 minutes of silence when the owner is not parked."
+            "Any session may abandon an execution after its owner ends. Active walks may also "
+            "be abandoned after 30 minutes of silence when the owner is not parked."
         ),
         epilog=(
             "qa_abort_restore_pending means cancellation is recorded: keep the "

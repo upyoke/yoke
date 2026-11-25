@@ -154,15 +154,17 @@ def plan_execution_is_abandoned(
     *,
     now: datetime | None = None,
 ) -> bool:
-    """Held walks follow session lifetime; active walks follow progress.
+    """All walks follow owner lifetime, and active walks also follow progress.
 
     Nothing heartbeats a walk that is waiting or awaiting walk review, and a
     wake can change the owner's mode. Only an explicit session end abandons
-    a held execution. Other states use the activity clock and the live
+    a held execution. Other states also use the activity clock and the live
     parked-owner exemption.
     """
+    if owning_session_has_ended(conn, execution):
+        return True
     if execution.get("state") in HELD_PLAN_EXECUTION_STATES:
-        return owning_session_has_ended(conn, execution)
+        return False
     if not plan_execution_is_stale(conn, execution, now=now):
         return False
     return not owning_session_is_parked(conn, execution)
@@ -320,7 +322,7 @@ def plan_execution_abort_authority(
         "Then rerun this abort: it records a stop that the owning runner obeys "
         "at its next case or heartbeat. Without a seat, ask the owning session "
         "to abort its own execution. A walk that is waiting or awaiting walk "
-        "review may be abandoned only after its owning session ends; other walks may be abandoned after "
+        "review may be abandoned once its owner ends. Active walks may also be abandoned after "
         f"{PLAN_EXECUTION_STALE_SECONDS // 60} minutes without a heartbeat or owner tool activity "
         "unless its owner is parked"
     )

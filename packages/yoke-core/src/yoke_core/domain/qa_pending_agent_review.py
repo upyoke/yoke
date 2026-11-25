@@ -29,9 +29,11 @@ _PENDING_REVIEW_SQL = (
     "SELECT e.id AS execution_id, e.session_id AS session_id, e.state AS state, "
     "e.item_id,e.deployment_run_id,e.deployment_stage,e.deployment_member_item_id,"
     "e.execution_target_digest,e.test_machine_lease_id,"
+    "s.ended_at IS NOT NULL AS owner_ended,"
     "b.id AS bundle_id, b.bundle_json AS bundle_json "
     "FROM qa_plan_executions e "
     "JOIN qa_plan_review_bundles b ON b.execution_id = e.id "
+    "LEFT JOIN harness_sessions s ON s.session_id = e.session_id "
     "WHERE e.state IN ('walking','awaiting_walk_review','aborted','error') "
     "AND b.state = 'pending'"
 )
@@ -58,6 +60,7 @@ class PendingAgentReview:
     execution_target_digest: str = ""
     #: The Test Machine a walking mission holds, when it holds one.
     test_machine: str = ""
+    owner_ended: bool = False
 
     def review_begin_command(self) -> str:
         return (
@@ -66,12 +69,23 @@ class PendingAgentReview:
             + f"--execution-id {self.execution_id}"
         )
 
+    @property
+    def abandoned_walk(self) -> bool:
+        return self.owner_ended and self.state in {"walking", "awaiting_walk_review"}
+
     def next_action(self) -> str:
         """The review step that settles this execution.
 
         A ``walking`` mission is still capturing: no review command applies
         until hand-back moves it to ``awaiting_walk_review``.
         """
+        if self.abandoned_walk:
+            scope = f"{self.scope_flag} " if self.scope_flag else ""
+            return (
+                f"Settle the abandoned execution with `yoke qa plan abort "
+                f"{scope}--execution-id {self.execution_id} --reason TEXT`. "
+                "Follow its restore instructions if the execution still holds a Test Machine."
+            )
         if self.state == "walking":
             where = f" on {self.test_machine}" if self.test_machine else ""
             return (
@@ -119,6 +133,7 @@ def _pending(conn: Any, row: Any) -> PendingAgentReview:
         state=str(row["state"]),
         scope_flag=review_scope_flag(conn, row),
         execution_target_digest=str(row["execution_target_digest"] or ""),
+        owner_ended=bool(row["owner_ended"]),
     )
 
 
@@ -211,6 +226,12 @@ def pending_review_for_stage(
 
 def capture_verdict_refusal(pending: PendingAgentReview, requirement_id: int) -> str:
     """Refuse a verdict written beside a pending independent review."""
+    if pending.abandoned_walk:
+        return compose_refusal(
+            f"requirement {requirement_id} belongs to a walk whose owner has ended",
+            evaluated=f"execution {pending.execution_id} still holds its capture",
+            recovery=pending.next_action(),
+        )
     walking = pending.state == "walking"
     return compose_refusal(
         f"requirement {requirement_id} belongs to a mission walk still in "
@@ -249,6 +270,12 @@ def pending_review_verdict_refusal(
 
 def stage_review_pending_blocker(pending: PendingAgentReview) -> str:
     """Stage wait line for captures whose independent review is pending."""
+    if pending.abandoned_walk:
+        return compose_refusal(
+            "scoped QA walk owner has ended",
+            evaluated=f"execution {pending.execution_id} is still {pending.state}",
+            recovery=pending.next_action(),
+        )
     return compose_refusal(
         (
             "scoped QA mission walk is in progress; walker hand-back is pending"

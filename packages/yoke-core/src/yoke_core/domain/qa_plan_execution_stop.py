@@ -135,9 +135,9 @@ def request_steering_stop(
         else (
             f"Session {owner}'s runner stops this execution at its next case "
             "check-in or host heartbeat, cleans up its host and settles it as "
-            "aborted with this reason. Nothing else is needed. If that session "
-            "is gone, any session may abandon the execution once it has not "
-            f"heartbeated for {PLAN_EXECUTION_STALE_SECONDS // 60} minutes."
+            "aborted with this reason. Any session may abandon it once its owner ends, "
+            f"or after {PLAN_EXECUTION_STALE_SECONDS // 60} minutes without progress "
+            "while its owner is unparked."
         ),
     }
 

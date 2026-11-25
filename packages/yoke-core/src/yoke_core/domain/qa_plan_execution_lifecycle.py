@@ -282,7 +282,7 @@ def reap_stale_plan_executions(
     """Settle abandoned walks under their state-specific ownership rule.
 
     Waiting and awaiting-review walks require durable owner-session end
-    evidence. Other walks use their latest activity, except while a live owner is
+    evidence. Other walks also use their latest activity, except while a live owner is
     deliberately parked; one silent past the warning line mails its owner
     first (``qa_plan_execution_silence_notice``).
     """
