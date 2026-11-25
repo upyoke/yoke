@@ -67,6 +67,25 @@ def test_codex_cli_build_revision_only_affects_capability_comparison() -> None:
         assert not surface_version_supported("codex-cli", malformed)
 
 
+@pytest.mark.parametrize(
+    ("version", "supported"),
+    [
+        ("0.171.0-alpha.13.2", True),
+        ("0.148.0-alpha.15.2", True),
+        ("0.148.0-alpha.14.99", False),
+        ("0.171.0-alpha.13.x", False),
+        ("0.171.0-alpha.13.2.1", False),
+    ],
+)
+def test_codex_vscode_numbered_builds_use_the_cli_version_floor(
+    version: str, supported: bool,
+) -> None:
+    assert surface_version_supported("codex-vscode", version) is supported
+    assert surface_operation_supported("codex-vscode", version, "message_active") is supported
+    assert not surface_operation_supported("codex-vscode", version, "message_stopped")
+    assert not surface_version_supported("codex-desktop", version)
+
+
 def test_desktop_create_contract_matches_external_writer_capabilities() -> None:
     for surface, version in (
         ("claude-desktop", "1.32885.1"),

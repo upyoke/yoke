@@ -49,7 +49,7 @@ def _version_key(surface: str | None, raw: str) -> tuple[int, ...] | None:
         matched = _CURSOR_BUILD_VERSION.fullmatch(value)
         if matched:
             value = matched.group("release")
-    elif surface == "codex-cli":
+    elif surface in ("codex-cli", "codex-vscode"):
         matched = _CODEX_CLI_BUILD_VERSION.fullmatch(value)
         if matched:
             value = matched.group("release")
