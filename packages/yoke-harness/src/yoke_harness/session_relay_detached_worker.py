@@ -14,7 +14,7 @@ import subprocess
 import sys
 import threading
 import time
-from typing import Callable, TypeVar
+from typing import BinaryIO, Callable, TypeVar
 
 
 MAX_HANDOFF_BYTES = 64 * 1024
@@ -28,39 +28,54 @@ def _stop(process: subprocess.Popen[bytes]) -> None:
     stop_relay_process(process)
 
 
-def reap_in_background(process: subprocess.Popen[bytes]) -> None:
-    """Wait for a child that outlives this call, so its exit never leaves a zombie."""
+def _close_stream(stream: BinaryIO | None) -> None:
+    if stream is not None:
+        try:
+            stream.close()
+        except OSError:
+            pass
+
+
+def reap_and_close_in_background(
+    process: subprocess.Popen[bytes],
+    stream: BinaryIO | None,
+    *,
+    reader: PipeReader | None = None,
+) -> None:
+    """Reap the owner and close stdout once no read can hold the pipe lock."""
+
+    def reap() -> None:
+        process.wait()
+        if reader is not None:
+            # A descendant may keep stdout open after the owner exits.
+            reader.thread.join()
+        _close_stream(stream)
+
     threading.Thread(
-        target=process.wait,
+        target=reap,
         daemon=True,
         name="yoke-native-owner-reap",
     ).start()
 
 
-def _read_json(process: subprocess.Popen[bytes], timeout: float) -> object | None:
-    if process.stdout is None:
-        return None
-    reader = PipeReader(process.stdout)
+def _read_json(reader: PipeReader, timeout: float) -> object | None:
     deadline = time.monotonic() + timeout
     buffer = bytearray()
-    try:
-        while time.monotonic() < deadline:
+    while time.monotonic() < deadline:
+        try:
+            chunk = reader.read(timeout=max(0, deadline - time.monotonic()))
+        except TimeoutError:
+            break
+        if not chunk:
+            break
+        buffer.extend(chunk)
+        if len(buffer) > MAX_HANDOFF_BYTES:
+            return None
+        if b"\n" in buffer:
             try:
-                chunk = reader.read(timeout=max(0, deadline - time.monotonic()))
-            except TimeoutError:
-                break
-            if not chunk:
-                break
-            buffer.extend(chunk)
-            if len(buffer) > MAX_HANDOFF_BYTES:
+                return json.loads(bytes(buffer.partition(b"\n")[0]))
+            except (UnicodeDecodeError, json.JSONDecodeError):
                 return None
-            if b"\n" in buffer:
-                try:
-                    return json.loads(bytes(buffer.partition(b"\n")[0]))
-                except (UnicodeDecodeError, json.JSONDecodeError):
-                    return None
-    finally:
-        reader.close()
     return None
 
 
@@ -98,23 +113,26 @@ def run_detached_json_worker(
         _stop(process)
         return initial_failure
     sent = False
+    reader = None
     try:
         process.stdin.write(body + b"\n")
         process.stdin.flush()
         process.stdin.close()
         sent = True
-        outcome = decode(_read_json(process, timeout))
+        reader = PipeReader(process.stdout)
+        outcome = decode(_read_json(reader, timeout))
     except (OSError, subprocess.SubprocessError):
         outcome = None
     finally:
-        try:
-            process.stdout.close()
-        except OSError:
-            pass
-        if process.poll() is None:
-            reap_in_background(process)
+        if reader is not None:
+            reader.close()
+        if reader is not None and not reader.eof:
+            # Windows waits for a pending read when another thread closes stdout.
+            reap_and_close_in_background(process, process.stdout, reader=reader)
         else:
-            process.wait()
+            _close_stream(process.stdout)
+            if process.poll() is None:
+                reap_and_close_in_background(process, None)
     if outcome is not None:
         return outcome
     return uncertain_failure if sent else initial_failure
@@ -123,6 +141,6 @@ def run_detached_json_worker(
 __all__ = [
     "MAX_HANDOFF_BYTES",
     "START_TIMEOUT_SECONDS",
-    "reap_in_background",
+    "reap_and_close_in_background",
     "run_detached_json_worker",
 ]

@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from datetime import timedelta
 
+import pytest
+
 from runtime.api.domain.machine_qa_session_seed import seed_qa_session
 from runtime.api.domain.qa_host_turns_test_support import _execution_wait, _notices
 from yoke_contracts.timestamps import utc_now
@@ -152,3 +154,35 @@ def test_a_live_parked_set_waiter_keeps_its_reservation(test_db, monkeypatch):
     test_db.commit()
     assert hand_off_idle_waiter_reservations(test_db) == []
     assert active_claim(test_db, _target(B)).session_id == "waiter"
+
+
+@pytest.mark.parametrize(
+    ("surface", "origin", "resumable"),
+    [("claude-cli", "yoke", True), ("codex-desktop", "yoke", False), ("claude-cli", "operator", False)],
+)
+def test_stopped_set_waiter_is_served_only_if_yoke_can_resume(
+    test_db, monkeypatch, surface, origin, resumable,
+):
+    _notices(monkeypatch)
+    seed_qa_session(test_db, "holder", "walker")
+    holder = acquire(test_db, _target(A), "holder")
+    execution = _set_waiter(test_db, "walker")
+    test_db.execute(
+        "UPDATE harness_sessions SET executor_surface=%s, launch_origin=%s "
+        "WHERE session_id='walker'",
+        (surface, origin),
+    )
+    _away(test_db, "walker", idle=timedelta(hours=2))
+
+    partial = active_claim(test_db, _target(B))
+    assert hand_off_idle_waiter_reservations(test_db) == ([] if resumable else [partial.id])
+    if not resumable:
+        assert not get_claim(test_db, partial.id).is_active
+        return
+    assert active_claim(test_db, _target(B)).session_id == "walker"
+
+    release(test_db, holder.id, "finished")
+
+    assert [(row[0], row[1]) for row in _waits(test_db, execution)] == [
+        (A, "reserved"), (B, "reserved"),
+    ]

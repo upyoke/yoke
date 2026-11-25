@@ -41,8 +41,10 @@ from yoke_core.domain.session_launch_store import (
     update_launch,
     utc_now,
 )
+from yoke_core.domain.session_launch_report_backstop import notify_ended_qa_walker
 from yoke_core.domain.session_launch_types import LaunchRecord
 from yoke_core.domain.session_launch_visibility import abandoned_launch_phase
+from yoke_core.domain.session_qa_execution_holdings import session_owns_live_qa_execution
 from yoke_core.domain.session_relay_evidence import merge_redacted_evidence
 
 
@@ -108,7 +110,7 @@ def _worked(conn: Any, session_id: str) -> bool:
     never cleared.
     """
     p = marker(conn)
-    if _entered_mandate(conn, session_id):
+    if _entered_mandate(conn, session_id) or session_owns_live_qa_execution(conn, session_id):
         return True
     ran = conn.execute(
         "SELECT 1 FROM harness_sessions WHERE session_id = "
@@ -296,6 +298,7 @@ def settle_and_notify(
     hiccup here degrades to a launch row that stays optimistic rather than to
     a session that fails to end.
     """
+    notify_ended_qa_walker(conn, session_id)
     try:
         launch = settle_abandoned_launch(conn, session_id, end_reason=end_reason)
     except Exception:
