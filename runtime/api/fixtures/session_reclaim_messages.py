@@ -55,3 +55,14 @@ def message_receipt(conn, message_id):
         "SELECT state, acknowledged_at FROM session_message_recipients WHERE message_id=%s",
         (message_id,),
     ).fetchone()
+
+
+def message_attempts(conn, message_id):
+    return {
+        row["attempt_kind"]: (row["completed_at"], row["result_code"])
+        for row in conn.execute(
+            "SELECT attempt_kind, completed_at, result_code "
+            "FROM session_message_attempts WHERE message_id=%s",
+            (message_id,),
+        ).fetchall()
+    }

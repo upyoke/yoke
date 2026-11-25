@@ -5,6 +5,7 @@ from datetime import timedelta
 import pytest
 
 from runtime.api.fixtures.session_reclaim_messages import (
+    message_attempts,
     message_receipt,
     pending_message,
     start_message_attempt,
@@ -53,17 +54,6 @@ def _wake(conn, message_id, *, age_seconds, kind):
     conn.commit()
 
 
-def _attempts(conn, message_id):
-    return {
-        row["attempt_kind"]: (row["completed_at"], row["result_code"])
-        for row in conn.execute(
-            "SELECT attempt_kind, completed_at, result_code "
-            "FROM session_message_attempts WHERE message_id=%s",
-            (message_id,),
-        ).fetchall()
-    }
-
-
 @pytest.mark.parametrize(
     "age,kind",
     [
@@ -72,9 +62,7 @@ def _attempts(conn, message_id):
         (WAKE_ACK_GRACE_SECONDS + 60, "wake_broker"),
     ],
 )
-def test_sweep_preserves_wake_during_grace_or_open_attempt(
-    conn, wake_target, age, kind
-):
+def test_sweep_preserves_live_wake(conn, wake_target, age, kind):
     message_id, aborted = wake_target
     _wake(conn, message_id, age_seconds=age, kind=kind)
 
@@ -82,7 +70,7 @@ def test_sweep_preserves_wake_during_grace_or_open_attempt(
     assert clean_stale_harness_sessions(conn, project_ids=[1])["total_reclaimed"] == 0
     assert aborted == ["wake_delivery_in_flight"]
     assert message_receipt(conn, message_id)["state"] == "pending"
-    assert _attempts(conn, message_id)[kind] == (None, None)
+    assert message_attempts(conn, message_id)[kind] == (None, None)
     assert (
         conn.execute(
             "SELECT ended_at FROM harness_sessions WHERE session_id=%s", (SESSION,)
@@ -118,12 +106,10 @@ def test_completed_attempt_leaves_only_acknowledgement_window(
     assert aborted == ["wake_delivery_in_flight"]
     lease = lease_for_hook(conn, session_id=SESSION, hook_event="PreToolUse", limit=1)
     assert lease["messages"][0]["message_id"] == message_id
-    assert (
-        complete_hook_lease(
-            conn, lease_id=lease["lease_id"], injected=True, result="injected"
-        )
-        == 1
+    completed = complete_hook_lease(
+        conn, lease_id=lease["lease_id"], injected=True, result="injected"
     )
+    assert completed == 1
     acknowledge_recipient(
         conn, message_id=message_id, session_id=SESSION, acknowledged_at=utc_now()
     )
@@ -132,7 +118,7 @@ def test_completed_attempt_leaves_only_acknowledgement_window(
     receipt = message_receipt(conn, message_id)
     assert receipt["state"] == "acknowledged"
     assert receipt["acknowledged_at"] is not None
-    assert {result for _, result in _attempts(conn, message_id).values()} == {
+    assert {result for _, result in message_attempts(conn, message_id).values()} == {
         "wake_delivered",
         "injected",
     }
@@ -159,4 +145,4 @@ def test_locked_recheck_sees_wake_started_after_snapshot(
     assert result["skipped_between_turns"][0]["recheck"] is True
     assert aborted == ["wake_delivery_in_flight"]
     assert message_receipt(conn, message_id)["state"] == "pending"
-    assert _attempts(conn, message_id)["wake_relay"] == (None, None)
+    assert message_attempts(conn, message_id)["wake_relay"] == (None, None)

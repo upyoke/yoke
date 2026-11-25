@@ -95,6 +95,7 @@ def test_stale_sweep_preserves_held_session_and_receipt_until_expiry(conn, monke
     from datetime import timedelta
 
     from runtime.api.fixtures.session_reclaim_messages import (
+        message_attempts,
         message_receipt,
         pending_message,
         start_message_attempt,
@@ -136,8 +137,5 @@ def test_stale_sweep_preserves_held_session_and_receipt_until_expiry(conn, monke
     assert clean_stale_harness_sessions(conn, project_ids=[1])["total_reclaimed"] == 1
     assert _ended_at(conn, session_id) is not None
     assert message_receipt(conn, message_id)["state"] == "cancelled"
-    attempt = conn.execute(
-        "SELECT result_code FROM session_message_attempts WHERE message_id=%s",
-        (message_id,),
-    ).fetchone()
-    assert attempt["result_code"] == "session_reclaimed"
+    _, result = message_attempts(conn, message_id)["hook"]
+    assert result == "session_reclaimed"
