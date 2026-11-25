@@ -51,15 +51,20 @@ yoke browser authorize --project P --identity buyer     # window only for expire
 yoke browser open --project P --identity buyer URL      # show URL signed in
 ```
 
-`verify` checks every declared site headless and reports each one. `authorize`
-runs the same check first and returns at once when every site is signed in,
-unless you supply `--url URL`. With `--url`, it always opens that URL so you can
-complete an extra access check such as GitHub Confirm access. This also applies
-to `--test-machine`.
-Otherwise it signs expired automatic sites in headless, then opens one window
-with a tab per expired human site, naming the identity,
-the site and the account, and checks again after the window closes. A site
-whose check cannot be reached fails by name: no sign-in fixes it.
+`verify` reports every declared site's sign-in state. When the identity's
+managed browser is open, it checks that browser and leaves existing tabs,
+including approval tabs, open. If Yoke cannot reach the exact profile's
+endpoint, finish any open approvals, close that browser and retry. With the
+profile closed, the check runs headless.
+
+`authorize` uses the same check and returns at once when every site is signed
+in, unless you supply `--url URL`. To start a new sign-in or use `--url`,
+first close that profile's browser. With `--url`, the sign-in window opens
+that URL for an extra access check such as GitHub Confirm access. Otherwise
+the command signs expired automatic sites in headless, then opens one window
+with a tab per expired human site, naming the identity, site and account.
+It checks again after the window closes. A site whose check cannot be reached
+fails by name. The same behavior applies with `--test-machine`.
 
 Omitting `--identity` uses `default_identity` when the project sets it. Without
 it, if `default` declares no sites while other identities do, omitting

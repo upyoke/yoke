@@ -1,7 +1,7 @@
 """Shared steps for ``yoke browser authorize`` and ``yoke browser verify``.
 
 Both resolve one project identity, prepare the machine's browser runtime, and
-check that identity's declared sites headless on its own profile.
+check the declared sites on that identity's own profile.
 """
 
 from __future__ import annotations
@@ -96,21 +96,29 @@ def prepare_browser_runtime(script: str) -> BrowserRuntime:
 def check_sign_in(
     client, runtime: BrowserRuntime, key: str, identity: BrowserIdentity
 ) -> list[dict[str, Any]]:
-    """Check each declared site; the identity's own daemon is stopped first."""
+    """Probe the live profile or use the headless check once it is free."""
     from yoke_cli.config import browser_profile
-    from yoke_harness import browser_identity_check
+    from yoke_harness import browser_identity_check, browser_live_profile
 
     if not identity.sites:
         return []
     profile = browser_profile.authorized_profile_dir(key, identity=identity.name)
+    endpoint = None
     if profile is not None:
+        # A QA daemon normally owns a separate copy. Release a daemon on
+        # this exact profile before deciding whether the visible browser owns it.
         browser_identity_check.stop_profile_daemon(client, profile)
+        try:
+            endpoint = browser_live_profile.live_profile_endpoint(profile)
+        except browser_live_profile.LiveProfileError as exc:
+            raise browser_identity_check.SignInCheckError(str(exc)) from None
     return browser_identity_check.check_identity(
         identity,
         profile,
         node=runtime.node,
         runtime_dir=runtime.runtime_dir,
         env=runtime.env,
+        live_endpoint=endpoint,
     )
 
 

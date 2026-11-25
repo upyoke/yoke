@@ -1,10 +1,8 @@
 """Check, site by site, whether one browser identity is still signed in.
 
-The check runs headless on the identity's own profile, so it needs that
-profile free: a daemon serving it is stopped first (the next case starts it
-again). It only reads -- it never types or signs in -- and it reports each
-declared site separately, so a human is asked to sign in only where a session
-has really expired.
+Use a managed profile's live endpoint when supplied and the headless verifier
+when the profile is free. Report each declared site separately without typing
+or signing in.
 """
 
 from __future__ import annotations
@@ -15,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from yoke_contracts.browser_identity import BrowserIdentity
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_cli.config.browser_profile_cookies import (
     SignInCookieError,
     keep_sign_in_cookies,
@@ -49,6 +48,7 @@ def check_identity(
     node: Path,
     runtime_dir: Path,
     env: dict[str, str],
+    live_endpoint: str | None = None,
 ) -> list[dict[str, Any]]:
     """Return one ``{site, state, detail, origin, account}`` per declared site."""
     if not identity.sites:
@@ -59,16 +59,35 @@ def check_identity(
             for check in identity.sites
         ]
     else:
+        outcomes = _probe_sites(identity, profile, node, runtime_dir, env, live_endpoint)
+    by_site = {check.site: check for check in identity.sites}
+    return [
+        {
+            **outcome,
+            "origin": by_site[outcome["site"]].origin,
+            "account": by_site[outcome["site"]].account,
+        }
+        for outcome in outcomes
+    ]
+
+
+def _probe_sites(identity, profile, node, runtime_dir, env, live_endpoint):
+    if live_endpoint is None:
         try:
             keep_sign_in_cookies(profile)
         except SignInCookieError as exc:
             raise SignInCheckError(f"browser_sign_in_check_failed: {exc}") from None
+    target = (
+        ["--live-endpoint", live_endpoint]
+        if live_endpoint
+        else ["--profile-dir", str(profile)]
+    )
+    try:
         result = subprocess.run(
             [
                 str(node),
                 str(runtime_dir / "src" / "verify-sign-in.js"),
-                "--profile-dir",
-                str(profile),
+                *target,
                 "--checks",
                 json.dumps([check.as_probe() for check in identity.sites]),
             ],
@@ -79,26 +98,38 @@ def check_identity(
             timeout=CHECK_TIMEOUT_SECONDS,
             check=False,
         )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise _probe_failed(
+            profile, identity.name, live_endpoint, type(exc).__name__
+        ) from None
+    if result.returncode == 0:
         try:
-            outcomes = json.loads(result.stdout)["sites"]
+            return json.loads(result.stdout)["sites"]
         except (ValueError, KeyError, TypeError):
-            detail = (result.stderr or result.stdout or "").strip().splitlines()
-            raise SignInCheckError(
-                "browser_sign_in_check_failed: the headless sign-in check for "
-                f"identity {identity.name!r} exited {result.returncode}"
-                + (f": {detail[-1]}" if detail else "")
-                + ". Run `yoke qa browser status` to check the browser runtime, "
-                "then retry."
-            ) from None
-    by_site = {check.site: check for check in identity.sites}
-    return [
-        {
-            **outcome,
-            "origin": by_site[outcome["site"]].origin,
-            "account": by_site[outcome["site"]].account,
-        }
-        for outcome in outcomes
-    ]
+            pass
+    detail = (result.stderr or result.stdout or "").strip().splitlines()
+    raise _probe_failed(
+        profile,
+        identity.name,
+        live_endpoint,
+        detail[-1] if detail and not live_endpoint else f"exit {result.returncode}",
+    ) from None
+
+
+def _probe_failed(profile, identity, live_endpoint, detail):
+    if live_endpoint:
+        return SignInCheckError(
+            compose_refusal(
+                "browser_sign_in_profile_unavailable: sign-in could not be verified "
+                f"through the managed endpoint for the open profile {profile} ({detail})",
+                recovery="Finish any open approvals, close that browser, then retry",
+            )
+        )
+    return SignInCheckError(
+        "browser_sign_in_check_failed: the headless sign-in check for "
+        f"identity {identity!r} failed ({detail}). Run `yoke qa browser status` "
+        "to check the browser runtime, then retry."
+    )
 
 
 def sites_in(sites: list[dict[str, Any]], state: str) -> list[dict[str, Any]]:

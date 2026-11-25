@@ -295,3 +295,45 @@ def test_remote_route_runs_local_human_gate_and_verifies_after_window(
     assert buyer["gate"][0]["identity"] == "buyer"
     assert all(s["state"] == "signed_in" for s in payload["sites"])
     assert "desktop_browser" not in payload
+
+
+@pytest.fixture()
+def live_buyer(buyer, monkeypatch):
+    from yoke_harness import browser_live_profile
+
+    endpoint = "ws://127.0.0.1:9000/devtools/browser/01234567-89ab-cdef-0123-456789abcdef"
+    monkeypatch.setattr(browser_live_profile, "live_profile_endpoint", lambda p: endpoint)
+    monkeypatch.setattr(
+        browser_identity_check,
+        "keep_sign_in_cookies",
+        lambda p: pytest.fail("verification tried to prepare cookies on an open profile"),
+    )
+    run = subprocess.run
+
+    def verify_live(command, **kwargs):
+        assert "--profile-dir" not in command
+        assert command[command.index("--live-endpoint") + 1] == endpoint
+        return run(command, **kwargs)
+
+    monkeypatch.setattr(subprocess, "run", verify_live)
+    return buyer
+
+
+def test_authorize_reuses_the_live_check_without_opening_a_window(live_buyer, capsys):
+    live_buyer["states"] = dict.fromkeys(SITES, "signed_in")
+    assert _authorize("--json") == 0
+    receipt = json.loads(capsys.readouterr().out)
+    assert receipt["ok"] and receipt["window_opened"] is False
+
+
+def test_expired_live_site_is_reported_and_authorize_leaves_tabs_open(live_buyer, capsys):
+    live_buyer["states"] = dict.fromkeys(SITES, "signed_in") | {"paypal": "expired"}
+    assert browser_verify.browser_verify(
+        ["--project", "acme", "--identity", "buyer", "--json"]
+    ) == 1
+    receipt = json.loads(capsys.readouterr().out)
+    assert receipt["summary"] == "buyer: google ok, yoke ok, paypal expired"
+    assert _authorize("--json") == 1
+    receipt = json.loads(capsys.readouterr().out)
+    assert receipt["error"].startswith("browser_sign_in_profile_in_use:")
+    assert live_buyer["windows"] == []
