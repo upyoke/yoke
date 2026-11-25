@@ -173,7 +173,7 @@ def test_settling_an_unreviewed_capture_keeps_its_rejection_reason(
         "INSERT INTO qa_runs(qa_requirement_id,performed_by,qa_kind,verdict_reason,"
         "case_outcome,started_at,created_at) VALUES(%s,'host_control',%s,"
         "'Claude real request: reply rejected at `reply_not_exact`',"
-        "'blocked_on_precondition',now(),now()) RETURNING id",
+        "'needs_review',now(),now()) RETURNING id",
         (requirement_id, case["qa_kind"]),
     ).fetchone()[0]
     monkeypatch.setattr(
@@ -286,7 +286,8 @@ def test_a_mission_whose_baseline_rejected_a_reply_names_it_on_its_run(
     run = test_db.execute(
         "SELECT verdict,verdict_reason FROM qa_runs WHERE id=%s", (run_id,)
     ).fetchone()
-    assert run["verdict"] == "error"
+    # The mission never started: its docket keeps no verdict.
+    assert run["verdict"] is None
     assert run["verdict_reason"].startswith(
         "Claude real request: reply rejected at `reply_not_exact`"
     )

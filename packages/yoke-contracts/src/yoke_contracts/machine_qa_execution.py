@@ -64,6 +64,11 @@ class HostControlExecutionContract(BaseModel):
     reset_owed_baseline: Literal["fresh-host", "shell-preconfigured"] | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
+    # When this debt's last owed reset read harness_provider_unavailable: the
+    # runner skips the stall retry soon after it and escalates long after it.
+    reset_owed_provider_unavailable_at: str | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     checks: list[str] = Field(default_factory=list)
     baselines: list[str] = Field(default_factory=list)
     cases: list[MachineQaCaseContract] = Field(default_factory=list)
@@ -154,6 +159,8 @@ class HostControlExecutionContract(BaseModel):
             if self.reset_owed_baseline
             else execution_protocol(self.cases)
         )
+        if self.reset_owed_provider_unavailable_at and not self.reset_owed_baseline:
+            raise ValueError("a provider-unavailable reset time needs an owed reset")
         if self.protocol != expected_protocol:
             raise ValueError(
                 "continuity_runner_required: upgrade the CLI and reissue the continuity contract"
@@ -200,6 +207,7 @@ def issue_execution_contract(
     settings: dict[str, str],
     selection_reason: str | None = None,
     reset_owed_baseline: str | None = None,
+    reset_owed_provider_unavailable_at: str | None = None,
     checks: list[str] | None = None,
     baselines: list[str] | None = None,
     cases: list[dict[str, Any]] | None = None,
@@ -221,6 +229,7 @@ def issue_execution_contract(
             else execution_protocol(normalized_cases)
         ),
         reset_owed_baseline=reset_owed_baseline,
+        reset_owed_provider_unavailable_at=reset_owed_provider_unavailable_at,
         operation=operation,
         lease_id=int(lease_id),
         lease_key=str(lease_key),

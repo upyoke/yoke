@@ -74,9 +74,19 @@ def _reset_released(machine, *, actor, relay_env):
         from yoke_contracts.machine_qa_failures import host_control_failure
 
         code, detail, _ = host_control_failure(exc, phase="automatic_reset")
+    from yoke_contracts.harness_provider_unavailable import (
+        PROVIDER_UNAVAILABLE_ERROR_CODE,
+        PROVIDER_UNAVAILABLE_RECOVERY,
+    )
+
     manual = shlex.join(["yoke", "test-machine", "reset", "--test-machine", name, "--baseline", baseline])
+    recovery = (
+        PROVIDER_UNAVAILABLE_RECOVERY
+        if code == PROVIDER_UNAVAILABLE_ERROR_CODE
+        else f"run `{manual}`"
+    )
     print(
-        compose_refusal(f"{code}: automatic reset of {name} failed: {detail}", recovery=f"run `{manual}`"),
+        compose_refusal(f"{code}: automatic reset of {name} failed: {detail}", recovery=recovery),
         file=sys.stderr,
         flush=True,
     )
