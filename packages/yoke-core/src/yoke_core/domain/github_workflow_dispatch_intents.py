@@ -3,7 +3,7 @@
 The GitHub workflow-dispatch endpoint has no idempotency header.  A process can
 therefore lose the response after GitHub accepted the POST.  This table records
 the scoped logical request and a GitHub-visible correlation token *before* the
-POST; a retry recovers the run by that token instead of issuing another POST.
+POST; a retry reconciles GitHub's visible run against the recorded token.
 A run that concluded with no verdict remains immutable history and advances
 to a new attempt; a run with a verdict (success or failure) is reused.
 """
@@ -13,7 +13,8 @@ from __future__ import annotations
 from yoke_contracts.timestamps import utc_now
 from yoke_core.domain.db_helpers import instant_parameter
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from datetime import datetime
 from typing import Any, Mapping, Optional
 
 from yoke_core.domain import json_helper
@@ -42,6 +43,7 @@ class DispatchIntent:
     #: at claim time — a recovering caller reads what was actually bound
     #: rather than re-resolving and risking a changed logical request.
     inputs: Mapping[str, str]
+    created_at: datetime
 
 
 def _row_to_intent(row: Any) -> DispatchIntent:
@@ -58,6 +60,7 @@ def _row_to_intent(row: Any) -> DispatchIntent:
         run_url=str(row[8]) if row[8] else None,
         html_url=str(row[9]) if row[9] else None,
         inputs=raw_inputs if isinstance(raw_inputs, dict) else {},
+        created_at=row[11],
     )
 
 
@@ -68,9 +71,7 @@ def latest_intent(request_id: str) -> Optional[DispatchIntent]:
     try:
         with db_helpers.connect() as conn:
             row = conn.execute(
-                f"SELECT request_id, attempt, actor_id, authorization_scope, "
-                "payload_checksum, correlation_id, state, workflow_run_id, "
-                f"run_url, html_url, inputs FROM {INTENT_TABLE} "
+                f"SELECT {_INTENT_COLUMNS} FROM {INTENT_TABLE} "
                 "WHERE request_id = %s ORDER BY attempt DESC LIMIT 1",
                 (request_id,),
             ).fetchone()
@@ -83,8 +84,25 @@ def latest_intent(request_id: str) -> Optional[DispatchIntent]:
 
 _INTENT_COLUMNS = (
     "request_id, attempt, actor_id, authorization_scope, payload_checksum, "
-    "correlation_id, state, workflow_run_id, run_url, html_url, inputs"
+    "correlation_id, state, workflow_run_id, run_url, html_url, inputs, created_at"
 )
+
+
+def proof_attempts(latest: DispatchIntent) -> list[DispatchIntent]:
+    """Read retained, unrejected attempts through the observed latest attempt."""
+    from yoke_core.domain import db_helpers
+
+    try:
+        with db_helpers.connect() as conn:
+            rows = conn.execute(
+                f"SELECT {_INTENT_COLUMNS} FROM {INTENT_TABLE} "
+                "WHERE request_id = %s AND attempt <= %s AND state <> 'rejected' "
+                "ORDER BY attempt DESC",
+                (latest.request_id, latest.attempt),
+            ).fetchall()
+    except Exception as exc:
+        raise DispatchIntentStoreError(f"could not read proof attempts: {exc}") from exc
+    return [_row_to_intent(row) for row in rows]
 
 
 def deploy_stage_scope(request_id: str) -> str:
@@ -173,6 +191,7 @@ def claim_attempt(
     workflow_ref: str,
     inputs: Mapping[str, str],
     correlation_id: str,
+    pending_predecessor: DispatchIntent | None = None,
 ) -> bool:
     """Persist a pending attempt; return true only to the POST owner."""
     from yoke_core.domain import db_helpers
@@ -203,6 +222,14 @@ def claim_attempt(
     )
     try:
         with db_helpers.connect() as conn:
+            if pending_predecessor is not None:
+                row = conn.execute(
+                    f"SELECT state FROM {INTENT_TABLE} WHERE request_id = %s "
+                    "AND attempt = %s AND correlation_id = %s FOR UPDATE",
+                    (request_id, attempt - 1, pending_predecessor.correlation_id),
+                ).fetchone()
+                if row is None or row[0] != "pending":
+                    return False
             claimed = (
                 conn.execute(
                     sql,
@@ -256,7 +283,7 @@ def complete_intent(
             f"could not complete workflow dispatch intent: {exc}"
         ) from exc
     if changed != 1:
-        current = latest_intent(intent.request_id)
+        current = intent_by_correlation(intent.correlation_id)
         if (
             current is None
             or current.attempt != intent.attempt
@@ -267,18 +294,12 @@ def complete_intent(
                 "workflow dispatch intent changed before completion"
             )
         return current
-    return DispatchIntent(
-        request_id=intent.request_id,
-        attempt=intent.attempt,
-        actor_id=intent.actor_id,
-        authorization_scope=intent.authorization_scope,
-        payload_checksum=intent.payload_checksum,
-        correlation_id=intent.correlation_id,
+    return replace(
+        intent,
         state="completed",
         workflow_run_id=workflow_run_id,
         run_url=run_url,
         html_url=html_url,
-        inputs=intent.inputs,
     )
 
 

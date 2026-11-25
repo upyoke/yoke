@@ -8,8 +8,8 @@ from yoke_contracts.github_workflow_dispatch import WORKFLOW_DISPATCH_CORRELATIO
 from yoke_core.domain.platform_consumer_dispatch_ref import bound_dispatch_ref, consumer_dispatch_tag
 
 _COMMAND_TIMEOUT_SECONDS = 300
-_PENDING_JOIN_CODE = "workflow_dispatch_pending"
-_PENDING_JOIN_BUDGET_SECONDS = 120.0
+_JOIN_CODES = ("workflow_dispatch_pending", "workflow_dispatch_ambiguous")
+PENDING_JOIN_BUDGET_SECONDS = 120.0
 
 
 def _detail(stdout: str, stderr: str) -> str:
@@ -45,7 +45,6 @@ def build_dispatch(
     ]
 
 
-
 def dispatch_pair(
     run_yoke, candidate_sha: str, consumer_sha: str, *, request_id: str | None = None
 ) -> Tuple[str, str]:
@@ -60,11 +59,11 @@ def dispatch_pair(
     if error:
         return "", error
     trigger = build_dispatch(candidate_sha, consumer_sha, request_id=request_id)
-    deadline = time.monotonic() + _PENDING_JOIN_BUDGET_SECONDS
+    deadline = time.monotonic() + PENDING_JOIN_BUDGET_SECONDS
     delay = 2.0
     while True:
         code, stdout, stderr = run_yoke(trigger, timeout=_COMMAND_TIMEOUT_SECONDS)
-        if code == 0 or _PENDING_JOIN_CODE not in f"{stderr}\n{stdout}":
+        if code == 0 or not any(name in f"{stderr}\n{stdout}" for name in _JOIN_CODES):
             break
         remaining = deadline - time.monotonic()
         if remaining <= 0:
