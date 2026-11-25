@@ -139,6 +139,14 @@ def _tree_snapshot(root: Path) -> list[tuple[str, str, str]]:
     return snapshot
 
 
+def _assert_checkout_unchanged(
+    checkout: Path, before: list[tuple[str, str, str]], operation: str
+) -> None:
+    difference = set(_tree_snapshot(checkout)).symmetric_difference(before)
+    paths = sorted({path for _, path, _ in difference})
+    assert not paths, f"{operation} changed checkout paths: {paths}"
+
+
 def _run(
     command: list[str],
     *,
