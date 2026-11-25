@@ -10,12 +10,18 @@ worked example).
 from __future__ import annotations
 
 import io
+import json
 import os
 import shlex
+import subprocess
+import sys
 from contextlib import redirect_stdout
+from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
+from yoke_contracts.install_binding import SOURCE_DEV_RUN_ROOT_ENV
 from yoke_core.tools import watch_doctor
 from yoke_core.domain.watch_runner import filter_match
 from yoke_core.domain.watch_throttle import LineClass
@@ -232,3 +238,111 @@ class TestPrintStreamingPair:
         # No doctor flags forwarded — but the bg command still preserves
         # the wrapper's surface so callers can append flags later.
         assert "yoke watch doctor" in rendered
+
+
+def test_foreground_bash_keeps_its_existing_command_shape(monkeypatch, tmp_path):
+    from yoke_core.tools import _watch_streaming_pair as renderer
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(renderer, "caller_uses_powershell", lambda: False)
+    monkeypatch.delenv("YOKE_ENV", raising=False)
+    monkeypatch.delenv(SOURCE_DEV_RUN_ROOT_ENV, raising=False)
+    raw, progress = tmp_path / "raw capture", tmp_path / "progress capture"
+    stream = io.StringIO()
+    renderer.print_in_turn_invocation(
+        kind="doctor", wrapper_module=watch_doctor.WRAPPER_MODULE,
+        wrapper_args=["--quick"], raw_capture=raw, progress_capture=progress, out=stream,
+    )
+    assert _command_lines(stream.getvalue()) == [
+        f"cd {shlex.quote(str(tmp_path.resolve()))} && yoke watch doctor "
+        f"--raw-capture {shlex.quote(str(raw))} --progress-capture "
+        f"{shlex.quote(str(progress))} -- --quick",
+        f"tail -80 {shlex.quote(str(raw))}",
+    ]
+
+
+def _command_lines(output):
+    return [line for line in output.splitlines() if line and not line.startswith("#")]
+
+
+@pytest.mark.parametrize(
+    ("ancestors", "powershell"),
+    [
+        (["cmd.exe", r"C:\Windows\System32\WindowsPowerShell\v1.0\PowerShell.EXE", "bash"], True),
+        (["python.exe", "pwsh.exe"], True),
+        (["bash.exe", "powershell.exe"], False),
+        (["cmd.exe", "codex.exe"], False),
+    ],
+)
+def test_foreground_shell_comes_from_process_ancestry(monkeypatch, ancestors, powershell):
+    from yoke_core.tools import _watch_foreground_command as command
+
+    monkeypatch.setattr(command, "os", SimpleNamespace(name="nt", getpid=os.getpid))
+    monkeypatch.setattr(
+        command.platform_process, "ancestors",
+        lambda pid: [SimpleNamespace(name=name) for name in ancestors],
+    )
+    assert command.caller_uses_powershell() is powershell
+
+
+@pytest.mark.windows
+@pytest.mark.windows_only(reason="executes rendered commands in Windows PowerShell 5.1")
+def test_foreground_powershell_runs_both_printed_lines(monkeypatch, tmp_path):
+    from yoke_core.tools import _watch_streaming_pair as renderer
+    from yoke_core.tools._watch_wait_mode import WatchWaitMode
+    from yoke_harness.native_windows.powershell import encoded
+
+    checkout = tmp_path / "Sam's [checkout]"
+    checkout.mkdir()
+    launcher = tmp_path / "launcher.py"
+    launcher.write_text(
+        "import json, pathlib, sys\n"
+        "args = sys.argv[1:]\n"
+        "raw = pathlib.Path(args[args.index('--raw-capture') + 1])\n"
+        "raw.write_text(json.dumps([str(pathlib.Path.cwd()), args]), encoding='utf-8')\n"
+        "sys.exit(7)\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "yoke.cmd").write_text(
+        f'@"{sys.executable}" -I -S "{launcher}" %*\n', encoding="utf-8"
+    )
+    raw = tmp_path / "Sam's [raw capture]"
+    progress = tmp_path / "Sam's [progress capture]"
+    monkeypatch.setenv("PATH", str(tmp_path) + os.pathsep + os.environ["PATH"])
+    monkeypatch.setenv("YOKE_ENV", "selected connection")
+    monkeypatch.setenv(SOURCE_DEV_RUN_ROOT_ENV, str(checkout))
+    monkeypatch.setattr(renderer, "caller_uses_powershell", lambda: True)
+    monkeypatch.setattr(
+        renderer, "resolve_wait_mode", lambda: WatchWaitMode("in-turn", "test caller")
+    )
+    monkeypatch.setattr(watch_doctor._watch_runner, "mint_capture_paths", lambda _: (raw, progress))
+    monkeypatch.chdir(checkout)
+    suffix = ["--quick", "", 'spaces & 100% "quoted"']
+    stream = io.StringIO()
+    with redirect_stdout(stream):
+        assert watch_doctor.main(["--print-streaming-pair", "--", *suffix]) == 0
+    run_line, inspect_line = _command_lines(stream.getvalue())
+    assert not raw.exists()
+    monkeypatch.chdir(tmp_path)
+
+    def powershell(line):
+        return subprocess.run(
+            ["powershell.exe", "-NoProfile", "-NonInteractive", "-EncodedCommand", encoded(line)],
+            capture_output=True, text=True, timeout=30,
+        )
+
+    assert powershell(run_line).returncode == 7
+    inspect = powershell(inspect_line)
+    assert inspect.returncode == 0
+    cwd, argv = json.loads(inspect.stdout)
+    assert Path(cwd) == checkout
+    assert argv == [
+        "dev", "run", "--", "yoke", "--env", "selected connection", "watch", "doctor",
+        "--raw-capture", str(raw), "--progress-capture", str(progress), "--", *suffix,
+    ]
+    raw.unlink()
+    checkout.rmdir()
+    refused = powershell(run_line)
+    assert refused.returncode == 1
+    assert "watch_checkout_entry_failed" in refused.stderr
+    assert not raw.exists()

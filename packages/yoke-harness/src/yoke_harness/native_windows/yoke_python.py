@@ -11,7 +11,7 @@ as given.
 import subprocess
 from pathlib import PureWindowsPath
 
-from yoke_harness.native_windows.transport import quote
+from yoke_harness.native_windows.powershell import quote
 
 SHIM_UNREADABLE = "windows_yoke_shim_unreadable"
 _SHIM_PATTERN = r'^@(?:\(goto\) 2>nul & )?"([^"]+)" (?:-I -S )?"([^"]+)" %\*'
@@ -30,6 +30,24 @@ def opens_identity_page(argv) -> bool:
     )
 
 
+def yoke_shim_process_info(shim_path: str, arguments: list[str]) -> str:
+    """Set $info's executable and argv from a shim path expression."""
+    reason = quote(SHIM_UNREADABLE + ": ")
+    recovery = quote(
+        " is missing or is not the installer's yoke.cmd shim; reinstall Yoke, then rerun."
+    )
+    return (
+        f"$shimPath={shim_path}; "
+        "$shim=if($shimPath -and (Test-Path -LiteralPath $shimPath))"
+        "{[IO.File]::ReadAllText($shimPath)}else{''}; "
+        f"if($shim -notmatch {quote(_SHIM_PATTERN)})"
+        f"{{[Console]::Error.Write({reason}+[string]$shimPath+{recovery}); exit 70}}; "
+        "$info=[Diagnostics.ProcessStartInfo]::new(); $info.FileName=$Matches[1]; "
+        """$info.Arguments='-I -S "'+$Matches[2]+'" '+"""
+        f"{quote(subprocess.list2cmdline(arguments))}"
+    )
+
+
 def yoke_python_command(argv) -> str:
     """The PowerShell script running ``argv`` (``[yoke.cmd path or yoke, *arguments]``).
 
@@ -37,19 +55,12 @@ def yoke_python_command(argv) -> str:
     """
     shim, arguments = str(argv[0]), list(argv[1:])
     locate = (
-        f"$shimPath={quote(shim)}"
+        quote(shim)
         if PureWindowsPath(shim).is_absolute()
-        else "$shimPath=(Get-Command yoke.cmd -ErrorAction SilentlyContinue).Source"
+        else "(Get-Command yoke.cmd -ErrorAction SilentlyContinue).Source"
     )
-    return f"""{locate}
-$shim=if($shimPath -and (Test-Path -LiteralPath $shimPath)){{[IO.File]::ReadAllText($shimPath)}}else{{''}}
-if($shim -notmatch {quote(_SHIM_PATTERN)}){{
-  [Console]::Error.Write({quote(SHIM_UNREADABLE + ": ")}+"$shimPath"+{quote(" (" + shim + ") is missing or is not the installer's yoke.cmd shim; reinstall Yoke on the test machine, then rerun.")})
-  exit 70
-}}
-$info=[Diagnostics.ProcessStartInfo]::new()
-$info.FileName=$Matches[1]
-$info.Arguments='-I -S "'+$Matches[2]+'" '+{quote(subprocess.list2cmdline(arguments))}
+    # Keep the shim lookup first so the caller can identify the target path.
+    return f"""{yoke_shim_process_info(locate, arguments)}
 $info.UseShellExecute=$false
 $info.RedirectStandardOutput=$true
 $info.RedirectStandardError=$true
