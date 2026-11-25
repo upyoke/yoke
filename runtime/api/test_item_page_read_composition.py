@@ -41,11 +41,9 @@ def test_overview_composes_through_actor_scoped_listing(monkeypatch):
             primary_success=True,
         )
 
-    monkeypatch.setattr(items_listing, "handle_items_list", actor_scoped_list)
-    monkeypatch.setattr(
-        item_overview_read,
-        "enrich_item_overview_rows",
-        lambda rows: [
+    def enrich(rows, *, actor_id):
+        observed["enrichment_actor_id"] = actor_id
+        return [
             dict(
                 rows[0],
                 public_ref="ACM-22",
@@ -56,14 +54,17 @@ def test_overview_composes_through_actor_scoped_listing(monkeypatch):
                     }
                 ],
             )
-        ],
-    )
+        ]
+
+    monkeypatch.setattr(items_listing, "handle_items_list", actor_scoped_list)
+    monkeypatch.setattr(item_overview_read, "enrich_item_overview_rows", enrich)
 
     outcome = item_page_reads.handle_items_overview_list(request)
 
     delegated = observed["request"]
     assert delegated.function == "items.list.run"
     assert delegated.actor == request.actor
+    assert observed["enrichment_actor_id"] == 71
     assert "relevance" not in delegated.payload
     assert "project" not in delegated.payload
     assert {
