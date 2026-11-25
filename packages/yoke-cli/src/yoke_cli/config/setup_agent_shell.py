@@ -5,11 +5,11 @@
 those flows call — ``_goto``, ``_replace_current``, ``_run_checking``,
 ``run_worker`` and the rest — without a terminal. Presenting a screen either
 answers it (an answer given on this command line, then a stored one, then a
-preset) or stops and prints it as the one waiting question. Checks run in
-line, browser steps are printed for the person and never opened, a browser
-approval ends the call and resumes on the next one (:mod:`setup_agent_approvals`),
-steps that already changed the machine are read back from the run facts in the
-store (:mod:`setup_run_facts`), and every outcome is one JSON line from
+preset) or stops and prints it as the one waiting question. Checks run inline.
+The shell prints browser steps for the agent to follow. A pending approval ends
+the call and resumes on the next one (:mod:`setup_agent_approvals`). The shell
+reads completed steps from the run facts (:mod:`setup_run_facts`). Each outcome
+is one JSON line from
 :mod:`setup_agent_response`.
 """
 

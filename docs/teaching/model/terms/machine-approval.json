@@ -1,7 +1,7 @@
 {
  "id": "machine-approval",
  "term": "Machine approval",
- "definition": "The human authorization step that allows a machine to connect.",
+ "definition": "Authorization under an active organization member’s identity that allows their machine to connect. An agent can complete an authorized setup approval through that member’s signed-in browser or connected machine.",
  "status": "draft",
  "sources": ["docs/public/cli/machine-authorization.md"]
 }

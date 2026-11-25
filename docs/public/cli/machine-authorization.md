@@ -4,26 +4,28 @@
 [Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [CLI and config](index.md) > Machine approval and authorization
 <!-- /yoke:breadcrumbs -->
 
-Hosted beta (upyoke.com) and self-hosted servers share the device-code wire contract in
-`yoke_contracts.machine_authorization`. Hosted beta (upyoke.com) retains its org selection. Self-host binds a code to its sole organization at start.
+Hosted and self-hosted servers share the
+`yoke_contracts.machine_authorization` device-code contract.
 
 ## Connect
 
-Run `yoke connect https://<server>` and compare the four-character **Match code**
-with your own machine's request. Approve it from a machine already connected to
-that server with `yoke machines approve K7F2`, or use **Machines → Waiting for
-approval** in the signed-in web dashboard. Approve only your own codes: approval
-grants your identity. The wizard's **A team server** discovers the sign-in method.
-Without company sign-in, teammates choose **Enter invite code** and enter the
-private code from their administrator. For bootstrap or recovery, use
-`yoke connect https://<server> --token-stdin` or `--token-file PATH`;
-the first-boot admin token connects the first machine. `upyoke.com` means the
-hosted app; a web page that is not Yoke fails with `server_not_yoke`.
+Run `yoke connect https://<server>` and verify the four-character **Match code**,
+machine, organization and approving identity. Use `yoke machines approve K7F2`
+on a connected machine or **Machines → Waiting for approval** in the dashboard.
+Approval grants the signed-in member's identity to their own machine.
 
-Interactive `yoke connect` announces and opens browser approval; approve, then
-return to the terminal. Agent, non-TTY, and `--json` runs print the link instead;
-`--json` sends link, code and instructions as a stdout JSON line first; the
-last line is the result. Use the printed link if opening fails.
+When an agent runs an authorized setup, it verifies those details and approves in
+the intended member's signed-in browser or an already connected machine. Ask the
+person only for steps such as password entry. See [Agent setup](../start/agent-setup.md#browser-steps).
+
+Interactive `yoke connect` announces and opens the browser. Agent and non-TTY
+runs print the link. With `--json`, the first line has the link, code and
+instructions and the last line has the result. Use the link if opening fails.
+
+The wizard's **A team server** discovers the sign-in method. Without company
+sign-in, teammates use **Enter invite code** with their private code. For bootstrap
+or recovery, use `--token-stdin` or `--token-file PATH`. The first-boot admin token
+connects the first machine. Yoke rejects non-Yoke servers with `server_not_yoke`.
 
 ## Wire
 

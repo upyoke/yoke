@@ -4,6 +4,6 @@
  "status": "observed",
  "page": "modes",
  "position": 1,
- "text": "Hosted machine codes exist before organization choice. A signed-in member selects the organization; its engine owns authorization after scoped service handoff. Repeating that route is idempotent; another organization requires a fresh connection. Personal approval stays with the member. Team owns people, roles and email invites; Members retains seats and billing. Platform supplies authoritative inviter names; Platform users and engine actors are distinct identities. Source adoption is observed; changed Team consumer and production proof remain pending.",
+ "text": "Hosted machine codes exist before organization choice. The signed-in member's identity scopes organization selection, and its engine owns authorization after scoped service handoff. Repeating that route is idempotent; another organization requires a fresh connection. An authorized setup agent selects the intended organization and approves the matching request using that member's signed-in session. Team owns people, roles and email invites; Members retains seats and billing. Platform supplies authoritative inviter names; Platform users and engine actors are distinct identities. Source adoption is observed; changed Team consumer and production proof remain pending.",
  "sources": ["docs/public/cli/machine-authorization.md", "docs/public/projects/actors-members-billing.md", "runtime/api/universe_ui_team_view.test.mjs"]
 }

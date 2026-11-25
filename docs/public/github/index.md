@@ -100,10 +100,12 @@ IDs are omitted ([GitHub installation documentation](https://docs.github.com/en/
 
 Inside agent-mode setup, the GitHub step arrives as a `browser` line; see
 [Agent setup](../start/agent-setup.md#browser-steps). For a standalone
-agent-led connection, use `yoke github connect --json`. No browser opens;
-Its stdout is JSON lines: the link, code and instructions arrive before the
-approval wait, and the last line is the result. Present the action to the
-person and continue the same command. A valid saved authorization is reused;
+agent-led connection, use `yoke github connect --json`. The command prints the
+link, code and instructions as JSON lines before waiting, then prints the result.
+Open the link in a browser signed in to the intended GitHub account and complete
+the authorized code step while the command waits. Ask the person only for steps
+that require their direct participation, such as password entry or a decision
+on repository access. A valid saved authorization is reused;
 `--replace` requests fresh approval. `--add-installation` returns the App
 installation link while reusing the saved authorization. Setup's TUI opens
 these links only after an “Opening your browser…” notice and offers Ctrl-Y
