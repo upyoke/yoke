@@ -239,11 +239,7 @@ prints `Downgraded` when that release is older than the installed CLI, and names
 The installer builds each CLI release in its own uv tool directory and swaps
 one launcher pointer atomically. Running commands keep their original modules;
 new commands use the published release. Old environments retire after their
-commands finish and cleanup failures name the reason and the update to retry.
-A local-universe relay running through the installed launcher checks for a
-newly published release before its next poll cycle. When the release changes,
-the relay drains in-flight jobs and exits. The service supervisor starts the
-launcher on the new release.
+commands finish; cleanup failures name the reason and the update to retry.
 The installer repairs git credential-helper references for the new release.
 A registered folder that is no longer a Git repository produces a `not_a_repo`
 warning in the helper receipt and does not block activation. Remove that stale
