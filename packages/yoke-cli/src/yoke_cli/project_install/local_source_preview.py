@@ -118,6 +118,7 @@ def preview_report(
             "reason": "preview performs no external or server snapshot writes",
         },
         "machine_config_newly_registered": False,
+        "warnings": [],
         "harness_health": preflight["harness_health"],
     }
 
