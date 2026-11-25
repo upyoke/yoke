@@ -16,8 +16,8 @@ Use `notify_on_output` only for background-wake.
 <!-- YOKE:HARNESS end -->
 
 <!-- YOKE:HARNESS codex start -->
-Without background wake, if Codex desktop tasks exist and no opt-out,
-keep one 15-minute task. The full prompt/message is exactly
+Without background wake, if Codex Desktop tasks are available and no opt-out,
+keep one 15-minute task (create if missing). The full prompt/message is exactly
 `Keep steering`: no status, item lists, identifiers, cold-start or handoff text.
 On wake, steer entry reads claimed strategy docs and Live status
 for scope, facts and operator boundaries; keep state there.
