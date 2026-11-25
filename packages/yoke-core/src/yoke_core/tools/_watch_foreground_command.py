@@ -114,13 +114,20 @@ def _powershell_command(cwd: str, argv: list[str], connection: str) -> str:
     # Start the executable directly with Windows argv and inherited streams.
     lookup = (
         f"$program=(Get-Command {quote(argv[0])} -CommandType Application "
-        "-ErrorAction Stop).Source"
+        "-ErrorAction Stop | Select-Object -First 1).Source"
     )
     native = (
         "$info=[Diagnostics.ProcessStartInfo]::new(); $info.FileName=$program; "
         "$info.Arguments=$arguments"
     )
     if argv[0] == "yoke":
+        # The release installs yoke.cmd alongside an extensionless POSIX launcher.
+        # The uv console script, when installed separately, is yoke.exe.
+        lookup = (
+            "$program=(Get-Command -Name 'yoke.cmd','yoke.exe' -CommandType Application "
+            "-ErrorAction SilentlyContinue | Select-Object -First 1).Source; "
+            "if (!$program) { throw 'Yoke launcher (yoke.cmd or yoke.exe) missing from PATH' }"
+        )
         shim = yoke_shim_process_info("$program", "$arguments")
         native = (
             "if ($program.EndsWith('.cmd', [StringComparison]::OrdinalIgnoreCase)) "

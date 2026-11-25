@@ -306,6 +306,7 @@ def test_foreground_powershell_runs_both_printed_lines(monkeypatch, tmp_path):
     (tmp_path / "yoke.cmd").write_text(
         f'@"{sys.executable}" -I -S "{launcher}" %*\n', encoding="utf-8"
     )
+    (tmp_path / "yoke").write_text("#!/bin/sh\nexit 97\n", encoding="utf-8")
     raw = tmp_path / "Sam's [raw capture]"
     progress = tmp_path / "Sam's [progress capture]"
     monkeypatch.setenv("PATH", str(tmp_path) + os.pathsep + os.environ["PATH"])
@@ -331,6 +332,7 @@ def test_foreground_powershell_runs_both_printed_lines(monkeypatch, tmp_path):
             capture_output=True, text=True, timeout=30,
         )
 
+    assert {"yoke", "yoke.cmd"} <= set(powershell("(Get-Command yoke -CommandType Application).Name").stdout.splitlines())
     assert powershell(run_line).returncode == 7
     inspect = powershell(inspect_line)
     assert inspect.returncode == 0
