@@ -21,6 +21,8 @@ from yoke_harness.ssh_linux_user_manager import (
     RESET_USER_MANAGER_PROGRAM,
     check_linux_user_manager,
 )
+from yoke_harness.ssh_windows_host_operations import SshWindowsHostOperations
+from yoke_harness.test_machine_operations import _verify
 
 BUS_ERROR = "Failed to connect to bus: No medium found\n"
 
@@ -120,10 +122,11 @@ def test_reset_checks_the_user_manager_before_any_stop_stash_or_removal(monkeypa
     assert check > program.index('refuse("golden_baseline_identity_mismatch")')
 
 
-def linux_control(manager):
-    control = object.__new__(SshLinuxHostOperations)
+def linux_control(manager, *, os_name="linux"):
+    adapter = SshWindowsHostOperations if os_name == "wsl" else SshLinuxHostOperations
+    control = object.__new__(adapter)
     control._host, control._user = "host.invalid", "tester"
-    control.os = "linux"
+    control.os = os_name
     control.secret_values = ()
     calls = []
 
@@ -148,6 +151,47 @@ def test_verify_fails_with_the_reset_code_stderr_and_recovery():
     assert result.evidence["recovery"] == refusal["recovery"]
     assert result.evidence["total_memory_bytes"] == 8 * 1024**3
     assert any("show-environment" in call for call in calls)
+
+
+def test_wsl_verify_refuses_before_terminal_bridge_or_baseline_reset():
+    refusal = user_manager_unavailable(BUS_ERROR, wsl=True, distro="Lab-Distro")
+    control, calls = linux_control(refusal, os_name="wsl")
+    control.check_terminal_bridge = lambda: pytest.fail("verify touched the desktop")
+    control.reach_baseline = lambda _: pytest.fail("verify reset a baseline")
+    contract = SimpleNamespace(
+        checks=["connection", "terminal_bridge"], baselines=["fresh-host", "shell-preconfigured"]
+    )
+
+    rows, error = _verify(contract, control, None)
+
+    assert error == USER_MANAGER_UNAVAILABLE
+    assert [row["name"] for row in rows] == ["connection"]
+    assert not rows[0]["ok"] and rows[0]["os"] == "wsl"
+    assert rows[0]["user_manager_stderr"] == refusal["user_manager_stderr"]
+    assert rows[0]["recovery"] == refusal["recovery"]
+    assert calls[0] == "/usr/bin/true"
+    assert len(calls) == 2 and "show-environment" in calls[1]
+
+
+@pytest.mark.parametrize("os_name", ["linux", "wsl"])
+def test_reset_refuses_before_identity_retirement_or_archive_admission(monkeypatch, os_name):
+    refusal = user_manager_unavailable(BUS_ERROR, wsl=os_name == "wsl", distro="Lab-Distro")
+    control, calls = linux_control(refusal, os_name=os_name)
+    control.golden_baseline_path = "/srv/golden"
+    monkeypatch.setattr(
+        "yoke_harness.ssh_linux_host_operations.retire_reset_identity",
+        lambda _: pytest.fail("reset attempted to retire the lab identity"),
+    )
+    monkeypatch.setattr(
+        ssh_linux_baseline, "archive_admission", lambda *_: pytest.fail("reset entered archive admission")
+    )
+
+    result = control.reset_installer_test_host()
+
+    assert not result.ok and result.error_code == USER_MANAGER_UNAVAILABLE
+    assert result.evidence["user_manager_stderr"] == refusal["user_manager_stderr"]
+    assert result.evidence["recovery"] == refusal["recovery"]
+    assert len(calls) == 1 and "show-environment" in calls[0]
 
 
 def test_verify_keeps_its_connection_row_when_the_user_manager_answers():
