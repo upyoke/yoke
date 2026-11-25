@@ -78,15 +78,16 @@ def test_rerun_after_abort_rosters_only_unpassed_cases(test_db) -> None:
     _seed(test_db)
     aborted = _begin(test_db)
     roster = _ids(aborted)
-    assert len(roster) == 3
+    assert len(roster) == 1
     passed = _pass(test_db, aborted, 0)
     _abort(test_db, aborted)
 
     fresh = _begin(test_db)
 
     assert fresh["id"] != aborted["id"]
-    assert _ids(fresh) == [row for row in roster if row != passed]
-    assert [row["ordinal"] for row in fresh["roster"]] == [0, 1]
+    assert [row["case_key"] for row in fresh["roster"]] == ["second"]
+    assert passed not in _ids(fresh)
+    assert [row["ordinal"] for row in fresh["roster"]] == [0]
     assert fresh["cursor_ordinal"] == 0
 
 
@@ -126,10 +127,11 @@ def test_nothing_owed_settles_passed_stopped_evidence_inline(test_db) -> None:
     from yoke_core.domain.qa_plan_nothing_owed import QaPlanNothingOwed
 
     _seed(test_db)
-    aborted = _begin(test_db)
-    for ordinal in range(3):
-        _pass(test_db, aborted, ordinal)
-    _abort(test_db, aborted)
+    for case_key in CASE_KEYS:
+        aborted = _begin(test_db)
+        assert [case["case_key"] for case in aborted["roster"]] == [case_key]
+        _pass(test_db, aborted, 0)
+        _abort(test_db, aborted)
     test_db.commit()
     count = "SELECT COUNT(*) FROM qa_plan_executions"
     before = test_db.execute(count).fetchone()[0]
@@ -159,8 +161,10 @@ def test_passes_across_stopped_walks_settle_the_stage_without_a_replay(
     _abort(test_db, first)
     second = _begin(test_db)
     _pass(test_db, second, 0)
-    _pass(test_db, second, 1)
     _abort(test_db, second)
+    third = _begin(test_db)
+    _pass(test_db, third, 0)
+    _abort(test_db, third)
 
     status = deployment_qa_stage_status(
         test_db, run_id=RUN, stage_name="item-qa", member_item_id=MEMBER
