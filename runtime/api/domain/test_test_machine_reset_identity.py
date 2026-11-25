@@ -164,6 +164,8 @@ def test_restore_outcome_is_independent_of_lab_identity_retirement(
     lab.run_command = run
     monkeypatch.setattr(module, wipe_operation, wipe)
     if module is ssh_linux_host_operations:
+        lab.secret_values = ()
+        lab._run = lambda script, **_: CompletedProcess([script], 0, "null", "")
         monkeypatch.setattr(module, "probe_reset_tools", lambda _: {})
     else:
         monkeypatch.setattr(module, "probe_console", lambda *_, **__: HostActionResult(True, {}))

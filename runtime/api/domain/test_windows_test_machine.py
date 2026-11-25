@@ -113,7 +113,7 @@ def test_windows_ssh_requires_wsl2_and_non_root_facts(monkeypatch, kernel):
                 }
             )
         )
-        return subprocess.CompletedProcess(argv, 0, output, "")
+        return subprocess.CompletedProcess(argv, 0, "null" if "show-environment" in script else output, "")
 
     monkeypatch.setattr(subprocess, "run", run)
     if kernel == "legacy":

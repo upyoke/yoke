@@ -2,7 +2,7 @@
  "id": "linux-supervision-and-linger",
  "title": "Linux supervision and linger",
  "status": "observed",
- "text": "The systemd user relay stops after the last logout. Linger is refused as relay_linger_enabled; disable it with loginctl disable-linger, then retry yoke relay install. On WSL the systemd user manager comes from the distro's session-1 login; when it ends, relay install refuses relay_systemd_user_manager_unavailable and names wsl.exe --terminate <distro> from Windows as the recovery, never linger.",
+ "text": "The systemd user relay stops after the last logout. Linger is refused as relay_linger_enabled; disable it with loginctl disable-linger, then retry yoke relay install. On WSL the systemd user manager can stop when the distro's last login ends. When it is unavailable, relay install refuses relay_systemd_user_manager_unavailable and names wsl.exe --terminate <distro> from Windows as the recovery, never linger.",
  "sources": ["docs/public/sessions/linux-relay.md", "packages/yoke-core/src/yoke_core/tools/session_relay_systemd.py", "packages/yoke-contracts/src/yoke_contracts/systemd_user_manager.py"],
  "surface_refs": ["detail-home"],
  "page": "machines",

@@ -140,6 +140,8 @@ def test_reset_retains_each_surface_and_tool(monkeypatch, adapter, outcome):
     calls = []
 
     def run(command, **kwargs):
+        if "show-environment" in command:
+            return subprocess.CompletedProcess(command, 0, "null", "")
         if "/home/tester/.yoke/config.json" in command:
             return subprocess.CompletedProcess(command, 0, "", "")
         calls.append(command)

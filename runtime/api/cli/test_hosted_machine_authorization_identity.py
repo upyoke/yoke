@@ -313,7 +313,8 @@ def test_cancelled_draft_and_registered_setup_follow_reset_safety(
     monkeypatch.setattr(lab, "archive_operation", wipe)
     control = SimpleNamespace(
         home="/home/lab", golden_baseline_path="/golden/disposable",
-        read_remote_text=read, run_command=retire,
+        read_remote_text=read, run_command=retire, secret_values=(),
+        _run=lambda script, **_: CompletedProcess([script], 0, "null", ""),
         path_state=SimpleNamespace(yoke_bin="/bin/yoke"),
     )
     reset = lab.SshLinuxHostOperations.reset_installer_test_host
@@ -334,7 +335,6 @@ def test_cancelled_draft_and_registered_setup_follow_reset_safety(
     assert machine_registry.get_machine(db_conn, cancelled_id) is None
     assert reset(control).error_code == "simulated_wipe_boundary"
     assert not retired
-
     pending = auth.start(origin, self_host=True)
     machine_id = sent[-1][1]
     machine_authorization_decisions.resolve(
