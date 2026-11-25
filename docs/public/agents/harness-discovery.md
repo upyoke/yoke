@@ -21,14 +21,6 @@ declares the additional embedded-engine floor and native layout. Claude's
 desktop app version is not its embedded Code engine version. Cowork is not a
 project-Code surface and is not an installed project skill consumer.
 
-For Claude Code and Codex in VS Code, the message floor uses the version
-reported by the extension's bundled CLI. Yoke probes the newest installed
-bundle under `~/.vscode/extensions` or `~/.vscode-server/extensions` on the
-host where the hook runs. Run
-`yoke relay probe-surface --surface claude-vscode` or use
-`codex-vscode` to check the observed version. A later hook can fill an
-unknown session version after the relay successfully probes the bundle.
-
 ## Claude configuration
 
 Claude's default `claude-md-or-agents-md` loads AGENTS only when no `CLAUDE.md`,

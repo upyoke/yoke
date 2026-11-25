@@ -50,6 +50,14 @@ A running session can receive messages through its hooks. A parked or idle sessi
 
 If delivery fails, inspect the recorded reason and recovery. A queued message is not proof that the recipient acted, and an acknowledgement is not proof that the work finished.
 
+For Claude Code and Codex in VS Code, the message floor uses the version
+reported by the extension's bundled CLI. Yoke probes the newest installed
+bundle under `~/.vscode/extensions` or `~/.vscode-server/extensions` on the
+host where the hook runs. Run
+`yoke relay probe-surface --surface claude-vscode` or use
+`codex-vscode` to check the observed version. A later hook can fill an
+unknown session version after the relay successfully probes the bundle.
+
 ### Human approval and follow-up
 
 Review the subject and evidence before approving. Different decisions can concern an item's work, QA evidence, or a deployment run. Answering one does not settle the others.
