@@ -10,6 +10,18 @@ from yoke_contracts.executor_labels import CANONICAL_HARNESS_IDS
 from yoke_contracts.watch_cli_forms import WATCHER_MAX_DURATION_SECONDS
 
 CLAUDE_AGENTS_MINIMUM_VERSION = "2.1.281"
+_CLAUDE_VSCODE_BINARY = "anthropic.claude-code-{version}*/resources/native-binary/claude"
+_CODEX_VSCODE_BINARY = "openai.chatgpt-{version}*/bin/*/codex"
+
+
+def _vscode_patterns(relative_path: str) -> tuple[str, ...]:
+    return tuple(
+        f"~/{host}/extensions/{relative_path}" for host in (".vscode", ".vscode-server")
+    )
+
+
+_CLAUDE_VSCODE_PATTERNS = _vscode_patterns(_CLAUDE_VSCODE_BINARY)
+_WINDOWS_CLAUDE_VSCODE_PATTERNS = _vscode_patterns(f"{_CLAUDE_VSCODE_BINARY}.exe")
 
 
 @dataclass(frozen=True)
@@ -34,6 +46,13 @@ class HarnessCliManifest:
     windows_install_command: str = ""
     windows_bundled_candidates: tuple[str, ...] = ()
     windows_bundled_patterns: tuple[str, ...] = ()
+    vscode_surface_id: str = ""
+    vscode_binary_patterns: tuple[str, ...] = ()
+    windows_vscode_binary_patterns: tuple[str, ...] = ()
+
+    def vscode_binaries_for_platform(self, *, windows: bool | None = None) -> tuple[str, ...]:
+        native = os.name == "nt" if windows is None else windows
+        return self.windows_vscode_binary_patterns if native else self.vscode_binary_patterns
 
     def install_for_platform(self, *, windows: bool | None = None) -> str:
         native = os.name == "nt" if windows is None else windows
@@ -64,6 +83,8 @@ class HarnessCliManifest:
             "launch_environment": dict(self.launch_environment),
             "background_time_limit": self.background_time_limit,
             "version_args": list(self.version_args),
+            "vscode_surface_id": self.vscode_surface_id,
+            "vscode_binary_patterns": list(self.vscode_binary_patterns),
             "bundled_candidates": list(self.bundled_candidates),
             "bundled_patterns": list(self.bundled_patterns),
             "install_command": self.install_command,
@@ -71,6 +92,7 @@ class HarnessCliManifest:
                 "install_command": self.windows_install_command,
                 "bundled_candidates": list(self.windows_bundled_candidates),
                 "bundled_patterns": list(self.windows_bundled_patterns),
+                "vscode_binary_patterns": list(self.windows_vscode_binary_patterns),
             },
             "authentication": {
                 "status_args": list(self.auth_args),
@@ -100,15 +122,16 @@ HARNESS_CLI_MANIFESTS = (
         CLAUDE_AGENTS_MINIMUM_VERSION,
         bundled_patterns=(
             "~/Library/Application Support/Claude/claude-code/{version}/*/claude.app/Contents/MacOS/claude",
-            "~/.vscode/extensions/anthropic.claude-code-{version}*/resources/native-binary/claude",
+            _CLAUDE_VSCODE_PATTERNS[0],
         ),
         install_command="curl -fsSL https://claude.ai/install.sh | bash",
         update_command="claude update",
         windows_install_command="winget install --id Anthropic.ClaudeCode -e",
         windows_bundled_candidates=("~/.local/bin/claude.exe",),
-        windows_bundled_patterns=(
-            "~/.vscode/extensions/anthropic.claude-code-{version}*/resources/native-binary/claude.exe",
-        ),
+        windows_bundled_patterns=_WINDOWS_CLAUDE_VSCODE_PATTERNS[:1],
+        vscode_surface_id="claude-vscode",
+        vscode_binary_patterns=_CLAUDE_VSCODE_PATTERNS,
+        windows_vscode_binary_patterns=_WINDOWS_CLAUDE_VSCODE_PATTERNS,
         auth_args=("auth", "status", "--json"),
         auth_signed_in_key="loggedIn",
         login_args=("auth", "login"),
@@ -141,6 +164,9 @@ HARNESS_CLI_MANIFESTS = (
         update_command="codex update",
         windows_install_command="irm https://chatgpt.com/codex/install.ps1 | iex",
         windows_bundled_candidates=("%LOCALAPPDATA%/Programs/OpenAI/Codex/bin/codex.exe",),
+        vscode_surface_id="codex-vscode",
+        vscode_binary_patterns=_vscode_patterns(_CODEX_VSCODE_BINARY),
+        windows_vscode_binary_patterns=_vscode_patterns(f"{_CODEX_VSCODE_BINARY}.exe"),
         auth_args=("login", "status"),
         background_time_limit=(
             "Designed deferral: no equivalent unattended background time limit "
@@ -198,6 +224,17 @@ def harness_cli_executables() -> tuple[str, ...]:
     return tuple(manifest.executable for manifest in HARNESS_CLI_MANIFESTS)
 
 
+VSCODE_CLI_BY_SURFACE = {
+    manifest.vscode_surface_id: manifest
+    for manifest in HARNESS_CLI_MANIFESTS
+    if manifest.vscode_surface_id
+}
+
+
+def harness_vscode_surfaces() -> tuple[str, ...]:
+    return tuple(VSCODE_CLI_BY_SURFACE)
+
+
 def harness_cli_probe_commands() -> dict[str, tuple[str, ...]]:
     return {
         manifest.surface_id: (manifest.executable, *manifest.version_args)
@@ -209,6 +246,8 @@ __all__ = [
     "HARNESS_CLI_BY_ID",
     "HARNESS_CLI_MANIFESTS",
     "HarnessCliManifest",
+    "VSCODE_CLI_BY_SURFACE",
+    "harness_vscode_surfaces",
     "harness_cli_executables",
     "harness_cli_manifest",
     "harness_cli_probe_commands",

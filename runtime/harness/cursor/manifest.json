@@ -10,6 +10,8 @@
     "version_args": [
       "--version"
     ],
+    "vscode_surface_id": "",
+    "vscode_binary_patterns": [],
     "bundled_candidates": [],
     "bundled_patterns": [],
     "install_command": "curl https://cursor.com/install -fsS | bash",
@@ -21,7 +23,8 @@
       ],
       "bundled_patterns": [
         "%LOCALAPPDATA%/cursor-agent/versions/{version}*/cursor-agent.exe"
-      ]
+      ],
+      "vscode_binary_patterns": []
     },
     "authentication": {
       "status_args": [
