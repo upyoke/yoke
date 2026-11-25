@@ -8,7 +8,9 @@ from typing import Any, Callable
 
 from yoke_cli.transport import dispatcher as function_dispatcher  # noqa: F401 - public test injection surface
 from yoke_cli.transport import https as https_transport  # noqa: F401 - public test injection surface
+from yoke_contracts.machine_config import reader as machine_config
 from yoke_contracts.machine_config import schema as contract
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_cli.config.project_selection import required_project_context
 from yoke_contracts.project_defaults import MissingProjectError
 from yoke_cli.config.db_admin_setup_errors import DbAdminSetupError, _safe_label
@@ -86,7 +88,6 @@ def build_report(
     except MissingProjectError as exc:
         raise DbAdminSetupError(str(exc)) from exc
     env_name = _safe_label(env_name, what="environment")
-    selected_port = int(local_port or default_local_port(env_name))
     env = _resolve_environment(project, env_name)
     project = str(env.project)
     selected_control_plane_env = _select_control_plane_env(
@@ -121,6 +122,7 @@ def build_report(
     else:
         database_name = declared.database_name
 
+    selected_port = _select_local_port(config_path, selected_admin_env, env_name, local_port)
     postgres = _postgres_metadata(env, selected_port)
     dsn_path = box_mode.dsn_file_path(secret_label or default_label)
     authority, steps = box_mode.plan(
@@ -161,6 +163,7 @@ def build_report(
         env,
         dsn_path,
         admin_env=selected_admin_env,
+        local_host=postgres["host"],
         local_port=selected_port,
         database_name=database_name,
     )
@@ -201,6 +204,32 @@ def _resolve_environment(project: str, env_name: str) -> Any:
         return module.resolve_deploy_environment(project, env_name)
     except Exception as exc:  # noqa: BLE001
         raise DbAdminSetupError(str(exc)) from exc
+
+
+def _select_local_port(
+    config_path: str | Path | None,
+    admin_env: str,
+    env_name: str,
+    local_port: int | None,
+) -> int:
+    if local_port is None:
+        try:
+            payload = machine_config.load_config(config_path)
+        except (machine_config.MachineConfigError, OSError) as exc:
+            raise DbAdminSetupError(compose_refusal(
+                "box_profile_config_unreadable: cannot read the saved profile port",
+                recovery="repair the machine config or select a readable file with --config",
+            )) from exc
+        entry = (payload.get("connections") or {}).get(admin_env, {})
+        local_port = (entry.get("postgres") or {}).get("port")
+        if local_port is None:
+            return default_local_port(env_name)
+    if type(local_port) is not int or not 1 <= local_port <= 65535:
+        raise DbAdminSetupError(compose_refusal(
+            f"box_profile_port_invalid: {admin_env} requires a port from 1 to 65535",
+            recovery="rerun with --local-port PORT matching the provisioned DSN",
+        ))
+    return local_port
 
 
 def _postgres_metadata(env: Any, local_port: int) -> dict[str, Any]:

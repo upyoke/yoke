@@ -11,11 +11,14 @@ report or printed.
 
 from __future__ import annotations
 
+from importlib import import_module
+from ipaddress import ip_address
 from pathlib import Path
 from typing import Any
 
 from yoke_contracts.machine_config import schema as contract
 from yoke_contracts.machine_config import secret_files as machine_secrets
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_cli.config import db_admin_box_hop as box_hop
 from yoke_cli.config.db_admin_setup_errors import DbAdminSetupError
 from yoke_cli.config.db_admin_setup_report import _path_ref
@@ -72,6 +75,7 @@ def apply(
     dsn_path: Path,
     *,
     admin_env: str,
+    local_host: str,
     local_port: int,
     database_name: str,
 ) -> tuple[dict[str, str], dict[str, Any]]:
@@ -79,6 +83,7 @@ def apply(
     source = credential_source(
         dsn_path,
         admin_env=admin_env,
+        local_host=local_host,
         local_port=local_port,
         database_name=database_name,
     )
@@ -89,20 +94,87 @@ def credential_source(
     dsn_path: Path,
     *,
     admin_env: str,
+    local_host: str,
     local_port: int,
     database_name: str,
 ) -> dict[str, str]:
-    """Refuse unless the DSN file is provisioned; never read it into output."""
+    """Validate the provisioned DSN before any SSH or config writes."""
     try:
-        machine_secrets.read_secret_file(dsn_path, f"{admin_env} DSN")
-    except machine_secrets.MachineSecretError as exc:
+        dsn = machine_secrets.read_secret_file(dsn_path, f"{admin_env} DSN")
+    except (machine_secrets.MachineSecretError, UnicodeError):
         raise DbAdminSetupError(
-            f"box_dsn_file_unavailable: {exc}; write the {admin_env} DSN "
-            f"(postgresql://USER:PASSWORD@127.0.0.1:{local_port}/{database_name}) "
+            f"box_dsn_file_unavailable: write a readable {admin_env} DSN "
+            f"(postgresql://USER:PASSWORD@{local_host}:{local_port}/{database_name}) "
             f"from the environment's custody file to {_path_ref(dsn_path)} with "
             "mode 600, then rerun"
         ) from None
+    _validate_dsn_endpoint(dsn, admin_env, local_host, local_port)
     return {"kind": contract.CREDENTIAL_KIND_DSN_FILE, "path": str(dsn_path)}
+
+
+def _validate_dsn_endpoint(
+    dsn: str, admin_env: str, local_host: str, local_port: int,
+) -> None:
+    selected = f"{local_host}:{local_port}"
+    repair = f"provision a DSN with the loopback endpoint {selected}, then rerun"
+    try:
+        psycopg = import_module("psycopg")
+    except ImportError:
+        raise DbAdminSetupError(compose_refusal(
+            "box_dsn_parser_unavailable: db-admin setup requires Psycopg",
+            recovery="reinstall Yoke with the local engine and rerun setup",
+        )) from None
+    try:
+        parameters = psycopg.conninfo.conninfo_to_dict(dsn)
+    except (psycopg.ProgrammingError, UnicodeError):
+        raise DbAdminSetupError(compose_refusal(
+            f"box_dsn_invalid: {admin_env} has an invalid PostgreSQL DSN",
+            evaluated=f"selected SSH forward {selected}",
+            recovery=repair,
+        )) from None
+
+    host = parameters.get("host")
+    hostaddr = parameters.get("hostaddr")
+    loopback = _loopback_host(hostaddr or host)
+    port_text = parameters.get("port") or ""
+    if (
+        parameters.get("service")
+        or not loopback
+        or (host and not _loopback_host(host))
+        or (hostaddr and loopback == "localhost")
+    ):
+        raise DbAdminSetupError(compose_refusal(
+            f"box_dsn_endpoint_mismatch: {admin_env} DSN must specify a single loopback endpoint",
+            evaluated=f"selected SSH forward {selected}",
+            recovery=repair,
+        ))
+    port = 0
+    if len(port_text) <= 5 and port_text.isascii() and port_text.isdecimal():
+        port = int(port_text)
+    if port != local_port:
+        dsn_endpoint = f"{loopback} with no valid explicit port"
+        if 1 <= port <= 65535:
+            dsn_endpoint = f"{loopback}:{port}"
+            repair = f"rerun with --local-port {port} to use the DSN endpoint, or {repair}"
+        raise DbAdminSetupError(compose_refusal(
+            f"box_dsn_endpoint_mismatch: {admin_env} DSN selects {dsn_endpoint}",
+            evaluated=f"selected SSH forward {selected}",
+            recovery=repair,
+        ))
+
+
+def _loopback_host(host: str | None) -> str | None:
+    if not host:
+        return None
+    if host.lower() in {"localhost", "localhost."}:
+        return "localhost"
+    try:
+        address = ip_address(host)
+    except ValueError:
+        return None
+    if str(address) in {"127.0.0.1", "::1"}:
+        return f"[{address}]" if address.version == 6 else str(address)
+    return None
 
 
 __all__ = [

@@ -157,7 +157,10 @@ def build_db_admin_setup_parser() -> argparse.ArgumentParser:
         type=int,
         default=None,
         metavar="PORT",
-        help="Local port for the SSH forward; default: one per environment.",
+        help=(
+            "Local SSH forward port. Defaults to the selected profile's saved port "
+            "or the environment default for a new profile. The DSN must agree."
+        ),
     )
     parser.add_argument(
         "--secret-name",
