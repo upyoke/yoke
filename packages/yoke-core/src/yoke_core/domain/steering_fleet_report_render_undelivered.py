@@ -21,6 +21,7 @@ from yoke_contracts.timestamps import format_instant
 from typing import Sequence
 
 from yoke_contracts.session_control.evidence_fetch import evidence_pull_suffix
+from yoke_contracts.session_control.liveness import IN_FLIGHT_CEILING_SECONDS
 from yoke_core.domain.session_message_ended_recipient import cancel_recovery
 from yoke_core.domain.steering_fleet_report import UndeliveredMessages
 from yoke_core.domain.steering_fleet_report_render_text import (
@@ -116,8 +117,7 @@ def _state_phrase(entry: UndeliveredMessages) -> str:
         return (
             "never injected, wake held — native turn running "
             f"for this session{_held_silence(entry)}; it delivers at that "
-            "session's next tool call or when its turn ends; to end it: "
-            f"`yoke sessions terminate {entry.session_id} --reason ...`"
+            f"session's next tool call or when its turn ends{_held_terminate(entry)}"
         )
     phrase = _STATE_PHRASES[entry.delivery_state]
     if entry.recipient_gone_at:
@@ -226,6 +226,23 @@ def _held_after_turn(entry: UndeliveredMessages) -> str:
         f"never injected, wake held — turn ended at {ended}; process held by "
         f"background child {pid} `{command}`{more}{_held_silence(entry)}; "
         "delivers when it returns; ending it delivers now"
+    )
+
+
+def _held_terminate(entry: UndeliveredMessages) -> str:
+    """The terminate lever, offered only once the turn could be residue.
+
+    A turn silent for less than the widest watcher budget may still be
+    waiting on a slow call, so terminating it would lose the session for a
+    stall that ends on its own. Past that ceiling, or when the silence was
+    never measured, the lever is named.
+    """
+    silent = entry.held_native_silent_for_seconds
+    if silent is not None and silent < IN_FLIGHT_CEILING_SECONDS:
+        return ""
+    return (
+        "; to end it: "
+        f"`yoke sessions terminate {entry.session_id} --reason ...`"
     )
 
 
