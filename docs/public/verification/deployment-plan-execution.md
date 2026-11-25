@@ -93,21 +93,18 @@ a later attacher gets a new group.
 
 ## Machine partitions
 
-Read the cases, hosts, and custody for each partition with
+Read each partition's cases, hosts, and custody with
 `yoke qa plan partitions --item ITEM --stage STAGE --deployment-run-id RUN`.
-Use the same scope with `yoke qa plan run --partition KEY` in one session
-per free partition. Independent chains remain separate even when they use
-the same operating system. Host leases serialize turns on the same host.
+Start a session per free partition with `yoke qa plan run --partition KEY`
+and the same scope. Host leases serialize independent chains on one host.
 
-Use `after_case_key` to name an earlier case in the same plan when one
-partition needs the other to pass first. Each chain starts from its own
-baseline. Use `starting_state: inherit` to continue on the same machine
-with the state its predecessor left.
+Use `after_case_key` to wait for an earlier case's partition to pass.
+Each chain uses its own baseline. Use `starting_state: inherit` to reuse
+machine state within a chain.
 
-An item transition also prints the lane path, branch, and commit. The
-claim holder runs a `lane` case with `yoke qa case run --requirement-id ID`.
-An item walker passes the frozen branch and commit using
-`--expected-branch` and `--expected-sha`.
+The item read freezes the lane. Walkers use `--expected-branch` and
+`--expected-sha` from that receipt. The claim holder runs `lane` cases
+with `yoke qa case run --requirement-id ID`.
 
 Use `--resume-execution-id ID` for a waiting execution or to reprint its
 pending review bundle. The member is accepted once every required case passes.
@@ -180,9 +177,9 @@ cursor steps over cases already recorded, so resume never reruns them. Machine
 cases, `inherit` chains, baselines, and agent- or human-judged cases keep their
 roster order.
 
-If a walker discovers a second required host is occupied, return
-`WALK_STATUS: HOST_WAIT` and its registered name plus holder evidence. Submit
-through the current bundle's `yoke qa plan review-submit ... --stdin`:
+If another session holds a required host, submit `host_wait` through the
+current review bundle with the registered machine name and holder evidence.
+Use `yoke qa plan review-submit ... --stdin`.
 
 ```json
 {"host_wait":{"test_machine":"linux-example","rationale":"holder evidence"}}

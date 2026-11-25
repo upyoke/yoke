@@ -4,21 +4,17 @@
 [Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Verification](index.md) > Standalone plans
 <!-- /yoke:breadcrumbs -->
 
-Read the partitions of a saved project plan, then start a free partition in
-its own session.
+Read a saved project's plan partitions, then run each free partition in its own session.
 
 ```text
 yoke qa plan partitions --plan PLAN --project P --expected-branch REF --expected-sha SHA
 yoke qa plan run --plan PLAN --project P --expected-branch REF --expected-sha SHA --partition KEY
 ```
 
-Each fresh run freezes a case chain and its host baselines in existing QA
-execution, requirement, run, review, and artifact records. Its standalone execution
-owns the evidence and changes no item transition, delivery acceptance, or stage gate.
-An interrupted live run resumes its immutable roster and cursor in its owning session.
-The partition read shows every live owner and the outcomes at the requested
-commit. Independent partitions can run in parallel. Cases with
-`after_case_key` wait for the named predecessor's partition to pass.
+Each run freezes one chain and its baselines. Its standalone execution
+owns the evidence independently of item and release gates. Resume its cursor
+in the owning session. The read shows live owners and outcomes at the requested
+commit. Independent partitions run in parallel. Use `after_case_key` to wait for an earlier partition.
 Unsupported runners or missing capabilities refuse before any case executes.
 For missions, follow [Walking QA missions](walking.md).
 
