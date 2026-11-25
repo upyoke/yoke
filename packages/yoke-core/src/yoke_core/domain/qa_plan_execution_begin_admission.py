@@ -13,6 +13,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from yoke_core.domain.qa_deployment_requirement_identity_schema import shared_group_id
 from yoke_core.domain.qa_plan_execution_store import (
     QaPlanExecutionStateError,
     build_execution_roster,
@@ -182,9 +183,16 @@ def prepare_roster(
             "materialized QA roster does not match the active deployment target"
         )
     from yoke_core.domain.qa_walk_launch_required import require_scoped_walk_launch
+
     require_scoped_walk_launch(
-        conn, roster, session_id=session_id, execution_target_digest=execution_target_digest,
-        item_id=item_id, transition_id=transition_id, **scope,
+        conn,
+        roster,
+        session_id=session_id,
+        execution_target_digest=execution_target_digest,
+        group_id=shared_group_id(execution_target),
+        item_id=item_id,
+        transition_id=transition_id,
+        **scope,
     )
     return PreparedRoster(
         roster, remaining, digest, execution_target, execution_target_digest

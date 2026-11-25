@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from yoke_contracts.qa_case_starting_state import is_host_command, needs_test_machine
+from yoke_contracts.qa_case_starting_state import declares_starting_state
 from yoke_contracts.refusal_recovery import compose_refusal
 
 from yoke_core.domain.db_helpers import query_one
@@ -49,9 +49,7 @@ class QaWalkNeedsLaunchedSession(QaPlanExecutionStateError):
 
 def _is_walk(roster: Sequence[Mapping[str, Any]]) -> bool:
     return any(
-        needs_test_machine(case)
-        or is_host_command(case)
-        or case.get("verdict_path", "automatic") != "automatic"
+        declares_starting_state(case) or case.get("verdict_path") != "automatic"
         for case in roster
     )
 
@@ -62,13 +60,18 @@ def require_scoped_walk_launch(
     *,
     session_id: str,
     execution_target_digest: str,
+    group_id: str = "",
     **scope: Any,
 ) -> None:
     """Preserve a scoped execution the same session can already resume."""
     if not ENFORCE_WALK_LAUNCH or not _is_walk(roster):
         return
     execution_id = live_plan_execution_id(
-        conn, **scope, session_id=session_id, execution_target_digest=execution_target_digest
+        conn,
+        **scope,
+        session_id=session_id,
+        execution_target_digest=execution_target_digest,
+        group_id=group_id,
     )
     if execution_id is not None:
         execution = select_plan_execution(conn, execution_id, lock=False)
