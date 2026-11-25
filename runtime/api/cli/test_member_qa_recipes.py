@@ -41,7 +41,9 @@ def _member_partition_recipes():
 def test_taught_member_partition_command_names_the_exact_subject(command):
     with (
         patch("yoke_contracts.runtime_ports.structured_dispatch.get_structured_dispatch"),
-        patch.object(qa_plan_partitions_cli, "call_plan_function", return_value={}) as call,
+        patch.object(
+            qa_plan_partitions_cli, "call_plan_function", return_value={"partitions": []}
+        ) as call,
     ):
         assert qa_plan_partitions_cli.run(shlex.split(command)[4:]) == 0
     kwargs = call.call_args.kwargs
