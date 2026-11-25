@@ -96,6 +96,16 @@ def _power() -> Any:
     return importlib.import_module("yoke_core.domain.cloud_machine_power")
 
 
+def _native_windows_operations(contract):
+    # The SSH transport alone cannot run the SYSTEM fixture undo.
+    runner = importlib.import_module("yoke_core.domain.host_control_runner")
+    factory = importlib.import_module("yoke_core.domain.machine_qa_host_control")
+    material = runner.materialize_test_machine_contract(
+        runner.TestMachineContract(contract.project_id, contract.project, contract.settings)
+    )
+    return factory.host_control_for(material)
+
+
 def _execute(
     *,
     operation: str,
@@ -154,15 +164,19 @@ def _run(
         power = _power()
         with power.power_dispatch_scope(actor=actor, relay_env=relay_env):
             power.power_on(execution["project"], execution["settings"])
-        if registered := begin.result.get(
-            REGISTERED_GOLDENS_KEY
-        ):  # older servers: none
-            contract = HostControlExecutionContract.model_validate(execution)
-            check_registered_goldens(host_operations_for(contract)._run, registered, os_name=contract.settings["os"])
-        submission = execute_host_operation_contract(
-            execution,
-            probes_document=probes_document,
-        )
+            if registered := begin.result.get(
+                REGISTERED_GOLDENS_KEY
+            ):  # older servers: none
+                contract = HostControlExecutionContract.model_validate(execution)
+                check_registered_goldens(host_operations_for(contract)._run, registered, os_name=contract.settings["os"])
+            operations_factory = host_operations_for
+            if execution["settings"].get("os") == "windows" and operation in {"reset", "verify"}:
+                operations_factory = _native_windows_operations
+            submission = execute_host_operation_contract(
+                execution,
+                probes_document=probes_document,
+                operations_factory=operations_factory,
+            )
         removed = retain_after_verified_capture(
             operation, True,
             {**begin.result, **submission.payload,
