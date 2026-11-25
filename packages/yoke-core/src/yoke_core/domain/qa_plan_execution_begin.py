@@ -200,7 +200,12 @@ def begin_plan_execution(
         session_id=session_id,
     )
     scope = PartitionScope(item_id, transition_id, deployment_run_id, deployment_stage, deployment_member_item_id)
+    continues_execution_id = None
     for _attempt in range(RUN_READ_ATTEMPTS + 1):
+        if continue_mission:
+            continues_execution_id = continuation_source(
+                conn, subject_key, prepared, continuation_execution_id
+            )
         if launch is not None:
             require_walk_claim(conn, item_id=authority_item, launch=launch, lock=True)
         resumed, retired = resume_existing(
@@ -209,9 +214,10 @@ def begin_plan_execution(
         )
         if resumed is not None:
             return resumed
-        if not retired and prepared.partition is not None:
+        if not retired and (item_id is not None or deployment_stage is not None):
             retired = admit_partition(
-                conn, scope, key=prepared.partition, roster=prepared.roster, session_id=session_id,
+                conn, scope, key=prepared.partition or "<selected>",
+                roster=prepared.roster, session_id=session_id,
             )
             if retired:
                 conn.commit()
@@ -243,10 +249,6 @@ def begin_plan_execution(
     else:
         raise DeploymentRunChanging(str(deployment_run_id))
 
-    continues_execution_id = (
-        continuation_source(conn, subject_key, prepared, continuation_execution_id)
-        if continue_mission else None
-    )
     roster, remaining, digest = prepared.roster, prepared.remaining, prepared.digest
     execution_target = prepared.execution_target
     execution_target_digest = prepared.execution_target_digest

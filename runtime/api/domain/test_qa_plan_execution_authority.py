@@ -29,6 +29,7 @@ def test_durable_cursor_resumes_without_replaying_completed_cases() -> None:
             conn,
             item_id=4401,
             transition_id="implemented",
+            requirement_id=requirement_ids[0],
             actor_id="7",
             session_id="ordered-session",
         )
@@ -54,6 +55,7 @@ def test_durable_cursor_resumes_without_replaying_completed_cases() -> None:
             conn,
             item_id=4401,
             transition_id="implemented",
+            requirement_id=requirement_ids[0],
             actor_id="7",
             session_id="ordered-session",
         )
@@ -151,6 +153,7 @@ def test_terminal_finish_replay_is_idempotent_and_cannot_change_outcome() -> Non
             conn,
             item_id=4404,
             transition_id="implemented",
+            requirement_id=requirement_ids[0],
             actor_id="7",
             session_id="ordered-session",
         )

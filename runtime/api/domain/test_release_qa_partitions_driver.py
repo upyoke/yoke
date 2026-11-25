@@ -18,6 +18,8 @@ def test_driver_rechecks_after_fingerprint_change_and_only_runs_commands(monkeyp
         return [
             {"state": "free", "kind": "automatic", "key": "command-key"},
             {"state": "free", "kind": "walk", "key": "walk-key"},
+            {"state": "free", "kind": "automatic", "key": "manual-command", "wake_path": "manual"},
+            {"state": "free", "kind": "walk", "key": "manual-walk", "wake_path": "manual"},
         ]
 
     monkeypatch.setattr(qa_plan_execution_dispatch, "read_release_partitions", partitions)
@@ -37,3 +39,4 @@ def test_driver_rechecks_after_fingerprint_change_and_only_runs_commands(monkeyp
     assert len(reads) >= 2
     assert [run["partition"] for run in runs] == ["command-key", "command-key"]
     assert sum("--partition walk-key" in line for line in output) == 2
+    assert all("--partition manual" not in line for line in output)

@@ -87,7 +87,7 @@ def _roster(
     source_revision: str | None,
     source_ref: str | None,
     checkout_path: str | None,
-    selected_cases: set[tuple[str, int]],
+    selected_cases: set[tuple[str, int]] | None,
 ) -> list[dict]:
     from yoke_core.domain.qa_plan_case_definition import case_baselines, plan_cases
     from yoke_core.domain.qa_plan_requirement_snapshot import insert_requirement
@@ -112,7 +112,7 @@ def _roster(
     roster = []
     for case in cases:
         for position, baseline in enumerate(case_baselines(case), 1):
-            if (case["case_key"], position) not in selected_cases:
+            if selected_cases is not None and (case["case_key"], position) not in selected_cases:
                 continue
             requirement_id = insert_requirement(
                 conn,
@@ -258,17 +258,25 @@ def begin_standalone_execution(
     from yoke_core.domain.qa_plan_partitions import select_partition
     from yoke_core.domain.qa_standalone_partitions import standalone_partition_views
 
+    selected_cases = None
     if continuation is not None:
         cases = continuation["roster"]
         selected_key = partition_key(cases, standalone=True)
     else:
         views = standalone_partition_views(conn, plan_id, source_revision=source_revision)
-        view = select_partition(views, key=partition, session_id=session_id)
-        if view is None:
-            raise partition_unavailable(
-                partition or "<selected>", "has no owed cases at this revision"
-            )
-        cases, selected_key = view.partition.roster, view.partition.key
+        if partition is None and all(not view.partition.predecessors for view in views):
+            cases = [case for view in views for case in view.partition.roster]
+            selected_key = "<selected>"
+        else:
+            view = select_partition(views, key=partition, session_id=session_id, allow_failed=True)
+            if view is None:
+                raise partition_unavailable(
+                    partition or "<selected>", "has no owed cases at this revision"
+                )
+            cases, selected_key = view.partition.roster, view.partition.key
+            selected_cases = {(row["case_key"], row["baseline_position"]) for row in cases}
+    if continuation is not None:
+        selected_cases = {(row["case_key"], row["baseline_position"]) for row in cases}
     admit_partition(conn, scope, key=selected_key, roster=cases, session_id=session_id)
     execution_id = str(uuid4())
     roster = _roster(
@@ -279,7 +287,7 @@ def begin_standalone_execution(
         source_revision=source_revision,
         source_ref=source_ref,
         checkout_path=checkout_path,
-        selected_cases={(row["case_key"], row["baseline_position"]) for row in cases},
+        selected_cases=selected_cases,
     )
     validate_roster_machine(conn, roster, test_machine)
     if continuation:

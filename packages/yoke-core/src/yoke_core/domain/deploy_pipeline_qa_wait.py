@@ -111,7 +111,7 @@ def dispatch_until_qa_resolves(
                           f"Resolve the named refusal, then {deploy_command(run_id or 'RUN-ID')}.")
                 continue
             for part in partitions:
-                if part["state"] != "free":
+                if part["state"] != "free" or part.get("wake_path") == "manual":
                     continue
                 key = (*scope, part["key"])
                 if part["kind"] == "walk":

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 from contextlib import redirect_stderr, redirect_stdout
+from types import SimpleNamespace
 from typing import Callable
 from unittest.mock import patch
 
@@ -39,6 +40,7 @@ PLAN = {
             "host_baselines": [],
             "starting_state": None,
             "starting_state_reason": None,
+            "after_case_key": None,
             "target_envs": ["stage", "prod"],
             "stage_reason": "creates_or_destroys_data",
             "entry_surface": None,
@@ -120,10 +122,9 @@ def run_cli(
             "yoke_core.domain.yoke_function_dispatch.dispatch",
             side_effect=_dispatch(requests, edit_error=edit_error, plan=plan),
         ),
-        patch("yoke_cli.commands._helpers.ensure_handlers_loaded"),
         patch(
-            "yoke_cli.commands.adapters.qa_plan_edit.subprocess.run",
-            side_effect=editor,
+            "yoke_cli.commands.adapters.qa_plan_edit.subprocess",
+            SimpleNamespace(run=editor),
         ),
         redirect_stdout(stdout),
         redirect_stderr(stderr),

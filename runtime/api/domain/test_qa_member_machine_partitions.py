@@ -57,8 +57,7 @@ def test_each_host_has_its_own_execution_and_member_waits_for_both(
     assert deployment_qa_stage_status(
         test_db, run_id=RUN, stage_name="item-qa", member_item_id=MEMBER
     )["accepted"]
-    with pytest.raises(ValueError, match="qa_plan_nothing_owed"):
-        _begin(test_db)
+    assert _begin(test_db)["state"] == "completed"
     assert (
         test_db.execute(
             "SELECT COUNT(*) FROM qa_requirements WHERE deployment_run_id=%s AND deployment_stage='item-qa' AND deployment_member_item_id=%s AND method_id IS NOT NULL",
@@ -81,25 +80,30 @@ def test_a_host_pin_cannot_drop_another_required_host(test_db, tmp_path, monkeyp
 
 
 def test_disjoint_member_partitions_are_live_in_parallel(test_db, tmp_path, monkeypatch):
+    from runtime.api.domain.qa_partition_test_support import scoped_partitions
     from yoke_core.domain.qa_plan_execution_begin import begin_plan_execution
     from yoke_core.domain.qa_plan_partition_custody import PartitionUnavailable
     from yoke_core.domain.qa_plan_partition_chains import partition_key
 
     _seed(test_db, tmp_path, monkeypatch)
-    first = _begin(test_db)
+    first, second = scoped_partitions(
+        test_db, deployment_run_id=RUN, deployment_stage="item-qa",
+        deployment_member_item_id=MEMBER,
+    )
 
-    def begin(session, key=None):
+    def begin(session, key):
         return begin_plan_execution(
             test_db, deployment_run_id=RUN, deployment_stage="item-qa",
             deployment_member_item_id=MEMBER, actor_id="1", session_id=session,
             partition=key,
         )
 
-    second = begin("second-walker")
-    assert first["session_id"] != second["session_id"]
-    assert {first["roster"][0]["case_key"], second["roster"][0]["case_key"]} == set(MACHINES)
-    with pytest.raises(PartitionUnavailable, match=f"held by execution {first['id']}"):
-        begin("third-walker", partition_key(first["roster"]))
+    first_execution = begin(SESSION, first.partition.key)
+    second = begin("second-walker", second.partition.key)
+    assert first_execution["session_id"] != second["session_id"]
+    assert {first_execution["roster"][0]["case_key"], second["roster"][0]["case_key"]} == set(MACHINES)
+    with pytest.raises(PartitionUnavailable, match=f"held by execution {first_execution['id']}"):
+        begin("third-walker", partition_key(first_execution["roster"]))
 
 
 def test_waiting_second_host_keeps_its_partition_and_fifo(

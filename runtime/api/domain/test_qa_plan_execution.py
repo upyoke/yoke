@@ -304,6 +304,7 @@ def test_client_runner_preserves_order_and_actor_until_waiting() -> None:
         result = qa_plan_execution.execute_plan(
             public_ref=TEST_ITEM_REF,
             transition_id="implemented",
+            partition="frozen-partition",
             test_machine="mac-studio-lab",
             actor=actor,
         )

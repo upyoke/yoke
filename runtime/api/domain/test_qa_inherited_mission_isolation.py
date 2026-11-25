@@ -6,6 +6,7 @@ from runtime.api.domain.qa_member_machine_partitions_test_support import SESSION
 from yoke_core.domain.qa_plan_chain_hosts import chain_host_groups
 from yoke_core.domain.qa_plan_partition_chains import roster_partitions
 from yoke_core.domain.qa_standalone_execution import begin_standalone_execution
+from yoke_core.domain.qa_standalone_partitions import standalone_partition_views
 
 
 SLOTS = [{"os": "linux"}, {"os": "macos", "driver": True}]
@@ -69,6 +70,11 @@ def test_standalone_partition_keeps_the_inherited_mission_with_its_opener(
     )
     test_db.commit()
 
+    plan_id = test_db.execute(
+        "SELECT id FROM qa_plans WHERE slug='host-check-0'"
+    ).fetchone()[0]
+    partitions = standalone_partition_views(test_db, plan_id, source_revision="a" * 40)
+
     def begin():
         return begin_standalone_execution(
             test_db,
@@ -78,6 +84,7 @@ def test_standalone_partition_keeps_the_inherited_mission_with_its_opener(
             session_id=SESSION,
             source_revision="a" * 40,
             checkout_path=str(tmp_path),
+            partition=partitions[0].partition.key,
         )
 
     execution = begin()
@@ -88,6 +95,7 @@ def test_standalone_partition_keeps_the_inherited_mission_with_its_opener(
             test_db, plan="host-check-0", project="yoke", actor_id="2",
             session_id="another-walker", source_revision="a" * 40,
             checkout_path=str(tmp_path),
+            partition=partitions[1].partition.key,
         )
         assert len(another["roster"]) == 1
         assert another["id"] != execution["id"]
@@ -156,6 +164,7 @@ def test_each_chain_baseline_takes_only_its_own_chain_hosts(
             for position, key in enumerate(["independent", "opener", "follower"], 1)
         ],
     )
+    partitions = standalone_partition_views(test_db, plan_id, source_revision="a" * 40)
     execution = begin_standalone_execution(
         test_db,
         plan="host-check-0",
@@ -164,6 +173,7 @@ def test_each_chain_baseline_takes_only_its_own_chain_hosts(
         session_id=SESSION,
         source_revision="a" * 40,
         checkout_path=str(tmp_path),
+        partition=partitions[0].partition.key,
     )
     assert _case_begin(execution).primary_success
     current = lock_plan_execution(test_db, execution["id"])
@@ -179,11 +189,6 @@ def test_each_chain_baseline_takes_only_its_own_chain_hosts(
         result={"requirement_id": opener["requirement_id"], "case_outcome": "passed"},
     )
     finish_plan_execution(test_db, current, state="completed", reason="first-partition")
-    from yoke_core.domain.qa_standalone_partitions import standalone_partition_views
-
-    partitions = standalone_partition_views(
-        test_db, execution["standalone_plan_id"], source_revision="a" * 40,
-    )
     second = begin_standalone_execution(
         test_db, plan="host-check-0", project="yoke", actor_id="1", session_id=SESSION,
         source_revision="a" * 40, checkout_path=str(tmp_path),

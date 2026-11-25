@@ -59,8 +59,17 @@ def _seed(conn: Any) -> None:
 
 
 def _begin(conn: Any) -> dict[str, Any]:
+    from runtime.api.domain.qa_partition_test_support import scoped_partitions
+
+    views = scoped_partitions(
+        conn, deployment_run_id=RUN, deployment_stage="item-qa",
+        deployment_member_item_id=MEMBER,
+    )
+    own = next((v for v in views if v.holder and v.holder["session_id"] == "rerun-session"), None)
+    selected = own or next((v for v in views if v.state in {"free", "failed"}), None)
     return begin_plan_execution(
         conn,
+        partition=selected.partition.key if selected else None,
         deployment_run_id=RUN,
         deployment_stage="item-qa",
         deployment_member_item_id=MEMBER,

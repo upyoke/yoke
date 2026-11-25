@@ -164,6 +164,7 @@ def test_two_groups_run_in_two_sessions_and_hold_leases_together(
 
 
 def test_a_held_group_refuses_another_session_by_name(test_db, tmp_path, monkeypatch):
+    from runtime.api.domain.qa_partition_test_support import scoped_partitions
     from yoke_core.domain.qa_plan_partition_chains import partition_key
 
     _seed(test_db, tmp_path, monkeypatch, ON_MAC + ON_STUDIO)
@@ -173,7 +174,9 @@ def test_a_held_group_refuses_another_session_by_name(test_db, tmp_path, monkeyp
         _begin(test_db, SESSIONS[1], partition=partition_key(first["roster"]))
     assert "park" in str(refusal.value)
     test_db.rollback()
-    assert _keys(_begin(test_db, SESSIONS[1])) == ["on-studio"]
+    views = scoped_partitions(test_db, deployment_run_id=RUN, deployment_stage="item-qa")
+    available = next(view.partition.key for view in views if view.state == "free")
+    assert _keys(_begin(test_db, SESSIONS[1], partition=available)) == ["on-studio"]
 
 
 def test_interleaved_machines_advance_in_plan_order(test_db, tmp_path, monkeypatch):

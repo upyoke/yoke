@@ -97,10 +97,21 @@ def _partitions(conn, request, parsed):
         )
     except QaPlanRosterDischarged:
         roster = []
-    return {
-        "partitions": [view.as_dict() for view in scoped_partition_views(conn, scope, roster)],
-        "lane": lane or None,
-    }
+    views = scoped_partition_views(conn, scope, roster)
+    partitions = [view.as_dict() for view in views]
+    if run_id is not None and roster:
+        from yoke_core.domain.qa_plan_execution_store import marker
+
+        manual = {
+            int(row[0]) for row in conn.execute(
+                f"SELECT id FROM qa_requirements WHERE id=ANY({marker(conn)}) AND wake_path='manual'",
+                ([entry["requirement_id"] for entry in roster],),
+            ).fetchall()
+        }
+        for partition in partitions:
+            if any(case["requirement_id"] in manual for case in partition["cases"]):
+                partition["wake_path"] = "manual"
+    return {"partitions": partitions, "lane": lane or None}
 
 
 def _standalone(conn, request, parsed):

@@ -30,12 +30,16 @@ from yoke_core.domain.qa_artifacts import case_artifact_subject
 
 def test_fresh_manual_runs_have_disjoint_partitions_and_no_gate_subjects():
     with test_database() as conn:
-        _plan(conn)
+        from yoke_core.domain.qa_standalone_partitions import standalone_partition_views
+
+        plan = _plan(conn)
+        first, later = standalone_partition_views(conn, plan["id"], source_revision=SHA)
         assert_standalone_subjects(conn)
-        execution = _begin(conn)
+        execution = _begin(conn, partition=first.partition.key)
         second = begin_standalone_execution(
             conn, plan="manual-proof", project="yoke", actor_id="7",
             session_id="other-owner", source_revision=SHA, checkout_path="/tmp/manual-proof",
+            partition=later.partition.key,
         )
         assert [case["case_key"] for case in execution["roster"]] == ["first"]
         assert [case["case_key"] for case in second["roster"]] == ["later"]
@@ -50,7 +54,7 @@ def test_fresh_manual_runs_have_disjoint_partitions_and_no_gate_subjects():
                 == SHA
             )
         finish_plan_execution(conn, execution, state="aborted", reason="manual-abort")
-        fresh = _begin(conn)
+        fresh = _begin(conn, partition=first.partition.key)
         owner = requirement_storage_owner(conn, fresh["roster"][0]["requirement_id"])
         assert owner["project"] == "yoke"
         assert case_artifact_subject(owner) == f"standalone-{fresh['id']}"

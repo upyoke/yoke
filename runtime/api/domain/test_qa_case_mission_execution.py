@@ -142,7 +142,7 @@ def test_existing_whole_roster_is_preserved_when_single_case_cannot_start():
             session_id="whole-plan-owner",
         )
         with pytest.raises(
-            QaPlanExecutionStateError, match="qa_single_case_scope_busy"
+            QaPlanExecutionStateError, match="qa_partition_unavailable"
         ):
             begin_plan_execution(
                 conn,

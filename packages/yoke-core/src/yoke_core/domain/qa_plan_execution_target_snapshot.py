@@ -79,7 +79,7 @@ def execution_target_for_roster(
     if len({canonical(target) for target in targets}) != 1 or len(set(digests)) != 1:
         raise QaPlanExecutionStateError(
             "qa_plan_requires_environment_scopes: materialized QA roster mixes "
-            "execution targets. Read yoke qa plan partitions with the same "
+            "execution targets. Read `yoke qa plan partitions` with the same "
             "subject flags, then run each free partition by its key. A case "
             "that inherits machine state must share its predecessor's target."
         )

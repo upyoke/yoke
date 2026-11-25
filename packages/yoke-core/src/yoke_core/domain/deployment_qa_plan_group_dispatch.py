@@ -224,8 +224,9 @@ def notify_plan_group_failure(
         + "The driver owns triage: decide which attaching items owe a code fix; "
         "send only those items back with `yoke lifecycle transition PREFIX-N "
         "--from release --to implementing --reason 'Shared plan found a code defect'`. "
-        "For an environment or evidence failure, retry only the failed cases:\n"
+        "For an environment or evidence failure, find the failed partition:\n"
         + "\n".join(lines)
+        + "\nRetry it with `yoke qa plan run --deployment-run-id RUN --stage STAGE --plan PLAN --partition KEY`."
         + "\nWith operator authorization, waive a case with `yoke qa requirement waive "
         "--requirement-id ID --rationale R --source operator --force`; or remove an item "
         f"with `yoke deployment-runs remove-item {run_id} PREFIX-N --reason R`. "
