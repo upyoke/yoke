@@ -140,6 +140,7 @@ def receive_token(directory: Path, executable: str, header: bytes) -> dict:
     command = (executable, "compose", "exec", "-T", "--user", "0", "core")
     command += ("python", "-m", HANDOFF_CLIENT_MODULE)
     process, stderr = None, b""
+    drained = False
     try:
         try:
             process = terminal_detached_process.popen(
@@ -156,6 +157,7 @@ def receive_token(directory: Path, executable: str, header: bytes) -> dict:
             rest, stderr = process.communicate(timeout=RECEIPT_TIMEOUT_SECONDS)
         except subprocess.TimeoutExpired:
             raise _Refused("self_host_handoff_timeout") from None
+        drained = True
         stdout += rest
         if receipt is not None and not process.returncode:
             return receipt
@@ -168,10 +170,15 @@ def receive_token(directory: Path, executable: str, header: bytes) -> dict:
             )
         )
     except _Refused as refused:
-        if process is not None and process.poll() is None:
-            process.kill()
-            _, late = process.communicate()
-            stderr += late
+        if process is not None and not drained:
+            if process.poll() is None:
+                process.kill()
+            try:
+                _, stderr = process.communicate(timeout=RECEIPT_TIMEOUT_SECONDS)
+            except subprocess.TimeoutExpired as timeout:
+                # A descendant can keep a pipe open after the exec child exits.
+                stderr = timeout.stderr or b""
+                process.poll()
         code = "unavailable" if process is None else process.returncode
         raise _refusal(refused.reason, directory, executable, code, stderr) from None
 
