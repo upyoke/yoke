@@ -13,7 +13,7 @@ from yoke_core.domain.session_launch_execution import (
     claim_assigned_launch,
     report_launch_attempt,
 )
-from yoke_core.domain.session_launch_store import get_launch
+from yoke_core.domain.session_launch_store import get_launch, update_launch
 from yoke_core.domain.session_launch_unregistered_death import (
     CLOSURE_REASON,
     apply_unregistered_native_death_reports,
@@ -116,3 +116,51 @@ def test_reported_excerpt_is_redacted_and_byte_bounded_in_the_launch_read():
     assert excerpt.endswith("[Yoke API token redacted]\nerror")
     assert token not in excerpt
     assert "private_payload" not in evidence
+
+
+def test_measured_launch_exit_is_recorded_even_after_session_ended():
+    conn = launch_connection()
+    add_relay(conn)
+    launch = _awaiting_registration(conn)
+    completed = "2026-08-22T12:00:35Z"
+    update_launch(
+        conn, launch.launch_id, state="succeeded",
+        result_code="registered_and_acknowledged", completed_at=completed,
+        registered_session_id="caller", native_launch_pid=4321,
+        native_launch_phase="native_running",
+    )
+    conn.execute("UPDATE harness_sessions SET ended_at=? WHERE session_id='caller'", (completed,))
+    report = {
+        "launch_id": launch.launch_id,
+        "evidence": {"native_pid": 4321, "native_exit_at": "2026-08-22T12:00:41Z",
+                     "registered_session_id": "caller"},
+    }
+    for machine, override in (
+        ("different-machine", {}),
+        ("machine-1", {"native_pid": 5432}),
+        ("machine-1", {"native_exit_at": None}),
+        ("machine-1", {"native_exit_at": "2026-08-22T11:59:00Z"}),
+        ("machine-1", {"registered_session_id": "another-session"}),
+    ):
+        outcome = apply_unregistered_native_death_reports(
+            conn, machine_id=machine, authorized_projects=[10],
+            reports=[{**report, "evidence": {**report["evidence"], **override}}],
+        )
+        assert "recorded_native_exits" not in outcome
+    assert get_launch(conn, launch.launch_id).native_launch_phase == "native_running"
+
+    for exit_at in ("2026-08-22T12:00:41Z", "2026-08-22T12:00:42Z"):
+        report["evidence"]["native_exit_at"] = exit_at
+        outcome = apply_unregistered_native_death_reports(
+            conn, machine_id="machine-1", authorized_projects=[10], reports=[report],
+        )
+        assert outcome["recorded_native_exits"] == [launch.launch_id]
+        assert not outcome["closed_launches"]
+    settled = get_launch(conn, launch.launch_id)
+    assert settled.state == "succeeded"
+    assert settled.result_code == "registered_and_acknowledged"
+    assert settled.completed_at == parse_instant(completed)
+    assert settled.native_launch_phase == "native_exited"
+    assert json.loads(settled.result_evidence) == {
+        "native_exit_at": "2026-08-22T12:00:41.000000Z"
+    }
