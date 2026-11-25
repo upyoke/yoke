@@ -89,18 +89,33 @@ def test_detached_owner_survives_one_shot_relay_exit(tmp_path: Path) -> None:
     assert observed == "owner-survived-relay-exit"
 
 
-def test_handoff_returns_before_owner_closes_stdout(tmp_path: Path) -> None:
+@pytest.mark.parametrize("descendant_holds_stdout", [False, True])
+def test_handoff_returns_before_owner_closes_stdout(
+    tmp_path: Path, descendant_holds_stdout: bool
+) -> None:
     (tmp_path / "owner_probe.py").write_text(
         """
+import json
 from pathlib import Path
+import subprocess
 import sys
 import time
 
-sys.stdin.buffer.read()
-print('{"accepted":true}', flush=True)
-deadline = time.monotonic() + 20
-while not Path("release-owner").exists() and time.monotonic() < deadline:
-    time.sleep(0.02)
+def hold_stdout():
+    deadline = time.monotonic() + 20
+    while not Path("release-owner").exists() and time.monotonic() < deadline:
+        time.sleep(0.02)
+
+if sys.argv[1:] == ["hold-stdout"]:
+    hold_stdout()
+else:
+    payload = json.loads(sys.stdin.buffer.read())
+    descendant_holds_stdout = payload["descendant_holds_stdout"]
+    if descendant_holds_stdout:
+        subprocess.Popen([sys.executable, "-m", "owner_probe", "hold-stdout"])
+    print('{"accepted":true}', flush=True)
+    if not descendant_holds_stdout:
+        hold_stdout()
 """
     )
     owners: list[subprocess.Popen[bytes]] = []
@@ -110,14 +125,19 @@ while not Path("release-owner").exists() and time.monotonic() < deadline:
         owners.append(process)
         return process
 
+    def decode(value):
+        if descendant_holds_stdout:
+            owners[0].wait(timeout=3)
+        return value
+
     started = time.monotonic()
     try:
         outcome = run_detached_json_worker(
             module="owner_probe",
             checkout=tmp_path,
             environment=dict(os.environ),
-            payload={},
-            decode=lambda value: value,
+            payload={"descendant_holds_stdout": descendant_holds_stdout},
+            decode=decode,
             initial_failure="initial_failure",
             uncertain_failure="uncertain_failure",
             process_factory=capture_owner,
@@ -125,8 +145,8 @@ while not Path("release-owner").exists() and time.monotonic() < deadline:
         )
         elapsed = time.monotonic() - started
         assert outcome == {"accepted": True}
-        assert elapsed < 5, f"handoff took {elapsed:.2f}s while the owner held stdout"
-        assert owners[0].poll() is None
+        assert elapsed < 5, f"handoff took {elapsed:.2f}s while stdout was open"
+        assert owners[0].poll() == (0 if descendant_holds_stdout else None)
     finally:
         (tmp_path / "release-owner").touch()
         for owner in owners:
