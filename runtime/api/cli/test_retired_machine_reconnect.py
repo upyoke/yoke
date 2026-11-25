@@ -70,18 +70,23 @@ def _serve(monkeypatch, *replies) -> list[dict]:
     return sent
 
 
-def test_start_replaces_a_retired_identity_once_and_requests_a_fresh_code(
+def test_start_requests_a_fresh_code_and_saves_replacement_at_poll(
     monkeypatch, config_path
 ):
     sent = _serve(
         monkeypatch,
         _retired(),
         BoundedJsonHttpResponse(payload=STARTED, status=200, headers={}),
+        BoundedJsonHttpResponse(
+            payload={"error": "authorization_pending"}, status=202, headers={}
+        ),
     )
     pending = auth.start("https://app.upyoke.com")
+    assert _configured_id(config_path) == RETIRED_ID
+    assert auth.poll_once(pending) is None
     replacement = _configured_id(config_path)
     assert replacement != RETIRED_ID and str(uuid.UUID(replacement)) == replacement
-    assert [body["machine_id"] for body in sent] == [RETIRED_ID, replacement]
+    assert [body["machine_id"] for body in sent] == [RETIRED_ID, replacement, replacement]
     assert pending.retired_machine_id == RETIRED_ID
     assert pending.user_code == "K7F2"
 

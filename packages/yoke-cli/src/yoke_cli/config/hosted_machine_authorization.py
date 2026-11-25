@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import platform
 import time
+import uuid
 from typing import Any, Callable, Mapping
 import urllib.request
 
@@ -43,6 +44,7 @@ from yoke_contracts.bounded_json_http import (
     request_json,
 )
 from yoke_contracts.machine_config.machine_name import machine_display_name
+from yoke_contracts.machine_config.runtime import machine_id
 
 
 def start(
@@ -58,12 +60,19 @@ def start(
     with a new machine identity; the retired row keeps its history.
     """
     origin = authorization_origin(platform_url)
-    identity = _machine_identity()
+    try:
+        configured_id = machine_id()
+    except machine_config_mutation.machine_runtime.MachineConfigError as exc:
+        raise HostedMachineAuthorizationError(
+            f"machine_identity_required: {exc}; repair this machine's config and retry"
+        ) from None
+    draft_id = None if configured_id else str(uuid.uuid4())
+    identity = {"machine_id": configured_id or draft_id, "machine_name": machine_display_name()}
     payload, status = _request_start(origin, identity, opener, timeout_seconds)
     retired_machine_id = None
     if _is_retired(payload, status):
-        retired_machine_id = identity["machine_id"]
-        identity = _replace_retired_identity(retired_machine_id)
+        retired_machine_id = configured_id
+        draft_id = identity["machine_id"] = str(uuid.uuid4())
         payload, status = _request_start(origin, identity, opener, timeout_seconds)
         if _is_retired(payload, status):
             raise HostedMachineAuthorizationError(
@@ -104,6 +113,7 @@ def start(
         interval=response.interval,
         self_host=self_host,
         retired_machine_id=retired_machine_id,
+        draft_machine_id=draft_id,
     )
 
 
@@ -138,18 +148,6 @@ def _is_retired(payload: object, status: int) -> bool:
     )
 
 
-def _replace_retired_identity(retired_machine_id: str) -> dict[str, str]:
-    try:
-        machine_config_mutation.replace_retired_machine_identity(retired_machine_id)
-    except machine_config_mutation.MachineConfigWriteError as exc:
-        raise HostedMachineAuthorizationError(
-            f"{MACHINE_RETIRED}: machine {retired_machine_id} is retired and this "
-            f"computer's new machine identity could not be saved: {exc}; repair "
-            "~/.yoke/config.json, then run `yoke connect` again"
-        ) from None
-    return _machine_identity()
-
-
 def complete(
     authorization: PendingMachineAuthorization,
     *,
@@ -164,32 +162,28 @@ def complete(
     wakes early (``threading.Event.wait``) so an abandoned wait ends at once
     rather than at the next poll tick.
     """
-    machine_identity = _machine_identity()
     deadline = monotonic() + authorization.expires_in
     delay = float(authorization.interval)
-    while monotonic() < deadline:
-        sleep(min(delay, max(0.0, deadline - monotonic())))
+    while True:
+        remaining = deadline - monotonic()
+        if remaining > 0:
+            sleep(min(delay, remaining))
         if cancelled is not None and cancelled():
             raise HostedMachineAuthorizationCancelled(
                 "browser approval wait cancelled; the match code expires on its own"
             )
-        if monotonic() >= deadline:
-            break
+        remaining = deadline - monotonic()
         outcome = _poll(
             authorization,
-            machine_identity,
             opener=opener,
-            timeout_seconds=min(timeout_seconds, max(0.1, deadline - monotonic())),
+            timeout_seconds=min(timeout_seconds, max(0.1, remaining))
+            if remaining > 0 else timeout_seconds,
         )
         if isinstance(outcome, HostedMachineCredential):
             return outcome
+        if remaining <= 0:
+            break
         delay = outcome
-    # Expiry ends the wait, not an approval made in time: ask once more.
-    outcome = _poll(
-        authorization, machine_identity, opener=opener, timeout_seconds=timeout_seconds
-    )
-    if isinstance(outcome, HostedMachineCredential):
-        return outcome
     raise HostedMachineAuthorizationError(
         "authorization_expired: hosted authorization expired before approval; "
         "start a fresh connection"
@@ -204,27 +198,25 @@ def poll_once(
 ) -> HostedMachineCredential | None:
     """Ask once whether the browser approved; None while approval is pending.
     A lapsed code still asks: only the server knows it was approved in time."""
-    outcome = _poll(
-        authorization,
-        _machine_identity(),
-        opener=opener,
-        timeout_seconds=timeout_seconds,
-    )
+    outcome = _poll(authorization, opener=opener, timeout_seconds=timeout_seconds)
     return outcome if isinstance(outcome, HostedMachineCredential) else None
 
 
 def _poll(
     authorization: PendingMachineAuthorization,
-    machine_identity: dict[str, str],
     *,
     opener: Callable[..., Any] | None,
     timeout_seconds: float,
 ) -> HostedMachineCredential | float:
-    """One poll: the credential, or the seconds to wait before asking again."""
+    """Persist the draft before polling, which can create the registry row."""
+    identity = (
+        _machine_identity(authorization.draft_machine_id, retired_id=authorization.retired_machine_id)
+        if authorization.draft_machine_id else _machine_identity()
+    )
     try:
         payload, status, headers = _post_json(
             f"{authorization.platform_url}{POLL_PATH}",
-            {"device_code": authorization.device_code, **machine_identity},
+            {"device_code": authorization.device_code, **identity},
             opener=opener,
             timeout_seconds=timeout_seconds,
             sensitive_values=(authorization.device_code,),
@@ -253,9 +245,9 @@ def _poll(
             "machine's configured identity, repair it, then retry"
         )
     if _is_retired(payload, status):
-        _replace_retired_identity(machine_identity["machine_id"])
+        _machine_identity(retired_id=identity["machine_id"])
         raise HostedMachineAuthorizationError(
-            f"{MACHINE_RETIRED}: machine {machine_identity['machine_id']} was "
+            f"{MACHINE_RETIRED}: machine {identity['machine_id']} was "
             "retired before its credential was delivered; this computer now has "
             "a new machine identity, so run `yoke connect` again for a fresh code"
         )
@@ -335,15 +327,22 @@ def _post_json(
     return response.payload, int(response.status), response.headers
 
 
-def _machine_identity() -> dict[str, str]:
+def _machine_identity(draft_id: str | None = None, *, retired_id: str | None = None) -> dict[str, str]:
     try:
-        resolved_machine_id = machine_config_mutation.ensure_local_machine_identity()
+        if draft_id is not None:
+            resolved_machine_id = machine_config_mutation.bind_draft_machine_identity(draft_id, replacing=retired_id)
+        elif retired_id is not None:
+            resolved_machine_id = machine_config_mutation.replace_retired_machine_identity(retired_id)
+        else:
+            resolved_machine_id = machine_config_mutation.ensure_local_machine_identity()
     except machine_config_mutation.MachineConfigWriteError as exc:
+        if retired_id is not None:
+            raise HostedMachineAuthorizationError(
+                f"{MACHINE_RETIRED}: machine {retired_id} is retired and the new identity "
+                f"could not be saved: {exc}; repair the config, then run `yoke connect` again"
+            ) from None
         raise HostedMachineAuthorizationError(
             f"machine_identity_required: {exc}; create or restore this machine's "
             "config, then retry"
         ) from None
-    return {
-        "machine_id": resolved_machine_id,
-        "machine_name": machine_display_name(),
-    }
+    return {"machine_id": resolved_machine_id, "machine_name": machine_display_name()}

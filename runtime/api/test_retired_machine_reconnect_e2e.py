@@ -125,14 +125,15 @@ def test_retired_computer_reconnects_locally_then_to_a_self_hosted_server(
         status, refused = _raw_start(origin, second_id)
         assert (status, refused["error"]) == (409, "machine_retired")
         pending = auth.start(origin, self_host=True)
-        third_id = _configured_id(config)
-        assert pending.retired_machine_id == second_id != third_id
+        assert pending.retired_machine_id == second_id == _configured_id(config)
+        third_id = pending.draft_machine_id
+        assert third_id and third_id != second_id
         _call(
             "machine_authorization.resolve",
             {"code": pending.user_code, "action": "approve"},
         )
         credential = auth.complete(pending)
-    assert credential.token
+    assert credential.token and _configured_id(config) == third_id
     reconnected = machine_registry.get_machine(db_conn, third_id)
     assert reconnected.retired_at is None and reconnected.owner_actor_id == actor
     for retired_id in (FIRST_ID, second_id):

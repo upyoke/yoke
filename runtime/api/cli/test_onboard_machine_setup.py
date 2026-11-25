@@ -8,29 +8,31 @@ from runtime.api.fixtures.machine_config_test import select_machine_config_file
 import pytest
 
 from yoke_cli.commands.adapters import onboard_apply, onboard_interactive
-from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.config import onboard_machine_setup as setup, onboard_report
 
 
 def test_directories_are_convergent_and_repair_deleted_state(tmp_path, monkeypatch):
     config = tmp_path / "config.json"
     select_machine_config_file(monkeypatch, config)
-    calls = []
-    original = setup.writer.set_runtime_paths
+    setup.setup_directories(config)
+    assert all(setup.directory_readiness(config).values())
+    setup.setup_directories(config)
+    (config.parent / "cache").rmdir()
+    assert not setup.directory_readiness(config)["cache_dir"]
+    setup.setup_directories(config)
+    assert all(setup.directory_readiness(config).values())
+    assert not config.exists()
 
-    def write(**kwargs):
-        calls.append(kwargs)
-        return original(**kwargs)
 
-    monkeypatch.setattr(setup.writer, "set_runtime_paths", write)
+def test_directory_preparation_preserves_existing_config(tmp_path, monkeypatch):
+    config = tmp_path / "config.json"
+    select_machine_config_file(monkeypatch, config)
+    payload = b'{"temp_root":"custom-tmp","cache_dir":"custom-cache","machine_id":"8bea37d8-e2d5-4e4d-96c4-cfc53d9dbe5f"}'
+    config.write_bytes(payload)
+
     setup.setup_directories(config)
-    assert Path(machine_config.temp_root(config)).is_dir()
-    assert machine_config.cache_dir(config).is_dir()
-    setup.setup_directories(config)
-    assert len(calls) == 1
-    machine_config.cache_dir(config).rmdir()
-    setup.setup_directories(config)
-    assert len(calls) == 2
+
+    assert config.read_bytes() == payload
     assert all(setup.directory_readiness(config).values())
 
 

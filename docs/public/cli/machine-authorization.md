@@ -29,14 +29,13 @@ last line is the result. Use the printed link if opening fails.
 
 - `POST /api/machine/authorizations` returns `device_code`, `user_code`,
   `verification_uri`, `verification_uri_complete`, `expires_in`, and `interval`.
-  Every mode sends `machine_id` (the configured UUID), `machine_name` (the
-  operating system display hostname, at most 150 characters), and `platform`
-  (for example `macOS`, `Linux` or `Windows`, at most 80 characters). All three
-  are required by `MachineAuthorizationStart`; the browser reads these facts
-  before the first poll. Start with the current installer against a server
-  serving this request contract; a mismatched contract refuses by name.
-- `POST /api/machine/authorizations/token` sends `device_code`, `machine_id`, and
-  `machine_name`. Success returns `token`, `org`, and `api_url`.
+  Start requires a configured or pending UUID as `machine_id`, the OS display
+  hostname as `machine_name` (150 characters max), and `platform` (80 max).
+  The browser shows these facts before polling.
+- `POST /api/machine/authorizations/token` sends `device_code`, `machine_id`,
+  and `machine_name`. The client saves a fresh UUID in machine config before
+  this first potentially registering poll. Earlier cancellation leaves no UUID
+  in machine config. Success returns `token`, `org`, and `api_url`.
 - Retry HTTP 202 `authorization_pending`, HTTP 503
   `machine_credential_unavailable`, and HTTP 429
   `authorization_poll_rate_limited` (honoring `Retry-After`). HTTP 410
@@ -130,10 +129,9 @@ Start refuses a `machine_id` the registry retired with HTTP 409
 `machine_retired`, before any code exists, so nobody approves a code that
 delivery would refuse. Hosted `machine_authorization.handoff` refuses the same
 id with the same code before storing the hosted code. On that refusal `yoke connect` and the setup wizard
-replace this computer's configured UUID with a new one in
-`~/.yoke/config.json` and request a fresh code once, on every harness, so no
-reinstall is needed. Both say which retired id they replaced; the retired
-machine keeps its row and history on the Machines page. A second
+request a fresh code once with a new UUID and save that UUID in
+`~/.yoke/config.json` before the first poll. Both report the retired ID.
+The retired machine keeps its row and history on the Machines page. A second
 `machine_retired` for the new id stops with that named refusal. A machine
 retired after its code was issued is refused at delivery the same way: the
 client swaps in a new identity and tells you to run `yoke connect` again. A
