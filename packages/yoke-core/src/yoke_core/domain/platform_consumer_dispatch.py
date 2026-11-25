@@ -59,13 +59,17 @@ def dispatch_pair(
     if error:
         return "", error
     trigger = build_dispatch(candidate_sha, consumer_sha, request_id=request_id)
-    deadline = time.monotonic() + PENDING_JOIN_BUDGET_SECONDS
+    deadline = None
     delay = 2.0
     while True:
         code, stdout, stderr = run_yoke(trigger, timeout=_COMMAND_TIMEOUT_SECONDS)
         if code == 0 or not any(name in f"{stderr}\n{stdout}" for name in _JOIN_CODES):
             break
-        remaining = deadline - time.monotonic()
+        now = time.monotonic()
+        if deadline is None:
+            # The server first records the attempt during this round trip.
+            deadline = now + PENDING_JOIN_BUDGET_SECONDS
+        remaining = deadline - now
         if remaining <= 0:
             break
         print("consumer check join is pending; retrying same request_id", flush=True)

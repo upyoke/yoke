@@ -9,7 +9,7 @@ from typing import Any
 from yoke_contracts.github_workflow_dispatch import workflow_dispatch_marker
 from yoke_contracts.timestamps import utc_now
 from yoke_core.domain.gh_rest_transport import RestTransportError
-from yoke_core.domain.github_actions_rest import rest_get
+from yoke_core.domain.github_actions_rest import read_lightweight_tag, rest_get
 from yoke_core.domain.github_workflow_dispatch_intents import DispatchIntent, proof_attempts
 from yoke_core.domain.github_workflow_dispatch_runs import (
     CORRELATION_RUNS_PER_PAGE,
@@ -86,14 +86,18 @@ def _lookup(path: str, token: str, *, query: dict | None = None) -> Any:
 
 def verify_consumer_tag(payload: Any, token: str) -> None:
     """A replacement may use only the existing tag on the bound commit."""
-    ref = f"refs/tags/{payload.ref}"
-    data = _lookup(f"/repos/{payload.repo}/git/ref/tags/{payload.ref}", token)
-    target = data.get("object") if isinstance(data, dict) and data.get("ref") == ref else None
-    expected = payload.inputs["consumer_sha"]
-    if not isinstance(target, dict) or target.get("type") != "commit" or target.get("sha") != expected:
+    expected_ref = f"refs/tags/{payload.ref}"
+    expected_sha = payload.inputs["consumer_sha"]
+    try:
+        ref, sha = read_lightweight_tag(payload.repo, payload.ref, token=token)
+    except RestTransportError as exc:
+        raise ConsumerProofRecoveryError(
+            "consumer_proof_tag_unverified", f"GitHub could not read {expected_ref}: {exc}"
+        ) from exc
+    if ref != expected_ref or sha != expected_sha:
         raise ConsumerProofRecoveryError(
             "consumer_proof_tag_unverified",
-            f"GitHub did not resolve {ref} directly to the bound Platform commit {expected}.",
+            f"GitHub did not resolve {expected_ref} directly to the bound Platform commit {expected_sha}.",
         )
 
 

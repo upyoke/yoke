@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import pytest
 
+from yoke_core.domain import github_actions_rest
+
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
@@ -64,6 +66,7 @@ def _install(monkeypatch, *, refs: dict, commits: set[str], race: str = ""):
             raise RestUnprocessableError("Reference already exists")
         refs[body["ref"].removeprefix("refs/tags/")] = body["sha"]
 
+    monkeypatch.setattr(github_actions_rest, "rest_get", rest_get)
     monkeypatch.setattr(subject, "rest_get", rest_get)
     monkeypatch.setattr(subject, "rest_post", rest_post)
     return posts

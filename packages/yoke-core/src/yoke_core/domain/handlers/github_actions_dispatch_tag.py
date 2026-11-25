@@ -39,7 +39,7 @@ from yoke_core.domain.gh_rest_transport_errors import (
     RestTransportError,
     RestUnprocessableError,
 )
-from yoke_core.domain.github_actions_rest import rest_get, rest_post
+from yoke_core.domain.github_actions_rest import read_lightweight_tag, rest_get, rest_post
 from yoke_core.domain.handlers.github_actions_set import (
     _transport_failed,
     _validate_and_resolve,
@@ -79,17 +79,6 @@ def _refused(code: str, message: str) -> HandlerOutcome:
     )
 
 
-def _tagged_commit(repo: str, tag: str, token: str) -> str | None:
-    """The commit ``tag`` names, ``""`` for a non-commit tag, None when absent."""
-    payload = rest_get(f"/repos/{repo}/git/ref/tags/{tag}", token=token)
-    if not isinstance(payload, dict):
-        return None
-    target = payload.get("object")
-    if not isinstance(target, dict) or target.get("type") != "commit":
-        return ""
-    return str(target.get("sha") or "")
-
-
 def _settled(repo: str, tag: str, sha: str, existing: str) -> HandlerOutcome:
     if existing == sha:
         return HandlerOutcome(
@@ -125,7 +114,7 @@ def handle_dispatch_tag_ensure(request: FunctionCallRequest) -> HandlerOutcome:
     repo, tag, sha = payload.repo, payload.tag, payload.sha
 
     try:
-        existing = _tagged_commit(repo, tag, token)
+        _, existing = read_lightweight_tag(repo, tag, token=token)
         if existing is not None:
             return _settled(repo, tag, sha, existing)
         commit = rest_get(f"/repos/{repo}/git/commits/{sha}", token=token)
@@ -145,7 +134,7 @@ def handle_dispatch_tag_ensure(request: FunctionCallRequest) -> HandlerOutcome:
             )
         except RestUnprocessableError:
             # A concurrent ensure created it first; settle on what it wrote.
-            existing = _tagged_commit(repo, tag, token)
+            _, existing = read_lightweight_tag(repo, tag, token=token)
             if existing is None:
                 raise
             return _settled(repo, tag, sha, existing)

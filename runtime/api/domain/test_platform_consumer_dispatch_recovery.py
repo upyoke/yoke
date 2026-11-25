@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
@@ -19,6 +20,7 @@ from yoke_core.domain import (
     github_actions_rest,
     github_workflow_dispatch as dispatch,
     github_workflow_dispatch_intents as intents,
+    platform_consumer_dispatch as pairs,
     platform_consumer_dispatch_recovery as recovery,
 )
 from yoke_core.domain.ci_run_redispatch import redispatch_request_id
@@ -300,3 +302,37 @@ def test_pagination_budget_is_not_evidence_of_absence(provider, monkeypatch):
     assert provider.invoke().error.code == "consumer_proof_lookup_incomplete"
     assert provider.tag_reads == 0
     assert len(provider.posted) == 1
+
+
+def test_original_driver_has_full_join_window_after_first_round_trip(provider, monkeypatch):
+    started = provider.now
+
+    def monotonic():
+        return (provider.now - started).total_seconds()
+
+    def sleep(seconds):
+        provider.now += timedelta(seconds=seconds)
+
+    def run_yoke(argv, *, timeout):
+        if argv[1:3] == ["dispatch-tag", "ensure"]:
+            return 0, json.dumps({"success": True, "result": {
+                "repo": CONSUMER_REPO, "tag": TAG, "sha": CONSUMER,
+            }}), ""
+        assert argv[argv.index("--request-id") + 1] == provider.key
+        if not provider.posted:
+            sleep(8)
+            outcome = provider.invoke()
+            sleep(1)
+        else:
+            bridge = provider.invoke("bridge-ci")
+            assert bridge.error.code == "workflow_dispatch_pending"
+            outcome = provider.invoke()
+        if outcome.primary_success:
+            return 0, outcome.result_payload["run_id"], ""
+        return 1, "", outcome.error.code
+
+    monkeypatch.setattr(pairs.time, "monotonic", monotonic)
+    monkeypatch.setattr(pairs.time, "sleep", sleep)
+    assert pairs.dispatch_pair(run_yoke, CANDIDATE, CONSUMER, request_id=provider.key) == ("73", "")
+    assert len(provider.posted) == 2
+    assert monotonic() == 9 + PENDING_JOIN_BUDGET_SECONDS
