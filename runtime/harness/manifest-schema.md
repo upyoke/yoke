@@ -101,6 +101,10 @@ not author a second capability matrix.
 | `inline_context_bytes` | integer | That ceiling in bytes; runtime composition reads the Python contract, not this JSON. |
 | `launch_model_selection` | object | Accepted model knobs, exact native CLI encodings, and the resume selection mode, projected from the shared model-selection contract. |
 
+A surface may declare `windows_orientation_event` with the native Windows
+startup orientation channel. Cursor Desktop uses `UserPromptSubmit` so
+orientation can reach the first prompt even when session creation is asynchronous.
+
 Each surface value carries `minimum_version`, `inject_events`, `create`,
 `message_active`, `message_idle`, `message_stopped`,
 `stop_denial_continuation`, `relay_stop_denial_continuation`,

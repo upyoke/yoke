@@ -52,6 +52,19 @@ def test_cursor_context_joins_existing_session_start_body() -> None:
     }
 
 
+def test_cursor_prompt_merges_context_and_keeps_continue() -> None:
+    first = render_context_stdout("orientation", "UserPromptSubmit", cursor=True)
+    second = render_context_stdout("wake block", "UserPromptSubmit", cursor=True)
+    bare_allow = json.dumps({"continue": True})
+
+    merged = merge_allow_stdout(first, second, "UserPromptSubmit", cursor=True)
+
+    assert json.loads(merged) == {
+        "additional_context": "orientation\n\nwake block", "continue": True,
+    }
+    assert merge_allow_stdout(first, bare_allow, "UserPromptSubmit", cursor=True) == first
+
+
 def test_cursor_context_replaces_empty_existing_body() -> None:
     orientation = json.dumps({"additional_context": "orientation"})
     empty = json.dumps({"additional_context": ""})

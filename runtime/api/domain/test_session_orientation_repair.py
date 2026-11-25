@@ -49,6 +49,7 @@ def isolated_markers(tmp_path_factory, monkeypatch) -> None:
         str(tmp_path_factory.mktemp("markers")),
     )
     delivery._composed_session.set(None)
+    monkeypatch.setenv("CURSOR_INVOKED_AS", "cursor-agent")
     monkeypatch.setattr(
         "yoke_harness.hooks.identity.detect_executor", lambda: "claude-code"
     )
