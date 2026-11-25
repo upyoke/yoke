@@ -1,10 +1,15 @@
 """Function-handler completion contracts for QA runs."""
 
+import json
 import unittest
 from unittest.mock import patch
 
 from yoke_contracts.api.function_call import TargetRef
+from yoke_core.domain import served_revision_probe as probe
+from yoke_core.domain.qa_execution_environment_target import resolve_plan_execution_target
+from yoke_core.domain.qa_plan_management import create_plan
 from yoke_core.domain.handlers import qa_browser_writes
+from runtime.api.domain.qa_requirement_target_rebind_test_support import _yoke_development
 from runtime.api.fixtures.backlog_inserts import insert_qa_requirement
 from runtime.api.fixtures.pg_testdb import test_database
 from runtime.api.api_qa_browser_function_test_support import (
@@ -59,6 +64,42 @@ class TestQaRunComplete(unittest.TestCase):
             )
         self.assertFalse(outcome.primary_success)
         self.assertEqual(outcome.error.code, "target_invalid")
+
+    def test_unobservable_build_refuses_run_add_and_complete(self):
+        with test_database() as conn:
+            _seed_browser_requirement(conn)
+            environment_id = _yoke_development(conn)
+            conn.execute(
+                "UPDATE environments SET url=%s,settings=%s WHERE id=%s",
+                ("https://qa.example.test", '{"qa":{"identity_path":"/served-build"}}', environment_id),
+            )
+            plan = create_plan(conn, project="yoke", slug="build-observation", target_environment=str(environment_id))
+            target = resolve_plan_execution_target(conn, plan_id=plan["id"])
+            conn.execute(
+                "UPDATE qa_requirements SET execution_target_json=%s WHERE id=10",
+                (json.dumps(target),),
+            )
+            conn.commit()
+
+            requirement = TargetRef(kind="qa_requirement", qa_requirement_id=10)
+            with patch.object(probe, "fetch_served_revision", return_value=probe.ServedRevisionRead(error="offline")):
+                refused_add = qa_browser_writes.handle_qa_run_add(
+                    _request("qa.run.add", requirement, payload={"performed_by": "browser_substrate"}),
+                )
+            self.assertEqual(refused_add.error.code, "qa_execution_target_refused")
+            self.assertIn("served_build_unobservable", refused_add.error.message)
+            self.assertEqual(conn.execute("SELECT COUNT(*) FROM qa_runs").fetchone()[0], 0)
+
+            with patch.object(probe, "fetch_served_revision", return_value=probe.ServedRevisionRead(status=200, body="a" * 40)):
+                run_id = self._add_started_run(conn)
+            with patch.object(probe, "fetch_served_revision", return_value=probe.ServedRevisionRead(error="offline")):
+                refused_complete = qa_browser_writes.handle_qa_run_complete(
+                    _request("qa.run.complete", requirement, payload={"run_id": run_id, "verdict": "pass"}),
+                )
+            self.assertEqual(refused_complete.error.code, "qa_execution_target_refused")
+            self.assertIn("served_build_unobservable", refused_complete.error.message)
+            row = conn.execute("SELECT verdict,completed_at FROM qa_runs WHERE id=%s", (run_id,)).fetchone()
+            self.assertEqual(tuple(row), (None, None))
 
     def test_captured_completion_updates_row(self):
         with test_database() as conn:

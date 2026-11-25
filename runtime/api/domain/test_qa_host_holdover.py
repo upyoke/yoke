@@ -3,8 +3,7 @@
 Measured misses: YOK-5459 took test-mac-studio (lease 51833) 0.22s after
 YOK-5475's last ``yoke test-machine exec`` preflight released it, before
 YOK-5475's ``qa case run`` queued; and YOK-5475's reserved turn (lease 51842)
-went to YOK-5459 (lease 51843) when YOK-5475 aborted its execution refused
-``served_build_changed`` after a deploy.
+went to YOK-5459 (lease 51843) when YOK-5475 aborted its execution.
 """
 
 from __future__ import annotations
@@ -254,7 +253,7 @@ def test_owner_abort_carries_its_reserved_turn_to_its_next_execution(
     stale[OWNER_ABORT] = True
 
     finish_plan_execution(
-        test_db, stale, state="aborted", reason="served_build_changed; rerunning"
+        test_db, stale, state="aborted", reason="rerunning with a corrected roster"
     )
 
     assert active_claim(test_db, TARGET).id == reservation.id

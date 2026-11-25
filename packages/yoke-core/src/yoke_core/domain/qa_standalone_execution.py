@@ -229,9 +229,9 @@ def begin_standalone_execution(
                 "standalone_live_execution: omit --continue-mission to resume it"
             )
         if same_owner(prior, actor_id=actor_id, session_id=session_id):
-            from yoke_core.domain.qa_environment_served_build import observe_resume
+            from yoke_core.domain.qa_environment_served_build import require_execution_access
 
-            observe_resume(conn, prior)
+            require_execution_access(conn, prior)
             require_same_source(
                 prior["roster"],
                 source_revision=source_revision,

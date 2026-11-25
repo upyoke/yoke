@@ -1,8 +1,11 @@
 """Environment QA records the owner's live build on the control plane."""
 
+import json
+
 import pytest
 
 from runtime.api.domain.qa_requirement_target_rebind_test_support import _hosted_prod_pair
+from runtime.api.fixtures.backlog_inserts import insert_item, insert_qa_requirement
 from yoke_core.domain import served_revision_probe as probe
 from yoke_core.domain.qa_environment_served_build import observe_build
 from yoke_core.domain.qa_execution_environment_target import (
@@ -62,17 +65,45 @@ def test_bridge_probes_owner_by_id_and_records_begin_and_result(test_db, monkeyp
     assert urls == ["https://api.upyoke.com/served-build"] * 3
 
 
-def test_changed_build_refuses_result_and_preserves_unjudged_run(test_db, monkeypatch):
+def _assert_changed_build_pass(conn, run_id):
+    row = conn.execute(
+        "SELECT verdict,served_build_sha,served_build_status,raw_result FROM qa_runs WHERE id=%s",
+        (run_id,),
+    ).fetchone()
+    assert tuple(row[:3]) == ("pass", OTHER, "served_build_changed")
+    assert json.loads(row[3])["served_build_changed"] == {"began_sha": SHA, "served_sha": OTHER}
+
+
+def test_changed_build_records_pass_on_completion(test_db, monkeypatch):
     _setup(test_db, monkeypatch)
     execution = _begin(test_db)
     requirement = execution["roster"][0]["requirement_id"]
     written = insert_qa_run(test_db, qa_requirement_id=requirement, qa_kind="command", performed_by="7", created_at=utc_now())
     monkeypatch.setattr(probe, "fetch_served_revision", lambda _: probe.ServedRevisionRead(status=200, body=OTHER))
-    with pytest.raises(QaExecutionTargetError) as refused:
-        update_qa_run(test_db, written.run_id, {"verdict": "pass"})
-    assert f"served_build_changed: execution {execution['id']} began on {SHA}; now serves {OTHER}" in str(refused.value)
-    assert f"yoke qa plan abort --execution-id {execution['id']} --reason TEXT" in str(refused.value)
-    assert test_db.execute("SELECT verdict FROM qa_runs WHERE id=%s", (written.run_id,)).fetchone()[0] is None
+    update_qa_run(test_db, written.run_id, {"verdict": "pass"})
+    _assert_changed_build_pass(test_db, written.run_id)
+
+
+def test_build_change_records_pass_without_an_execution(test_db, monkeypatch):
+    _, plan, _ = _setup(test_db, monkeypatch)
+    target = resolve_plan_execution_target(test_db, plan_id=plan["id"])
+    insert_item(test_db, id=42, title="Remote QA")
+    insert_qa_requirement(
+        test_db, id=10, item_id=42, target_env="stage",
+        execution_target_json=json.dumps(target),
+    )
+    written = insert_qa_run(
+        test_db, qa_requirement_id=10, qa_kind="command", performed_by="7", created_at=utc_now(),
+    )
+    row = test_db.execute(
+        "SELECT served_build_sha,served_build_status FROM qa_runs WHERE id=%s", (written.run_id,),
+    ).fetchone()
+    assert tuple(row) == (SHA, "observed")
+    assert test_db.execute("SELECT COUNT(*) FROM qa_plan_executions").fetchone()[0] == 0
+
+    monkeypatch.setattr(probe, "fetch_served_revision", lambda _: probe.ServedRevisionRead(status=200, body=OTHER))
+    update_qa_run(test_db, written.run_id, {"verdict": "pass"})
+    _assert_changed_build_pass(test_db, written.run_id)
 
 
 @pytest.mark.parametrize("read", [probe.ServedRevisionRead(error="offline"), probe.ServedRevisionRead(status=200, body="unknown")])
@@ -110,14 +141,15 @@ def test_no_declared_path_is_durable(test_db, monkeypatch):
     assert tuple(row) == (None, "no_declared_path")
 
 
-def test_build_change_before_first_result_compares_with_begin(test_db, monkeypatch):
+def test_build_change_before_first_result_records_pass_against_begin(test_db, monkeypatch):
     _setup(test_db, monkeypatch)
     execution = _begin(test_db)
     monkeypatch.setattr(probe, "fetch_served_revision", lambda _: probe.ServedRevisionRead(status=200, body=OTHER))
-    with pytest.raises(QaExecutionTargetError, match="served_build_changed"):
-        insert_qa_run(test_db, qa_requirement_id=execution["roster"][0]["requirement_id"],
-                      qa_kind="command", performed_by="7", created_at=utc_now(), verdict="pass")
-    assert test_db.execute("SELECT COUNT(*) FROM qa_runs").fetchone()[0] == 0
+    written = insert_qa_run(
+        test_db, qa_requirement_id=execution["roster"][0]["requirement_id"],
+        qa_kind="command", performed_by="7", created_at=utc_now(), verdict="pass",
+    )
+    _assert_changed_build_pass(test_db, written.run_id)
 
 
 def test_roster_step_and_case_run_recheck_frozen_authorization(test_db, monkeypatch):
@@ -143,26 +175,31 @@ def test_result_uses_the_executions_frozen_target(test_db, monkeypatch):
     assert test_db.execute("SELECT served_build_sha FROM qa_runs WHERE id=%s", (written.run_id,)).fetchone()[0] == SHA
 
 
-
-def test_owner_resume_of_an_unstarted_execution_rebinds_to_the_new_build(test_db, monkeypatch):
-    _setup(test_db, monkeypatch)
-    queued = _begin(test_db)
-    monkeypatch.setattr(probe, "fetch_served_revision", lambda _: probe.ServedRevisionRead(status=200, body=OTHER))
-    resumed = _begin(test_db)
-    assert resumed["id"] == queued["id"]
-    row = test_db.execute("SELECT served_build_sha,served_build_status FROM qa_plan_executions WHERE id=%s", (queued["id"],)).fetchone()
-    assert tuple(row) == (OTHER, "observed")
-
-
-def test_owner_resume_after_cases_ran_on_the_old_build_names_the_abort(test_db, monkeypatch):
+@pytest.mark.parametrize("ran_case", [False, True])
+def test_owner_resume_preserves_begin_build(test_db, monkeypatch, ran_case):
     from yoke_core.domain.qa_plan_execution_state import advance_plan_execution
 
-    _setup(test_db, monkeypatch, cases=2)
+    _, _, urls = _setup(test_db, monkeypatch, cases=2)
     execution = _begin(test_db)
-    advance_plan_execution(test_db, execution, ordinal=0, requirement_id=execution["roster"][0]["requirement_id"], result={"verdict": "pass"})
-    test_db.commit()
-    monkeypatch.setattr(probe, "fetch_served_revision", lambda _: probe.ServedRevisionRead(status=200, body=OTHER))
-    with pytest.raises(QaExecutionTargetError) as refused:
-        _begin(test_db)
-    assert f"execution {execution['id']} ran cases on {SHA}; now serves {OTHER}" in str(refused.value)
-    assert f"yoke qa plan abort --execution-id {execution['id']} --reason TEXT" in str(refused.value)
+    if ran_case:
+        advance_plan_execution(
+            test_db, execution, ordinal=0, requirement_id=execution["roster"][0]["requirement_id"],
+            result={"verdict": "pass"},
+        )
+        test_db.commit()
+
+    def fetch_after_redeploy(url):
+        urls.append(url)
+        return probe.ServedRevisionRead(status=200, body=OTHER)
+
+    monkeypatch.setattr(probe, "fetch_served_revision", fetch_after_redeploy)
+    urls.clear()
+    resumed = _begin(test_db)
+    assert resumed["id"] == execution["id"]
+    assert resumed["served_build_sha"] == SHA
+    assert urls == []
+    row = test_db.execute(
+        "SELECT served_build_sha,served_build_status FROM qa_plan_executions WHERE id=%s",
+        (execution["id"],),
+    ).fetchone()
+    assert tuple(row) == (SHA, "observed")
