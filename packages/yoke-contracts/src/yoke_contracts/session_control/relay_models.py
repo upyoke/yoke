@@ -115,7 +115,7 @@ class RelayLivenessReport(BaseModel):
 
 
 class RelayLaunchDeathReport(BaseModel):
-    """One launch whose native is gone before any session registered for it."""
+    """An exit of a launch's creating native, independent of session liveness."""
 
     model_config = ConfigDict(extra="forbid")
     launch_id: str
@@ -141,6 +141,7 @@ class RelayLivenessResponse(BaseModel):
     skipped: List[Dict[str, Any]] = Field(default_factory=list)
     closed_launches: List[str] = Field(default_factory=list)
     skipped_launches: List[Dict[str, Any]] = Field(default_factory=list)
+    recorded_native_exits: List[str] = Field(default_factory=list)
 
 
 class EvidenceDocument(BaseModel):

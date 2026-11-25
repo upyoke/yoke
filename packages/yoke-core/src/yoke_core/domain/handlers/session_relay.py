@@ -273,8 +273,8 @@ def handle_relay_liveness(request: FunctionCallRequest) -> HandlerOutcome:
                 relay_actor_id=actor_id,
                 reports=[report.model_dump(mode="json") for report in payload.sessions],
             )
-            # The launches reported here never bound a session, so they carry
-            # no session for the sweep above to reason about.
+            # Launch captures attest to the creating process independently
+            # of the bound session's current liveness.
             outcome.update(
                 apply_unregistered_native_death_reports(
                     conn,
