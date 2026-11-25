@@ -145,11 +145,13 @@ versions as `.yoke/docs/verification/candidate-controller.md` teaches.
 
 ## Cleanup
 
-Clean up everything the walk creates, such as repositories, accounts and
-records the product registered, with the product's own commands before
-walk-end, even when the walk stops early. Host cleanup such as `yoke project
-uninstall` needs the lease; server cleanup such as `yoke --env ENV projects
-retire` needs none and still runs after access is lost. Create GitHub fixture
+Clean up the walk's repositories, accounts and other test fixtures with the
+product's own commands before walk-end, even when the walk stops early. The
+Test Machine's fresh-host reset retires the lab user's registered Machine
+before wiping its identity. Inherit cases keep that identity until a reset.
+Host cleanup such as `yoke project uninstall` needs the lease. Run server
+cleanup such as `yoke --env ENV projects retire` even after access is lost.
+Create GitHub fixture
 repositories with `gh repo create OWNER/NAME --private`, record every exact
 `OWNER/NAME` (including one the product creates), and delete each with
 `gh repo delete OWNER/NAME --yes`. Never delete upstream or pre-existing

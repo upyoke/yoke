@@ -4,7 +4,7 @@
  "status": "observed",
  "page": "test-machine-execution",
  "position": 2,
- "summary": "A test machine is a QA host reached only through its lease; it is never a launch target. When a Yoke QA mission installs Yoke on a test machine and connects it, that connect registers a Machine with the server it reached, hosted or self-hosted. The walker finds it with `yoke machine list` on that server, launches onto it through that same server with `--machine MACHINE_ID`, and retires it with `yoke machine retire MACHINE_ID --confirm`, together with the test's projects and repositories, as docs/testing-verification/qa-fixture-cleanup.md teaches. The shared QA platform records no connected Machine and walk-end retires nothing.",
- "commands": ["yoke machine list", "yoke session-control launch create", "yoke machine retire"],
+ "summary": "A test machine is a QA host reached only through its lease; it is never a launch target. When a Yoke QA mission installs Yoke on a test machine and connects it, that connect registers a Machine with the server it reached, hosted or self-hosted. The walker finds it with `yoke machine list` on that server, launches onto it through that same server with `--machine MACHINE_ID`. Fresh-host reset retires the Machine named by the lab user's saved identity through its saved connection before wiping. Walkers still clean up test projects and repositories as docs/testing-verification/qa-fixture-cleanup.md teaches. Inherit cases keep the Machine until reset.",
+ "commands": ["yoke machine list", "yoke session-control launch create", "yoke test-machine reset"],
  "sources": ["docs/testing-verification/qa-fixture-cleanup.md", "docs/machine-registry.md", "packages/yoke-core/src/yoke_core/domain/session_launch_machine_pin.py"]
 }

@@ -9,6 +9,7 @@ from yoke_harness.native_windows.desktop import capture_desktop
 from yoke_harness.native_windows.machine_fixtures import SECOND_USER, apply_fixture
 from yoke_contracts.machine_qa_failures import bounded_machine_qa_diagnostic
 from yoke_harness.native_windows.mission import WindowsMissionOperations
+from yoke_harness.test_machine_reset_identity import retire_reset_identity
 from yoke_harness.native_windows.transport import (
     HOST_RESOURCES_EXHAUSTED,
     HOST_RESOURCES_RECOVERY,
@@ -186,18 +187,26 @@ class SshNativeWindowsHostOperations(WindowsMissionOperations, WindowsTransport)
                 },
                 "golden_baseline_not_declared",
             )
+        retirement = retire_reset_identity(self, native_windows=True)
+        if not retirement.ok:
+            return retirement
         restored = profile_operation(self, "reset", self.golden_baseline_path)
         if not restored.ok:
-            return restored
+            return HostActionResult(
+                False, {**retirement.evidence, **restored.evidence}, restored.error_code
+            )
         console = probe_console(self, set_resolution=True)
         if not console.ok:
-            return console
+            return HostActionResult(
+                False, {**retirement.evidence, **console.evidence}, console.error_code
+            )
         absent = self._run(
             "$env:Path=[Environment]::GetEnvironmentVariable('Path','Machine')+';'+[Environment]::GetEnvironmentVariable('Path','User'); if(Get-Command yoke,yoke.cmd,uv,uvx -ErrorAction SilentlyContinue){exit 1}"
         )
         return HostActionResult(
             absent.returncode == 0,
             {
+                **retirement.evidence,
                 **restored.evidence,
                 "windows_console": console.evidence,
                 "path_state": {"yoke_tools_resolve": absent.returncode != 0},

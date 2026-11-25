@@ -2,16 +2,17 @@
 
 Yoke's own QA cases install and connect Yoke on a Test Machine, so a walk can
 leave a registered Machine, Yoke projects and GitHub repositories behind. The
-QA platform tracks none of them and walk-end removes none of them: walk-end
-only removes the mission's staging and restores the Test Machine. The walker
-removes everything below itself, before walk-end, and reports every fixture it
-created and anything it could not remove with the refusal and its recovery.
+fresh-host reset retires the lab Machine before wiping its identity. Walk-end
+removes the mission's staging and restores the Test Machine when the case
+requires a reset. The walker removes projects and repositories before walk-end
+and reports every fixture it created and anything it could not remove with the
+refusal and its recovery.
 
 Two kinds of cleanup differ in what they need:
 
 - **Host cleanup** changes the Test Machine, such as uninstalling a checkout.
   It needs the mission's lease and runs through `yoke qa mission host-command`.
-- **Server cleanup** retires Machines and projects and deletes repositories.
+- **Server cleanup** retires projects and deletes repositories.
   It runs on the server and needs no lease.
 
 An abort, whether by the walk's owner or by steering, keeps the lease and
@@ -49,17 +50,13 @@ yoke --env ENV session-control launch create --project P --item PREFIX-N \
   --machine MACHINE_ID --idempotency-key K
 ```
 
-## Retire the Machine
+## Reset the Machine
 
-Retire it once the test no longer needs it. Retirement revokes its credential
-and keeps its history:
-
-```text
-yoke --env ENV machine retire MACHINE_ID --confirm
-```
-
-A retirement the walking actor may not do refuses as `machine_retire_forbidden`;
-report the Machine id so its owner retires it.
+Fresh-host reset reads the lab user's Machine ID from its saved Yoke identity
+and retires that exact registration through the lab's saved active connection
+before restoring the golden home. Retirement revokes its credential and keeps
+its history. If retirement fails, reset leaves the profile available for retry.
+An inherit case keeps the registration until a reset.
 
 ## Uninstall and retire the test's projects
 

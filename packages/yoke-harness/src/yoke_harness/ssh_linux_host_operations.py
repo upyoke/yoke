@@ -29,6 +29,7 @@ from yoke_harness.ssh_linux_terminal import (
 )
 from yoke_contracts.ssh_mac_full_reset_contract import GOLDEN_PROBES_SUFFIX
 from yoke_harness.ssh_tool_resolution import probe_reset_tools, tools_present
+from yoke_harness.test_machine_reset_identity import retire_reset_identity
 from yoke_contracts.test_machine_types import HostActionResult
 
 
@@ -137,9 +138,14 @@ class SshLinuxHostOperations(
                 },
                 "golden_baseline_not_declared",
             )
+        retirement = retire_reset_identity(self)
+        if not retirement.ok:
+            return retirement
         restored = archive_operation(self, "reset", self.golden_baseline_path)
         if not restored.ok:
-            return restored
+            return HostActionResult(
+                False, {**retirement.evidence, **restored.evidence}, restored.error_code
+            )
         observed = probe_reset_tools(self)
         failed = any(
             probe["state"] == "probe-failed"
@@ -151,6 +157,7 @@ class SshLinuxHostOperations(
         return HostActionResult(
             absent,
             {
+                **retirement.evidence,
                 **restored.evidence,
                 "path_state": {
                     "launcher_present": tools_present(observed, ("yoke",)),
