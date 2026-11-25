@@ -38,6 +38,11 @@ Event history is diagnostic. An absent event does not establish that nothing hap
 
 Watchers follow long-running operations and report progress or completion. When a command returns a capture or diagnostic reference, use it to inspect the relevant output rather than rerunning the operation just to recover its logs.
 
+With `yoke watch … --print-streaming-pair`, run the printed watcher command
+once and use its printed raw-capture command after it exits. A foreground
+watcher printed by Windows PowerShell uses PowerShell syntax. Run its two
+lines in separate shell calls so the watcher call can return its exit code.
+
 Relay logs and some command captures remain on the machine that produced them. Your agent can request supported evidence through the owning session and machine. [Machine-local evidence](../databases/machine-local-evidence.md)
 
 ## Performance diagnostics
