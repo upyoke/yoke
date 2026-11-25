@@ -14,7 +14,7 @@ from yoke_core.domain.session_launch_native_progress import native_launch_update
 from yoke_core.domain.session_launch_registration_candidate import (
     wait_for_launch_registration_candidate,
 )
-from yoke_core.domain.session_launch_store import get_launch, update_launch
+from yoke_core.domain.session_launch_store import begin_mutation, get_launch, update_launch
 from yoke_core.domain.session_relay_evidence import (
     merge_redacted_evidence,
     redacted_evidence_document,
@@ -34,6 +34,7 @@ def report_launch_progress(
     now: datetime | str,
 ) -> dict[str, Any]:
     """Merge safe attempt facts and project native supervision state."""
+    begin_mutation(conn)
     p = marker(conn)
     row = conn.execute(
         "SELECT completed_at,result_code,evidence FROM session_launch_attempts "
@@ -44,6 +45,7 @@ def report_launch_progress(
         raise SessionRelayError(
             "attempt_missing", "this relay holds no such launch attempt lease"
         )
+    launch = get_launch(conn, launch_id, for_update=True)
     merged = merge_redacted_evidence(row[2], evidence)
     if str(row[1] or "") == "relay_lease_expired":
         merged = merge_redacted_evidence(merged, {"result_code": "relay_lease_expired"})
@@ -61,16 +63,14 @@ def report_launch_progress(
     )
     safe = redacted_evidence_document(evidence)
     updates = native_launch_updates(safe, observed_at=now)
-    if str(row[1] or "") == "relay_lease_expired":
+    if launch.state == "succeeded" or launch.native_launch_phase == "native_exited":
+        updates.pop("native_launch_phase", None)
+    if launch.state != "succeeded" and str(row[1] or "") == "relay_lease_expired":
         updates["result_evidence"] = merged
-    elif safe.get("result_code") == LAUNCH_ADAPTER_STARTED_CODE:
-        current = get_launch(conn, launch_id)
-        if current.state == "launching":
-            updates.update(
-                state="awaiting_registration",
-                awaiting_registration_at=now,
-            )
-    launch = update_launch(conn, launch_id, **updates) if updates else None
+    elif safe.get("result_code") == LAUNCH_ADAPTER_STARTED_CODE and launch.state == "launching":
+        updates.update(state="awaiting_registration", awaiting_registration_at=now)
+    if updates:
+        launch = update_launch(conn, launch_id, **updates)
     conn.commit()
     registration = None
     if safe.get("result_code") == IDENTITY_REGISTRATION_WAIT_CODE:

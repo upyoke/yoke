@@ -49,6 +49,9 @@ from yoke_core.domain.session_message_types import (
 )
 from yoke_contracts.timestamps import as_utc
 from yoke_core.domain.db_helpers import instant_parameter
+from yoke_core.domain.db_savepoint import savepoint
+from yoke_core.domain.session_launch_settlement import record_launch_native_exit
+from yoke_core.domain.session_launch_store import begin_mutation
 from yoke_core.domain.session_mode import session_is_parked
 from yoke_core.domain.session_process_presence import activity_supersedes_process_death
 from yoke_core.domain.session_relay_evidence import merge_redacted_evidence
@@ -181,6 +184,12 @@ def record_native_process_gone(
     stored_at, stored_evidence = _stored_observation(conn, session_id)
     identity = _process_identity(evidence)
     exited_at = parse_timestamp(evidence.get(NATIVE_EXIT_AT_KEY))
+    if exited_at is not None:
+        # The session row retains only its most recent death. The creating
+        # launch can still learn its measured exit from an older report.
+        begin_mutation(conn)
+        with savepoint(conn, "record_launch_native_exit", owns=False):
+            record_launch_native_exit(conn, session_id, evidence, exited_at=exited_at)
     death = as_utc(
         exited_at
         if exited_at is not None

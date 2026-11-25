@@ -7,6 +7,7 @@ from yoke_cli.commands.adapters.session_control_human_output import (
     EMPTY_VALUE,
     humanize,
 )
+from yoke_contracts.timestamps import InvalidInstant, format_instant
 
 
 def _launch_status(launch: Mapping[str, Any]) -> str:
@@ -40,6 +41,19 @@ def _instruction_delivery(launch: Mapping[str, Any]) -> str:
         "awaiting_acknowledgement": "awaiting recipient acknowledgement",
         "unknown": "status unavailable",
     }.get(state, humanize(state))
+
+
+def _native_exit_rows(launch: Mapping[str, Any]) -> list[tuple[str, Any]]:
+    evidence = launch.get("result_evidence")
+    exited_at = evidence.get("native_exit_at") if isinstance(evidence, Mapping) else None
+    try:
+        exit_time = format_instant(exited_at) if isinstance(exited_at, str) else None
+    except InvalidInstant:
+        exit_time = None
+    return [
+        ("Native phase", launch.get("native_launch_phase")),
+        ("Native exit (UTC)", exit_time),
+    ]
 
 
 def _launch_recovery(launch: Mapping[str, Any]) -> str | None:

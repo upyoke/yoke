@@ -205,3 +205,26 @@ def test_raw_evidence_string_is_never_echoed() -> None:
 
     assert "raw stdout" not in output.getvalue()
     assert "secret argv" not in output.getvalue()
+
+
+def test_succeeded_launch_shows_exit_without_diagnostic_recovery() -> None:
+    output = io.StringIO()
+    launch = _launch(
+        state="succeeded",
+        result_code="registered_and_acknowledged",
+        native_launch_phase="native_exited",
+        result_evidence={
+            "native_exit_at": "2026-08-23T12:00:00Z",
+            "previous_launch_result": "launch_acknowledgement_missing",
+            "native_error_class": "permission_bypass_unaccepted",
+        },
+    )
+    write_launch_result({"launch": launch}, output)
+
+    rendered = output.getvalue()
+    assert "succeeded (registered and acknowledged)" in rendered
+    assert "Native phase" in rendered and "native_exited" in rendered
+    exit_row = next(line for line in rendered.splitlines() if line.startswith("Native exit (UTC)"))
+    assert exit_row.endswith("2026-08-23T12:00:00.000000Z")
+    assert "previous launch result=launch_acknowledgement_missing" in rendered
+    assert "Recovery" not in rendered

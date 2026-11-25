@@ -8,14 +8,15 @@ from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.session_control.liveness import live_session_sql
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import instant_parameter
+from yoke_core.domain.db_savepoint import savepoint
 from yoke_core.domain.session_launch_deadlines import extend_launch_message_expiry
+from yoke_core.domain.session_launch_settlement import settle_launch_result
 from yoke_core.domain.session_launch_store import (
-    add_seconds, begin_mutation, get_launch, marker, parse_time, update_launch, value,
+    add_seconds, begin_mutation, get_launch, marker, parse_time, value,
 )
 from yoke_core.domain.session_launch_types import (
     DEFAULT_LAUNCH_DEADLINE_SECONDS, LaunchRecord, SessionLaunchError,
 )
-from yoke_core.domain.session_relay_evidence import merge_redacted_evidence
 from yoke_core.domain.schema_work_claim_sql import scope_int_sql
 
 
@@ -74,24 +75,26 @@ def accept_late_launch(
     if reason and reason not in {"launch_failed", "launch_expired", "launch_outcome_unknown"}:
         taken_over(launch, f"message cancelled: {reason}")
     deadline = add_seconds(now, DEFAULT_LAUNCH_DEADLINE_SECONDS)
-    extend_launch_message_expiry(conn, message_id=launch.message_id, expires_at=deadline)
-    conn.execute(
-        "UPDATE session_message_recipients SET state='pending', expired_at=NULL, "
-        "cancelled_at=NULL, acknowledged_at=NULL, injection_lease_id=NULL, "
-        "injection_leased_at=NULL, injection_lease_expires_at=NULL "
-        f"WHERE message_id={p} AND session_id={p}",
-        (launch.message_id, session_id),
-    )
-    return update_launch(
-        conn, launch.launch_id, state="awaiting_registration", deadline_at=deadline,
-        completed_at=None, result_code="accepted_late",
-        result_evidence=merge_redacted_evidence(launch.result_evidence, {
+    with savepoint(conn, "late_launch_acceptance", owns=False):
+        extend_launch_message_expiry(conn, message_id=launch.message_id, expires_at=deadline)
+        conn.execute(
+            "UPDATE session_message_recipients SET state='pending', expired_at=NULL, "
+            "cancelled_at=NULL, acknowledged_at=NULL, injection_lease_id=NULL, "
+            "injection_leased_at=NULL, injection_lease_expires_at=NULL "
+            f"WHERE message_id={p} AND session_id={p}",
+            (launch.message_id, session_id),
+        )
+        history = {
             "accepted_late": parse_time(now).isoformat(),
             "previous_launch_state": launch.state,
             "previous_launch_result": launch.result_code,
             "previous_launch_deadline": parse_time(launch.deadline_at).isoformat(),
-        }),
-    )
+        }
+        return settle_launch_result(
+            conn, launch, state="awaiting_registration", deadline_at=deadline,
+            completed_at=None, result_code="accepted_late",
+            evidence=history,
+        )
 
 
 def accept_late_acknowledgement(

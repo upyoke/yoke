@@ -11,6 +11,7 @@ from datetime import datetime
 import hmac
 from typing import Any
 
+from yoke_core.domain.session_launch_settlement import settle_launch_result
 from yoke_core.domain.session_launch_store import (
     attestation_digest,
     begin_mutation,
@@ -274,9 +275,9 @@ def complete_launch_for_message(
         from yoke_core.domain.session_message_launch_queue import bind_item_launch_mail
 
         bind_item_launch_mail(conn, session_id=session_id, now=current)
-        completed = update_launch(
+        completed = settle_launch_result(
             conn,
-            launch_id,
+            launch,
             state="succeeded",
             completed_at=current,
             result_code="registered_and_acknowledged",
