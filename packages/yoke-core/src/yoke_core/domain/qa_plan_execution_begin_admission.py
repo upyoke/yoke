@@ -305,7 +305,7 @@ def _prepare_partition_roster(
     roster = [
         {
             **row, "ordinal": ordinal,
-            **({"delegated_walk": True} if source_session_id else {}),
+            **({"delegated_walk": source_session_id} if source_session_id else {}),
         }
         for ordinal, row in enumerate(part.roster)
     ]
