@@ -30,7 +30,6 @@ from yoke_contracts.project_contract.installed_layer import (
 from yoke_core.domain import install_bundle, install_bundle_managed
 from yoke_core.domain.install_bundle_sources import harness_manifest_files
 from yoke_core.domain.install_bundle_project import proven_source_build
-from yoke_cli.project_install import git_hooks as git_hooks_layer
 from yoke_core.domain.workspace_authority import (
     assert_target_under_session_work_authority,
 )
@@ -100,13 +99,11 @@ def build_source_bundle(
     files.sort(key=lambda entry: entry["path"])
     hooks = install_bundle._hooks_block()
     managed = install_bundle_managed.managed_bundle_keys(source_checkout)
-    managed_git_hooks = git_hooks_layer.managed_git_hook_specs()
     digest_source = json.dumps(
         {
             "files": files,
             "hooks": hooks,
             "managed": managed,
-            "managed_git_hooks": managed_git_hooks,
             "skill_discovery_links": SKILL_DISCOVERY_LINKS,
         },
         sort_keys=True,
@@ -134,7 +131,6 @@ def build_source_bundle(
         "project_policy_capabilities": {},
         "hooks": hooks,
         **managed,
-        "managed_git_hooks": managed_git_hooks,
         "source_managed_prefixes": list(SOURCE_MANAGED_PREFIXES),
     }
 

@@ -21,7 +21,7 @@ def test_same_commit_sync_records_head_before_aliasing_integration(tmp_path, mon
     monkeypatch.setattr(sync, "active_transport_is_https", lambda: True)
     result = sync.sync_snapshots(
         project="external", plan=SyncPlan(tmp_path, SyncRef("HEAD", head), SyncRef("main", head)),
-        contents=True, hook_mode=False, session_id=None, timeout_s=None,
+        session_id=None, timeout_s=None,
     )
 
     assert result.success

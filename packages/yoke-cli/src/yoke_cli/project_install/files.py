@@ -1,8 +1,4 @@
-"""Filesystem paths, manifest reads, bundle writes, and refresh pruning.
-
-Bundles own whole files; contract files seed project-owned content.
-Uninstall removal lives in its own operation module.
-"""
+"""Filesystem paths, manifest reads, bundle writes, and refresh pruning."""
 
 from __future__ import annotations
 
@@ -14,6 +10,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Tuple
 
 from yoke_cli.project_install.line_endings import fold_newlines
+from yoke_cli.project_install.retired_git_hooks import LEGACY_HASH_KEY, remove as remove_retired_git_hooks
 from yoke_contracts.cursor_permissions import CURSOR_CONFIG_RELS
 from yoke_contracts.project_contract.install_policy import (
     FORBIDDEN_CONTRACT_RELATIVE_PATHS,
@@ -22,8 +19,6 @@ from yoke_contracts.project_contract.install_policy import (
 MANIFEST_SCHEMA = 1
 MANIFEST_REL = ".yoke/install-manifest.json"
 
-# Delivery strategy under MODE_KEY: ``copy`` applies a rendered bundle;
-# ``source-link`` wires the Yoke source checkout. No key means copy.
 MODE_KEY = "mode"
 MODE_COPY = "copy"
 MODE_SOURCE_LINK = "source-link"
@@ -86,6 +81,9 @@ def load_manifest_path(
 
 
 def write_manifest(repo_root: Path, manifest: Dict[str, Any]) -> Path:
+    manifest = dict(manifest)
+    for retired_key in (LEGACY_HASH_KEY, "git_hooks"):
+        manifest.pop(retired_key, None)
     validate_manifest(manifest, source="new install manifest")
     assert_resolved_targets_within(
         repo_root,
@@ -339,6 +337,7 @@ __all__ = [
     "manifest_path",
     "prune_files",
     "remove_empty_parents",
+    "remove_retired_git_hooks",
     "resolve_repo_root",
     "sha256_text",
     "validate_manifest",

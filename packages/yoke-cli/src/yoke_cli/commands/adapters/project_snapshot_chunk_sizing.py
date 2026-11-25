@@ -23,7 +23,6 @@ def snapshot_file_chunks(
     project: Optional[str],
     repo_root: Optional[str],
     upload_id: str,
-    hook_mode: bool,
 ) -> List[List[SnapshotFileEntry]]:
     """Split ``files`` into append chunks near the chunk target size.
 
@@ -34,7 +33,7 @@ def snapshot_file_chunks(
     if not files:
         return []
     first = files[0]
-    envelope = _append_size(project, repo_root, upload_id, [first], hook_mode)
+    envelope = _append_size(project, repo_root, upload_id, [first])
     envelope -= _entry_size(first)
     chunks: List[List[SnapshotFileEntry]] = []
     current: List[SnapshotFileEntry] = []
@@ -85,7 +84,6 @@ def _append_size(
     repo_root: Optional[str],
     upload_id: str,
     files: List[SnapshotFileEntry],
-    hook_mode: bool,
 ) -> int:
     payload = PathSnapshotChunkSyncPayload(
         project_id=project,
@@ -94,7 +92,6 @@ def _append_size(
         operation="append",
         chunk_index=0,
         files=files,
-        hook_mode=hook_mode,
     )
     return snapshot_chunk_payload_size_bytes(payload)
 

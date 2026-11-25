@@ -5,7 +5,6 @@ import json
 
 import pytest
 
-from yoke_contracts.git_hook_markers import HEAD_RECORDING_SKIP_ENV
 
 from yoke_cli.config import (
     onboard_apply_report,
@@ -26,7 +25,6 @@ from runtime.api.cli.project_install_publication_test_support import (
 
 
 def setup_read_only(tmp_path, monkeypatch):
-    monkeypatch.setenv(HEAD_RECORDING_SKIP_ENV, "1")
     world = remote_world(tmp_path)
     bind_bundle(monkeypatch)
     from yoke_cli.project_install import harness_machine_persist

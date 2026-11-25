@@ -149,8 +149,6 @@ def test_unsupported_manifest_schema_is_refused(repo) -> None:
         ("strategy_files", [".yoke/strategy/MISSION.md"]),
         ("created_settings_files", ".claude/settings.json"),
         ("hook_entries", []),
-        ("git_hooks", ["unknown-hook"]),
-        ("git_hook_hashes", [".git/hooks/pre-commit"]),
         ("clone_excludes", ["*.py"]),
     ],
 )
@@ -221,28 +219,3 @@ def test_symlink_parent_escape_fails_before_any_mutation(
 
     assert _tree_bytes(repo) == before
     assert list(outside.iterdir()) == []
-
-
-@pytest.mark.parametrize("git_symlink", ["git-dir", "hooks-dir"])
-def test_git_hook_symlink_escape_fails_before_apply_mutation(
-    repo,
-    tmp_path,
-    git_symlink,
-) -> None:
-    outside = tmp_path / "outside-git"
-    (outside / "hooks").mkdir(parents=True)
-    if git_symlink == "git-dir":
-        (repo / ".git").symlink_to(outside, target_is_directory=True)
-    else:
-        (repo / ".git").mkdir()
-        (repo / ".git/hooks").symlink_to(
-            outside / "hooks",
-            target_is_directory=True,
-        )
-    before = _tree_bytes(repo)
-
-    with pytest.raises(ProjectInstallError, match="resolves outside repo root"):
-        apply_bundle(repo, make_bundle(), source="test")
-
-    assert _tree_bytes(repo) == before
-    assert list((outside / "hooks").iterdir()) == []

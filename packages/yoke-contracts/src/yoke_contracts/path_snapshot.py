@@ -108,7 +108,6 @@ class PathSnapshotSyncPayload(BaseModel):
     project_id: Optional[str] = None
     repo_root: Optional[str] = None
     snapshots: List[PathSnapshotPayload]
-    hook_mode: bool = False
 
     @model_validator(mode="after")
     def _has_snapshots(self) -> "PathSnapshotSyncPayload":

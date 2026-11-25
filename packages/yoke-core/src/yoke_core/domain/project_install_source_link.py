@@ -16,17 +16,13 @@ canonical runtime files. ``source-link`` owns that wiring:
    runs, unioning Yoke's command approvals and control-plane network
    origins into ``.cursor/cli.json`` and ``.cursor/sandbox.json``
    without disturbing operator entries.
-3. Git hooks — every managed shim (``GIT_HOOK_NAMES``) via
-   :mod:`project_install_git_hooks` (same refuse/refresh/create
-   semantics as copy mode; linked worktrees skip gracefully).
-4. Contract seeding — the seed-if-missing pass copy mode uses; the Yoke
+3. Contract seeding — the seed-if-missing pass copy mode uses; the Yoke
    repo tracks its own contract files, so this is normally a no-op.
-5. Generated views — the gitignored ``.yoke/docs`` and
+4. Generated views — the gitignored ``.yoke/docs`` and
    ``.yoke/harness/*/manifest.json`` copies and the native harness views
    (``.claude/agents``, ``.codex/hooks.json`` ...) through
-   ``refresh_source_installed_views``, the same refresh the checkout's
-   head-moving git hooks and lane preparation run.
-6. Manifest — ``.yoke/install-manifest.json`` with ``"mode": "source-link"``.
+   ``refresh_source_installed_views``, which lane preparation also runs.
+5. Manifest — ``.yoke/install-manifest.json`` with ``"mode": "source-link"``.
    ``refresh`` re-runs the same repair; ``uninstall`` REFUSES entirely (the
    materialized configs are tracked files).
 
@@ -37,6 +33,7 @@ declaring ``name = "yoke"`` plus a ``runtime/harness/`` tree.
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
@@ -50,7 +47,6 @@ from yoke_contracts.cursor_permissions import CURSOR_PERMISSIONS_MANIFEST_KEY
 from yoke_contracts.project_contract.source_installed_views import refresh_source_installed_views
 from yoke_contracts.project_contract.install_error import ProjectInstallError
 from yoke_contracts.runtime_ports.project_install_files import get_project_install_files
-from yoke_contracts.runtime_ports.project_install_git_hooks import get_project_install_git_hooks
 
 github_project_setup = get_github_project_setup()
 apply_cursor_permissions = get_cursor_permissions().apply_cursor_permissions
@@ -58,9 +54,6 @@ files_layer = get_project_install_files()
 MODE_COPY = files_layer.MODE_COPY
 MODE_KEY = files_layer.MODE_KEY
 MODE_SOURCE_LINK = files_layer.MODE_SOURCE_LINK
-GIT_HOOK_NAMES = get_project_install_git_hooks().GIT_HOOK_NAMES
-BootstrapResult = get_project_install_git_hooks().BootstrapResult
-install_git_hooks = get_project_install_git_hooks().install_git_hooks
 
 DEV_MATERIALIZED_FILES: Tuple[Tuple[str, str], ...] = (
     (".claude/settings.json", "runtime/harness/claude/settings.json"),
@@ -80,7 +73,6 @@ _SOURCE_LINK_OWNED_KEYS = frozenset(
         MODE_KEY,
         "symlinks",  # retired link inventory; dropped from older manifests
         "materialized_files",
-        "git_hooks",
         "contract_files",
         CURSOR_PERMISSIONS_MANIFEST_KEY,
     }
@@ -123,11 +115,20 @@ def _assert_no_symlinked_parent(target_root: Path, rel: str) -> None:
         )
 
 
+@dataclass
+class MaterializedFiles:
+    installed: int = 0
+    updated: int = 0
+    skipped: int = 0
+    actions: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+
+
 def ensure_dev_materialized_file(
     target_root: Path,
     rel: str,
     source_rel: str,
-    result: BootstrapResult,
+    result: MaterializedFiles,
 ) -> None:
     """Materialize a tracked source-dev file from its canonical source.
 
@@ -155,7 +156,7 @@ def ensure_dev_materialized_file(
     was_link = target.is_symlink()
     had_file = target.is_file() and not was_link
     if not was_link and target.exists() and not target.is_file():
-        result.warn(
+        result.warnings.append(
             f"{rel} exists as a regular file/dir. Move or remove it and "
             "re-run `yoke dev setup` so the materialized file can be created."
         )
@@ -163,7 +164,7 @@ def ensure_dev_materialized_file(
     if had_file:
         try:
             if target.read_bytes() == content:
-                result.note(f"Exists: {rel} (materialized from {source_rel})")
+                result.actions.append(f"Exists: {rel} (materialized from {source_rel})")
                 result.skipped += 1
                 return
         except OSError:
@@ -172,7 +173,7 @@ def ensure_dev_materialized_file(
     target.parent.mkdir(parents=True, exist_ok=True)
     atomic_replace_bytes(target, content)
     action = "Updated" if was_link or had_file else "Created"
-    result.note(f"{action}: {rel} (materialized from {source_rel})")
+    result.actions.append(f"{action}: {rel} (materialized from {source_rel})")
     if action == "Updated":
         result.updated += 1
     else:
@@ -184,8 +185,7 @@ def source_link_uninstall_refusal(root: Path) -> ProjectInstallError:
         f"refusing to uninstall: {root} uses the source-link strategy — "
         "the source-dev materialized configs are git-tracked parts of the "
         "repo itself and its native harness views are generated from it, "
-        "not an installed copy. There is nothing to de-install; remove "
-        ".git/hooks/ shims manually if you must"
+        "not an installed copy."
     )
 
 
@@ -208,7 +208,10 @@ def install_source_link(
             context="source-link materialized file mutation",
         )
         _assert_no_symlinked_parent(repo_root, rel)
-    materialized = BootstrapResult()
+    materialized = MaterializedFiles()
+    git_hooks_removed = files_layer.remove_retired_git_hooks(
+        repo_root, manifest=old_manifest, warnings=materialized.warnings
+    )
     for rel, source_rel in DEV_MATERIALIZED_FILES:
         ensure_dev_materialized_file(repo_root, rel, source_rel, materialized)
     # Source and installed checkouts share Cursor permissions policy.
@@ -216,8 +219,6 @@ def install_source_link(
         repo_root,
         prior_records=old_manifest.get(CURSOR_PERMISSIONS_MANIFEST_KEY),
     )
-    hooks = BootstrapResult()
-    install_git_hooks(repo_root, hooks)
 
     # Same seed-if-missing pass copy-mode runs — the Yoke repo tracks
     # its own contract files, so this normally reports them all existing.
@@ -244,7 +245,6 @@ def install_source_link(
             "materialized_files": {
                 rel: source_rel for rel, source_rel in DEV_MATERIALIZED_FILES
             },
-            "git_hooks": list(GIT_HOOK_NAMES),
             "contract_files": contract_map,
             CURSOR_PERMISSIONS_MANIFEST_KEY: cursor_permissions_records,
         }
@@ -260,19 +260,15 @@ def install_source_link(
         "materialized_files_created": materialized.installed,
         "materialized_files_updated": materialized.updated,
         "materialized_files_ok": materialized.skipped,
-        "hooks_installed_or_updated": hooks.installed + hooks.updated,
-        "actions": (
-            materialized.actions
-            + cursor_permissions_report["actions"]
-            + hooks.actions
-        ),
+        "git_hooks_removed": git_hooks_removed,
+        "actions": materialized.actions + cursor_permissions_report["actions"],
         "contract_files_written": contract_written,
         "contract_files_existing": contract_existing,
         "contract_files_adopted": contract_adopted,
         "source_views_refreshed": refresh_source_installed_views(repo_root),
         "manifest": str(manifest_file),
         "machine_config_newly_registered": False,
-        "warnings": materialized.warnings + hooks.warnings,
+        "warnings": materialized.warnings,
     }
 
 

@@ -67,7 +67,6 @@ def test_head_snapshot_advances_the_registered_lane(
     payload = PathSnapshotSyncPayload(
         project_id="yoke",
         repo_root="/tmp/yoke-942",
-        hook_mode=True,
         snapshots=[
             PathSnapshotPayload(
                 ref="HEAD",

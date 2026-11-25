@@ -178,7 +178,6 @@ def test_post_state_assertion_discards_remote_output_from_evidence() -> None:
                 expected_branch="main",
                 require_git_history=True,
                 require_source_links=True,
-                require_git_hooks=True,
                 forbid_product_copy_directories=True,
             )
         ]

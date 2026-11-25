@@ -1,9 +1,7 @@
 """Project-owned policy for the authored-file line-limit checker.
 
-Both the offline pre-commit checker (``yoke_harness.git_hooks``) and the
-source-dev checker (``yoke_core.domain.file_line_check``) resolve their
-limit and exception globs here, so the git hook and ``yoke doctor`` can
-never disagree about what the limit is.
+The offline file-line CLI and source-dev checker resolve the same limit
+and exception globs here.
 
 Everything lives in the checked-in ``.yoke/project.config`` contract file
 that the project install seeds into every repo::
@@ -12,9 +10,7 @@ that the project install seeds into every repo::
     file_line_exception=src/oversized.py
     file_line_grow_allowed=docs/generated-reference/**
 
-The policy rides the repo and needs no database or network, which is what
-lets the pre-commit hook enforce it offline, in a fresh clone, before any
-project install has run.
+The checked-in policy works offline in a fresh clone.
 """
 
 from __future__ import annotations

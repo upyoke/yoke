@@ -24,7 +24,7 @@ REGISTRATION_KEY = "local_registration"
 
 
 def scope_reason(root: Path, manifest: dict, config_path) -> str:
-    """Check shared Git-hook scope before any installed files are removed."""
+    """Check shared clone exclude scope before any installed files are removed."""
     try:
         payload = machine_config.load_config(config_path)
         projects = [

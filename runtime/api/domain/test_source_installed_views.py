@@ -129,17 +129,6 @@ def test_deleted_native_views_come_back_on_refresh(tmp_path) -> None:
     assert refresh_source_installed_views(root) == []
 
 
-def test_post_merge_hook_path_recreates_native_views(tmp_path, monkeypatch) -> None:
-    from yoke_cli.commands import git_hook
-
-    root = _checkout(tmp_path)
-    monkeypatch.chdir(root)
-
-    git_hook._refresh_source_views("post-merge")
-
-    _assert_native_views_point_at_sources(root)
-
-
 def test_missing_native_view_source_refuses_with_recovery(tmp_path) -> None:
     root = _checkout(tmp_path)
     (root / "runtime/harness/codex/hooks.json").unlink()

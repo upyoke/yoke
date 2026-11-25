@@ -12,7 +12,6 @@ from __future__ import annotations
 from typing import Any, Dict
 
 from yoke_cli.project_install import hooks as hooks_layer
-from yoke_cli.project_install import git_hooks as git_hooks_layer
 from yoke_cli.project_install import strategy as strategy_layer
 from yoke_contracts.project_contract.install_error import ProjectInstallError
 from yoke_cli.transport.installed_cli_staleness import update_recovery
@@ -93,7 +92,6 @@ def _validate_bundle(bundle: Dict[str, Any]) -> None:
             label=f"bundle hooks.{key}",
             entry_format=hooks_layer.hook_entry_format(settings_rel),
         )
-    git_hooks_layer.git_hook_specs_from_bundle(bundle)
     # Optional with default []: servers predating the project contract emit
     # no 'project_contract_files'; the install still applies files + hooks.
     contract = bundle.get("project_contract_files") or []

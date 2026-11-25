@@ -24,7 +24,7 @@ def render_project_config(display_name: str) -> str:
 # Blank lines and lines starting with # are ignored. A trailing `# ...`
 # after a value is documentation, not part of the value.
 #
-# Authored-file line limit, enforced by the pre-commit hook and
+# Authored-file line limit, enforced during agent edits and merge preflight.
 # `yoke check file-line`. Unset means {DEFAULT_LIMIT}.
 # file_line_limit={DEFAULT_LIMIT}
 #

@@ -53,13 +53,12 @@ def _assert_installed(checkout: Path, config: Path) -> None:
         ".claude/agents/yoke-engineer.md",
         ".claude/settings.json",
         ".codex/hooks.json",
-        ".git/hooks/pre-commit",
-        ".git/hooks/post-commit",
         ".yoke/lint-config",
         ".yoke/strategy/MISSION.md",
     ):
         assert (checkout / rel).is_file()
 
+    assert all(p.name.endswith(".sample") for p in (checkout / ".git/hooks").glob("*"))
     manifest = json.loads((checkout / ".yoke/install-manifest.json").read_text("utf-8"))
     assert manifest["manifest_schema"] == 1
     assert manifest["mode"] == "copy"

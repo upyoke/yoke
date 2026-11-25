@@ -26,7 +26,6 @@ from yoke_cli.config.project_clone_support import ClonePlan  # noqa: E402
 
 from runtime.api.cli.onboard_wizard_classify_test_support import (  # noqa: E402
     AGENT_RULES_LINE,
-    GIT_HOOKS_LINE,
     HARNESS_HOOKS_LINE,
     TOOL_PERMISSIONS_LINE,
     assert_post_checkout_install_destinations,
@@ -149,7 +148,6 @@ def test_build_plan_reused_existing_project_lists_missing_art_write(
         "project-install-agent-rules",
         "project-install-tool-permissions",
         "project-install-harness-hooks",
-        "project-install-git-hooks",
         "project-write-board-art",
         "project-setup-publication",
     ]
@@ -174,7 +172,6 @@ def test_build_plan_reused_existing_project_lists_missing_art_write(
         AGENT_RULES_LINE,
         TOOL_PERMISSIONS_LINE,
         next(line for line in grouped["repo"] if line.startswith(HARNESS_HOOKS_LINE)),
-        GIT_HOOKS_LINE,
         "Add a progress map and three art headers, rebuild BOARD.md, and commit the art",
         "Commit locally (no remote)",
     ]

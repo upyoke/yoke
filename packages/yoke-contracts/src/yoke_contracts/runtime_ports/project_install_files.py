@@ -10,7 +10,6 @@ from yoke_contracts.runtime_ports.loader import load_port
 
 class ProjectInstallFiles(Protocol):
     """Operations and values supplied by the executing adapter."""
-
     HOOK_MERGE_TARGETS: Any
     MANIFEST_REL: Any
     MANIFEST_SCHEMA: Any
@@ -28,6 +27,7 @@ class ProjectInstallFiles(Protocol):
     manifest_path: Callable[..., Any]
     prune_files: Callable[..., Any]
     remove_empty_parents: Callable[..., Any]
+    remove_retired_git_hooks: Callable[..., list[str]]
     resolve_repo_root: Callable[..., Any]
     sha256_text: Callable[..., Any]
     validate_manifest: Callable[..., Any]

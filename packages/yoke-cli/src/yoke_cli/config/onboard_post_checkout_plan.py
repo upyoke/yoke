@@ -75,7 +75,7 @@ def post_checkout_steps(
             }
         )
         # The scaffold install (and refresh) also writes the Yoke rules blocks,
-        # tool-permission regions, harness hooks, and git commit-guard hooks.
+        # tool-permission regions, and harness hooks.
         # Name each so the review screen is explicit about every path it touches.
         steps.append({"action": "project-install-agent-rules", "target": ""})
         steps.append({"action": "project-install-tool-permissions", "target": ""})
@@ -83,7 +83,6 @@ def post_checkout_steps(
             "action": "project-install-harness-hooks",
             "target": str(project_inputs.get("checkout") or ""),
         })
-        steps.append({"action": "project-install-git-hooks", "target": ""})
         if _needs_board_art(project_inputs):
             steps.append({"action": "project-write-board-art", "target": ""})
     return steps

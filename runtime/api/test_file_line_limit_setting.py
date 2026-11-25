@@ -20,7 +20,7 @@ from yoke_core.domain.idea_readiness_file_budget_sizing import (
 )
 from yoke_core.domain.idea_readiness_results import Issue
 from yoke_core.domain.install_bundle_docs_validation import _size
-from yoke_harness.git_hooks import file_line_cli, pre_commit
+from yoke_harness.git_hooks import file_line_cli
 from yoke_harness.hooks import local_policies
 
 CASES = [
@@ -56,19 +56,15 @@ def _stage_new_file(repo: Path, lines: int) -> None:
 
 
 @pytest.mark.parametrize(("config", "limit"), CASES)
-def test_pre_commit_and_check_cli_enforce_and_print_the_limit(
-    tmp_path, monkeypatch, capsys, config, limit,
+def test_check_cli_enforce_and_print_the_limit(
+    tmp_path, capsys, config, limit,
 ) -> None:
     repo = _project(tmp_path, config)
     _stage_new_file(repo, limit)
-    monkeypatch.setattr(pre_commit, "_resolve_repo_root", lambda: str(repo))
-    assert pre_commit._run_file_line_check_or_block() == 0
     assert file_line_cli.main(["check", "--staged", "--repo", str(repo)]) == 0
 
     _stage_new_file(repo, limit + 1)
     capsys.readouterr()
-    assert pre_commit._run_file_line_check_or_block() == 1
-    assert f"limit {limit}, remove 1 line(s)" in capsys.readouterr().err
     assert file_line_cli.main(["check", "--staged", "--repo", str(repo)]) == 1
     assert f"limit {limit}, remove 1 line(s)" in capsys.readouterr().out
 

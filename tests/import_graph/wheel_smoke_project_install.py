@@ -183,14 +183,8 @@ def smoke(
         assert payload["files_removed"] == [".agents/skills/yoke/onboard/SKILL.md"]
         assert payload["contract_files_preserved_modified"] == [".yoke/lint-config"]
         assert payload["strategy_files_preserved"] == [".yoke/strategy/MISSION.md"]
-        assert payload["git_hooks_removed"] == [
-            "pre-commit",
-            "post-commit",
-            "pre-merge-commit",
-            "post-merge",
-            "post-rewrite",
-            "post-checkout",
-        ]
+        assert payload["git_hooks_removed"] == []
+        assert all(hook.name.endswith(".sample") for hook in (checkout / ".git/hooks").glob("*"))
         assert not (checkout / ".yoke/install-manifest.json").exists()
         assert not (checkout / ".codex/hooks.json").exists()
         assert not (checkout / ".claude/settings.json").exists()

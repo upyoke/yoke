@@ -33,7 +33,7 @@ from yoke_cli.project_snapshot.tree_delta import (
     scan_delta,
     scan_full,
 )
-from yoke_contracts.api.function_call import FunctionCallResponse, FunctionError
+from yoke_contracts.api.function_call import FunctionCallResponse
 from yoke_contracts.path_snapshot_chunks import SNAPSHOT_BASE_MISMATCH_CODE
 
 
@@ -41,18 +41,16 @@ def sync_snapshots(
     *,
     project: Optional[str],
     plan: SyncPlan,
-    contents: bool,
-    hook_mode: bool,
+    defer_large_uploads: bool = False,
     session_id: Optional[str],
     timeout_s: Optional[float],
 ) -> FunctionCallResponse:
-    """Record every commit in ``plan``; ``contents`` stores its inventory.
+    """Record every commit in ``plan`` and store its inventory.
 
-    In hook mode a full inventory too large for one request over HTTPS is
-    deferred to the next ``yoke project snapshot sync``; a delta always
-    uploads, since it is what keeps the hot path short.
+    A bounded write can defer a full inventory that needs multiple HTTPS requests.
+    Run ``yoke project snapshot sync`` to upload it. A delta always uploads.
     """
-    defer = hook_mode and active_transport_is_https()
+    defer = defer_large_uploads and active_transport_is_https()
     rows: Dict[str, Dict[str, Any]] = {}
     by_commit: Dict[str, Dict[str, Any]] = {}
     warnings: List[str] = []
@@ -72,9 +70,7 @@ def sync_snapshots(
             project=project,
             plan=plan,
             ref=ref,
-            contents=contents,
             defer=defer,
-            hook_mode=hook_mode,
             session_id=session_id,
             timeout_s=timeout_s,
         )
@@ -103,9 +99,7 @@ def _sync_ref(
     project: Optional[str],
     plan: SyncPlan,
     ref: SyncRef,
-    contents: bool,
     defer: bool,
-    hook_mode: bool,
     session_id: Optional[str],
     timeout_s: Optional[float],
 ) -> FunctionCallResponse:
@@ -119,13 +113,7 @@ def _sync_ref(
         repo_root=repo_root,
         upload_id=upload_id,
         ref=ref,
-        base_candidates=(
-            base_candidates(plan.repo_root, ref.commit_sha, integration_sha)
-            if contents
-            else []
-        ),
-        contents_included=contents,
-        hook_mode=hook_mode,
+        base_candidates=base_candidates(plan.repo_root, ref.commit_sha, integration_sha),
         session_id=session_id,
         timeout_s=timeout_s,
     )
@@ -135,8 +123,6 @@ def _sync_ref(
     settled = begin_settled_row(ref.label, ref.commit_sha, result)
     if settled is not None:
         return upload_result(result, [settled], result.get("warnings") or [])
-    if not contents:
-        return _unexpected_begin(ref, result)
     # A server that predates base offers omits ``base_commit_sha`` and staged
     # an empty upload under this id; the full upload below restages it.
     base = result.get("base_commit_sha")
@@ -152,7 +138,6 @@ def _sync_ref(
     send = dict(
         project=project,
         repo_root=repo_root,
-        hook_mode=hook_mode,
         session_id=session_id,
         timeout_s=timeout_s,
     )
@@ -196,22 +181,6 @@ def _annotated(
         for row in result.get("snapshots") or []
     ]
     return response.model_copy(update={"result": result})
-
-
-def _unexpected_begin(ref: SyncRef, result: Dict[str, Any]) -> FunctionCallResponse:
-    return FunctionCallResponse(
-        success=False,
-        function="project.snapshot.sync",
-        version="v1",
-        error=FunctionError(
-            code="snapshot_sync_failed",
-            message=(
-                f"identity-only sync of {ref.label} was not settled at begin "
-                f"(status {result.get('status')!r})"
-            ),
-            recovery_hint="Repair with `yoke project snapshot sync`.",
-        ),
-    )
 
 
 __all__ = ["sync_snapshots"]

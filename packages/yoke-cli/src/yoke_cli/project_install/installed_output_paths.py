@@ -83,7 +83,7 @@ def manifest_owned_paths(manifest: Mapping[str, Any] | None) -> list[str]:
     """
     manifest = manifest if isinstance(manifest, Mapping) else {}
     paths: list[str] = []
-    for key in ("files", "strategy_files", "git_hook_hashes", "skill_discovery_links"):
+    for key in ("files", "strategy_files", "skill_discovery_links"):
         section = manifest.get(key)
         if isinstance(section, Mapping):
             paths.extend(str(path) for path in section if path)

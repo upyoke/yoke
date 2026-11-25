@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import shutil
 from pathlib import Path
 from subprocess import CompletedProcess
 
@@ -46,11 +45,6 @@ def _seed_repo(root: Path, *, include_settings: bool = True) -> None:
         path = root / rel_path
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("# stub\n", encoding="utf-8", newline="\n")
-
-    hook = root / ".git" / "hooks" / "pre-commit"
-    hook.parent.mkdir(parents=True)
-    hook.write_text("# yoke-pre-commit\n", encoding="utf-8", newline="\n")
-    hook.chmod(0o755)
 
     if include_settings:
         canonical_settings = root / "runtime" / "harness" / "claude" / "settings.json"
@@ -103,48 +97,6 @@ def test_all_critical_pass_with_no_gh(tmp_path, monkeypatch, capsys):
     assert ("GitHub CLI" + " installed") not in out
     assert ("GitHub CLI" + " authenticated") not in out
     assert ("gh-sub-" + "issue") not in out
-
-
-def test_pre_commit_hook_uses_common_git_dir_for_linked_worktree(
-    tmp_path,
-    monkeypatch,
-    capsys,
-):
-    _seed_repo(tmp_path)
-    shutil.rmtree(tmp_path.joinpath(".git"))
-    common_git = tmp_path.joinpath("common.git")
-    linked_git_dir = common_git.joinpath("worktrees", "item-worktree")
-    linked_git_dir.mkdir(parents=True)
-    linked_git_dir.joinpath("commondir").write_text("../..\n", encoding="utf-8", newline="\n")
-    tmp_path.joinpath(".git").write_text(
-        f"gitdir: {linked_git_dir.relative_to(tmp_path)}\n", encoding="utf-8", newline="\n"
-    )
-    hook = common_git.joinpath("hooks", "pre-commit")
-    hook.parent.mkdir(parents=True)
-    hook.write_text("# yoke-pre-commit\n", encoding="utf-8", newline="\n")
-    hook.chmod(0o755)
-
-    def fake_which(name: str):
-        if name == "git":
-            return "git-bin"
-        if name == "gh":
-            return None
-        return f"{name}-bin"
-
-    def fake_run(cmd, capture_output=False, text=False):
-        if cmd[3:] == ["check-ignore", "-q", ".worktrees/x"]:
-            return CompletedProcess(cmd, 0)
-        if cmd == ["git", "--version"]:
-            return CompletedProcess(cmd, 0, stdout="git version 2.39.1\n", stderr="")
-        raise AssertionError(f"unexpected command: {cmd}")
-
-    monkeypatch.setattr("yoke_core.domain.check_prerequisites.shutil.which", fake_which)
-    monkeypatch.setattr("yoke_core.domain.check_prerequisites.subprocess.run", fake_run)
-
-    assert run_checks(tmp_path) == 0
-    out = capsys.readouterr().out
-    assert "Git pre-commit hook" in out
-    assert "Some critical checks failed." not in out
 
 
 def test_fails_when_git_too_old(tmp_path, monkeypatch, capsys):

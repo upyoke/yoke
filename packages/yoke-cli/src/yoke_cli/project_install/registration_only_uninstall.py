@@ -8,7 +8,7 @@ from pathlib import Path
 from yoke_contracts.machine_config import schema as contract
 from yoke_cli.config import github_repo_config, machine_config_file
 from yoke_cli.config.machine_config_mutation import load_payload, serialized_mutation
-from yoke_cli.project_install import owned_cleanup, uninstall_commit
+from yoke_cli.project_install import owned_cleanup, retired_git_hooks, uninstall_commit
 from yoke_cli.project_install.files import MODE_COPY, MODE_KEY
 from yoke_contracts.project_contract.install_error import ProjectInstallError
 from yoke_cli.project_install.source_dev import (
@@ -45,7 +45,6 @@ def uninstall_registration(root: Path, *, path=None) -> dict:
         ) from exc
     warnings = []
     if repository:
-        # Existing uninstall guards cover untracked work and a dirty index.
         _, warnings = uninstall_commit.prepare(
             root, {"project_id": exact[0]["project_id"]}, cfg
         )
@@ -66,7 +65,7 @@ def uninstall_registration(root: Path, *, path=None) -> dict:
             "sharing or identity. Separate shared checkouts or repair the named "
             "mapping, then retry project uninstall; nothing was removed."
         )
-    # Keep raw bytes' values for every other entry, namespace and setting.
+    git_hooks_removed = retired_git_hooks.remove(root, warnings=warnings)
     group = payload["connection_projects"][connection]
     group[:] = [entry for entry in group if Path(entry["checkout"]).resolve() != root]
     machine_config_file.atomic_write_text(cfg, json.dumps(payload, indent=2) + "\n")
@@ -77,6 +76,7 @@ def uninstall_registration(root: Path, *, path=None) -> dict:
         "outcome": "complete",
         "manifest_removed": False,
         "files_removed": [],
+        "git_hooks_removed": git_hooks_removed,
         "warnings": warnings,
         "local_cleanup": {
             "complete": True,

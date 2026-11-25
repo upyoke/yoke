@@ -12,15 +12,12 @@ behavior in ``test_project_install.py``.
 from __future__ import annotations
 
 import json
-import os
-import shutil
 import subprocess
 from pathlib import Path
 
 import pytest
 
 from yoke_cli.project_install import runner as project_install
-from yoke_cli.project_install import git_hooks as git_hooks
 from yoke_core.domain import project_install_source_link as source_link
 from runtime.api.domain.native_view_test_support import seed_native_view_sources
 from yoke_contracts.project_contract.source_native_views import NATIVE_AGENT_LINKS
@@ -145,62 +142,6 @@ class TestSourceLinkNativeViews:
         assert (stale / "entry.md").read_text(encoding="utf-8") == "# rendered\n"
 
 
-class TestSourceLinkGitHooks:
-    def test_skips_hooks_without_git_dir(self, checkout, monkeypatch):
-        shutil.rmtree(checkout / ".git")
-        monkeypatch.setattr(source_link, "refresh_source_installed_views", lambda root: [])
-        report = source_link.install_source_link(checkout)
-        skips = [a for a in report["actions"] if "Skipped: .git/hooks/" in a]
-        assert len(skips) == len(git_hooks.GIT_HOOK_NAMES)
-        assert any("linked worktree" in a for a in skips)
-        assert report["hooks_installed_or_updated"] == 0
-
-    def test_installs_all_hooks_in_git_repo(self, checkout):
-        _git_init(checkout)
-        report = source_link.install_source_link(checkout)
-        assert report["hooks_installed_or_updated"] == len(git_hooks.GIT_HOOK_NAMES)
-        for spec in git_hooks.managed_git_hook_specs():
-            name, marker, shim = spec["name"], spec["marker"], spec["content"]
-            hook = checkout / ".git" / "hooks" / name
-            assert hook.is_file(), f"{name} hook must exist"
-            assert os.access(hook, os.X_OK), f"{name} hook must be executable"
-            text = hook.read_text(encoding="utf-8")
-            assert marker in text
-            assert text == shim
-
-    def test_pre_commit_execs_installed_launcher(self):
-        # One uniform shim text serves both delivery strategies: the dev
-        # checkout's `yoke` is the editable install of the same code,
-        # so source-link mode routes through the launcher too — the
-        # module-invocation form is gone.
-        assert 'exec "$yoke_bin" git pre-commit' in git_hooks.PRE_COMMIT_SHIM
-
-    def test_preserves_foreign_pre_commit_hook(self, checkout):
-        _git_init(checkout)
-        hook = checkout / ".git" / "hooks" / "pre-commit"
-        hook.parent.mkdir(parents=True, exist_ok=True)
-        hook.write_text("#!/bin/sh\nexec /custom/check\n", encoding="utf-8")
-        os.chmod(hook, 0o755)
-        report = source_link.install_source_link(checkout)
-        assert any("not Yoke-managed" in w for w in report["warnings"])
-        assert "/custom/check" in hook.read_text(encoding="utf-8")
-
-    def test_preserves_ambiguous_yoke_marker_hook(self, checkout):
-        _git_init(checkout)
-        hook = checkout / ".git" / "hooks" / "pre-commit"
-        hook.parent.mkdir(parents=True, exist_ok=True)
-        hook.write_text(
-            f"#!/bin/sh\n# {git_hooks.PRE_COMMIT_MARKER}\necho old\n",
-            encoding="utf-8",
-        )
-        os.chmod(hook, 0o755)
-        result = git_hooks.BootstrapResult()
-        git_hooks.install_pre_commit_hook(checkout, result)
-        assert result.updated == 0
-        assert any("not Yoke-managed" in w for w in result.warnings)
-        assert "echo old" in hook.read_text(encoding="utf-8")
-
-
 class TestSourceLinkContractAndManifest:
     def test_seeds_contract_files_then_no_ops(self, checkout):
         report = source_link.install_source_link(checkout)
@@ -221,17 +162,24 @@ class TestSourceLinkContractAndManifest:
         assert manifest["materialized_files"] == dict(
             source_link.DEV_MATERIALIZED_FILES
         )
-        assert manifest["git_hooks"] == [
-            "pre-commit",
-            "post-commit",
-            "pre-merge-commit",
-            "post-merge",
-            "post-rewrite",
-            "post-checkout",
-        ]
+        assert "git_hooks" not in manifest
         assert manifest["manifest_schema"] == MANIFEST_SCHEMA
         assert report[MODE_KEY] == MODE_SOURCE_LINK
         assert report["source"] == "in-checkout"
+
+    def test_source_setup_retires_old_git_hooks(self, checkout):
+        hooks = checkout / ".git/hooks"
+        source_link.install_source_link(checkout, operation="dev.setup")
+        assert all(hook.name.endswith(".sample") for hook in hooks.iterdir())
+        old_hook = hooks / "pre-commit"
+        old_hook.write_text(
+            '#!/bin/sh\n# yoke-pre-commit hook installed by `yoke project install`\n'
+            'exec yoke git pre-commit "$@"\n',
+            encoding="utf-8",
+        )
+        report = source_link.install_source_link(checkout, operation="dev.setup")
+        assert report["git_hooks_removed"] == ["pre-commit"]
+        assert not old_hook.exists()
 
     def test_manifest_carries_unknown_keys_forward(self, checkout):
         (checkout / ".yoke").mkdir()

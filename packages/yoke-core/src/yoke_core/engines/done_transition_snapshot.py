@@ -4,8 +4,7 @@ Extracted from :mod:`yoke_core.engines.done_transition_runner` to keep
 that module under the authored-file line limit. The single responsibility
 is: after a commit lands, build (or look up) the ``path_snapshots`` row
 for the project's new HEAD so subsequent activate / boundary callers do
-not hit a cold-start miss before the global ``post-commit`` hook has
-fired.
+not hit a cold-start miss.
 
 Failures here are advisory — a snapshot miss does not roll back the
 done-transition; the next ``path-claim-activate`` call will surface a

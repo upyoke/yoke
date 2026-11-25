@@ -17,9 +17,8 @@ The substrate renderer expands one canonical body into each harness adapter:
 
 In a Yoke source checkout the six native views (`.claude/agents`,
 `.claude/rules`, `.claude/skills/yoke`, `.codex/hooks.json`, `.codex/agents`,
-`.cursor/agents`) are gitignored. `yoke dev setup`, lane preparation and the
-checkout's pull, merge, checkout and rebase git hooks recreate any that are
-missing or stale; `yoke agents render` does the same by hand. They use a
+`.cursor/agents`) are gitignored. `yoke dev setup` and lane preparation recreate missing or stale views.
+Run `yoke agents render` to refresh them directly. They use a
 symlink, directory junction, or content-checked copy; Git symlink support is
 not required. `HC-harness-substrate-drift` fails on a missing or stale view.
 
