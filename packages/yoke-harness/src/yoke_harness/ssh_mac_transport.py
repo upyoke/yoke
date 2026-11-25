@@ -53,6 +53,7 @@ from yoke_contracts.test_machine_types import HostActionResult
 from yoke_harness.mac_desktop_geometry import desktop_argv
 from yoke_harness.posix_mission_operations import PosixMissionOperations
 from yoke_harness.ssh_test_machine_transport import SSH_OPTIONS, SshTestMachineTransport
+from yoke_harness.test_machine_reset_identity import retire_reset_identity
 
 
 class SshMacTransport(PosixMissionOperations, SshTestMachineTransport):
@@ -96,10 +97,8 @@ class SshMacTransport(PosixMissionOperations, SshTestMachineTransport):
     @staticmethod
     def _zsh_command(script: str, *args: str) -> str:
         return (
-            "/bin/zsh -fc "
-            + shlex.quote(script)
-            + " yoke-host-control "
-            + shlex.join(args)
+            "/bin/zsh -fc " + shlex.quote(script)
+            + " yoke-host-control " + shlex.join(args)
         )
 
     def check_connection(self) -> HostActionResult:
@@ -209,7 +208,6 @@ class SshMacTransport(PosixMissionOperations, SshTestMachineTransport):
             )
 
     def reset_installer_test_host(self) -> HostActionResult:
-        """Restore the declared golden baseline over the dedicated host's home."""
         quit_apps = quit_sign_in_apps(self._run, self._user)
         if not quit_apps.ok:
             return quit_apps
@@ -223,6 +221,7 @@ class SshMacTransport(PosixMissionOperations, SshTestMachineTransport):
             home=self.home,
             golden_baseline_path=self.golden_baseline_path,
             path_state=self.path_state,
+            before_restore=lambda: retire_reset_identity(self),
         )
         evidence.update(reset.evidence)
         if not reset.ok:
