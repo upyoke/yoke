@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 import pytest
 
 from runtime.api.auth_test_helpers import mint_api_auth_context
+from runtime.api.cli.project_onboarding_test_helpers import write_https_config
 from runtime.api.domain.coordination_claim_test_support import seed_session
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from runtime.api.api_helpers_test_support import _install_overrides
@@ -24,7 +25,9 @@ from yoke_core.domain.work_claim_targets import (
 )
 from yoke_contracts.coordination_claim_recovery import operator_release_command
 from yoke_cli.main import main as cli_main
+from yoke_cli.transport import https as https_transport
 from yoke_contracts.api.function_call import FunctionCallResponse
+from yoke_contracts.machine_config.paths import CONFIG_FILE_ENV
 import shlex
 from yoke_core.domain.yoke_function_registry import reset_registry_for_tests
 
@@ -125,7 +128,9 @@ def test_session_without_a_steering_seat_cannot_recover(
     assert active_claim(conn, target) is not None
 
 
-def test_printed_recovery_command_releases_exact_row_and_audits_reason(recovery_api):
+def test_printed_recovery_command_releases_exact_row_and_audits_reason(
+    recovery_api, tmp_path, monkeypatch
+):
     client, conn, auth, target, claim = recovery_api
     reason = "stale holder confirmed after reviewing machine"
     command = operator_release_command(
@@ -138,14 +143,19 @@ def test_printed_recovery_command_releases_exact_row_and_audits_reason(recovery_
     if claim.project_id is None:
         assert "--project" not in command
 
-    def dispatch(**kwargs):
+    # Keep the shared preload callable intact while CLI routing imports adapters.
+    config = write_https_config(tmp_path, "fixture-token", "https://api.example")
+    monkeypatch.setenv(CONFIG_FILE_ENV, str(config))
+    monkeypatch.setenv("YOKE_ENV", "prod")
+
+    def relay(request, _connection, **_kwargs):
         response = client.post(
             "/v1/functions/call",
             json={
-                "function": kwargs["function_id"],
+                "function": request.function,
                 "actor": {"session_id": "steering"},
-                "target": {"kind": "global"},
-                "payload": kwargs["payload"],
+                "target": request.target.model_dump(mode="json", exclude_none=True),
+                "payload": request.payload,
             },
             headers=auth.headers,
         )
@@ -153,11 +163,8 @@ def test_printed_recovery_command_releases_exact_row_and_audits_reason(recovery_
         assert response.json()["result"]["operator_actor_id"] == auth.actor_id
         return FunctionCallResponse.model_validate(response.json())
 
-    with (
-        patch("yoke_cli.commands._helpers.call_dispatcher", side_effect=dispatch),
-        patch("yoke_cli.commands._helpers.ensure_handlers_loaded"),
-    ):
-        assert cli_main(shlex.split(command)[1:]) == 0
+    monkeypatch.setattr(https_transport, "relay_https", relay)
+    assert cli_main(shlex.split(command)[1:]) == 0
     assert active_claim(conn, target) is None
     row = conn.execute(
         "SELECT release_reason_intent FROM work_claims WHERE id=%s",
