@@ -254,7 +254,8 @@ def test_new_prod_control_plane_keeps_standard_default(box, capsys):
     [
         (DSN.replace(":6548", ":6598"), "DSN selects 127.0.0.1:6598"),
         (f"host=localhost port=6548 password='{PASSWORD}", "box_dsn_invalid"),
-        (DSN + "?hostaddr=192.0.2.1", "single loopback endpoint"),
+        (DSN + "?hostaddr=192.0.2.1", "DSN selects 192.0.2.1:6548"),
+        (DSN.replace("127.0.0.1", "db.example.com"), "DSN selects db.example.com:6548"),
         (DSN.replace(":6548", ""), "no valid explicit port"),
     ],
 )

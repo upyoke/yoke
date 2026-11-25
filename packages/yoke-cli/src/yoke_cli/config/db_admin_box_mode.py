@@ -14,6 +14,7 @@ from __future__ import annotations
 from importlib import import_module
 from ipaddress import ip_address
 from pathlib import Path
+import re
 from typing import Any
 
 from yoke_contracts.machine_config import schema as contract
@@ -133,48 +134,56 @@ def _validate_dsn_endpoint(
             recovery=repair,
         )) from None
 
-    host = parameters.get("host")
-    hostaddr = parameters.get("hostaddr")
-    loopback = _loopback_host(hostaddr or host)
+    host = parameters.get("host") or ""
+    hostaddr = parameters.get("hostaddr") or ""
+    endpoint_host = hostaddr or host
     port_text = parameters.get("port") or ""
-    if (
-        parameters.get("service")
-        or not loopback
-        or (host and not _loopback_host(host))
-        or (hostaddr and loopback == "localhost")
-    ):
-        raise DbAdminSetupError(compose_refusal(
-            f"box_dsn_endpoint_mismatch: {admin_env} DSN must specify a single loopback endpoint",
-            evaluated=f"selected SSH forward {selected}",
-            recovery=repair,
-        ))
     port = 0
     if len(port_text) <= 5 and port_text.isascii() and port_text.isdecimal():
         port = int(port_text)
-    if port != local_port:
-        dsn_endpoint = f"{loopback} with no valid explicit port"
-        if 1 <= port <= 65535:
-            dsn_endpoint = f"{loopback}:{port}"
-            repair = f"rerun with --local-port {port} to use the DSN endpoint, or {repair}"
-        raise DbAdminSetupError(compose_refusal(
-            f"box_dsn_endpoint_mismatch: {admin_env} DSN selects {dsn_endpoint}",
-            evaluated=f"selected SSH forward {selected}",
-            recovery=repair,
-        ))
+    has_explicit_port = 1 <= port <= 65535
+    loopback = _is_loopback_host(endpoint_host, numeric=bool(hostaddr))
+    if parameters.get("service") or "," in host or "," in hostaddr or not endpoint_host:
+        dsn_endpoint = "no single explicit loopback endpoint"
+    else:
+        # Display only a well-formed hostname or IP address. In particular, a
+        # malformed host value can contain a nested URL with user information.
+        label = _endpoint_host_label(endpoint_host)
+        dsn_endpoint = (
+            f"{label}:{port}" if has_explicit_port
+            else f"{label} with no valid explicit port"
+        )
+        if loopback:
+            if port == local_port:
+                return
+            if has_explicit_port:
+                repair = f"rerun with --local-port {port} to use the DSN endpoint, or {repair}"
+    raise DbAdminSetupError(compose_refusal(
+        f"box_dsn_endpoint_mismatch: {admin_env} DSN selects {dsn_endpoint}",
+        evaluated=f"selected SSH forward {selected}",
+        recovery=repair,
+    ))
 
 
-def _loopback_host(host: str | None) -> str | None:
-    if not host:
-        return None
-    if host.lower() in {"localhost", "localhost."}:
-        return "localhost"
+def _is_loopback_host(host: str, *, numeric: bool) -> bool:
+    if not numeric and host.lower() in {"localhost", "localhost."}:
+        return True
+    try:
+        return str(ip_address(host)) in {"127.0.0.1", "::1"}
+    except ValueError:
+        return False
+
+
+def _endpoint_host_label(host: str) -> str:
     try:
         address = ip_address(host)
     except ValueError:
-        return None
-    if str(address) in {"127.0.0.1", "::1"}:
-        return f"[{address}]" if address.version == 6 else str(address)
-    return None
+        if len(host) <= 253 and re.fullmatch(r"[a-zA-Z0-9.-]+", host):
+            return host
+        return "an unsupported host"
+    if "%" in host:
+        return "an unsupported host"
+    return f"[{address}]" if address.version == 6 else str(address)
 
 
 __all__ = [
