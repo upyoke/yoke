@@ -89,7 +89,21 @@ def test_a_probe_blocked_inside_snapshot_read_aborts_and_is_reaped(
     )
     identity_path = tmp_path / "child.json"
     stdout = RecordingStream()
-    started = time.monotonic()
+    started: float | None = None
+    drain = watch_runner.drain_watched_child
+
+    def drain_ready_probe(**kwargs):
+        nonlocal started
+        # Give interpreter startup its own bound. The real drain measures
+        # its quiet window from the probe's entry into the snapshot read.
+        deadline = time.monotonic() + 10
+        while not identity_path.exists() and time.monotonic() < deadline:
+            time.sleep(0.02)
+        assert identity_path.exists(), "probe never entered the snapshot read"
+        started = time.monotonic()
+        return drain(**kwargs)
+
+    monkeypatch.setattr(watch_runner, "drain_watched_child", drain_ready_probe)
     rc = run_probe_script(
         tmp_path,
         "import json, os, pathlib, psutil, time\n"
@@ -97,15 +111,19 @@ def test_a_probe_blocked_inside_snapshot_read_aborts_and_is_reaped(
         "process = psutil.Process()\n"
         "identity = dict(pid=process.pid, start_time=start_identity(process), "
         "parent_pid=os.getppid())\n"
-        f"pathlib.Path({str(identity_path)!r}).write_text(json.dumps(identity))\n"
         "print('probe header', flush=True)\n"
         "def read_snapshot():\n"
+        f"    path = pathlib.Path({str(identity_path)!r})\n"
+        "    pending = path.with_suffix('.tmp')\n"
+        "    pending.write_text(json.dumps(identity), encoding='utf-8')\n"
+        "    pending.replace(path)\n"
         "    time.sleep(30)\n"
         "read_snapshot()\n"
         "print('fleet pass now', flush=True)\n",
         stdout,
     )
     assert rc == watch_runner.STALL_ABORT_EXIT
+    assert started is not None
     assert time.monotonic() - started < 5
     for path in ("raw.log", "progress.log"):
         text = (tmp_path / path).read_text()
