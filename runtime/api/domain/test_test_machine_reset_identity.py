@@ -13,6 +13,11 @@ from yoke_contracts.test_machine_types import HostActionResult
 from yoke_harness import ssh_linux_host_operations, ssh_native_windows_host_operations
 from yoke_harness.ssh_mac_full_reset import execute_full_test_machine_reset
 from yoke_harness.test_machine_reset_identity import retire_reset_identity
+from runtime.api.domain.ssh_mac_full_reset_test_support import (
+    FakeResetTransport,
+    GOLDEN_BASELINE_PATH,
+    closed_reset_stdout,
+)
 
 
 @pytest.fixture
@@ -20,7 +25,11 @@ def lab():
     config = {
         "machine_id": str(uuid4()),
         "active_env": "lab-org",
-        "connections": {"lab-org": {}},
+        "connections": {"lab-org": {
+            "transport": "https",
+            "api_url": "https://example.test/api/orgs/lab-org",
+            "credential_source": {"kind": "token_file", "path": "/home/lab/token"},
+        }},
     }
     return SimpleNamespace(
         home="/home/lab",
@@ -73,14 +82,20 @@ def test_missing_identity_needs_no_retirement(lab):
     assert retire_reset_identity(lab) == HostActionResult(True, {})
 
 
-def test_identity_without_owning_connection_refuses_before_wipe(lab):
-    lab.config["connections"] = {}
+@pytest.mark.parametrize(
+    ("connections", "reason"),
+    [({}, "identity_connection_missing"), ({"lab-org": {}}, "identity_connection_invalid")],
+)
+def test_identity_without_valid_owning_connection_skips_retirement(lab, connections, reason):
+    lab.config["connections"] = connections
     lab.run_command = lambda *args, **kwargs: pytest.fail("used an ambient connection")
 
     result = retire_reset_identity(lab)
 
     assert not result.ok
-    assert result.evidence["machine_retirement"]["reason"] == "identity_connection_missing"
+    evidence = result.evidence["machine_retirement"]
+    assert evidence["outcome"] == "skipped"
+    assert evidence["reason"] == reason
 
 
 @pytest.mark.parametrize(
@@ -99,17 +114,19 @@ def test_retirement_retry_can_proceed_after_authoritative_confirmation(lab, code
 
 
 @pytest.mark.parametrize("document", ["", "[]", '{"machine_id":"not-a-uuid"}'])
-def test_invalid_identity_leaves_profile_intact(lab, document):
+def test_invalid_identity_skips_retirement(lab, document):
     lab.read_remote_text = lambda _: document
     lab.run_command = lambda *args, **kwargs: pytest.fail("invalid identity was used")
 
     result = retire_reset_identity(lab)
 
     assert not result.ok
+    assert result.evidence["machine_retirement"]["outcome"] == "skipped"
     assert result.evidence["machine_retirement"]["reason"] == "identity_file_invalid"
 
 
-@pytest.mark.parametrize("retirement_succeeds", [False, True])
+@pytest.mark.parametrize("retirement_outcome", ["skipped", "failed", "retired"])
+@pytest.mark.parametrize("restore_succeeds", [False, True])
 @pytest.mark.parametrize(
     ("module", "reset", "wipe_operation"),
     [
@@ -125,45 +142,67 @@ def test_invalid_identity_leaves_profile_intact(lab, document):
         ),
     ],
 )
-def test_lab_identity_retirement_precedes_wipe(
-    lab, module, reset: Callable, wipe_operation, retirement_succeeds, monkeypatch
+def test_restore_outcome_is_independent_of_lab_identity_retirement(
+    lab, module, reset: Callable, wipe_operation, retirement_outcome, restore_succeeds, monkeypatch
 ):
     events = []
 
+    if retirement_outcome == "skipped":
+        lab.config["connections"] = {}
+
     def run(argv, **kwargs):
         events.append("retire")
-        return CompletedProcess(argv, 0 if retirement_succeeds else 1, "{}", "")
+        return CompletedProcess(argv, 0 if retirement_outcome == "retired" else 1, "{}", "")
 
     def wipe(*args):
         events.append("wipe")
-        return HostActionResult(False, {"restore": "failed"}, "restore_failed")
+        return HostActionResult(
+            restore_succeeds, {"restore": restore_succeeds},
+            None if restore_succeeds else "restore_failed",
+        )
 
     lab.run_command = run
     monkeypatch.setattr(module, wipe_operation, wipe)
+    if module is ssh_linux_host_operations:
+        monkeypatch.setattr(module, "probe_reset_tools", lambda _: {})
+    else:
+        monkeypatch.setattr(module, "probe_console", lambda *_, **__: HostActionResult(True, {}))
+        lab._run = lambda script: CompletedProcess([script], 0, "", "")
 
     result = reset(lab)
 
-    assert not result.ok
-    assert events == (["retire", "wipe"] if retirement_succeeds else ["retire"])
+    assert result.ok == restore_succeeds
+    assert result.error_code == (None if restore_succeeds else "restore_failed")
+    assert result.evidence["restore"] == restore_succeeds
+    assert events == (["wipe"] if retirement_outcome == "skipped" else ["retire", "wipe"])
     evidence = result.evidence["machine_retirement"]
     assert evidence["machine_id"] == lab.config["machine_id"]
-    if retirement_succeeds:
-        assert evidence["outcome"] == "retired"
-        assert result.error_code == "restore_failed"
-    else:
+    assert evidence["outcome"] == retirement_outcome
+    if retirement_outcome == "failed":
         assert evidence["reason"] == "retire_command_failed"
-        assert "has not been wiped" in evidence["recovery"]
-        assert result.error_code == "test_machine_identity_retirement_failed"
+    elif retirement_outcome == "skipped":
+        assert evidence["reason"] == "identity_connection_missing"
 
 
-def test_macos_retirement_refusal_prevents_remote_restore():
-    refused = HostActionResult(False, {"machine_retirement": {}}, "retirement_failed")
+@pytest.mark.parametrize("restore_succeeds", [False, True])
+def test_macos_records_retirement_failure_and_continues_restore(lab, restore_succeeds):
+    lab.run_command = lambda argv, **_: CompletedProcess(argv, 1, "{}", "")
+    transport = FakeResetTransport(
+        closed_reset_stdout() if restore_succeeds else "",
+        reset_returncode=0 if restore_succeeds else 1,
+    )
     result = execute_full_test_machine_reset(
         home="/Users/lab",
-        golden_baseline_path="/private/tmp/golden/lab-home",
-        before_restore=lambda: refused,
-        run_remote=lambda *args, **kwargs: pytest.fail("restore ran after refusal"),
-        upload_text=lambda *args: pytest.fail("restore staged after refusal"),
+        golden_baseline_path=GOLDEN_BASELINE_PATH,
+        before_restore=lambda: retire_reset_identity(lab),
+        run_remote=transport.run,
+        upload_text=transport.upload,
     )
 
-    assert result == refused
+    assert result.ok == restore_succeeds
+    assert result.error_code == (None if restore_succeeds else "test_mac_reset_failed")
+    assert transport.uploads
+    evidence = result.evidence["machine_retirement"]
+    assert evidence["machine_id"] == lab.config["machine_id"]
+    assert evidence["outcome"] == "failed"
+    assert evidence["reason"] == "retire_command_failed"

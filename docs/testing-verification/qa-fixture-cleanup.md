@@ -52,11 +52,11 @@ yoke --env ENV session-control launch create --project P --item PREFIX-N \
 
 ## Reset the Machine
 
-Fresh-host reset reads the lab user's Machine ID from its saved Yoke identity
-and retires that exact registration through the lab's saved active connection
-before restoring the golden home. Retirement revokes its credential and keeps
-its history. If retirement fails, reset leaves the profile available for retry.
-An inherit case keeps the registration until a reset.
+Fresh-host reset reads the lab user's Machine ID and attempts to retire that
+exact registration through its saved active connection before restoring the
+golden home. Successful retirement revokes its credential and keeps its history.
+If retirement is skipped or fails, the receipt records the reason and the
+baseline restore proceeds. An inherit case keeps the registration until a reset.
 
 ## Uninstall and retire the test's projects
 

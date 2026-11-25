@@ -161,7 +161,9 @@ def remove_connections(
             connections.pop(env, None)
         mappings_removed = _remove_project_mappings(payload, selected)
         github_refs = _remove_github_slots(payload, selected)
-        write_payload(payload, cfg_path, allow_unconfigured=unconfigured)
+        write_payload(
+            payload, cfg_path, allow_unconfigured=unconfigured, seed_machine_id=not unconfigured,
+        )
     except BaseException:
         for secret, (tombstone, _env) in reversed(tuple(staged.items())):
             os.replace(tombstone, secret)

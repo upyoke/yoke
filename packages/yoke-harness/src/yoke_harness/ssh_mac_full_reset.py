@@ -161,7 +161,7 @@ def execute_full_test_machine_reset(
     path_state: PathStateContract | None = None,
     before_restore: Callable[[], HostActionResult] | None = None,
 ) -> HostActionResult:
-    """Restore the declared golden baseline with closed output and cleanup."""
+    """Restore the declared golden baseline, recording retirement as advisory."""
     if not is_safe_test_mac_home(home):
         return HostActionResult(
             False,
@@ -198,8 +198,6 @@ def execute_full_test_machine_reset(
             "unsafe_test_mac_tool_path",
         )
     retirement = before_restore() if before_restore else HostActionResult(True, {})
-    if not retirement.ok:
-        return retirement
     reset_script = render_full_reset_script(reset_contract)
 
     calls = _ResetCalls(run_remote)
