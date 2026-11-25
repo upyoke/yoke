@@ -17,7 +17,7 @@ def _running_generation() -> Path | None:
 
 def running_release_superseded() -> bool:
     """Check current only when the stable CLI launcher owns this process."""
-    if not runtime.STARTED_BY_LAUNCHER:
+    if not getattr(sys, "_yoke_stable_launcher", False):
         return False
     try:
         running = _running_generation()
