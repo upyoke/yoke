@@ -1,16 +1,16 @@
 """Browser approvals in agent mode: print the step, exit, and ask again next call.
 
-Two setup steps wait on a person in their browser: approving this machine for
-its Yoke server, and signing in to GitHub. The wizard keeps one process waiting
-through each. An agent call has to stay short, and a pending approval that lives
-only in a process is lost when that process is stopped. So the agent shell
+Two setup steps return authorization instructions: approving this machine for
+its Yoke server and signing in to GitHub. The agent completes authorized steps
+using the intended identity. The wizard waits in one process for each step.
+Agent calls are short and may stop before approval arrives. The agent shell
 saves the pending authorization, with its short-lived device code, in the
 private setup store, prints the browser step as this call's outcome and exits.
 The next ``yoke setup --agent`` asks once: an approval continues setup, a
 pending one prints the same browser step again, and a denial, expiry or failure
 takes the wizard's own routes. The saved authorization is cleared as soon as it
 is used up. A machine approval that ends in the error question is saved as that
-error until the person answers it, so the next call asks the same question
+error until it is answered, so the next call asks the same question
 instead of starting a fresh approval.
 """
 

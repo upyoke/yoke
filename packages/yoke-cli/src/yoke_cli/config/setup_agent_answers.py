@@ -9,8 +9,8 @@ Answers are keyed by question, not by position, because saved machine state
 can skip whole steps on a later run. Secret answers never reach this file: a
 secret answer is refused before it is staged. The one exception is a pending
 browser approval's short-lived device code, which the next invocation needs to
-ask whether the person approved; it is deleted once that approval completes,
-fails or expires, and the file stays owner-private. One invocation at a time
+check the approval's status. The code is deleted when approval completes,
+fails or expires. The file stays owner-private and one invocation at a time
 holds the store's lock.
 """
 

@@ -25,6 +25,8 @@ To refuse the request, run `yoke machines deny K7F2`. Codes accept either case.
 The web dashboard offers the same personal decision under **Machines → Waiting for
 approval**. Return to the connecting terminal for one-time credential delivery,
 then run `yoke status`. An expired code or lost delivery requires a fresh connect.
+When an agent runs an authorized setup, it verifies these details and approves
+through the intended member's connected machine or signed-in browser.
 
 `yoke machine …` manages machines already registered to the server, and
 `yoke machines …` lists, approves and denies machines waiting to connect.

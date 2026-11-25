@@ -25,6 +25,12 @@ return to the terminal. Agent, non-TTY, and `--json` runs print the link instead
 `--json` sends link, code and instructions as a stdout JSON line first; the
 last line is the result. Use the printed link if opening fails.
 
+When an agent runs an authorized setup, it compares the code, machine,
+organization and approving identity, then approves through the intended member's
+signed-in browser or an already connected machine. The agent asks the person
+only for steps that require their direct participation, such as password entry.
+See [Agent setup](../start/agent-setup.md#browser-steps).
+
 ## Wire
 
 - `POST /api/machine/authorizations` returns `device_code`, `user_code`,

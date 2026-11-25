@@ -190,7 +190,10 @@ With company sign-in configured, run `yoke connect https://<server>` or choose
 compare its Match code with your CLI, and select **Approve my machine**.
 Sign-in returns you to that web dashboard page. The CLI receives a machine-bound
 credential once and verifies it before saving the connection. Org membership
-is required; approving your own machine does not require an org-admin role.
+is required. Members can approve their own machines. During authorized agent
+setup, the agent verifies the machine, code and organization and approves in the
+intended member's signed-in browser. Ask the member to complete any provider
+step that requires their direct participation.
 
 Codes expire after ten minutes. A denied, consumed, or expired code requires a
 fresh connection. A temporary credential-store failure remains retryable while
