@@ -61,6 +61,7 @@ def prepare_mission(
     execution_factory: Callable[..., Any],
     scratch_factory: Callable[..., dict[str, Any]] | None = None,
     progress_callback: Callable[[], None] | None = None,
+    refuse_existing_scratch: bool = False,
 ) -> dict[str, Any]:
     """Return a submittable result even when local host preparation fails.
 
@@ -93,7 +94,7 @@ def prepare_mission(
         execution = execution_factory(contract, progress_callback=progress_callback)
         secrets = tuple(execution.material.secrets.values())
         execution_id = str(contract.plan_execution_id)
-        if scratch_factory is not None:
+        if refuse_existing_scratch:
             phase = "mission_scratch_probe"
             try:
                 started = mission_scratch_present(
@@ -200,8 +201,11 @@ def prepare_mission(
         else:
             preparation["evidence"]["os_packages"] = {}
         phase = "mission_scratch"
-        preparation["scratch_path"] = execution.control.mission_scratch_path(execution_id)
-        if scratch_factory is not None:
+        if scratch_factory is None:
+            preparation["scratch_path"] = execution.control.mission_scratch_path(
+                execution_id
+            )
+        else:
             scratch = scratch_factory(execution.control, execution_id=execution_id)
             preparation["scratch_path"] = scratch["scratch_path"]
             preparation["evidence"]["scratch_created"] = True

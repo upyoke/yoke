@@ -65,7 +65,7 @@ def test_review_submission_settles_the_capture_run_in_place(
     ).fetchone()
     assert capture_row["verdict"] == "pass"
     assert capture_row["verdict_reason"] == (
-        "Ranked findings cover the expected outcome."
+        f"Ranked findings cover the expected outcome. See run {capture_run_id}."
     )
     assert capture_row["execution_status"] == "captured"
     assert capture_row["case_outcome"] == "needs_review"

@@ -7,7 +7,9 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_contracts.machine_qa_failures import HostControlLocalError
+from yoke_core.domain import agent_mission_preparation as preparation_module
 from yoke_core.domain import machine_qa_local_execution as local
+from yoke_core.domain import machine_qa_mission_walk as walk
 from yoke_core.domain import machine_qa_plan_case_execution as client
 from yoke_harness import qa_host_package_fixture
 from yoke_harness.qa_host_package_fixture import restore_host_packages
@@ -36,8 +38,11 @@ def mission(monkeypatch):
     )
     monkeypatch.setattr(local, "_mission_contract", lambda raw: contract)
     monkeypatch.setattr(local, "_execution", lambda *args, **kwargs: execution)
+    monkeypatch.setattr(walk, "_mission_contract", lambda raw: contract)
+    monkeypatch.setattr(walk, "_execution", lambda *args, **kwargs: execution)
+    monkeypatch.setattr(preparation_module, "mission_scratch_present", lambda *a, **k: False)
     monkeypatch.setattr(
-        local,
+        walk,
         "create_mission_scratch",
         lambda *args, **kwargs: {"scratch_path": "/tmp/scratch"},
     )
@@ -62,9 +67,11 @@ def test_failure_preserves_baseline_progress_and_redacts_cause(
     callback = fail if phase == "heartbeat" else None
     if phase == "baseline":
         execution.reach_baseline = fail
-    elif phase == "scratch":
-        monkeypatch.setattr(local, "create_mission_scratch", fail)
-    payload = local.prepare_agent_mission_contract({}, progress_callback=callback)
+    if phase == "scratch":
+        monkeypatch.setattr(walk, "create_mission_scratch", fail)
+        payload = walk.execute_agent_mission_walk_start({})
+    else:
+        payload = local.prepare_agent_mission_contract({}, progress_callback=callback)
     preparation = payload["preparation"]
     evidence = preparation["evidence"]
     assert preparation["ok"] is False
@@ -144,11 +151,11 @@ def test_failed_baseline_receipt_is_retained_without_later_host_operations(
     baseline.ok = False
     baseline.error_code = "baseline_verification_failed"
     monkeypatch.setattr(
-        local,
+        walk,
         "create_mission_scratch",
         lambda *args, **kwargs: pytest.fail("scratch after failed baseline"),
     )
-    preparation = local.prepare_agent_mission_contract({})["preparation"]
+    preparation = walk.execute_agent_mission_walk_start({})["preparation"]
     outcome = preparation["evidence"]["baseline_outcome"]
     assert outcome["state"] == "started"
     assert outcome["receipt"]["error_code"] == "baseline_verification_failed"
@@ -158,10 +165,12 @@ def test_failed_baseline_receipt_is_retained_without_later_host_operations(
 def test_local_capture_stops_even_when_serving_build_returns_unjudged_docket(
     mission, monkeypatch
 ):
-    def fail(*args, **kwargs):
-        raise RuntimeError("scratch write denied")
+    _, execution, _ = mission
 
-    monkeypatch.setattr(local, "create_mission_scratch", fail)
+    def fail():
+        raise RuntimeError("mission disk preflight refused")
+
+    monkeypatch.setattr(execution.control, "require_mission_disk_space", fail)
     calls = []
 
     def dispatch(function_id, **kwargs):
@@ -195,7 +204,7 @@ def test_local_capture_stops_even_when_serving_build_returns_unjudged_docket(
     assert result["verdict"] == "error"
     assert result["case_outcome"] == "blocked_on_precondition"
     assert result["run_id"] == 23
-    assert "scratch write denied" in result["error"]
+    assert "mission disk preflight refused" in result["error"]
     assert calls[-1] == "test_machine.mission.ready"
 
 
@@ -206,11 +215,12 @@ def test_delivery_evidence_accepts_the_holders_new_deployed_preparation(
     from ops.qa import mission_preparation_evidence as reader
 
     if failed:
+        _, execution, _ = mission
 
-        def refuse(*args, **kwargs):
-            raise RuntimeError("scratch unavailable")
+        def refuse():
+            raise RuntimeError("mission disk preflight refused")
 
-        monkeypatch.setattr(local, "create_mission_scratch", refuse)
+        monkeypatch.setattr(execution.control, "require_mission_disk_space", refuse)
     preparation = local.prepare_agent_mission_contract({})["preparation"]
     captured = "2026-10-02T15:01:00Z"
     proof_run_id = "current-delivery"
@@ -314,9 +324,9 @@ def test_lost_continuity_blocks_mission_before_scratch_or_package_changes(
     def forbidden(*args, **kwargs):
         pytest.fail("mission setup must not run after continuity loss")
 
-    monkeypatch.setattr(local, "create_mission_scratch", forbidden)
+    monkeypatch.setattr(walk, "create_mission_scratch", forbidden)
     monkeypatch.setattr(qa_host_package_fixture, "restore_host_packages", forbidden)
-    payload = local.prepare_agent_mission_contract({})
+    payload = walk.execute_agent_mission_walk_start({})
     assert payload["preparation"]["ok"] is False
     assert payload["preparation"]["error_code"] == "continuity_lost"
     assert payload["preparation"]["evidence"]["scratch_created"] is False

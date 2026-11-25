@@ -52,7 +52,7 @@ def test_defaults_match_target_origin(url, expected):
     assert len(commands) == len(expected)
     assert bool(clause) == bool(expected)
     if expected:
-        assert "site and the account" in clause
+        assert "site, account and resume point" in clause
         assert "result.settings_json verbatim" in clause
 
 
