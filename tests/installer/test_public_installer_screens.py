@@ -16,6 +16,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from public_installer_helpers import (
     INSTALL_SHIM_PATH,
     RecordingRunner,
@@ -134,6 +136,39 @@ def test_failure_screen_prints_reason_and_rerun(tmp_path: Path) -> None:
     assert "https://upyoke.com/install" not in rendered
     # The success screen never renders on a failed install.
     assert "☀ Starting Yoke setup…" not in rendered
+
+
+def test_legacy_output_preserves_install_command_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    installer_mod = load_installer()
+    release = write_channel(tmp_path, version="2.0.0")
+    runner = RecordingRunner(rc=27, stderr="error: activation refused for café ✓")
+    initialize = installer_mod.Installer.__init__
+
+    def initialize_with_runner(self, options) -> None:
+        initialize(self, options, runner=runner, which=lambda name: f"/usr/bin/{name}")
+
+    monkeypatch.setattr(installer_mod.Installer, "__init__", initialize_with_runner)
+    monkeypatch.delenv("YOKE_INSTALL_FORCE_PLAIN", raising=False)
+    with (
+        io.TextIOWrapper(io.BytesIO(), encoding="cp1252", errors="strict") as output,
+        io.TextIOWrapper(io.BytesIO(), encoding="cp1252", errors="strict") as errors,
+        monkeypatch.context() as streams,
+    ):
+        streams.setattr(sys, "stdout", output)
+        streams.setattr(sys, "stderr", errors)
+        assert installer_mod.main(["--base-url", release["base_url"]]) == 1
+        output.flush()
+        errors.flush()
+        rendered = output.buffer.getvalue().decode("cp1252")
+        diagnostic = errors.buffer.getvalue().decode("cp1252")
+
+    assert "x Couldn't install Yoke." in rendered
+    assert "Try again:" in rendered
+    assert "error: activation refused for café \\u2713" in rendered
+    assert "command failed with 27:" in diagnostic
+    assert "error: activation refused for café \\u2713" in diagnostic
 
 
 def test_channel_resolution_failure_prints_reason_and_rerun() -> None:

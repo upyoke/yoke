@@ -152,7 +152,7 @@ def main(argv: Iterable[str] | None = None) -> int:
         return Installer(options).run()
     except InstallError as exc:
         gutter = Installer._gutter(sys.stderr)
-        print(f"{gutter} {_sanitize_diagnostic(str(exc))}", file=sys.stderr)
+        _print_install_diagnostic(f"{gutter} {_sanitize_diagnostic(str(exc))}", sys.stderr)
         return 1
 
 

@@ -160,7 +160,9 @@ def main(argv: Iterable[str] | None = None) -> int:
         return Installer(options).run()
     except InstallError as exc:
         gutter = Installer._gutter(sys.stderr)
-        print(f"{gutter} {_sanitize_diagnostic(str(exc))}", file=sys.stderr)
+        _print_install_diagnostic(
+            f"{gutter} {_sanitize_diagnostic(str(exc))}", sys.stderr
+        )
         return 1
 
 
@@ -306,6 +308,13 @@ def _format_command_failure(
         f"stdout:\n{safe_stdout}\n"
         f"stderr:\n{safe_stderr}"
     )
+
+
+def _print_install_diagnostic(value: str, stream, *, flush: bool = False) -> None:
+    encoding = getattr(stream, "encoding", None)
+    if encoding:
+        value = value.encode(encoding, errors="backslashreplace").decode(encoding)
+    print(value, file=stream, flush=flush)
 
 
 def _bounded_diagnostic(value: str, limit: int) -> str:
@@ -1239,34 +1248,29 @@ class InstallerResolution:
         result = self.capture_runner(command)
         if result.returncode != 0:
             refuse_untrusted_mount_point(result)
-            print(self._say("Install failed"), file=self.stdout)
-            print(
-                _paint("✗ Couldn't install Yoke.", "danger", enabled=self.color),
-                file=self.stdout,
-            )
+            self._print_failure_heading("Couldn't install Yoke.")
             reason = _paint(_failure_reason(result), "dim", enabled=self.color)
-            print(f"  {reason}", file=self.stdout)
+            _print_install_diagnostic(f"  {reason}", self.stdout)
             print("Try again:", file=self.stdout)
             retry = _paint(
                 _rerun_command(self.options.base_url), "bright", enabled=self.color
             )
-            print(f"  {retry}", file=self.stdout, flush=True)
+            _print_install_diagnostic(f"  {retry}", self.stdout, flush=True)
             raise InstallError(_format_command_failure(command, result))
         return _uv_reported_already_installed(result)
 
-    def _print_resolution_failure(self, exc: InstallError) -> None:
-        print(self._say("Install failed"), file=self.stdout)
-        print(
-            _paint(
-                "✗ Couldn't find a Yoke release to install.",
-                "danger",
-                enabled=self.color,
-            ),
-            file=self.stdout,
+    def _print_failure_heading(self, message: str) -> None:
+        _print_install_diagnostic(self._say("Install failed"), self.stdout)
+        marker = "x" if self.plain_glyphs else "✗"
+        _print_install_diagnostic(
+            _paint(f"{marker} {message}", "danger", enabled=self.color), self.stdout
         )
-        print(
+
+    def _print_resolution_failure(self, exc: InstallError) -> None:
+        self._print_failure_heading("Couldn't find a Yoke release to install.")
+        _print_install_diagnostic(
             f"  {_paint(_sanitize_diagnostic(str(exc)), 'dim', enabled=self.color)}",
-            file=self.stdout,
+            self.stdout,
         )
         print("Try again:", file=self.stdout)
         retry_channel = (
@@ -1280,7 +1284,7 @@ class InstallerResolution:
             "bright",
             enabled=self.color,
         )
-        print(f"  {retry}", file=self.stdout, flush=True)
+        _print_install_diagnostic(f"  {retry}", self.stdout, flush=True)
 
 
 def report_setup_exit(status: int, version: str, resume: str, stdout) -> int:
@@ -1319,7 +1323,7 @@ class Installer(InstallerVerification, InstallerResolution):
         self.which = which or shutil.which
         self.stdout = stdout or sys.stdout
         self.color = self._resolve_color(self.stdout) if color is None else color
-        self.plain_glyphs = self._resolve_plain_glyphs()
+        self.plain_glyphs = self._resolve_plain_glyphs(self.stdout)
 
     @staticmethod
     def _resolve_color(stream) -> bool:
@@ -1340,14 +1344,14 @@ class Installer(InstallerVerification, InstallerResolution):
         return bool(term) and term != "dumb"
 
     @staticmethod
-    def _resolve_plain_glyphs() -> bool:
+    def _resolve_plain_glyphs(stream) -> bool:
         force = os.environ.get("YOKE_INSTALL_FORCE_PLAIN")
         if force == "1":
             return True
         if force == "0":
             return False
         try:
-            GUTTER.encode(getattr(sys.stdout, "encoding", None) or "utf-8")
+            GUTTER.encode(getattr(stream, "encoding", None) or "utf-8")
         except (UnicodeError, LookupError):
             return True
         term = os.environ.get("TERM", "")
@@ -1357,7 +1361,7 @@ class Installer(InstallerVerification, InstallerResolution):
 
     @staticmethod
     def _gutter(stream) -> str:
-        if Installer._resolve_plain_glyphs():
+        if Installer._resolve_plain_glyphs(stream):
             return PLAIN_GUTTER_ICON
         return _paint(GUTTER, "amber", enabled=Installer._resolve_color(stream))
 
