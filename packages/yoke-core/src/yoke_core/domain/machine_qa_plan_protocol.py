@@ -20,7 +20,12 @@ def plan_case_contract_arguments(
     execution: dict[str, Any], case: dict[str, Any], *, ordinal: int
 ) -> dict[str, Any]:
     """Build the execution-bound arguments for one immutable plan case."""
-    contract_case = {key: value for key, value in case.items() if key != "ordinal"}
+    # Partition ordering and standalone source provenance are controller metadata.
+    controller_fields = {
+        "ordinal", "after_case_key", "delegated_walk", "standalone_source_revision",
+        "standalone_source_ref", "standalone_checkout_path",
+    }
+    contract_case = {key: value for key, value in case.items() if key not in controller_fields}
     if case.get("runner_id") == "worktree_run":
         # Source checkout selection belongs to the local Command runner. The
         # host contract admits custody; it never executes that local command.

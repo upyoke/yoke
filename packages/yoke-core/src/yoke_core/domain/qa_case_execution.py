@@ -98,11 +98,37 @@ def recording_leg(
     authority = qa_start_bound_authority.payload_authority(case)
 
     def dispatch_leg(function_id: str, payload: dict) -> dict:
+        if case.get("plan_execution_id") and function_id in {"qa.run.add", "qa.run.complete"}:
+            return _plan_command_leg(case, payload, actor=actor)
         return _dispatch(
             function_id, requirement_id, {**authority, **payload}, actor=actor
         )
 
     return dispatch_leg
+
+
+def _plan_command_leg(case: dict, payload: dict, *, actor: ActorContext | None) -> dict:
+    from yoke_core.domain.qa_plan_execution_dispatch import call_plan_function, execution_actor
+    from yoke_core.domain.qa_plan_execution_result_state import QaPlanExecutionError
+
+    try:
+        return call_plan_function(
+            function_id="qa.plan_execution.command_record",
+            target=TargetRef(kind="global", project_id=case["project"]),
+            actor=execution_actor(actor),
+            payload={
+                "execution_id": case["plan_execution_id"],
+                "ordinal": int(case["ordinal"]),
+                "requirement_id": int(case["requirement_id"]),
+                **{key: value for key, value in payload.items() if key != "performed_by"},
+            },
+        )
+    except QaPlanExecutionError as exc:
+        from yoke_core.domain.qa_plan_execution_checkin import communication_unknown
+
+        if communication_unknown(exc):
+            raise
+        raise QaCaseExecutionError(str(exc)) from exc
 
 
 def fetch_case_execution_context(

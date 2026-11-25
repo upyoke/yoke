@@ -114,6 +114,7 @@ FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
     "qa.activity.list": "next-release",
     "qa.plan_execution.begin": "next-release",
     "qa.plan_execution.partitions": "next-release",
+    "qa.plan_execution.command_record": "next-release",
     "qa.plan_execution.heartbeat": "next-release",
     "qa.plan_execution.advance": "next-release",
     "qa.plan_execution.complete": "next-release",

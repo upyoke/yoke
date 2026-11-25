@@ -51,7 +51,7 @@ def _notify_group_review(
         run_id=run_id,
         project_id=int(row[0]),
         body_for_route=body_for_route,
-        idempotency_key=f"{idempotency_key}:owner" if owner_live else idempotency_key,
+        idempotency_key=idempotency_key if owner_live else f"{idempotency_key}:fallback",
         owner_session_id=owner if owner_live else None,
         now=utc_now(),
     )
@@ -122,7 +122,7 @@ def notify_scoped_agent_review(conn: Any, execution: Mapping[str, Any]) -> str:
         project_id=int(row[0]),
         owner_session_id=owner if owner_live else None,
         body_for_route=body_for_route,
-        idempotency_key=f"{REVIEW_WAKE_PREFIX}{execution_id}{':owner' if owner_live else ''}",
+        idempotency_key=f"{REVIEW_WAKE_PREFIX}{execution_id}{'' if owner_live else ':fallback'}",
         now=utc_now(),
     )
 

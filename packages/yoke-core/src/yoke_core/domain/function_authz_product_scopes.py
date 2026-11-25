@@ -243,6 +243,7 @@ PRODUCT_AUTHZ_BY_ID = {
     "qa.case_execution.begin": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "qa.plan_execution.partitions": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "qa.plan_execution.begin": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
+    "qa.plan_execution.command_record": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "qa.plan_execution.pause": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "qa.plan_execution.resume": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "qa.plan_execution.heartbeat": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),

@@ -5,6 +5,7 @@ from yoke_core.domain.qa_request_subjects import EXECUTION_SUBJECT_FUNCTIONS
 
 
 EXECUTION_FUNCTIONS = EXECUTION_SUBJECT_FUNCTIONS | {
+    "qa.plan_execution.command_record",
     "test_machine.plan_case.begin",
     "test_machine.plan_case.submit",
     "test_machine.mission.ready",

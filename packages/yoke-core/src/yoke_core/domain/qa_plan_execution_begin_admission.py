@@ -254,7 +254,11 @@ def _prepare_partition_roster(
             part.key, f"belongs to the source lane; run `yoke qa case run --requirement-id {requirement}`"
         )
     roster = selected.holder["roster"] if selected.holder else [
-        {**row, "ordinal": ordinal} for ordinal, row in enumerate(part.roster)
+        {
+            **row, "ordinal": ordinal,
+            **({"delegated_walk": True} if source_session_id else {}),
+        }
+        for ordinal, row in enumerate(part.roster)
     ]
     if selected.holder is None and host_capability_kinds is not None:
         for row in roster:

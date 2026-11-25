@@ -12,6 +12,27 @@ from yoke_core.domain.handlers.qa_plan_execution_models import (
 
 
 def register(registry) -> None:
+    from yoke_core.domain.handlers.qa_plan_command_record import (
+        PlanCommandRecordRequest,
+        PlanCommandRecordResponse,
+        handle_plan_command_record,
+    )
+
+    registry.register(
+        "qa.plan_execution.command_record",
+        handle_plan_command_record,
+        PlanCommandRecordRequest,
+        PlanCommandRecordResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.qa_plan_command_record",
+        target_kinds=["item", "global"],
+        minimum_serving_version="next-release",
+        side_effects=["qa_run_write"],
+        guardrails=["actor_session_bound", "immutable_snapshot_order", "qa_subject_authority"],
+        adapter_status="internal",
+        claim_required_kind="qa_subject",
+        ambient_session_required=True,
+    )
     from yoke_core.domain.handlers.qa_plan_partitions import (
         PlanPartitionsRequest,
         PlanPartitionsResponse,

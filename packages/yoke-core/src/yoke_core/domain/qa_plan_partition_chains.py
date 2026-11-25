@@ -59,15 +59,19 @@ def roster_partitions(
 ) -> list[Partition]:
     """Keep same-machine inheritance whole and resolve declared ordering."""
     partitions: list[Partition] = []
-    chain: list[dict[str, Any]] = []
-    for ordinal, case in enumerate(roster):
-        chain.append(case)
-        if ends_chain(roster, ordinal):
-            key = partition_key(chain, standalone=standalone)
-            hosts = tuple(dict.fromkeys(os for row in chain for os in _case_hosts(row)))
-            kind = _case_kind(chain[0], item_lane=item_lane)
-            partitions.append(Partition(key, chain, hosts, kind))
-            chain = []
+    targets: dict[str, list[dict[str, Any]]] = {}
+    for case in roster:
+        targets.setdefault(str(case.get("execution_target_digest") or ""), []).append(case)
+    for cases in targets.values():
+        chain: list[dict[str, Any]] = []
+        for ordinal, case in enumerate(cases):
+            chain.append(case)
+            if ends_chain(cases, ordinal):
+                key = partition_key(chain, standalone=standalone)
+                hosts = tuple(dict.fromkeys(os for row in chain for os in _case_hosts(row)))
+                kind = _case_kind(chain[0], item_lane=item_lane)
+                partitions.append(Partition(key, chain, hosts, kind))
+                chain = []
     by_case: dict[tuple, list[str]] = {}
     for part in partitions:
         for row in part.roster:

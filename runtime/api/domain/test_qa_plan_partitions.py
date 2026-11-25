@@ -50,6 +50,16 @@ def test_only_an_explicit_predecessor_orders_independent_hosts():
     assert not third.predecessors
 
 
+def test_interleaved_target_rows_keep_their_own_inherited_chain():
+    roster = [
+        case(1, os="macos", target="a"),
+        case(2, os="macos", target="b"),
+        case(3, state="inherit", target="a"),
+        case(4, state="inherit", target="b"),
+    ]
+    assert requirement_ids(roster_partitions(roster)) == [[1, 3], [2, 4]]
+
+
 def test_keys_are_stable_and_standalone_ignores_materialized_requirement_ids():
     roster = [case(1, os="windows")]
     rematerialized = [{**roster[0], "requirement_id": 2}]

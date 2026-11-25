@@ -117,8 +117,10 @@ def _artifact_execution_id(conn, *, run_id, requirement_id) -> str | None:
             evidence = json.loads(row["raw_result"])
         except (TypeError, ValueError):
             return None
-        if isinstance(evidence, dict) and isinstance(evidence.get("execution_id"), str):
-            return evidence["execution_id"]
+        if isinstance(evidence, dict):
+            execution_id = evidence.get("plan_execution_id") or evidence.get("execution_id")
+            if isinstance(execution_id, str):
+                return execution_id
     return None
 
 
