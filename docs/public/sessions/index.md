@@ -199,8 +199,10 @@ evaluator/client-wall coverage, are labelled incomparable.
 
 `yoke sessions touch --mode parked --reason "awaiting a decision"` records an
 intentional wait. A prompt or a turn that only reads or acknowledges messages
-keeps that park and reason. Successful work or an explicit `--mode wait` ends
-it. Capacity recovery skips parked sessions.
+keeps that park and reason. A direct `yoke sessions touch --mode parked` in a
+shell call preserves the park through that call, including when the call also
+redirects output or does other work. Successful work in a later call or an
+explicit `--mode wait` ends the park. Capacity recovery skips parked sessions.
 
 For time or traffic evidence, schedule your next recheck before parking:
 `yoke sessions wake schedule --at 2026-12-01T12:00:00Z --reason "check traffic evidence"`.

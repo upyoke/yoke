@@ -18,11 +18,11 @@ def parked(conn):  # noqa: F811
     return conn
 
 
-def _envelope(tool_input, tool_name="Bash"):
+def _envelope(tool_input, tool_name="Bash", **detail):
     return {
         "session_id": "sess-1",
         "tool_name": tool_name,
-        "context": {"detail": {"tool_input": tool_input}},
+        "context": {"detail": {"tool_input": tool_input, **detail}},
     }
 
 
@@ -73,8 +73,44 @@ def test_bookkeeping_keeps_mode_and_reason(parked, command, encoding):
 
 
 @pytest.mark.parametrize(
+    ("shell_kind", "command"),
+    [
+        (
+            "bash",
+            "yoke messages get m --json > /dev/null; yoke sessions touch --mode parked --reason r",
+        ),
+        (
+            "bash",
+            "yoke messages get m --json 2>&1 && yoke sessions touch --mode=parked --reason r",
+        ),
+        ("bash", "yoke sessions touch --mode parked --reason r; make build"),
+        ("bash", "yoke sessions touch --mode parked; echo 'unfinished"),
+        (
+            "powershell",
+            "yoke messages get m --json > $null; yoke sessions touch --mode parked --reason r",
+        ),
+        (
+            "powershell",
+            "yoke messages get m --json | Out-Null; yoke sessions touch `\n --mode parked --reason r",
+        ),
+    ],
+)
+def test_explicit_park_survives_its_own_shell_call(parked, shell_kind, command):
+    assert unpark_after_work(parked, _envelope(command, shell_kind=shell_kind)) is False
+    assert _park(parked) == ("parked", "awaiting delivery")
+
+
+@pytest.mark.parametrize(
     "command",
     [
+        "make build",
+        "yoke messages get m --json > out.txt; yoke sessions touch",
+        "make build; yoke sessions touch --mode wait",
+        "make build; yoke sessions touch --mode=active",
+        "make build; yoke sessions touch --reason '--mode parked'",
+        "echo 'yoke sessions touch --mode parked'",
+        "bash -c 'yoke sessions touch --mode parked'",
+        "yoke dev run -- yoke sessions touch --mode parked",
         "rg park docs",
         "cat docs/public/agents/claude.md",
         "yoke events emit --event-name WorkStarted",
