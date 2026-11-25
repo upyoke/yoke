@@ -49,7 +49,7 @@ option through `--admin`. Windows `--admin` refuses by name: the lab's SSH
 user is a standard account. Machine-wide Windows test state comes from the
 walker's SYSTEM fixtures, `yoke qa mission host-command --fixture NAME
 [--undo]`; every native Windows reset undoes every fixture before it restores
-([machine-wide fixtures](windows-native-host-provisioning.md#machine-wide-qa-fixtures)).
+([machine-wide fixtures](windows-native-machine-fixtures.md)).
 A missing, unreadable or invalid credential names
 `test-machine:NAME.desktop_password` and the import command above; repair
 that stored credential before retrying. If sudo rejects authentication,

@@ -164,6 +164,7 @@ to `awaiting_walk_review`; both retain the pending verdict bundle and custody.
 - [Native Windows desktop and autologon](windows-native-desktop.md) — Set up and verify the lab console after a cold boot.
 - [Native Windows harness installation](windows-native-harnesses.md) — Install native harness CLIs and desktop apps, then prove sign-ins before goldens.
 - [Native Windows controller prerequisites](windows-native-controller.md) — Agents drive lab apps with `yoke qa mission desktop`; an RDP client is optional for people.
+- [Native Windows machine-wide QA fixtures](windows-native-machine-fixtures.md) — Apply undoable SYSTEM fixtures from a walk; every reset undoes them and machine-baseline seals drift.
 - [Native Windows provisioning recovery](windows-native-provisioning-recovery.md) — Recover bounded administrator SSH, partial key ACLs and RDP setup.
 - [Native Windows browser identities](windows-browser-identities.md) — Authorize browser identities in the native Windows test desktop.
 - [Machine browser identities](browser-identities.md) — Follow the browser identity procedure for the declared OS.

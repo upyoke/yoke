@@ -239,7 +239,7 @@ Run a plain `yoke test-machine reset --test-machine NAME`: it runs every
 fixture undo as SYSTEM before it restores. A failed undo leaves the lab
 `machine_needs_repair` with the undo's verify records; repair the named
 state, or check Azure access with `yoke azure admin-status --project P`, and
-reset again. If the drift survives, [rebuild in place](windows-native-host-provisioning.md#rebuild-in-place-last-resort).
+reset again. If the drift survives, [rebuild in place](windows-native-machine-fixtures.md#rebuild-in-place-last-resort).
 Never grant the test user rights to clear drift by hand.
 
 ## Standard-user host-facts failure
