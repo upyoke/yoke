@@ -1,7 +1,7 @@
 {
  "id": "failed-item-recovery",
  "title": "Resume failed member QA with its retained owner",
- "status": "observed",
+ "status": "approved",
  "audience": "both",
  "when": "An owner receives its failed verdict, a driver discovers failed member QA, or a parked owner resumes after a correction notice on a surface without automatic wake.",
  "need": "Classify product, setup, case or unclear cause. Fix current-item failures here by default; justify separately owned corrections and record the directional closure edge with the exact completion or named-environment milestone. Keep the claim, lane and checkpoint while an explicit blocker holds. Steering staffs and delivers corrections and arranges supported manual resume. Reread all blockers and target evidence; same-run admission and a cleared dependency cannot authorize stale frozen-candidate QA. An inherited fail recorded before this run is retried from the member partitions for the qualifying run. A failure created after this run follows the ordinary rework handoff. Reread the partitions of the qualifying deployed correction, run the command-only cases and launch one walker per free walk partition. Preserve failed and skipped history; no notice or replacement waives remaining cases.",
