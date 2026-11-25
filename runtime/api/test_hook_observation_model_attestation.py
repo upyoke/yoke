@@ -116,14 +116,14 @@ def test_print_session_attests_on_the_first_hook_after_generation(
                 "executor": "claude-code",
                 "entrypoint": "claude-cli",
                 "project_id": 1,
-                "payload_extra": {},
+                "payload_extra": {"actor_id": actor_id},
                 **identity,
             }
 
             def deliver(request, timeout=None):  # noqa: ARG001
                 body = json.loads(request.data)
                 accepted, confirmations = persist_observation_batch(
-                    body["observations"], actor_id=actor_id
+                    body["observations"]
                 )
                 return _MemoryResponse(
                     {

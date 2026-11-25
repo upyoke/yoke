@@ -12,7 +12,9 @@ from fastapi.testclient import TestClient
 from runtime.api.auth_test_helpers import mint_api_auth_context
 from runtime.api.fixtures.pg_testdb import test_database
 from runtime.api.fixtures.session_holdings import insert_session
-from yoke_core.api.launch_machine_actor import _delegated_actor
+from yoke_core.api.http_auth import HttpAuthContext
+from yoke_core.api.launch_machine_actor import session_actor_for
+from yoke_core.domain.session_ownership import delegated_launch_actor
 from yoke_core.api.main import app
 from yoke_core.domain.actors import seed_human_actor
 from yoke_core.domain.api_tokens import mint_token
@@ -115,7 +117,7 @@ def test_cross_owner_machine_credential_acknowledges_exact_launch() -> None:
             )
             assert requester.actor_id != machine_actor
             assert (
-                _delegated_actor(
+                delegated_launch_actor(
                     session_id=session_id,
                     machine_id=machine_id,
                     token_actor_id=machine_actor,
@@ -206,10 +208,35 @@ def test_machine_delegation_requires_every_launch_binding(broken_link: str) -> N
             )
         conn.commit()
         assert (
-            _delegated_actor(
+            delegated_launch_actor(
                 session_id=session_id,
                 machine_id=machine_id,
                 token_actor_id=machine_actor,
             )
             is None
         )
+
+
+@pytest.mark.parametrize(
+    ("machine_id", "session_id", "delegated", "expected"),
+    [
+        (None, "session", 23, 17),
+        ("machine", "", 23, 17),
+        ("machine", "session", None, 17),
+        ("machine", "session", 23, 23),
+    ],
+)
+def test_session_actor_resolver(machine_id, session_id, delegated, expected, monkeypatch):
+    from unittest.mock import Mock
+
+    resolve = Mock(return_value=delegated)
+    monkeypatch.setattr("yoke_core.api.launch_machine_actor.delegated_launch_actor", resolve)
+    conn = object()
+
+    assert session_actor_for(HttpAuthContext(1, 17, "test", machine_id), session_id, conn=conn) == expected
+    if machine_id and session_id:
+        resolve.assert_called_once_with(
+            session_id=session_id, machine_id=machine_id, token_actor_id=17, conn=conn
+        )
+    else:
+        resolve.assert_not_called()

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 import signal
-import socket
 import socketserver
 import sys
 import threading
@@ -13,13 +12,12 @@ import traceback
 from pathlib import Path
 from typing import Any
 
+from yoke_contracts.hook_budget import TOTAL_TIMEOUT_ENV, hook_budget_ms
 from yoke_contracts.execution_provenance import collect_execution_provenance
 from yoke_contracts.hook_evaluator_protocol import (
-    HookClientWallReport,
     HookEvaluatorProtocolError,
     HookEvaluatorRequest,
     RESIDENT_IDLE_TIMEOUT_SECONDS,
-    receive_frame,
     send_frame,
 )
 from yoke_contracts.hook_process_context import (
@@ -27,6 +25,7 @@ from yoke_contracts.hook_process_context import (
     activate_process_context,
     install_process_context,
 )
+from yoke_harness.hook_observation_delivery import owned_diagnostic_line
 from yoke_harness.hook_resident_probe import receive_request, same_revision
 from yoke_contracts.hook_resident_transport import uses_named_pipe
 from yoke_contracts.hook_resident_routing import (
@@ -132,16 +131,32 @@ class _ResidentServer(_TransportServer):
                 "code": "YOKE_HOOK_RESIDENT_CONTEXT_INVALID",
                 "detail": "caller cwd is unavailable; retry from an existing directory",
             }, None
+        started = time.monotonic()
+        probe_key = message_probe_key(request.stdin)
+        environment = dict(request.environment)
+        drain_warning = ""
+        if probe_key and request.event_name in {"Stop", "SessionEnd"}:
+            # Publish queued tool completions before cleanup settles the launch.
+            budget_ms = hook_budget_ms(environment)
+            if not self.observations.drain(min(2.0, budget_ms / 2000), session_key=probe_key):
+                drain_warning = owned_diagnostic_line(
+                    "WARNING: YOKE_HOOK_SESSION_DRAIN_TIMEOUT: queued hooks may be refused "
+                    "after session end",
+                    failure_class="drain_timeout",
+                    outcome="continue",
+                    recovery="check the resident's telemetry delivery",
+                )
+            environment[TOTAL_TIMEOUT_ENV] = str(
+                max(1, budget_ms - int((time.monotonic() - started) * 1000))
+            )
         process = HookProcessContext(
-            environment=dict(request.environment),
+            environment=environment,
             cwd=request.cwd,
             pid=request.pid,
             ppid=request.ppid,
         )
         read_only = is_read_only_tool_event(request.event_name, request.stdin)
-        probe_key = message_probe_key(request.stdin)
         local = read_only and self.should_evaluate_locally(probe_key)
-        started = time.monotonic()
         self.http_opener.begin_hook_request()
         from yoke_cli.transport.http_request_context import use_http_opener
 
@@ -178,12 +193,12 @@ class _ResidentServer(_TransportServer):
             hook_wait_ms = int((time.monotonic() - started) * 1000)
             if deferred is not None:
                 self.observations.enqueue(
-                    deferred.observation(hook_wait_ms=hook_wait_ms)
+                    deferred.observation(hook_wait_ms=hook_wait_ms, session_key=probe_key)
                 )
             elif read_only and self.http_opener.message_probe_ran():
                 self.mark_message_probe(probe_key)
             stdout = capture.stdout
-            stderr = capture.stderr + self.observations.diagnostic()
+            stderr = capture.stderr + drain_warning + self.observations.diagnostic()
         target = (
             deferred.client_wall_target()
             if deferred is not None
@@ -242,30 +257,10 @@ class _ResidentHandler(socketserver.BaseRequestHandler):
                     "code": "YOKE_HOOK_RESIDENT_CRASHED",
                     "detail": f"resident evaluation crashed ({type(exc).__name__})",
                 }
-            try:
-                send_frame(self.request, response)
-            except (HookEvaluatorProtocolError, OSError, socket.timeout):
-                return
-            if (
-                response.get("status") != "ok"
-                or request is None
-                or not request.client_timing_id
-            ):
-                return
-            try:
-                self.request.settimeout(0.25)
-                report = HookClientWallReport.from_mapping(receive_frame(self.request))
-            except (HookEvaluatorProtocolError, OSError, socket.timeout):
-                return
-            from yoke_harness.hook_resident_client_wall import (
-                record_resident_client_wall,
-            )
+            from yoke_harness.hook_resident_client_wall import reply_with_client_wall
 
-            record_resident_client_wall(
-                queue=self.server.observations,
-                request=request,
-                report=report,
-                target=client_wall_target,
+            reply_with_client_wall(
+                self.request, response, request, self.server.observations, client_wall_target
             )
         finally:
             send_held_denial_audits(held_audits)

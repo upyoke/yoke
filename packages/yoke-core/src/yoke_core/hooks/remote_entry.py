@@ -8,7 +8,7 @@ detection (e.g. ``lint_subagent_background``) already reads it. Classified
 local-state policies self-skip into ``degraded``
 (:mod:`yoke_core.hooks.remote_policy`) — the relay client owns
 them via its product-owned subset (``yoke_harness.hooks.local_subset``).
-The verified bearer-token ``actor_id`` rides the controls so the
+The authorized session ``actor_id`` rides the controls so the
 ensure-register tail binds it to the ``harness_sessions`` row.
 
 The request's ``deadline_ms`` is clamped to the server ceiling; a deny
@@ -25,6 +25,10 @@ from contextlib import nullcontext
 from dataclasses import dataclass
 from typing import Callable, Optional
 
+from yoke_contracts.hook_evaluator_protocol import (
+    EVALUATOR_PAYLOAD_KEY,
+    HOOK_CLIENT_TIMING_ID_FIELD,
+)
 from yoke_contracts.session_model_facts import MODEL_FACT_FIELDS, SessionModelFacts
 from yoke_core.domain.session_usage_observation import USAGE_COLUMN
 from yoke_core.domain.project_scratch_dir import scratch_project, scratch_machine_owner
@@ -85,6 +89,7 @@ def evaluate_remote(
     payload_extra: Optional[dict] = None,
     actor_id: Optional[int] = None,
     denial_revisions: Optional[dict[str, str]] = None,
+    correlate_client_wall: bool = True,
 ) -> RemoteEvaluation:
     """Evaluate one hook event server-side; never raises past run_event."""
     budget_ms = max(1, min(int(deadline_ms), resolve_total_timeout_ms()))
@@ -126,6 +131,17 @@ def evaluate_remote(
         controls.payload_extra[field] = (
             identity.get(field) if isinstance(identity, dict) else None
         )
+    if not correlate_client_wall:
+        # A delegated terminal hook can end the session before its own client
+        # timing frame exists. Do not offer a correlation that cannot be used.
+        metadata = controls.payload_extra.get(
+            EVALUATOR_PAYLOAD_KEY,
+            identity.get(EVALUATOR_PAYLOAD_KEY) if isinstance(identity, dict) else None,
+        )
+        if isinstance(metadata, dict):
+            metadata = dict(metadata)
+            metadata.pop(HOOK_CLIENT_TIMING_ID_FIELD, None)
+            controls.payload_extra[EVALUATOR_PAYLOAD_KEY] = metadata
     if executor_version and executor_version.strip():
         controls.payload_extra["executor_version"] = executor_version.strip()
     controls.payload_extra["machine_id"] = machine_id

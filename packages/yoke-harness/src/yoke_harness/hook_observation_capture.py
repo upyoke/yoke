@@ -97,7 +97,7 @@ class DeferredObservationOpener:
             url=request.full_url,
         )
 
-    def observation(self, *, hook_wait_ms: int) -> PendingObservation:
+    def observation(self, *, hook_wait_ms: int, session_key: str) -> PendingObservation:
         if self._body is None or not self._endpoint or not self._authorization:
             raise RuntimeError("read-only hook produced no relay observation")
         return PendingObservation(
@@ -108,6 +108,7 @@ class DeferredObservationOpener:
             hook_wait_ms=max(0, hook_wait_ms),
             hook_request=self._body,
             enqueued_at=time.monotonic(),
+            session_key=session_key,
         )
 
     def client_wall_target(self) -> tuple[str, str] | None:

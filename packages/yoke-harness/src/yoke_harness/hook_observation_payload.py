@@ -18,6 +18,7 @@ class PendingObservation:
     hook_wait_ms: int
     hook_request: dict[str, Any]
     enqueued_at: float
+    session_key: str = ""
 
     batch_field = "observations"
 

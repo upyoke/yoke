@@ -79,6 +79,7 @@ class ObservationQueue:
         self._condition = threading.Condition()
         self._flush_lock = threading.Lock()
         self._entries: list[PendingTelemetry] = []
+        self._expected_wall: dict[str, str] = {}
         self._stopping = False
         self._force = False
         self._failure = ""
@@ -291,15 +292,37 @@ class ObservationQueue:
             )
         )
 
-    def drain(self, timeout: float) -> bool:
+    def expect_client_wall(self, event_id: str, session_key: str) -> None:
+        with self._condition:
+            self._expected_wall[event_id] = session_key
+
+    def finish_client_wall(self, event_id: str) -> None:
+        with self._condition:
+            self._expected_wall.pop(event_id, None)
+            self._condition.notify_all()
+
+    def drain(self, timeout: float, *, session_key: str | None = None) -> bool:
+        """Wait for the ordered prefix through this session's pending entries."""
         deadline = time.monotonic() + max(0.0, timeout)
         with self._condition:
-            self._force = True
-            self._condition.notify_all()
-            while self._entries:
+            pending = {
+                entry.observation_id
+                for entry in self._entries
+                if session_key is None or entry.session_key == session_key
+            }
+            pending.update(
+                event_id
+                for event_id, key in self._expected_wall.items()
+                if session_key is None or key == session_key
+            )
+            while pending.intersection(self._expected_wall) or any(
+                entry.observation_id in pending for entry in self._entries
+            ):
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
                     return False
+                self._force = True
+                self._condition.notify_all()
                 self._condition.wait(timeout=remaining)
             return True
 

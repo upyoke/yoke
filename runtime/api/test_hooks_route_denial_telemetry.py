@@ -107,7 +107,7 @@ def test_unbound_machine_credential_denies_and_emits() -> None:
             "yoke_core.api.routes.hooks.authorize_hook_request", return_value=decision
         ),
     ):
-        authorized, response = _authorize_scope(HttpAuthContext(1, 1, "test"), request)
+        authorized, _, response = _authorize_scope(HttpAuthContext(1, 1, "test"), request)
     assert response is not None
     assert authorized == decision
     canonical.assert_called_once()
@@ -129,7 +129,7 @@ def test_actor_without_project_visibility_denies_and_emits() -> None:
         mock.patch("yoke_core.hooks.denial.emit_denial_event") as canonical,
     ):
         connect.return_value.__enter__.return_value.execute.return_value.fetchone.return_value = None
-        authorized, response = _authorize_scope(HttpAuthContext(1, 1, "test"), request)
+        authorized, _, response = _authorize_scope(HttpAuthContext(1, 1, "test"), request)
     assert response is not None
     assert authorized.project_slug == ""
     canonical.assert_called_once()
@@ -180,6 +180,7 @@ def test_route_hands_the_skew_reason_to_the_run_and_records_no_second_row() -> N
             "yoke_core.api.routes.hooks._authorize_scope",
             return_value=(
                 HookScopeDecision(project_id=1, project_slug="example"),
+                1,
                 None,
             ),
         ),
