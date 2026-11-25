@@ -1,5 +1,6 @@
 """Host operations retain their mission's lease and reject foreign owners."""
 
+from runtime.api.domain.machine_qa_session_seed import seed_registered_qa_launch
 from runtime.api.domain.mission_machine_operations_test_support import (
     begin as begin,
     request as request,
@@ -53,6 +54,7 @@ def mission(test_db, tmp_path, monkeypatch):
     configure_test_machine(test_db, tmp_path, monkeypatch)
     item_id = 4901
     requirement_id = _materialize_mission(test_db, item_id=item_id)
+    seed_registered_qa_launch(test_db, ACTOR.session_id)
     execution = begin_plan_execution(
         test_db,
         item_id=item_id,

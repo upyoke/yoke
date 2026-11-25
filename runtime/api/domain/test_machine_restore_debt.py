@@ -8,6 +8,7 @@ import pytest
 from runtime.api.domain import (
     agent_mission_cleanup_test_support as cleanup_support,
 )
+from runtime.api.domain.machine_qa_session_seed import seed_registered_qa_launch
 from runtime.api.domain.machine_operation_test_support import MACHINE
 from runtime.api.domain.machine_qa_fixture_lifecycle_test_support import case_contract
 from runtime.api.domain.machine_qa_host_test_support import configure_test_machine
@@ -150,6 +151,7 @@ def test_mission_replay_uses_accepted_contract_after_reset_and_new_debt(
         lease_id=77,
     )
     test_db.commit()
+    seed_registered_qa_launch(test_db, ACTOR.session_id)
     execution = begin_plan_execution(
         test_db,
         item_id=item_id,

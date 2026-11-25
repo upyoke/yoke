@@ -4,6 +4,7 @@ import json
 
 import pytest
 
+from runtime.api.domain.machine_qa_session_seed import seed_qa_session, seed_registered_qa_launch
 from runtime.api.domain.machine_qa_host_test_support import (
     TEST_MACHINE_SETTINGS,
     _terminal_recipe,
@@ -53,6 +54,8 @@ def walk(test_db, tmp_path, monkeypatch):
     test_db.commit()
     monkeypatch.setenv("YOKE_ENVIRONMENT", "prod")
     _serve(monkeypatch, SHA)
+    seed_qa_session(test_db, SESSION)
+    seed_registered_qa_launch(test_db, SESSION)
     execution = _begin(test_db, tmp_path)
     assert execution["served_build_sha"] == SHA
     return execution

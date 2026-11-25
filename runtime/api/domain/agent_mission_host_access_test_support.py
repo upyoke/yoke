@@ -5,6 +5,7 @@ import subprocess
 
 import pytest
 
+from runtime.api.domain.machine_qa_session_seed import seed_registered_qa_launch
 from runtime.api.domain.machine_qa_host_test_support import (
     TEST_MACHINE_SETTINGS,
     configure_test_machine,
@@ -111,6 +112,7 @@ def mission(test_db, tmp_path, monkeypatch):
         test_db, item_id=ITEM, transition_id="reviewing-implementation"
     )
     requirement = int(materialized["created_requirement_ids"][0])
+    seed_registered_qa_launch(test_db, ACTOR.session_id)
     execution = begin_plan_execution(
         test_db,
         item_id=ITEM,
