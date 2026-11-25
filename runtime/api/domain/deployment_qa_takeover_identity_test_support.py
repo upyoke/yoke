@@ -6,6 +6,7 @@ from copy import deepcopy
 import pytest
 
 from runtime.api.domain import deployment_run_target_takeover_test_support as takeover
+from runtime.api.domain.machine_qa_session_seed import seed_registered_qa_launch
 
 from runtime.api.fixtures.deployment_scoped_qa_run_fixture import (
     create_smoke_plan,
@@ -26,7 +27,7 @@ from yoke_core.domain.qa_plan_execution_begin import begin_plan_execution
 from yoke_core.domain.qa_plan_execution_store import select_plan_execution
 
 
-def _execution(conn, monkeypatch, *, apply=True, plan=None):
+def _execution(conn, monkeypatch, *, apply=True, plan=None, walk_session=None):
     plan = plan or create_smoke_plan(conn, project="yoke", slug="run-takeover-identity")
     stages = item_qa_stage_definitions(plan)
     stages[1].update(name=takeover.RUN_QA_STAGE, scope="run")
@@ -47,12 +48,14 @@ def _execution(conn, monkeypatch, *, apply=True, plan=None):
         deployment_run_id=takeover.OLD,
         deployment_stage=takeover.RUN_QA_STAGE,
     )
+    if walk_session is not None:
+        seed_registered_qa_launch(conn, walk_session)
     result = begin_plan_execution(
         conn,
         deployment_run_id=takeover.OLD,
         deployment_stage=takeover.RUN_QA_STAGE,
         actor_id="1",
-        session_id=takeover.DRIVER_SESSION,
+        session_id=walk_session or takeover.DRIVER_SESSION,
     )
     takeover._seed_new(conn)
     takeover._contains(monkeypatch)
