@@ -289,9 +289,6 @@ def begin_standalone_execution(
         checkout_path=checkout_path,
         selected_cases=selected_cases,
     )
-    from yoke_core.domain.qa_walk_launch_required import require_walk_launch
-
-    require_walk_launch(conn, roster, session_id=session_id)
     validate_roster_machine(conn, roster, test_machine)
     if continuation:
         require_same_mission_roster(continuation, roster)

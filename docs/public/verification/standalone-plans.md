@@ -11,8 +11,8 @@ yoke qa plan partitions --plan PLAN --project P --expected-branch REF --expected
 ```
 
 Each run freezes one chain and its baselines. Its standalone execution
-owns the evidence independently of item and release gates. Resume its cursor
-in the owning session. The read shows live owners and outcomes at the requested
+owns the evidence independently of item and release gates. Start and resume
+the walk in the owning registered session, including a desktop session. The read shows live owners and outcomes at the requested
 commit. Independent partitions run in parallel. Use `after_case_key` to wait for an earlier partition.
 Unsupported runners or missing capabilities refuse before any case executes.
 

@@ -100,7 +100,8 @@ def test_scoped_walk_holder_cannot_freeze_fresh_walk(launches, monkeypatch):
     assert refusal.value.code == "qa_walk_needs_launched_session"
 
 
-def test_standalone_resume_survives_the_walk_launch_requirement(monkeypatch):
+def test_registered_desktop_can_start_and_resume_its_standalone_walk():
+    from runtime.api.domain.machine_qa_session_seed import seed_qa_session
     from runtime.api.domain.qa_plan_standalone_execution_test_support import _begin
     from runtime.api.fixtures.pg_testdb import test_database
     from yoke_core.domain.qa_plan_management import create_plan, replace_plan_cases
@@ -118,14 +119,18 @@ def test_standalone_resume_survives_the_walk_launch_requirement(monkeypatch):
                 "method_config": {"executor": "informed_subagent"},
             }],
         )
+        seed_qa_session(conn, "manual-owner", actor_id=7)
+        conn.execute(
+            "UPDATE harness_sessions SET executor_surface='codex-desktop' WHERE session_id=%s",
+            ("manual-owner",),
+        )
         conn.commit()
-        with pytest.raises(guard.QaWalkNeedsLaunchedSession):
-            _begin(conn)
-        conn.rollback()
-        assert conn.execute("SELECT COUNT(*) FROM qa_plan_executions").fetchone()[0] == 0
+        assert conn.execute(
+            "SELECT 1 FROM session_launches WHERE registered_session_id=%s",
+            ("manual-owner",),
+        ).fetchone() is None
 
-        with monkeypatch.context() as before_release:
-            before_release.setattr(guard, "_require_registered_walk_launch", lambda *_: None)
-            live = _begin(conn)
-
-        assert _begin(conn)["id"] == live["id"]
+        first = _begin(conn)
+        assert first["session_id"] == "manual-owner"
+        assert str(first["actor_id"]) == "7"
+        assert _begin(conn)["id"] == first["id"]
