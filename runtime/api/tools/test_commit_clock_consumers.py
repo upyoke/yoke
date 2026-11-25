@@ -38,7 +38,7 @@ def test_relay_install_binds_every_product_to_declared_origin(tmp_path):
 
     with pytest.raises(RelayReleaseError, match="injected download refusal"):
         session_relay_release_install._install_candidate(
-            SimpleNamespace(state_dir=tmp_path),
+            SimpleNamespace(state_dir=tmp_path, environment="prod"),
             release="0.2.0.202610140941",
             served_build="0.2.0.202610140941",
             index="https://packages.example.com/simple/",
@@ -46,7 +46,7 @@ def test_relay_install_binds_every_product_to_declared_origin(tmp_path):
             create_venv=lambda path: path.mkdir(),
             runner=run,
         )
-    products = [arg for arg in calls[0] if arg.startswith("https://")]
+    products = [arg for arg in calls[0] if arg.endswith(".whl")]
     assert set(products) == {
         "https://packages.example.com/dist/releases/0.2.0.202610140941/wheels/"
         f"yoke_{name}-0.2.0.202610140941-py3-none-any.whl"
@@ -79,7 +79,7 @@ def test_public_relay_pin_preserves_the_numeric_handshake(tmp_path):
     )
     assert status.current
     assert status.served_build == status.pinned_release == version
-    assert len([cmd for cmd in calls if "pip" in cmd]) == 1
+    assert len([cmd for cmd in calls if cmd[1:3] == ["pip", "install"]]) == 1
 
 
 def test_response_and_source_comparison_keep_exact_numeric_tag(monkeypatch):

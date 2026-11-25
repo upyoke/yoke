@@ -57,6 +57,7 @@ class RelayInstallOutcome:
     installed: bool
     reused: bool
     connected: bool = False
+    install_timings: tuple[str, ...] = ()
 
 
 def is_supported(
@@ -166,9 +167,7 @@ def is_satisfied(
     *,
     config_path: str | Path | None = None,
     environment: str | None = None,
-    runner: Callable[
-        ..., subprocess.CompletedProcess[str]
-    ] = terminal_detached_process.run,
+    runner: Callable[..., subprocess.CompletedProcess[str]] = terminal_detached_process.run_group,
 ) -> bool:
     """Whether this relay already needs no lifecycle write.
 
@@ -193,9 +192,7 @@ def install(
     local_destination: bool,
     config_path: str | Path | None = None,
     environment: str | None = None,
-    runner: Callable[
-        ..., subprocess.CompletedProcess[str]
-    ] = terminal_detached_process.run,
+    runner: Callable[..., subprocess.CompletedProcess[str]] = terminal_detached_process.run_group,
     wait_for_connection: relay_wait.WaitForConnection | None = None,
 ) -> RelayInstallOutcome:
     """Converge the relay, then wait for its heartbeat on either path."""
@@ -216,9 +213,7 @@ def install(
         )
     except subprocess.TimeoutExpired as exc:
         raise OnboardSessionRelayError(
-            "the machine relay installer did not finish within "
-            f"{relay_wait.RELAY_INSTALL_TIMEOUT_SECONDS} seconds; "
-            f"{_recovery(environment)}"
+            relay_wait.install_timeout_message(exc, recovery=_recovery(environment))
         ) from exc
     except (OSError, subprocess.SubprocessError) as exc:
         raise OnboardSessionRelayError(
@@ -232,7 +227,10 @@ def install(
             f"{installer_detail(completed)}. {_recovery(environment)}"
         )
     connected = wait(relay_wait.RELAY_CONNECT_WAIT_SECONDS)
-    return RelayInstallOutcome(installed=True, reused=False, connected=connected)
+    return RelayInstallOutcome(
+        installed=True, reused=False, connected=connected,
+        install_timings=relay_wait.install_timing_lines(completed.stderr),
+    )
 
 
 def installer_detail(completed: subprocess.CompletedProcess[str]) -> str:

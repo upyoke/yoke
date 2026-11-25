@@ -83,6 +83,8 @@ def test_windows_managed_relay_requests_recycle_without_losing_its_supervisor(mo
 
 
 def test_windows_release_installs_scripts_layout_without_symlinks(tmp_path, monkeypatch):
+    uv = shutil.which("uv")
+    monkeypatch.setattr(shutil, "which", lambda name: uv if name == "uv" else None)
     monkeypatch.setattr(runtime.sys, "platform", "win32")
     monkeypatch.setattr(layout, "os", SimpleNamespace(name="nt"))
     monkeypatch.setattr(links, "link", lambda target, path: shutil.copytree(target, path))
@@ -102,3 +104,14 @@ def test_windows_release_installs_scripts_layout_without_symlinks(tmp_path, monk
     assert status.launch_executable.name == "yoke.cmd"
     assert release.relay_package_executable(instance.state_dir).name == "yoke.exe"
     assert (instance.state_dir / "runtime" / "Scripts" / "yoke.py").is_file()
+
+
+def test_release_venv_does_not_bootstrap_pip(tmp_path, monkeypatch):
+    calls = []
+    monkeypatch.setattr(runtime, "ensure_venv_support", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        runtime.subprocess, "run",
+        lambda argv, **_kwargs: calls.append(argv) or SimpleNamespace(returncode=0),
+    )
+    runtime.create_release_venv(tmp_path / "release", tmp_path / "python")
+    assert calls[0][1:-1] == ["-I", "-m", "venv", "--copies", "--without-pip"]

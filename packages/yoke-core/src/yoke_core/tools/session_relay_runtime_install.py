@@ -80,6 +80,7 @@ def create_release_venv(path: Path, runtime_python: Path) -> None:
             "-m",
             "venv",
             "--copies",
+            "--without-pip",
             str(path),
         ],
         check=False,

@@ -1,6 +1,11 @@
 """Linux onboarding installs the same relay through its native supervisor."""
 
+import inspect
 import subprocess
+
+import pytest
+
+from yoke_contracts.terminal_detached_process import run_group
 
 from yoke_cli.config import onboard_session_relay as relay
 from yoke_cli.commands.adapters.session_control_relay_output import relay_status_fields
@@ -63,3 +68,23 @@ def test_linux_status_text_names_service_state_and_logout():
     assert fields["Configuration present"] and fields["Configuration current"]
     assert fields["Enabled at login"]
     assert fields["Logout behavior"] == "Stops at logout"
+
+
+def test_linux_install_uses_group_runner_and_reports_last_step(monkeypatch):
+    assert inspect.signature(relay.install).parameters["runner"].default is run_group
+    assert inspect.signature(relay.is_satisfied).parameters["runner"].default is run_group
+    monkeypatch.setattr(relay.sys, "platform", "linux")
+
+    def run(argv, **kwargs):
+        if argv[3] == "status":
+            return subprocess.CompletedProcess(argv, 1, "", "")
+        exc = subprocess.TimeoutExpired(
+            argv, kwargs["timeout"], stderr="relay install: dependencies took 12.34 s\n",
+        )
+        exc.add_note("process group cleanup failed: PIDs refused stop")
+        raise exc
+
+    with pytest.raises(relay.OnboardSessionRelayError) as raised:
+        relay.install(local_destination=False, environment="prod", runner=run)
+    assert "relay install: dependencies took 12.34 s" in str(raised.value)
+    assert "PIDs refused stop" in str(raised.value)

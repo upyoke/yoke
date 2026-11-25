@@ -58,7 +58,8 @@ def test_served_build_installs_exact_origin_then_reuses(
         f"yoke_{name}-{encoded}-py3-none-any.whl"
         for name in ("contracts", "cli", "harness", "core")
     ]
-    assert calls[0][1:5] == ["-I", "-m", "pip", "--isolated"]
+    assert calls[0][1:4] == ["pip", "install", "--python"]
+    assert "--no-config" in calls[0]
     assert "--extra-index-url" not in calls[0]
     prior = (instance.state_dir / "release").resolve()
     reused = pin_relay_release(
@@ -99,7 +100,7 @@ def test_undeclared_or_invalid_distribution_refuses_before_install(
     instance.config_path.write_text(json.dumps(payload))
 
     def unexpected_install(*_args, **_kwargs):
-        pytest.fail("a refused distribution must not create a venv or invoke pip")
+        pytest.fail("a refused distribution must not create a venv or invoke uv")
 
     with pytest.raises(RelayReleaseError) as raised:
         pin_relay_release(

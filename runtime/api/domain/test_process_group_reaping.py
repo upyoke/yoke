@@ -17,6 +17,7 @@ import time
 import psutil
 import pytest
 
+from yoke_contracts.terminal_detached_process import run_group
 from yoke_core.domain import process_group_reaping
 
 # A real grandchild retains the inherited pipes until the reaper stops it.
@@ -94,7 +95,7 @@ def test_timeout_reaps_the_whole_tree_before_raising(tmp_path):
     pid_file = tmp_path / "grandchild.pid"
 
     with pytest.raises(subprocess.TimeoutExpired):
-        process_group_reaping.run_in_process_group(
+        run_group(
             [sys.executable, "-c", _SPAWN_GRANDCHILD_THEN_BLOCK, str(pid_file)],
             capture_output=True,
             text=True,
@@ -140,8 +141,8 @@ def test_reaping_reaches_a_grandchild_that_started_its_own_session(tmp_path):
         _kill_if_alive(detached_pid)
 
 
-def test_run_in_process_group_returns_completed_process_on_success():
-    completed = process_group_reaping.run_in_process_group(
+def test_run_group_returns_completed_process_on_success():
+    completed = run_group(
         [sys.executable, "-c", "import sys; sys.stdout.write('hello')"],
         capture_output=True,
         text=True,

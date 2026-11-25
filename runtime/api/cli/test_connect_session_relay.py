@@ -51,14 +51,14 @@ def register_reply(request, connection, **_):
     )
 
 
-def installer(monkeypatch, *, failure=False):
+def installer(monkeypatch, *, failure=False, timings=()):
     calls = []
 
     def run(action, **kwargs):
         calls.append((action, kwargs["environment"], kwargs["config_path"]))
         code = 1 if action == "status" or failure else 0
         return subprocess.CompletedProcess(
-            [], code, "", "token=private-credential" if failure else ""
+            [], code, "", "token=private-credential" if failure else "\n".join(timings)
         )
 
     monkeypatch.setattr(relay, "_run", run)
@@ -89,6 +89,19 @@ def test_connect_installs_saved_destination_relay(
     report = json.loads(capsys.readouterr().out)
     assert report["session_relay"] == {"installed": True, "reused": False}
     assert "ready" not in report["session_relay"]
+
+
+@pytest.mark.parametrize("json_mode", [False, True])
+def test_connect_reports_successful_install_timings(monkeypatch, machine, capsys, json_mode):
+    timings = ["relay install: runtime took 0.11 s", "relay install: verify took 5.31 s"]
+    installer(monkeypatch, timings=timings)
+    args = ["http://127.0.0.1:8765", "--token-stdin", "--name", "selected"]
+    assert connect.connect(args + (["--json"] if json_mode else [])) == 0
+    stdout = capsys.readouterr().out
+    if json_mode:
+        assert json.loads(stdout)["session_relay"]["install_timings"] == timings
+    else:
+        assert stdout.splitlines()[-2:] == timings
 
 
 @pytest.mark.parametrize("failure", [False, True])

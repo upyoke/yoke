@@ -69,6 +69,8 @@ def finish_connection(
             "installed": outcome.installed,
             "reused": outcome.reused,
         }
+        if outcome.install_timings:
+            report["session_relay"]["install_timings"] = list(outcome.install_timings)
     except onboard_session_relay.OnboardSessionRelayError as exc:
         retry = shlex.join(
             onboard_session_relay.relay_command(
@@ -106,6 +108,8 @@ def _emit_result(report: dict[str, Any], *, json_mode: bool) -> int:
         elif relay["installed"]:
             action = "reused" if relay["reused"] else "installed"
             print(f"machine relay {action} for connection {report['env']}")
+            for timing in relay.get("install_timings", ()):
+                print(timing)
     return int("error" in relay)
 
 

@@ -71,7 +71,7 @@ def fake_venv(path: Path) -> None:
 
 
 def runner_for(release: str, calls: list[list[str]]):
-    """A pip/verify runner that reports the release it was asked to install."""
+    """A uv install/verify runner that reports the release it was asked to install."""
 
     def run(command, **_kwargs):
         argv = list(command)
@@ -87,8 +87,8 @@ def reuse_only_runner(release: str):
 
     def run(command, **_kwargs):
         argv = list(command)
-        if "pip" in argv:
-            raise AssertionError(f"{release} reuse ran pip")
+        if argv[1:3] == ["pip", "install"]:
+            raise AssertionError(f"{release} reuse ran uv")
         if "-c" in argv:
             return subprocess.CompletedProcess(argv, 0, f"{release}\n", "")
         raise AssertionError(f"unexpected reuse-path command: {argv}")

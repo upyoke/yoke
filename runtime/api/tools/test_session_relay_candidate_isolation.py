@@ -65,13 +65,14 @@ def _real_candidate_venv(path: Path) -> None:
 
 
 def _installing_runner(donor: Path, argv_log: list[list[str]]):
-    """Stand in for pip, then run the real verification the installer built."""
+    """Stand in for uv, then run the real verification the installer built."""
 
     def run(command, **kwargs):
         argv = list(command)
         argv_log.append(argv)
-        candidate = Path(argv[0]).parent.parent
-        if "pip" in argv:
+        if argv[1:3] == ["pip", "install"]:
+            candidate = Path(argv[argv.index("--python") + 1]).parent.parent
+            assert "PYTHONPATH" not in kwargs["env"]
             _install_yoke_cli(venv_site_packages(candidate), CANDIDATE_RELEASE)
             relay_venv_executable(candidate).write_text("", encoding="utf-8")
             return subprocess.CompletedProcess(argv, 0, "", "")
@@ -127,8 +128,9 @@ def test_candidate_verification_reads_the_candidate_not_the_running_release(
 
 
 def test_candidate_installation_runs_isolated_from_the_running_release(
-    tmp_path: Path, donor_pythonpath: Path
+    tmp_path: Path, donor_pythonpath: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    monkeypatch.setenv("PYTHONPATH", str(donor_pythonpath))
     instance = relay_instance(tmp_path)
     argv_log: list[list[str]] = []
 
@@ -139,8 +141,8 @@ def test_candidate_installation_runs_isolated_from_the_running_release(
         runner=_installing_runner(donor_pythonpath, argv_log),
     )
 
-    install = next(argv for argv in argv_log if "pip" in argv)
-    assert install[1] == PYTHON_ISOLATION_FLAG
+    install = next(argv for argv in argv_log if argv[1:3] == ["pip", "install"])
+    assert "--no-config" in install
 
 
 def test_candidate_environment_is_created_isolated(

@@ -7,6 +7,8 @@ from yoke_core.domain.relay_launcher_path import (
 )
 
 import subprocess
+import sys
+import time
 import uuid
 from collections.abc import Callable
 from pathlib import Path
@@ -21,10 +23,10 @@ from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.timestamps import iso8601_now
 
 from yoke_core.tools import session_relay_local_install as local_install
-from yoke_contracts.public_url import join_public_url
 from yoke_core.tools.session_relay_package_validate import relay_package_runnable_reason
 from yoke_core.domain.relay_release_path import relay_launch_executable
-from yoke_core.tools.session_relay_release import PYTHON_ISOLATION_FLAG, RELAY_ACTIVE_RELEASE_NAME, RELAY_RELEASE_ERROR_NAME, RELAY_RELEASE_FETCH_FAILED, RELAY_RELEASE_INSTALL_FAILED, RELAY_RELEASE_RECEIPT_NAME, ManifestFetcher, RelayReleaseError, RelayReleaseStatus, distribution_index_for_instance, fetch_served_build, relay_active_release_path, relay_release_receipt, relay_release_status, relay_runtime_executable, relay_runtime_python, release_version_from_build, write_release_json
+from yoke_core.tools.session_relay_release import PYTHON_ISOLATION_FLAG, RELAY_ACTIVE_RELEASE_NAME, RELAY_RELEASE_ERROR_NAME, RELAY_RELEASE_INSTALL_FAILED, RELAY_RELEASE_RECEIPT_NAME, ManifestFetcher, RelayReleaseError, RelayReleaseStatus, distribution_index_for_instance, fetch_served_build, relay_active_release_path, relay_release_receipt, relay_release_status, relay_runtime_executable, relay_runtime_python, release_version_from_build, write_release_json
+from yoke_core.tools.session_relay_release_packages import install_release_packages
 from yoke_core.tools.session_relay_release_retention import (
     prune_relay_releases,
     release_install_lock,
@@ -34,11 +36,9 @@ from yoke_core.tools.session_relay_runtime_install import (
     activate_relay_runtime,
     create_release_venv,
     ensure_relay_runtime,
-    subprocess_failure_detail,
 )
 
 RELAY_RELEASES_DIR_NAME = "releases"
-PRODUCT_REQUIREMENT = "yoke-core"
 
 Runner = Callable[..., subprocess.CompletedProcess[str]]
 
@@ -64,10 +64,12 @@ def pin_relay_release(
             observed = observed or fetch_served_build(selected, fetch_manifest=fetch_manifest)
             release = release_version_from_build(observed)
             index = distribution_index_for_instance(selected)
+            started = time.monotonic()
             runtime_python = ensure_relay_runtime(
                 selected.state_dir,
                 create_runtime=create_runtime,
             )
+            _report_timing("runtime", started)
             existing = relay_release_status(
                 instance=selected, refresh_served=False, runner=runner
             )
@@ -170,44 +172,16 @@ def _install_candidate(
     previous = Path(str(relay_release_receipt(instance.state_dir).get("physical_root") or relay_active_release_path(instance.state_dir).resolve()))
     activated = False
     try:
+        started = time.monotonic()
         create_venv(candidate)
-        python = relay_venv_python(candidate)
-        # Explicit product roots keep same-version public-index packages from
-        # replacing the environment's bytes. PyPI supplies third-party dependencies.
-        result = runner(
-            [
-                str(python),
-                PYTHON_ISOLATION_FLAG,
-                "-m",
-                "pip",
-                "--isolated",
-                "install",
-                "--disable-pip-version-check",
-                "--no-input",
-                "--only-binary",
-                ":all:",
-                *[
-                    join_public_url(
-                        index.removesuffix("/simple/"),
-                        "dist",
-                        "releases",
-                        release,
-                        "wheels",
-                        f"yoke_{name}-{release}-py3-none-any.whl",
-                    )
-                    for name in ("contracts", "cli", "harness", "core")
-                ],
-            ],
-            check=False,
-            capture_output=True,
-            text=True,
+        _report_timing("release venv", started)
+        started = time.monotonic()
+        install_release_packages(
+            relay_venv_python(candidate), release=release, index=index,
+            environment=instance.environment, runner=runner,
         )
-        if result.returncode != 0:
-            raise RelayReleaseError(
-                RELAY_RELEASE_FETCH_FAILED,
-                f"could not fetch {PRODUCT_REQUIREMENT}=={release} from "
-                f"{index}: {subprocess_failure_detail(result)}",
-            )
+        _report_timing("dependencies", started)
+        started = time.monotonic()
         broken_reason = relay_package_runnable_reason(
             runtime_python,
             candidate,
@@ -226,6 +200,7 @@ def _install_candidate(
                 RELAY_RELEASE_INSTALL_FAILED,
                 f"installed relay release {release} has no yoke executable",
             )
+        _report_timing("verify", started)
         write_release_json(
             candidate / RELAY_RELEASE_RECEIPT_NAME,
             {
@@ -245,6 +220,12 @@ def _install_candidate(
             remove_link(link)
             if candidate.exists():
                 remove_tree(candidate)
+
+
+
+def _report_timing(step: str, started: float) -> None:
+    print(f"relay install: {step} took {time.monotonic() - started:.2f} s",
+          file=sys.stderr, flush=True)
 
 
 def _with_recovery(

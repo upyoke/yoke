@@ -304,7 +304,7 @@ def test_broken_matching_release_is_rebuilt_from_a_verified_candidate(
 
     def recovering(command, **_kwargs):
         argv = list(command)
-        if "pip" in argv:
+        if argv[1:3] == ["pip", "install"]:
             return subprocess.CompletedProcess(argv, 0, "", "")
         if "-c" in argv:
             probed["count"] += 1
