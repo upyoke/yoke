@@ -49,9 +49,9 @@ def _provision(path: Path, dsn: str = DSN) -> None:
     path.chmod(0o600)
 
 
-def _setup(config_path: Path, *extra: str) -> int:
+def _setup(config_path: Path, *extra: str, env: str = "stage") -> int:
     return yoke_operations_cli.main(
-        ["dev", "db-admin", "setup", "stage", "--config", str(config_path), *extra, "--json"]
+        ["dev", "db-admin", "setup", env, "--config", str(config_path), *extra, "--json"]
     )
 
 
@@ -199,6 +199,81 @@ def test_box_declared_database_needs_only_its_name(box, monkeypatch, capsys, app
     assert entry["authority"]["location"]["database_name"] == "registry_db"
     assert entry["postgres"]["tunnel"]["remote_host"] == "127.0.0.1"
     assert report["declared_database"] == {"model": "registry", "database_name": "registry_db"}
+
+
+@pytest.mark.parametrize("custom_profile", [False, True])
+def test_registry_rerun_uses_its_saved_port(box, monkeypatch, capsys, custom_profile):
+    from yoke_cli.config import db_admin_setup as config
+    from yoke_core.domain.migration_model_capability import validate
+    from runtime.api.domain.test_migration_model_capability_postgres import _postgres_model
+
+    declaration = validate({
+        "models": {"registry": _postgres_model({"database_name": "registry_db"})},
+    })
+    monkeypatch.setattr(
+        config, "_select_control_plane_env", lambda *_a, **_kw: "stage"
+    )
+    monkeypatch.setattr(
+        config.https_transport, "relay_https", lambda *_: _settings(declaration)
+    )
+    registry_dsn = box.home / "secrets" / "yoke-prod-registry-db-admin.dsn"
+    options = ["--database", "registry"]
+    if custom_profile:
+        options.extend(["--admin-env", "custom-registry-admin"])
+
+    _provision(
+        registry_dsn,
+        f"host=localhost port=6598 user=admin password='{PASSWORD}' dbname=registry_db",
+    )
+    assert _setup(
+        box.config_path, *options, "--local-port", "6598", "--yes", env="prod"
+    ) == 0
+    capsys.readouterr()
+
+    assert _setup(box.config_path, *options, "--yes", env="prod") == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["admin_connection"]["connection"]["postgres"]["port"] == 6598
+
+    _provision(registry_dsn, f"postgres://admin:{PASSWORD}@[::1]:6599/registry_db")
+    assert _setup(
+        box.config_path, *options, "--local-port", "6599", "--yes", env="prod"
+    ) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["admin_connection"]["connection"]["postgres"]["port"] == 6599
+
+
+def test_new_prod_control_plane_keeps_standard_default(box, capsys):
+    _provision(box.home / "secrets" / "yoke-prod-db-admin.dsn", DSN.replace(":6548", ":6547"))
+    assert _setup(box.config_path, "--yes", env="prod") == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["admin_connection"]["connection"]["postgres"]["port"] == 6547
+
+
+@pytest.mark.parametrize(
+    ("dsn", "diagnostic"),
+    [
+        (DSN.replace(":6548", ":6598"), "DSN selects 127.0.0.1:6598"),
+        (f"host=localhost port=6548 password='{PASSWORD}", "box_dsn_invalid"),
+        (DSN + "?hostaddr=192.0.2.1", "DSN selects 192.0.2.1:6548"),
+        (DSN.replace("127.0.0.1", "db.example.com"), "DSN selects db.example.com:6548"),
+        (DSN.replace(":6548", ""), "no valid explicit port"),
+    ],
+)
+def test_inconsistent_dsn_refuses_before_applying(box, capsys, dsn, diagnostic):
+    _provision(box.dsn_path, dsn)
+    original_config = box.config_path.read_bytes()
+
+    assert _setup(box.config_path, "--yes") == 1
+
+    captured = capsys.readouterr()
+    assert diagnostic in captured.err
+    assert "selected SSH forward 127.0.0.1:6548" in captured.err
+    if ":6598" in dsn:
+        assert "--local-port 6598" in captured.err
+    assert PASSWORD not in captured.out + captured.err
+    assert dsn not in captured.out + captured.err
+    assert box.calls == []
+    assert box.config_path.read_bytes() == original_config
 
 
 @pytest.mark.parametrize(
