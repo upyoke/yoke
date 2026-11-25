@@ -51,6 +51,9 @@ from typing import Any, Dict, Iterable, List, Mapping, Sequence
 from yoke_core.domain.session_launch_abandonment import (
     settle_and_notify_native_death,
 )
+from yoke_core.domain.session_qa_execution_holdings import session_owns_live_qa_execution
+from yoke_core.domain.session_qa_resume_retention import qa_owner_can_resume
+from yoke_core.domain.work_claim_targets import TARGET_KIND_QA_ADMISSION
 from yoke_core.domain.session_scope_identity import relay_serves_scope
 from yoke_core.domain.session_staleness import activity_is_stale
 from yoke_core.domain.session_reclaim_progress import newest_activity_stamp
@@ -83,7 +86,8 @@ PROCESS_VERIFIED_DEAD_REASON = "process_verified_dead"
 _SESSION_COLUMNS = (
     "session_id, project_id, org_id, actor_id, machine_id, executor, mode, last_heartbeat, "
     "last_tool_call_at, episode_started_at, ended_at, terminated_at, "
-    "native_process_gone_at, native_process_gone_evidence, turn_posture, turn_posture_at"
+    "native_process_gone_at, native_process_gone_evidence, turn_posture, turn_posture_at, "
+    "executor_surface, executor_version, launch_origin"
 )
 
 
@@ -186,6 +190,14 @@ def _retention_reason(
     holdings: Sequence[Any],
 ) -> str | None:
     """Why this proven-dead session's row must survive, or ``None`` to end it."""
+    if session_owns_live_qa_execution(conn, str(row["session_id"])):
+        # Host custody survives session end and is settled by the execution's
+        # abort path. Unrelated holdings still follow normal retention.
+        if qa_owner_can_resume(conn, row) or any(
+            holding["target_kind"] != TARGET_KIND_QA_ADMISSION for holding in holdings
+        ):
+            return CLAIMS_HELD_STATUS
+        return None
     if holdings:
         return CLAIMS_HELD_STATUS
     if session_is_parked(row.get("mode")):

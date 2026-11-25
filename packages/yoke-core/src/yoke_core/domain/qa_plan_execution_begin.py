@@ -244,7 +244,7 @@ def begin_plan_execution(
             else:
                 conn.rollback()
                 raise QaPlanExecutionStateError(
-                    "another actor or session owns the active QA plan execution"
+                    "another actor or session owns the active QA plan execution; use yoke qa plan abort to stop it"
                 )
             retired = True
     for _attempt in range(RUN_READ_ATTEMPTS + 1):

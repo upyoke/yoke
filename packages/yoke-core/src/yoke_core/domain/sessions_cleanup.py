@@ -8,8 +8,11 @@ from typing import Any, Dict, List, Optional
 from . import sessions_analytics as _sa
 from . import db_backend
 from .session_automatic_reclaim import automatic_reclaim, reclaim_facts
+from .session_qa_execution_holdings import session_owns_live_qa_execution
 from .session_reclaim_activity import (
+    REASON_ACTIVE_WORK_CLAIM,
     REASON_KEEPALIVE_HELD,
+    REASON_LIVE_QA_EXECUTION,
     REASON_WAKE_DELIVERY_IN_FLIGHT,
     SCOPE_SESSION_CLEANUP,
     classify_reclaimable,
@@ -49,7 +52,8 @@ def clean_stale_harness_sessions(
 
     The short TTL applies to empty sessions. A strategy-document lock uses
     the holdings TTL. An active work claim protects its session until an
-    explicit release or terminal action, independent of activity or process.
+    explicit release or terminal action. A live QA execution also protects its
+    owner regardless of inactivity.
 
     Each reclaim emits exactly one ``HarnessSessionStaleReclaimed`` event with
     ``stale_minutes``, ``last_event_at``, ``released_claim_count``, ``executor``,
@@ -133,7 +137,7 @@ def clean_stale_harness_sessions(
         if evidence.ended_at is not None:
             continue
         if not decision.is_reclaimable:
-            if decision.reason == "active_work_claim":
+            if decision.reason in (REASON_ACTIVE_WORK_CLAIM, REASON_LIVE_QA_EXECUTION):
                 skipped_between_turns.append(entry)
             elif activity_is_stale(
                 evidence.activity_at,
@@ -171,11 +175,12 @@ def clean_stale_harness_sessions(
         from .sessions_claim_lifecycle_lock import lock_session_rows_for_claim_lifecycle
 
         lock_session_rows_for_claim_lifecycle(conn, (sid,))
-        row = reclaim_facts(conn, [{"session_id": sid}])[0]
+        row = reclaim_facts(conn, [{"session_id": sid}], include_qa_ownership=False)[0]
         row["holds_work_claim"] = session_has_active_work_claim(
             conn, sid
         ) or sid in deployment_driver_holds(conn)
-        if row["holds_work_claim"]:
+        row["owns_live_qa_execution"] = session_owns_live_qa_execution(conn, sid)
+        if row["holds_work_claim"] or row["owns_live_qa_execution"]:
             recheck = automatic_reclaim(row, **options)
         else:
             recheck = classify_reclaimable(

@@ -244,7 +244,7 @@ def begin_standalone_execution(
             )
         if not plan_execution_is_abandoned(conn, prior):
             raise QaPlanExecutionStateError(
-                "standalone_execution_owned: another session owns the live run; wait or have its owner abort it"
+                "standalone_execution_owned: another session owns the live run; let it finish or stop it with yoke qa plan abort"
             )
         finish_plan_execution(
             conn, prior, state="aborted", reason=STALE_PLAN_EXECUTION_REASON

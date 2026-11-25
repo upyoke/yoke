@@ -22,7 +22,7 @@ class TestStreamingTestOutput:
 
     def test_streaming_captures_incremental_output(self, tmp_path: Path) -> None:
         """Transcript is retained for a successful streaming run."""
-        from yoke_core.engines.merge_worktree import _run_streaming
+        from yoke_core.engines.merge_worktree_tests import _run_streaming
 
         rc, transcript = _run_streaming(
             [sys.executable, "-c", "print('line1'); print('line2'); print('line3')"],
@@ -42,7 +42,7 @@ class TestStreamingTestOutput:
         driver = tmp_path / "stream_driver.py"
         driver.write_text(textwrap.dedent(f"""\
             import sys
-            from yoke_core.engines.merge_worktree import _run_streaming
+            from yoke_core.engines.merge_worktree_tests import _run_streaming
 
             rc, _ = _run_streaming(
                 [
@@ -89,7 +89,7 @@ class TestStreamingTestOutput:
 
     def test_streaming_prefix_on_output(self, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
         """Each streamed line is prefixed with [tests]."""
-        from yoke_core.engines.merge_worktree import _run_streaming
+        from yoke_core.engines.merge_worktree_tests import _run_streaming
 
         _run_streaming(
             [sys.executable, "-c", "print('hello')"],
@@ -102,7 +102,7 @@ class TestStreamingTestOutput:
 
     def test_streaming_custom_prefix(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
         """Prefix is configurable (used for phase banners)."""
-        from yoke_core.engines.merge_worktree import _run_streaming
+        from yoke_core.engines.merge_worktree_tests import _run_streaming
 
         _run_streaming(
             [sys.executable, "-c", "print('hi')"],
@@ -115,7 +115,7 @@ class TestStreamingTestOutput:
 
     def test_streaming_nonzero_exit_returns_transcript(self, tmp_path: Path) -> None:
         """Transcript available on non-zero exit for failure report."""
-        from yoke_core.engines.merge_worktree import _run_streaming
+        from yoke_core.engines.merge_worktree_tests import _run_streaming
 
         rc, transcript = _run_streaming(
             [sys.executable, "-c", "print('failure_detail'); raise SystemExit(1)"],
@@ -127,7 +127,7 @@ class TestStreamingTestOutput:
 
     def test_streaming_timeout_terminates_cleanly(self, tmp_path: Path) -> None:
         """Timeout returns -1 and terminates the subprocess tree."""
-        from yoke_core.engines.merge_worktree import _run_streaming
+        from yoke_core.engines.merge_worktree_tests import _run_streaming
 
         child_pid_path = tmp_path / "child.pid"
         parent_code = textwrap.dedent(f"""\
@@ -163,7 +163,7 @@ class TestStreamingTestOutput:
 
     def test_streaming_stderr_merged_into_stdout(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
         """Stderr output also streams through the prefix."""
-        from yoke_core.engines.merge_worktree import _run_streaming
+        from yoke_core.engines.merge_worktree_tests import _run_streaming
 
         rc, transcript = _run_streaming(
             [sys.executable, "-c", "import sys; print('out_line'); print('err_line', file=sys.stderr)"],

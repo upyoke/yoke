@@ -33,7 +33,7 @@ class StageRosterHeld(QaPlanExecutionStateError):
             f"stage_roster_held: live QA plan execution {execution['id']} of "
             f"session {execution['session_id']} holds cases this "
             "stage must settle before more work can start. Keep the work claim, park, and rerun the "
-            "same scoped QA command after that execution settles."
+            "same scoped QA command after it settles. To stop it, use yoke qa plan abort."
         )
 
 
