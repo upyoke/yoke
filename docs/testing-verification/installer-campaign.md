@@ -74,13 +74,13 @@ before reuse, rather than being rewritten as part of the installation.
 Every exported case selects its host by `method_config.os` (`macos`). The
 second-machine case lists two `macos` slots in `method_config.test_machines`, so
 admission holds two distinct hosts, never a reset of the first one. A deployment
-member stage runs the separate host rosters:
+member stage publishes the independent host partitions:
 
 ```text
-yoke watch qa-plan -- --item PREFIX-N --stage STAGE --project P
+yoke qa plan partitions --item PREFIX-N --stage STAGE --deployment-run-id RUN --project P
 ```
 
-Pass no `--test-machine` run pin for that scope. Standalone executions retain one host
+Launch each free walk using the [walker recipe](../public/verification/walking.md#launch-a-walker). The partition selects its hosts. Standalone executions retain one host
 lease; use a one-host saved plan for focused iteration, not a claimed full
 multi-host pass. Preserve the baseline and every unperformed case as evidence.
 

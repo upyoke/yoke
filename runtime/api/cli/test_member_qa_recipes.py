@@ -9,7 +9,7 @@ import pytest
 
 from yoke_contracts.deployment_release_roles_teaching import RELEASE_ROLE_RECIPE
 from yoke_contracts.machine_qa_case_target import case_target_recovery
-from yoke_core.domain import qa_plan_execution_cli, qa_plan_partitions_cli
+from yoke_core.domain import qa_plan_partitions_cli
 from yoke_core.domain.deployment_run_other_target_members import (
     OwedRequirement,
     set_aside_message,
@@ -22,29 +22,11 @@ from yoke_cli.commands.adapters.qa_execution_subjects import (
 ITEM = "EXAMPLE-7"
 
 
-def _member_run_recipes():
-    recipe = RELEASE_ROLE_RECIPE.replace("\\\n", " ")
-    yield re.search(r"yoke watch qa-plan -- --item [^\n]+", recipe).group()
+def _member_partition_recipes():
     root = Path(__file__).resolve().parents[3]
     guide = (root / "docs/testing-verification/installer-campaign.md").read_text()
-    yield re.search(r"yoke watch qa-plan -- --item [^\n]+", guide).group()
-
-
-@pytest.mark.parametrize("recipe", list(_member_run_recipes()))
-def test_taught_member_execution_command_parses(recipe, capsys):
-    tokens = shlex.split(recipe)
-    args = tokens[tokens.index("--") + 1 :] if "--" in tokens else tokens[4:]
-    with patch.object(
-        qa_plan_execution_cli, "execute_plan", return_value={"state": "passed"}
-    ) as execute:
-        assert qa_plan_execution_cli.run(args) == 0
-    assert execute.call_args.kwargs["public_ref"] == args[args.index("--item") + 1]
-    assert execute.call_args.kwargs["deployment_stage"] == "STAGE"
-    assert execute.call_args.kwargs["deployment_run_id"] is None
-    capsys.readouterr()
-
-
-def test_set_aside_notice_names_exact_member_partition_subject():
+    for source in (RELEASE_ROLE_RECIPE, guide):
+        yield re.search(r"yoke qa plan partitions --item [^\n]+", source).group()
     notice = set_aside_message(
         public_ref=ITEM,
         run_id="example-run",
@@ -52,8 +34,11 @@ def test_set_aside_notice_names_exact_member_partition_subject():
         owed=(OwedRequirement(1, "post_deploy", "stage"),),
         route="steering",
     )
-    command = re.search(r"`(yoke qa plan partitions [^`]+)`", notice).group(1)
+    yield re.search(r"`(yoke qa plan partitions [^`]+)`", notice).group(1)
 
+
+@pytest.mark.parametrize("command", list(_member_partition_recipes()))
+def test_taught_member_partition_command_names_the_exact_subject(command):
     with (
         patch("yoke_contracts.runtime_ports.structured_dispatch.get_structured_dispatch"),
         patch.object(qa_plan_partitions_cli, "call_plan_function", return_value={}) as call,
@@ -61,7 +46,8 @@ def test_set_aside_notice_names_exact_member_partition_subject():
         assert qa_plan_partitions_cli.run(shlex.split(command)[4:]) == 0
     kwargs = call.call_args.kwargs
     assert kwargs["function_id"] == "qa.plan_execution.partitions"
-    assert kwargs["target"].public_ref == ITEM
+    args = shlex.split(command)
+    assert kwargs["target"].public_ref == args[args.index("--item") + 1]
     assert kwargs["payload"]["deployment_stage"] == "STAGE"
     assert kwargs["payload"]["deployment_run_id"] == "RUN"
 

@@ -50,12 +50,11 @@ Item-bound batch release — who runs what:
   a resolved decision requests continuation of the same run. Re-enter the
   pinned runner on that run after a continuation notice.
 
-  The deploy driver owns run-scoped visual QA. Inspect the live run target as
-  an agent or assign a capable QA agent through Yoke. Record the inspection
-  for the run and stage, then re-drive that same run:
-    yoke watch qa-plan -- --deployment-run-id RUN-ID --stage STAGE --project P
-  Add `--plan PLAN` only when that run stage names no cases. Item QA captures
-  cannot credit this separate run-scoped stage.
+  The deploy driver owns run-scoped QA. Read the stage's plan partitions:
+    yoke qa plan partitions --deployment-run-id RUN-ID --stage STAGE --plan PLAN --project P
+  The driver runs command-only partitions. For each free walk, use the
+  itemless launch recipe in .yoke/docs/verification/walking.md#launch-a-walker
+  with your own level explicitly in --level.
 
   The member owner stays parked at its release wait holding its own claim, and
   on a natively wakeable surface the deployment wake re-enters it for its QA
@@ -64,18 +63,17 @@ Item-bound batch release — who runs what:
   Yoke: its operator or a steering seat re-enters that owner. When a stage wants its evidence it credits
   that stage by naming the stage AND itself, because a stage credits only the
   requirements bound to its own name:
-    yoke watch qa-plan -- --item PREFIX-N --stage STAGE \\
-      --project P
-  `--plan PLAN` goes on that line only for a stage the wake says names no
-  cases; a stage already naming its own refuses it, because a plan there
-  materializes a second, duplicate set of obligations beside the ones the
-  stage credits.
+    yoke qa plan partitions --item PREFIX-N --stage STAGE --deployment-run-id RUN --project P
+  Run command-only partitions and launch each free walk using the guide above.
+  The holder keeps the claim, takes requested_level from the item launch preview
+  and passes it explicitly to launch create. Add --plan PLAN only when the
+  stage notice asks for a plan.
   Then it finishes with the one agent-facing close-out:
     yoke merge item PREFIX-N --result "..." --verification "..."
 
   Workers never create, execute, or re-drive a deployment run; steering never
   substitutes an unscoped QA run or an internal done engine for the owner's
-  close-out. Depth: `yoke qa plan run --help`, `yoke merge item --help`.
+  close-out. Depth: `yoke qa plan partitions --help`, `yoke merge item --help`.
 """
 
 __all__ = ["RELEASE_ROLE_RECIPE"]
