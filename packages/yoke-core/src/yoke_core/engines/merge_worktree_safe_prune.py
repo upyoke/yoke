@@ -39,7 +39,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from yoke_contracts.api.function_call import TargetRef
-from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+from yoke_core.api import service_client_structured_api_adapter
 from yoke_core.engines.cancelled_lane_discard import discard_and_record
 from yoke_core.engines.deploy_run_worktree_naming import run_id_for_driver_worktree
 from yoke_core.engines.deploy_run_worktree_retirement import (
@@ -103,7 +103,7 @@ def _prune_verdict(
     the prune/keep decision and every git deletion stay client-side.
     """
     try:
-        resp = call_dispatcher(
+        resp = service_client_structured_api_adapter.call_dispatcher(
             function_id="merge.prune.authority_verdict",
             target=TargetRef(kind="global"),
             payload={"branch": branch, "path": (str(path) if path else None)},
