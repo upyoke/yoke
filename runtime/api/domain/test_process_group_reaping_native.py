@@ -9,7 +9,7 @@ from unittest.mock import Mock
 import psutil
 import pytest
 
-from yoke_contracts import terminal_detached_process
+from yoke_contracts import platform_process, terminal_detached_process
 
 from yoke_core.domain import process_group_reaping as reaping
 
@@ -86,9 +86,9 @@ def test_run_group_preserves_timeout_and_stderr_if_stop_fails(monkeypatch, stop_
     timeout = subprocess.TimeoutExpired(["child"], 5, stderr=b"partial")
     process.communicate.side_effect = timeout
     handle = SimpleNamespace(process=process)
-    monkeypatch.setattr(terminal_detached_process, "spawn_group", Mock(return_value=handle))
+    monkeypatch.setattr(platform_process, "spawn_group", Mock(return_value=handle))
     stop = Mock(side_effect=stop_failure)
-    monkeypatch.setattr(terminal_detached_process, "stop_group", stop)
+    monkeypatch.setattr(platform_process, "stop_group", stop)
 
     with pytest.raises(subprocess.TimeoutExpired) as raised:
         terminal_detached_process.run_group(["child"], timeout=5, grace_seconds=2)

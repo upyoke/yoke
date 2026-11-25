@@ -13,8 +13,6 @@ from __future__ import annotations
 import subprocess
 from collections.abc import Sequence
 
-from yoke_contracts.platform_process import spawn_group, stop_group
-
 
 def _detached(kwargs: dict) -> dict:
     if "input" not in kwargs:
@@ -42,6 +40,9 @@ def run_group(
     **kwargs,
 ) -> subprocess.CompletedProcess:
     """Run a noninteractive helper with process-tree custody on timeout."""
+    # CI's stdlib-only bootstrap imports this module for the ordinary runner.
+    from yoke_contracts.platform_process import spawn_group, stop_group
+
     kwargs.setdefault("stdin", subprocess.DEVNULL)
     if capture_output:
         kwargs.setdefault("stdout", subprocess.PIPE)
