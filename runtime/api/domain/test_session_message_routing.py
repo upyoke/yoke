@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from yoke_core.domain.session_message_routing import messageability
 
 
@@ -64,6 +66,32 @@ def test_qualifying_claude_vscode_version_accepts_hook_delivery() -> None:
 
     assert routing["messageable"] is True
     assert routing["reason"] == "hook_delivery"
+
+
+@pytest.mark.parametrize(
+    ("version", "messageable", "reason"),
+    [
+        ("0.171.0-alpha.13.2", True, "hook_delivery"),
+        ("0.148.0-alpha.14.99", False, "version_below_floor_or_unknown"),
+        ("0.171.0-alpha.13.x", False, "version_below_floor_or_unknown"),
+    ],
+)
+def test_codex_vscode_numbered_build_gates_exact_surface_hook_delivery(
+    version: str, messageable: bool, reason: str,
+) -> None:
+    row = _row(surface="codex-vscode", version=version)
+    row["launch_origin"] = "operator"
+
+    routing = messageability(row, liveness="active")
+
+    assert row["executor_version"] == version
+    assert routing["minimum_version"] == "0.148.0-alpha.15"
+    assert routing["messageable"] is messageable
+    assert routing["hook_injection"] is messageable
+    assert routing["wake_operation"] == "message_active"
+    assert routing["wake_interface"] == "none"
+    assert routing["wake_authority"] == "operator"
+    assert routing["reason"] == reason
 
 
 def test_stopped_session_without_a_qualifying_installed_cli_has_no_route() -> None:
