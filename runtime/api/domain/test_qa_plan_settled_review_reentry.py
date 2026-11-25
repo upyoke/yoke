@@ -13,6 +13,8 @@ from runtime.api.domain.qa_capture_settlement_test_support import (
     _submit_pass,
     _unsettled_run_ids,
 )
+from runtime.api.domain.qa_verdict_citation_test_support import cite_case
+
 from yoke_contracts.api.function_call import ActorContext
 from yoke_core.domain import qa_plan_execution
 from yoke_core.domain.qa_plan_execution_cli import run
@@ -167,7 +169,7 @@ def _reviewed_aborted_attempt(
             {
                 "requirement_id": requirement_id,
                 "verdict": verdict,
-                "rationale": f"Capture reviewed independently: {verdict}.",
+                "rationale": cite_case(bundle, f"Capture reviewed: {verdict}."),
             }
         ],
         reviewer_actor_id=ACTOR.actor_id,

@@ -1,7 +1,10 @@
 """Saved verdicts return promptly and the driver adopts deferred credit."""
 
+from importlib import import_module
 from unittest import mock
 from time import monotonic
+
+from runtime.api.domain.qa_verdict_citation_test_support import cite_case
 
 from yoke_contracts.lock_retry import RETRYABLE_LOCK_CODES
 
@@ -14,7 +17,10 @@ from runtime.api.domain.deployment_qa_stage_execution_test_support import (
 from runtime.api.domain.qa_capture_pending_review_test_support import _seed_pending
 from runtime.api.fixtures.pg_testdb import connect_test_database
 from runtime.api.fixtures.dispatch_actor import register_session_actor
-from yoke_core.domain.yoke_function_dispatch import dispatch
+from yoke_core.domain.yoke_function_dispatch import (
+    _ensure_handlers_registered,
+    dispatch,
+)
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
@@ -71,6 +77,9 @@ def _prepared(conn):
 
 
 def _bind(monkeypatch, conn):
+    # Import the real dependencies before their module attributes are patched.
+    _ensure_handlers_registered()
+    import_module("yoke_core.domain.deployment_qa_stage_wake")
     monkeypatch.setattr(
         "yoke_core.domain.db_helpers.connect",
         lambda: connect_test_database(conn.info.dbname),
@@ -186,7 +195,7 @@ def test_review_submit_returns_saved_verdict_after_member_lock_contention(
             {
                 "requirement_id": requirement,
                 "verdict": "pass",
-                "rationale": "Capture passes.",
+                "rationale": cite_case(bundle, "Capture passes."),
             }
         ],
     )

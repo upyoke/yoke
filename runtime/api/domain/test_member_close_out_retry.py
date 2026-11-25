@@ -35,6 +35,8 @@ from runtime.api.fixtures.deployment_scoped_qa_run_fixture import (
     record_case_verdict,
     seed_member_qa_case,
 )
+from runtime.api.domain.qa_verdict_citation_test_support import cite_case
+
 from yoke_contracts.api.function_call import ActorContext, FunctionCallRequest, TargetRef
 from yoke_core.domain.coordination_claims import active_claim
 from yoke_core.domain.deployment_member_close_out_retry import (
@@ -248,7 +250,7 @@ def test_owner_review_closes_accepted_member_while_a_sibling_waits(
         verdicts=[{
             "requirement_id": requirement_id,
             "verdict": "pass",
-            "rationale": "The captured release has the expected content.",
+            "rationale": cite_case(bundle, "The captured release has the expected content."),
         }],
         reviewer_actor_id="1",
         reviewer_session_id=HOLDER_A,

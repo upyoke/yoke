@@ -13,6 +13,8 @@ from runtime.api.domain.machine_qa_test_support import FakeHostControl
 
 from runtime.api.fixtures.backlog_inserts import insert_item
 
+from runtime.api.domain.qa_verdict_citation_test_support import cite_case
+
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
@@ -199,7 +201,7 @@ def _submit_pass(
             {
                 "requirement_id": requirement_id,
                 "verdict": "pass",
-                "rationale": rationale,
+                "rationale": cite_case(bundle, rationale),
             }
         ],
         reviewer_actor_id=ACTOR.actor_id,

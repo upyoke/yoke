@@ -88,7 +88,7 @@ For a deployment member whose cases require several Test Machines, the scoped
 command automatically executes one immutable roster per machine. Each roster
 holds its own lease and participates in that host's FIFO. It keeps the same
 run, stage and frozen item-case or plan-group target.
-A waiting host or independent review stops the command. Re-enter the same
+A host wait or pending agent verdict stops the command. Re-enter the same
 scoped command while review is pending to reprint that bundle without
 recapturing. Once a verdict batch is recorded, the same command reprints
 those verdicts and does not capture the settled requirements; a new capture

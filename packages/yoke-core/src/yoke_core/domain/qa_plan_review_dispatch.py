@@ -87,7 +87,9 @@ def dispatch_contract(
             "and visual artifact against that case's instructions and "
             "expected outcome. Return exactly one independent verdict and "
             f"rationale for each of the {len(cases)} cases. Do not infer a "
-            "verdict from capture status. "
+            "verdict from capture status. Cite artifact N from the case in "
+            "each pass or fail rationale, or run N for its capture run when "
+            "the case has no artifacts. "
             + inconclusive_verdict_guidance(allowed_verdicts)
             + _recorded_mission_clause(cases, str(bundle["execution_id"]))
             + " Use only the "

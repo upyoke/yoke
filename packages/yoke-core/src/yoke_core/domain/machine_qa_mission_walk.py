@@ -35,6 +35,7 @@ def execute_agent_mission_walk_start(raw_contract: dict[str, Any]) -> dict[str, 
         _mission_contract(raw_contract),
         execution_factory=_execution,
         scratch_factory=create_mission_scratch,
+        refuse_existing_scratch=True,
     )
 
 

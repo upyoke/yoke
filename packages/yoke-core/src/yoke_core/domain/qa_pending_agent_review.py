@@ -70,15 +70,15 @@ class PendingAgentReview:
         """The review step that settles this execution.
 
         A ``walking`` mission is still capturing: no review command applies
-        until hand-back moves it to ``awaiting_walk_review``.
+        until walk-end moves it to ``awaiting_walk_review``.
         """
         if self.state == "walking":
             where = f" on {self.test_machine}" if self.test_machine else ""
             return (
                 f"mission walk in progress{where} (plan execution "
                 f"{self.execution_id}, session {self.session_id or 'unrecorded'}); "
-                "its walker hands back to that session, and review opens once "
-                "the execution reaches awaiting_walk_review"
+                "the walking session completes the walk in its main thread and "
+                "submits its cited verdict through the review bundle"
             )
         return (
             "the session that ran the capture "
@@ -214,7 +214,7 @@ def capture_verdict_refusal(pending: PendingAgentReview, requirement_id: int) ->
     walking = pending.state == "walking"
     return compose_refusal(
         f"requirement {requirement_id} belongs to a mission walk still in "
-        "progress; its verdict comes only from the independent review after hand-back"
+        "progress; the walking session submits its verdict through the review bundle"
         if walking
         else f"requirement {requirement_id} is captured and its independent agent "
         "review is pending; its verdict comes only from that review",
@@ -251,13 +251,13 @@ def stage_review_pending_blocker(pending: PendingAgentReview) -> str:
     """Stage wait line for captures whose independent review is pending."""
     return compose_refusal(
         (
-            "scoped QA mission walk is in progress; walker hand-back is pending"
+            "scoped QA mission walk is in progress; the verdict is pending"
             if pending.state == "walking"
             else "scoped QA captures are recorded and independent agent review is "
             "pending; no QA verdict exists yet"
         ),
         evaluated=(
-            f"plan execution {pending.execution_id} is walking; the walker is "
+            f"plan execution {pending.execution_id} is walking; its session is "
             f"still capturing against mission work order {pending.bundle_id}"
             if pending.state == "walking"
             else f"plan execution {pending.execution_id} is {pending.state} "

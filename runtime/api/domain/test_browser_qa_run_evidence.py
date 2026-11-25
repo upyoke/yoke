@@ -125,7 +125,7 @@ def test_file_write_failure_completes_as_capture_failed(tmp_path):
     assert complete.call_args.kwargs["execution_status"] == "capture_failed"
 
 
-def test_clean_walk_evidence_is_taught_on_every_dispatch_and_harness():
+def test_clean_walk_evidence_is_taught_by_the_dispatch_and_walking_guide():
     import ast
     import inspect
     from yoke_core.domain import agent_mission_brief
@@ -136,17 +136,11 @@ def test_clean_walk_evidence_is_taught_on_every_dispatch_and_harness():
                and "On a clean walk," in node.value]
     assert len(prompts) == 2
     for prompt in prompts:
-        assert "proof of the good outcome as evidence before returning the report" in prompt
+        assert "proof of the good outcome as evidence before submitting the verdict" in prompt
     root = Path(__file__).resolve().parents[3]
-    for relative in [
-        "runtime/agents/qa-walker.md",
-        "runtime/harness/claude/agents/yoke-qa-walker.md",
-        "runtime/harness/codex/agents/yoke-qa-walker.toml",
-        "runtime/harness/cursor/agents/yoke-qa-walker.md",
-    ]:
-        text = (root / relative).read_text()
-        assert "On a clean walk, attach one deliberate proof of the good outcome as `evidence`" in text
-        assert "before returning the report, within the same artifact limit" in text
+    text = (root / "docs/public/verification/walking.md").read_text()
+    assert "On a clean walk, attach one deliberate proof of the good outcome as `evidence`" in text
+    assert "before submitting the verdict, within the same artifact limit" in text
 
 
 def test_assert_only_evidence_persists_and_settles_without_manual_attach(tmp_path):

@@ -4,6 +4,8 @@ import pytest
 
 from runtime.api.domain.qa_plan_agent_review_test_support import _review_execution
 from runtime.api.fixtures.pg_testdb import test_database
+from runtime.api.domain.qa_verdict_citation_test_support import cite_case
+
 from yoke_core.domain.qa_capture_settlement import stamp_reviewed_capture
 from yoke_core.domain.qa_plan_review import begin_plan_review
 from yoke_core.domain.qa_plan_review_submission import submit_plan_review
@@ -23,7 +25,7 @@ def test_review_preserves_attempt_count_start_and_evidence():
                 dict(
                     requirement_id=requirement_id,
                     verdict="pass",
-                    rationale="The actual captured frame proves the outcome.",
+                    rationale=cite_case(bundle, "The actual captured frame proves the outcome."),
                 )
             ],
             reviewer_actor_id=None,

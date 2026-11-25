@@ -69,7 +69,7 @@ def test_walk_commands_carry_the_connection_env_in_field_and_prompt() -> None:
     assert "`yoke qa mission host-copy" not in walker["prompt"]
     assert "connected-machine" not in walker["prompt"]
     assert "Clean up everything the walk creates" in walker["prompt"]
-    assert "walker_dispatches[].prompt to its walker unchanged" in dispatch["prompt"]
+    assert "main thread, one at a time, following walker_dispatches[].prompt" in dispatch["prompt"]
 
 
 def test_walk_start_output_names_the_capture_run(monkeypatch, capsys) -> None:

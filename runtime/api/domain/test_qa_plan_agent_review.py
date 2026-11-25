@@ -11,6 +11,8 @@ from runtime.api.fixtures.qa_captured_plan_review_fixture import (
     captured_plan_review as _review_execution,
 )
 from runtime.api.fixtures.pg_testdb import test_database
+from runtime.api.domain.qa_verdict_citation_test_support import cite_case
+
 from yoke_core.domain.qa_plan_detail import get_plan
 from yoke_core.domain.qa_plan_review import (
     QaPlanReviewError,
@@ -149,6 +151,9 @@ def test_agent_verdict_is_per_case_and_only_undetermined_escalates(
             4510 + request_count + (1 if verdict == "fail" else 0),
         )
         bundle = begin_plan_review(conn, execution)
+        rationale = f"Recorded {verdict} from the supplied evidence."
+        if verdict != "undetermined":
+            rationale = cite_case(bundle, rationale)
         result = submit_plan_review(
             conn,
             execution,
@@ -158,7 +163,7 @@ def test_agent_verdict_is_per_case_and_only_undetermined_escalates(
                 {
                     "requirement_id": requirement_id,
                     "verdict": verdict,
-                    "rationale": f"Recorded {verdict} from the supplied evidence.",
+                    "rationale": rationale,
                 }
             ],
             reviewer_actor_id=None,
@@ -173,9 +178,7 @@ def test_agent_verdict_is_per_case_and_only_undetermined_escalates(
         ).fetchone()
         assert result["verdicts"][0]["review_run_id"] == capture_run_id
         assert (run["performed_by"], run["verdict"]) == ("host_control", verdict)
-        assert (
-            run["verdict_reason"] == f"Recorded {verdict} from the supplied evidence."
-        )
+        assert run["verdict_reason"] == rationale
         assert "evidence" in json.loads(run["raw_result"])
         plan_id = int(
             conn.execute(

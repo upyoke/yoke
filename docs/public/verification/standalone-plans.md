@@ -20,6 +20,7 @@ and random execution ids do not determine that order. The identity column is
 added on boot to existing databases; historical rows receive an order at that
 convergence, which cannot recover their original same-second creation order.
 Unsupported runners or missing capabilities refuse before any case executes.
+For missions, follow [Walking QA missions](walking.md).
 
 Commands require `--checkout-path PATH --expected-sha FULL_SHA`: the checkout
 must be clean at that commit. CI cases require the SHA and `--expected-branch REF`,

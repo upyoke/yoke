@@ -277,6 +277,13 @@ def test_walker_dispatch_names_the_walk_commands_and_sequential_walks() -> None:
     assert "the `scratch_path` walk-start prints" in walker["prompt"]
     assert "never a loose path in a temp directory" in walker["prompt"]
     assert "Clean up everything the walk creates" in walker["prompt"]
-    assert "report anything you could not remove" in walker["prompt"]
-    assert "one walker at a time" in contract["prompt"]
+    assert "report anything left" in walker["prompt"]
+    assert "main thread, one at a time" in contract["prompt"]
+    assert "walking.md" in contract["prompt"]
+    assert "yoke say --preview --steering" in contract["prompt"]
+    assert "yoke say --session YOUR_SESSION_ID" in contract["prompt"]
+    assert "yoke sessions touch --mode parked --reason qa-human-gate" in contract["prompt"]
+    for retired in ("one walker at a time", "subagent", "WALK_STATUS", "artifact-read commands"):
+        assert retired not in contract["prompt"]
+        assert retired not in walker["prompt"]
 

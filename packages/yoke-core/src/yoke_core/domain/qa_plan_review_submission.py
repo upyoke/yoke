@@ -25,6 +25,7 @@ from yoke_core.domain.qa_plan_review import (
 )
 from yoke_core.domain.qa_requirement_replacement import announce_discharges
 from yoke_core.domain.qa_run_verdict_record import QaRunWrite
+from yoke_core.domain.qa_verdict_evidence_cite import require_verdict_evidence
 from yoke_core.domain.qa_undetermined_evidence import (
     require_agent_undetermined_evidence,
 )
@@ -33,8 +34,10 @@ from yoke_core.domain.qa_undetermined_evidence import (
 def _validated_verdicts(
     cases: Sequence[Mapping[str, Any]],
     raw: Sequence[Mapping[str, Any]],
+    *,
+    persisted: frozenset[int] = frozenset(),
 ) -> dict[int, tuple[str, str]]:
-    expected = {int(case["requirement_id"]) for case in cases}
+    expected = {int(case["requirement_id"]): case for case in cases}
     result: dict[int, tuple[str, str]] = {}
     for row in raw:
         requirement_id = int(row.get("requirement_id") or 0)
@@ -48,8 +51,10 @@ def _validated_verdicts(
             or len(rationale) > 8000
         ):
             raise QaPlanReviewError("agent review verdict batch is invalid")
+        if verdict != UNDETERMINED_VERDICT and requirement_id not in persisted:
+            require_verdict_evidence(expected[requirement_id], rationale)
         result[requirement_id] = (verdict, rationale)
-    if set(result) != expected:
+    if result.keys() != expected.keys():
         raise QaPlanReviewError(
             "agent review must submit exactly one verdict for every bundle case"
         )
@@ -158,7 +163,6 @@ def submit_plan_review(
             execution=execution,
             missions_walkable=execution_missions_walkable(execution),
         )
-        validated = _validated_verdicts(bundle["cases"], verdicts)
         existing = {
             int(row["requirement_id"]): row
             for row in query_rows(
@@ -167,6 +171,9 @@ def submit_plan_review(
                 (bundle_id,),
             )
         }
+        validated = _validated_verdicts(
+            bundle["cases"], verdicts, persisted=frozenset(existing)
+        )
         now = utc_now()
         run_ids: dict[int, int] = {}
         created_run_ids: dict[int, int] = {}

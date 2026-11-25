@@ -16,6 +16,8 @@ from runtime.api.domain.qa_host_turns_test_support import _notices
 from runtime.api.fixtures.dispatch_actor import register_session_actor
 from runtime.api.fixtures.pg_testdb import test_database
 from runtime.api.fixtures.session_holdings import insert_item_claim
+from runtime.api.domain.qa_verdict_citation_test_support import cite_case
+
 from yoke_core.domain.db_helpers import query_one
 from yoke_core.domain.qa_host_set_turns import execution_waits, record_host_wait
 from yoke_core.domain.qa_host_turns import join_host_queue
@@ -76,7 +78,7 @@ def test_successor_reviews_existing_capture_and_preserves_terminal_history(
                 {
                     "requirement_id": requirement,
                     "verdict": "pass",
-                    "rationale": "Captured evidence satisfies the case.",
+                    "rationale": cite_case(recovered, "Captured evidence satisfies the case."),
                 }
             ],
             reviewer_actor_id=actor,

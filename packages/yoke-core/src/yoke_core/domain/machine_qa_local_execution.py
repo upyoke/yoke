@@ -40,7 +40,6 @@ from yoke_core.domain.machine_qa_fixture_lifecycle import (
     execute_case_with_fixture_lifecycle,
     require_runnable_recipe,
 )
-from yoke_core.domain.machine_qa_mission_scratch import create_mission_scratch
 from yoke_core.domain.machine_qa_phase_heartbeat import (
     MachineQaAborted,
     check_abort,
@@ -274,11 +273,10 @@ def prepare_agent_mission_contract(
     *,
     progress_callback: Callable[[], None] | None = None,
 ) -> dict[str, Any]:
-    """Reach the mission baseline and stage its owner-only scratch."""
+    """Prove the mission baseline for the docket before a walk starts."""
     return prepare_mission(
         _mission_contract(raw_contract),
         execution_factory=_execution,
-        scratch_factory=create_mission_scratch,
         progress_callback=progress_callback,
     )
 

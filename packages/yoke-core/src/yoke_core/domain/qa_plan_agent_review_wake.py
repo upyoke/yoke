@@ -1,4 +1,4 @@
-"""Resume the owner of a scoped capture for independent QA review.
+"""Resume the owner of a scoped capture for QA review.
 
 A finished walk wakes its owner through the item-QA route. A walk stopped by
 an abort or error keeps a pending bundle for its completed captures; that
@@ -100,8 +100,8 @@ def notify_scoped_agent_review(conn: Any, execution: Mapping[str, Any]) -> str:
     def body_for_route(route: str) -> str:
         recovery = (
             f"Owning session {owner}: re-enter `{command}` now. The command "
-            "reprints the pending bundle without recapturing; dispatch its "
-            "typed reviewer contract and submit the complete verdict batch."
+            "reprints the pending bundle without recapturing; follow its "
+            "bundle instructions and submit the complete verdict batch."
             if route == HOLDER
             else f"Owning session {owner or 'unrecorded'} is gone. Route normal "
             "idle/gone-holder starvation and restaffing for this member; the "
@@ -139,7 +139,7 @@ def _notify_finished_group(conn: Any, execution: Mapping[str, Any]) -> str:
         f"execution {execution_id} reached {execution['state']}. No QA verdict "
         f"exists yet. Capture session {owner} (or whoever this reaches when it is "
         f"gone): re-enter `{command}`, which reprints the pending bundle without "
-        "recapturing; dispatch its typed reviewer contract and submit the "
+        "recapturing; follow its bundle instructions and submit the "
         "complete verdict batch."
     )
     return _notify_group_review(
@@ -223,7 +223,7 @@ def _notify_stopped(
     )
     stopped = (
         f"QA plan execution {execution_id} ({where}) stopped as "
-        f"{execution['state']} with completed captures awaiting independent "
+        f"{execution['state']} with completed captures awaiting "
         f"review in bundle {bundle_id}. No QA verdict exists for them yet, and "
         "re-running `yoke qa plan run` cannot supply one."
     )

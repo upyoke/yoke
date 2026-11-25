@@ -12,12 +12,10 @@ Web dashboard **QA** tabs:
 | **Plans** | Project-scoped ordered cases and attachments |
 | **Activity** | Readable outcomes from requirements, runs, evidence |
 
-Plans prioritize review and failed cases, show recency, and expand full review
-reasons. Activity pages through the latest 500 cases per project, including
-earlier days, with text, outcome and local-date filters. It shows the loaded
-boundary; filters never search older cases. Rows show known item identities
-immediately and add public references after lookup. Failed reads offer Retry
-and remain distinct from a successful empty result.
+Plans prioritize failed cases and reviews, and show recency and review reasons.
+Activity filters the latest 500 project cases by text, outcome and local date.
+Rows show known item identities immediately and public references after lookup.
+Failed reads offer Retry and remain distinct from a successful empty result.
 
 ## How gates work
 
@@ -293,6 +291,7 @@ project operator to repair the named definition or target if it persists.
 - [Browser evidence](browser-evidence.md) — Read captures and distinguish execution from inspected verdicts.
 - [Browser identities](browser-identities.md) — Declare personas, sign in and use isolated browser profiles.
 - [Exploratory missions](exploration.md) — Discovery scope, execution, review and human gates.
+- [Walking QA missions](walking.md) — Walk a mission, route human gates and submit cited verdicts.
 - [Exploratory evidence](exploration-evidence.md) — Use substrates, retain evidence and submit mission decisions.
 - [QA model](model/qa.md) — Read requirement, execution and artifact storage contracts.
 - [QA CLI](qa-cli.md) — Use registered requirement, execution and evidence commands.

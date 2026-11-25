@@ -15,6 +15,8 @@ from typing import Any
 from runtime.api.domain.machine_qa_host_test_support import configure_test_machine
 from runtime.api.domain.machine_qa_test_support import FakeHostControl
 from runtime.api.domain import qa_execution_walk_states_test_support as walk_states
+from runtime.api.domain.qa_verdict_citation_test_support import cite_case
+
 from yoke_contracts.machine_qa_execution import (
     AGENT_MISSION_ARTIFACT_LIMIT,
 )
@@ -142,15 +144,16 @@ def test_mission_parks_resumes_and_persists_the_main_report(
     assert dispatch["dispatch_kind"] == "main_agent_mission"
     assert dispatch["artifact_limit"] == AGENT_MISSION_ARTIFACT_LIMIT
     walker = dispatch["walker_dispatches"][0]
-    assert walker["dispatch_kind"] == "subagent"
-    assert walker["subagent_type"] == "yoke-qa-walker"
+    assert "subagent_type" not in walker
+    assert "result_schema" not in walker
     assert "yoke qa browser setup" in walker["browser_setup_command"]
     assert "[--page NAME]" in walker["browser_step_command"]
     assert (
         f"--run-id {ready.result_payload['result']['run_id']}"
         in (walker["artifact_add_command"])
     )
-    assert "WALK_STATUS: HUMAN_GATE" in walker["prompt"]
+    assert "ask the human gate yourself" in walker["prompt"]
+    assert "submit `host_wait` through this bundle" in walker["prompt"]
     assert "scratch_path" not in walker
     assert walker["walk_end_command"] in walker["prompt"]
 
@@ -198,6 +201,7 @@ def test_mission_parks_resumes_and_persists_the_main_report(
         "Ranked findings: 1. Onboarding completed without a blocker. "
         "No important area remained unverified."
     )
+    rationale = cite_case(begin_plan_review(test_db, current), rationale)
     result = submit_plan_review(
         test_db,
         current,

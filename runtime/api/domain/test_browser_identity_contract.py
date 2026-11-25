@@ -213,7 +213,7 @@ def test_walker_dispatch_verifies_each_named_identity_before_browsing():
         f"{base} -- yoke browser verify --project PROJECT --identity admin "
         "--declarations-json DECLARATIONS_JSON --json",
     ]
-    assert "HUMAN_GATE" in clause and "--identity NAME" in clause
+    assert "human-gate route" in clause and "--identity NAME" in clause
     assert preferred is None
     assert walker_identity_dispatch(
         {"method_config": {}}, base, browser_settings={}, execution_target={}

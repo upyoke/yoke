@@ -16,6 +16,8 @@ from runtime.api.fixtures.deployment_scoped_qa_run_fixture import (
     seed_run_standing_on_qa_stage,
 )
 
+from runtime.api.domain.qa_verdict_citation_test_support import cite_case
+
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
@@ -196,7 +198,7 @@ def _submit(
             {
                 "requirement_id": requirement_id,
                 "verdict": verdict,
-                "rationale": f"Reviewed the capture: {verdict}.",
+                "rationale": cite_case(bundle, f"Reviewed the capture: {verdict}."),
             }
         ],
         reviewer_actor_id=None,

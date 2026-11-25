@@ -18,6 +18,10 @@ from yoke_contracts.machine_qa_failures import (
     host_control_failure,
 )
 from yoke_contracts.qa_mission_scratch import mission_scratch_identity
+from yoke_core.domain.machine_qa_mission_scratch import (
+    MissionScratchStateUnknownError,
+    mission_scratch_present,
+)
 from yoke_core.domain.machine_qa_phase_heartbeat import heartbeat_during
 from yoke_core.domain.qa_controller_candidate import stamp_controller_runtime
 from yoke_contracts.machine_qa_result_safety import redact_machine_qa_value
@@ -55,15 +59,16 @@ def prepare_mission(
     contract: Any,
     *,
     execution_factory: Callable[..., Any],
-    scratch_factory: Callable[..., dict[str, Any]],
+    scratch_factory: Callable[..., dict[str, Any]] | None = None,
     progress_callback: Callable[[], None] | None = None,
+    refuse_existing_scratch: bool = False,
 ) -> dict[str, Any]:
     """Return a submittable result even when local host preparation fails.
 
     It runs when the plan records the mission's docket, whose receipt proves
     the declared baseline, and again at ``yoke qa mission walk-start``: a
     mission is walked after its plan's other cases, which may have changed
-    the machine since.
+    the machine since. Only walk-start creates scratch, which marks a live walk.
     """
     baseline_name = contract.baselines[0] if contract.baselines else None
     outcome: dict[str, Any] = {
@@ -88,6 +93,33 @@ def prepare_mission(
     try:
         execution = execution_factory(contract, progress_callback=progress_callback)
         secrets = tuple(execution.material.secrets.values())
+        execution_id = str(contract.plan_execution_id)
+        if refuse_existing_scratch:
+            phase = "mission_scratch_probe"
+            try:
+                started = mission_scratch_present(
+                    execution.control, execution_id=execution_id
+                )
+            except MissionScratchStateUnknownError as error:
+                raise HostControlLocalError(
+                    code="mission_scratch_state_unknown",
+                    phase=phase,
+                    detail=str(error),
+                    secrets=secrets,
+                    recovery_hint="Restore Test Machine access, then rerun walk-start",
+                ) from error
+            if started:
+                raise HostControlLocalError(
+                    code="mission_walk_already_started",
+                    phase=phase,
+                    detail="This execution already has mission scratch on the host",
+                    secrets=secrets,
+                    recovery_hint=(
+                        "Continue with yoke qa mission host-command, or run "
+                        "yoke qa mission walk-end first to reset on purpose"
+                    ),
+                )
+
         from yoke_contracts.qa_continuity_fingerprint import check_continuity
         from yoke_core.domain.machine_reset_recovery import recover_owed_reset
 
@@ -169,12 +201,14 @@ def prepare_mission(
         else:
             preparation["evidence"]["os_packages"] = {}
         phase = "mission_scratch"
-        scratch = scratch_factory(
-            execution.control,
-            execution_id=str(contract.plan_execution_id),
-        )
-        preparation["scratch_path"] = scratch["scratch_path"]
-        preparation["evidence"]["scratch_created"] = True
+        if scratch_factory is None:
+            preparation["scratch_path"] = execution.control.mission_scratch_path(
+                execution_id
+            )
+        else:
+            scratch = scratch_factory(execution.control, execution_id=execution_id)
+            preparation["scratch_path"] = scratch["scratch_path"]
+            preparation["evidence"]["scratch_created"] = True
     except Exception as error:
         if communication_unknown(error) or checkin_busy(error):
             raise

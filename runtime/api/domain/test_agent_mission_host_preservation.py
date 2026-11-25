@@ -84,9 +84,19 @@ def test_explicit_baseline_resets_for_the_docket_and_again_at_walk_start(
     contract.cases[0].host_baseline = baseline
     planned = local.prepare_agent_mission_contract({})["preparation"]
     assert planned["baseline"] == baseline
+    assert planned["evidence"]["scratch_created"] is False
     assert resets == [baseline]
     walked = walk.execute_agent_mission_walk_start({})["preparation"]
     assert walked["baseline"] == baseline
+    assert walked["evidence"]["scratch_created"] is True
+    assert resets == [baseline, baseline]
+    assert packages == [("restore", None), ("restore", None)]
+
+    refused = walk.execute_agent_mission_walk_start({})["preparation"]
+    assert refused["error_code"] == "mission_walk_already_started"
+    recovery = refused["evidence"]["preparation_failure"]["recovery"]
+    assert "yoke qa mission host-command" in recovery
+    assert "yoke qa mission walk-end" in recovery
     assert resets == [baseline, baseline]
     assert packages == [("restore", None), ("restore", None)]
 

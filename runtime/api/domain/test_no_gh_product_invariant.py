@@ -78,6 +78,7 @@ def _iter_targets(root: Path):
 # not add a GitHub CLI dependency to the product's GitHub operations.
 _FIXTURE_RECIPE_SECTIONS = {
     "docs/public/verification/exploration.md": "## Cleanup",
+    "docs/public/verification/walking.md": "## Cleanup",
     "docs/testing-verification/qa-fixture-cleanup.md": "## Delete the test's repositories",
     "runtime/harness/claude/agents/yoke-qa-walker.md": "## Cleanup",
     "runtime/harness/codex/agents/yoke-qa-walker.toml": "## Cleanup",

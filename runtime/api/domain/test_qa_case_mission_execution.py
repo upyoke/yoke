@@ -8,6 +8,8 @@ from runtime.api.domain.qa_plan_execution_authority_test_support import (
     _materialize_two_cases,
 )
 from runtime.api.fixtures.pg_testdb import test_database
+from runtime.api.domain.qa_verdict_citation_test_support import cite_case
+
 from yoke_core.domain import qa_case_execution as cases
 from yoke_core.domain import qa_case_mission_execution as missions
 from yoke_core.domain import qa_plan_execution as plans
@@ -282,6 +284,7 @@ def test_single_mission_reaches_review_and_verdict_with_sibling_untouched(
     assert current["state"] == "awaiting_walk_review"
     assert len(bundle["dispatch"]["walker_dispatches"]) == 1
     assert get_claim(test_db, int(contract["lease_id"])).is_active
+    bundle = begin_plan_review(test_db, current)
     result = submit_plan_review(
         test_db,
         current,
@@ -291,7 +294,7 @@ def test_single_mission_reaches_review_and_verdict_with_sibling_untouched(
             {
                 "requirement_id": selected,
                 "verdict": "pass",
-                "rationale": "Mission checked.",
+                "rationale": cite_case(bundle, "Mission checked."),
             }
         ],
         reviewer_actor_id=ACTOR.actor_id,
