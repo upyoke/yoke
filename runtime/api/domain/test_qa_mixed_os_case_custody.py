@@ -9,7 +9,7 @@ from runtime.api.domain.machine_qa_host_test_support import (
     configure_test_machine,
     verify_fixture_host,
 )
-from runtime.api.domain.machine_qa_session_seed import seed_qa_session
+from runtime.api.domain.machine_qa_session_seed import seed_qa_session, seed_registered_qa_launch
 from runtime.api.domain.machine_qa_test_support import FakeHostControl
 from yoke_contracts.api.function_call import FunctionCallRequest, TargetRef
 from yoke_contracts.machine_config.capability_secret_store import store_test_machine_secret
@@ -46,6 +46,7 @@ ARM_MAC = "mac-studio-lab"
 @pytest.fixture
 def registered_hosts(test_db, tmp_path, monkeypatch):
     configure_test_machine(test_db, tmp_path, monkeypatch)
+    seed_registered_qa_launch(test_db, ACTOR.session_id)
     for name, platform, tags in (
         (WINDOWS, "windows", ""),
         (ARM_MAC, "macos", "arch:arm64"),
@@ -188,6 +189,7 @@ def test_opposite_case_orders_wait_for_the_same_complete_set(test_db, mixed_miss
     first = mixed_missions
     second_actor = ACTOR.model_copy(update={"session_id": "second-mixed-walk"})
     seed_qa_session(test_db, second_actor.session_id, messageable=True)
+    seed_registered_qa_launch(test_db, second_actor.session_id)
     _create_plan(test_db, "mac-before-windows", ("macos", "windows"))
     second = begin_standalone_execution(
         test_db, plan="mac-before-windows", project="yoke",
