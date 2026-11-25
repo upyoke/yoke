@@ -34,6 +34,11 @@ _WALK_LAUNCH_RECOVERY = (
 )
 
 
+
+class QaWalkNeedsLaunchedSession(QaPlanExecutionStateError):
+    code = "qa_walk_needs_launched_session"
+
+
 def require_walk_launch(
     conn: Any, roster: Sequence[Mapping[str, Any]], *, session_id: str
 ) -> None:
@@ -55,9 +60,9 @@ def require_walk_launch(
     )
     if launch is not None:
         return
-    raise QaPlanExecutionStateError(
+    raise QaWalkNeedsLaunchedSession(
         compose_refusal(
-            "qa_walk_needs_launched_session: fresh QA walks require an itemless QA walker launch",
+            f"{QaWalkNeedsLaunchedSession.code}: fresh QA walks require an itemless QA walker launch",
             recovery=_WALK_LAUNCH_RECOVERY,
         )
     )
