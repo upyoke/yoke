@@ -101,7 +101,7 @@ def test_execution_churn_does_not_repeat_the_roster_read(test_db, monkeypatch):
 
 
 def test_retirement_rechecks_custody_after_reacquiring_the_run_lock(test_db, monkeypatch):
-    from yoke_core.domain import qa_plan_execution_begin as beginning
+    from yoke_core.domain import qa_plan_execution_roster_change as roster_change
     from yoke_core.domain.qa_plan_execution_lifecycle import finish_plan_execution
 
     run_id, members = "run-begin-retirement-race", (9841, 9842)
@@ -122,7 +122,7 @@ def test_retirement_rechecks_custody_after_reacquiring_the_run_lock(test_db, mon
             raced[0] = _stage_wide_begin(other, run_id, session="retirement-racer")
         return admit(*args, **kwargs)
 
-    monkeypatch.setattr(beginning, "retire_unstarted_changed_roster", retire)
+    monkeypatch.setattr(roster_change, "retire_unstarted_changed_roster", retire)
     monkeypatch.setattr(admission, "admit_member", race_after_retirement)
     try:
         with pytest.raises(StageRosterHeld) as held:

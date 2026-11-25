@@ -105,7 +105,7 @@ def _seed(conn, tmp_path, monkeypatch, *plans):
     conn.commit()
 
 
-def _begin(conn, session, plan=FIRST):
+def _begin(conn, session, plan=FIRST, *, partition=None):
     return begin_plan_execution(
         conn,
         deployment_run_id=RUN,
@@ -113,6 +113,7 @@ def _begin(conn, session, plan=FIRST):
         plan=plan,
         actor_id="1",
         session_id=session,
+        partition=partition,
     )
 
 
@@ -163,15 +164,15 @@ def test_two_groups_run_in_two_sessions_and_hold_leases_together(
 
 
 def test_a_held_group_refuses_another_session_by_name(test_db, tmp_path, monkeypatch):
+    from yoke_core.domain.qa_plan_partition_chains import partition_key
+
     _seed(test_db, tmp_path, monkeypatch, ON_MAC + ON_STUDIO)
     first = _begin(test_db, SESSIONS[0])
     assert _keys(first) == ["on-mac"]
-    # The studio case follows the mac case in plan order, so it is not free.
     with pytest.raises(StageRosterHeld, match=first["id"]) as refusal:
-        _begin(test_db, SESSIONS[1])
+        _begin(test_db, SESSIONS[1], partition=partition_key(first["roster"]))
     assert "park" in str(refusal.value)
     test_db.rollback()
-    _complete_case(test_db, lock_plan_execution(test_db, first["id"]))
     assert _keys(_begin(test_db, SESSIONS[1])) == ["on-studio"]
 
 
@@ -274,7 +275,7 @@ def test_same_session_insert_race_converges_on_its_own_row(
     first = _begin(test_db, SESSIONS[0])
     # The lookup before the insert misses the row a concurrent begin wrote.
     monkeypatch.setattr(
-        "yoke_core.domain.qa_plan_execution_begin.live_plan_execution_id",
+        "yoke_core.domain.qa_plan_execution_begin_existing.live_plan_execution_id",
         lambda *_args, **_kwargs: None,
     )
     assert _begin(test_db, SESSIONS[0])["id"] == first["id"]

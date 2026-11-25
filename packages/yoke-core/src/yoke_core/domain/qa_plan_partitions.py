@@ -145,6 +145,7 @@ def select_partition(
     session_id: str,
     requirement_id: int | None = None,
     allow_failed: bool = False,
+    stage_wide: bool = False,
 ) -> PartitionView | None:
     """Select an owed partition, or the same session's already frozen work."""
     selected = [
@@ -169,6 +170,10 @@ def select_partition(
         if view is None:
             reason = "no longer matches the owed cases"
         elif view.holder is not None:
+            if stage_wide:
+                from yoke_core.domain.qa_stage_execution_holders import StageRosterHeld
+
+                raise StageRosterHeld(view.holder, view.partition.key)
             reason = (
                 f"is held by execution {view.holder['id']} in session "
                 f"{view.holder['session_id']}"

@@ -18,22 +18,22 @@ from yoke_core.domain.qa_plan_execution_schema import (
     LIVE_PLAN_EXECUTION_STATES,
 )
 from yoke_core.domain.qa_plan_execution_store import (
-    QaPlanExecutionStateError,
     lock_plan_execution,
     select_plan_execution,
 )
+from yoke_core.domain.qa_plan_partition_custody import PartitionUnavailable
 
 
-class StageRosterHeld(QaPlanExecutionStateError):
+class StageRosterHeld(PartitionUnavailable):
     """Another live roster holds cases that must settle before more work starts."""
 
-    def __init__(self, execution: dict[str, Any]) -> None:
+    def __init__(self, execution: dict[str, Any], partition: str | None = None) -> None:
         self.execution = execution
         super().__init__(
-            f"stage_roster_held: live QA plan execution {execution['id']} of "
-            f"session {execution['session_id']} holds cases this "
-            "stage must settle before more work can start. Keep the work claim, park, and rerun the "
-            "same scoped QA command after it settles. To stop it, use yoke qa plan abort."
+            f"qa_partition_unavailable: {f'partition {partition} ' if partition else ''}"
+            f"is held by execution {execution['id']} in session {execution['session_id']}. "
+            "Read yoke qa plan partitions for other free work, or park until "
+            "the owning execution settles."
         )
 
 

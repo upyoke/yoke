@@ -86,6 +86,8 @@ def execute_authorized_case(
 
     if reconcile_case_lane(case, actor):
         case = cases.fetch_case_execution_context(requirement_id, actor=actor, **selection)
+    if case.get("after_case_key") and (case.get("item_id") or case.get("deployment_member_item_id")):
+        _require_predecessor(case, actor=actor)
     runner_options = {
         "base_url": base_url,
         "expected_branch": expected_branch,
@@ -102,6 +104,41 @@ def execute_authorized_case(
 
         return execute_single_plan_case(case, kind="host_command", **runner_options)
     return cases.execute_case_context(case, **runner_options)
+
+
+def _require_predecessor(case: Mapping[str, Any], *, actor: ActorContext | None) -> None:
+    from yoke_core.domain.qa_case_execution import QaCaseExecutionError
+    from yoke_core.domain.qa_plan_execution_dispatch import call_plan_function, execution_actor
+    from yoke_core.domain.qa_plan_execution_result_state import QaPlanExecutionError
+    from yoke_core.domain.qa_plan_execution_target import build_plan_execution_target
+
+    target, payload = build_plan_execution_target(
+        public_ref=case.get("public_ref") or case.get("deployment_member_ref"),
+        transition_id=case.get("workflow_transition_id"),
+        deployment_run_id=case.get("deployment_run_id"),
+        deployment_stage=case.get("deployment_stage"),
+        deployment_member=None, plan=None, project=case["project"],
+    )
+    try:
+        result = call_plan_function(
+            function_id="qa.plan_execution.partitions", target=target, actor=execution_actor(actor),
+            payload={
+                **payload,
+                "checkout_path": case.get("lane_path"),
+                "expected_branch": case.get("lane_branch"),
+            },
+        )
+    except QaPlanExecutionError as exc:
+        raise QaCaseExecutionError(str(exc)) from exc
+    for partition in result["partitions"]:
+        if partition["state"] == "blocked" and any(
+            row.get("requirement_id") == case["requirement_id"] for row in partition["cases"]
+        ):
+            raise QaCaseExecutionError(
+                f"qa_partition_unavailable: requirement {case['requirement_id']} waits for "
+                f"partitions {', '.join(partition['blocked_by'])}. "
+                "Read yoke qa plan partitions and settle its predecessors before running the case."
+            )
 
 
 __all__ = [

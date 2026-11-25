@@ -49,7 +49,7 @@ def _case_document(row: Any) -> dict[str, Any]:
         "host_baselines": _decode(row["host_baselines"], []),
         "starting_state": row["starting_state"],
         "starting_state_reason": row["starting_state_reason"],
-        "after_case_key": row["after_case_key"],
+        **({"after_case_key": row["after_case_key"]} if row["after_case_key"] else {}),
         "target_envs": _decode(row["target_envs"], []),
         "stage_reason": row["stage_reason"],
         "entry_surface": row["entry_surface"],

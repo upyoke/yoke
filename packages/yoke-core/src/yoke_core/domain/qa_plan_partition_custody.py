@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from typing import Any
 
 from yoke_core.domain.db_helpers import query_rows
-from yoke_core.domain.qa_plan_execution_authority import plan_execution_is_abandoned
 from yoke_core.domain.qa_plan_execution_schema import (
     LIVE_PLAN_EXECUTION_SQL,
     LIVE_PLAN_EXECUTION_STATES,
@@ -27,6 +26,10 @@ class PartitionScope:
     deployment_stage: str | None = None
     deployment_member_item_id: int | None = None
     standalone_plan_id: int | None = None
+
+    @property
+    def stage_wide(self) -> bool:
+        return bool(self.deployment_stage and self.deployment_member_item_id is None)
 
     def predicate(self, bind: str) -> tuple[str, tuple]:
         if self.standalone_plan_id is not None:
@@ -54,7 +57,7 @@ class PartitionUnavailable(QaPlanExecutionStateError):
 
 
 def live_partition_executions(conn: Any, scope: PartitionScope) -> list[dict[str, Any]]:
-    if scope.deployment_stage and scope.deployment_member_item_id is None:
+    if scope.stage_wide:
         from yoke_core.domain.qa_stage_execution_holders import live_stage_executions
 
         return live_stage_executions(
@@ -90,6 +93,8 @@ def held_partition_cases(
     conn: Any, scope: PartitionScope
 ) -> dict[int | tuple, dict[str, Any]]:
     """Report live custody without changing execution or host state."""
+    from yoke_core.domain.qa_plan_execution_authority import plan_execution_is_abandoned
+
     return {
         case_identity(row, scope): execution
         for execution in live_partition_executions(conn, scope)
@@ -107,6 +112,7 @@ def admit_partition(
     session_id: str,
 ) -> bool:
     """Under the subject lock, refuse held cases and clean up abandoned custody."""
+    from yoke_core.domain.qa_plan_execution_authority import plan_execution_is_abandoned
     from yoke_core.domain.qa_plan_execution_lifecycle import (
         STALE_PLAN_EXECUTION_REASON,
         finish_plan_execution,
@@ -125,6 +131,10 @@ def admit_partition(
         ):
             continue
         if not plan_execution_is_abandoned(conn, locked):
+            if scope.stage_wide:
+                from yoke_core.domain.qa_stage_execution_holders import StageRosterHeld
+
+                raise StageRosterHeld(locked, key)
             raise partition_unavailable(
                 key, f"is held by execution {locked['id']} in session {locked['session_id']}"
             )

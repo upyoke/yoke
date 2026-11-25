@@ -230,6 +230,7 @@ def _prepare_partition_roster(
     selected = select_partition(
         views, key=partition, session_id=session_id, requirement_id=requirement_id,
         allow_failed=partition is None,
+        stage_wide=scope.stage_wide,
     )
     if selected is None:
         if item_id is not None:
