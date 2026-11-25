@@ -109,6 +109,7 @@ def enrich_item_overview_rows(
     rows: Iterable[dict[str, Any]],
     *,
     compact: bool = False,
+    actor_id: int | None = None,
 ) -> list[dict[str, Any]]:
     """Add owner, public reference, and active-claim facts.
 
@@ -204,7 +205,9 @@ def enrich_item_overview_rows(
                 and item_needs_spec({**fact, **row}),
             })
         action_states = item_action_states(conn, action_rows, claims, runtimes)
-        delivery = _card_delivery(conn, base_rows, facts, compact=compact)
+        delivery = _card_delivery(
+            conn, base_rows, facts, compact=compact, actor_id=actor_id
+        )
     finally:
         conn.close()
 
@@ -262,6 +265,7 @@ def _card_delivery(
     facts: dict[int, Any],
     *,
     compact: bool,
+    actor_id: int | None,
 ) -> dict[int, dict[str, Any]]:
     """Delivery summaries for the rows whose cards draw a delivery box."""
     if compact:
@@ -269,7 +273,7 @@ def _card_delivery(
     from yoke_core.domain.item_overview_card_delivery import card_delivery
 
     return card_delivery(
-        conn, [row for row in base_rows if _delivery_drawn(row)], facts
+        conn, [row for row in base_rows if _delivery_drawn(row)], facts, actor_id=actor_id
     )
 
 

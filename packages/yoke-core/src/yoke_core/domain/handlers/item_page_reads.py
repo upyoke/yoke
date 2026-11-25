@@ -107,6 +107,7 @@ def handle_items_overview_list(request: FunctionCallRequest) -> HandlerOutcome:
     if any(getattr(payload, field) is not None for field in ROSTER_PAGING_FIELDS):
         return _handle_paged_roster(request, payload)
 
+    from yoke_core.domain.actor_project_visibility import numeric_actor_id
     from yoke_core.domain.handlers.items_listing import handle_items_list
     from yoke_core.domain.item_overview_read import enrich_item_overview_rows
 
@@ -143,7 +144,10 @@ def handle_items_overview_list(request: FunctionCallRequest) -> HandlerOutcome:
     outcome = handle_items_list(list_request)
     if not outcome.primary_success:
         return outcome
-    rows = enrich_item_overview_rows(outcome.result_payload.get("rows") or [])
+    rows = enrich_item_overview_rows(
+        outcome.result_payload.get("rows") or [],
+        actor_id=numeric_actor_id(request.actor.actor_id),
+    )
     return HandlerOutcome(
         result_payload={
             "rows": rows,

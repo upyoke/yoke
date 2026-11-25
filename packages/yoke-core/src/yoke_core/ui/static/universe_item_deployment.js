@@ -126,11 +126,14 @@ function itemOutcome(run, row) {
   if (qa?.state === "unreadable") {
     return { symbol: "○", text: "QA unavailable", reason: qa.reason };
   }
+  if (run.delivery_relation === "carried" && (status === "succeeded" || run.build_promoted)) {
+    return { symbol: "○", text: "in build", inBuild: true };
+  }
   if (status === "succeeded") {
     if (run.delivery_relation === "member" && done) {
       return { symbol: "○", text: completed, finished: true };
     }
-    return { symbol: "○", text: run.delivery_relation === "member" ? "awaiting item completion" : "in build" };
+    return { symbol: "○", text: "awaiting item completion" };
   }
   const stage = runStage(run);
   const started = run.started_at || run.created_at;
@@ -147,6 +150,12 @@ function deliveryRuns(row, deployments) {
     run.delivery_item?.completed_deliveries || []
   ))];
   const selected = new Map(shownDeliveryRuns(runs).map((run) => [runEnvironment(run), run]));
+  for (const run of row.delivery?.carried_builds || []) {
+    const environment = runEnvironment(run);
+    if (!selected.has(environment)) {
+      selected.set(environment, { ...run, status: "succeeded", delivery_relation: "carried" });
+    }
+  }
   const seen = new Set();
   for (const entry of attributed) {
     if (seen.has(entry.environment)) continue;
@@ -274,7 +283,8 @@ export function deliverySummary(row, deployments) {
     .filter((run) => run.delivery_relation !== "removed");
   const parts = runs.map((run) => {
     const outcome = itemOutcome(run, row);
-    const state = outcome.finished ? "live" : outcome.symbol === "✗" ? "failed" : "deploying";
+    const state = outcome.inBuild ? "in build"
+      : outcome.finished ? "live" : outcome.symbol === "✗" ? "failed" : "deploying";
     return deliveryStateLabel(state, runEnvironment(run));
   });
   const environment = String(row.completion_environment || "");

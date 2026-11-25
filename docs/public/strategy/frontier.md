@@ -74,15 +74,17 @@ link always opens Items in the current scope, including when the window is empty
 
 Release, Done and frozen On hold cards show delivery by landing and environment. A
 candidate run appears while it carries a landing awaiting delivery there;
-the first successful run settles that landing in that environment. Later runs
-that only contain the same code remain in run history. Stage delivery does not
+the first successful run settles that landing in that environment. The card
+keeps the original carried build link after that run leaves the overview.
+Later runs that only contain the same code remain in run history. Stage delivery does not
 settle Production delivery, and a new landing of the same item starts a new
 delivery. The card names the item's single flow once and shows one current
 row per environment. Once the item has merged, a sub-line under the flow
 header reads `merged <relative time> · PR <number>`; the PR links to its
 repository when known. Unmerged items have no merge sub-line. A `member`
 run owns the item's delivery; a `carried`
-run contains its code without owning its QA. Member outcomes use that member's
+run contains its code without owning its QA. A promoted hosted build reads
+`in build` while the run waits for its members' QA. Member outcomes use that member's
 own QA: a passed item reads `deployed · QA passed` even while its run stays
 open. Only that finished member gets a sub-line naming the run's remaining
 wait. In-progress rows name the current stage and elapsed time. An environment
@@ -97,7 +99,7 @@ has been delivered. A delivery that did happen stays on the card, including
 after cancellation and on a workflow that does not owe one. The run id links
 to its history. Compact Frontier rows and dependency cards say each
 environment's state in one phrase, with the environment's own name:
-`✓ Live in prod`, `Deploying to prod`, `Merged · not in prod yet` or
+`✓ Live in prod`, `In stage build`, `Deploying to prod`, `Merged · not in prod yet` or
 `✗ Failed in prod`. The compact frozen state reads `Frozen · releases don't deliver it`.
 
 ```bash
