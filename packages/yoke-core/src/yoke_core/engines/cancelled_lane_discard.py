@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 
 from yoke_contracts.harness_lane_cleanup import worktree_cleanup_warning
-from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+from yoke_core.api import service_client_structured_api_adapter
 from yoke_core.domain.public_item_target import public_item_target
 from yoke_core.engines.git_worktree_registry import (
     first_output_line,
@@ -201,7 +201,7 @@ def record_discarded_lanes(public_ref: str, lanes: tuple[DiscardedLane, ...]) ->
     if not lanes:
         return ""
     try:
-        response = call_dispatcher(
+        response = service_client_structured_api_adapter.call_dispatcher(
             function_id=RECORD_FUNCTION_ID,
             target=public_item_target(public_ref),
             payload={
