@@ -27,6 +27,20 @@ from runtime.api.dynamic_authority_import_allowlist_relay import (
 
 ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
     (
+        "packages/yoke-cli/src/yoke_cli/commands/adapters/test_machine_operation.py",
+        "yoke_core.domain.host_control_runner",
+    ): (
+        "machine_local_credential_custody",
+        "attach the machine-local SSH credential to the issued Windows operation contract",
+    ),
+    (
+        "packages/yoke-cli/src/yoke_cli/commands/adapters/test_machine_operation.py",
+        "yoke_core.domain.machine_qa_host_control",
+    ): (
+        "client_local_execution",
+        "reuse the managed Windows host control for fixture undo under the direct operation's lease",
+    ),
+    (
         "packages/yoke-cli/src/yoke_cli/engine_upgrade_convergence.py",
         "yoke_core.domain.universe_source_pause",
     ): (
