@@ -6,6 +6,7 @@ from runtime.product_wheel_environment import product_env as _product_env  # noq
 
 import json
 import os
+from hashlib import sha256
 from pathlib import Path
 import subprocess
 import threading
@@ -127,14 +128,23 @@ def _fake_external_command_bin(tmp_path: Path, marker: Path) -> Path:
 
 
 def _tree_snapshot(root: Path) -> list[tuple[str, str, str]]:
+    """Compare file bytes and report unexpected paths without dumping contents."""
     snapshot: list[tuple[str, str, str]] = []
     for path in sorted(root.rglob("*")):
         rel = path.relative_to(root).as_posix()
         if path.is_dir():
             snapshot.append(("dir", rel, ""))
         else:
-            snapshot.append(("file", rel, path.read_text("utf-8")))
+            snapshot.append(("file", rel, sha256(path.read_bytes()).hexdigest()))
     return snapshot
+
+
+def _assert_checkout_unchanged(
+    checkout: Path, before: list[tuple[str, str, str]], operation: str
+) -> None:
+    difference = set(_tree_snapshot(checkout)).symmetric_difference(before)
+    paths = sorted({path for _, path, _ in difference})
+    assert not paths, f"{operation} changed checkout paths: {paths}"
 
 
 def _run(

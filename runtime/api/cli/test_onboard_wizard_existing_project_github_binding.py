@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -25,7 +26,7 @@ from yoke_cli.config import github_machine  # noqa: E402
 from yoke_contracts.machine_config import reader as machine_config  # noqa: E402
 from yoke_cli.config import onboard_local_checkout_identity  # noqa: E402
 from yoke_cli.config import onboard_machine_github  # noqa: E402
-from yoke_cli.config import onboard_wizard_flow_publish  # noqa: E402
+from yoke_cli.config import project_local_git  # noqa: E402
 from runtime.api.cli.onboard_wizard_view_test_support import wait_for_view  # noqa: E402
 
 
@@ -161,26 +162,33 @@ def test_new_project_keeps_existing_origin_and_reaches_binding(
 ) -> None:
     checkout = tmp_path / "new-project"
     checkout.mkdir()
-    _configure_origin(checkout, "example-org/new-project")
+    repository = "example-org/new-project"
+    origin = f"https://github.com/{repository}.git"
+    _configure_origin(checkout, repository)
+    subprocess.run(
+        ["git", "branch", "-m", "trunk"], cwd=checkout, check=True, capture_output=True
+    )
+    checkout_git = {
+        ("rev-parse", "--is-inside-work-tree"): "true\n",
+        ("rev-parse", "--show-toplevel"): f"{checkout}\n",
+        ("config", "--local", "--get-all", "remote.origin.url"): f"{origin}\n",
+        ("remote",): "origin\n",
+    }
+    real_git = project_local_git.run
 
+    def read_checkout(root, *args):
+        if root.resolve() != checkout.resolve():
+            return real_git(root, *args)
+        return subprocess.CompletedProcess(args, 0, stdout=checkout_git[args], stderr="")
+
+    # This scenario takes the publish path, without choosing a clone outcome.
     def detect_origin(result, _value):
-        result.project_github_repo = "example-org/new-project"
+        result.project_github_repo = repository
         result.project_source_default_branch = "trunk"
-        return (
-            "https://github.com/example-org/new-project.git",
-            "https://github.com",
-        )
+        return origin, "https://github.com"
 
-    monkeypatch.setattr(
-        onboard_local_checkout_identity,
-        "inspect",
-        detect_origin,
-    )
-    monkeypatch.setattr(
-        onboard_wizard_flow_publish,
-        "has_remote",
-        lambda _path: True,
-    )
+    monkeypatch.setattr(project_local_git, "run", read_checkout)
+    monkeypatch.setattr(onboard_local_checkout_identity, "inspect", detect_origin)
     monkeypatch.setattr(
         machine_config,
         "github_config",
@@ -242,3 +250,8 @@ def test_new_project_keeps_existing_origin_and_reaches_binding(
     assert applied["project_default_branch"] == "trunk"
     assert applied["project_github_adoption"] == "app-binding"
     assert applied["project_github_adoption_preserve"] is False
+    assert subprocess.check_output(
+        ["git", "config", "--local", "--get", "remote.origin.url"],
+        cwd=checkout,
+        text=True,
+    ).strip() == origin
