@@ -20,6 +20,7 @@ and random execution ids do not determine that order. The identity column is
 added on boot to existing databases; historical rows receive an order at that
 convergence, which cannot recover their original same-second creation order.
 Unsupported runners or missing capabilities refuse before any case executes.
+For missions, follow [Walking QA missions](walking.md).
 
 Commands require `--checkout-path PATH --expected-sha FULL_SHA`: the checkout
 must be clean at that commit. CI cases require the SHA and `--expected-branch REF`,
@@ -43,9 +44,6 @@ keeps simultaneous cases on their declared driver and full host set. For
 single-host cases it recovers each platform’s original host from durable leases and runs, and selects
 a fresh eligible host only for a platform not used before. Read `yoke qa plan run --help` for
 the complete requirements.
-
-For exploratory cases, follow [Walking QA missions](walking.md) to walk the
-mission and submit a cited verdict.
 
 ## Function protocol
 

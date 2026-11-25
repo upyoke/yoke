@@ -1,5 +1,9 @@
 # Walking QA missions
 
+<!-- yoke:breadcrumbs -->
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Verification](index.md) > Walking QA missions
+<!-- /yoke:breadcrumbs -->
+
 Walk each exploratory mission in the session's main thread. Use the mission's
 instructions and expected outcome to explore the declared surfaces, attach
 evidence as you go, and record your verdict from what you observed.
