@@ -29,6 +29,21 @@ def test_registration_on_any_connection_and_next_hook(tmp_path, folder_config):
     assert scope.folder_scope() == "registered"
 
 
+@pytest.mark.windows_only(reason="native drive resolution")
+def test_slash_prefixed_workspace_honors_registration_and_privacy(tmp_path, folder_config):
+    checkout = tmp_path / "project"
+    checkout.mkdir()
+    folder_config["connection_projects"]["two"] = [
+        {"checkout": str(checkout), "project_id": 7}
+    ]
+    reported = "/" + checkout.as_posix()
+    payload = json.dumps({"workspace_roots": [reported]})
+    assert scope.folder_scope(payload) == "registered"
+
+    folder_config["disabled_folders"] = [str(checkout)]
+    assert scope.folder_scope(payload) == "disabled"
+
+
 @pytest.mark.parametrize("key", ["cwd", "workspace", "project_dir", "workspace_roots"])
 def test_disabled_workspace_facts_and_subfolders(tmp_path, folder_config, key):
     child = tmp_path / "disabled" / "child"

@@ -15,11 +15,13 @@ from yoke_contracts.runtime_ports.operating_layer_drift import get_operating_lay
 from yoke_contracts.runtime_ports.operator_cli_release_follow import get_operator_cli_release_follow
 from yoke_contracts.runtime_ports.setup_facts_summary import get_setup_facts_summary
 
+import os
 import subprocess
 import sys
 from pathlib import Path
 from typing import Any, Optional
 
+from yoke_contracts.hook_runner.bash_paths import native_client_path
 from yoke_contracts.hook_runner.chain_registry import (
     session_orientation_event,
     session_orientation_events,
@@ -302,6 +304,7 @@ def _project_root(start: Path) -> Optional[Path]:
     state directory must never turn its home and children into a project.
     """
     try:
+        start = Path(native_client_path(str(start))) if os.name == "nt" else start
         current = start.resolve()
     except OSError:
         return None

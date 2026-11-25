@@ -82,6 +82,13 @@ def windows_path(path: str) -> bool:
     return bool(_DRIVE.match(path)) or path.startswith("\\\\")
 
 
+def native_client_path(path: str) -> str:
+    """Normalize a Windows drive path with an extra leading separator."""
+    if path[:1] in ("/", "\\") and path[2:3] == ":" and windows_path(path[1:]):
+        return ntpath.normpath(path[1].upper() + path[2:])
+    return path
+
+
 def is_absolute(path: str) -> bool:
     return path.startswith("/") or windows_path(path)
 

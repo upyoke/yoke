@@ -10,6 +10,18 @@ from yoke_contracts.hook_runner import bash_paths as paths
 from yoke_contracts.hook_runner.shell_parse import parse_shell
 
 
+@pytest.mark.parametrize("path", ["/C:/Users/x", "/c:/Users/x", r"\c:\Users\x"])
+def test_client_drive_paths_drop_the_extra_separator(path):
+    assert paths.native_client_path(path) == r"C:\Users\x"
+
+
+@pytest.mark.parametrize(
+    "path", [r"C:\Users\x", r"c:\x", "C:/x", "/home/x", "/C:", "/C:x", ""]
+)
+def test_client_paths_without_an_extra_drive_separator_stay_raw(path):
+    assert paths.native_client_path(path) == path
+
+
 def test_drive_paths_do_not_join_to_the_authority_filesystem():
     assert paths.join_path("C:/repo", "D:/lane") == "D:/lane"
     assert (

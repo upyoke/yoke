@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import os
 import shlex
 from typing import Optional
 
+from yoke_contracts.hook_runner.bash_paths import native_client_path
 from yoke_contracts.session_model_facts import SessionModelFacts
 
 from yoke_core.hooks import service_client, target
@@ -14,7 +16,7 @@ def _project_id_for_root(root: str) -> Optional[int]:
     try:
         from yoke_core.domain import machine_config
 
-        return machine_config.project_id(root)
+        return machine_config.project_id(native_client_path(root) if os.name == "nt" else root)
     except Exception:
         return None
 

@@ -3,7 +3,17 @@
 import pytest
 from yoke_contracts.session_model_facts import SessionModelFacts
 from yoke_cli.config import writer as machine_config_writer
+from runtime.harness.hook_project_scope_test_support import project_map as project_map
 from yoke_core.hooks import session_lifecycle_client
+
+
+@pytest.mark.windows_only(reason="native drive resolution")
+def test_local_registration_lookup_resolves_slash_prefixed_workspace(tmp_path, project_map):
+    project_map["connection_projects"]["local"] = [
+        {"checkout": str(tmp_path), "project_id": 7}
+    ]
+    reported = "/" + tmp_path.drive.lower() + tmp_path.as_posix()[2:]
+    assert session_lifecycle_client._project_id_for_root(reported) == 7
 
 
 @pytest.mark.parametrize(
