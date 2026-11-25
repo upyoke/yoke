@@ -12,9 +12,16 @@ from runtime.api.fixtures.backlog_inserts import insert_deployment_run
 
 import pytest
 
-from runtime.api.steering_fleet_test_helpers import NOW, compose, seed_steering_scope
+from runtime.api.steering_fleet_test_helpers import (
+    NOW,
+    STEERING_SESSION,
+    compose,
+    seed_steering_scope,
+)
+from yoke_core.domain.steering_fleet_report_compose import compose_held_reports
 from yoke_core.domain.steering_fleet_report_projection import report_dict
 from yoke_core.domain.steering_fleet_report_render import report_body
+from yoke_core.domain.steering_fleet_report_watcher import watcher_dict
 
 
 RUN_ID = "run-20260826-001"
@@ -129,10 +136,15 @@ def test_an_executing_run_with_nothing_outstanding_is_not_advised_to_re_drive(
     assert "waiting only to be driven" not in body
 
 
-def test_a_created_run_with_nothing_outstanding_is_advised_to_be_driven(
-    fleet,
-) -> None:
-    fleet.execute("UPDATE deployment_runs SET status='created' WHERE id=%s", (RUN_ID,))
+@pytest.mark.parametrize("carried_qa", [False, True])
+def test_a_created_run_is_advised_to_be_driven(fleet, carried_qa) -> None:
+    fleet.execute(
+        "UPDATE deployment_runs SET status='created', current_stage=NULL,"
+        " started_at=NULL, current_stage_entered_at=NULL WHERE id=%s",
+        (RUN_ID,),
+    )
+    if carried_qa:
+        _seed_requirement(fleet, requirement_id=901, member_item_id=1)
     fleet.commit()
 
     report = compose(fleet)
@@ -140,20 +152,26 @@ def test_a_created_run_with_nothing_outstanding_is_advised_to_be_driven(
 
     run = report.deployment_runs[0]
     assert run.status == "created"
-    assert run.outstanding == 0
+    assert run.stage == "unstarted"
+    assert run.outstanding == int(carried_qa)
     assert run.needs_action is True
     assert report.runs_needing_action() == (run,)
     assert f"! {RUN_ID}  created  flow prod-release" in body
-    assert f"Nothing is outstanding; re-drive {RUN_ID} with `yoke watch deploy -- {RUN_ID}` to start it." in body
+    assert f"Start this run with `yoke --env <control-plane> watch deploy -- {RUN_ID}`" in body
+    assert "paired `*-db-admin`" in body
+    assert "`target_occupied`" in body
+    assert "re-drive this same run" in body
+    assert "automatic completion" not in body
 
 
-def test_a_created_run_with_a_live_driver_is_not_advised_to_be_driven(
+def test_created_run_surfaces_in_the_watcher_when_it_loses_its_driver(
     fleet,
 ) -> None:
     from yoke_core.domain.json_helper import dumps_compact
 
     fleet.execute(
-        "UPDATE deployment_runs SET status='created', driver_attachment=%s WHERE id=%s",
+        "UPDATE deployment_runs SET status='created', current_stage=NULL,"
+        " started_at=NULL, current_stage_entered_at=NULL, driver_attachment=%s WHERE id=%s",
         (
             dumps_compact(
                 {
@@ -168,9 +186,11 @@ def test_a_created_run_with_a_live_driver_is_not_advised_to_be_driven(
             RUN_ID,
         ),
     )
+    _seed_requirement(fleet, requirement_id=901, member_item_id=1)
     fleet.commit()
 
-    report = compose(fleet)
+    before = compose_held_reports(fleet, session_id=STEERING_SESSION, now=NOW)
+    report = before.sections[0].report
     body = report_body(report)
 
     run = report.deployment_runs[0]
@@ -180,7 +200,14 @@ def test_a_created_run_with_a_live_driver_is_not_advised_to_be_driven(
     assert report.runs_needing_action() == ()
     assert f"  {RUN_ID}  created  driver freezing_source  flow prod-release" in body
     assert "re-drive" not in body
-    assert "waiting only to be driven" not in body
+    assert watcher_dict(before, before.fingerprint())["digest"] == ""
+
+    fleet.execute("UPDATE deployment_runs SET driver_attachment='' WHERE id=%s", (RUN_ID,))
+    fleet.commit()
+    after = compose_held_reports(fleet, session_id=STEERING_SESSION, now=NOW)
+    delta = watcher_dict(after, before.fingerprint())["digest"]
+    assert f"! {RUN_ID}  created  flow prod-release  stage unstarted" in delta
+    assert "Start this run with" in delta
 
 
 def test_a_healthy_run_is_reported_without_raising_an_alarm(fleet) -> None:
@@ -199,6 +226,7 @@ def test_a_healthy_run_is_reported_without_raising_an_alarm(fleet) -> None:
     assert report.runs_needing_action() == ()
     assert f"  {RUN_ID}  executing  flow prod-release" in body
     assert "1 of 2 outstanding, 0 red" in body
+    assert "finishes by itself when blocking QA settles" in run.recovery()
     # A run nobody has to decide about carries no recovery line: the
     # section is reporting where it is, not asking for anything.
     assert "re-drive" not in body

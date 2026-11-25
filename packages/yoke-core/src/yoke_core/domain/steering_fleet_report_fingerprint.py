@@ -140,6 +140,7 @@ def project_payload(rows: ProjectRows) -> dict[str, Any]:
             (
                 entry.run_id,
                 entry.stage,
+                entry.start_needed,
                 entry.outstanding,
                 entry.total_blocking,
                 tuple(entry.unresolved),
