@@ -25,6 +25,7 @@ from yoke_core.domain.deployment_run_driver_notice import (
 )
 from yoke_core.domain.merge_queue_landing_notice import HOLDER, push_notice
 from yoke_core.domain.qa_host_health import HOST_WAIT_TEACHING
+from yoke_core.domain.qa_partition_launch_recipe import partition_launch_command
 from yoke_core.domain.qa_walk_launch_required import WALK_LAUNCH_GUIDANCE
 
 #: Identity every item-scoped and run-scoped QA wait notice shares, so a
@@ -140,6 +141,9 @@ def stage_wait_message(
             f"qa_plan_nothing_owed. Check 'yoke deployment-runs get {run_id}' "
             "for the current state."
         )
+    launch = partition_launch_command(
+        project="PROJECT", subject=item_ref, leg=stage_name, key="KEY",
+    )
     return (
         f"Deployment run {run_id} reached item-scoped QA stage {stage_name!r} "
         f"for {context}. Reaching {addressed}: {item_ref} still needs to "
@@ -152,9 +156,7 @@ def stage_wait_message(
         f"{_plan_selection(names_cases)} --project PROJECT --partition KEY'. "
         "For each free walk, read requested_level with "
         f"'yoke session-control launch preview --project PROJECT --item {item_ref}'. "
-        "Pass that value explicitly as --level LEVEL to "
-        "'yoke session-control launch create --project PROJECT --level LEVEL --surface CLI "
-        f"--raw-instructions --stdin --idempotency-key qa-walk:{item_ref}:{stage_name}:KEY:1'. "
+        f"Use that value for LEVEL in '{launch}'. "
         "Omit --item from launch create. Instruct the walker to use only the exact free "
         "partition with delegated QA access. The holder retains its work claim. "
         "Leave other held partitions and their host queues in place. "

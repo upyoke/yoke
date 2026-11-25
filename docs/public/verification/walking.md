@@ -20,15 +20,16 @@ For each free walk partition, launch one itemless CLI session:
 
 ```sh
 printf %s "$INSTRUCTIONS" | yoke session-control launch create --project P \
-  --level LEVEL --surface codex-cli --raw-instructions --stdin \
+  --level LEVEL --raw-instructions --stdin \
   --idempotency-key "qa-walk:SUBJECT:SCOPE:KEY:ATTEMPT"
 ```
 
-Choose `claude-cli`, `codex-cli` or `cursor-cli` per launch to spread walks across
-harnesses. Use the `requested_level` from `yoke session-control launch preview
+Use the `requested_level` from `yoke session-control launch preview
 --project P --item ITEM` for item and member QA. Use your own level for a
 plan group or an itemless standalone plan. Pass that value explicitly as
-`--level` on launch create. Supply no `--item` to launch create.
+`--level` on launch create. Yoke selects the surface and model for that level.
+To pin a particular CLI, replace `--level LEVEL` with `--surface SURFACE --model MODEL`
+and optionally add `--reasoning-effort EFFORT`. Supply no `--item` to launch create.
 Use the item or member ref, `RUN:STAGE:PLAN` for a plan group, or `PLAN@SHA` for
 standalone as SUBJECT. Use the transition or stage for SCOPE and `-` for groups
 and standalone. Reuse the same ATTEMPT if the launch reply was lost. Use a new ATTEMPT

@@ -188,7 +188,7 @@ def _replacement_adoption(conn, execution, item_ref: str, project: str) -> str:
     return (
         "The capture session has ended. Set LEVEL to requested_level from "
         f"yoke session-control launch preview --project {project} --item {item_ref}. "
-        f"Set CLI to a relay CLI surface and advance NEXT_ATTEMPT. {recipe}"
+        f"Advance NEXT_ATTEMPT. {recipe}"
     )
 
 
