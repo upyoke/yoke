@@ -75,7 +75,7 @@ QA_PLAN_EXECUTION_RESULT_COLUMNS = (
     "completed_at",
 )
 QA_PLAN_EXECUTION_INDEXES = (
-    (QA_PLAN_EXECUTION_TABLE, "idx_qa_plan_executions_active"),
+    (QA_PLAN_EXECUTION_TABLE, "idx_qa_plan_executions_item_session_active"),
     *((QA_PLAN_EXECUTION_TABLE, name) for name in EXECUTION_SCOPE_INDEX_NAMES),
     (
         QA_PLAN_EXECUTION_RESULT_TABLE,
@@ -119,8 +119,8 @@ CREATE TABLE IF NOT EXISTS qa_plan_executions (
     CONSTRAINT {EXECUTION_SUBJECT_CONSTRAINT}
         CHECK ({EXECUTION_SUBJECT_EXPRESSION})
 );
-CREATE UNIQUE INDEX IF NOT EXISTS idx_qa_plan_executions_active
-    ON qa_plan_executions(item_id, transition_id)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_qa_plan_executions_item_session_active
+    ON qa_plan_executions(item_id, transition_id, session_id)
     WHERE item_id IS NOT NULL
         AND state IN ('active','waiting','walking','awaiting_walk_review');
 {EXECUTION_SCOPE_INDEX_SQL}

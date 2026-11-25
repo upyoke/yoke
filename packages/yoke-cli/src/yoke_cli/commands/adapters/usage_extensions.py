@@ -54,6 +54,7 @@ def extend_adapter_usage(target: Dict[str, str]) -> None:
             "universe.cursor_quota_order.set": settings.USAGES["set"],
             "qa.case_execution.begin": qa_case.QA_CASE_RUN_USAGE,
             "qa.plan_execution.begin": qa_case.QA_PLAN_RUN_USAGE,
+            "qa.plan_execution.partitions": qa_case.QA_PLAN_PARTITIONS_USAGE,
             "qa.plan_execution.abort": qa_case.QA_PLAN_ABORT_USAGE,
             "qa.plan_execution.adopt": qa_case.QA_PLAN_ADOPT_USAGE,
             "qa.plan_execution.reconcile": qa_case.QA_PLAN_RECONCILE_USAGE,

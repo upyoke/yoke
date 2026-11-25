@@ -248,6 +248,7 @@ def _validated_cases(cases: list[dict]) -> list[dict]:
                 "host_baselines": list(dict.fromkeys(baselines)),
                 "starting_state": raw.get("starting_state"),
                 "starting_state_reason": raw.get("starting_state_reason"),
+                "after_case_key": raw.get("after_case_key"),
                 "target_envs": target_envs,
                 "stage_reason": raw.get("stage_reason"),
                 "entry_surface": raw.get("entry_surface"),
@@ -301,9 +302,11 @@ def _validated_plan_cases(
         )
         validate_case_targets(conn, plan=plan, case=case)
     from yoke_core.domain.qa_plan_case_store import (
+        require_earlier_predecessors,
         apply_starting_states,
         apply_wake_paths,
     )
+    require_earlier_predecessors(cases)
 
     apply_wake_paths(cases)
     apply_starting_states(

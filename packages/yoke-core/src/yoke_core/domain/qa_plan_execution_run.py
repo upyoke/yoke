@@ -69,6 +69,8 @@ def execute_begun_plan(
     from yoke_core.domain.qa_case_execution import execute_case_context
 
     def _execute_local(requirement):
+        if requirement.get("delegated_walk") and is_host_command(requirement):
+            requirement = {**requirement, "plan_execution_id": execution_id}
         return execute_case_context(
             requirement,
             base_url=resolved_base_url,

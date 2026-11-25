@@ -91,6 +91,8 @@ ALREADY_SERVED_FUNCTION_IDS: frozenset[str] = frozenset((
     'qa.plan.create', 'qa.plan.edit', 'qa.plan.get', 'qa.plan.list',
     'qa.plan.materialize', 'qa.plan.rematerialize', 'qa.plan_cases.replace', 'qa.plan_execution.abort',
     'qa.plan_execution.advance', 'qa.plan_execution.begin', 'qa.plan_execution.complete', 'qa.plan_execution.heartbeat',
+    'qa.plan_execution.partitions',
+    'qa.plan_execution.command_record',
     'qa.plan_review.begin', 'qa.plan_review.submit', 'qa.post_deploy.declare_none', 'qa.post_deploy.record_no_obligation',
     'qa.project_default.set', 'qa.project_default.unset', 'qa.project_method.register', 'qa.registered_command.set',
     'qa.requirement.add', 'qa.requirement.add_batch', 'qa.requirement.get', 'qa.requirement.list',

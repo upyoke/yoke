@@ -39,8 +39,10 @@ Read [envelope and authority](index.md) first. `none` means no dispatcher work-c
 | `qa.plan_execution.adopt` | `qa_subject` |
 | `qa.plan_execution.advance` | `qa_subject` |
 | `qa.plan_execution.begin` | `qa_subject` |
+| `qa.plan_execution.command_record` | `qa_subject` |
 | `qa.plan_execution.complete` | `qa_subject` |
 | `qa.plan_execution.heartbeat` | `qa_subject` |
+| `qa.plan_execution.partitions` | `qa_subject` |
 | `qa.plan_execution.pause` | `qa_subject` |
 | `qa.plan_execution.reconcile` | `none` |
 | `qa.plan_execution.resume` | `qa_subject` |

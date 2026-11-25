@@ -71,7 +71,7 @@ READ_FUNCTION_IDS = frozenset(
         "projects.level_summary.get projects.list projects.resolve_by_github_repo "
         "qa.activity.list qa.artifact.get qa.artifact.presign qa.artifact.read "
         "qa.browser_context.get qa.case_execution.begin qa.gate_summary.run "
-        "qa.method.get qa.method.list qa.plan.get qa.plan.list qa.requirement.get "
+        "qa.method.get qa.method.list qa.plan.get qa.plan.list qa.plan_execution.partitions qa.requirement.get "
         "qa.requirement.list qa.run.get qa.run.list readiness.check.run "
         "readiness.prd_validate.run resync.compare_prefetch resync.epic_task_body "
         "resync.epic_task_repair_read resync.item_lookup resync.linkage_roster "

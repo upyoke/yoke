@@ -50,6 +50,7 @@
   "qa plan": "Create, change and run QA plans.",
   "qa plan abort": "Stop a running QA plan, with a reason.",
   "qa plan adopt": "Take over a QA plan run left by an ended session.",
+  "qa plan partitions": "Read QA case chains and their execution custody.",
   "qa plan cases": "Set the cases in a QA plan.",
   "qa plan cases replace": "Replace all cases in a QA plan from a file.",
   "qa plan cases sync": "Update a QA plan's cases from an exported source.",

@@ -93,17 +93,21 @@ a later attacher gets a new group.
 
 ## Machine partitions
 
-Member plan runs group cases by declared OS or OS slots; an `inherit` chain
-stays in its opener's group. Each group runs an immutable roster with its own
-lease and the same frozen target. Sessions walk separate plans concurrently,
-one live execution per session and target. Begin skips held groups and aborts
-abandoned holders. Plan order holds across machine groups.
-A host wait or independent review stops the command. Rerun the same scoped
-command to reprint a pending review bundle or its recorded passes. Use
-`--replaces` to recapture a passed case. Rerunning failed or undetermined
-cases starts a fresh execution. Rerun after review to continue remaining
-hosts. The member is accepted once every required case passes. Omit
-`--test-machine` for groups that need different hosts.
+Read each partition's cases, hosts, and custody with
+`yoke qa plan partitions --item ITEM --stage STAGE --deployment-run-id RUN`.
+Start a session per free partition with `yoke qa plan run --partition KEY`
+and the same scope. Host leases serialize independent chains on one host.
+
+Use `after_case_key` to wait for an earlier case's partition to pass.
+Each chain uses its own baseline. Use `starting_state: inherit` to reuse
+machine state within a chain.
+
+The item read freezes the lane. Walkers use `--expected-branch` and
+`--expected-sha` from that receipt. The claim holder runs `lane` cases
+with `yoke qa case run --requirement-id ID`.
+
+Use `--resume-execution-id ID` for a waiting execution or to reprint its
+pending review bundle. The member is accepted once every required case passes.
 
 For simultaneous hosts, list at least two OS slots in `method_config.test_machines`
 with exactly one `driver` and no singular `os`, e.g.
@@ -125,11 +129,8 @@ chain never reacquires lost custody. If a follower declares different hosts,
 chain from a named baseline. Only the opener selects hosts.
 
 An exploratory mission walks after captures and may inherit only at a chain's
-tail; no case may inherit after it. Item and deployment scopes isolate the
-whole chain so no later capture disturbs its state. Standalone mixed plans
-refuse `inherited_mission_requires_isolated_plan`: put the chain in its own
-plan or use item/deployment attachment. Declare `inherit` to preserve
-preparation.
+tail. A partition keeps the chain whole on its declared hosts, including in
+a standalone plan. Declare `inherit` to preserve preparation.
 
 ## Shared host turns and starting state
 
@@ -176,9 +177,9 @@ cursor steps over cases already recorded, so resume never reruns them. Machine
 cases, `inherit` chains, baselines, and agent- or human-judged cases keep their
 roster order.
 
-If a walker discovers a second required host is occupied, return
-`WALK_STATUS: HOST_WAIT` and its registered name plus holder evidence. Submit
-through the current bundle's `yoke qa plan review-submit ... --stdin`:
+If another session holds a required host, submit `host_wait` through the
+current review bundle with the registered machine name and holder evidence.
+Use `yoke qa plan review-submit ... --stdin`.
 
 ```json
 {"host_wait":{"test_machine":"linux-example","rationale":"holder evidence"}}

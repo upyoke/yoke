@@ -56,6 +56,7 @@ CREATE TABLE IF NOT EXISTS qa_requirements (
     host_baseline TEXT,
     starting_state TEXT,
     starting_state_reason TEXT,
+    after_case_key TEXT,
     entry_surface TEXT,
     required_completion TEXT,
     workflow_transition_id TEXT,

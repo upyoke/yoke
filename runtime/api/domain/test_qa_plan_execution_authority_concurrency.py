@@ -1,5 +1,3 @@
-"""Concurrency, takeover, and backend portability for QA plan authority."""
-
 from __future__ import annotations
 
 import sqlite3
@@ -44,15 +42,14 @@ from yoke_core.domain.qa_plan_execution_store import (
 from yoke_core.domain.qa_execution_environment_target import target_digest
 
 _RACE_TIMEOUT_SECONDS = 30
-
-
 def _begin_race(
     *,
     item_id: int,
     owners: tuple[tuple[str, str], tuple[str, str]],
+    selectors: tuple[int, int] = (0, 0),
 ) -> tuple[list[dict[str, Any]], int]:
     with test_database() as setup:
-        _materialize_two_cases(setup, item_id=item_id)
+        requirements = _materialize_two_cases(setup, item_id=item_id)
         barrier = threading.Barrier(2)
         connections = [connect_test_database(setup.info.dbname) for _index in range(2)]
         outcomes: list[dict[str, Any]] = []
@@ -66,6 +63,7 @@ def _begin_race(
                     connections[index],
                     item_id=item_id,
                     transition_id="implemented",
+                    requirement_id=requirements[selectors[index]],
                     actor_id=actor_id,
                     session_id=session_id,
                 )
@@ -107,20 +105,27 @@ def test_concurrent_begin_from_same_owner_converges_on_one_execution() -> None:
     assert len({outcome["execution"]["id"] for outcome in outcomes}) == 1
 
 
-def test_concurrent_begin_from_different_owner_returns_domain_refusal() -> None:
+@pytest.mark.parametrize("selectors", [(0, 0), (0, 1)])
+def test_concurrent_begin_from_different_owners_holds_disjoint_partitions(selectors) -> None:
     outcomes, live_count = _begin_race(
         item_id=4411,
         owners=(("7", "first-session"), ("8", "second-session")),
+        selectors=selectors,
     )
 
     successes = [outcome["execution"] for outcome in outcomes if "execution" in outcome]
     failures = [outcome["error"] for outcome in outcomes if "error" in outcome]
+    if selectors == (0, 1):
+        assert live_count == len(successes) == 2, outcomes
+        assert not failures
+        assert len({run["roster"][0]["requirement_id"] for run in successes}) == 2
+        return
     assert live_count == 1, outcomes
     assert len(successes) == 1
     assert len(failures) == 1
     assert isinstance(failures[0], QaPlanExecutionStateError)
     assert not isinstance(failures[0], psycopg.IntegrityError)
-    assert "another actor or session" in str(failures[0])
+    assert "qa_partition_unavailable:" in str(failures[0])
 
 
 def test_stale_owner_is_aborted_and_held_machine_lease_is_released() -> None:
@@ -167,7 +172,6 @@ def test_stale_owner_is_aborted_and_held_machine_lease_is_released() -> None:
         assert prior["release_reason"] == "stale-heartbeat"
         assert prior["test_machine_lease_id"] is None
         assert released.is_active is False
-        # One termination path settles the row and its lease under one reason.
         assert released.release_reason_intent == "stale-heartbeat"
 
 

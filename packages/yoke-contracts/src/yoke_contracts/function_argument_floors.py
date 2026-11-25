@@ -162,7 +162,11 @@ FUNCTION_ARGUMENT_MINIMUM_SERVING_VERSIONS: dict[str, dict[str, ArgumentFloor]] 
         function_id: {
             "test_machine": _TEST_MACHINE_FLOOR,
             **(
-                {"deployment_run_id": _ITEM_RUN_FLOOR}
+                {
+                    "deployment_run_id": _ITEM_RUN_FLOOR,
+                    "partition": ArgumentFloor("next-release", "partition admission"),
+                    "expected_sha": ArgumentFloor("next-release", "the claim holder's frozen QA lane"),
+                }
                 if function_id == "qa.plan_execution.begin"
                 else {}
             ),

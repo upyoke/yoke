@@ -96,6 +96,7 @@ class PreparedRoster:
     digest: str
     execution_target: dict[str, Any]
     execution_target_digest: str
+    partition: str | None = None
 
 
 def prepare_roster(
@@ -115,19 +116,42 @@ def prepare_roster(
     session_id: str,
     test_machine: str | None,
     requirement_id: int | None = None,
+    partition: str | None = None,
+    source_session_id: str | None = None,
 ) -> PreparedRoster | dict[str, Any]:
     """Read the roster to freeze, or the answer that replaces starting one.
 
     The answer is a settled review to reprint or a completed execution that
     already covers the roster; neither writes.
     """
-    from yoke_core.domain.qa_member_machine_partitions import member_machine_partition
     from yoke_core.domain.qa_plan_execution_roster import validate_roster_machine
     from yoke_core.domain.qa_plan_execution_target_snapshot import (
         execution_target_for_roster,
     )
-    from yoke_core.domain.qa_plan_item_target_partition import item_target_partition
     from yoke_core.domain.qa_plan_settled_review import open_unsettled_roster
+
+    if partition is not None or (requirement_id is not None and (
+        item_id is not None or deployment_stage is not None
+    )) or _has_authored_order(conn, item_id, transition_id, deployment_run_id, deployment_stage):
+        return _prepare_partition_roster(
+            conn,
+            item_id=item_id,
+            transition_id=transition_id,
+            deployment_run_id=deployment_run_id,
+            deployment_stage=deployment_stage,
+            deployment_member_item_id=deployment_member_item_id,
+            expected_target=expected_target,
+            expected_target_digest=expected_target_digest,
+            plan=plan,
+            host_capability_kinds=host_capability_kinds,
+            checkout_path=checkout_path,
+            expected_branch=expected_branch,
+            session_id=session_id,
+            test_machine=test_machine,
+            requirement_id=requirement_id,
+            partition=partition,
+            source_session_id=source_session_id,
+        )
 
     scope = dict(
         deployment_run_id=deployment_run_id,
@@ -148,7 +172,10 @@ def prepare_roster(
         session_id=session_id,
     )
 
-    def settle(source: list[dict[str, Any]]) -> tuple[Any, list[dict[str, Any]]]:
+    from yoke_core.domain.qa_member_machine_partitions import member_machine_partition
+    from yoke_core.domain.qa_plan_item_target_partition import item_target_partition
+
+    def settle(source):
         return open_unsettled_roster(
             conn, source, item_id=item_id, transition_id=transition_id, **scope
         )
@@ -158,11 +185,8 @@ def prepare_roster(
         reprint, roster = settle(roster)
     else:
         reprint, roster, item_remaining = item_target_partition(
-            conn,
-            roster,
-            item_id=int(item_id),
-            transition_id=str(transition_id),
-            settle=settle,
+            conn, roster, item_id=int(item_id), transition_id=str(transition_id),
+            settle=settle, session_id=session_id,
         )
     if reprint:
         return reprint
@@ -184,6 +208,126 @@ def prepare_roster(
     return PreparedRoster(
         roster, remaining, digest, execution_target, execution_target_digest
     )
+
+
+def _has_authored_order(conn, item_id, transition, run_id, stage):
+    from yoke_core.domain.qa_plan_execution_store import marker
+
+    bind = marker(conn)
+    subject = (
+        f"item_id={bind} AND workflow_transition_id={bind}"
+        if item_id is not None
+        else f"deployment_run_id={bind} AND deployment_stage={bind}"
+    )
+    return bool(conn.execute(
+        f"SELECT 1 FROM qa_requirements WHERE {subject} "
+        "AND after_case_key IS NOT NULL AND retracted_at IS NULL LIMIT 1",
+        (item_id, transition) if item_id is not None else (run_id, stage),
+    ).fetchone())
+
+
+def _prepare_partition_roster(
+    conn,
+    *,
+    item_id,
+    transition_id,
+    deployment_run_id,
+    deployment_stage,
+    deployment_member_item_id,
+    expected_target,
+    expected_target_digest,
+    plan,
+    host_capability_kinds,
+    checkout_path,
+    expected_branch,
+    session_id,
+    test_machine,
+    requirement_id,
+    partition,
+    source_session_id,
+):
+    from yoke_core.domain.qa_case_execution_context import get_case_execution_context
+    from yoke_core.domain.qa_plan_execution_roster import validate_roster_machine
+    from yoke_core.domain.qa_plan_execution_target_snapshot import execution_target_for_roster
+    from yoke_core.domain.qa_plan_partition_custody import PartitionScope, partition_unavailable
+    from yoke_core.domain.qa_plan_partitions import scoped_partition_views, select_partition
+
+    scope = PartitionScope(
+        item_id, transition_id, deployment_run_id, deployment_stage, deployment_member_item_id
+    )
+    roster = build_execution_roster(
+        conn,
+        item_id=item_id, transition_id=transition_id, deployment_run_id=deployment_run_id,
+        deployment_stage=deployment_stage, deployment_member_item_id=deployment_member_item_id,
+        execution_target_digest=expected_target_digest, plan=plan,
+        checkout_path=checkout_path, expected_branch=expected_branch,
+        session_id=source_session_id or session_id,
+    )
+    views = scoped_partition_views(conn, scope, roster)
+    selected = select_partition(
+        views, key=partition, session_id=session_id, requirement_id=requirement_id,
+        allow_failed=True,
+        stage_wide=scope.stage_wide,
+    )
+    if selected is None:
+        from yoke_core.domain.qa_plan_settled_review import open_unsettled_roster
+
+        for view in views:
+            if not any(row["verdict_path"] == "agent" for row in view.partition.roster):
+                continue
+            reprint, _ = open_unsettled_roster(
+                conn, view.partition.roster, item_id=item_id, transition_id=transition_id,
+                deployment_run_id=deployment_run_id, deployment_stage=deployment_stage,
+                deployment_member_item_id=deployment_member_item_id,
+            )
+            if reprint:
+                return reprint
+        if item_id is not None:
+            raise QaPlanExecutionStateError(
+                "qa_plan_roster_passed_at_candidate: every partition already passed. "
+                "Read each partition with `yoke qa plan partitions` or the "
+                "recorded results with `yoke qa requirement list`."
+            )
+        from yoke_core.domain.qa_plan_nothing_owed import nothing_owed
+
+        raise nothing_owed(
+            conn, roster_size=len(roster), deployment_run_id=deployment_run_id,
+            deployment_stage=deployment_stage, deployment_member_item_id=deployment_member_item_id,
+        )
+    part = selected.partition
+    if requirement_id is not None and len(part.roster) != 1:
+        raise partition_unavailable(part.key, "must run its entire inherited chain")
+    if part.kind == "lane" and requirement_id is None:
+        requirement = part.roster[0]["requirement_id"]
+        raise partition_unavailable(
+            part.key, f"belongs to the source lane; run `yoke qa case run --requirement-id {requirement}`"
+        )
+    roster = [
+        {
+            **row, "ordinal": ordinal,
+            **({"delegated_walk": True} if source_session_id else {}),
+        }
+        for ordinal, row in enumerate(part.roster)
+    ]
+    if selected.holder is None and host_capability_kinds is not None:
+        for row in roster:
+            get_case_execution_context(
+                conn, requirement_id=row["requirement_id"],
+                host_capability_kinds=host_capability_kinds,
+                checkout_path=checkout_path, expected_branch=expected_branch,
+                session_id=source_session_id or session_id,
+            )
+    validate_roster_machine(conn, roster, test_machine)
+    target, digest = execution_target_for_roster(roster)
+    if expected_target is not None and canonical(target) != canonical(expected_target):
+        raise QaPlanExecutionStateError(
+            "materialized QA roster does not match the active deployment target"
+        )
+    remaining = sum(
+        len(view.partition.roster)
+        for view in views if view is not selected and view.state != "passed"
+    )
+    return PreparedRoster(roster, remaining, roster_digest(roster), target, digest, part.key)
 
 
 __all__ = [

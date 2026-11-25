@@ -28,7 +28,7 @@ from yoke_core.domain.deployment_qa_shared_execution import _begin_open_group
 from yoke_core.domain.qa_plan_execution_target_snapshot import (
     execution_target_for_roster,
 )
-from yoke_core.domain import qa_plan_execution_cli
+from yoke_core.domain import qa_plan_execution_cli, qa_plan_partitions_cli
 
 
 def test_printed_release_recipes_parse(test_db):
@@ -58,14 +58,20 @@ def test_printed_release_recipes_parse(test_db):
         execution_target_for_roster([
             {"execution_target": {"target": value}, "execution_target_digest": value}
             for value in ("one", "two")])
-    text = str(mixed.value)
-    recipes += [re.search(r"deployment QA stage with (yoke qa plan run .+?), or each", text)[1]]
-    assert len(recipes) == 6
+    assert "`yoke qa plan partitions`" in str(mixed.value)
+    assert len(recipes) == 5
     for recipe in recipes:
         tokens = shlex.split(recipe, comments=True)
         if tokens[1] == "--env":
             del tokens[1:3]
-        assert tokens[:4] == ["yoke", "qa", "plan", "run"], recipe
+        assert tokens[:3] == ["yoke", "qa", "plan"], recipe
         args = tokens[4:]
-        with patch.object(qa_plan_execution_cli, "execute_plan", return_value={"state": "passed", "results": []}):
-            assert qa_plan_execution_cli.run(args) == 0, recipe
+        if tokens[3] == "partitions":
+            with patch.object(qa_plan_partitions_cli, "call_plan_function", return_value={"partitions": []}), patch(
+                "yoke_contracts.runtime_ports.structured_dispatch.get_structured_dispatch"
+            ):
+                assert qa_plan_partitions_cli.run(args) == 0, recipe
+        else:
+            assert tokens[3] == "run", recipe
+            with patch.object(qa_plan_execution_cli, "execute_plan", return_value={"state": "passed", "results": []}):
+                assert qa_plan_execution_cli.run(args) == 0, recipe

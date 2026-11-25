@@ -25,10 +25,11 @@ OWNER = "queued-walk-owner"
 OLD = "2026-01-01T00:00:00Z"
 
 
-def _begin(conn, session=OWNER):
+def _begin(conn, session=OWNER, *, requirement_id=None):
     return begin_plan_execution(
         conn, item_id=4909, transition_id="implemented",
         actor_id="1", session_id=session,
+        requirement_id=requirement_id,
     )
 
 
@@ -69,11 +70,12 @@ def test_abandonment_paths_follow_waiting_owner_lifetime(
             [execution["id"]] if abandoned else []
         )
     elif path == "begin":
+        requirement = execution["roster"][0]["requirement_id"]
         if abandoned:
-            assert _begin(test_db, "competing-owner")["id"] != execution["id"]
+            assert _begin(test_db, "competing-owner", requirement_id=requirement)["id"] != execution["id"]
         else:
-            with pytest.raises(QaPlanExecutionStateError, match="another actor or session"):
-                _begin(test_db, "competing-owner")
+            with pytest.raises(QaPlanExecutionStateError, match=f"qa_partition_unavailable:.*{execution['id']}"):
+                _begin(test_db, "competing-owner", requirement_id=requirement)
     elif path == "stage-holder":
         # Isolate discovery; exercise the real lock, authority and settlement.
         monkeypatch.setattr(

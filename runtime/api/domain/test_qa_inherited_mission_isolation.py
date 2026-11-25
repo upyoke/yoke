@@ -1,31 +1,34 @@
 """Deferred mission walks keep the state their predecessor prepared."""
 
-from unittest.mock import patch
-
 import pytest
 
 from runtime.api.domain.qa_member_machine_partitions_test_support import SESSION, _seed
 from yoke_core.domain.qa_plan_chain_hosts import chain_host_groups
-from yoke_core.domain.qa_plan_execution_store import QaPlanExecutionStateError
-from yoke_core.domain.qa_plan_item_target_partition import item_target_partition
+from yoke_core.domain.qa_plan_partition_chains import roster_partitions
 from yoke_core.domain.qa_standalone_execution import begin_standalone_execution
+from yoke_core.domain.qa_standalone_partitions import standalone_partition_views
 
 
 SLOTS = [{"os": "linux"}, {"os": "macos", "driver": True}]
 
 
 def _roster():
-    common = {"plan_id": 1, "baseline_position": 1, "execution_target_digest": "target"}
+    common = {
+        "plan_id": 1, "baseline_position": 1, "execution_target_digest": "target",
+        "verdict_path": "automatic",
+    }
     return [
         {
             **common,
             "requirement_id": 1,
+            "case_key": "prepare",
             "runner_id": "host_control",
             "method_config": {"test_machines": SLOTS},
         },
         {
             **common,
             "requirement_id": 2,
+            "case_key": "walk",
             "starting_state": "inherit",
             "runner_id": "agent_mission",
             "method_config": {"test_machines": SLOTS},
@@ -33,31 +36,17 @@ def _roster():
         {
             **common,
             "requirement_id": 3,
+            "case_key": "independent",
             "runner_id": "host_control",
             "method_config": {"os": "macos"},
         },
     ]
 
 
-@pytest.mark.parametrize("passed", [set(), {1}])
-def test_item_execution_isolates_a_mission_chain_on_the_same_target(passed):
+def test_item_execution_isolates_a_mission_chain_on_the_same_target():
     roster = _roster()
-    module = "yoke_core.domain.qa_plan_item_target_partition"
-    with (
-        patch(
-            f"{module}.candidate_passed_requirements", return_value=("a" * 40, passed)
-        ),
-        patch(f"{module}.live_plan_execution_id", return_value=None),
-    ):
-        _, selected, remaining = item_target_partition(
-            None,
-            roster,
-            item_id=1,
-            transition_id="reviewing-implementation",
-            settle=lambda rows: (None, rows),
-        )
-    assert [row["requirement_id"] for row in selected] == [1, 2]
-    assert remaining == 1
+    partitions = roster_partitions(roster)
+    assert [[row["requirement_id"] for row in part.roster] for part in partitions] == [[1, 2], [3]]
     # Before admission a chain names no host: it carries its opener's slots.
     assert chain_host_groups(roster)[1] == ("macos", ("linux", "macos"), 1, None)
     assert chain_host_groups(roster)[3] == (None, (), None, "macos")
@@ -71,7 +60,7 @@ def test_mission_chain_does_not_cross_a_plan_or_baseline_boundary():
 
 
 @pytest.mark.parametrize("trailing", [False, True])
-def test_standalone_mission_chain_requires_its_own_plan(
+def test_standalone_partition_keeps_the_inherited_mission_with_its_opener(
     test_db, tmp_path, monkeypatch, trailing
 ):
     _seed(test_db, tmp_path, monkeypatch, inherit=True, mission=True, trailing=trailing)
@@ -80,6 +69,11 @@ def test_standalone_mission_chain_requires_its_own_plan(
         "WHERE project_id=1 AND name='stage') WHERE slug='host-check-0'"
     )
     test_db.commit()
+
+    plan_id = test_db.execute(
+        "SELECT id FROM qa_plans WHERE slug='host-check-0'"
+    ).fetchone()[0]
+    partitions = standalone_partition_views(test_db, plan_id, source_revision="a" * 40)
 
     def begin():
         return begin_standalone_execution(
@@ -90,18 +84,21 @@ def test_standalone_mission_chain_requires_its_own_plan(
             session_id=SESSION,
             source_revision="a" * 40,
             checkout_path=str(tmp_path),
+            partition=partitions[0].partition.key,
         )
 
+    execution = begin()
+    assert len(execution["roster"]) == 2
+    assert execution["roster"][-1]["starting_state"] == "inherit"
     if trailing:
-        with pytest.raises(
-            QaPlanExecutionStateError, match="inherited_mission_requires_isolated_plan"
-        ) as error:
-            begin()
-        assert "separate plan" in str(error.value)
-    else:
-        execution = begin()
-        assert len(execution["roster"]) == 2
-        assert execution["roster"][-1]["starting_state"] == "inherit"
+        another = begin_standalone_execution(
+            test_db, plan="host-check-0", project="yoke", actor_id="2",
+            session_id="another-walker", source_revision="a" * 40,
+            checkout_path=str(tmp_path),
+            partition=partitions[1].partition.key,
+        )
+        assert len(another["roster"]) == 1
+        assert another["id"] != execution["id"]
 
 
 def test_each_chain_baseline_takes_only_its_own_chain_hosts(
@@ -121,6 +118,7 @@ def test_each_chain_baseline_takes_only_its_own_chain_hosts(
     from yoke_core.domain.qa_plan_management import replace_plan_cases
     from yoke_core.domain.qa_plan_execution_state import (
         advance_plan_execution,
+        finish_plan_execution,
         lock_plan_execution,
     )
     from yoke_core.domain.qa_plan_host_leases import execution_host_leases
@@ -166,6 +164,7 @@ def test_each_chain_baseline_takes_only_its_own_chain_hosts(
             for position, key in enumerate(["independent", "opener", "follower"], 1)
         ],
     )
+    partitions = standalone_partition_views(test_db, plan_id, source_revision="a" * 40)
     execution = begin_standalone_execution(
         test_db,
         plan="host-check-0",
@@ -174,6 +173,7 @@ def test_each_chain_baseline_takes_only_its_own_chain_hosts(
         session_id=SESSION,
         source_revision="a" * 40,
         checkout_path=str(tmp_path),
+        partition=partitions[0].partition.key,
     )
     assert _case_begin(execution).primary_success
     current = lock_plan_execution(test_db, execution["id"])
@@ -188,9 +188,16 @@ def test_each_chain_baseline_takes_only_its_own_chain_hosts(
         requirement_id=opener["requirement_id"],
         result={"requirement_id": opener["requirement_id"], "case_outcome": "passed"},
     )
-    response = _case_begin(current, 1)
+    finish_plan_execution(test_db, current, state="completed", reason="first-partition")
+    second = begin_standalone_execution(
+        test_db, plan="host-check-0", project="yoke", actor_id="1", session_id=SESSION,
+        source_revision="a" * 40, checkout_path=str(tmp_path),
+        partition=partitions[1].partition.key,
+    )
+    assert second["id"] != execution["id"]
+    response = _case_begin(second, 0)
     assert response.primary_success, response.error
-    current = lock_plan_execution(test_db, execution["id"])
+    current = lock_plan_execution(test_db, second["id"])
     # The opener's baseline is not covered, so its slots are acquired anew; the
     # idle identical mac stays free.
     assert {
@@ -201,15 +208,15 @@ def test_each_chain_baseline_takes_only_its_own_chain_hosts(
         "SELECT released_at FROM work_claims WHERE id=%s", (old_lease,)
     ).fetchone()[0]
 
-    opener = current["roster"][1]
+    opener = current["roster"][0]
     advance_plan_execution(
         test_db,
         current,
-        ordinal=1,
+        ordinal=0,
         requirement_id=opener["requirement_id"],
         result={"requirement_id": opener["requirement_id"], "case_outcome": "passed"},
     )
-    response = _case_begin(current, 2)
+    response = _case_begin(current, 1)
     assert response.primary_success, response.error
     assert len(execution_host_leases(test_db, current)) == 2
 

@@ -88,7 +88,7 @@ def get_case_execution_context(
         "q.expected_outcome, q.method_config, q.host_baseline, "
         "q.starting_state, q.starting_state_reason, q.workflow_transition_id, q.entry_surface, "
         "q.required_completion, q.method_name, q.runner_id, "
-        "q.capability_requirements, q.verdict_path, "
+        "q.capability_requirements, q.verdict_path, q.after_case_key, "
         "q.execution_target_json, q.execution_target_digest, "
         "p.id AS project_id, "
         "p.slug AS project, "
@@ -173,12 +173,8 @@ def get_case_execution_context(
             available_capabilities,
             subject=f"QA requirement {requirement_id}",
         )
-        # Substrate this case's own runner installs where it executes is
-        # proved by that machine, not by a project row, so admission lets it
-        # through and the runner provisions it on first use. Refusing here
-        # instead would make installed, working browser tooling unusable
-        # until somebody declared an otherwise empty capability by hand. A
-        # runner that provisions nothing keeps every gate it had.
+        # Runners provision their declared substrate where they execute.
+        # These capabilities do not require a separate project declaration.
         provisioned_on_the_host = set(
             host_provisioned_capability_kinds(
                 method_snapshot["runner_id"],
@@ -240,6 +236,8 @@ def get_case_execution_context(
     }
     if context["runner_id"] in {"ci_run", "worktree_run"}:
         context.update(lane_id=None, lane_path=None, lane_commit_sha=None)
+    if row["after_case_key"] is not None:
+        context["after_case_key"] = row["after_case_key"]
     if declares_starting_state(context):
         context.update(
             (key, row[key]) for key in ("starting_state", "starting_state_reason")

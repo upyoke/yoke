@@ -242,7 +242,7 @@ def test_candidate_controller_runs_the_roster_itself(monkeypatch, served):
 def test_adopted_execution_skips_a_second_begin(monkeypatch, served):
     _identity(monkeypatch, CANDIDATE)
     plan = _Plan(monkeypatch)
-    qa_plan_execution.execute_plan.__wrapped__(
+    qa_plan_execution.execute_plan(
         deployment_run_id="run-1",
         deployment_stage="item-qa",
         plan="P",

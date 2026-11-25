@@ -124,6 +124,7 @@ def get_plan(
             "host_baselines": host_baselines,
             "starting_state": case["starting_state"],
             "starting_state_reason": case["starting_state_reason"],
+            "after_case_key": case["after_case_key"],
             "target_envs": _decode(case["target_envs"], []),
             "stage_reason": case.get("stage_reason"),
             "entry_surface": case["entry_surface"],

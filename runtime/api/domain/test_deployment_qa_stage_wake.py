@@ -122,7 +122,12 @@ def test_item_message_names_the_stage_and_member_bound_invocation():
         "yoke qa plan run --item EXT-541 --stage item-qa "
         "--deployment-run-id run-1 --plan PLAN" in body
     )
-    assert "never counts" in body
+    assert (
+        "yoke qa plan partitions --item EXT-541 --stage item-qa "
+        "--deployment-run-id run-1 --plan PLAN" in body
+    )
+    assert "--partition KEY" in body
+    assert "qa-walk:EXT-541:item-qa:KEY:1" in body
 
 
 def test_run_message_names_driver_execution_and_review_recovery():

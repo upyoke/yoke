@@ -224,19 +224,14 @@ def qa_subject_claim_verdict(
             "claim_required",
             "QA operation target has no item or deployment-run subject",
         )
-    # Resolve the dispatcher attribute at call time for claim-policy tests.
-    from yoke_core.domain.qa_start_bound_authority import payload_grants_authority
+    from yoke_core.domain.qa_walk_authority import qa_walk_or_start_bound_verdict
     from yoke_core.domain.yoke_function_dispatch_claims import who_claims_for_item
 
     row = who_claims_for_item(int(target_id))
     if row and str(row.get("session_id") or "") == actor_session:
         return True, None, None
-    if payload_grants_authority(
-        payload,
-        session_id=actor_session,
-        item_id=int(target_id),
-    ):
-        return True, None, None
+    if verdict := qa_walk_or_start_bound_verdict(request, item_id=int(target_id)):
+        return verdict
     if request.function == "qa.requirement.rebind_target" or (
         request.function == "qa.requirement.waive"
         and payload.get("source") == "operator"

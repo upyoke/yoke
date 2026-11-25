@@ -15,6 +15,8 @@ class PlanExecutionBeginRequest(BaseModel):
     source_ref: str | None = None
     checkout_path: str | None = None
     expected_branch: str | None = None
+    expected_sha: str | None = None
+    partition: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     deployment_stage: str | None = Field(default=None, min_length=1)
     deployment_member: str | None = Field(default=None, min_length=1)
     #: The run an item's holder named; resolution validates it and retargets.

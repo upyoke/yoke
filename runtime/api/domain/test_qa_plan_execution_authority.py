@@ -29,17 +29,12 @@ def test_durable_cursor_resumes_without_replaying_completed_cases() -> None:
             conn,
             item_id=4401,
             transition_id="implemented",
+            requirement_id=requirement_ids[0],
             actor_id="7",
             session_id="ordered-session",
         )
-        assert [case["requirement_id"] for case in execution["roster"]] == (
-            requirement_ids
-        )
-
-        # Only host-free cases record ahead of the cursor; any other case
-        # waits for its turn.
-        execution["roster"][1]["runner_id"] = "host_control"
-        with pytest.raises(QaPlanExecutionStateError, match="expects ordinal 0"):
+        assert [case["requirement_id"] for case in execution["roster"]] == requirement_ids[:1]
+        with pytest.raises(QaPlanExecutionStateError, match="ordinal is out of range"):
             advance_plan_execution(
                 conn,
                 execution,
@@ -60,6 +55,7 @@ def test_durable_cursor_resumes_without_replaying_completed_cases() -> None:
             conn,
             item_id=4401,
             transition_id="implemented",
+            requirement_id=requirement_ids[0],
             actor_id="7",
             session_id="ordered-session",
         )
@@ -88,13 +84,6 @@ def test_durable_cursor_resumes_without_replaying_completed_cases() -> None:
             == 1
         )
 
-        advance_plan_execution(
-            conn,
-            resumed,
-            ordinal=1,
-            requirement_id=requirement_ids[1],
-            result=_result(requirement_ids[1]),
-        )
         finish_plan_execution(
             conn,
             resumed,
@@ -103,30 +92,39 @@ def test_durable_cursor_resumes_without_replaying_completed_cases() -> None:
         )
         completed = lock_plan_execution(conn, str(execution["id"]))
         assert completed["state"] == "completed"
-        assert completed["cursor_ordinal"] == 2
+        assert completed["cursor_ordinal"] == 1
 
 
 def test_live_execution_is_actor_session_bound() -> None:
     with test_database() as conn:
-        _materialize_two_cases(conn, item_id=4402)
-        begin_plan_execution(
+        requirement_ids = _materialize_two_cases(conn, item_id=4402)
+        first = begin_plan_execution(
             conn,
             item_id=4402,
             transition_id="implemented",
+            requirement_id=requirement_ids[0],
             actor_id="7",
             session_id="owner-session",
         )
         with pytest.raises(
             QaPlanExecutionStateError,
-            match="another actor or session",
+            match=f"qa_partition_unavailable:.*{first['id']}",
         ):
             begin_plan_execution(
                 conn,
                 item_id=4402,
                 transition_id="implemented",
+                requirement_id=requirement_ids[0],
                 actor_id="8",
                 session_id="other-session",
             )
+        conn.rollback()
+        other = begin_plan_execution(
+            conn, item_id=4402, transition_id="implemented", requirement_id=requirement_ids[1],
+            actor_id="8", session_id="other-session",
+        )
+        assert other["session_id"] == "other-session"
+        assert other["id"] != first["id"]
 
 
 def test_completion_refuses_an_incomplete_cursor() -> None:
@@ -155,10 +153,12 @@ def test_terminal_finish_replay_is_idempotent_and_cannot_change_outcome() -> Non
             conn,
             item_id=4404,
             transition_id="implemented",
+            requirement_id=requirement_ids[0],
             actor_id="7",
             session_id="ordered-session",
         )
-        for ordinal, requirement_id in enumerate(requirement_ids):
+        assert [row["requirement_id"] for row in execution["roster"]] == requirement_ids[:1]
+        for ordinal, requirement_id in enumerate(requirement_ids[:1]):
             advance_plan_execution(
                 conn,
                 execution,
