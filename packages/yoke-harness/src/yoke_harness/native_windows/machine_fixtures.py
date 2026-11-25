@@ -23,7 +23,7 @@ from yoke_contracts.machine_qa_failures import HostControlLocalError
 from yoke_contracts.test_machine_types import HostActionResult
 from yoke_harness.native_windows import machine_fixture_accounts as accounts
 from yoke_harness.native_windows import machine_fixture_scripts as policies
-from yoke_harness.native_windows.powershell import quote
+from yoke_contracts.windows_powershell import quote
 
 SECOND_USER = "Zoë Tester"
 FIXTURE_ROOT = r"C:\YokeQa\fixtures"

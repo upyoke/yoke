@@ -8,7 +8,7 @@ which the profile mirror never restores. Neither may enter or survive a golden.
 import json
 
 from yoke_contracts.test_machine_types import HostActionResult
-from yoke_harness.native_windows.powershell import quote
+from yoke_contracts.windows_powershell import quote
 
 
 STAGE_FILTER = ".yoke-stage-*"

@@ -11,10 +11,8 @@ as given.
 import subprocess
 from pathlib import PureWindowsPath
 
-from yoke_harness.native_windows.powershell import quote
+from yoke_contracts.windows_powershell import quote, yoke_shim_process_info
 
-SHIM_UNREADABLE = "windows_yoke_shim_unreadable"
-_SHIM_PATTERN = r'^@(?:\(goto\) 2>nul & )?"([^"]+)" (?:-I -S )?"([^"]+)" %\*'
 _YOKE_NAMES = frozenset({"yoke", "yoke.cmd"})
 # Commands that show a page: the identity launcher and the managed browser.
 _PAGE_COMMANDS = (("browser", "open"), ("qa", "browser"))
@@ -30,24 +28,6 @@ def opens_identity_page(argv) -> bool:
     )
 
 
-def yoke_shim_process_info(shim_path: str, arguments: list[str]) -> str:
-    """Set $info's executable and argv from a shim path expression."""
-    reason = quote(SHIM_UNREADABLE + ": ")
-    recovery = quote(
-        " is missing or is not the installer's yoke.cmd shim; reinstall Yoke, then rerun."
-    )
-    return (
-        f"$shimPath={shim_path}; "
-        "$shim=if($shimPath -and (Test-Path -LiteralPath $shimPath))"
-        "{[IO.File]::ReadAllText($shimPath)}else{''}; "
-        f"if($shim -notmatch {quote(_SHIM_PATTERN)})"
-        f"{{[Console]::Error.Write({reason}+[string]$shimPath+{recovery}); exit 70}}; "
-        "$info=[Diagnostics.ProcessStartInfo]::new(); $info.FileName=$Matches[1]; "
-        """$info.Arguments='-I -S "'+$Matches[2]+'" '+"""
-        f"{quote(subprocess.list2cmdline(arguments))}"
-    )
-
-
 def yoke_python_command(argv) -> str:
     """The PowerShell script running ``argv`` (``[yoke.cmd path or yoke, *arguments]``).
 
@@ -59,8 +39,8 @@ def yoke_python_command(argv) -> str:
         if PureWindowsPath(shim).is_absolute()
         else "(Get-Command yoke.cmd -ErrorAction SilentlyContinue).Source"
     )
-    # Keep the shim lookup first so the caller can identify the target path.
-    return f"""{yoke_shim_process_info(locate, arguments)}
+    argv = quote(subprocess.list2cmdline(arguments))
+    return f"""{yoke_shim_process_info(locate, argv)}
 $info.UseShellExecute=$false
 $info.RedirectStandardOutput=$true
 $info.RedirectStandardError=$true
@@ -73,4 +53,4 @@ $code=$p.ExitCode; $p.Dispose(); exit $code
 """
 
 
-__all__ = ["SHIM_UNREADABLE", "opens_identity_page", "yoke_python_command"]
+__all__ = ["opens_identity_page", "yoke_python_command"]

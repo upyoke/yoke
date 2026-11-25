@@ -8,7 +8,7 @@ from pathlib import PureWindowsPath
 from types import SimpleNamespace
 
 from yoke_contracts.machine_qa_failures import HostControlLocalError
-from yoke_harness.native_windows.powershell import encoded, quote
+from yoke_contracts.windows_powershell import encoded, quote
 from yoke_harness.native_windows.standard_staging import verified_payload
 from yoke_harness.ssh_test_machine_transport import SshTestMachineTransport
 

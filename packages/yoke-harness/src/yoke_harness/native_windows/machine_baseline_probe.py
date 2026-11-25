@@ -98,7 +98,7 @@ def gather_script():
     from yoke_harness.native_windows import machine_fixtures as fixtures
     from yoke_harness.native_windows.machine_fixture_accounts import CA_SUBJECT, PROXY_ADDRESS
     from yoke_harness.native_windows.machine_fixture_scripts import TASK_POLICY_KEY
-    from yoke_harness.native_windows.powershell import quote
+    from yoke_contracts.windows_powershell import quote
 
     port = PROXY_ADDRESS.rsplit(":", 1)[1]
     return f"""$ErrorActionPreference='Stop'; $ProgressPreference='SilentlyContinue'

@@ -10,7 +10,7 @@ from uuid import uuid4
 from yoke_contracts.owner_private_path import (
     create_owner_private_directory, is_owner_private_file, write_owner_private,
 )
-from yoke_harness.native_windows.powershell import encoded, quote
+from yoke_contracts.windows_powershell import encoded, quote
 
 
 PREPARE = r"""$ErrorActionPreference='Stop'

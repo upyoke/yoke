@@ -14,8 +14,7 @@ from yoke_contracts.machine_config.schema import ENV_OVERRIDE
 from yoke_contracts.process_ancestry import process_basename
 from yoke_contracts.uv_project import is_uv_project
 from yoke_contracts.watch_cli_forms import WATCH_CLI_TOKENS
-from yoke_harness.native_windows.powershell import quote
-from yoke_harness.native_windows.yoke_python import yoke_shim_process_info
+from yoke_contracts.windows_powershell import quote, yoke_shim_process_info
 
 
 def _anchor_directory(kind: str, start: Path | None = None) -> Path:
@@ -119,10 +118,10 @@ def _powershell_command(cwd: str, argv: list[str], connection: str) -> str:
     )
     native = (
         "$info=[Diagnostics.ProcessStartInfo]::new(); $info.FileName=$program; "
-        f"$info.Arguments={quote(subprocess.list2cmdline(argv[1:]))}"
+        "$info.Arguments=$arguments"
     )
     if argv[0] == "yoke":
-        shim = yoke_shim_process_info("$program", argv[1:])
+        shim = yoke_shim_process_info("$program", "$arguments")
         native = (
             "if ($program.EndsWith('.cmd', [StringComparison]::OrdinalIgnoreCase)) "
             f"{{ {shim} }} else {{ {native} }}"
@@ -137,7 +136,7 @@ def _powershell_command(cwd: str, argv: list[str], connection: str) -> str:
         "'. Restore the checkout and print the watcher command again.') "
         "-ErrorAction Continue; exit 1 }; "
         "try { "
-        f"{lookup}; "
+        f"{lookup}; $arguments={quote(subprocess.list2cmdline(argv[1:]))}; "
         f"{native}; $info.UseShellExecute=$false; {env}"
         "$info.WorkingDirectory=(Get-Location).ProviderPath; "
         "$process=[Diagnostics.Process]::Start($info); "

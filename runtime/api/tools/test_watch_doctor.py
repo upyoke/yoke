@@ -290,7 +290,7 @@ def test_foreground_shell_comes_from_process_ancestry(monkeypatch, ancestors, po
 def test_foreground_powershell_runs_both_printed_lines(monkeypatch, tmp_path):
     from yoke_core.tools import _watch_streaming_pair as renderer
     from yoke_core.tools._watch_wait_mode import WatchWaitMode
-    from yoke_harness.native_windows.powershell import encoded
+    from yoke_contracts.windows_powershell import encoded
 
     checkout = tmp_path / "Sam's [checkout]"
     checkout.mkdir()

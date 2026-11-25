@@ -262,9 +262,11 @@ def test_the_windows_browser_runner_executes_through_the_generated_shim(tmp_path
 
 
 def test_a_missing_shim_refuses_by_name():
+    from yoke_contracts.windows_powershell import SHIM_UNREADABLE
+
     script = yoke_python.yoke_python_command(["yoke", "browser", "authorize"])
     assert "(Get-Command yoke.cmd -ErrorAction SilentlyContinue).Source" in script
-    assert yoke_python.SHIM_UNREADABLE + ": " in script
+    assert SHIM_UNREADABLE + ": " in script
     assert "exit 70" in script
 
 
