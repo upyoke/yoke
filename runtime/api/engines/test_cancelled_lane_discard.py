@@ -17,6 +17,7 @@ from runtime.api.engines._merge_prune_test_helpers import (
     _repo,
 )
 from yoke_contracts.api.function_call import FunctionCallResponse
+from yoke_core.api import service_client_structured_api_adapter as adapter
 from yoke_core.domain import project_identity
 from yoke_core.engines import cancelled_lane_discard as discard_mod
 from yoke_core.engines.merge_worktree_safe_prune import prune_managed_worktrees
@@ -47,14 +48,19 @@ def _unlanded_dirty_locked_lane(tmp_path: Path):
 
 def _record_calls(monkeypatch, *, success: bool = True) -> list[dict]:
     calls: list[dict] = []
+    dispatch = adapter.call_dispatcher
 
-    def call(*, function_id, target, payload, **_kw):
+    def call(*, function_id, target, payload, **kwargs):
+        if function_id != discard_mod.RECORD_FUNCTION_ID:
+            return dispatch(
+                function_id=function_id, target=target, payload=payload, **kwargs
+            )
         calls.append({"function_id": function_id, "target": target, **payload})
         return FunctionCallResponse(
             success=success, function=function_id, version="v1", result={}
         )
 
-    monkeypatch.setattr(discard_mod, "call_dispatcher", call)
+    monkeypatch.setattr(adapter, "call_dispatcher", call)
     return calls
 
 

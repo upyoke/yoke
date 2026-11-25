@@ -18,8 +18,8 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionCallResponse,
 )
+from yoke_core.api import service_client_structured_api_adapter as adapter
 from yoke_core.domain.handlers import merge_engine_internal_ops as _ops
-from yoke_core.engines import merge_worktree_safe_prune as _safe_prune
 
 
 class _Rows:
@@ -180,9 +180,12 @@ def _install(monkeypatch, repo: Path, conn: _Conn):
 
     git_io = dict(run_git=run_git, emit=lambda line, **_kwargs: lines.append(line))
     monkeypatch.setattr(_ops, "_connect_rw", lambda: conn)
-    monkeypatch.setattr(_safe_prune, "call_dispatcher", _fake_dispatcher(conn))
-    monkeypatch.setattr(
-        "yoke_core.api.service_client_structured_api_adapter.call_dispatcher",
-        lambda **_kwargs: SimpleNamespace(success=True),
-    )
+    prune_authority = _fake_dispatcher(conn)
+
+    def dispatch(*, function_id, **kwargs):
+        if function_id == "merge.prune.authority_verdict":
+            return prune_authority(function_id=function_id, **kwargs)
+        return SimpleNamespace(success=True)
+
+    monkeypatch.setattr(adapter, "call_dispatcher", dispatch)
     return git_io, lines

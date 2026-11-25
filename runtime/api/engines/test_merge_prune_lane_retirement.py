@@ -59,7 +59,6 @@ def test_pruned_worker_retires_row_and_surviving_worker_merges(
     public_ref = render_item_ref(test_db, 917, required=True)
     git_io, _lines = _install(monkeypatch, repo, _Conn(branch))
     monkeypatch.setattr(ops, "_connect_rw", lambda: nullcontext(test_db))
-    monkeypatch.setattr(db_helpers, "connect", lambda: nullcontext(test_db))
     releases = []
 
     def dispatch(*, function_id, target, payload, **_kwargs):
@@ -72,18 +71,19 @@ def test_pruned_worker_retires_row_and_surviving_worker_merges(
         else:
             assert function_id == "merge.prune.authority_verdict"
             handler = ops.handle_prune_authority_verdict
-        outcome = handler(
-            FunctionCallRequest(
-                function=function_id,
-                target=target,
-                payload=payload,
-                actor=ActorContext(session_id="prune-test"),
-            )
+        request = FunctionCallRequest(
+            function=function_id,
+            target=target,
+            payload=payload,
+            actor=ActorContext(session_id="prune-test"),
         )
+        with monkeypatch.context() as patch:
+            if handler is item_worktrees.handle_release_merged_lane:
+                patch.setattr(db_helpers, "connect", lambda: nullcontext(test_db))
+            outcome = handler(request)
         assert outcome.primary_success, outcome.error
         return SimpleNamespace(success=True, result=outcome.result_payload)
 
-    monkeypatch.setattr(prune, "call_dispatcher", dispatch)
     monkeypatch.setattr(adapter, "call_dispatcher", dispatch)
     if absent:
         shutil.rmtree(worktree)
@@ -134,10 +134,19 @@ def test_pruned_worker_retires_row_and_surviving_worker_merges(
         )
 
     monkeypatch.setattr(verify, "route_standalone_landing", land)
-    monkeypatch.setattr(merge_domain, "sync_item_to_github", lambda *_a: None)
     monkeypatch.setattr(
-        merge_cli.close_out, "transition_to_done", lambda **_kw: ("release", "")
+        merge_cli.landings,
+        "call_dispatcher",
+        lambda **_kwargs: SimpleNamespace(success=True),
     )
+    monkeypatch.setattr(
+        merge_cli.close_out, "already_done_after_landing", lambda **_kwargs: None
+    )
+    monkeypatch.setattr(
+        merge_cli.release_flow, "continue_prepared_release", lambda **_kwargs: (None, "")
+    )
+    monkeypatch.setattr(merge_domain, "sync_item_to_github", lambda *_a: None)
+    monkeypatch.setattr(merge_cli, "run_terminal_transition", lambda **_kwargs: None)
     assert merge_cli.run([public_ref, "--skip-status"]) == 0
     assert calls[0]["branch"] == "surviving"
 
