@@ -9,10 +9,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[3]
 SHARED_QA_TEACHING = [
-    "runtime/agents/qa-walker.md",
-    "runtime/harness/claude/agents/yoke-qa-walker.md",
-    "runtime/harness/codex/agents/yoke-qa-walker.toml",
-    "runtime/harness/cursor/agents/yoke-qa-walker.md",
+    "docs/public/verification/walking.md",
     "docs/public/verification/exploration.md",
     "docs/public/verification/exploration-evidence.md",
 ]

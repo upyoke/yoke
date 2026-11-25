@@ -83,7 +83,6 @@ OPERATIONAL_COMMANDS: list[dict] = [
             "architect_agent",
             "engineer_agent",
             "tester_agent",
-            "qa_walker_agent",
             "simulator_agent",
             "boss_agent",
         ),

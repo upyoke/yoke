@@ -80,9 +80,6 @@ _FIXTURE_RECIPE_SECTIONS = {
     "docs/public/verification/exploration.md": "## Cleanup",
     "docs/public/verification/walking.md": "## Cleanup",
     "docs/testing-verification/qa-fixture-cleanup.md": "## Delete the test's repositories",
-    "runtime/harness/claude/agents/yoke-qa-walker.md": "## Cleanup",
-    "runtime/harness/codex/agents/yoke-qa-walker.toml": "## Cleanup",
-    "runtime/harness/cursor/agents/yoke-qa-walker.md": "## Cleanup",
 }
 _FIXTURE_COMMAND = re.compile(
     r"`gh repo (?:create OWNER/NAME --private|delete OWNER/NAME --yes)`"

@@ -46,7 +46,6 @@ EXPECTED_MARKERED_AGENTS: tuple[str, ...] = (
     "simulator",
     "tester",
     "tester-browser",
-    "qa-walker",
     "product-manager",
     "product-designer",
 )

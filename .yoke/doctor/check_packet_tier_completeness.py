@@ -91,7 +91,6 @@ SKILL_SCAN_TARGETS: Dict[str, Tuple[str, ...]] = {
         ".agents/skills/yoke/simulate/autofix-loop.md",
     ),
     # The walker is dispatched from a materialized QA case rather than a skill.
-    "qa_walker_agent": (),
 }
 
 

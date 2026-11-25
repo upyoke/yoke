@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from time import monotonic
 
 import pytest
@@ -16,6 +17,7 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     TargetRef,
 )
+from yoke_core.domain import qa_plan_execution_store, qa_plan_lock
 from yoke_core.domain.yoke_function_dispatch import dispatch
 
 PAUSE = {"phase": "checkin", "cursor": 0, "request_id": "behind-lock", "attempts": []}
@@ -33,7 +35,20 @@ SUBMIT = {"bundle_id": "bundle-behind-lock", "bundle_digest": "0" * 64}
 def test_bounded_call_refuses_with_recovery_when_the_execution_row_stays_locked(
     test_db, function, payload, monkeypatch
 ):
-    monkeypatch.setattr("yoke_core.domain.qa_plan_lock.QA_PLAN_LOCK_TIMEOUT_MS", 100)
+    lock_spans = []
+    bounded_plan_lock = qa_plan_execution_store.bounded_plan_lock
+
+    @contextmanager
+    def timed_plan_lock(conn, table):
+        started = monotonic()
+        try:
+            with bounded_plan_lock(conn, table):
+                yield
+        finally:
+            lock_spans.append(monotonic() - started)
+
+    monkeypatch.setattr(qa_plan_execution_store, "bounded_plan_lock", timed_plan_lock)
+    monkeypatch.setattr(qa_plan_lock, "QA_PLAN_LOCK_TIMEOUT_MS", 100)
     run_id = "run-execution-lock-bound"
     execution = _shared_execution(test_db, run_id, (9301, 9302))
     holder = connect_test_database(test_db.info.dbname)
@@ -42,7 +57,6 @@ def test_bounded_call_refuses_with_recovery_when_the_execution_row_stays_locked(
             "SELECT id FROM qa_plan_executions WHERE id=%s FOR UPDATE",
             (str(execution["id"]),),
         )
-        started = monotonic()
         response = dispatch(
             FunctionCallRequest(
                 function=function,
@@ -53,7 +67,6 @@ def test_bounded_call_refuses_with_recovery_when_the_execution_row_stays_locked(
                 payload={"execution_id": str(execution["id"]), **payload},
             )
         )
-        waited = monotonic() - started
     finally:
         holder.rollback()
         holder.close()
@@ -62,7 +75,8 @@ def test_bounded_call_refuses_with_recovery_when_the_execution_row_stays_locked(
     assert response.error.code == "qa_plan_busy"
     assert response.error.message.startswith("qa_plan_busy:")
     assert "Retry the same command" in response.error.message
-    assert 0.1 <= waited < 0.5
+    assert len(lock_spans) == 1
+    assert 0.1 <= lock_spans[0] < 0.5
     state, reason = test_db.execute(
         "SELECT state,release_reason FROM qa_plan_executions WHERE id=%s",
         (str(execution["id"]),),
