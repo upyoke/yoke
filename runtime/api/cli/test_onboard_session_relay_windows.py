@@ -1,5 +1,6 @@
 """Windows setup installs a per-user task and renders restriction recovery."""
 
+import inspect
 import json
 import subprocess
 
@@ -8,6 +9,9 @@ from yoke_cli.config import onboard_session_relay as relay
 from yoke_cli.config import onboard_session_relay_wait as relay_wait
 from yoke_cli.config.onboard_report_render import render_human
 from yoke_cli.commands.adapters.session_control_relay_output import relay_status_fields
+from yoke_contracts.terminal_detached_process import run_group
+from yoke_core.tools.session_relay_package_validate import RELAY_PACKAGE_PROBE_TIMEOUT_SECONDS
+from yoke_core.tools.session_relay_release_packages import RELAY_PACKAGE_INSTALL_TIMEOUT_SECONDS
 from yoke_contracts.machine_config.relay_instance import WINDOWS_RELAY_LOGOUT_BEHAVIOR
 import pytest
 pytestmark = pytest.mark.windows
@@ -47,8 +51,6 @@ def test_windows_status_names_task_and_shows_policy_restriction():
     assert fields["Logout behavior"] == WINDOWS_RELAY_LOGOUT_BEHAVIOR
 
 
-#: A manual first served-release install on native Windows took this long.
-OBSERVED_FIRST_INSTALL_SECONDS = 349
 #: A native Windows relay's first heartbeat came this long after it started.
 OBSERVED_FIRST_HEARTBEAT_SECONDS = 116
 
@@ -61,7 +63,10 @@ def _installer(install_seconds, timeouts=None):
         if timeouts is not None:
             timeouts.append(kwargs["timeout"])
         if install_seconds > kwargs["timeout"]:
-            raise subprocess.TimeoutExpired(argv, kwargs["timeout"])
+            raise subprocess.TimeoutExpired(
+                argv, kwargs["timeout"],
+                stderr=b"relay install: runtime took 0.10 s\nrelay install: release venv took 0.31 s\n",
+            )
         return subprocess.CompletedProcess(argv, 0, "", "")
     return run
 
@@ -74,16 +79,19 @@ def _waits(connected=True):
     return wait, calls
 
 
-def test_windows_first_release_install_past_300s_succeeds(monkeypatch, capsys):
+def test_windows_installer_backstop_covers_dependency_and_probe_bounds(monkeypatch, capsys):
     monkeypatch.setattr(relay.sys, "platform", "win32")
     timeouts = []
     wait, _calls = _waits()
     outcome = relay.install(local_destination=False, environment="upyoke",
-                            runner=_installer(OBSERVED_FIRST_INSTALL_SECONDS, timeouts),
+                            runner=_installer(RELAY_PACKAGE_INSTALL_TIMEOUT_SECONDS + RELAY_PACKAGE_PROBE_TIMEOUT_SECONDS, timeouts),
                             wait_for_connection=wait)
     assert outcome == relay.RelayInstallOutcome(installed=True, reused=False, connected=True)
     assert timeouts == [relay_wait.RELAY_INSTALL_TIMEOUT_SECONDS]
-    assert 300 < OBSERVED_FIRST_INSTALL_SECONDS < relay_wait.RELAY_INSTALL_TIMEOUT_SECONDS
+    assert timeouts[0] == 900
+    assert timeouts[0] > RELAY_PACKAGE_INSTALL_TIMEOUT_SECONDS + RELAY_PACKAGE_PROBE_TIMEOUT_SECONDS
+    assert inspect.signature(relay.install).parameters["runner"].default is run_group
+    assert inspect.signature(relay.is_satisfied).parameters["runner"].default is run_group
     assert "Waiting by design: the machine relay installer" in capsys.readouterr().err
     assert "times out after 15m at most" in relay_wait.announce_install(write=lambda _l: None)
 
@@ -96,6 +104,8 @@ def test_windows_install_past_the_bound_names_timeout_and_recovery(monkeypatch):
                       runner=_installer(beyond), wait_for_connection=lambda _s: True)
     message = str(raised.value)
     assert f"did not finish within {relay_wait.RELAY_INSTALL_TIMEOUT_SECONDS} seconds" in message
+    assert "Last completed step: relay install: release venv took 0.31 s." in message
+    assert "runtime took" not in message
     assert "`yoke --env upyoke relay status`" in message
     assert "`yoke --env upyoke relay install`" in message
 

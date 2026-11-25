@@ -23,9 +23,10 @@ import subprocess
 import sys
 from pathlib import Path
 
+from yoke_contracts import terminal_detached_process
 from yoke_contracts.git_hook_markers import HEAD_RECORDING_SKIP_ENV
 from yoke_contracts.runtime_ports.credentialed_git import get_credentialed_git
-from yoke_core.domain import lane_head_record, process_group_reaping
+from yoke_core.domain import lane_head_record
 
 
 
@@ -44,7 +45,7 @@ def git(checkout: Path, *args: str, timeout: int = 120) -> subprocess.CompletedP
     argv = ["-C", str(checkout), *args]
     skip = {HEAD_RECORDING_SKIP_ENV: "1"} if args[:1] == ("rebase",) else {}
     with credentialed_git.git_environment(argv, cwd=str(checkout)) as base:
-        return process_group_reaping.run_in_process_group(
+        return terminal_detached_process.run_group(
             ["git", *argv],
             capture_output=True,
             text=True,

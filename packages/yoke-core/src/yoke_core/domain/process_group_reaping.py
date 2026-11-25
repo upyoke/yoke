@@ -8,12 +8,8 @@ databases they hold cannot be dropped and the next run blocks behind them.
 
 Putting the child in a fresh process group makes the whole tree addressable:
 one signal to the group reaches every descendant that has not itself started
-a new session. Callers get two shapes:
-
-- :func:`popen_in_process_group` + :func:`interruption_reaps_process_group`
-  for streaming callers that read the child's output as it runs.
-- :func:`run_in_process_group` for call-and-collect callers that want
-  ``subprocess.run`` semantics with a timeout that actually reaps.
+a new session. Streaming callers use :func:`popen_in_process_group` with
+:func:`interruption_reaps_process_group` to read output as the child runs.
 
 Process custody uses the shared platform owner on POSIX and Windows.
 """
@@ -26,7 +22,7 @@ import contextlib
 import signal
 import subprocess
 import threading
-from typing import Iterator, Sequence
+from typing import Iterator
 
 #: Seconds a terminated group is given to exit before it is killed outright.
 DEFAULT_GRACE_SECONDS = 5.0
@@ -122,45 +118,11 @@ def interruption_reaps_process_group(
             with contextlib.suppress(ValueError, OSError):
                 signal.signal(signal_number, handler)  # type: ignore[arg-type]
 
-
-def run_in_process_group(
-    argv: str | Sequence[str],
-    *,
-    timeout: float | None = None,
-    capture_output: bool = False,
-    grace_seconds: float = DEFAULT_GRACE_SECONDS,
-    **kwargs,
-) -> subprocess.CompletedProcess:
-    """Run *argv* to completion, reaping the whole group on timeout.
-
-    Mirrors :func:`subprocess.run`, including the
-    :class:`subprocess.TimeoutExpired` it raises, but kills every descendant
-    instead of only the direct child — the difference between a timed-out run
-    that releases its databases and one that wedges the cluster.
-    """
-    if capture_output:
-        kwargs.setdefault("stdout", subprocess.PIPE)
-        kwargs.setdefault("stderr", subprocess.PIPE)
-
-    proc = popen_in_process_group(argv, **kwargs)
-    try:
-        stdout, stderr = proc.communicate(timeout=timeout)
-    except subprocess.TimeoutExpired:
-        terminate_process_group(proc, grace_seconds=grace_seconds)
-        stdout, stderr = proc.communicate()
-        raise subprocess.TimeoutExpired(argv, timeout, output=stdout, stderr=stderr)
-    except BaseException:
-        terminate_process_group(proc, grace_seconds=grace_seconds)
-        raise
-    return subprocess.CompletedProcess(argv, proc.returncode, stdout, stderr)
-
-
 __all__ = [
     "DEFAULT_GRACE_SECONDS",
     "ProcessGroupInterrupted",
     "descendant_pids",
     "interruption_reaps_process_group",
     "popen_in_process_group",
-    "run_in_process_group",
     "terminate_process_group",
 ]

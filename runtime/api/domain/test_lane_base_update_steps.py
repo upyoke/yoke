@@ -74,7 +74,7 @@ def test_lane_rebase_marks_replayed_commits_to_skip_snapshot_sync(monkeypatch):
         observed.update(kwargs)
         return subprocess.CompletedProcess(argv, 0, "", "")
 
-    monkeypatch.setattr(lane_base_update.process_group_reaping, "run_in_process_group", run)
+    monkeypatch.setattr(lane_base_update.terminal_detached_process, "run_group", run)
 
     lane_base_update.git("/tmp/tree", "rebase", "origin/main", timeout=600)
 

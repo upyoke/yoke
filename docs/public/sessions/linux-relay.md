@@ -78,6 +78,17 @@ a fresh last-seen time after installation; a pin or CLI update alone does
 not prove which build is running.
 The four product wheels come from the environment's immutable release directory,
 with URL-encoded release and filename segments (including `%2B` for `+`).
+A first served-release install uses the uv supplied by the official installer.
+It can reuse wheels in the operator's uv cache and gives dependency installation
+10 minutes. The background relay inherits only a service PATH, so its updates
+use uv's default cache even if your shell sets `UV_CACHE_DIR`. If uv is missing,
+rerun the official Yoke installer, then retry `yoke relay install`.
+
+A successful `yoke connect` lists the runtime, release environment, dependency,
+and verification timings when it installs a fresh release. In JSON they appear
+under `session_relay.install_timings`. The 15-minute setup backstop stops the
+installer and its child processes and reports the last completed step.
+
 The relay installs a newly served release in the background and keeps
 polling and claiming wakes on its current release until the install verifies;
 relay status shows the install in flight with its served build, start time and
