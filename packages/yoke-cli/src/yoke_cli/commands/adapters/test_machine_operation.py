@@ -169,13 +169,15 @@ def _run(
             ):  # older servers: none
                 contract = HostControlExecutionContract.model_validate(execution)
                 check_registered_goldens(host_operations_for(contract)._run, registered, os_name=contract.settings["os"])
-            operations_factory = host_operations_for
+            operation_runner = execute_host_operation_contract
             if execution["settings"].get("os") == "windows" and operation in {"reset", "verify"}:
-                operations_factory = _native_windows_operations
-            submission = execute_host_operation_contract(
+                operation_runner = partial(
+                    execute_host_operation_contract,
+                    operations_factory=_native_windows_operations,
+                )
+            submission = operation_runner(
                 execution,
                 probes_document=probes_document,
-                operations_factory=operations_factory,
             )
         removed = retain_after_verified_capture(
             operation, True,
