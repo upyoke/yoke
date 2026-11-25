@@ -20,6 +20,7 @@ from yoke_core.domain.qa_plan_execution_store import (
     canonical,
     roster_digest,
 )
+from yoke_core.domain.qa_walk_launch_required import require_scoped_walk_launch, require_walk_launch
 
 
 class BeginInputsChanged(Exception):
@@ -206,17 +207,9 @@ def prepare_roster(
         raise QaPlanExecutionStateError(
             "materialized QA roster does not match the active deployment target"
         )
-    from yoke_core.domain.qa_walk_launch_required import require_scoped_walk_launch
-
     require_scoped_walk_launch(
-        conn,
-        roster,
-        session_id=session_id,
-        execution_target_digest=execution_target_digest,
-        group_id=shared_group_id(execution_target),
-        item_id=item_id,
-        transition_id=transition_id,
-        **scope,
+        conn, roster, session_id=session_id, execution_target_digest=execution_target_digest,
+        group_id=shared_group_id(execution_target), item_id=item_id, transition_id=transition_id, **scope,
     )
     return PreparedRoster(
         roster, remaining, digest, execution_target, execution_target_digest
@@ -309,8 +302,6 @@ def _prepare_partition_roster(
         )
     part = selected.partition
     if selected.holder is None and part.kind == "walk":
-        from yoke_core.domain.qa_walk_launch_required import require_walk_launch
-
         require_walk_launch(conn, part.roster, session_id=session_id)
     if requirement_id is not None and len(part.roster) != 1:
         raise partition_unavailable(part.key, "must run its entire inherited chain")
