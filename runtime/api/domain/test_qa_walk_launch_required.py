@@ -97,3 +97,35 @@ def test_scoped_walk_holder_cannot_freeze_fresh_walk(launches, monkeypatch):
             session_id="holder", item_id=19, transition_id="review", execution_target_digest="target",
         )
     assert refusal.value.code == "qa_walk_needs_launched_session"
+
+
+def test_standalone_resume_survives_enabling_enforcement(monkeypatch):
+    from runtime.api.domain.qa_plan_standalone_execution_test_support import _begin
+    from runtime.api.fixtures.pg_testdb import test_database
+    from yoke_core.domain.qa_plan_management import create_plan, replace_plan_cases
+
+    with test_database() as conn:
+        plan = create_plan(conn, project="yoke", slug="manual-proof", name="Manual proof")
+        replace_plan_cases(
+            conn,
+            plan_id=plan["id"],
+            cases=[{
+                "case_key": "observe-context",
+                "method_id": "exploratory-mission",
+                "instructions": "Observe the controller context",
+                "expected_outcome": "The controller has the declared context",
+                "method_config": {"executor": "informed_subagent"},
+            }],
+        )
+        conn.commit()
+        monkeypatch.setattr(guard, "ENFORCE_WALK_LAUNCH", True)
+        with pytest.raises(guard.QaWalkNeedsLaunchedSession):
+            _begin(conn)
+        conn.rollback()
+        assert conn.execute("SELECT COUNT(*) FROM qa_plan_executions").fetchone()[0] == 0
+
+        monkeypatch.setattr(guard, "ENFORCE_WALK_LAUNCH", False)
+        live = _begin(conn)
+        monkeypatch.setattr(guard, "ENFORCE_WALK_LAUNCH", True)
+
+        assert _begin(conn)["id"] == live["id"]
