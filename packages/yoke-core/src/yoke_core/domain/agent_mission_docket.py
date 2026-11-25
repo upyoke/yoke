@@ -61,7 +61,8 @@ def insert_mission_docket(
         qa_kind=str(case["qa_kind"]),
         execution_status="capture_failed" if failed else "captured",
         case_outcome="blocked_on_precondition" if failed else "needs_review",
-        verdict="error" if failed else None,
+        # An unstarted case judged nothing: blocked_on_precondition has no verdict.
+        verdict=None,
         verdict_reason=(reason or None) if failed else None,
         capture_degraded_reason=preparation.get("error_code")
         if failed
@@ -87,7 +88,7 @@ def insert_mission_docket(
         "requirement_id": int(case["requirement_id"]),
         "runner_id": "agent_mission",
         "run_id": run_id,
-        "verdict": "error" if failed else None,
+        "verdict": None,
         "case_outcome": "blocked_on_precondition" if failed else "needs_review",
         "executor": executor,
         "preparation": preparation,

@@ -55,11 +55,11 @@ def resume_existing(conn, subject, prepared, *, actor_id, partition, requirement
         )
     if same_owner(existing, actor_id=actor_id, session_id=subject["session_id"]):
         from yoke_core.domain.deployment_qa_execution_refreeze import refreeze_unbegun_execution
-        from yoke_core.domain.qa_environment_served_build import observe_resume
+        from yoke_core.domain.qa_environment_served_build import require_execution_access
         from yoke_core.domain.qa_plan_execution_roster_change import retire_unstarted_changed_roster
 
         refreeze_unbegun_execution(conn, existing, prepared)
-        observe_resume(conn, existing)
+        require_execution_access(conn, existing)
         if retire_unstarted_changed_roster(conn, existing, digest=prepared.digest):
             return None, True
         return {

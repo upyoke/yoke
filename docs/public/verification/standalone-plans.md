@@ -112,21 +112,16 @@ The control plane records QA against environments the plan project owns or
 is authorized to use through a same-organization hosted-runtime bridge.
 Execution rechecks the frozen environment's registered identity; cross-org
 targets refuse. A declared `qa.identity_path` is read from the owning
-environment by ID, using its registered origin. Begin, owner resume and
-result writes observe the full served SHA; heartbeats and host operations
-recheck only the target's authorization. Results store `served_build_sha` and
-`served_build_status`; environments without a path record `no_declared_path`.
-An unreadable answer refuses as `served_build_unobservable`. After a
-redeploy, the owner's resume of an execution that has run no case rebinds it
-to the new build in place, so it keeps its queue position and host
-reservation. Once cases have run, resume and result writes refuse as
-`served_build_changed`, naming both SHAs and the owner's
-`yoke qa plan abort --execution-id ID --reason TEXT`; run the plan again after
-it and the session keeps its host turn as a hold-over. An execution whose
-every case runs on a Test Machine keeps walking across a redeploy: its owner
-resumes it without a build check, and each result records
-`served_build_changed` with the new SHA and keeps both SHAs under
-`served_build_changed` in the run's `raw_result`.
+environment by ID, using its registered origin. Begin and result writes
+observe the full served SHA. Owner resume, heartbeats, and host operations
+recheck authorization; the execution keeps its begin SHA across a redeploy.
+Results store `served_build_sha` and `served_build_status`; environments
+without a path record `no_declared_path`. An unreadable answer refuses as
+`served_build_unobservable`. QA continues when the served build changes.
+Each result write, inside or outside a plan execution, records
+`served_build_changed` when the observed SHA differs from the begin SHA.
+The run's `raw_result.served_build_changed` records both `began_sha` and
+`served_sha` alongside the verdict.
 Deployment and project targets retain their own identity proofs.
 
 

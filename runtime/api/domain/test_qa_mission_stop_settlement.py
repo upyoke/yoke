@@ -1,4 +1,4 @@
-"""A stopped setup-only mission is an execution error, never a review."""
+"""A stopped setup-only mission keeps no verdict and is never a review."""
 
 import pytest
 
@@ -53,7 +53,7 @@ def test_stopped_mission_settles_setup_docket(
         "FROM qa_runs WHERE id=%s",
         (run_id,),
     ).fetchone()
-    assert tuple(row)[:3] == ("capture_failed", "blocked_on_precondition", "error")
+    assert tuple(row)[:3] == ("capture_failed", "blocked_on_precondition", None)
     assert reason in row[3]
     assert "run a fresh mission" in row[3]
     assert begin_plan_review(test_db, execution, completed_captures_only=True) is None

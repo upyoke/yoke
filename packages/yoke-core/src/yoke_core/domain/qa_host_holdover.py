@@ -6,8 +6,8 @@ Two releases used to hand a host away from the session that needed it next:
   sign-in) takes and drops a lease per command and holds no place in the queue, so
   on a free host another session could take it between a preflight's release
   and the preflighting session's ``yoke qa case run``.
-* A session aborting its own stale execution (``served_build_changed`` after a
-  deploy) released the turn that execution held or had reserved, and the queue's
+* A session aborting its own execution released the turn that execution held
+  or had reserved, and the queue's
   next waiter took it before the session's rematerialized execution asked.
 
 Each now leaves a same-session hold-over: the host's claim stays held for the

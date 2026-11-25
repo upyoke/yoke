@@ -152,6 +152,7 @@ def execute_machine_case_contract(
     from yoke_core.domain.machine_reset_recovery import (
         recover_owed_reset,
         MachineResetFailed,
+        owed_reset_refusal,
         unstarted_reset_failure,
     )
 
@@ -162,13 +163,10 @@ def execute_machine_case_contract(
     try:
         with heartbeat_during("owed_reset", progress_callback):
             owed_reset = recover_owed_reset(contract, execution)
-        if owed_reset is not None and not owed_reset["ok"]:
-            raise MachineResetFailed(
-                code="machine_needs_repair",
-                phase="owed_reset",
-                detail="The owed host reset failed; no case was started",
-                recovery_hint=owed_reset["recovery"],
-            )
+        if refusal := owed_reset_refusal(
+            contract, owed_reset, consequence="no case was started"
+        ):
+            raise refusal
         if owed_reset and contract.baselines[:1] == [contract.reset_owed_baseline]:
             reset = owed_reset
         elif contract.baselines:
@@ -188,9 +186,9 @@ def execute_machine_case_contract(
         else:
             result = execute_case_with_fixture_lifecycle(execution, case)
         check_abort(progress_callback)
-    except MachineResetFailed:
+    except MachineResetFailed as refused:
         result = unstarted_reset_failure(
-            case, test_machine, owed_reset, error_code="machine_needs_repair"
+            case, test_machine, owed_reset, error_code=refused.code
         )
     except MachineQaAborted as exc:
         from yoke_core.domain.machine_qa_case_result import MachineCaseResult

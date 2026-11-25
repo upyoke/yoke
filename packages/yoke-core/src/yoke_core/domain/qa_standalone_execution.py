@@ -237,9 +237,9 @@ def begin_standalone_execution(
                 partition or "<selected>",
                 f"conflicts with this session's execution {prior['id']}; resume it by execution id",
             )
-        from yoke_core.domain.qa_environment_served_build import observe_resume
+        from yoke_core.domain.qa_environment_served_build import require_execution_access
 
-        observe_resume(conn, prior)
+        require_execution_access(conn, prior)
         require_same_source(
             prior["roster"],
             source_revision=source_revision,

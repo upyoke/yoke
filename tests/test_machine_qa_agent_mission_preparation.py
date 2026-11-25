@@ -201,7 +201,7 @@ def test_local_capture_stops_even_when_serving_build_returns_unjudged_docket(
         ordinal=0,
         actor=None,
     )
-    assert result["verdict"] == "error"
+    assert result["verdict"] is None
     assert result["case_outcome"] == "blocked_on_precondition"
     assert result["run_id"] == 23
     assert "mission disk preflight refused" in result["error"]

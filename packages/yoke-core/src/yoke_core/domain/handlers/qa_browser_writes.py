@@ -29,6 +29,7 @@ from yoke_core.domain.qa_run_execution_evidence import (
     commit_settled_verdict,
 )
 from yoke_core.domain.qa_run_supersession import superseded_run_outcome
+from yoke_core.domain.qa_execution_environment_target import QaExecutionTargetError
 from yoke_core.domain.qa_run_verdict_record import insert_qa_run, update_qa_run
 from yoke_core.domain.qa_constants import (
     NEEDS_REVIEW_OUTCOME,
@@ -176,6 +177,8 @@ def handle_qa_run_add(request: FunctionCallRequest) -> HandlerOutcome:
             verdict=verdict,
             verdict_reason=verdict_reason,
         )
+    except QaExecutionTargetError as exc:
+        return _error("qa_execution_target_refused", str(exc))
     finally:
         conn.close()
     return HandlerOutcome(
@@ -319,6 +322,8 @@ def handle_qa_run_complete(request: FunctionCallRequest) -> HandlerOutcome:
             verdict=verdict,
             verdict_reason=verdict_reason,
         )
+    except QaExecutionTargetError as exc:
+        return _error("qa_execution_target_refused", str(exc))
     finally:
         conn.close()
     return HandlerOutcome(
