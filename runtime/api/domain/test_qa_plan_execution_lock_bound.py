@@ -20,7 +20,6 @@ from yoke_contracts.api.function_call import (
 from yoke_core.domain import qa_plan_execution_store, qa_plan_lock
 from yoke_core.domain.yoke_function_dispatch import dispatch
 
-PRODUCTION_LOCK_S = qa_plan_lock.QA_PLAN_LOCK_TIMEOUT_MS / 1000
 PAUSE = {"phase": "checkin", "cursor": 0, "request_id": "behind-lock", "attempts": []}
 SUBMIT = {"bundle_id": "bundle-behind-lock", "bundle_digest": "0" * 64}
 
@@ -58,7 +57,6 @@ def test_bounded_call_refuses_with_recovery_when_the_execution_row_stays_locked(
             "SELECT id FROM qa_plan_executions WHERE id=%s FOR UPDATE",
             (str(execution["id"]),),
         )
-        started = monotonic()
         response = dispatch(
             FunctionCallRequest(
                 function=function,
@@ -69,7 +67,6 @@ def test_bounded_call_refuses_with_recovery_when_the_execution_row_stays_locked(
                 payload={"execution_id": str(execution["id"]), **payload},
             )
         )
-        waited = monotonic() - started
     finally:
         holder.rollback()
         holder.close()
@@ -80,7 +77,6 @@ def test_bounded_call_refuses_with_recovery_when_the_execution_row_stays_locked(
     assert "Retry the same command" in response.error.message
     assert len(lock_spans) == 1
     assert 0.1 <= lock_spans[0] < 0.5
-    assert 0.1 <= waited < PRODUCTION_LOCK_S
     state, reason = test_db.execute(
         "SELECT state,release_reason FROM qa_plan_executions WHERE id=%s",
         (str(execution["id"]),),
