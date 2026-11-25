@@ -132,7 +132,7 @@ def _seed_pending(
     )
     conn.commit()
     worker = "capture-session"
-    seed_qa_session(conn, worker, actor_id=2)
+    seed_qa_session(conn, worker)
     launch_id = seed_registered_qa_launch(conn, worker)
     execution = begin_plan_execution(
         conn,

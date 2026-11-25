@@ -254,7 +254,9 @@ def test_recorded_verdict_cancels_the_review_wake(test_db):
     assert str(row["cancellation_reason"]).startswith(SETTLED_REVIEW_WAKE_REASON)
     assert row["state"] == "cancelled"
     assert notify_scoped_agent_review(test_db, execution) == ""
-    assert _count(test_db, "session_messages") == 1
+    assert test_db.execute(
+        "SELECT COUNT(*) FROM session_messages WHERE idempotency_key LIKE 'qa-plan-agent-review:%'"
+    ).fetchone()[0] == 1
 
 
 def test_review_submission_not_receipt_expiry_cancels_the_wake(test_db, monkeypatch):
