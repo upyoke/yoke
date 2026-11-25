@@ -1,0 +1,9 @@
+{
+ "id": "typing-during-checks",
+ "title": "Keys typed during a setup check reach its next text input",
+ "status": "observed",
+ "form": "Rule",
+ "verification": "Gated wizard tests cover the Git check, another check that opens an input, a Git-missing screen followed by retry, and cancellation with Escape.",
+ "topics": ["installation/entry"],
+ "sources": ["packages/yoke-cli/src/yoke_cli/config/onboard_wizard_input_entry.py", "packages/yoke-cli/src/yoke_cli/config/onboard_wizard_checking.py", "runtime/api/cli/test_onboard_wizard_typing_during_check.py"]
+}
