@@ -71,12 +71,10 @@ the cause and record an unsaved verdict again. For a saved verdict, run
 
 Correct a group case in its own plan, keeping its key. Materialize the
 corrected plan on the same run, then reread partitions. A member correction
-uses a separate plan:
-
-```text
-yoke qa plan materialize --item PREFIX-N --stage STAGE --deployment-run-id RUN \
-  --plan CORRECTED_PLAN --project P --replaces CASE_KEY=FAILED_REQUIREMENT_ID
-```
+uses a separate plan. Follow the deployment-stage recipe in
+`yoke qa plan materialize --help` with the exact member, stage, run and
+correction plan. Declare `--replaces CASE_KEY=FAILED_REQUIREMENT_ID` for each
+corrected case.
 
 Reread member partitions with `--plan CORRECTED_PLAN`. A replacement pass
 supersedes its failed predecessor. Other cases keep their pinned status.

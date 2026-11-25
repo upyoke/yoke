@@ -1,7 +1,4 @@
-"""Idle hosts of parked or exited holders return to the line (YOK-5511).
-
-A retained review lease and partial reservations can otherwise strand hosts.
-"""
+"""Return idle hosts of parked or exited holders to the queue."""
 
 from __future__ import annotations
 
@@ -15,10 +12,7 @@ from runtime.api.domain.agent_mission_qa_test_support import (
     _request,
 )
 from runtime.api.domain.machine_qa_host_test_support import configure_test_machine
-from runtime.api.domain.machine_qa_session_seed import (
-    seed_qa_session,
-    seed_registered_qa_launch,
-)
+from runtime.api.domain import machine_qa_session_seed
 from runtime.api.domain.machine_qa_test_support import FakeHostControl
 from runtime.api.domain.qa_host_turns_test_support import _execution_wait, _notices
 from yoke_contracts.timestamps import utc_now
@@ -57,8 +51,8 @@ LATER = timedelta(days=1)
 def review_walk(test_db, tmp_path, monkeypatch):
     """A mission walk in awaiting_walk_review holding its primary host lease."""
     configure_test_machine(test_db, tmp_path, monkeypatch)
-    seed_qa_session(test_db, ACTOR.session_id)
-    seed_registered_qa_launch(test_db, ACTOR.session_id)
+    machine_qa_session_seed.seed_qa_session(test_db, ACTOR.session_id)
+    machine_qa_session_seed.seed_registered_qa_launch(test_db, ACTOR.session_id)
     requirement = _materialize_mission(test_db, item_id=ITEM)
     execution = begin_plan_execution(
         test_db,
@@ -139,7 +133,7 @@ def test_human_gate_park_in_walk_review_returns_the_host_after_the_limit(
 ):
     bodies = _notices(monkeypatch)
     _, machine, lease_id = review_walk
-    seed_qa_session(test_db, "next")
+    machine_qa_session_seed.seed_qa_session(test_db, "next")
     _execution_wait(test_db, "next", test_machine=machine)
     _set_session(
         test_db, ACTOR.session_id, mode="parked", quiet_reason="HUMAN_GATE: approve"
@@ -155,7 +149,7 @@ def test_exited_process_holding_claims_returns_the_host(
 ):
     bodies = _notices(monkeypatch)
     _, machine, _ = review_walk
-    seed_qa_session(test_db, "next")
+    machine_qa_session_seed.seed_qa_session(test_db, "next")
     _execution_wait(test_db, "next", test_machine=machine)
     _set_session(
         test_db,
@@ -203,7 +197,7 @@ def test_stale_subagent_activity_past_the_hold_returns_the_host(
 ):
     bodies = _notices(monkeypatch)
     _, machine, _ = review_walk
-    seed_qa_session(test_db, "next")
+    machine_qa_session_seed.seed_qa_session(test_db, "next")
     _execution_wait(test_db, "next", test_machine=machine)
     _set_session(
         test_db,
@@ -218,7 +212,7 @@ def test_stale_subagent_activity_past_the_hold_returns_the_host(
 def test_running_turn_after_death_keeps_the_host_before_a_tool_completes(test_db):
     now = utc_now()
     death = now - timedelta(hours=2)
-    seed_qa_session(test_db, "resumed")
+    machine_qa_session_seed.seed_qa_session(test_db, "resumed")
     lease = acquire(test_db, make_qa_admission_target("lab-a"), "resumed", now=death)
     _set_session(test_db, "resumed", last_tool_call_at=death, native_process_gone_at=death,
                  turn_posture="running", turn_posture_at=now)
@@ -277,7 +271,7 @@ def test_waiting_partial_host_set_returns_its_reservations_and_keeps_its_place(
     test_db, monkeypatch
 ):
     bodies = _notices(monkeypatch)
-    seed_qa_session(test_db, "parked-holder", "walker")
+    machine_qa_session_seed.seed_qa_session(test_db, "parked-holder", "walker")
     a, b = "lab-a", "lab-b"
     held = acquire(test_db, make_qa_admission_target(a), "parked-holder")
     walker = _execution_wait(test_db, "walker", test_machine=a)
