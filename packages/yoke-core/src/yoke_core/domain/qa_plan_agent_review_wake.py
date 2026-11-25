@@ -185,7 +185,11 @@ def _replacement_adoption(conn, execution, item_ref: str, project: str) -> str:
         leg=execution.get("transition_id") or execution["deployment_stage"],
         key=partition_key(execution["roster"]), command=adopt, attempt="NEXT_ATTEMPT",
     )
-    return f"The capture session has ended. Replace NEXT_ATTEMPT with the next number and launch a replacement. {recipe}"
+    return (
+        "The capture session has ended. Set LEVEL to requested_level from "
+        f"yoke session-control launch preview --project {project} --item {item_ref}. "
+        f"Set CLI to a relay CLI surface and advance NEXT_ATTEMPT. {recipe}"
+    )
 
 
 def _session_live(conn: Any, session_id: str) -> bool:

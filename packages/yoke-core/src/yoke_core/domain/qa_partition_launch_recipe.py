@@ -10,10 +10,16 @@ def partition_launch_recipe(
 ) -> str:
     launch_args = shlex.join([
         "session-control", "launch", "create", "--project", project,
+        "--level", "LEVEL", "--surface", "CLI",
         "--raw-instructions", "--stdin", "--idempotency-key",
         f"qa-walk:{subject}:{leg}:{key}:{attempt}",
     ])
-    return f"printf '%s\\n' {shlex.quote(command)} | {yoke_command()} {launch_args}"
+    instructions = (
+        "You are an itemless QA walker. Use delegated QA access; do not acquire "
+        "an item work claim. Follow .yoke/docs/verification/walking.md#run-and-report. "
+        f"Begin with: {command}"
+    )
+    return f"printf '%s\\n' {shlex.quote(instructions)} | {yoke_command()} {launch_args}"
 
 
 def run_partition_subject(run_id: str, stage: str, plan: str, project: str) -> str:

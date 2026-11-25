@@ -119,10 +119,10 @@ def dispatch_until_qa_resolves(
                         announced.add(key)
                         flags = run_partition_subject(run_id, stage, plan, project)
                         recipe = partition_launch_recipe(
-                            project=project, subject=run_id, leg=stage, key=part["key"],
+                            project=project, subject=f"{run_id}:{stage}:{plan}", leg="-", key=part["key"],
                             command=f"{yoke_command()} qa plan run {flags} --partition {part['key']}",
                         )
-                        write(f"Release QA plan {plan} needs a walker for {part['key']}. {recipe}")
+                        write(f"Release QA plan {plan} needs a walker for {part['key']}. Set LEVEL to your own level and CLI to a relay CLI surface. {recipe}")
                     continue
                 if key in attempted:
                     continue
