@@ -88,7 +88,7 @@ def test_sealed_program_is_stdlib_only_and_exits_with_the_drift_code():
     } | {node.module.split(".")[0] for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)}
     assert imported <= {"__future__", "base64", "json", "subprocess", "sys"}
     assert "controller side" not in program
-    assert "sys.exit(main(" in program and "Get-YokeGroupSids" in program
+    assert "\nrun(" in program and "Get-YokeGroupSids" in program
     assert PROBE_EXIT_CODES["probe_machine_drift"] == 25
 
 

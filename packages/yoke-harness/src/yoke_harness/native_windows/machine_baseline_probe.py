@@ -82,6 +82,11 @@ def main(gather, exit_codes):
     return 0
 
 
+def run(gather, exit_codes):
+    """The sealed program's entry: exit with main's code."""
+    sys.exit(main(gather, exit_codes))
+
+
 # --- controller side: not sealed into the probe program ---
 
 PROBE_NAME = "machine-baseline"
@@ -135,7 +140,7 @@ def probe_program():
 
     source = Path(__file__).read_text(encoding="utf-8")
     sealed = source[: source.index(_MARKER)]
-    return sealed + f"\nsys.exit(main({gather_script()!r}, EXIT))\n"
+    return sealed + f"\nrun({gather_script()!r}, EXIT)\n"
 
 
-__all__ = ["PROBE_NAME", "drift", "gather_script", "main", "observe", "probe_program"]
+__all__ = ["PROBE_NAME", "drift", "gather_script", "main", "observe", "probe_program", "run"]
