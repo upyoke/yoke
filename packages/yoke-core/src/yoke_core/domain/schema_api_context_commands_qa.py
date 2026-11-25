@@ -185,9 +185,9 @@ QA_COMMANDS: list[dict] = [
         ),
     },
     {
-        "startup_roles": ("main_agent", "tester_agent"),
+        "startup_roles": ("main_agent",),
         "topic": "qa",
-        "purpose": "Run one QA case",
+        "purpose": "Run one lane QA case",
         "recipe": (
             "yoke qa case run --requirement-id R "
             "--base-url https://preview.example "
@@ -202,9 +202,9 @@ QA_COMMANDS: list[dict] = [
             "— its item, or its deployment run with item_id NULL — so the "
             "runner and qa.browser_context.get carry item_id OR "
             "deployment_run_id; never assume a case has an item. "
-            "This is not the form that credits a deployment QA stage: an "
-            "item-scoped binding refuses and names `yoke qa plan run "
-            "--item PREFIX-N --stage STAGE`. "
+            "For a deployment QA stage, read `yoke qa plan partitions "
+            "--item PREFIX-N --stage STAGE --deployment-run-id RUN`. Launch "
+            "free walk partitions using .yoke/docs/verification/walking.md#launch-a-walker. "
             "browser-check decides automatically; "
             "browser-inspection attaches evidence before an undetermined verdict, "
             "which halts the item and creates an owner/operator review request. "

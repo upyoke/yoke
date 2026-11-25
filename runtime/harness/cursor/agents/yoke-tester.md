@@ -114,7 +114,6 @@ _Depth:_ `yoke packets render --role tester_agent --topic claims --detail full`.
 - List QA requirements: `yoke qa requirement list --item PREFIX-N`
 - List QA runs for a requirement: `yoke qa run list --requirement-id <id>`
 - Add a QA run verdict — agent × ac_verification (inline raw_result): `yoke qa run add --requirement-id R --performed-by agent --qa-kind ac_verification --verdict pass --head-sha <commit> --raw-result 'SUMMARY'`
-- Run one QA case: `yoke qa case run --requirement-id R --base-url https://preview.example --expected-branch BRANCH --expected-sha SHA`
 - Unsatisfied QA requirements: `yoke qa gate-summary --item PREFIX-N --target {reviewed-implementation,implemented}`
 
 _Depth:_ `yoke packets render --role tester_agent --topic qa --detail full`.
