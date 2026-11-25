@@ -30,4 +30,14 @@ def execution_actor(actor: Optional[ActorContext]) -> ActorContext:
     return build_actor()
 
 
+def read_release_partitions(*, run_id: str, stage: str, plan: str, project: str) -> list[dict]:
+    result = call_plan_function(
+        function_id="qa.plan_execution.partitions",
+        target=TargetRef(kind="deployment_run", deployment_run_id=run_id, project_id=project),
+        payload={"deployment_stage": stage, "plan": plan},
+        actor=execution_actor(None),
+    )
+    return result["partitions"]
+
+
 __all__ = ["call_plan_function", "execution_actor"]

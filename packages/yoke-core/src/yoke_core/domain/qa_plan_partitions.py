@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from yoke_core.domain.qa_latest_execution import latest_verdict_executions
+from yoke_core.domain.qa_latest_execution import latest_executions, latest_verdict_executions
 from yoke_core.domain.qa_plan_partition_chains import Partition, roster_partitions
 from yoke_core.domain.qa_plan_partition_custody import (
     PartitionScope,
@@ -89,11 +89,22 @@ def scoped_partition_views(
 ) -> list[PartitionView]:
     if not roster:
         return []
+    ids = [int(row["requirement_id"]) for row in roster]
     if scope.item_id is not None:
         from yoke_core.domain.qa_plan_item_target_partition import candidate_passed_requirements
+        from yoke_core.domain.qa_merging_identity import recorded_head_sha
+        from yoke_core.domain.qa_requirement_pass_currency import current_passing_requirements
 
-        _, passed = candidate_passed_requirements(conn, roster, item_id=scope.item_id)
+        candidate, passed = candidate_passed_requirements(conn, roster, item_id=scope.item_id)
+        passed |= current_passing_requirements(
+            conn, [int(row["requirement_id"]) for row in roster if row["verdict_path"] == "agent"]
+        )
+        attempts = {
+            requirement: attempt for requirement, attempt in latest_executions(conn, ids).items()
+            if not candidate or recorded_head_sha(attempt["raw_result"]) in ("", None, candidate)
+        }
     else:
+        from yoke_core.domain.qa_attempt_target_currency import current_target_attempts
         from yoke_core.domain.qa_plan_run_target_partition import target_passed_requirements
 
         passed = target_passed_requirements(
@@ -103,12 +114,28 @@ def scoped_partition_views(
             deployment_stage=scope.deployment_stage,
             deployment_member_item_id=scope.deployment_member_item_id,
         )
-    attempts = latest_verdict_executions(conn, [int(row["requirement_id"]) for row in roster])
+        attempts = current_target_attempts(conn, latest_verdict_executions(conn, ids))
     failed = {
         requirement for requirement, attempt in attempts.items()
-        if attempt.get("verdict") == "fail"
+        if attempt.get("verdict") in {"fail", "undetermined", "error"}
     }
-    return partition_views(conn, scope, roster, passed=passed, failed=failed)
+    views = partition_views(conn, scope, roster, passed=passed, failed=failed)
+    from yoke_core.domain.qa_pending_agent_review import pending_review_requirements
+    from yoke_core.domain.qa_plan_execution_store import select_plan_execution
+
+    pending = pending_review_requirements(conn, ids, stopped_only=True)
+    for index, view in enumerate(views):
+        review = next((
+            pending[int(row["requirement_id"])]
+            for row in view.partition.roster
+            if int(row["requirement_id"]) in pending
+            and pending[int(row["requirement_id"])].execution_target_digest
+            == row["execution_target_digest"]
+        ), None)
+        if review:
+            holder = select_plan_execution(conn, review.execution_id, lock=False)
+            views[index] = PartitionView(view.partition, "held", holder)
+    return views
 
 
 def select_partition(
@@ -129,7 +156,10 @@ def select_partition(
         )
     ]
     for view in selected:
-        if view.holder is not None and str(view.holder["session_id"]) == session_id:
+        if (
+            view.holder is not None and str(view.holder["session_id"]) == session_id
+            and view.holder.get("state") not in {"aborted", "error"}
+        ):
             return view
     for view in selected:
         if view.state in {"free", "lane"} or (allow_failed and view.state == "failed"):

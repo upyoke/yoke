@@ -3,9 +3,6 @@
 from typing import Any
 
 from yoke_core.domain.deployment_qa_plan_groups import run_groups
-from yoke_core.domain.deployment_qa_case_failure_kinds import RED_VERDICTS
-from yoke_core.domain.qa_attempt_target_currency import current_target_attempts
-from yoke_core.domain.qa_latest_execution import latest_verdict_executions
 from yoke_core.domain.qa_obligation_settlement import settled_obligation_sql
 
 
@@ -19,13 +16,7 @@ class QaDispatchResult(tuple):
 
 
 def pending_stage_plans(conn: Any, stage: dict, run_id: str) -> list[dict]:
-    """Return runnable group plans or the run stage's own selected plan.
-
-    Manual evidence stays with its owner; a pending review is already captured.
-    A live case's determinate failure needs correction, not another capture;
-    a failure recorded against a superseded target is unrun and recaptures.
-    The target digest distinguishes later groups of the same plan.
-    """
+    """Return open plans for the driver to assess partition by partition."""
     name = str(stage["name"])
     if stage.get("scope") == "item":
         subjects = [
@@ -37,26 +28,13 @@ def pending_stage_plans(conn: Any, stage: dict, run_id: str) -> list[dict]:
     found = []
     for plan_id, digest in subjects:
         rows = conn.execute(
-            "SELECT id,wake_path FROM qa_requirements WHERE deployment_run_id=%s "
+            "SELECT 1 FROM qa_requirements WHERE deployment_run_id=%s "
             "AND deployment_stage=%s AND plan_id=%s AND retracted_at IS NULL "
             f"AND NOT {settled_obligation_sql(conn)} "
-            "AND (%s='' OR execution_target_digest=%s)",
-            (run_id, name, plan_id, digest, digest),
-        ).fetchall()
-        if not rows or any(row[1] == "manual" for row in rows):
-            continue
-        verdicts = current_target_attempts(
-            conn, latest_verdict_executions(conn, [row[0] for row in rows])
-        )
-        if any(row["verdict"] in RED_VERDICTS for row in verdicts.values()):
-            continue
-        review = conn.execute(
-            "SELECT 1 FROM qa_plan_executions WHERE deployment_run_id=%s "
-            "AND deployment_stage=%s AND state='awaiting_walk_review' "
             "AND (%s='' OR execution_target_digest=%s) LIMIT 1",
-            (run_id, name, digest, digest),
+            (run_id, name, plan_id, digest, digest),
         ).fetchone()
-        if review:
+        if not rows:
             continue
         row = conn.execute(
             "SELECT p.slug,pr.slug FROM qa_plans p JOIN projects pr ON pr.id=p.project_id "

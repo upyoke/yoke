@@ -140,7 +140,7 @@ def _group_lines(
             )
         )
         lines.append(
-            f"  {yoke_command()} qa plan run --deployment-run-id {run_id} --stage {stage_name} "
+            f"  {yoke_command()} qa plan partitions --deployment-run-id {run_id} --stage {stage_name} "
             f"--plan {_plan_label(conn, group.plan_id)}   # group {group.group_id}; items {items or 'none'}"
         )
     return lines
@@ -185,8 +185,12 @@ def notify_plan_groups_wait(
         f"Deployment run {run_id} stage {stage_name!r} has {len(groups)} pending plan "
         "group(s). Each runs once for the whole release and answers every item that "
         "attaches its plan. The driver runs automatic cases; review or manual "
-        "evidence is pending. Inspect each:\n"
+        "evidence is pending. Read the partitions for each group:\n"
         + "\n".join(lines)
+        + "\nFor each free walk, send the same subject flags to a new session in "
+        "`yoke qa plan run --deployment-run-id RUN --stage STAGE --plan PLAN --partition KEY`. "
+        "Launch with `yoke session-control launch create --project PROJECT --raw-instructions --stdin "
+        "--idempotency-key qa-walk:RUN:STAGE:KEY:1`. "
         + f"\nThen re-drive the run with `{deploy_command(run_id)}`. Check '{yoke_command()} deployment-runs get {run_id}'."
     )
     _deliver(

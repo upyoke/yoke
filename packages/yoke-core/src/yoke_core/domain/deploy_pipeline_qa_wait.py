@@ -86,34 +86,60 @@ def dispatch_until_qa_resolves(
     """
     from yoke_core.domain.deployment_run_recovery_command import deploy_command
     from yoke_core.domain.qa_plan_execution import execute_plan, QaPlanExecutionError
+    from yoke_core.domain.qa_plan_execution_dispatch import read_release_partitions
+    from yoke_core.domain.qa_partition_launch_recipe import partition_launch_recipe, run_partition_subject
+    from yoke_core.domain.deployment_run_recovery_command import yoke_command
 
-    attempted: set[tuple[str, str]] = set()
+    attempted: set[tuple[str, str, str]] = set()
+    announced: set[tuple[str, str, str]] = set()
 
     def run_pending(answer):
-        pending_plans = getattr(answer, "pending_plans", ())
-        # A review-held plan disappears until it owes its next host partition.
-        attempted.intersection_update(
-            (p["plan"], p.get("target_digest", "")) for p in pending_plans
-        )
-        for pending in pending_plans:
-            key = (pending["plan"], pending.get("target_digest", ""))
-            if key in attempted:
-                continue
+        run_id = str(kwargs.get("run_id") or "")
+        stage = str(args[0]["name"]) if args else ""
+        for pending in getattr(answer, "pending_plans", ()):
+            plan, project = pending["plan"], pending["project"]
+            scope = (plan, pending.get("target_digest", ""))
             try:
-                execution = execute_plan(
-                    deployment_run_id=kwargs.get("run_id"),
-                    deployment_stage=str(args[0]["name"]),
-                    plan=pending["plan"], project=pending["project"],
+                partitions = read_release_partitions(
+                    run_id=run_id, stage=stage, plan=plan, project=project,
                 )
-                state = execution.get("state")
-                if state != "waiting":
-                    attempted.add(key)
-                write(f"Release QA plan {pending['plan']}: {state}; "
-                      f"{execution.get('recovery') or ''}")
             except QaPlanExecutionError as exc:
-                attempted.add(key)
-                write(f"release_qa_plan_refused: {pending['plan']}: {exc}. "
-                      f"Resolve the named refusal, then {deploy_command(kwargs.get('run_id') or 'RUN-ID')}.")
+                key = (*scope, "read")
+                if key not in announced:
+                    announced.add(key)
+                    write(f"release_qa_partitions_refused: {plan}: {exc}. "
+                          f"Resolve the named refusal, then {deploy_command(run_id or 'RUN-ID')}.")
+                continue
+            for part in partitions:
+                if part["state"] != "free":
+                    continue
+                key = (*scope, part["key"])
+                if part["kind"] == "walk":
+                    if key not in announced:
+                        announced.add(key)
+                        flags = run_partition_subject(run_id, stage, plan, project)
+                        recipe = partition_launch_recipe(
+                            project=project, subject=run_id, leg=stage, key=part["key"],
+                            command=f"{yoke_command()} qa plan run {flags} --partition {part['key']}",
+                        )
+                        write(f"Release QA plan {plan} needs a walker for {part['key']}. {recipe}")
+                    continue
+                if key in attempted:
+                    continue
+                try:
+                    execution = execute_plan(
+                        deployment_run_id=run_id, deployment_stage=stage, plan=plan,
+                        project=project, partition=part["key"],
+                    )
+                    state = execution.get("state")
+                    if state != "waiting":
+                        attempted.add(key)
+                    write(f"Release QA plan {plan} partition {part['key']}: {state}; "
+                          f"{execution.get('recovery') or ''}")
+                except QaPlanExecutionError as exc:
+                    attempted.add(key)
+                    write(f"release_qa_partition_refused: {plan} {part['key']}: {exc}. "
+                          f"Resolve the named refusal, then {deploy_command(run_id or 'RUN-ID')}.")
         return answer
 
     observed = fingerprint()
@@ -146,6 +172,8 @@ def dispatch_until_qa_resolves(
             current = fingerprint()
             if current != observed:
                 observed = current
+                attempted.clear()
+                announced.clear()
                 return dispatch(*args, **kwargs)
             return result
 

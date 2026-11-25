@@ -44,12 +44,15 @@ def _notify_group_review(
     ).fetchone()
     if row is None:
         return ""
+    owner = str(execution.get("session_id") or "")
+    owner_live = _session_live(conn, owner)
     return push_run_scoped_notice(
         conn,
         run_id=run_id,
         project_id=int(row[0]),
         body_for_route=body_for_route,
-        idempotency_key=idempotency_key,
+        idempotency_key=f"{idempotency_key}:owner" if owner_live else idempotency_key,
+        owner_session_id=owner if owner_live else None,
         now=utc_now(),
     )
 
@@ -96,16 +99,15 @@ def notify_scoped_agent_review(conn: Any, execution: Mapping[str, Any]) -> str:
     if execution_has_persisted_verdict_batch(conn, execution_id):
         return ""
     owner = str(execution.get("session_id") or "")
+    owner_live = _session_live(conn, owner)
 
     def body_for_route(route: str) -> str:
         recovery = (
             f"Owning session {owner}: re-enter `{command}` now. The command "
             "reprints the pending bundle without recapturing; follow its "
             "bundle instructions and submit the complete verdict batch."
-            if route == HOLDER
-            else f"Owning session {owner or 'unrecorded'} is gone. Route normal "
-            "idle/gone-holder starvation and restaffing for this member; the "
-            f"scoped re-entry command is `{command}`."
+            if owner_live
+            else _replacement_adoption(conn, execution, item_ref, str(row[1]))
         )
         return (
             f"Scoped QA capture for {item_ref} on deployment run {run_id}, "
@@ -118,9 +120,9 @@ def notify_scoped_agent_review(conn: Any, execution: Mapping[str, Any]) -> str:
         conn,
         item_id=int(member_id),
         project_id=int(row[0]),
-        owner_session_id=owner,
+        owner_session_id=owner if owner_live else None,
         body_for_route=body_for_route,
-        idempotency_key=f"{REVIEW_WAKE_PREFIX}{execution_id}",
+        idempotency_key=f"{REVIEW_WAKE_PREFIX}{execution_id}{':owner' if owner_live else ''}",
         now=utc_now(),
     )
 
@@ -152,6 +154,25 @@ def _project_id(conn: Any, item_id: int) -> int | None:
         f"SELECT project_id FROM items WHERE id={marker(conn)}", (int(item_id),)
     ).fetchone()
     return int(row[0]) if row is not None else None
+
+
+def _replacement_adoption(conn, execution, item_ref: str, project: str) -> str:
+    from yoke_core.domain.deployment_run_recovery_command import yoke_command
+    from yoke_core.domain.qa_partition_launch_recipe import partition_launch_recipe
+    from yoke_core.domain.qa_plan_partition_chains import partition_key
+    from yoke_core.domain.qa_walk_authority import walk_launch
+
+    item_id = execution.get("item_id") or execution.get("deployment_member_item_id")
+    owner = str(execution.get("session_id") or "")
+    adopt = f"{yoke_command()} qa plan adopt --item {item_ref} --execution-id {execution['id']} --reason 'Recover pending QA review'"
+    if not walk_launch(conn, item_id=item_id, session_id=owner):
+        return f"The capture session has ended. As the claim holder, run `{adopt}` to recover it."
+    recipe = partition_launch_recipe(
+        project=project, subject=item_ref,
+        leg=execution.get("transition_id") or execution["deployment_stage"],
+        key=partition_key(execution["roster"]), command=adopt, attempt="NEXT_ATTEMPT",
+    )
+    return f"The capture session has ended. Replace NEXT_ATTEMPT with the next number and launch a replacement. {recipe}"
 
 
 def _session_live(conn: Any, session_id: str) -> bool:

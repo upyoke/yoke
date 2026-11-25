@@ -36,9 +36,9 @@ def partition_key(roster: list[dict[str, Any]], *, standalone: bool = False) -> 
 
 
 def _case_kind(case: dict[str, Any], *, item_lane: bool) -> str:
-    if declares_starting_state(case) or case["verdict_path"] != "automatic":
+    if not is_host_free_case(case) or case["verdict_path"] != "automatic":
         return "walk"
-    if item_lane and is_host_free_case(case):
+    if item_lane:
         return "lane"
     return "automatic"
 

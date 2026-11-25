@@ -15,6 +15,35 @@ class SourceLaneError(ValueError):
     """The requested source cannot identify one authorized lane."""
 
 
+class WalkLaneMoved(SourceLaneError):
+    code = "qa_lane_moved"
+
+
+def resolve_walk_lane(conn, *, item_id, session_id, expected_branch, expected_sha):
+    """Use only the lane identity the claim holder froze when reading partitions."""
+    if not expected_branch or not expected_sha:
+        raise WalkLaneMoved(
+            "qa_lane_moved: delegated item QA requires the claim holder's recorded "
+            "--expected-branch and --expected-sha from yoke qa plan partitions."
+        )
+    try:
+        lane = resolve_source_lane(
+            conn, item_id=item_id, session_id=session_id, expected_branch=expected_branch,
+        )
+    except SourceLaneError as exc:
+        raise WalkLaneMoved(
+            "qa_lane_moved: the claim holder's frozen branch is unavailable. "
+            "Ask them to read partitions again and launch with the new lane receipt."
+        ) from exc
+    if lane.get("lane_commit_sha") != expected_sha:
+        raise WalkLaneMoved(
+            f"qa_lane_moved: lane {expected_branch!r} is at {lane.get('lane_commit_sha')}, "
+            f"expected {expected_sha}. Ask the claim holder to read partitions "
+            "again and launch with the new lane receipt."
+        )
+    return lane
+
+
 def resolve_source_lane(
     conn: Any,
     *,

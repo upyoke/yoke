@@ -153,6 +153,7 @@ def push_run_scoped_notice(
     body_for_route: Callable[[str], str],
     idempotency_key: str,
     now: Optional[datetime] = None,
+    owner_session_id: str | None = None,
 ) -> str:
     """Reach whoever is driving *run_id*, and say whether it landed.
 
@@ -164,6 +165,11 @@ def push_run_scoped_notice(
     it reached.
     """
     now = parse_instant(utc_now() if now is None else now)
+    if owner_session_id and (actor_id := _session_actor(conn, owner_session_id)) is not None:
+        return _deliver(
+            conn, session_id=owner_session_id, actor_id=actor_id,
+            body=body_for_route("owner"), idempotency_key=idempotency_key, now=now,
+        )
     session_id, actor_id, route = resolve_run_driver_recipient(
         conn, run_id=run_id, project_id=project_id
     )

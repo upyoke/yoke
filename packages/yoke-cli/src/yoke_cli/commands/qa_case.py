@@ -31,7 +31,7 @@ QA_PLAN_RUN_USAGE = (
     "(--item PREFIX-N (--transition TRANSITION | --stage STAGE [--plan PLAN] "
     "[--deployment-run-id RUN]) | "
     "--deployment-run-id RUN --stage STAGE [--plan PLAN] | "
-    "--plan PLAN --project P | --resume-execution-id ID) [--replaces CASE_KEY=REQUIREMENT_ID] "
+    "--plan PLAN --project P | --resume-execution-id ID) [--partition KEY] [--replaces CASE_KEY=REQUIREMENT_ID] "
     "[--project P] [--base-url URL] [--test-machine TEST_MACHINE] "
     "[--expected-branch BRANCH --expected-sha SHA] "
     "[--timeout-seconds N] [--checkout-path PATH] "

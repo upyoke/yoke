@@ -23,8 +23,6 @@ from yoke_core.domain.qa_plan_execution_begin_validation import (
 from yoke_core.domain.qa_plan_execution_target import build_plan_execution_target
 from yoke_core.domain.qa_plan_execution_roster import ordered_plan_requirements
 
-from yoke_core.domain.qa_member_plan_execution import execute_serial_partitions
-
 _call_plan_function = call_plan_function
 
 
@@ -44,7 +42,6 @@ def _checkout_project(checkout_path: Optional[str | Path]) -> str:
     return default_project_for_directory(checkout_path or Path.cwd()) or "P"
 
 
-@execute_serial_partitions
 def execute_plan(
     *,
     public_ref: Optional[str] = None,
@@ -54,6 +51,7 @@ def execute_plan(
     deployment_stage: Optional[str] = None,
     deployment_member: Optional[str] = None,
     plan: Optional[str] = None,
+    partition: Optional[str] = None,
     project: Optional[str] = None,
     base_url: str = "",
     test_machine: Optional[str] = None,
@@ -112,6 +110,10 @@ def execute_plan(
             source_revision=expected_sha,
             source_ref=expected_branch,
         )
+    if partition and not resume_execution_id:
+        begin_payload["partition"] = partition
+        if public_ref and transition_id and expected_sha:
+            begin_payload["expected_sha"] = expected_sha
     if requirement_id is not None:
         begin_payload["requirement_id"] = requirement_id
     if (
@@ -173,22 +175,6 @@ def execute_plan(
         )
 
     try:
-        if public_ref and transition_id and not resume_execution_id and adopted_execution is None:
-            from yoke_core.domain.qa_case_execution import QaCaseExecutionError
-            from yoke_core.domain.qa_lane_head import reconcile_plan_lanes
-
-            try:
-                reconcile_plan_lanes(
-                    target,
-                    transition_id=transition_id,
-                    requirement_id=requirement_id,
-                    checkout_path=begin_payload["checkout_path"],
-                    expected_branch=expected_branch,
-                    actor=resolved_actor,
-                    call=_call_plan_function,
-                )
-            except QaCaseExecutionError as exc:
-                raise QaPlanExecutionError(str(exc)) from exc
         execution = adopted_execution or begin_call()
     except QaPlanExecutionError as exc:
         from yoke_core.domain.qa_plan_empty_roster import as_discharged_plan_result
