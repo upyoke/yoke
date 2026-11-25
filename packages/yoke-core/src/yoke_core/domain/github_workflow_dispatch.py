@@ -12,7 +12,6 @@ from yoke_contracts.api.function_call import (
 )
 from yoke_contracts.github_workflow_dispatch import (
     WORKFLOW_DISPATCH_CORRELATION_PREFIX,
-    workflow_dispatch_marker,
 )
 from yoke_core.domain.github_workflow_dispatch_intents import (
     DispatchIntent,
@@ -22,13 +21,23 @@ from yoke_core.domain.github_workflow_dispatch_intents import (
     latest_intent,
     reject_intent,
 )
+from yoke_core.domain.github_workflow_dispatch_runs import (
+    CORRELATION_RUNS_PER_PAGE,
+    CORRELATION_SEARCH_PAGES,
+    correlated_run,
+    recorded_run,
+    run_classification,
+)
+from yoke_core.domain.platform_consumer_dispatch_recovery import (
+    ConsumerProofRecoveryError,
+    is_exact_consumer_proof,
+    reconcile_consumer_runs,
+    validate_consumer_run,
+    verify_consumer_tag,
+)
 from yoke_core.domain.yoke_function_idempotency_scope import (
     idempotency_payload_checksum,
 )
-
-
-_CORRELATION_SEARCH_PAGES = 5
-_CORRELATION_RUNS_PER_PAGE = 100
 
 
 def _error(code: str, message: str, *, recovery_hint: str = "") -> HandlerOutcome:
@@ -113,73 +122,6 @@ def _proof_reusable(
     )
 
 
-def _correlated_run(payload: Any, intent: DispatchIntent, token: str) -> Any:
-    from yoke_core.domain.github_actions_rest import rest_get
-
-    marker = workflow_dispatch_marker(intent.correlation_id)
-    for page in range(1, _CORRELATION_SEARCH_PAGES + 1):
-        data = rest_get(
-            f"/repos/{payload.repo}/actions/workflows/{payload.workflow}/runs",
-            query={
-                "event": "workflow_dispatch",
-                "per_page": str(_CORRELATION_RUNS_PER_PAGE),
-                "page": str(page),
-            },
-            token=token,
-        )
-        if not isinstance(data, dict) or not isinstance(
-            data.get("workflow_runs"),
-            list,
-        ):
-            raise ValueError("workflow correlation lookup returned malformed data")
-        runs = data["workflow_runs"]
-        matches = []
-        for run in runs:
-            if not isinstance(run, dict):
-                raise ValueError(
-                    "workflow correlation lookup contained a malformed run"
-                )
-            if marker in str(run.get("display_title") or ""):
-                matches.append(run)
-        if len(matches) > 1:
-            raise ValueError(
-                "multiple workflow runs expose dispatch correlation "
-                f"{intent.correlation_id}"
-            )
-        if matches:
-            return matches[0]
-        if len(runs) < _CORRELATION_RUNS_PER_PAGE:
-            break
-    return None
-
-
-def _exact_run_classification(payload: Any, intent: DispatchIntent, token: str) -> str:
-    """``active``, ``verdict`` (success or failure) or ``no_verdict``."""
-    from yoke_core.domain.ci_run_redispatch import VERDICT_CONCLUSIONS
-    from yoke_core.domain.github_actions_rest import rest_get
-
-    run = rest_get(
-        f"/repos/{payload.repo}/actions/runs/{intent.workflow_run_id}",
-        token=token,
-    )
-    if not isinstance(run, dict):
-        raise ValueError("exact workflow run lookup returned malformed data")
-    if str(run.get("id") or "") != intent.workflow_run_id:
-        raise ValueError("exact workflow run lookup returned a different run id")
-    status = str(run.get("status") or "").strip()
-    conclusion = str(run.get("conclusion") or "").strip()
-    if status in {"queued", "pending", "waiting", "requested", "in_progress"}:
-        return "active"
-    if status == "completed" and conclusion in VERDICT_CONCLUSIONS:
-        return "verdict"
-    if status == "completed" and conclusion:
-        return "no_verdict"
-    raise ValueError(
-        "exact workflow run lookup returned an unknown state "
-        f"(status={status!r}, conclusion={conclusion!r})"
-    )
-
-
 def _complete_from_run(intent: DispatchIntent, run: Any) -> DispatchIntent:
     run_id = str(run.get("id") or "")
     if not run_id:
@@ -202,6 +144,7 @@ def _claim_and_post(
     authorization_scope: str,
     payload_checksum: str,
     attempt: int,
+    pending_predecessor: DispatchIntent | None = None,
 ) -> HandlerOutcome:
     correlation_id = _correlation_id(
         request_id,
@@ -221,6 +164,7 @@ def _claim_and_post(
         workflow_ref=payload.ref,
         inputs=payload.inputs,
         correlation_id=correlation_id,
+        pending_predecessor=pending_predecessor,
     )
     if not claimed:
         return dispatch_workflow_with_intent(request, payload, token)
@@ -255,10 +199,9 @@ def _claim_and_post(
         return _error(
             "workflow_dispatch_ambiguous",
             "workflow dispatch response was lost after its durable intent was recorded",
-            recovery_hint=(
-                f"Retry with the same request_id {request_id!r}; Yoke will recover "
-                "the GitHub run by its visible correlation marker without reposting."
-            ),
+            recovery_hint=f"Retry with the same request_id {request_id!r} "
+            "to reconcile the recorded attempt.",
+
         )
     if not isinstance(result, dict) or not result.get("workflow_run_id"):
         return _error(
@@ -296,11 +239,20 @@ def dispatch_workflow_with_intent(
     }
     owned = {"actor_id": actor_id, **scoped}
 
-    def _mutate(attempt: int) -> HandlerOutcome:
+    def _mutate(
+        attempt: int, *, pending_predecessor: DispatchIntent | None = None
+    ) -> HandlerOutcome:
         return _claim_and_post(
-            request, payload, token, request_id=request_id, attempt=attempt, **owned
+            request,
+            payload,
+            token,
+            request_id=request_id,
+            attempt=attempt,
+            pending_predecessor=pending_predecessor,
+            **owned,
         )
 
+    exact_pair = is_exact_consumer_proof(payload, request_id)
     try:
         intent = latest_intent(request_id)
         if intent is not None and not _proof_reusable(intent, **scoped):
@@ -309,32 +261,63 @@ def dispatch_workflow_with_intent(
                 recovery_hint="review why this call differs from the recorded attempt",
             )
         owns = intent is not None and _same_logical_request(intent, **owned)
-        if intent is None or (intent.state == "rejected" and owns):
-            return _mutate(1 if intent is None else intent.attempt + 1)
+        if intent is None:
+            return _mutate(1)
+        if exact_pair and intent.state in {"pending", "rejected"}:
+            matched, retry_ready = reconcile_consumer_runs(payload, intent, token)
+            if matched is not None:
+                matched_intent, run, classification = matched
+                if matched_intent.state == "pending":
+                    matched_intent = _complete_from_run(matched_intent, run)
+                if classification == "no_verdict" and owns:
+                    verify_consumer_tag(payload, token)
+                    return _mutate(intent.attempt + 1)
+                return _response(matched_intent, dispatched=False)
+            if retry_ready and owns:
+                verify_consumer_tag(payload, token)
+                predecessor = intent if intent.state == "pending" else None
+                return _mutate(intent.attempt + 1, pending_predecessor=predecessor)
+            return _error(
+                "workflow_dispatch_pending",
+                "no usable GitHub run is visible for the recorded Platform proof attempts",
+                recovery_hint=f"The original dispatching actor can retry request_id {request_id!r} "
+                "after the join window with a complete GitHub lookup.",
+            )
         if intent.state == "rejected":
+            if owns:
+                return _mutate(intent.attempt + 1)
             # Reusable pair, nothing succeeded yet; only the owner may retry.
             return _collision(
                 "the latest attempt was rejected, and this actor did not dispatch it",
                 recovery_hint="only the original dispatching actor may retry it",
             )
         if intent.state == "pending":
-            run = _correlated_run(payload, intent, token)
+            run = correlated_run(payload, intent, token)
             if run is None:
                 return _error(
                     "workflow_dispatch_pending",
                     "a durable workflow dispatch intent exists, but its correlated "
                     "GitHub run is not visible in the bounded recent-run search "
-                    f"(up to {_CORRELATION_SEARCH_PAGES * _CORRELATION_RUNS_PER_PAGE} "
+                    f"(up to {CORRELATION_SEARCH_PAGES * CORRELATION_RUNS_PER_PAGE} "
                     "runs); no duplicate POST was sent",
                     recovery_hint=f"Retry with the same request_id {request_id!r}.",
                 )
             intent = _complete_from_run(intent, run)
-        classification = _exact_run_classification(payload, intent, token)
+        run = recorded_run(payload, intent, token)
+        if exact_pair:
+            validate_consumer_run(payload, intent, run)
+        classification = run_classification(run)
         if classification != "no_verdict" or not owns:
             # Every reader reuses a run in flight or with a verdict; only the
             # owner retriggers a no-verdict run it actually owns.
             return _response(intent, dispatched=False)
         return _mutate(intent.attempt + 1)
+    except ConsumerProofRecoveryError as exc:
+        return _error(
+            exc.code, str(exc),
+            recovery_hint="Restore the exact Platform proof lookup or bound tag, "
+            "then retry with the same request_id.",
+        )
     except DispatchIntentStoreError as exc:
         return _error("workflow_dispatch_state_unavailable", str(exc))
     except (TypeError, ValueError) as exc:

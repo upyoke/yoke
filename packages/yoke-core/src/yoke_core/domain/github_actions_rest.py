@@ -94,6 +94,20 @@ def rest_get_found(
     return request_with_retry(req, token=token).body
 
 
+def read_lightweight_tag(
+    repo: str, tag: str, *, token: str
+) -> tuple[str, str | None]:
+    """Return the reported ref and commit. A non-commit target has an empty SHA."""
+    payload = rest_get(f"/repos/{repo}/git/ref/tags/{tag}", token=token)
+    if not isinstance(payload, dict):
+        return "", None
+    ref = str(payload.get("ref") or "")
+    target = payload.get("object")
+    if not isinstance(target, dict) or target.get("type") != "commit":
+        return ref, ""
+    return ref, str(target.get("sha") or "")
+
+
 def rest_post(
     path: str,
     *,
@@ -270,6 +284,7 @@ __all__ = [
     "latest_run_id",
     "latest_workflow_run",
     "newest_run",
+    "read_lightweight_tag",
     "resolve_token",
     "rest_get",
     "rest_post",

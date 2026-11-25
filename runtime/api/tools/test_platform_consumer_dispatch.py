@@ -9,6 +9,10 @@ from yoke_core.domain import platform_consumer_dispatch as pairs
 from runtime.api.tools import require_platform_consumer_compatibility as gate
 from runtime.api.fixtures.file_test_db import init_test_db
 from yoke_contracts.api.function_call import ActorContext, FunctionCallRequest, TargetRef
+from yoke_contracts.github_workflow_dispatch import (
+    WORKFLOW_DISPATCH_CORRELATION_INPUT,
+    workflow_dispatch_marker,
+)
 from yoke_core.domain import github_actions_rest
 from yoke_core.domain.github_workflow_dispatch import dispatch_workflow_with_intent
 from yoke_core.domain.handlers.github_actions_workflow_dispatch import WorkflowDispatchRequest
@@ -61,9 +65,20 @@ def test_worker_proof_is_joined_by_release_with_identical_checksum(tmp_path, mon
     monkeypatch.setattr(github_actions_rest, "rest_post", lambda *a, **kw: (
         posted.append(kw["body"]) or {"workflow_run_id": "42"}
     ))
-    monkeypatch.setattr(github_actions_rest, "rest_get", lambda *a, **kw: {
-        "id": "42", "status": "completed", "conclusion": "success",
-    })
+    def get_run(path, *, token):
+        assert path == f"/repos/{pairs.CONSUMER_REPO}/actions/runs/42"
+        marker = workflow_dispatch_marker(posted[0]["inputs"][WORKFLOW_DISPATCH_CORRELATION_INPUT])
+        return {
+            "id": 42,
+            "status": "completed",
+            "conclusion": "success",
+            "event": "workflow_dispatch",
+            "path": f".github/workflows/{pairs.CONSUMER_CHECK_WORKFLOW}",
+            "head_sha": CONSUMER,
+            "display_title": f"platform-release-pin-check {CANDIDATE} on {CONSUMER} {marker}",
+        }
+
+    monkeypatch.setattr(github_actions_rest, "rest_get", get_run)
     with init_test_db(tmp_path):
         assert worker.main(["--candidate-sha", CANDIDATE, "--consumer-sha", CONSUMER]) == 0
         actor = "release"
