@@ -5,7 +5,6 @@ from __future__ import annotations
 from runtime.harness.hook_project_scope_test_support import project_map as project_map
 
 
-import os
 import subprocess
 from pathlib import Path
 
@@ -145,7 +144,7 @@ def test_slash_prefixed_drive_paths_bind_the_registered_checkout(tmp_path, proje
     assert project_scope.project_id_for_payload({"tool_input": {"workdir": lower_drive}}) == 7
 
 
-@pytest.mark.skipif(os.name == "nt", reason="POSIX relative-path semantics")
+@pytest.mark.posix_only(reason="POSIX relative-path semantics")
 def test_foreign_drive_path_does_not_bind_a_relative_posix_checkout(
     tmp_path, monkeypatch, project_map
 ):
