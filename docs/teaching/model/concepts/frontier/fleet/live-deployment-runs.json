@@ -4,7 +4,7 @@
  "status": "observed",
  "page": "frontier",
  "position": 6,
- "summary": "Each live run row names its stage age, outstanding blocking QA and red requirements. Red means an unsettled blocking obligation whose latest actual attempt failed: a waived, superseded, replaced, triage-discharged or retracted requirement (including every requirement of a member removed with remove-item) is history, so the count matches what the run still grades. The section reads runs, members and requirements as sets, so a larger release costs the same statements.",
+ "summary": "Each live run row names its stage age, outstanding blocking QA and red requirements. Red means an unsettled blocking obligation whose latest actual attempt failed: a waived, superseded, replaced, triage-discharged or retracted requirement (including every requirement of a member removed with remove-item) is history, so the count matches what the run still grades. A created run without a live driver needs a start even with carried item QA. The report gives the same-run deploy watcher command, selects the owning connection in the recipe, and explains when to use its paired db-admin connection. The changes-only watcher surfaces the start action when a live preflight driver disappears. The section reads runs, members and requirements as sets, so a larger release costs the same statements.",
  "commands": ["yoke deployment-runs remove-item", "yoke steering report get"],
  "sources": ["docs/public/sessions/steering-report.md", "packages/yoke-core/src/yoke_core/domain/deployment_run_red_requirements.py", "packages/yoke-core/src/yoke_core/domain/steering_fleet_report_run_progress.py"]
 }

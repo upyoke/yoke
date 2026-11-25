@@ -124,7 +124,7 @@ def test_a_qa_stage_reports_the_gate_not_the_settled_requirement_count(test_db) 
     )
     assert f"{RUN_ID}" in body
     assert "3 of 3 outstanding" in body
-    assert f"Nothing is outstanding; re-drive {RUN_ID}" not in body
+    assert "Start this run with" not in body
     # One counted line per waiting member; the per-requirement wait lines
     # stay on the stage read, not in every report.
     assert cases_not_selected_refusal() not in body

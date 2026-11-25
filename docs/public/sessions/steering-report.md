@@ -24,6 +24,8 @@ They deliver only changed scope sections and an unchanged count; identical
 reports deliver nothing. Slow paths are diagnostics in `--full` and never
 change delivery identity. Removed scope sections are named once.
 
+See [when a deployment needs a driver](../deployments/start-diagnostics.md#runs-that-need-a-driver).
+
 ## Scope and available work
 
 Document seats follow item_strategy_docs membership, including execution in
