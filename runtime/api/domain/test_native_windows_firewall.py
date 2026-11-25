@@ -18,6 +18,7 @@ from runtime.api.domain.native_windows_fixture_firewall import verify_tailnet_sc
 from yoke_harness.native_windows import provision
 from yoke_harness.native_windows.autologon import SCRIPT as AUTOLOGON_SCRIPT
 from yoke_harness.native_windows.firewall import SCRIPT as FIREWALL_SCRIPT
+from yoke_harness.native_windows.machine_fixtures import SECOND_USER
 from yoke_harness.native_windows.transport import WindowsTransport, encoded, quote
 
 pytestmark = pytest.mark.windows
@@ -137,10 +138,12 @@ def test_complete_guest_provisioning_and_real_ssh_rdp_forward(monkeypatch, tmp_p
         for receipt in (
             "Native OpenSSH ready; password authentication disabled.",
             "Native standard user, private golden directory and private desktop routes ready.",
+            "Second local user Zoë Tester ready for key logon; no password stored.",
         ):
             assert receipt in output
-        assert len(stages) == 3  # bootstrap, absent-user guard, setup
-        for user, expected in ((admin, "$true"), (name, "$false")):
+        assert len(stages) == 4  # bootstrap, absent-user guard, setup, second user
+        # The second user logs in by name through -l, never as user@host.
+        for user, expected in ((admin, "$true"), (name, "$false"), (SECOND_USER, "$false")):
             script = (
                 "$ErrorActionPreference='Stop'; $id=[Security.Principal.WindowsIdentity]::GetCurrent(); "
                 f"$expected=(Get-LocalUser -Name {quote(user)}).SID.Value; "
@@ -149,7 +152,7 @@ def test_complete_guest_provisioning_and_real_ssh_rdp_forward(monkeypatch, tmp_p
                 f"if($isAdmin -ne {expected}){{throw 'wrong SSH privilege'}}; 'TOKEN_OK'"
             )
             result = subprocess.run(
-                [*ssh, user + "@127.0.0.1", "powershell.exe -NoProfile -NonInteractive -EncodedCommand " + encoded(script)],
+                [*ssh, "-l", user, "127.0.0.1", "powershell.exe -NoProfile -NonInteractive -EncodedCommand " + encoded(script)],
                 capture_output=True, text=True, timeout=45,
             )
             if result.returncode:

@@ -46,6 +46,17 @@ def test_scripts_are_ascii_and_always_print_one_record(name, operation):
     assert "$script:fixtureFailed=$true" in script and script.rstrip().endswith("{exit 1}")
 
 
+@pytest.mark.parametrize("name", sorted(fixtures.FIXTURES))
+@pytest.mark.parametrize("operation", ["setup", "undo"])
+def test_every_yoke_helper_a_script_calls_is_defined_in_it(name, operation):
+    import re
+
+    script = fixtures.fixture_script(CONTEXT, name, operation)
+    called = set(re.findall(r"\b((?:Get|Set|Test|Resolve|Initialize|Invoke)-Yoke\w+)", script))
+    defined = set(re.findall(r"function ((?:Get|Set|Test|Resolve|Initialize|Invoke)-Yoke\w+)", script))
+    assert called <= defined, called - defined
+
+
 def test_undo_all_runs_every_undo_in_order():
     script = fixtures.undo_all_script(CONTEXT)
     positions = [script.index(f"fixture='{name}';operation='undo'") for name in fixtures.UNDO_ORDER]

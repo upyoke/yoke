@@ -7,6 +7,8 @@ The prelude (machine_fixtures.PRELUDE) defines ``$testUser``, ``$golden``
 and the group helpers these bodies use.
 """
 
+from yoke_harness.native_windows.profile import HELPERS as PROFILE_HELPERS
+
 TASK_POLICY_KEY = r"HKLM:\SOFTWARE\Policies\Microsoft\Windows\Task Scheduler5.0"
 
 GRANT_ADMIN_SETUP = r"""
@@ -87,7 +89,8 @@ function Get-YokeSrpRuleCount {
 """
 
 APPLOCKER_SETUP = (
-    APPLOCKER_HELPERS
+    PROFILE_HELPERS
+    + APPLOCKER_HELPERS
     + r"""
 $sid=Get-YokeUserSid $testUser
 $profilePath=Resolve-YokeProfile $sid
