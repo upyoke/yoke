@@ -55,6 +55,7 @@ try:
     from yoke_cli.main import main
 except (ImportError, OSError) as exc:
     sys.exit('released_cli_unavailable: ' + str(exc) + '; ' + sys.argv[1])
+sys._yoke_stable_launcher = True
 sys.exit(main(sys.argv[3:]) or 0)
 """
 ENTRY = ["-I", "-c", RELEASE_ENTRY, RECOVERY]
@@ -306,9 +307,8 @@ def launch(root: Path, arguments: list[str]) -> int:
     except (OSError, RuntimeError) as exc:
         print(f"cli_release_unavailable: {exc}; {RECOVERY}", file=sys.stderr)
         return 2
-    finally:  # The last command on a replaced release retires it.
+    finally:  # Publication collects if current changes after this read.
         try:
-            # A publisher that changes the pointer after this read collects retired releases.
             if generation is not None and _generation(root) != generation:
                 with locked(root / "publication.lock", nonblocking=True):
                     if _generation(root) != generation:

@@ -4,10 +4,9 @@ A relay bound to an https control plane follows the release that plane serves:
 it pins that release beside a relay-owned Python and launchd runs the pinned
 executable. A relay bound to a local universe has no served release to follow,
 because the machine running the relay is also the machine serving the control
-plane -- there is no remote build to fetch, no wheel index to fetch it from,
-and no version skew between them to converge. It runs that machine's own
-installed launcher instead, so the relay serves whatever Yoke the operator has
-installed and upgrades with it.
+plane. A relay started by the stable install launcher checks for a new
+installed release before its next cycle. When the release changes, the relay
+drains its jobs and exits so the service supervisor starts the new release.
 
 Resolution deliberately ignores ``PATH``. launchd starts the relay with an
 environment that has nothing to do with the login shell that installed it, and

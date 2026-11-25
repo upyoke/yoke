@@ -8,6 +8,7 @@ import shlex
 import subprocess
 import sys
 
+from yoke_cli.config import cli_release_resident
 from yoke_cli.config import cli_release_runtime as runtime
 from yoke_contracts import platform_file_lock
 
@@ -18,6 +19,13 @@ def main(argv):
         sys.stdin.readline()
         import release_marker
         print(release_marker.VERSION, flush=True)
+    elif argv == ['exit-on-publication']:
+        from yoke_cli.config.cli_release_resident import running_release_superseded
+
+        assert not running_release_superseded()
+        print('ready', flush=True)
+        sys.stdin.readline()
+        return 75 if running_release_superseded() else 0
     elif argv == ['hold']:
         import os
         print(os.getpid(), flush=True)
@@ -59,8 +67,9 @@ def candidate(root: Path, version: str) -> Path:
     (contracts / "platform_file_lock.py").write_text(
         Path(platform_file_lock.__file__).read_text(encoding="utf-8"), encoding="utf-8"
     )
-    runtime_source = Path(runtime.__file__).read_text()
-    (package / "config/cli_release_runtime.py").write_text(runtime_source)
+    for module in (runtime, cli_release_resident):
+        source = Path(module.__file__)
+        (package / "config" / source.name).write_text(source.read_text())
     (generation / "lease").touch()
     (generation / "pending").touch()
     return generation

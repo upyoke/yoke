@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_harness import session_relay
-from yoke_harness.session_relay_daemon import _StopRequest
+from yoke_harness.session_relay_stop_request import StopRequest
 from yoke_harness.session_relay_failure_log import FailureReporter
 from yoke_harness.session_relay_job_release import release_claimed_job
 from yoke_harness.session_relay_report_delivery import PENDING_REPORT_DIR_NAME
@@ -22,7 +22,7 @@ def _job(kind="launch"):
 
 @pytest.mark.parametrize("reason", ["relay_stopping", "relay_workers_busy"])
 def test_rejected_admission_reports_release_without_starting_native(tmp_path, reason):
-    stop = _StopRequest()
+    stop = StopRequest()
     supervisor = Supervisor(1, FailureReporter(state_dir=tmp_path), stop)
     entered, finish = threading.Event(), threading.Event()
     reports = []
@@ -64,7 +64,7 @@ def test_rejected_admission_reports_release_without_starting_native(tmp_path, re
 
 
 def test_stop_between_admission_and_worker_start_releases_job(tmp_path, monkeypatch):
-    stop = _StopRequest()
+    stop = StopRequest()
     supervisor = Supervisor(1, FailureReporter(state_dir=tmp_path), stop)
     captured = []
     monkeypatch.setattr(

@@ -4,8 +4,10 @@ A release can change the native service document a relay runs under (the
 Windows task's windowless interpreter, for one). ``yoke update`` and
 ``yoke project refresh`` ask the updated CLI's ``yoke relay status`` about
 each configured environment's relay and run ``yoke relay install`` for each
-installed service that no longer matches. A current service is left running,
-an environment that owns no relay is skipped with its reason, and a failed
+installed service that no longer matches. A current service is left running.
+A local relay under the stable install launcher checks for release changes
+before each cycle and restarts through its supervisor after draining jobs.
+An environment that owns no relay is skipped with its reason, and a failed
 reinstall names its recovery.
 """
 

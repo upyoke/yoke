@@ -15,7 +15,7 @@ import time
 
 import pytest
 
-from runtime.api.cli.cli_release_runtime_test_support import candidate, point_current
+from runtime.api.cli.cli_release_runtime_test_support import candidate, point_current, yoke
 from yoke_cli.config import cli_release_runtime as runtime
 
 
@@ -61,6 +61,31 @@ def test_stopping_the_launcher_ends_its_command(tmp_path, stop):
     finally:
         launcher.kill()
         launcher.communicate()
+
+
+@POSIX_ONLY
+def test_posix_shim_passes_the_restart_code_and_retires_the_old_release(tmp_path):
+    root, bin_dir = tmp_path / "runtime", tmp_path / "bin"
+    old = candidate(root, "1.0")
+    runtime.activate(root, old, bin_dir, "1.0")
+    new = candidate(root, "2.0")
+
+    with subprocess.Popen(
+        [yoke(bin_dir), "exit-on-publication"],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        text=True,
+    ) as command:
+        try:
+            assert command.stdout.readline() == "ready\n"
+            point_current(root, new)
+            command.communicate(input="continue\n", timeout=10)
+            assert command.returncode == 75
+        finally:
+            if command.poll() is None:
+                command.kill()
+    assert not old.exists()
+    assert new.is_dir()
 
 
 @POSIX_ONLY
@@ -138,7 +163,7 @@ def test_windows_layout_uses_scripts_python_and_cmd_shim(tmp_path, monkeypatch):
 
 @pytest.mark.windows
 @pytest.mark.windows_only(reason="cmd.exe runs the yoke.cmd shim")
-@pytest.mark.parametrize("code", [0, 1, 7])
+@pytest.mark.parametrize("code", [0, 1, 7, 75])
 def test_cmd_shim_exits_with_the_command_code_and_keeps_arguments(tmp_path, code):
     root, bin_dir = tmp_path / "root", tmp_path / "bin"
     root.mkdir()

@@ -38,6 +38,11 @@ Fleet messaging can deliver through session hooks, while automatic waking depend
 
 On macOS the relay uses a user LaunchAgent. On Linux it uses a systemd user service; its lifetime depends on login and linger configuration. WSL requires its supported Linux setup. See [Linux relay supervision](../sessions/linux-relay.md) and [Windows and WSL](../start/windows-wsl.md).
 
+A local-universe relay started by the public installer's launcher checks for a
+newly published CLI release before its next cycle. When the release changes,
+the relay drains in-flight jobs and exits. The service supervisor starts the
+launcher on the new release.
+
 ## Connection and relay troubleshooting
 
 Start with the selected connection and the affected machine. A reachable core, valid sign-in, active relay, and available harness are separate prerequisites. A failure in one does not prove the others are broken.

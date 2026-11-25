@@ -88,6 +88,7 @@ def release_status_is_healthy(payload: Mapping[str, Any]) -> bool:
 
 def serve_release_daemon(*, cycle_maintenance: Callable[[], None] | None = None) -> Any:
     """Run this relay's build: a pinned release, or the machine's own Yoke."""
+    from yoke_cli.config.cli_release_resident import running_release_superseded
     from yoke_harness.session_relay_daemon import serve_forever
     from yoke_harness.session_relay_harness_reconcile import (
         refresh_harness_inventory,
@@ -97,6 +98,7 @@ def serve_release_daemon(*, cycle_maintenance: Callable[[], None] | None = None)
 
     from yoke_contracts.machine_config.relay_instance import (
         RelayInstanceError,
+        WINDOWS_RELAY_RESTART_CODE,
         door_relay_refusal,
         resolve_relay_instance,
     )
@@ -119,20 +121,24 @@ def serve_release_daemon(*, cycle_maintenance: Callable[[], None] | None = None)
         lane_sweep()
 
     if not instance.follows_served_release:
-        # Nothing to follow: this machine serves the plane it polls, so the
-        # running process is already the build the universe has. With no API
-        # server, each cycle also runs the plane's upkeep.
+        # This machine serves its own plane. Check the installed release
+        # before running local upkeep so old code stops maintaining it.
         upkeep = importlib.import_module("yoke_core.domain.control_plane_upkeep")
 
         def maintain_local_universe() -> None:
             maintain()
             upkeep.run_control_plane_upkeep()
 
+        def restart_from_launcher(_argv=None, *, executable=None) -> None:
+            raise SystemExit(WINDOWS_RELAY_RESTART_CODE)
+
         return serve_forever(
             state_dir=instance.state_dir,
             inventory_provider=collect_cached_inventory,
             inventory_refresher=refresh_harness_inventory,
             cycle_maintenance=maintain_local_universe,
+            reload_check=running_release_superseded,
+            reload_exec=restart_from_launcher,
         )
     installed = release.relay_release_status(instance=instance, refresh_served=False)
     unconverged_launch = release.relay_launch_path(instance.state_dir)
