@@ -132,6 +132,12 @@ explicit `--level` recovery rather than silently placing another level.
 
 ## Delayed launch workers
 
+When the relay's attempt lease expires after registration has opened, the
+attempt closes with `relay_lease_expired` and the launch stays open for
+registration and acknowledgement. An unregistered worker's reported exit can
+still close its launch. The relay can still add diagnostic evidence to the
+expired attempt. The attempt's terminal result remains `relay_lease_expired`.
+
 The launch deadline diagnoses a worker that has not registered, acknowledged,
 or claimed its assignment. A slow host, sleep or lost connection can outlast
 that window. The original worker may still register with its launch attestation

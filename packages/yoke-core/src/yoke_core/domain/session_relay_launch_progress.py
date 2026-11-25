@@ -65,8 +65,9 @@ def report_launch_progress(
     updates = native_launch_updates(safe, observed_at=now)
     if launch.state == "succeeded" or launch.native_launch_phase == "native_exited":
         updates.pop("native_launch_phase", None)
-    if launch.state != "succeeded" and str(row[1] or "") == "relay_lease_expired":
-        updates["result_evidence"] = merged
+    if str(row[1] or "") == "relay_lease_expired":
+        if launch.result_code == "relay_lease_expired":
+            updates["result_evidence"] = merged
     elif safe.get("result_code") == LAUNCH_ADAPTER_STARTED_CODE and launch.state == "launching":
         updates.update(state="awaiting_registration", awaiting_registration_at=now)
     if updates:
