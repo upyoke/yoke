@@ -29,17 +29,13 @@ last line is the result. Use the printed link if opening fails.
 
 - `POST /api/machine/authorizations` returns `device_code`, `user_code`,
   `verification_uri`, `verification_uri_complete`, `expires_in`, and `interval`.
-  Every mode sends `machine_id` (the configured UUID or the pending approval's
-  UUID on a fresh install), `machine_name` (the operating system display
-  hostname, at most 150 characters), and `platform`
-  (for example `macOS`, `Linux` or `Windows`, at most 80 characters). All three
-  are required by `MachineAuthorizationStart`; the browser reads these facts
-  before the first poll. Start with the current installer against a server
-  serving this request contract; a mismatched contract refuses by name.
-- `POST /api/machine/authorizations/token` sends `device_code`, `machine_id`, and
-  `machine_name`. The client saves a fresh UUID in machine config before its
-  first poll, which can register the machine. Canceling before that poll leaves
-  machine config without a UUID. Success returns `token`, `org`, and `api_url`.
+  Start requires a configured or pending UUID as `machine_id`, the OS display
+  hostname as `machine_name` (150 characters max), and `platform` (80 max).
+  The browser shows these facts before polling.
+- `POST /api/machine/authorizations/token` sends `device_code`, `machine_id`,
+  and `machine_name`. The client saves a fresh UUID in machine config before
+  this first potentially registering poll. Earlier cancellation leaves no UUID
+  in machine config. Success returns `token`, `org`, and `api_url`.
 - Retry HTTP 202 `authorization_pending`, HTTP 503
   `machine_credential_unavailable`, and HTTP 429
   `authorization_poll_rate_limited` (honoring `Retry-After`). HTTP 410
