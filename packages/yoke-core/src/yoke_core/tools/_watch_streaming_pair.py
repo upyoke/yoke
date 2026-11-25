@@ -16,20 +16,19 @@ gets the single foreground invocation to hold open in its own turn.
 
 from __future__ import annotations
 
-import os
-import shlex
-import subprocess
 import sys
 from pathlib import Path
 from typing import Optional, Sequence, TextIO
 
-from yoke_contracts.install_binding import SOURCE_DEV_RUN_ROOT_ENV
-from yoke_contracts.machine_config.schema import ENV_OVERRIDE
 from yoke_contracts.harness_wake_capability import wake_capability_for_mechanism
-from yoke_contracts.uv_project import is_uv_project
-from yoke_contracts.watch_cli_forms import cli_form
 from yoke_core.domain.watch_digest import TIER_HELP
 from yoke_core.domain.watch_headless_caller import caller_is_headless_command
+from yoke_core.tools._watch_foreground_command import (
+    bash_tail,
+    bound_wrapper_command,
+    caller_uses_powershell,
+    raw_inspection,
+)
 from yoke_core.tools._watch_wait_mode import WatchWaitMode, resolve_wait_mode
 from yoke_core.tools._watch_timeout import watcher_timeout_ms
 from yoke_core.tools.watch_tail import WRAPPER_MODULE as WATCH_TAIL_MODULE
@@ -42,89 +41,6 @@ STREAMING_WAIT_HELP = (
     "with no or unverified idle wake, get the single foreground invocation "
     "to run and hold open in the current turn. Mints fresh capture paths."
 )
-
-
-def _anchor_directory(kind: str, start: Path | None = None) -> Path:
-    """Return the checkout the pasted pair must ``cd`` into.
-
-    A subdirectory cwd embeds that sticky path in the minted line, and
-    the watch adapter then binds a nested or mixed environment. Prefer
-    the nearest uv-managed project within the git checkout; never cross
-    a checkout boundary. Otherwise use the invocation directory. A merge
-    removes the lane it lands, so ``merge`` anchors a linked worktree at
-    its main checkout: a shell left in the deleted lane fails both lines.
-    """
-    here = (start or Path.cwd()).resolve()
-    if kind == "merge":
-        dirs = subprocess.run(
-            ["git", "-C", str(here), "rev-parse", "--path-format=absolute",
-             "--git-dir", "--git-common-dir"],
-            capture_output=True, text=True, check=False,
-        ).stdout.split()
-        if len(dirs) == 2 and Path(dirs[0]).resolve() != Path(dirs[1]).resolve():
-            return Path(dirs[1]).resolve().parent
-    for candidate in [here, *here.parents]:
-        if is_uv_project(candidate) or (candidate / ".git").exists():
-            return candidate
-    return here
-
-
-def _invocation(wrapper_module: str) -> str:
-    """Return the command that runs *wrapper_module* from a pasted shell line.
-
-    Prefers the ``yoke watch <kind>`` console-script form, which resolves
-    an interpreter that can import ``yoke_core`` from any directory.
-    Wrappers with no CLI adapter fall back to the locked module form.
-    """
-    return cli_form(wrapper_module) or (f"uv run --frozen python3 -m {wrapper_module}")
-
-
-def _with_connection_env(invocation: str) -> str:
-    """Replay the invoking connection env on a pasted command.
-
-    ``yoke --env NAME …`` is the console-script form; module-form
-    wrappers have no global flag, so they inherit ``YOKE_ENV=NAME``.
-    """
-    env = os.environ.get(ENV_OVERRIDE, "").strip()
-    if invocation.startswith("yoke "):
-        if env:
-            invocation = (
-                f"yoke --env {shlex.quote(env)} {invocation.removeprefix('yoke ')}"
-            )
-        if os.environ.get(SOURCE_DEV_RUN_ROOT_ENV):
-            invocation = f"yoke dev run -- {invocation}"
-        return invocation
-    return f"{ENV_OVERRIDE}={shlex.quote(env)} {invocation}" if env else invocation
-
-
-def _bound_wrapper_command(
-    *,
-    kind: str,
-    wrapper_module: str,
-    wrapper_args: Sequence[str],
-    raw_capture: Path,
-    progress_capture: Path,
-    wrapper_options: Sequence[str],
-) -> str:
-    """Return the repo-anchored wrapper command bound to both captures.
-
-    Both wait modes print this same invocation: the background shape runs
-    it detached beside a progress subscription, and the foreground shape
-    runs it in the caller's own turn. Helper-resolved capture paths
-    normally land under the temp scratch root and contain no spaces, but
-    ``YOKE_SCRATCH_ROOT`` and operator-supplied paths can, so every
-    segment is quoted to stay safe to copy-paste.
-    """
-    option_args = shlex.join(list(wrapper_options))
-    option_prefix = f"{option_args} " if option_args else ""
-    return (
-        f"cd {shlex.quote(str(_anchor_directory(kind)))} && "
-        f"{_with_connection_env(_invocation(wrapper_module))} "
-        f"{option_prefix}"
-        f"--raw-capture {shlex.quote(str(raw_capture))} "
-        f"--progress-capture {shlex.quote(str(progress_capture))} "
-        f"-- {shlex.join(list(wrapper_args))}"
-    )
 
 
 def print_streaming_pair(
@@ -145,10 +61,7 @@ def print_streaming_pair(
     Registered wrappers use their canonical ``yoke watch`` CLI adapter.
     """
     stream = out or sys.stdout
-    raw_q = shlex.quote(str(raw_capture))
-    progress_q = shlex.quote(str(progress_capture))
-    cwd_q = shlex.quote(str(_anchor_directory(kind)))
-    bash_invocation = _bound_wrapper_command(
+    bash_invocation = bound_wrapper_command(
         kind=kind,
         wrapper_module=wrapper_module,
         wrapper_args=wrapper_args,
@@ -212,13 +125,10 @@ def print_streaming_pair(
     if not outcome_only:
         for tier_line in TIER_HELP.rstrip().splitlines():
             stream.write(f"# {tier_line}\n" if tier_line else "#\n")
-    stream.write(
-        f"cd {cwd_q} && {_with_connection_env(_invocation(WATCH_TAIL_MODULE))} "
-        f"{progress_q}\n"
-    )
+    stream.write(f"{bash_tail(kind, WATCH_TAIL_MODULE, progress_capture)}\n")
     stream.write("\n")
     stream.write("# After completion, inspect the raw capture once for full output\n")
-    stream.write(f"tail -80 {raw_q}\n")
+    stream.write(f"{raw_inspection(raw_capture)}\n")
     stream.flush()
 
 
@@ -240,14 +150,15 @@ def print_in_turn_invocation(
     the wait, and it must stay open until the watched command exits.
     """
     stream = out or sys.stdout
-    raw_q = shlex.quote(str(raw_capture))
-    bash_invocation = _bound_wrapper_command(
+    powershell = caller_uses_powershell()
+    command = bound_wrapper_command(
         kind=kind,
         wrapper_module=wrapper_module,
         wrapper_args=wrapper_args,
         raw_capture=raw_capture,
         progress_capture=progress_capture,
         wrapper_options=wrapper_options,
+        powershell=powershell,
     )
     stream.write(f"# watch_{kind}: ready-to-run foreground invocation\n")
     stream.write("\n")
@@ -258,16 +169,20 @@ def print_in_turn_invocation(
     stream.write("# hands the call back before it finishes, the command is\n")
     stream.write("# still running: continue that same call rather than\n")
     stream.write("# starting a second one.\n")
-    stream.write(f"# Bash timeout: {watcher_timeout_ms(kind, wrapper_args)}\n")
+    timeout = watcher_timeout_ms(kind, wrapper_args)
+    if powershell:
+        stream.write(f"# Tool timeout (ms): {timeout}. Run this line in its own shell call.\n")
+    else:
+        stream.write(f"# Bash timeout: {timeout}\n")
     if outcome_only:
         stream.write(
             "# Routine progress is suppressed; terminal errors and the final "
             "result stream. Full child output is in the raw capture.\n"
         )
-    stream.write(f"{bash_invocation}\n")
+    stream.write(f"{command}\n")
     stream.write("\n")
     stream.write("# After completion, inspect the raw capture once for full output\n")
-    stream.write(f"tail -80 {raw_q}\n")
+    stream.write(f"{raw_inspection(raw_capture, powershell=powershell)}\n")
     stream.flush()
 
 

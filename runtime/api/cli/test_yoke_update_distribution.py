@@ -13,7 +13,9 @@ import pytest
 from yoke_cli.commands.adapters import self_update as update_command
 from yoke_cli.commands.tool_shaped import resolve_tool_shaped
 from yoke_contracts.machine_config import distribution, reader as machine_config
-from yoke_cli.config import distribution_write, self_update
+from yoke_contracts.machine_config.runtime import machine_id
+from yoke_contracts.owner_private_path import write_owner_private
+from yoke_cli.config import distribution_write, self_update, writer
 from yoke_cli.self_host import release_target
 from yoke_contracts.install_binding import KIND_PACKAGED_WHEEL
 
@@ -33,6 +35,54 @@ def test_update_tool_shaped_resolution():
     adapter, remaining = resolved
     assert adapter is update_command.update
     assert remaining == ["--channel", "beta"]
+
+
+def test_installer_distribution_setting_does_not_create_a_machine_id(config_file, capsys):
+    resolved = resolve_tool_shaped(
+        [
+            "settings", "set", "distribution",
+            '{"origin":"https://fork.example","channel":"preview"}', "--json",
+        ]
+    )
+    assert resolved is not None
+    adapter, remaining = resolved
+    assert adapter(remaining) == 0
+    assert json.loads(capsys.readouterr().out)["success"] is True
+    assert machine_config.load_config()["settings"]["distribution"]["channel"] == "preview"
+    assert "machine_id" not in json.loads(config_file.read_text())
+
+
+@pytest.mark.parametrize("legacy_without_id", [False, True])
+def test_distribution_and_last_connection_preserve_identity_state(
+    monkeypatch, tmp_path, legacy_without_id
+):
+    home = tmp_path / "machine-home"
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
+    config_file = home / "config.json"
+    distribution_write.save(origin="https://fork.example", channel="preview")
+    assert machine_id() is None
+    token = tmp_path / "stage.token"
+    token.write_text("stage-token\n")
+    writer.set_connection(
+        "stage", transport="https", api_url="https://api.example", token_file=str(token)
+    )
+    identity = machine_id()
+    assert identity is not None
+    if legacy_without_id:
+        payload = json.loads(config_file.read_text())
+        del payload["machine_id"]
+        write_owner_private(config_file, json.dumps(payload))
+        identity = None
+
+    report = writer.remove_connection("stage")
+    assert report.get("machine_record_kept") == identity
+    payload = json.loads(config_file.read_text())
+    assert not payload["connections"]
+    assert not payload.get("active_env")
+    assert payload.get("machine_id") == identity
+
+    distribution_write.save(origin="https://fork.example", channel="stable")
+    assert machine_id() == identity
 
 
 def test_explicit_selection_preserves_other_machine_settings(config_file, capsys):

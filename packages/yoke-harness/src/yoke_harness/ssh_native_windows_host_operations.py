@@ -188,8 +188,6 @@ class SshNativeWindowsHostOperations(WindowsMissionOperations, WindowsTransport)
                 "golden_baseline_not_declared",
             )
         retirement = retire_reset_identity(self, native_windows=True)
-        if not retirement.ok:
-            return retirement
         restored = profile_operation(self, "reset", self.golden_baseline_path)
         if not restored.ok:
             return HostActionResult(

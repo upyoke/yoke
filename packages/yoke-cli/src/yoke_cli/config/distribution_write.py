@@ -18,7 +18,7 @@ def _save(*, origin: str, channel: str, path: str | Path | None = None) -> dict:
             "distribution_settings_invalid: repair settings to an object"
         )
     settings[distribution.DISTRIBUTION_KEY] = selected
-    mutation.write_payload(payload, cfg_path, allow_unconfigured=True)
+    mutation.write_payload(payload, cfg_path, allow_unconfigured=True, seed_machine_id=False)
     return {"path": str(cfg_path), **selected}
 
 

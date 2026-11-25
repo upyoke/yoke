@@ -8,7 +8,7 @@ from uuid import uuid4
 
 from yoke_contracts.machine_qa_failures import HostControlLocalError
 from yoke_harness.native_windows import admin_staging
-from yoke_harness.native_windows.powershell import quote
+from yoke_contracts.windows_powershell import quote
 from yoke_harness.ssh_test_machine_transport import SshTestMachineTransport
 
 

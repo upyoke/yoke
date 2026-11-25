@@ -143,7 +143,7 @@ APPLOCKER_UNDO = APPLOCKER_UNDO.replace("EMPTY_POLICY", "'" + EMPTY_POLICY + "'"
 
 
 def applocker_setup() -> str:
-    from yoke_harness.native_windows.powershell import quote
+    from yoke_contracts.windows_powershell import quote
 
     return APPLOCKER_SETUP.replace("POLICY", quote(APPLOCKER_POLICY), 1).replace(
         "RULE_IDS", quote(",".join(APPLOCKER_RULE_IDS))

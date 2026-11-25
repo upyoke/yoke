@@ -11,10 +11,8 @@ as given.
 import subprocess
 from pathlib import PureWindowsPath
 
-from yoke_harness.native_windows.transport import quote
+from yoke_contracts.windows_powershell import quote, yoke_shim_process_info
 
-SHIM_UNREADABLE = "windows_yoke_shim_unreadable"
-_SHIM_PATTERN = r'^@(?:\(goto\) 2>nul & )?"([^"]+)" (?:-I -S )?"([^"]+)" %\*'
 _YOKE_NAMES = frozenset({"yoke", "yoke.cmd"})
 # Commands that show a page: the identity launcher and the managed browser.
 _PAGE_COMMANDS = (("browser", "open"), ("qa", "browser"))
@@ -37,19 +35,12 @@ def yoke_python_command(argv) -> str:
     """
     shim, arguments = str(argv[0]), list(argv[1:])
     locate = (
-        f"$shimPath={quote(shim)}"
+        quote(shim)
         if PureWindowsPath(shim).is_absolute()
-        else "$shimPath=(Get-Command yoke.cmd -ErrorAction SilentlyContinue).Source"
+        else "(Get-Command yoke.cmd -ErrorAction SilentlyContinue).Source"
     )
-    return f"""{locate}
-$shim=if($shimPath -and (Test-Path -LiteralPath $shimPath)){{[IO.File]::ReadAllText($shimPath)}}else{{''}}
-if($shim -notmatch {quote(_SHIM_PATTERN)}){{
-  [Console]::Error.Write({quote(SHIM_UNREADABLE + ": ")}+"$shimPath"+{quote(" (" + shim + ") is missing or is not the installer's yoke.cmd shim; reinstall Yoke on the test machine, then rerun.")})
-  exit 70
-}}
-$info=[Diagnostics.ProcessStartInfo]::new()
-$info.FileName=$Matches[1]
-$info.Arguments='-I -S "'+$Matches[2]+'" '+{quote(subprocess.list2cmdline(arguments))}
+    argv = quote(subprocess.list2cmdline(arguments))
+    return f"""{yoke_shim_process_info(locate, argv)}
 $info.UseShellExecute=$false
 $info.RedirectStandardOutput=$true
 $info.RedirectStandardError=$true
@@ -62,4 +53,4 @@ $code=$p.ExitCode; $p.Dispose(); exit $code
 """
 
 
-__all__ = ["SHIM_UNREADABLE", "opens_identity_page", "yoke_python_command"]
+__all__ = ["opens_identity_page", "yoke_python_command"]

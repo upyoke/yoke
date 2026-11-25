@@ -41,4 +41,6 @@ def write_setting(
         settings.pop(key)
     else:
         settings[key] = value
-    mutation.write_payload(payload, cfg_path, allow_unconfigured=True)
+    mutation.write_payload(
+        payload, cfg_path, allow_unconfigured=True, seed_machine_id=key != "distribution",
+    )

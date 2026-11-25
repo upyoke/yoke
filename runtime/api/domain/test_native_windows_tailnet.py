@@ -7,7 +7,7 @@ from uuid import uuid4
 import pytest
 
 from yoke_harness.native_windows.admin import admin_script
-from yoke_harness.native_windows.powershell import quote
+from yoke_contracts.windows_powershell import quote
 from yoke_harness.native_windows.tailnet import SCRIPT
 from yoke_harness.native_windows.tailnet_startup import SCRIPT as STARTUP_SCRIPT
 

@@ -19,7 +19,7 @@ from yoke_contracts.qa_mission_scratch import (
     MissionScratchProbe,
     mission_scratch_identity,
 )
-from yoke_harness.native_windows.powershell import quote
+from yoke_contracts.windows_powershell import quote
 
 
 WINDOWS_MISSION_SCRATCH_DIRECTORY = "AppData/Local/YokeQaMission"
