@@ -20,7 +20,6 @@ pytestmark = pytest.mark.windows
 PYTHON = r"C:\Users\yokeqa\AppData\Local\Programs\Python\Python313\python.exe"
 BASELINE = {
     "srp_rules": 0,
-    "appidsvc": "Stopped",
     "winhttp": "Current WinHTTP proxy settings:     Direct access (no proxy server).",
     "hklm_proxy_enable": None,
     "hkcu_proxy_enable": 0,
@@ -37,13 +36,14 @@ BASELINE = {
 
 def test_baseline_observation_has_no_drift():
     assert probe.drift(BASELINE) == []
+    # Windows 11 runs AppIDSvc on clean labs; only rules are drift (decision request 16091).
+    assert probe.drift(BASELINE | {"appidsvc": "Running"}) == []
 
 
 @pytest.mark.parametrize(
     ("change", "named"),
     [
         ({"srp_rules": 3}, "applocker_rules_present"),
-        ({"appidsvc": "Running"}, "appidsvc_running"),
         ({"winhttp": "Proxy Server(s) :  127.0.0.1:18080"}, "winhttp_proxy_set"),
         ({"hklm_proxy_enable": 1}, "wininet_machine_proxy_enabled"),
         ({"hkcu_proxy_enable": 1}, "wininet_user_proxy_enabled"),
@@ -103,10 +103,10 @@ def test_golden_sealed_before_the_seal_refreshes_to_include_it():
 
 
 def test_drift_failure_names_the_reset_recovery_and_each_drift():
-    stdout = json.dumps({"drift": ["applocker_rules_present", "appidsvc_running"]})
+    stdout = json.dumps({"drift": ["applocker_rules_present", "fixture_files_present"]})
     failure = standard_probe_failure(probe.PROBE_NAME, PROBE_EXIT_CODES["probe_machine_drift"], stdout)
     assert failure["cause"] == "probe_machine_drift"
-    assert failure["drift"] == ["applocker_rules_present", "appidsvc_running"]
+    assert failure["drift"] == ["applocker_rules_present", "fixture_files_present"]
     assert "yoke test-machine reset" in failure["recovery"]
     assert "golden-capture" not in failure["recovery"]
     unreadable = standard_probe_failure(probe.PROBE_NAME, PROBE_EXIT_CODES["probe_machine_drift"], "<b>")

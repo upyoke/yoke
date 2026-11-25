@@ -30,8 +30,7 @@ Exploratory walkers reach machine-wide Windows state through
 Every native Windows reset first runs every undo, in one run-command, then
 restores the profile and runs the probes. A failed undo fails the reset with
 its verify records and leaves the lab `machine_needs_repair`. The
-`machine-baseline` standard probe then seals what is left: AppLocker rules or
-a running AppIDSvc, a WinHTTP or WinINET proxy, the fixture CA, a mitmproxy
+`machine-baseline` standard probe then seals what is left: AppLocker rules, a WinHTTP or WinINET proxy, the fixture CA, a mitmproxy
 process or port, files under `C:\YokeQa\fixtures`, the Task Scheduler
 policy, an administrator test user, or a missing, disabled or administrator
 second user fail it as `probe_machine_drift`. The recovery is a plain

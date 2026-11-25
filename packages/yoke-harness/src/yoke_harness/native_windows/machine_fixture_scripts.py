@@ -111,10 +111,10 @@ APPLOCKER_UNDO = (
     APPLOCKER_HELPERS
     + r"""
 if(@(Get-YokeAppLockerIds).Count -or (Get-YokeSrpRuleCount)){Set-YokeAppLockerPolicy '<AppLockerPolicy Version="1" />'}
-$service=Get-Service AppIDSvc
-if($service.Status -ne 'Stopped'){Stop-Service AppIDSvc -Force; $service.WaitForStatus('Stopped',[TimeSpan]::FromSeconds(60))}
-$verify=[ordered]@{rules=@(Get-YokeAppLockerIds);srp_rules=(Get-YokeSrpRuleCount);appidsvc=[string](Get-Service AppIDSvc).Status}
-if($verify.rules.Count -or $verify.srp_rules -or $verify.appidsvc -ne 'Stopped'){throw 'applocker_not_undone: clear the local AppLocker policy and stop AppIDSvc'}
+# AppIDSvc stays as Windows runs it: Windows 11 starts it with no rules, and
+# without rules AppLocker enforces nothing (decision request 16091).
+$verify=[ordered]@{rules=@(Get-YokeAppLockerIds);srp_rules=(Get-YokeSrpRuleCount)}
+if($verify.rules.Count -or $verify.srp_rules){throw 'applocker_not_undone: clear the local AppLocker policy'}
 """
 )
 

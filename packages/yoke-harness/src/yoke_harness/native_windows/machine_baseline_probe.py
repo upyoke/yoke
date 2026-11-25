@@ -22,8 +22,6 @@ def drift(observed):
     found = []
     if observed.get("srp_rules"):
         found.append("applocker_rules_present")
-    if observed.get("appidsvc") == "Running":
-        found.append("appidsvc_running")
     if "direct access" not in str(observed.get("winhttp") or "").casefold():
         found.append("winhttp_proxy_set")
     if observed.get("hklm_proxy_enable"):
@@ -102,7 +100,6 @@ def gather_script():
 $o=[ordered]@{{}}
 $srp='HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\SrpV2'
 $o.srp_rules=if(Test-Path -LiteralPath $srp){{@(Get-ChildItem -LiteralPath $srp | ForEach-Object {{Get-ChildItem -LiteralPath $_.PSPath}}).Count}}else{{0}}
-$o.appidsvc=[string](Get-Service AppIDSvc).Status
 $o.winhttp=(& netsh.exe winhttp show proxy) -join ' '
 $is='SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Internet Settings'
 $o.hklm_proxy_enable=(Get-ItemProperty -LiteralPath ('HKLM:\\'+$is) -ErrorAction SilentlyContinue).ProxyEnable
