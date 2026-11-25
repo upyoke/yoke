@@ -12,12 +12,10 @@ Web dashboard **QA** tabs:
 | **Plans** | Project-scoped ordered cases and attachments |
 | **Activity** | Readable outcomes from requirements, runs, evidence |
 
-Plans prioritize review and failed cases, show recency, and expand full review
-reasons. Activity pages through the latest 500 cases per project, including
-earlier days, with text, outcome and local-date filters. It shows the loaded
-boundary; filters never search older cases. Rows show known item identities
-immediately and add public references after lookup. Failed reads offer Retry
-and remain distinct from a successful empty result.
+Plans prioritize failed cases and reviews, and show recency and review reasons.
+Activity filters the latest 500 project cases by text, outcome and local date.
+Rows show known item identities immediately and public references after lookup.
+Failed reads offer Retry and remain distinct from a successful empty result.
 
 ## How gates work
 
