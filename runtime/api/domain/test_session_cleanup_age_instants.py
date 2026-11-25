@@ -30,13 +30,19 @@ def test_held_session_report_preserves_exact_whole_minutes(
     monkeypatch.setattr(time_parse, "utc_now", lambda: now)
     monkeypatch.setattr(cleanup, "_now_iso", lambda: format_instant(now))
     monkeypatch.setattr(cleanup, "_schema_get_columns", lambda *_: {"executor"})
-    monkeypatch.setattr(cleanup, "active_holding_sessions", lambda *_: {"held"})
-    monkeypatch.setattr(cleanup, "active_work_claim_sessions", lambda *_: {"held"})
+    monkeypatch.setattr(
+        cleanup,
+        "reclaim_facts",
+        lambda _conn, rows: [
+            {**row, "has_active_holdings": True, "holds_work_claim": True}
+            for row in rows
+        ],
+    )
     monkeypatch.setattr(cleanup, "activity_is_stale", lambda *_a, **_k: True)
     monkeypatch.setattr(
         cleanup,
         "read_activity_signals",
-        lambda *_a, **_k: SimpleNamespace(activity_at=activity, in_flight=False, session_facts={}),
+        lambda *_a, **_k: SimpleNamespace(activity_at=activity),
     )
     monkeypatch.setattr(cleanup._sa, "_emit_session_event", lambda *_a, **_k: None)
     row = {"session_id": "held", "executor": "codex", "offered_at": activity}
