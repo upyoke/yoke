@@ -67,9 +67,13 @@ def walk_launch(conn, *, item_id: int, session_id: str) -> WalkLaunch | None:
 
 
 def require_walk_claim(conn, *, item_id: int, launch: WalkLaunch, lock: bool = False) -> dict:
-    """Bind the grant to the delegating session's current item claim."""
+    """Bind the launch grant to the delegating session's current item claim."""
+    return _require_requester_claim(conn, item_id=item_id, requester=launch.requester, lock=lock)
+
+
+def _require_requester_claim(conn, *, item_id: int, requester: str, lock: bool) -> dict:
     claim = get_claim_for_work_unit(conn, item_id=str(item_id))
-    if claim and str(claim["session_id"]) == launch.requester:
+    if claim and str(claim["session_id"]) == requester:
         if not lock:
             return claim
         p = marker(conn)
@@ -77,7 +81,7 @@ def require_walk_claim(conn, *, item_id: int, launch: WalkLaunch, lock: bool = F
             conn,
             f"SELECT id FROM work_claims WHERE id={p} AND session_id={p} "
             "AND released_at IS NULL FOR SHARE",
-            (claim["id"], launch.requester),
+            (claim["id"], requester),
         ):
             return claim
     raise WalkDelegationLapsed(
@@ -92,6 +96,26 @@ def require_walk_partition(launch: WalkLaunch, *, leg: str | None, key: str | No
             "qa_walk_authority_refused: this launch delegates one item part. "
             "Run the transition or stage and partition named in the launch."
         )
+
+
+def admitted_walk(execution: dict) -> bool:
+    return bool(execution["roster"] and execution["roster"][0].get("delegated_walk"))
+
+
+def require_admitted_walk_claim(conn, execution: dict, *, item_id: int, lock=False) -> dict:
+    """Keep the original requester's claim live without re-admitting the cursor."""
+    requester = execution["roster"][0]["delegated_walk"]
+    if requester is True:
+        # An already-admitted roster can predate the stored requester. Its
+        # registration resolves the requester, never the current partition.
+        launch = walk_launch(conn, item_id=item_id, session_id=execution["session_id"])
+        requester = launch.requester if launch else None
+    if not isinstance(requester, str) or not requester:
+        raise WalkAuthorityError(
+            "qa_walk_authority_refused: the execution's delegating session could not be "
+            "resolved. Ask the item holder to inspect the execution and its assignment."
+        )
+    return _require_requester_claim(conn, item_id=item_id, requester=requester, lock=lock)
 
 
 def _execution_matches(execution: dict, *, item_id: int, launch: WalkLaunch) -> bool:
@@ -161,9 +185,6 @@ def delegated_walk_grants(conn, request, *, item_id: int) -> bool:
         if execution["session_id"] == session_id:
             return True
 
-    launch = walk_launch(conn, item_id=item_id, session_id=session_id)
-    if launch is None:
-        return False
     if function == "qa.plan_execution.adopt":
         return bool(delegating_adoption_claim(
             conn, item_id=item_id, session_id=session_id,
@@ -174,11 +195,15 @@ def delegated_walk_grants(conn, request, *, item_id: int) -> bool:
     ):
         return False
     if function in {"qa.plan_execution.begin", "qa.plan.materialize"}:
+        launch = walk_launch(conn, item_id=item_id, session_id=session_id)
+        if launch is None:
+            return False
         leg = payload.get("transition_id") or payload.get("deployment_stage")
         if function == "qa.plan_execution.begin":
             require_walk_partition(launch, leg=leg, key=payload.get("partition"))
         elif payload.get("replacements") or leg != launch.leg:
             return False
+        require_walk_claim(conn, item_id=item_id, launch=launch)
     else:
         if function == "qa.case_execution.begin":
             execution = _case_execution(conn, requirement, item_id=item_id, session_id=session_id)
@@ -192,13 +217,14 @@ def delegated_walk_grants(conn, request, *, item_id: int) -> bool:
             execution = select_plan_execution(conn, str(execution_id), lock=False)
         if (
             execution is None or execution["session_id"] != session_id
-            or not _execution_matches(execution, item_id=item_id, launch=launch)
+            or (execution.get("item_id") or execution.get("deployment_member_item_id")) != item_id
+            or not admitted_walk(execution)
             or (requirement is not None and all(
                 case["requirement_id"] != requirement for case in execution["roster"]
             ))
         ):
             return False
-    require_walk_claim(conn, item_id=item_id, launch=launch)
+        require_admitted_walk_claim(conn, execution, item_id=item_id)
     return True
 
 

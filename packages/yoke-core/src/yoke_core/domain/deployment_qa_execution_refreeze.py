@@ -133,6 +133,82 @@ def _current_digest(conn: Any, execution: dict[str, Any]) -> str | None:
     return target_digest(deployment_qa_execution_target(conn, subject))
 
 
+def _resume_moved_walk(conn: Any, execution: dict, parsed: Any, actor: Any) -> dict:
+    """Resume the one admitted partition under item, run, and cursor locks."""
+    from yoke_core.domain.deployment_qa_stage_materialization import (
+        materialize_deployment_qa_stage,
+    )
+    from yoke_core.domain.deployment_runs_lock import run_lock_held
+    from yoke_core.domain.qa_plan_execution_authority import (
+        lock_member_admission,
+        require_plan_execution_owner,
+    )
+    from yoke_core.domain.qa_plan_execution_begin_admission import PreparedRoster, prepare_roster
+    from yoke_core.domain.qa_plan_execution_reentry import resume_execution
+    from yoke_core.domain.qa_plan_execution_store import lock_plan_execution
+    from yoke_core.domain.qa_plan_partition_chains import partition_key
+    from yoke_core.domain.qa_walk_authority import admitted_walk, require_admitted_walk_claim
+
+    execution_id = str(execution["id"])
+    run_id = str(execution["deployment_run_id"])
+    stage = str(execution["deployment_stage"])
+    member = int(execution["deployment_member_item_id"])
+    conn.rollback()  # Release the cursor lock before taking the item and run locks.
+    lock_member_admission(conn, run_id, member)
+    locked = lock_plan_execution(conn, execution_id)
+    require_plan_execution_owner(
+        locked, conn=conn, actor_id=actor.actor_id, session_id=actor.session_id,
+        deployment_run_id=run_id, deployment_stage=stage,
+        deployment_member_item_id=member,
+    )
+    if not admitted_walk(locked):
+        raise QaPlanExecutionStateError(
+            "qa_resume_assignment_changed: inspect the execution's current assignment before resuming"
+        )
+    claim = require_admitted_walk_claim(conn, locked, item_id=member, lock=True)
+    current = _current_digest(conn, locked)
+    if current == locked["execution_target_digest"]:
+        resume_execution(conn, locked)
+        return locked
+    if current is None or not unbegun(conn, locked):
+        raise QaPlanExecutionStateError(
+            "qa_resume_target_locked: preserve the existing cursor and its build evidence. "
+            "Inspect the saved case checkpoint before recording or resuming."
+        )
+    with run_lock_held(conn, run_id):
+        materialize_deployment_qa_stage(
+            conn, deployment_run_id=run_id, deployment_stage=stage,
+            deployment_member_item_id=member, commit=False,
+        )
+    # The same ordered requirement IDs must still form one partition on the
+    # current target. A changed or split chain cannot select another cursor.
+    key = partition_key([
+        {**row, "execution_target_digest": current} for row in locked["roster"]
+    ])
+    prepared = prepare_roster(
+        conn, item_id=None, transition_id=None, deployment_run_id=run_id,
+        deployment_stage=stage, deployment_member_item_id=member,
+        expected_target=None, expected_target_digest=current, plan=None,
+        host_capability_kinds=None, checkout_path=parsed.checkout_path,
+        expected_branch=parsed.expected_branch, session_id=actor.session_id,
+        test_machine=parsed.test_machine, partition=key,
+        source_session_id=str(claim["session_id"]),
+    )
+    if (
+        not isinstance(prepared, PreparedRoster)
+        or prepared.execution_target_digest != current
+        or [row["requirement_id"] for row in prepared.roster]
+        != [row["requirement_id"] for row in locked["roster"]]
+        or not refreeze_unbegun_execution(conn, locked, prepared)
+    ):
+        raise QaPlanExecutionStateError(
+            "qa_resume_assignment_changed: preserve the saved cursor and ask the item "
+            "holder to inspect the current partition and its ordered requirements"
+        )
+    resume_execution(conn, locked)
+    return locked
+
+
 def resume_moved_execution(
     conn: Any, execution: dict[str, Any], parsed: Any, actor: Any
 ) -> dict[str, Any] | None:
@@ -145,11 +221,16 @@ def resume_moved_execution(
     re-freezes this execution in place, keeping its id and ``execution_order``.
     ``None`` means an ordinary resume applies.
     """
+    from yoke_core.domain.qa_walk_authority import admitted_walk
+
     if not execution.get("deployment_stage") or not unbegun(conn, execution):
         return None
     current = _current_digest(conn, execution)
     if current is None or current == str(execution.get("execution_target_digest") or ""):
         return None
+    if execution.get("deployment_member_item_id") is not None and admitted_walk(execution):
+        return _resume_moved_walk(conn, execution, parsed, actor)
+
     from yoke_core.domain.qa_plan_execution_begin import begin_plan_execution
 
     run_id = str(execution["deployment_run_id"])
