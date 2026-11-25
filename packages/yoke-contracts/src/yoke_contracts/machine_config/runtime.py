@@ -106,7 +106,20 @@ def replace_retired_machine_id(retired: str, path: str | Path | None = None) -> 
     return _assign_machine_id(path, replacing=retired)
 
 
-def _assign_machine_id(path: str | Path | None, *, replacing: str | None) -> str:
+def bind_draft_machine_id(draft: str, path: str | Path | None = None, *, replacing: str | None = None) -> str:
+    """Save the UUID reserved by a pending approval under the existing identity lock."""
+    try:
+        canonical = str(uuid.UUID(draft)) == draft
+    except (ValueError, TypeError, AttributeError):
+        canonical = False
+    if not canonical:
+        raise MachineConfigError("restart browser approval with a canonical machine UUID")
+    return _assign_machine_id(path, replacing=replacing, draft=draft)
+
+
+def _assign_machine_id(
+    path: str | Path | None, *, replacing: str | None, draft: str | None = None
+) -> str:
     selected = config_path(path)
     try:
         assert_write_owned(selected)
@@ -122,10 +135,16 @@ def _assign_machine_id(path: str | Path | None, *, replacing: str | None) -> str
     try:
         platform_file_lock.acquire_exclusive(lock_fd)
         current = machine_id(path)
+        if draft is not None and current == draft:
+            return current
         if current is not None and current != replacing:
+            if draft is not None:
+                raise MachineConfigError(
+                    "another identity is already saved; restart browser approval with that identity"
+                )
             return current
         payload = load_config(path)
-        generated = str(uuid.uuid4())
+        generated = draft if draft is not None else str(uuid.uuid4())
         payload[MACHINE_ID_KEY] = generated
         _replace_config(selected, payload)
         return generated
@@ -203,7 +222,7 @@ def temp_root(path: str | Path | None = None) -> str:
 
     cfg = load_config(path)
     value = cfg.get("temp_root")
-    raw = value if isinstance(value, str) and value.strip() else DEFAULT_TEMP_ROOT
+    raw = value if isinstance(value, str) and value.strip() else Path(DEFAULT_TEMP_ROOT).name
     return str(_machine_path(raw))
 
 

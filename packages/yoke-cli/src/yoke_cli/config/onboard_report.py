@@ -9,6 +9,7 @@ from typing import Any
 from yoke_contracts import harness_unattended_posture
 from yoke_contracts import hosting_posture
 from yoke_cli.config import onboard_project
+from yoke_cli.config import onboard_machine_setup
 from yoke_cli.config import onboard_global_skill
 from yoke_cli.config import onboard_hook_resident
 from yoke_cli.config import onboard_machine_registry
@@ -185,8 +186,8 @@ def build_plan(
         },
         "token_source": source,
         "runtime_paths": {
-            "temp_root": str(cfg_path.parent / "tmp"),
-            "cache_dir": str(cfg_path.parent / "cache"),
+            key: str(path)
+            for key, path in onboard_machine_setup.directory_paths(cfg_path).items()
         },
         "path_repair": path_repair,
         "project_mutation": project_mode != PROJECT_MODE_MACHINE_ONLY,

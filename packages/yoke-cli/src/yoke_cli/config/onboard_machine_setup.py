@@ -10,29 +10,35 @@ from yoke_cli.config import machine_config_file, onboard_apply_progress
 
 BROWSER_SETUP_ACTION = "browser-setup"
 BROWSER_SETUP_TARGET = "machine"
-RUNTIME_PATHS = {"temp_root": machine_config.temp_root, "cache_dir": machine_config.cache_dir}
+RUNTIME_DIRECTORY_NAMES = {"temp_root": "tmp", "cache_dir": "cache"}
 
 
-def directory_readiness(config_path: Path) -> dict[str, bool]:
+def directory_paths(config_path: Path) -> dict[str, Path]:
+    """Find runtime directories beside the selected config unless it names others."""
+    config = machine_config.load_config(config_path)
     return {
-        key: Path(getter(config_path)).is_dir()
-        for key, getter in RUNTIME_PATHS.items()
+        key: config_path.parent / Path(config.get(key) or name).expanduser()
+        for key, name in RUNTIME_DIRECTORY_NAMES.items()
     }
 
 
+def directory_readiness(config_path: Path) -> dict[str, bool]:
+    return {key: path.is_dir() for key, path in directory_paths(config_path).items()}
+
+
 def setup_directories(config_path: Path, *, reuse=None, progress=None) -> None:
-    reuse = directory_readiness(config_path) if reuse is None else reuse
+    paths = directory_paths(config_path)
     steps = tuple(
         ("create-runtime-dir", key)
-        for key in RUNTIME_PATHS
-        if not reuse.get(key)
+        for key, path in paths.items()
+        if not (path.is_dir() if reuse is None else reuse.get(key))
     )
     if not steps:
         return
     onboard_apply_progress.emit_many(progress, steps, "running")
     machine_config_file.ensure_owner_only_directory(config_path.parent)
     for _, key in steps:
-        Path(RUNTIME_PATHS[key](config_path)).mkdir(parents=True, exist_ok=True)
+        paths[key].mkdir(parents=True, exist_ok=True)
     onboard_apply_progress.emit_many(progress, steps, "done")
 
 

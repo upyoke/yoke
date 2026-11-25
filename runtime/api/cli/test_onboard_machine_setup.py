@@ -8,7 +8,6 @@ from runtime.api.fixtures.machine_config_test import select_machine_config_file
 import pytest
 
 from yoke_cli.commands.adapters import onboard_apply, onboard_interactive
-from yoke_contracts.machine_config import reader as machine_config
 from yoke_cli.config import onboard_machine_setup as setup, onboard_report
 
 
@@ -18,7 +17,7 @@ def test_directories_are_convergent_and_repair_deleted_state(tmp_path, monkeypat
     setup.setup_directories(config)
     assert all(setup.directory_readiness(config).values())
     setup.setup_directories(config)
-    machine_config.cache_dir(config).rmdir()
+    (config.parent / "cache").rmdir()
     assert not setup.directory_readiness(config)["cache_dir"]
     setup.setup_directories(config)
     assert all(setup.directory_readiness(config).values())
