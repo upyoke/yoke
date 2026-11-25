@@ -149,35 +149,31 @@ class InstallerResolution:
         result = self.capture_runner(command)
         if result.returncode != 0:
             refuse_untrusted_mount_point(result)
-            print(self._say("Install failed"), file=self.stdout)
-            print(
-                _paint("✗ Couldn't install Yoke.", "danger", enabled=self.color),
-                file=self.stdout,
-            )
+            self._print_failure_heading("Couldn't install Yoke.")
             reason = _paint(_failure_reason(result), "dim", enabled=self.color)
-            print(f"  {reason}", file=self.stdout)
+            _print_install_diagnostic(f"  {reason}", self.stdout)
             print("Try again:", file=self.stdout)
             retry = _paint(
                 _rerun_command(self.options.base_url), "bright", enabled=self.color
             )
-            print(f"  {retry}", file=self.stdout, flush=True)
+            _print_install_diagnostic(f"  {retry}", self.stdout, flush=True)
             raise InstallError(_format_command_failure(command, result))
         return _uv_reported_already_installed(result)
 
 
-    def _print_resolution_failure(self, exc: InstallError) -> None:
-        print(self._say("Install failed"), file=self.stdout)
-        print(
-            _paint(
-                "✗ Couldn't find a Yoke release to install.",
-                "danger",
-                enabled=self.color,
-            ),
-            file=self.stdout,
+    def _print_failure_heading(self, message: str) -> None:
+        _print_install_diagnostic(self._say("Install failed"), self.stdout)
+        marker = "x" if self.plain_glyphs else "✗"
+        _print_install_diagnostic(
+            _paint(f"{marker} {message}", "danger", enabled=self.color), self.stdout
         )
-        print(
+
+
+    def _print_resolution_failure(self, exc: InstallError) -> None:
+        self._print_failure_heading("Couldn't find a Yoke release to install.")
+        _print_install_diagnostic(
             f"  {_paint(_sanitize_diagnostic(str(exc)), 'dim', enabled=self.color)}",
-            file=self.stdout,
+            self.stdout,
         )
         print("Try again:", file=self.stdout)
         retry_channel = (
@@ -191,4 +187,4 @@ class InstallerResolution:
             "bright",
             enabled=self.color,
         )
-        print(f"  {retry}", file=self.stdout, flush=True)
+        _print_install_diagnostic(f"  {retry}", self.stdout, flush=True)

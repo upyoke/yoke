@@ -82,6 +82,13 @@ def _format_command_failure(
     )
 
 
+def _print_install_diagnostic(value: str, stream, *, flush: bool = False) -> None:
+    encoding = getattr(stream, "encoding", None)
+    if encoding:
+        value = value.encode(encoding, errors="backslashreplace").decode(encoding)
+    print(value, file=stream, flush=flush)
+
+
 def _bounded_diagnostic(value: str, limit: int) -> str:
     safe = _sanitize_diagnostic(value)
     if len(safe) <= limit:
