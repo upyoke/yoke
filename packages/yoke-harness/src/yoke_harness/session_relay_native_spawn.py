@@ -40,7 +40,10 @@ from yoke_harness.session_launch_admission import (
 )
 from yoke_harness import session_relay_native_supervisor
 from yoke_harness.session_launch_containment import record_supervised_native
-from yoke_harness.session_relay_detached_worker import MAX_HANDOFF_BYTES, reap_in_background
+from yoke_harness.session_relay_detached_worker import (
+    MAX_HANDOFF_BYTES,
+    reap_and_close_in_background,
+)
 from yoke_harness.session_relay_native_capture_format import (
     STATE_RUNNING,
     compose_capture,
@@ -208,7 +211,7 @@ def spawn_supervised_native(
             "instruction; inspect relay health before retrying",
         )
         return None
-    reap_in_background(process)
+    reap_and_close_in_background(process, None)
     return SupervisedNative(
         process.pid,
         str(argv[0]),

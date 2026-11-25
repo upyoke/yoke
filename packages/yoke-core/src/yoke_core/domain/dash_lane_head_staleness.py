@@ -22,8 +22,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from yoke_core.domain import db_backend, deployment_run_candidate_containment as containment
-from yoke_core.domain.delivery_evidence_ladder import item_merge_identity
+from yoke_core.domain import db_backend, delivery_evidence_ladder
+from yoke_core.domain import deployment_run_candidate_containment as containment
 from yoke_core.domain.schema_common import _column_exists, _table_exists
 
 
@@ -55,7 +55,7 @@ def recorded_merge_identity(conn: Any, item_id: int, evidence_merge_sha: str) ->
     second way is how a check ends up answering about a different commit
     than the gate it is qualifying.
     """
-    return str(evidence_merge_sha or "").strip() or item_merge_identity(
+    return str(evidence_merge_sha or "").strip() or delivery_evidence_ladder.item_merge_identity(
         conn, int(item_id)
     )
 
