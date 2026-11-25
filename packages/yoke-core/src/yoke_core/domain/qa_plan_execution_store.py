@@ -143,8 +143,11 @@ def live_plan_execution_id(
             if not session_id:
                 raise QaPlanExecutionStateError("stage-wide lookup needs a session")
             group = f" OR execution_target_json::jsonb #>> '{{deployment,shared_plan,group_id}}'={placeholder}"
-            where += f" AND session_id={placeholder} AND (COALESCE(execution_target_digest,'')={placeholder}{group if group_id else ''})"
-            params += (str(session_id), execution_target_digest or "", *([group_id] if group_id else []))
+            where += f" AND (COALESCE(execution_target_digest,'')={placeholder}{group if group_id else ''})"
+            params += (execution_target_digest or "", *([group_id] if group_id else []))
+    if session_id is not None:
+        where += f" AND session_id={placeholder}"
+        params += (str(session_id),)
     cursor = conn.execute(
         "SELECT id FROM qa_plan_executions "
         f"WHERE {where} "

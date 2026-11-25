@@ -12,6 +12,27 @@ from yoke_core.domain.handlers.qa_plan_execution_models import (
 
 
 def register(registry) -> None:
+    from yoke_core.domain.handlers.qa_plan_partitions import (
+        PlanPartitionsRequest,
+        PlanPartitionsResponse,
+        handle_plan_partitions,
+    )
+
+    registry.register(
+        "qa.plan_execution.partitions",
+        handle_plan_partitions,
+        PlanPartitionsRequest,
+        PlanPartitionsResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.qa_plan_partitions",
+        target_kinds=["item", "deployment_run", "global"],
+        minimum_serving_version="next-release",
+        side_effects=[],
+        guardrails=["qa_subject_authority", "project_scope_required"],
+        adapter_status="live",
+        claim_required_kind="qa_subject",
+        ambient_session_required=True,
+    )
     from yoke_core.domain.handlers.qa_plan_execution_adoption import (
         register as register_adoption,
     )

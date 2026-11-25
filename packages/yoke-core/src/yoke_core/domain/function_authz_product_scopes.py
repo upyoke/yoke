@@ -241,6 +241,7 @@ PRODUCT_AUTHZ_BY_ID = {
     "deployment_runs.qa_stage.resume_refusals": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "qa.case.waive": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "qa.case_execution.begin": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
+    "qa.plan_execution.partitions": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "qa.plan_execution.begin": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "qa.plan_execution.pause": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "qa.plan_execution.resume": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
