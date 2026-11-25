@@ -3,7 +3,10 @@
 import json
 import sqlite3
 
-from yoke_core.domain.deployment_run_item_delivery import candidate_delivery_items
+from yoke_core.domain.deployment_run_item_delivery import (
+    candidate_delivery_items,
+    hosted_build_promoted,
+)
 
 
 def _snapshot(item_id, project_id, merge_sha):
@@ -31,7 +34,8 @@ def test_repeated_candidates_keep_one_delivery_per_landing_and_environment():
         CREATE TABLE environments (id INTEGER PRIMARY KEY, name TEXT);
         CREATE TABLE deployment_runs (
             id TEXT PRIMARY KEY, target_environment_id INTEGER,
-            status TEXT, completed_at TEXT, candidate_containment TEXT
+            project_id INTEGER DEFAULT 1,
+            status TEXT, created_at TEXT, completed_at TEXT, candidate_containment TEXT
         );
         INSERT INTO environments VALUES (1, 'stage'), (2, 'prod');
     """)
@@ -39,7 +43,9 @@ def test_repeated_candidates_keep_one_delivery_per_landing_and_environment():
     def record(run, completed_at=""):
         env_id = {"stage": 1, "prod": 2}[run["target_environment"]]
         conn.execute(
-            "INSERT INTO deployment_runs VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO deployment_runs "
+            "(id,target_environment_id,status,completed_at,candidate_containment) "
+            "VALUES (?, ?, ?, ?, ?)",
             (run["id"], env_id, run["status"], completed_at,
              run["candidate_containment"]),
         )
@@ -88,17 +94,33 @@ def test_failed_run_does_not_settle_a_retry():
         CREATE TABLE environments (id INTEGER PRIMARY KEY, name TEXT);
         CREATE TABLE deployment_runs (
             id TEXT PRIMARY KEY, target_environment_id INTEGER,
-            status TEXT, completed_at TEXT, candidate_containment TEXT
+            project_id INTEGER DEFAULT 1,
+            status TEXT, created_at TEXT, completed_at TEXT, candidate_containment TEXT
         );
         INSERT INTO environments VALUES (1, 'stage');
     """)
     failed = _run("failed", "stage", "failed", 51, 1, "landing-a")
     retry = _run("retry", "stage", "executing", 51, 1, "landing-a")
     conn.execute(
-        "INSERT INTO deployment_runs VALUES (?, 1, 'failed', ?, ?)",
+        "INSERT INTO deployment_runs "
+        "(id,target_environment_id,status,completed_at,candidate_containment) "
+        "VALUES (?, 1, 'failed', ?, ?)",
         (failed["id"], "2026-09-20T12:00:00Z", failed["candidate_containment"]),
     )
     assert candidate_delivery_items(conn, [failed, retry]) == {
         "failed": [{"id": 51, "project_id": 1}],
         "retry": [{"id": 51, "project_id": 1}],
     }
+
+
+def test_hosted_build_promotion_is_bound_to_this_run_candidate_and_environment():
+    run = {"status": "executing", "target_environment": "stage", "release_lineage": "a"}
+    assert not hosted_build_promoted(run)
+    payload = {"target_environment": "stage", "product_sha": "b"}
+    run["bound_sources"] = {"projects": [{"promotion_receipts": [{"payload": payload}]}]}
+    assert not hosted_build_promoted(run)
+    payload.update(product_sha="a", target_environment="prod")
+    assert not hosted_build_promoted(run)
+    payload.update(target_environment="stage")
+    assert hosted_build_promoted(run)
+    assert not hosted_build_promoted({**run, "status": "failed"})

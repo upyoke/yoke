@@ -25,7 +25,9 @@ from yoke_core.domain.deployment_run_carried_work_read import (
 from yoke_core.domain.deployment_run_contained_items import (
     parse_candidate_containment,
 )
-from yoke_core.domain.deployment_run_item_delivery import candidate_delivery_items
+from yoke_core.domain.deployment_run_item_delivery import (
+    candidate_delivery_items, hosted_build_promoted,
+)
 from yoke_core.domain.deployment_run_gates import run_gates
 from yoke_core.domain.deployment_runs_schema import (
     RUN_INSTANT_FIELDS,
@@ -65,6 +67,7 @@ RUN_PRESENTATION_FIELDS = (
     "removed_member_items",
     "contained_items",
     "delivery_candidate_items",
+    "build_promoted",
     "stages",
     "stage_index",
     "stage_count",
@@ -172,6 +175,8 @@ def present_deployment_runs(
         row = dict(source)
         run_id = str(row["id"])
         row.pop("membership_removals", None)
+        if include_item_delivery:
+            row["build_promoted"] = hosted_build_promoted(row)
         if include_carried_work:
             carried = visible_carried_work(
                 read_carried_work(conn, row), row.get("project_id"), visible_project_ids

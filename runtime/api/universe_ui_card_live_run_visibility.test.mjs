@@ -49,11 +49,11 @@ function run(id, facts = {}) {
   };
 }
 
-async function mount(runs) {
+async function mount(runs, item = itemRow(), band = "release") {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = () => response(200, {});
   const client = workbenchClient({
-    "items.overview.list": { rows: [itemRow()] },
+    "items.overview.list": { rows: [item] },
     "frontier.list": { ready_rows: [], blocked_rows: [], dependency_edges: [] },
     "sessions.list": { rows: [] },
     "deployment_runs.list": { rows: runs },
@@ -63,7 +63,7 @@ async function mount(runs) {
   const root = documentNode.createElement("div");
   const mounted = mountUniverseApp(root, { client });
   await settle();
-  const cards = byClass(byClass(root, "work-band-release")[0], "work-item-card");
+  const cards = byClass(byClass(root, `work-band-${band}`)[0], "work-item-card");
   return {
     mounted,
     restore: () => { globalThis.fetch = originalFetch; },
@@ -188,6 +188,58 @@ test("a run member remains visible when candidate delivery is settled", async ()
   try {
     assert.equal(byClass(box, "item-deployment-run")[0].textContent, "run-member");
     assert.equal(byClass(box, "item-deployment-relation")[0].textContent, "member");
+  } finally {
+    mounted.unmount();
+    restore();
+  }
+});
+
+
+test("a promoted carried build has its own outcome while item QA stays open", async () => {
+  const { mounted, restore, box } = await mount([
+    run("run-stage", {
+      target_environment: "stage",
+      build_promoted: true,
+      delivery_candidate_items: [{ public_ref: "YOK-50" }],
+      member_items: [{ ref: "YOK-51", item_qa: { state: "pending" } }],
+    }),
+    run("run-prod", {
+      build_promoted: true,
+      member_items: [{ ref: "YOK-50", item_qa: { state: "pending" } }],
+    }),
+  ]);
+  try {
+    const outcomes = byClass(box, "item-deployment-outcome").map((node) => node.textContent);
+    assert.equal(outcomes[0], "○ in build");
+    assert.match(outcomes[1], /^◐ deploying · at item-qa · \d+[mhd]$/);
+  } finally {
+    mounted.unmount();
+    restore();
+  }
+});
+
+test("a done card keeps its first carried link outside the run roster", async () => {
+  const item = {
+    ...itemRow(),
+    status: "done",
+    finished: true,
+    finished_at: ago(2),
+    frontier_group: { section: "done", reason: "finished" },
+    delivery: {
+      carried_builds: [{ id: "run-stage-first", project_id: 2, target_environment: "stage" }],
+      completed_deliveries: [{ run_id: "run-prod", run_project_id: 1, environment: "prod" }],
+    },
+  };
+  const { mounted, restore, box } = await mount([
+    run("run-stage-later", { target_environment: "stage", delivery_candidate_items: [] }),
+  ], item, "done");
+  try {
+    const links = byClass(box, "item-deployment-run");
+    assert.deepEqual(links.map((link) => link.textContent), ["run-stage-first", "run-prod"]);
+    assert.equal(links[0].href, "/deployments/runs/run-stage-first?project=2");
+    assert.deepEqual(byClass(box, "item-deployment-outcome").map((node) => node.textContent), [
+      "○ in build", "✓ deployed · item completed",
+    ]);
   } finally {
     mounted.unmount();
     restore();
