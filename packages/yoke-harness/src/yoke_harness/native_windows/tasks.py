@@ -62,11 +62,11 @@ function Get-YokeTaskFolder($path) {
  }
  return $folder
 }
-function New-YokeInteractiveTask($name,$path,$arguments,$seconds) {
+function New-YokeInteractiveTask($name,$path,$arguments,$seconds,$logonType=3) {
  if(Get-YokeTask $name){throw 'windows_task_exists: preserve the existing task and choose a fresh task name'}
  $definition=$schedule.NewTask(0)
  $definition.Principal.UserId=$taskIdentity.User.Value
- $definition.Principal.LogonType=3
+ $definition.Principal.LogonType=$logonType
  $definition.Principal.RunLevel=0
  $definition.Settings.ExecutionTimeLimit='PT'+$seconds+'S'
  $definition.Settings.DisallowStartIfOnBatteries=$false
@@ -74,8 +74,9 @@ function New-YokeInteractiveTask($name,$path,$arguments,$seconds) {
  $definition.Settings.AllowDemandStart=$true
  $action=$definition.Actions.Create(0)
  $action.Path=$path; $action.Arguments=$arguments
- # TASK_CREATE, INTERACTIVE_TOKEN; never update a colliding task or elevate.
- $schedule.GetFolder('\').RegisterTaskDefinition($name,$definition,2,$taskIdentity.User.Value,$null,3,$null)
+ # TASK_CREATE with INTERACTIVE_TOKEN (3), or S4U (2) for a user with no
+ # console session; never update a colliding task or elevate.
+ $schedule.GetFolder('\').RegisterTaskDefinition($name,$definition,2,$taskIdentity.User.Value,$null,$logonType,$null)
 }
 function Restore-YokeTask($row) {
  $definition=$schedule.NewTask(0)
@@ -93,8 +94,10 @@ function Restore-YokeTask($row) {
 """.replace("CONSOLE_DISPLAY_TASK", CONSOLE_DISPLAY_TASK)
 
 
-def create_interactive_task(name, path, arguments, seconds):
-    return HELPERS + f"$task=New-YokeInteractiveTask {quote(name)} {quote(path)} {quote(arguments)} {int(seconds)}; $task.Run($null) | Out-Null"
+def create_interactive_task(name, path, arguments, seconds, logon_type=3):
+    if logon_type not in (2, 3):
+        raise ValueError("windows_task_logon_type_invalid: use S4U (2) or interactive token (3)")
+    return HELPERS + f"$task=New-YokeInteractiveTask {quote(name)} {quote(path)} {quote(arguments)} {int(seconds)} {int(logon_type)}; $task.Run($null) | Out-Null"
 
 
 def remove_owned_task(name):

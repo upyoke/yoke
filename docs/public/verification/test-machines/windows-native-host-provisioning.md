@@ -226,6 +226,13 @@ For an existing key file, validate its trusted owner and repair explicit file
 grants **before** writing; an empty protected DACL otherwise denies the write.
 Keep final owner/exact-three-SID ACL checks; never take ownership/reset accounts.
 
+The provisioner always ensures the **second local user** `Zoë Tester`
+too; it has no flag for it. That standard account gets its profile, the
+project key in its `.ssh\authorized_keys` and `OpenSSH Users` membership.
+Its password is generated, set and thrown away: key logon and S4U tasks need
+none, so Yoke stores no secret for it. Rerun the provisioner on an existing
+lab to add it.
+
 For administrator-SSH repair, stale-process audit, partial key/RDP
 recovery and observed window outcomes, follow
 [native Windows provisioning recovery](windows-native-provisioning-recovery.md).
@@ -275,3 +282,9 @@ Record a scripted check with WSL absent, a real desktop PNG, a profile/PATH/
 scheduled-task reset roundtrip, an interrupted policy-case restoration and
 the provider's running power state after release. These are machine
 receipts, separate from the plan's final integrated Windows acceptance pass.
+
+## 5. Machine-wide QA fixtures
+
+Walkers change machine-wide state only through SYSTEM fixtures that every
+reset undoes; see [native Windows machine-wide QA fixtures](windows-native-machine-fixtures.md),
+which also covers the in-place rebuild of last resort.

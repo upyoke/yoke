@@ -8,6 +8,7 @@ import re
 from yoke_harness.baseline_probe_failure_causes import (
     CHECK_UNMET,
     LAYOUT_UNRECOGNIZED,
+    MACHINE_DRIFT,
     PROBE_FAILURE_CAUSES,
     UNDECLARED_EXIT,
     failure_evidence,
@@ -29,6 +30,7 @@ RECOVERIES = {
     "macOS login keychain readable": "Use GUI Terminal to unlock/re-key the login keychain after a password change and sign in Claude again; the keychain stays live through resets.",
     "macOS screen saver disabled": f"As the GUI test user run {SCREEN_SAVER_DISABLE_COMMAND} before capture; save a new golden and prove the reset roundtrip.",
     "Linux desktop input available": "Provision xdotool as a baseline package before capture, not as a QA package; capture a new golden and prove the fresh-host reset roundtrip.",
+    "machine-baseline": MACHINE_DRIFT.recovery,
 }
 
 
@@ -43,6 +45,18 @@ def _reported_app_version(stdout: str) -> str:
     if isinstance(version, str) and re.fullmatch(r"[0-9A-Za-z.\-]{1,40}", version):
         return version
     return "unreadable (check Claude > About Claude)"
+
+
+def _reported_drift(stdout: str) -> list[str]:
+    """The drift names the probe printed; only short identifiers survive."""
+    try:
+        record = json.loads(stdout)
+    except ValueError:
+        record = None
+    found = record.get("drift") if isinstance(record, dict) else None
+    if not isinstance(found, list):
+        return ["drift_unreported"]
+    return [n for n in found if isinstance(n, str) and re.fullmatch(r"[a-z_]{1,60}", n)][:20]
 
 
 def standard_probe_failure(
@@ -62,6 +76,9 @@ def standard_probe_failure(
         )
     else:
         recovery = f"{failure.recovery} See {CHECKLIST}."
+    if failure == MACHINE_DRIFT:
+        # The reset is the fix; the probe names each drift it found.
+        return {**failure_evidence(failure, name), "drift": _reported_drift(stdout)}
     if failure == LAYOUT_UNRECOGNIZED:
         # The defect report needs the app version whose layout went unrecognized.
         version = _reported_app_version(stdout)

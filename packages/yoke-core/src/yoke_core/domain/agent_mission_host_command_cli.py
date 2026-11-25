@@ -145,6 +145,60 @@ def resolve_mission_contract(
     return contract
 
 
+def add_windows_arguments(parser: argparse.ArgumentParser) -> None:
+    """Native Windows only; each is checked against the walk's lease."""
+    parser.add_argument(
+        "--fixture",
+        metavar="NAME",
+        help=(
+            "Apply a machine-wide fixture as SYSTEM instead of running a command: "
+            "grant-admin, system-proxy-root-ca, applocker, task-scheduler-restricted "
+            "or second-user. Every reset undoes every fixture before it restores."
+        ),
+    )
+    parser.add_argument("--undo", action="store_true", help="With --fixture, undo it.")
+    parser.add_argument(
+        "--elevated",
+        action="store_true",
+        help="Run as the test user with its administrator grant (apply --fixture grant-admin first).",
+    )
+    parser.add_argument(
+        "--second-user",
+        action="store_true",
+        help=(
+            "Run as the second local user over SSH; with --gui-session, as a "
+            "one-shot S4U task, since that user has no console session."
+        ),
+    )
+
+
+def run_fixture(parser: argparse.ArgumentParser, parsed: argparse.Namespace, command: list[str]) -> int:
+    """Apply or undo one fixture through the walk's lease and print its verify records."""
+    if command or parsed.elevated or parsed.second_user or parsed.gui_session:
+        parser.error("--fixture takes no command, --elevated, --second-user or --gui-session")
+    contract = resolve_mission_contract(parsed, prog=PROG)
+    if contract is None:
+        return 2
+    try:
+        from yoke_core.domain.agent_mission_host_fixture import (
+            execute_agent_mission_host_fixture,
+        )
+        from yoke_core.domain.machine_qa_host_control import (
+            register_test_machine_host_control,
+        )
+
+        register_test_machine_host_control()
+        result = execute_agent_mission_host_fixture(contract, name=parsed.fixture, undo=parsed.undo)
+    except Exception as exc:
+        print(f"{PROG}: {_named_failure(exc)}", file=sys.stderr)
+        records = getattr(exc, "records", None)
+        if records:
+            print(json.dumps({"verify_records": records}, sort_keys=True))
+        return 2
+    print(json.dumps({"execution_id": parsed.execution_id, "requirement_id": parsed.requirement_id, **result}, sort_keys=True))
+    return 0
+
+
 def run(args: list[str]) -> int:
     parser = argparse.ArgumentParser(
         prog=PROG,
@@ -181,11 +235,16 @@ def run(args: list[str]) -> int:
             "wait on browser approval needs 600 or more."
         ),
     )
+    add_windows_arguments(parser)
     parser.add_argument("command", nargs=argparse.REMAINDER)
     parsed = parser.parse_args(args)
     command = list(parsed.command)
     if command and command[0] == "--":
         command = command[1:]
+    if parsed.fixture is not None:
+        return run_fixture(parser, parsed, command)
+    if parsed.undo:
+        parser.error("--undo applies only with --fixture NAME")
     if (
         not command
         or len(command) > 64
@@ -209,12 +268,20 @@ def run(args: list[str]) -> int:
             register_test_machine_host_control,
         )
 
+        from yoke_core.domain.agent_mission_host_fixture import require_native_windows
+
+        # Refuse a Windows-only flag before the host is touched.
+        for flag, chosen in (("--elevated", parsed.elevated), ("--second-user", parsed.second_user)):
+            if chosen:
+                require_native_windows(dict(contract.get("settings") or {}), flag)
         register_test_machine_host_control()
         result = execute_agent_mission_host_command(
             contract,
             argv=command,
             gui_session=parsed.gui_session,
             timeout_seconds=parsed.timeout_seconds,
+            elevated=parsed.elevated,
+            second_user=parsed.second_user,
         )
     except Exception as exc:
         print(f"{PROG}: {_named_failure(exc)}", file=sys.stderr)

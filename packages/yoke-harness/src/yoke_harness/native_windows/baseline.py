@@ -4,6 +4,7 @@ from pathlib import PureWindowsPath
 
 from yoke_contracts.test_machine_types import HostActionResult
 from yoke_harness.native_windows import desktop
+from yoke_harness.native_windows.machine_fixtures import undo_machine_fixtures
 from yoke_harness.native_windows.transport import quote
 from yoke_harness.native_windows.tasks import HELPERS as TASK_HELPERS
 from yoke_harness.native_windows.profile_path import HELPERS as PATH_HELPERS
@@ -285,14 +286,18 @@ def install_output(result):
 def reach_baseline(control, name):
     if name not in {"fresh-host", "shell-preconfigured"}:
         raise ValueError("unknown native Windows baseline " + name)
+    # Machine-wide fixtures live outside the profile the restore copies.
+    undone = undo_machine_fixtures(control)
+    if not undone.ok:
+        return HostActionResult(False, {"machine_fixtures_undo": undone.evidence}, undone.error_code)
     restored = control.reset_installer_test_host()
     if not restored.ok:
-        return restored
+        return HostActionResult(False, {**restored.evidence, "machine_fixtures_undo": undone.evidence}, restored.error_code)
     # Profile restore owns Windows temp cleanup: it empties AppData\Local\YokeQa
     # and Yoke-owned %TEMP% entries. A restored host must still prove it is the
     # signed-in user's machine, as macOS and Linux baselines do.
     proven = control.prove_user_equivalent()
-    reset = {**restored.evidence, "user_equivalence": proven.evidence}
+    reset = {**restored.evidence, "machine_fixtures_undo": undone.evidence, "user_equivalence": proven.evidence}
     if not proven.ok or name == "fresh-host":
         return HostActionResult(proven.ok, reset, proven.error_code)
     from yoke_contracts.machine_config import distribution, reader as machine_config

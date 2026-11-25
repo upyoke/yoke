@@ -4,11 +4,15 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
+import tempfile
 import time
 from dataclasses import dataclass
-from typing import Callable
+from pathlib import Path
+from typing import Any, Callable
 
 from yoke_contracts.azure_admin import AzureAdminError, run_checked
+from yoke_contracts.machine_fixture_verify import MachineFixtureFailed, verify_records
 from yoke_contracts.designed_wait import announce_designed_wait, poll_every
 from yoke_core.domain.deploy_remote import CommandRunner
 
@@ -107,6 +111,52 @@ class AzureMachinePower:
         raise AzureAdminError(
             f"Azure VM did not reach {target} within 600s; "
             f"inspect it with `{self.read_command}` and retry"
+        )
+
+    def run_script(self, script: str, timeout: int) -> list[dict[str, Any]]:
+        """Run one PowerShell script as SYSTEM on the VM through run-command.
+
+        Run-command reports no script exit code, so the script's verify
+        records are the proof: a non-zero CLI exit, a missing record or a
+        failed record refuses with the script's stderr.
+        """
+        with tempfile.TemporaryDirectory(prefix="yoke-run-command-") as directory:
+            path = Path(directory) / "script.ps1"
+            path.write_text(script, encoding="utf-8")
+            argv = [
+                *self.command, "vm", "run-command", "invoke", "--ids", self.instance_id,
+                "--command-id", "RunPowerShellScript", "--scripts", "@" + str(path),
+                "--output", "json",
+            ]
+            try:
+                result = self.runner.run(argv, env=self.env, timeout=timeout)
+            except (OSError, subprocess.TimeoutExpired) as exc:
+                raise self._script_failed([], f"Azure run-command did not finish ({type(exc).__name__})") from None
+        stdout = stderr = ""
+        try:
+            for status in json.loads(result.stdout or "{}").get("value", []):
+                if "/StdOut/" in str(status.get("code")):
+                    stdout += str(status.get("message") or "")
+                elif "/StdErr/" in str(status.get("code")):
+                    stderr += str(status.get("message") or "")
+        except (ValueError, AttributeError):
+            stderr = result.stdout
+        records = verify_records(stdout)
+        if result.returncode:
+            raise self._script_failed(records, (result.stderr or stderr).strip()[-2000:])
+        if not records or any(record.get("ok") is not True for record in records):
+            raise self._script_failed(records, stderr.strip()[-2000:] or "the script printed no verify record")
+        return records
+
+    def _script_failed(self, records, stderr):
+        return MachineFixtureFailed(
+            records=records,
+            detail=f"SYSTEM script on Azure VM {self.instance_id} failed",
+            stderr=stderr,
+            recovery_hint=(
+                "Read the verify records and stderr, repair the named state, then retry; "
+                "if Azure reports a run-command already in progress, wait for it and retry"
+            ),
         )
 
     def stop(self):
