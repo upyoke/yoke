@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from yoke_contracts.hook_runner.bash_paths import native_client_path
 from yoke_contracts.runtime_ports.identity import get_identity
 
 import json
@@ -156,7 +157,7 @@ def resolve_harness_capabilities(
     )
 
     manifest_path = os.path.join(
-        workspace,
+        native_client_path(workspace) if os.name == "nt" else workspace,
         "runtime",
         "harness",
         manifest_directory,
