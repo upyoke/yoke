@@ -9,7 +9,7 @@ import pytest
 
 from yoke_contracts.deployment_release_roles_teaching import RELEASE_ROLE_RECIPE
 from yoke_contracts.machine_qa_case_target import case_target_recovery
-from yoke_core.domain import qa_plan_execution_cli
+from yoke_core.domain import qa_plan_execution_cli, qa_plan_partitions_cli
 from yoke_core.domain.deployment_run_other_target_members import (
     OwedRequirement,
     set_aside_message,
@@ -28,14 +28,6 @@ def _member_run_recipes():
     root = Path(__file__).resolve().parents[3]
     guide = (root / "docs/testing-verification/installer-campaign.md").read_text()
     yield re.search(r"yoke watch qa-plan -- --item [^\n]+", guide).group()
-    notice = set_aside_message(
-        public_ref=ITEM,
-        run_id="example-run",
-        environment="prod",
-        owed=(OwedRequirement(1, "post_deploy", "stage"),),
-        route="steering",
-    )
-    yield re.search(r"`(yoke qa plan run [^`]+)`", notice).group(1)
 
 
 @pytest.mark.parametrize("recipe", list(_member_run_recipes()))
@@ -50,6 +42,28 @@ def test_taught_member_execution_command_parses(recipe, capsys):
     assert execute.call_args.kwargs["deployment_stage"] == "STAGE"
     assert execute.call_args.kwargs["deployment_run_id"] is None
     capsys.readouterr()
+
+
+def test_set_aside_notice_names_exact_member_partition_subject():
+    notice = set_aside_message(
+        public_ref=ITEM,
+        run_id="example-run",
+        environment="prod",
+        owed=(OwedRequirement(1, "post_deploy", "stage"),),
+        route="steering",
+    )
+    command = re.search(r"`(yoke qa plan partitions [^`]+)`", notice).group(1)
+
+    with (
+        patch("yoke_contracts.runtime_ports.structured_dispatch.get_structured_dispatch"),
+        patch.object(qa_plan_partitions_cli, "call_plan_function", return_value={}) as call,
+    ):
+        assert qa_plan_partitions_cli.run(shlex.split(command)[4:]) == 0
+    kwargs = call.call_args.kwargs
+    assert kwargs["function_id"] == "qa.plan_execution.partitions"
+    assert kwargs["target"].public_ref == ITEM
+    assert kwargs["payload"]["deployment_stage"] == "STAGE"
+    assert kwargs["payload"]["deployment_run_id"] == "RUN"
 
 
 @pytest.mark.parametrize("member", [ITEM, None])
