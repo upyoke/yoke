@@ -249,3 +249,21 @@ def test_an_open_tool_call_ignores_process_presence_for_status():
     )
     assert session_state(facts, now=NOW)["status"] == "working"
     assert session_state(facts, now=NOW)["in_flight"] is False
+
+
+@pytest.mark.parametrize(
+    "fact,reason",
+    [
+        ("keepalive", "keepalive_held"),
+        ("wake_delivery", "wake_delivery_in_flight"),
+        ("open_wake_attempt", "wake_delivery_in_flight"),
+    ],
+)
+def test_delivery_guards_protect_session_custody(fact, reason):
+    stale = NOW - timedelta(days=2)
+    facts = row(last_heartbeat=stale, last_tool_call_at=stale, mode="parked")
+    assert session_state(facts, now=NOW)["custody"]["reclaimable"] is True
+
+    custody = session_state({**facts, fact: True}, now=NOW)["custody"]
+    assert custody["reclaimable"] is False
+    assert custody["reason"] == reason

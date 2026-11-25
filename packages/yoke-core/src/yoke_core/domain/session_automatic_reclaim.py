@@ -3,17 +3,23 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Iterable, Mapping
+from typing import Any, Iterable, Mapping, Sequence
 
 from yoke_contracts.timestamps import parse_instant
 from . import db_backend
+from .db_optional_queries import fetch_optional_rows
 from .schema_common import _get_columns, _table_exists
 from .session_cleanup_holdings import (
     active_holding_sessions,
     active_work_claim_sessions,
     effective_cleanup_ttl,
 )
-from .session_reclaim_activity import classify_activity
+from .session_keepalive import session_keepalive_holds
+from .session_reclaim_activity import (
+    REASON_KEEPALIVE_HELD,
+    REASON_WAKE_DELIVERY_IN_FLIGHT,
+    classify_activity,
+)
 from .session_reclaim_evidence import ReclaimActivityEvidence, ReclaimClassification
 from .session_reclaim_progress import newest_activity_stamp, tool_activity_stamp
 from .sessions_analytics_core import (
@@ -79,6 +85,13 @@ def automatic_reclaim(
         open_tool_call_at=stamp("open_tool_call_at"),
         session_facts=row,
     )
+    if evidence.ended_at is None:
+        if row.get("keepalive"):
+            return ReclaimClassification(False, REASON_KEEPALIVE_HELD, evidence)
+        if row.get("wake_delivery") or row.get("open_wake_attempt"):
+            return ReclaimClassification(
+                False, REASON_WAKE_DELIVERY_IN_FLIGHT, evidence
+            )
     progress_ttl = (
         max(progress_threshold_minutes, ttl)
         if row.get("has_active_holdings")
@@ -90,6 +103,39 @@ def automatic_reclaim(
         progress_threshold_minutes=progress_ttl if row.get("tool_call_count") else None,
         now=now,
     )
+
+
+def _reclaim_delivery_facts(
+    conn: Any, ids: Sequence[str]
+) -> dict[str, dict[str, bool]]:
+    """Read the same delivery guards for a whole sweep, roster, or locked row."""
+    from .sessions_render_end_if_empty import wake_deliveries_in_flight
+
+    if not ids:
+        return {}
+    keepalives = session_keepalive_holds(conn, ids)
+    deliveries = wake_deliveries_in_flight(conn, ids)
+    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    placeholders = ",".join(marker for _ in ids)
+    attempts = {
+        str(row["target_session_id"])
+        for row in fetch_optional_rows(
+            conn,
+            "SELECT DISTINCT target_session_id FROM session_message_attempts "
+            "WHERE completed_at IS NULL AND attempt_kind IN ('wake_relay','wake_broker') "
+            f"AND target_session_id IN ({placeholders})",
+            ids,
+            savepoint="_yoke_reclaim_open_wake_attempts",
+        )
+    }
+    return {
+        sid: {
+            "keepalive": sid in keepalives,
+            "wake_delivery": sid in deliveries,
+            "open_wake_attempt": sid in attempts,
+        }
+        for sid in ids
+    }
 
 
 def reclaim_facts(
@@ -121,6 +167,7 @@ def reclaim_facts(
                 ids,
             ).fetchall()
         }
+    delivery = _reclaim_delivery_facts(conn, ids)
     claims = active_work_claim_sessions(conn)
     holdings = active_holding_sessions(conn)
     tools: dict[str, Any] = {}
@@ -162,6 +209,7 @@ def reclaim_facts(
         row["session_idle_minutes"] = idle_minutes.get(
             row.get("project_id"), DEFAULT_SESSION_IDLE_MINUTES
         )
+        row.update(delivery[sid])
         row["holds_work_claim"] = sid in claims
         row["has_active_holdings"] = sid in holdings
         row["open_tool_call_at"] = tools.get(sid)

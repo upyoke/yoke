@@ -4,6 +4,6 @@
  "status": "observed",
  "page": "sessions",
  "position": 5,
- "summary": "Active work claims remain protected independently of silence, parking or process death. Steering acquire automatically releases holders only with ended_at or terminated_at set. Other holders require explicit --take-over --reason TEXT; process or presence observations never authorize takeover. Terminal stamps allow leftover custody reclamation.",
+ "summary": "Active work claims remain protected independently of silence, parking or process death. Steering acquire automatically releases holders only with ended_at or terminated_at set. Other holders require explicit --take-over --reason TEXT; process or presence observations never authorize takeover. The stale-session preview, sweep and custody check protect a keepalive for up to an hour without renewal, an open relay or broker wake attempt, and a pending acknowledgement within five minutes of a wake. The sweep records keepalive_held or wake_delivery_in_flight and preserves the recipient receipt. Terminal stamps allow leftover custody reclamation.",
  "sources": ["docs/public/sessions/model/sessions.md", "docs/public/sessions/model/reclaim.md", "packages/yoke-core/src/yoke_core/domain/session_reclaim_activity.py", "packages/yoke-core/src/yoke_core/domain/session_state.py", "packages/yoke-core/src/yoke_core/domain/steering_seat_takeover.py"]
 }

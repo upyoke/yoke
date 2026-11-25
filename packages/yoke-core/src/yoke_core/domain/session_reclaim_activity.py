@@ -30,6 +30,8 @@ REASON_HEARTBEAT_STALE = "heartbeat_stale"
 REASON_PROGRESS_STALE = "progress_stale"
 REASON_FRESH = "fresh"
 REASON_ACTIVE_WORK_CLAIM = "active_work_claim"
+REASON_KEEPALIVE_HELD = "keepalive_held"
+REASON_WAKE_DELIVERY_IN_FLIGHT = "wake_delivery_in_flight"
 
 
 def _p(conn) -> str:
@@ -103,13 +105,18 @@ def read_activity_signals(
     session_id: str,
     *,
     claim_id: Optional[int] = None,
+    session_facts: Mapping[str, Any] | None = None,
     base_ttl_minutes: int = DEFAULT_STALE_THRESHOLD_MINUTES,
     overrides: Optional[Mapping[str, int]] = None,
 ) -> ReclaimActivityEvidence:
     """Read the canonical reclaim activity signals for ``session_id``."""
     from .session_automatic_reclaim import reclaim_facts
 
-    row = reclaim_facts(conn, [{"session_id": session_id}])[0]
+    row = (
+        reclaim_facts(conn, [{"session_id": session_id}])[0]
+        if session_facts is None
+        else session_facts
+    )
     claim_heartbeat, claimed_at = _claim_state(conn, session_id, claim_id)
     return ReclaimActivityEvidence(
         session_id=session_id,
@@ -257,6 +264,8 @@ __all__ = [
     "REASON_ENDED",
     "REASON_FRESH",
     "REASON_ACTIVE_WORK_CLAIM",
+    "REASON_KEEPALIVE_HELD",
+    "REASON_WAKE_DELIVERY_IN_FLIGHT",
     "REASON_HEARTBEAT_STALE",
     "REASON_NEVER_ENGAGED",
     "REASON_PROGRESS_STALE",
