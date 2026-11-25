@@ -257,3 +257,82 @@ def test_cli_operation_keeps_registered_settings(monkeypatch):
         == 0
     )
     assert seen[0]["settings"]["host"] == "old"
+
+
+def test_cli_native_windows_reset_runs_fixture_undo_in_the_power_scope(monkeypatch):
+    from runtime.api.domain.native_windows_machine_fixture_test_support import (
+        passing_undo_records,
+    )
+    from yoke_cli.commands.adapters import test_machine_operation as cli
+    from yoke_contracts.api.function_call import FunctionCallResponse
+    from yoke_contracts.machine_qa_execution import issue_execution_contract
+    from yoke_contracts.test_machine_types import HostActionResult
+    from yoke_core.domain import cloud_machine_power, native_windows_machine_fixtures
+    from yoke_harness import ssh_test_machine_transport
+    from yoke_harness.ssh_native_windows_host_operations import SshNativeWindowsHostOperations
+
+    actor = object()
+    relay_env = "test-relay"
+    execution = issue_execution_contract(
+        operation="reset",
+        lease_id=19,
+        lease_key="QA_HOST:windows-lab",
+        project_id=1,
+        project="yoke",
+        settings={
+            "resource_name": "windows-lab",
+            "host": "lab.local",
+            "user": "yokeqa",
+            "os": "windows",
+            "operating_notes": "",
+        },
+        baselines=["fresh-host"],
+    ).model_dump(mode="json")
+    calls = []
+
+    def dispatch(*, function_id, payload, **_):
+        action = function_id.rpartition(".")[2]
+        calls.append(action)
+        result = {"execution": execution} if action == "begin" else payload
+        return FunctionCallResponse(
+            success=True, function=function_id, version="v1", result=result
+        )
+
+    def run_system_script(material, script, *, timeout):
+        calls.append("undo")
+        assert material.settings == execution["settings"]
+        assert "operation='undo'" in script
+        assert cloud_machine_power._power_scope.get() == {
+            "actor": actor, "relay_env": relay_env,
+        }
+        return passing_undo_records()
+
+    monkeypatch.setattr(cli, "call_dispatcher", dispatch)
+    monkeypatch.setattr(cloud_machine_power, "power_on", lambda *_: calls.append("power"))
+    for module in (host_control_runner, ssh_test_machine_transport):
+        monkeypatch.setattr(module, "read_test_machine_secret", lambda *_: "test-key")
+        monkeypatch.setattr(module, "test_machine_secret_path", lambda *_: "/tmp/test-key")
+    monkeypatch.setattr(
+        SshNativeWindowsHostOperations, "_host_facts",
+        lambda _: {"home": r"C:\Users\yokeqa", "shell": "powershell"},
+    )
+    monkeypatch.setattr(native_windows_machine_fixtures, "run_system_script", run_system_script)
+    monkeypatch.setattr(
+        SshNativeWindowsHostOperations, "reset_installer_test_host",
+        lambda _: calls.append("restore") or HostActionResult(True, {}),
+    )
+    monkeypatch.setattr(
+        SshNativeWindowsHostOperations, "prove_user_equivalent",
+        lambda _: HostActionResult(True, {}),
+    )
+
+    response = cli._run(
+        operation="reset", test_machine="windows-lab", baseline="fresh-host",
+        actor=actor, relay_env=relay_env,
+    )
+
+    assert response.success, response.error
+    assert calls == ["begin", "power", "undo", "restore", "submit"]
+    assert response.result["checks"][0]["machine_fixtures_undo"]["verify_records"] == (
+        passing_undo_records()
+    )
