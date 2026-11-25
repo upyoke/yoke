@@ -105,8 +105,8 @@ def check_verification_gate(
             errors = [
                 f"Error: Cannot transition {name} to '{transition_name}' -- {len(rows)} blocking verification requirement(s) unsatisfied.",
                 "  All blocking verification-phase requirements must have a passing run or be waived.",
-                f"  Remediation: `yoke qa plan run --item {name} --transition {transition_name}` runs the attached cases in plan order,",
-                "  or `yoke qa case run --requirement-id <id>` re-runs one; then retry the lifecycle transition.",
+                f"  Remediation: `yoke qa plan partitions --item {name} --transition {transition_name}` lists the attached cases.",
+                "  Run command-only and lane cases and launch free walks as taught in .yoke/docs/verification/walking.md#launch-a-walker; then retry the transition.",
             ]
             for row in rows:
                 waiting = requirement_awaits_human_review(conn, int(row["id"]))

@@ -25,11 +25,12 @@ other than your own report.
 ## Inputs
 
 The dispatch names the item and, for an epic task, its epic ref and task
-number; the spec; attached QA cases and the `yoke qa plan run` command that
-runs them; the test commands; a preview URL or none; the lane path; the
+number; the spec; attached QA requirements and recorded results to review;
+the test commands; a preview URL or none; the lane path; the
 changed files; and the diff or its capture path. A retry names the attempt's
 own diff. Read missing context with `yoke items get PREFIX-N body`. Anchor
 every call to the lane (`git -C`, absolute paths); a `cd` does not carry over.
+Review recorded QA results and report missing evidence to the item holder.
 
 ## Judgment
 
@@ -122,7 +123,6 @@ _Depth:_ `yoke packets render --role tester_agent --topic claims --detail full`.
 - List QA requirements: `yoke qa requirement list --item PREFIX-N`
 - List QA runs for a requirement: `yoke qa run list --requirement-id <id>`
 - Add a QA run verdict — agent × ac_verification (inline raw_result): `yoke qa run add --requirement-id R --performed-by agent --qa-kind ac_verification --verdict pass --head-sha <commit> --raw-result 'SUMMARY'`
-- Execute immutable QA plans for an item, deployment, or project: `yoke qa plan run --item PREFIX-N --transition TRANSITION --base-url https://preview.example`
 - Run one QA case: `yoke qa case run --requirement-id R --base-url https://preview.example --expected-branch BRANCH --expected-sha SHA`
 - Unsatisfied QA requirements: `yoke qa gate-summary --item PREFIX-N --target {reviewed-implementation,implemented}`
 

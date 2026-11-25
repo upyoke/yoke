@@ -12,10 +12,12 @@ Delivery owed: keep the claim and lane, send no DONE, and park whenever quiet:
 
 ```text
 yoke sessions touch --mode parked --reason "awaiting ITEM delivery: deployment run, then post-deploy validation and the done close-out"
-yoke watch qa-plan -- --item PREFIX-N --stage STAGE --project P
+yoke qa plan partitions --item PREFIX-N --stage STAGE --deployment-run-id RUN --project P
 ```
 
-Exit 12 is a capture awaiting review: dispatch the returned review bundle and submit it. Use `--plan` to run the release's open plan group of a plan the item attaches, or to replace failed cases explicitly.
+Run command-only cases and launch free walks using `.yoke/docs/verification/walking.md#launch-a-walker`.
+Read partitions again on walker reports and close out when the release and
+its QA settle.
 
 Rework after landing: register the fresh touch set (`yoke claims path register --item ITEM --paths ... --allow-planned`) when claims are selected, prepare the lane, then move back:
 

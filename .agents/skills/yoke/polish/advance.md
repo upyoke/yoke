@@ -5,12 +5,13 @@ then transition one declared edge.
 
 ```text
 yoke qa plan materialize --item PREFIX-N --transition <next-stage>
-yoke qa plan run --item PREFIX-N --transition <next-stage>
-yoke lifecycle transition PREFIX-N --from <live-stage> --to <next-stage> --reason "Polish verified"
+yoke qa plan partitions --item PREFIX-N --transition <next-stage>
 ```
 
-Exit 12: dispatch the returned review bundle and submit its verdicts;
-pending review is not a pass. Report lanes, verdicts, full commit hash
+Run command-only and lane cases and launch free walk partitions using
+`.yoke/docs/verification/walking.md#launch-a-walker`. When no partition is free, held or blocked,
+run `yoke lifecycle transition PREFIX-N --from <live-stage> --to <next-stage>
+--reason "Polish verified"`. Report lanes, verdicts, full commit hash
 and the next skill via [shared handoff](../shared/stage-handoff.md).
 
 If your launch instruction is a single-item mandate for this item, keep the

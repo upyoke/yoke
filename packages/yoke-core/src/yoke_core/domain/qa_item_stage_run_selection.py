@@ -281,7 +281,7 @@ def _pending_text(item_ref: str, stage: str, holds: list[StageRun]) -> str:
     return (
         f"qa_item_stage_unavailable: {item_ref}'s {stage!r} requirements are "
         f"held by live run {listed}, which has not reached {stage!r}. Wait for "
-        f"that run's {stage!r} wake, then run `yoke qa plan run --item {item_ref} "
+        f"that run's {stage!r} wake, then read `yoke qa plan partitions --item {item_ref} "
         f"--stage {stage} --deployment-run-id {first}`. Do not start a new "
         "deployment: this run already enrolls the item."
     )

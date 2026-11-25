@@ -154,8 +154,8 @@ def check_browser_evidence_present(
         "--performed-by agent --verdict pass --verdict-reason TEXT` after the",
         "  capture; it resolves that capture in place and needs no --raw-result.",
         "  Do not begin a plan against hosts.app to attach a local-preview review.",
-        f"  Remediation: `yoke qa plan run --item {name} --transition {transition_name}` runs the attached cases in plan order,",
-        "  or `yoke qa case run --requirement-id <id>` re-runs one; then retry the lifecycle transition.",
+        f"  Remediation: `yoke qa plan partitions --item {name} --transition {transition_name}` lists the attached cases.",
+        "  Run command-only and lane cases and launch free walks as taught in .yoke/docs/verification/walking.md#launch-a-walker; then retry the transition.",
     ]
     rows = query_rows(
         conn,

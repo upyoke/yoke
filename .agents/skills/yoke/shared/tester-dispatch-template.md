@@ -7,8 +7,7 @@ Validate {public_ref}{ task {task_num}}: {title}
 Spec: {spec}
 Review identity: epic-id: {epic_ref} task-num: {task_num}
 Cases: {qa requirement rows or "none attached"}
-Run them: yoke qa plan run --item {public_ref} --transition {transition}
-On exit 12, execute the returned review dispatch and its submit command now.
+Read the recorded results for the listed requirements with yoke qa run list --requirement-id ID. Report any missing evidence to the item holder.
 Test commands: {resolved Quick/Full/E2E/Smoke}  Preview URL: {healthy url from `yoke ephemeral-env get PROJECT BRANCH --json`, else none}
 Worktree: {worktree_path}  Changed: {changed_files}  Diff: {diff up to 300 lines, else capture path}
 {minimal retry: no inline diff; read the changed files and return a verdict}

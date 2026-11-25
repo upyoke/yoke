@@ -158,7 +158,7 @@ def stage_recipe(obligation: Mapping[str, Any], public_ref: str) -> str:
     """The scoped run each owed stage credits, one per stage."""
     project = obligation.get("project") or "P"
     return "; ".join(
-        f"`yoke watch qa-plan -- --item {public_ref} --stage {stage} "
+        f"`yoke qa plan partitions --item {public_ref} --stage {stage} "
         f"--project {project}`"
         for stage in obligation.get("stages") or ()
     )
@@ -184,7 +184,7 @@ def _owes_line(obligation: Mapping[str, Any], public_ref: str) -> str:
         return (
             f"owes delivery: item-scoped QA stage {stages}"
             + (f" (requirements {ids})" if ids else "")
-            + f"; the stage credits only {stage_recipe(obligation, public_ref)}"
+            + f"; read the stage partitions with {stage_recipe(obligation, public_ref)}"
             + (f"; {groups}" if plans else "")
         )
     if kind == OWES_NOTHING:
@@ -231,7 +231,7 @@ def _claim_and_next_lines(
     if plan_only(obligation):
         run = "re-entry runs single-member plans when woken; shared-plan notices go only to the driver"
     elif obligation.get("kind") == OWES_QA:
-        run = f"re-entry runs {stage_recipe(obligation, public_ref)}"
+        run = f"re-entry reads {stage_recipe(obligation, public_ref)}"
     else:
         run = f"re-entry runs the recipe the stage prints, or `{merge}`"
     if wake.get("kind") == WAKE_NATIVE:

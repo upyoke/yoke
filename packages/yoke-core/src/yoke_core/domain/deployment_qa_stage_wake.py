@@ -25,6 +25,7 @@ from yoke_core.domain.deployment_run_driver_notice import (
 )
 from yoke_core.domain.merge_queue_landing_notice import HOLDER, push_notice
 from yoke_core.domain.qa_host_health import HOST_WAIT_TEACHING
+from yoke_core.domain.qa_walk_launch_required import WALK_LAUNCH_GUIDANCE
 
 #: Identity every item-scoped and run-scoped QA wait notice shares, so a
 #: later reader can find every still-pending wait without parsing bodies.
@@ -110,7 +111,7 @@ def stage_wait_message(
 
     ``discharge`` is the recorded no-obligation (or waiver-backed none)
     statement. When it is set, this member has nothing to run, so the
-    body names that fact instead of handing ``yoke qa plan run``.
+    body names that fact without asking for a partition read.
 
     ``owes_run=False`` means ``reasons`` are blockers no case run can clear
     (a pending review, an unsettled acceptance): the body names them and
@@ -142,15 +143,15 @@ def stage_wait_message(
     return (
         f"Deployment run {run_id} reached item-scoped QA stage {stage_name!r} "
         f"for {context}. Reaching {addressed}: {item_ref} still needs to "
-        f"supply this stage's evidence/verdict ({reasons}). Run its cases "
+        f"supply this stage's evidence/verdict ({reasons}). Read its partitions "
         "naming BOTH the stage and the member, which is what this stage "
-        f"credits: 'yoke qa plan run --item {item_ref} --stage "
+        f"credits: 'yoke qa plan partitions --item {item_ref} --stage "
         f"{stage_name} --deployment-run-id {run_id}{_plan_selection(names_cases)} "
         f"--project PROJECT'. "
         "Omitting them materializes requirements this stage never counts, so "
         "the verdict would discharge nothing. The stage binds the run's own "
         "deployed target, so a plan authored before this release still "
-        f"verifies it. {HOST_WAIT_TEACHING} Check 'yoke deployment-runs get "
+        f"verifies it. {WALK_LAUNCH_GUIDANCE} {HOST_WAIT_TEACHING} Check 'yoke deployment-runs get "
         f"{run_id}' for the current state."
     )
 

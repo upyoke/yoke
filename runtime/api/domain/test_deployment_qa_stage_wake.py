@@ -119,10 +119,12 @@ def test_item_message_names_the_stage_and_member_bound_invocation():
     )
 
     assert (
-        "yoke qa plan run --item EXT-541 --stage item-qa "
+        "yoke qa plan partitions --item EXT-541 --stage item-qa "
         "--deployment-run-id run-1 --plan PLAN" in body
     )
     assert "never counts" in body
+    assert "Launch each free walk in an itemless CLI session" in body
+    assert "yoke qa plan run" not in body
 
 
 def test_run_message_names_driver_execution_and_review_recovery():
@@ -155,7 +157,7 @@ def test_a_stage_that_already_names_cases_gets_a_recipe_without_a_plan():
     )
 
     assert (
-        "yoke qa plan run --item EXT-541 --stage item-qa "
+        "yoke qa plan partitions --item EXT-541 --stage item-qa "
         "--deployment-run-id run-1 --project PROJECT"
     ) in body
     assert "--plan" not in body

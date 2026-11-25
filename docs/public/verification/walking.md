@@ -8,6 +8,83 @@ Walk each exploratory mission in the session's main thread. Use the mission's
 instructions and expected outcome to explore the declared surfaces, attach
 evidence as you go, and record your verdict from what you observed.
 
+## Launch a walker
+
+The session that owes QA starts with `yoke qa plan partitions <subject flags>`.
+Run each available command-only partition with
+`yoke qa plan run <subject flags> --partition KEY`. Item claim holders run lane
+cases with `yoke qa case run --requirement-id ID` from their lane as the
+partitions become eligible.
+
+For each free walk partition, launch one itemless CLI session:
+
+```sh
+printf %s "$INSTRUCTIONS" | yoke session-control launch create --project P \
+  --level LEVEL --surface codex-cli --raw-instructions --stdin \
+  --idempotency-key "qa-walk:SUBJECT:SCOPE:KEY:ATTEMPT"
+```
+
+Choose `claude-cli`, `codex-cli` or `cursor-cli` per launch to spread walks across
+harnesses. Use the `requested_level` from `yoke session-control launch preview
+--project P --item ITEM` for item and member QA. Use your own level for a
+plan group or an itemless standalone plan. Supply no `--item` to launch create.
+Use the item or member ref, `RUN:STAGE:PLAN` for a plan group, or `PLAN@SHA` for
+standalone as SUBJECT. Use the transition or stage for SCOPE and `-` for groups
+and standalone. Reuse the same ATTEMPT if the launch reply was lost. Use a new ATTEMPT
+only when replacing a launch that ended or failed to start.
+
+Put the exact subject flags, partition key, launcher level and report route in
+INSTRUCTIONS. For an item, include the lane branch and SHA from the partition
+read. For a standalone checkout, give the source SHA and tell the walker to
+run `git worktree add --detach <scratch>/src SHA` in the project repository.
+Record the subject, partition, launch ID and attempt in the item's Progress Log
+for each launch. A plan group or itemless plan has no item Progress Log, so keep
+those receipts in the launcher's session.
+
+### Run and report
+
+In the launched session, ask the watcher for its command, then run the printed
+command:
+
+```text
+yoke watch qa-plan --print-streaming-pair -- <subject flags> --partition KEY
+```
+
+For item QA include `--expected-branch B --expected-sha SHA` from the frozen
+lane. For standalone QA include those source flags and
+`--checkout-path <scratch>/src`. Use a run or group stage's pinned target for
+deployed QA.
+
+On exit 3, end your turn so the host-turn notice can resume the session. On
+exit 12, walk and record the returned bundle in this session's main thread.
+Rerun until terminal, then send the full [report](#report-and-verdict) and end
+the session:
+
+```sh
+printf %s "$REPORT" | yoke say <route> --stdin --idempotency-key "qa-walk-result:EXECUTION_ID"
+```
+
+Use `--item REF` for item or member QA so the report reaches the current holder.
+For a plan group or itemless standalone plan use `--session LAUNCHER_SESSION_ID`.
+On `zero_recipients` or a skipped receipt, send it to `--steering`.
+
+The launcher rereads `partitions` after each report and launches newly free
+walks. If a partition is free while a recorded launch is still starting, wait
+for that launch to bind or refuse before staffing it again. Attempt the item transition once no partition is free, held or blocked.
+The server settles deployment stages on completion. A standalone plan is
+finished at its SHA when every partition has passed or failed. Reports use
+ordinary messaging. Launched CLI sessions can resume natively. Desktop and
+operator-started sessions receive reports through injection or on the next turn.
+
+If launch fails, follow its refusal and retry with a new attempt. If no relay can
+launch a walker, staff a relay machine serving `claude-cli`, `codex-cli` or
+`cursor-cli` to resume walk QA. A walker that never starts leaves its partition
+free. An ended or unresponsive walker may leave an execution to abort or adopt
+before relaunch. On `qa_partition_unavailable`, report the refusal and end so
+the launcher can reread the partition list. On `qa_walk_delegation_lapsed`,
+abort your own execution, report by item, and end. If native resume fails,
+steering receives the wake failure. Settle the held execution before relaunch.
+
 ## Inputs
 
 The dispatch carries the mission, its good outcome, and the exact commands for

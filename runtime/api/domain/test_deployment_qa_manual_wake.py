@@ -50,7 +50,7 @@ from yoke_core.domain.steering_fleet_report_render import report_body
 from yoke_core.domain.work_claim_targets import make_item_target
 
 
-def test_only_holder_wake_requires_execution_in_this_session():
+def test_only_holder_wake_assigns_coordination():
     from yoke_core.domain.deployment_qa_manual_wake import ManualWakeRequirement
     from yoke_core.domain.merge_queue_landing_notice import HOLDER, STEERING
 
@@ -64,10 +64,7 @@ def test_only_holder_wake_requires_execution_in_this_session():
         case_key="real-traffic",
         wake_evidence=EVIDENCE,
     )
-    instruction = (
-        "You hold this item, so run it in this session; "
-        "do not hand it to a parent or the driver."
-    )
+    instruction = "You hold this item and coordinate its stage QA."
     assert instruction in entry.wake_message(HOLDER)
     assert instruction not in entry.wake_message(STEERING)
     for route in (HOLDER, STEERING):
@@ -250,7 +247,7 @@ def test_report_lists_the_manual_wake_with_evidence_owner_and_run(
     assert f"{RUN_ID}  {ref}  requirement #9801 case real-traffic" in body
     assert f"evidence: {EVIDENCE}" in body
     run_command = (
-        f"yoke qa plan run --item {ref} --stage {ITEM_QA_STAGE} "
+        f"yoke qa plan partitions --item {ref} --stage {ITEM_QA_STAGE} "
         f"--deployment-run-id {RUN_ID} --project yoke"
     )
     assert wake.run_command() == run_command

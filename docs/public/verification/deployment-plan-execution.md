@@ -4,10 +4,10 @@
 [Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Verification](index.md) > Deployment plan execution
 <!-- /yoke:breadcrumbs -->
 
-The holder runs item cases and single-member plans with their pinned stage:
+The holder coordinates item cases and single-member plans at their pinned stage:
 
 ```text
-yoke qa plan run --item PREFIX-N --stage STAGE --project P
+yoke qa plan partitions --item PREFIX-N --stage STAGE --deployment-run-id RUN --project P
 ```
 
 A post-deploy plan shared by two or more release members at item QA entry runs
@@ -15,10 +15,11 @@ once per release as one driver-owned
 [plan group](#plan-groups):
 
 ```text
-yoke qa plan run --deployment-run-id RUN --stage item-qa --plan PLAN --project P
+yoke qa plan partitions --deployment-run-id RUN --stage item-qa --plan PLAN --project P
 ```
 
-See [item recovery](failed-item-qa.md) and `yoke qa plan run --help`.
+Run command-only partitions and [launch free walks](walking.md#launch-a-walker).
+The server settles the stage when the results arrive. See [item recovery](failed-item-qa.md).
 
 Admission copies executable item cases, retaining others on the item. Attached
 plans supply cases without copies; stage targets supply `target_env` for corrections.
@@ -71,11 +72,11 @@ the cause and record an unsaved verdict again. For a saved verdict, run
 `yoke --env CONTROL-PLANE watch deploy -- RUN-ID`.
 
 Correct a wrong group check in its own plan, keeping its case key, then rerun
-with the group command below. A single-member correction uses a separate plan:
+after rereading its partitions. A single-member correction uses a separate plan:
 
 ```text
-yoke qa plan run --deployment-run-id RUN --stage item-qa --plan SAME_PLAN --project P
-yoke qa plan run --item PREFIX-N --stage STAGE \
+yoke qa plan partitions --deployment-run-id RUN --stage item-qa --plan SAME_PLAN --project P
+yoke qa plan partitions --item PREFIX-N --stage STAGE --deployment-run-id RUN \
     --plan CORRECTED_PLAN --project P --replaces CASE_KEY=FAILED_REQUIREMENT_ID
 ```
 
@@ -101,15 +102,15 @@ abandoned holders. Plan order holds across machine groups.
 A host wait or independent review stops the command. Rerun the same scoped
 command to reprint a pending review bundle or its recorded passes. Use
 `--replaces` to recapture a passed case. Rerunning failed or undetermined
-cases starts a fresh execution. Rerun after review to continue remaining
-hosts. The member is accepted once every required case passes. Omit
+cases starts a fresh execution. Reread partitions on reports and launch any
+newly free walk. The member is accepted once every required case passes. Omit
 `--test-machine` for groups that need different hosts.
 
 For simultaneous hosts, list at least two OS slots in `method_config.test_machines`
 with exactly one `driver` and no singular `os`, e.g.
 `[{"os":"linux"},{"os":"macos","driver":true}]`. Map each slot OS to its
 `capability_tags`, e.g. `{"macos":["macos:15"]}`, to tag every slot of that OS.
-Use `yoke qa plan run`. Each slot takes a distinct free, verified, healthy host.
+Launch the partition as one walk. Each slot takes a distinct free, verified, healthy host.
 The set stays leased through review and releases on completion or abort.
 [Completed captures remain reviewable](requirement-state.md).
 A wait names a host from a blocked OS and gives the lease or verification failure

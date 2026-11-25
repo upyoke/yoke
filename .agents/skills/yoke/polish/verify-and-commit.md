@@ -7,8 +7,11 @@ lane through its own task requirements.
 
 ```text
 yoke qa plan materialize --item PREFIX-N --transition <review-stage>
-yoke qa case run --requirement-id <id>
+yoke qa plan partitions --item PREFIX-N --transition <review-stage>
 ```
+
+Run command-only and lane cases and launch free walks using
+`.yoke/docs/verification/walking.md#launch-a-walker`.
 
 Prompt or large-script changes also run `yoke watch doctor -- --quick`.
 Save the capture with

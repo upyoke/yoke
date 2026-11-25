@@ -4,10 +4,11 @@
 [Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Verification](index.md) > Standalone plans
 <!-- /yoke:breadcrumbs -->
 
-Run a saved plan immediately without an item or deployment run:
+Read a saved plan at its pinned revision, then follow the
+[walker launch recipe](walking.md#launch-a-walker) for its free walks:
 
 ```text
-yoke qa plan run --plan PLAN --project P
+yoke qa plan partitions --plan PLAN --project P --expected-branch REF --expected-sha SHA
 ```
 
 Each fresh run freezes cases and host baselines in saved order in existing QA

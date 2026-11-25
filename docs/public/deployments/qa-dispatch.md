@@ -11,7 +11,7 @@ lost answer.
 ## Item QA, run QA and shared QA
 
 A QA stage is scoped to items or to the run. Item QA checks one member with
-that item's cases, and the member's owner runs it. Run QA checks the release
+that item's cases, and the member's owner coordinates it. Run QA checks the release
 as a whole, and only the run's driver answers it. A plan attached by two or
 more members is shared QA: it runs once as a driver-owned plan group.
 
@@ -38,8 +38,9 @@ An incomplete frozen item case blocks QA but not removing the member
 ([removal](removal.md)).
 
 Plan ownership freezes at item QA entry. A plan attached by exactly one member
-runs as that member's QA: wake its holder to run `yoke qa plan run --item PREFIX-N
---stage STAGE`. Plans shared by two or more members run as driver-owned plan groups;
+runs as that member's QA. Its holder reads `yoke qa plan partitions --item PREFIX-N
+--stage STAGE --deployment-run-id RUN` and
+[launches free walks](../verification/walking.md#launch-a-walker). Plans shared by two or more members run as driver-owned plan groups;
 run-level QA also belongs only to the driver. Later attachments never change that
 ownership. Shared-plan waits, failures and passes send no member-holder notice;
 only item QA and close-out wake them. A failed shared plan tells the driver to
@@ -51,8 +52,9 @@ the case; remove leaves the item's delivery owed. Closed groups
 credit only their recorded `covered_item_ids` across the superseded-run lineage.
 A later attacher gets a new group; already covered items do not wait on it.
 The group's pinned cases and target remain authoritative after plan edits.
-Run an open group with `yoke qa plan run --deployment-run-id RUN --stage STAGE
---plan PLAN`; the run supplies its project. With no open group, the command
+Read an open group with `yoke qa plan partitions --deployment-run-id RUN
+--stage STAGE --plan PLAN` and follow the same walk launch recipe. The run
+supplies its project. With no open group, the command
 refuses `plan_group_not_open` and names the closed groups. An ambiguous plan
 name refuses with the matching plan ids; select an exact id.
 
