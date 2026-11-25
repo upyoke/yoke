@@ -52,7 +52,8 @@ def clean_stale_harness_sessions(
 
     The short TTL applies to empty sessions. A strategy-document lock uses
     the holdings TTL. An active work claim protects its session until an
-    explicit release or terminal action, independent of activity or process.
+    explicit release or terminal action. A live QA execution also protects its
+    owner regardless of inactivity.
 
     Each reclaim emits exactly one ``HarnessSessionStaleReclaimed`` event with
     ``stale_minutes``, ``last_event_at``, ``released_claim_count``, ``executor``,
@@ -174,7 +175,7 @@ def clean_stale_harness_sessions(
         from .sessions_claim_lifecycle_lock import lock_session_rows_for_claim_lifecycle
 
         lock_session_rows_for_claim_lifecycle(conn, (sid,))
-        row = reclaim_facts(conn, [{"session_id": sid}])[0]
+        row = reclaim_facts(conn, [{"session_id": sid}], include_qa_ownership=False)[0]
         row["holds_work_claim"] = session_has_active_work_claim(
             conn, sid
         ) or sid in deployment_driver_holds(conn)

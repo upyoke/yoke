@@ -145,11 +145,13 @@ def reclaim_facts(
     rows: Iterable[Mapping[str, Any]],
     *,
     session_facts_complete: bool = False,
+    include_qa_ownership: bool = True,
 ) -> list[dict[str, Any]]:
     """Complete roster or sweep rows in bounded reads, independent of harness.
 
     Session, open-call, and holdings facts have durable owners. No telemetry
     event or harness-specific interpretation participates in eligibility.
+    Raw activity readers and callers with their own QA snapshot skip its query.
     """
     page = [dict(row) for row in rows]
     ids = tuple(dict.fromkeys(str(row["session_id"]) for row in page))
@@ -170,7 +172,7 @@ def reclaim_facts(
             ).fetchall()
         }
     delivery = _reclaim_delivery_facts(conn, ids)
-    qa_owners = sessions_owning_live_qa_executions(conn)
+    qa_owners = sessions_owning_live_qa_executions(conn) if include_qa_ownership else set()
     claims = active_work_claim_sessions(conn)
     holdings = active_holding_sessions(conn)
     tools: dict[str, Any] = {}

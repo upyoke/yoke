@@ -67,6 +67,7 @@ QA_PLAN_TABLES = {
         "columns": [
             ("id", "TEXT"),
             ("standalone_plan_id", "INTEGER"),
+            ("session_id", "TEXT"),
             ("roster_json", "TEXT"),
             ("roster_digest", "TEXT"),
             ("cursor_ordinal", "INTEGER"),
@@ -79,7 +80,9 @@ QA_PLAN_TABLES = {
             "The durable case roster is JSON text in roster_json, not a roster "
             "column. Domain execution dictionaries expose it as roster; SQL "
             "must use roster_json. Standalone runs reference their plan through "
-            "standalone_plan_id. There is no stage_plan_id column."
+            "standalone_plan_id. There is no stage_plan_id column. Live custody "
+            "reads qa_plan_executions.session_id. Raw claim-activity reads need no QA "
+            "owner lookup, and an isolated host-admission fixture may omit this column."
         ),
     },
     "qa_plan_execution_adoptions": {

@@ -114,7 +114,7 @@ def read_activity_signals(
     from .session_automatic_reclaim import reclaim_facts
 
     row = (
-        reclaim_facts(conn, [{"session_id": session_id}])[0]
+        reclaim_facts(conn, [{"session_id": session_id}], include_qa_ownership=False)[0]
         if session_facts is None
         else session_facts
     )
