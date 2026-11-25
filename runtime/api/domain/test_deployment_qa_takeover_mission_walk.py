@@ -1,11 +1,4 @@
-"""A mission walk taken over mid-walk keeps commanding its host and ends cleanly.
-
-Takeover moves a walking item-QA execution onto the successor run but keeps
-its frozen target. The successor's item-QA materialization then rebinds the
-requirement to its own lineage, keeping the frozen ``starting_run_id``. The
-walk's next host command and its walk-end must still read the case as the one
-it froze, rather than refusing with "ordered plan case snapshot changed".
-"""
+"""Keep a walking mission on its frozen case across deployment takeover."""
 
 from __future__ import annotations
 
