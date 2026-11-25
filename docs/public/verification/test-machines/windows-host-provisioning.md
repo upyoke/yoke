@@ -146,6 +146,11 @@ Ubuntu. This stops every running WSL distribution, not just this fixture.
 Prove the default Linux `id -u` is nonzero and PID1 is systemd. Registered host
 operations enter `wsl.exe --cd ~ -e /bin/bash -lc`; home/baseline paths are Linux
 paths and the operation preserves the Linux program's exit status.
+That SSH entry opens no login session: the distro's session-1 login provides
+the test user's systemd user manager. Once session 1 ends, fresh-host reset
+and `yoke test-machine verify` refuse `linux_yoke_service_manager_unavailable`
+with the `systemctl --user` error; restore it with `wsl.exe --terminate
+<distro>` from Windows, then retry. Never enable linger.
 Confirm from the workstation with `yoke test-machine exec --test-machine
 NAME -- 'id -u; uname -a'`; read `--help`. Ad hoc exec uses its workstation SSH
 agent and refuses another session's lease.

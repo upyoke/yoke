@@ -17,10 +17,12 @@ def inventory_failed(result, verb):
     return result.returncode != 0 and not empty_files
 if shutil.which("systemctl"):
     observed = bounded(["systemctl", "--user", "list-units", "--all", "--plain", "--no-legend", *service_patterns])
-    if observed.returncode: refuse("linux_yoke_service_manager_unavailable")
+    # The archive program proved the user manager answers before any reset step.
+    if observed.returncode: refuse("linux_yoke_service_inventory_unavailable", systemctl_stderr=observed.stderr.strip())
     loaded = {line.split()[0] for line in observed.stdout.splitlines() if line.strip()}
     observed = bounded(["systemctl", "--user", "list-unit-files", "--no-legend", *service_patterns])
-    if inventory_failed(observed, "list-unit-files"): refuse("linux_yoke_service_inventory_unavailable")
+    if inventory_failed(observed, "list-unit-files"):
+        refuse("linux_yoke_service_inventory_unavailable", systemctl_stderr=observed.stderr.strip())
     definitions = {line.split()[0] for line in observed.stdout.splitlines() if line.strip()}
     observed = bounded(["systemd-analyze", "--user", "unit-paths"])
     if observed.returncode: refuse("linux_yoke_service_paths_unavailable")

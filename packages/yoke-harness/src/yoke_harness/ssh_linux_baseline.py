@@ -16,6 +16,7 @@ from yoke_harness.ssh_linux_reset_preconditions import (
 )
 from yoke_harness.ssh_linux_preserved_entries import PRESERVED_HOME_PROGRAM
 from yoke_harness.ssh_linux_reset_services import YOKE_SERVICE_PATTERNS
+from yoke_harness.ssh_linux_user_manager import RESET_USER_MANAGER_PROGRAM
 from yoke_harness.ssh_test_machine_transport import SSH_TIMEOUT_DIAGNOSTIC
 from yoke_harness.ssh_linux_golden_diagnostics import (
     golden_timeout_result,
@@ -150,6 +151,7 @@ else:
     digest = file_sha256(baseline / "home.tar.gz")
     if manifest != {"os":"linux", "home":str(home), "uid":os.getuid(), "sha256":digest}:
         refuse("golden_baseline_identity_mismatch")
+    # CHECK_USER_MANAGER
     with tarfile.open(baseline / "home.tar.gz", "r:gz") as archive:
         members = validate_archive(archive)
         # Desktop provisioning can follow the clean golden's capture. Keep its
@@ -230,6 +232,9 @@ def archive_operation(
             "/usr/bin/python3",
             "-c",
             _ARCHIVE_PROGRAM.replace(
+                "    # CHECK_USER_MANAGER",
+                "\n".join("    " + line for line in RESET_USER_MANAGER_PROGRAM.splitlines()),
+            ).replace(
                 "            # STOP_YOKE_WRITERS",
                 "\n".join(
                     "            " + line for line in RESET_WRITERS_PROGRAM.splitlines()
