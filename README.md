@@ -28,7 +28,7 @@ and deploy software together.
   runs in isolated git worktrees, with claims and dependency checks to
   coordinate sessions and machines working in parallel. Specialized roles
   (product manager, architect,
-  engineer, tester, simulator, QA walker, and others) handle planning,
+  engineer, tester, simulator, and others) handle planning,
   building, and checking.
 
 Read more: [Concepts](docs/public/start/concepts.md) ·

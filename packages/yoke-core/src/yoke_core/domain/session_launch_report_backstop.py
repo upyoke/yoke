@@ -1,4 +1,4 @@
-"""Tell a launcher when a QA walker ends without settling its work."""
+"""Tell a launcher when a QA session ends without settling its work."""
 
 from __future__ import annotations
 
@@ -108,7 +108,7 @@ def _notify(conn: Any, session_id: str) -> None:
         sender_session_id=None,
         selector=RecipientSelector(session_ids=[launch.requester_session_id]),
         body=(
-            f"QA walker from launch {launch.launch_id} ended in session {session_id}. {last} "
+            f"QA session from launch {launch.launch_id} ended in session {session_id}. {last} "
             f"Re-enter with `yoke qa plan partitions {flags}`. {recovery}"
         ),
         idempotency_key=f"qa-walk-ended:{launch.launch_id}",

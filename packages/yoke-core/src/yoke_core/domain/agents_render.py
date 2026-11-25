@@ -91,7 +91,6 @@ AGENTS = [
     "tester",
     "simulator",
     "boss",
-    "qa-walker",
 ]
 
 # Derived, never listed: a hand-written copy of this set went stale the moment

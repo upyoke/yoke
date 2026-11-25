@@ -83,7 +83,7 @@ STALE_TERMS: tuple[str, ...] = (
 #   ``core`` + ``claims``: they plan, trace, and verdict against the same
 #   spine but never record QA runs and never invoke project test commands
 #   directly.
-# - ``engineer_agent`` / ``tester_agent`` / ``qa_walker_agent`` add ``qa``
+# - ``engineer_agent`` / ``tester_agent`` add ``qa``
 #   and ``project`` for
 #   QA discovery, gate previews, and project test command surfacing. The
 #   rationale is mirrored in ``docs/agents.md``.
@@ -101,7 +101,6 @@ ROLE_TOPICS: dict[str, tuple[str, ...]] = {
     "architect_agent": ("core", "claims"),
     "engineer_agent": ("core", "claims", "qa", "project"),
     "tester_agent": ("core", "claims", "qa", "project"),
-    "qa_walker_agent": ("core", "claims", "qa", "project"),
     "simulator_agent": ("core", "claims"),
     "boss_agent": ("core", "claims"),
 }
