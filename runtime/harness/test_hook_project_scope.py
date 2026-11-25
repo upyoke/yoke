@@ -127,6 +127,36 @@ def test_harness_workspace_facts_share_the_project_resolver(tmp_path, project_ma
     assert project_scope.project_id_for_payload({key: value}) == 7
 
 
+def test_workspace_path_candidates_preserve_reported_drive_path():
+    reported = "/c:/Users/x"
+    assert project_scope.workspace_path_candidates({"workspace_roots": [reported]}) == [reported]
+
+
+@pytest.mark.windows_only(reason="native drive resolution")
+def test_slash_prefixed_drive_paths_bind_the_registered_checkout(tmp_path, project_map):
+    project_map["connection_projects"]["local"] = [
+        {"checkout": str(tmp_path), "project_id": 7}
+    ]
+    reported = "/" + tmp_path.as_posix()
+    lower_drive = reported[:2].lower() + reported[2:]
+    assert project_scope.project_id_for_payload({"workspace_roots": [reported]}) == 7
+    assert project_scope.project_id_for_payload({"workspace_roots": [lower_drive]}) == 7
+    assert project_scope.project_id_for_payload({"tool_input": {"workdir": lower_drive}}) == 7
+
+
+@pytest.mark.posix_only(reason="POSIX relative-path semantics")
+def test_foreign_drive_path_does_not_bind_a_relative_posix_checkout(
+    tmp_path, monkeypatch, project_map
+):
+    checkout = tmp_path / r"C:\x"
+    checkout.mkdir()
+    monkeypatch.chdir(tmp_path)
+    project_map["connection_projects"]["local"] = [
+        {"checkout": str(checkout), "project_id": 7}
+    ]
+    assert project_scope.project_id_for_root("/c:/x") is None
+
+
 def test_actual_command_workdir_wins_over_managed_session(tmp_path, project_map):
     managed = tmp_path / "managed"
     unrelated = tmp_path / "other"

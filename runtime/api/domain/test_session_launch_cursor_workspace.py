@@ -88,6 +88,11 @@ def test_cursor_session_start_without_cwd_registers_its_workspace_root() -> None
     )
 
 
+def test_registration_preserves_the_slash_prefixed_workspace_evidence() -> None:
+    reported = "/c:/Users/x"
+    assert _workspace({"workspace_roots": [reported]}) == reported
+
+
 def test_workspace_root_leads_a_cursor_tool_event_cwd() -> None:
     assert (
         _workspace({"workspace_roots": [WORKSPACE], "cwd": f"{WORKSPACE}/sub"})

@@ -105,6 +105,16 @@ def test_cursor_session_start_gets_shared_orientation_without_cwd(
     assert str(project) in out
 
 
+@pytest.mark.windows_only(reason="native drive resolution")
+def test_cursor_session_start_orients_the_picked_windows_project(project: Path) -> None:
+    payload = json.loads(_cursor_payload(project))
+    payload["workspace_roots"] = ["/" + project.as_posix()]
+    out = so.orientation_for_hook("SessionStart", json.dumps(payload), cursor=True)
+
+    assert out is not None
+    assert f"Root: {project.resolve()}" in out
+
+
 def test_cursor_prompt_submit_stays_silent_after_session_start(project: Path) -> None:
     # A first prompt with no sessionStart orients (the IDE's new-window chat);
     # once sessionStart's block landed, the prompt hook adds nothing.

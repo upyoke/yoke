@@ -29,6 +29,21 @@ def test_registration_on_any_connection_and_next_hook(tmp_path, folder_config):
     assert scope.folder_scope() == "registered"
 
 
+@pytest.mark.windows_only(reason="native drive resolution")
+def test_slash_prefixed_workspace_honors_registration_and_privacy(tmp_path, folder_config):
+    checkout = tmp_path / "project"
+    checkout.mkdir()
+    folder_config["connection_projects"]["two"] = [
+        {"checkout": str(checkout), "project_id": 7}
+    ]
+    reported = "/" + checkout.as_posix()
+    payload = json.dumps({"workspace_roots": [reported]})
+    assert scope.folder_scope(payload) == "registered"
+
+    folder_config["disabled_folders"] = [str(checkout)]
+    assert scope.folder_scope(payload) == "disabled"
+
+
 @pytest.mark.parametrize("key", ["cwd", "workspace", "project_dir", "workspace_roots"])
 def test_disabled_workspace_facts_and_subfolders(tmp_path, folder_config, key):
     child = tmp_path / "disabled" / "child"
@@ -96,7 +111,8 @@ def test_unregistered_skips_every_transport_and_telemetry(
     monkeypatch.setattr(identity, "detect_executor", lambda: executor)
     monkeypatch.setattr(entry, "_session_orientation", lambda *a, **kw: "local orientation")
     monkeypatch.setattr(entry, "_touch_detached_resume", lambda: None)
-    monkeypatch.setattr(https, "resolve_https_connection", lambda: pytest.fail("connection selected"))
+    # Block the lookup without replacing the resolver that lazy imports can retain.
+    monkeypatch.setattr(https, "active_connection", lambda *a, **kw: pytest.fail("connection selected"))
     monkeypatch.setattr(entry, "_active_local_universe", lambda: pytest.fail("Postgres selected"))
     monkeypatch.setattr(relay, "relay_hook_event", lambda *a, **kw: pytest.fail("network relay"))
     def local(event, **kwargs):
@@ -155,7 +171,7 @@ def test_outside_orientation_and_machine_guards_are_local(tmp_path, folder_confi
 
     monkeypatch.setattr(identity, "detect_executor", lambda: "cursor")
     monkeypatch.setattr(entry, "_touch_detached_resume", lambda: None)
-    monkeypatch.setattr(https, "resolve_https_connection", lambda: pytest.fail("connection selected"))
+    monkeypatch.setattr(https, "active_connection", lambda *a, **kw: pytest.fail("connection selected"))
     monkeypatch.setattr(machine_hooks, "ensure_machine_hooks_for_executor", lambda *a, **k: None)
     monkeypatch.setattr(relay, "evaluate_local_subset", local_subset.evaluate_local_subset)
     monkeypatch.setattr(relay, "detect_executor", lambda: "cursor")

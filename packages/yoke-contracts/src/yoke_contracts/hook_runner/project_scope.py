@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from yoke_contracts.hook_runner.bash_paths import native_client_path
 from yoke_contracts.machine_config import runtime as machine_config
 from yoke_contracts.machine_config.checkout import main_checkout
 from yoke_contracts.machine_config.schema_projects import (
@@ -33,7 +35,8 @@ def project_id_for_root(root: str | Path) -> int | None:
     """Find a registered checkout, never a connection or a parent Git repo."""
     if not root or not machine_config.config_path().is_file():
         return None
-    path = Path(root).expanduser().resolve()
+    path = Path(native_client_path(str(root)) if os.name == "nt" else root)
+    path = path.expanduser().resolve()
     if not path.is_dir():
         return None
     config = machine_config.load_config()

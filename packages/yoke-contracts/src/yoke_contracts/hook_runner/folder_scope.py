@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 from typing import Any, Mapping
 
+from yoke_contracts.hook_runner.bash_paths import native_client_path
 from yoke_contracts.machine_config import runtime as machine_config
 from yoke_contracts.machine_config.checkout import main_checkout
 from yoke_contracts.machine_config.selection import connection_groups, checkout_connection
@@ -34,6 +35,8 @@ def folder_scope(stdin_data: str = "", *, path: str | Path | None = None) -> str
         config = machine_config.load_config()
         candidates = workspace_path_candidates(payload if isinstance(payload, dict) else {})
         candidates.append(str(path or os.getcwd()))
+        if os.name == "nt":
+            candidates = [native_client_path(value) for value in candidates]
         if any(disabled_folder(value, config) for value in candidates):
             return "disabled"
         # Explicitly launched org-scoped children retain their launch connection.
