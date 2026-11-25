@@ -9,6 +9,7 @@ before it" (feedback 97486).
 
 from __future__ import annotations
 
+from runtime.api.domain.machine_qa_session_seed import seed_registered_qa_launch
 from runtime.api.domain import deployment_run_target_takeover_test_support as takeover
 from runtime.api.domain.machine_qa_host_test_support import configure_test_machine
 from runtime.api.fixtures.deployment_scoped_qa_run_fixture import (
@@ -86,6 +87,7 @@ def _execution_past_its_first_case(conn, tmp_path, monkeypatch) -> dict:
         deployment_member_item_id=MEMBER,
     )
     conn.commit()
+    seed_registered_qa_launch(conn, takeover.DRIVER_SESSION)
     execution = begin_plan_execution(
         conn,
         deployment_run_id=takeover.OLD,

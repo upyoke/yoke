@@ -85,6 +85,7 @@ def seed_registered_qa_launch(
     *,
     requester_session_id: str | None = None,
     key: str | None = None,
+    actor_id: int = 1,
 ) -> str:
     """Record the real launch and opening message rows for a fixture worker."""
     from datetime import timedelta
@@ -92,16 +93,35 @@ def seed_registered_qa_launch(
 
     from yoke_core.domain.session_launch_store import insert_instruction_message
 
-    worker = conn.execute(
-        "SELECT actor_id, project_id FROM harness_sessions WHERE session_id=%s",
-        (session_id,),
+    def worker_row():
+        return conn.execute(
+            "SELECT actor_id, project_id FROM harness_sessions WHERE session_id=%s",
+            (session_id,),
+        ).fetchone()
+
+    worker = worker_row()
+    if worker is None:
+        seed_qa_session(conn, session_id, actor_id=actor_id)
+        worker = worker_row()
+    launch_key = key or f"qa-walk:PLAN@SHA:-:{session_id}:1"
+    existing = conn.execute(
+        "SELECT launch_id FROM session_launches WHERE registered_session_id=%s "
+        "AND idempotency_key=%s AND item_id IS NULL",
+        (session_id, launch_key),
     ).fetchone()
+    if existing:
+        return str(existing[0])
     requester = requester_session_id or f"{session_id}-launcher"
+    now = utc_now()
+    conn.execute(
+        "INSERT INTO actors (id, kind, created_at) VALUES (%s, 'human', %s) "
+        "ON CONFLICT (id) DO NOTHING",
+        (worker["actor_id"], now),
+    )
     if requester_session_id is None:
         seed_qa_session(conn, requester, actor_id=worker["actor_id"])
     launch_id = str(uuid4())
     message_id = str(uuid4())
-    now = utc_now()
     deadline = now + timedelta(minutes=10)
     insert_instruction_message(
         conn,
@@ -121,7 +141,7 @@ def seed_registered_qa_launch(
         "message_id,idempotency_key,state,registered_session_id,created_at,deadline_at) "
         "VALUES (%s,%s,%s,%s,'codex-cli','codex-cli',%s,%s,'succeeded',%s,%s,%s)",
         (launch_id, worker["actor_id"], requester, worker["project_id"],
-         message_id, key or f"qa-walk:PLAN@SHA:-:{session_id}:1", session_id, now, deadline),
+         message_id, launch_key, session_id, now, deadline),
     )
     conn.execute(
         "UPDATE harness_sessions SET first_completed_work_at=%s WHERE session_id=%s",

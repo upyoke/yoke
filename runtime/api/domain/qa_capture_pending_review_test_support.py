@@ -16,7 +16,7 @@ from runtime.api.fixtures.deployment_scoped_qa_run_fixture import (
     seed_run_standing_on_qa_stage,
 )
 
-from runtime.api.domain.machine_qa_session_seed import seed_qa_session, seed_registered_qa_launch
+from runtime.api.domain.machine_qa_session_seed import seed_registered_qa_launch
 from runtime.api.domain.qa_verdict_citation_test_support import cite_case
 
 from yoke_contracts.api.function_call import (
@@ -97,9 +97,7 @@ def _member(scope: str) -> int | None:
     return MEMBER if scope == "item" else None
 
 
-def _seed_pending(
-    conn: Any, run_id: str, scope: str, *, owner_gone: str | None = None
-) -> tuple[dict, dict, int]:
+def _seed_pending(conn: Any, run_id: str, scope: str) -> tuple[dict, dict, int]:
     """Stand one stage subject at a completed capture awaiting review."""
     member = _member(scope)
     plan_id = create_smoke_plan(conn, project="yoke", slug=f"smoke-{run_id}")
@@ -132,7 +130,9 @@ def _seed_pending(
     )
     conn.commit()
     worker = "capture-session"
-    seed_qa_session(conn, worker)
+    owner_was_absent = conn.execute(
+        "SELECT 1 FROM harness_sessions WHERE session_id=%s", (worker,)
+    ).fetchone() is None
     launch_id = seed_registered_qa_launch(conn, worker)
     execution = begin_plan_execution(
         conn,
@@ -142,7 +142,7 @@ def _seed_pending(
         actor_id="2",
         session_id=worker,
     )
-    if owner_gone == "missing":
+    if owner_was_absent:
         message = conn.execute(
             "DELETE FROM session_launches WHERE launch_id=%s RETURNING message_id",
             (launch_id,),

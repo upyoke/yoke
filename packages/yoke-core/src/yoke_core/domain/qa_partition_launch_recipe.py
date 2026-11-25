@@ -15,7 +15,7 @@ def partition_launch_recipe(
         f"qa-walk:{subject}:{leg}:{key}:{attempt}",
     ])
     instructions = (
-        "You are an itemless QA walker. Use delegated QA access; do not acquire "
+        "Use delegated QA access for the assigned partition. Do not acquire "
         "an item work claim. Follow .yoke/docs/verification/walking.md#run-and-report. "
         f"Begin with: {command}"
     )

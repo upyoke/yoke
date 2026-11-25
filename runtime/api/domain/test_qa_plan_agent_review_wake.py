@@ -124,7 +124,7 @@ def test_gone_owner_reaches_steering_with_normal_restaffing_recovery(test_db, go
         scope_json='{"project_id":1}',
     )
     execution, _bundle, _requirement = _seed_pending(
-        test_db, f"run-review-{gone}", "item", owner_gone=gone
+        test_db, f"run-review-{gone}", "item"
     )
 
     key = f"qa-plan-agent-review:{execution['id']}"

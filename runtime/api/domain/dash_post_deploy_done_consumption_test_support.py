@@ -7,6 +7,7 @@ import json
 
 import pytest
 
+from runtime.api.domain.machine_qa_session_seed import seed_registered_qa_launch
 from runtime.api.domain.dash_post_deploy_review_isolation_test_support import (
     _insert_dash,
 )
@@ -67,6 +68,7 @@ def _accept_member_qa(conn, *, run_id: str, item_id: int) -> None:
         deployment_stage="member-qa",
         deployment_member_item_id=item_id,
     )
+    seed_registered_qa_launch(conn, f"qa-{run_id}", actor_id=2)
     execution = begin_plan_execution(
         conn,
         deployment_run_id=run_id,

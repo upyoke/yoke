@@ -210,6 +210,7 @@ def _materialize(conn, plan_id, case_keys, *, run_scope=False):
 
 
 def _begin(conn, **kwargs):
+    seed_registered_qa_launch(conn, SESSION)
     return begin_plan_execution(
         conn,
         deployment_run_id=RUN,
