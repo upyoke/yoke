@@ -133,12 +133,15 @@ def test_incomplete_or_non_path_resolution_is_probe_failure(stdout):
 @pytest.mark.parametrize("outcome", ["absent", "present", "probe-failed"])
 def test_reset_retains_each_surface_and_tool(monkeypatch, adapter, outcome):
     control = adapter.__new__(adapter)
+    control.home = "/home/tester"
     control.golden_baseline_path = "/sealed/home"
     control.shell = "/bin/bash"
     control.secret_values = ("private-value",)
     calls = []
 
     def run(command, **kwargs):
+        if "/home/tester/.yoke/config.json" in command:
+            return subprocess.CompletedProcess(command, 0, "", "")
         calls.append(command)
         if "command -v uv)" in command and "-lic" in command:
             if outcome == "present":

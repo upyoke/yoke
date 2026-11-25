@@ -31,8 +31,8 @@ def _failure(reason: str, **details) -> HostActionResult:
 def retire_reset_identity(control, *, native_windows: bool = False) -> HostActionResult:
     """Read the lab's UUID and retire it using the lab's saved connection."""
     path_type = PureWindowsPath if native_windows else PurePosixPath
-    config_path = path_type(control.home) / DEFAULT_HOME_NAME / DEFAULT_CONFIG_NAME
     try:
+        config_path = path_type(control.home) / DEFAULT_HOME_NAME / DEFAULT_CONFIG_NAME
         document = control.read_remote_text(str(config_path))
     except Exception as exc:
         return _failure("identity_file_read_failed", error_type=type(exc).__name__)
