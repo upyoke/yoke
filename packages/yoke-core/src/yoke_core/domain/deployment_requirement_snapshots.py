@@ -129,6 +129,12 @@ def _plan_snapshot(
             if missing:
                 raise LookupError(f"QA plan {plan_id} has no cases: {missing}")
             require_selected_chains(cases, requested)
+            for key in requested:
+                after = by_key[key].get("after_case_key")
+                if after and after not in requested:
+                    raise StartingStateError(
+                        f"case {key!r} follows {after!r}; add {after!r} to the stage case selection"
+                    )
             cases = [by_key[key] for key in requested]
     except StartingStateError as exc:
         raise ValueError(f"QA plan {plan['slug']!r}: {exc}") from exc

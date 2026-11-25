@@ -31,6 +31,7 @@ class QaPlanCaseDocument(BaseModel):
     host_baselines: List[str] = Field(default_factory=list)
     starting_state: Optional[str] = None
     starting_state_reason: Optional[str] = None
+    after_case_key: Optional[str] = Field(default=None, min_length=1)
     target_envs: List[str] = Field(default_factory=list)
     stage_reason: Optional[str] = None
     entry_surface: Optional[str] = None

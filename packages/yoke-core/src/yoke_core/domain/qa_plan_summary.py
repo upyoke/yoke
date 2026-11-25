@@ -32,6 +32,7 @@ _CASE_FIELDS = (
     "host_baselines",
     "starting_state",
     "starting_state_reason",
+    "after_case_key",
     "target_envs",
     "stage_reason",
     "entry_surface",

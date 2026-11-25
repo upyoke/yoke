@@ -118,6 +118,7 @@ def insert_plan_cases(
             "stage_reason": case.get("stage_reason"),
             "starting_state": case.get("starting_state"),
             "starting_state_reason": case.get("starting_state_reason"),
+            "after_case_key": case.get("after_case_key"),
             "entry_surface": case.get("entry_surface"),
             "required_completion": case.get("required_completion"),
             "wake_path": case["wake_path"],

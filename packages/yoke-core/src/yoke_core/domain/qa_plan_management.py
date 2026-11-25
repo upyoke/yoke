@@ -248,13 +248,24 @@ def _validated_cases(cases: list[dict]) -> list[dict]:
                 "host_baselines": list(dict.fromkeys(baselines)),
                 "starting_state": raw.get("starting_state"),
                 "starting_state_reason": raw.get("starting_state_reason"),
+                "after_case_key": raw.get("after_case_key"),
                 "target_envs": target_envs,
                 "stage_reason": raw.get("stage_reason"),
                 "entry_surface": raw.get("entry_surface"),
                 "required_completion": raw.get("required_completion"),
             }
         )
-    return sorted(result, key=lambda case: case["position"])
+    ordered = sorted(result, key=lambda case: case["position"])
+    seen = set()
+    for case in ordered:
+        after = case["after_case_key"]
+        if after is not None and (not isinstance(after, str) or after not in seen):
+            raise QaPlanError(
+                f"qa_plan_case_predecessor_invalid: case {case['case_key']!r} names "
+                f"after_case_key={after!r}; name a case earlier in this plan"
+            )
+        seen.add(case["case_key"])
+    return ordered
 
 
 def _validated_plan_cases(

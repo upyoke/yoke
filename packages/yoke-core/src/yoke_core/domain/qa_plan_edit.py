@@ -49,6 +49,7 @@ def _case_document(row: Any) -> dict[str, Any]:
         "host_baselines": _decode(row["host_baselines"], []),
         "starting_state": row["starting_state"],
         "starting_state_reason": row["starting_state_reason"],
+        "after_case_key": row["after_case_key"],
         "target_envs": _decode(row["target_envs"], []),
         "stage_reason": row["stage_reason"],
         "entry_surface": row["entry_surface"],
@@ -67,7 +68,7 @@ def _current_cases(conn: Any, plan_id: int) -> list[dict[str, Any]]:
             "SELECT case_key, position, method_id, instructions, "
             "expected_outcome, method_config, success_policy_id, "
             "success_policy_params, host_baselines, "
-            f"{'starting_state,starting_state_reason,target_envs,stage_reason'}, "
+            "starting_state,starting_state_reason,after_case_key,target_envs,stage_reason, "
             "entry_surface, "
             "required_completion, wake_path, wake_evidence "
             f"FROM qa_plan_cases WHERE plan_id={marker} "
