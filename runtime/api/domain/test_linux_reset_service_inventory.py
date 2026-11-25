@@ -31,8 +31,8 @@ def run_cleanup(monkeypatch, tmp_path, *, inventory, ghost=True, survives=False)
             output = "no\n"
         return subprocess.CompletedProcess(argv, 0, output, "")
 
-    def refuse(reason, entry=None):
-        raise RuntimeError(reason)
+    def refuse(reason, entry=None, **details):
+        raise RuntimeError(reason, details)
 
     monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/" + name)
     namespace = {
@@ -94,3 +94,25 @@ def test_reset_does_not_credit_a_surviving_fileless_relay(monkeypatch, tmp_path)
     )
     with pytest.raises(RuntimeError, match="linux_yoke_service_absence_not_proved"):
         exec(RESET_SERVICES_PROGRAM, namespace)
+
+
+def test_reset_names_a_failed_loaded_unit_inventory_with_its_stderr(
+    monkeypatch, tmp_path
+):
+    commands, namespace, _ = run_cleanup(monkeypatch, tmp_path, inventory=(0, "", ""))
+    listing = namespace["bounded"]
+
+    def bounded(argv, **kwargs):
+        if "list-units" in argv:
+            commands.append(argv)
+            return subprocess.CompletedProcess(argv, 1, "", "Failed to list units\n")
+        return listing(argv, **kwargs)
+
+    namespace["bounded"] = bounded
+    with pytest.raises(RuntimeError) as refused:
+        exec(RESET_SERVICES_PROGRAM, namespace)
+    assert refused.value.args == (
+        "linux_yoke_service_inventory_unavailable",
+        {"systemctl_stderr": "Failed to list units"},
+    )
+    assert not any("stop" in argv or "daemon-reload" in argv for argv in commands)

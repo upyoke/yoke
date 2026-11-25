@@ -17,6 +17,7 @@ from yoke_contracts.machine_qa_failures import (
 from yoke_harness.posix_mission_operations import PosixMissionOperations
 from yoke_harness.ssh_host_baselines import SshHostBaselines
 from yoke_harness.ssh_linux_memory import check_linux_memory
+from yoke_harness.ssh_linux_user_manager import check_linux_user_manager
 from yoke_harness.ssh_test_machine_transport import SshTestMachineTransport
 from yoke_harness.ssh_linux_baseline import (
     archive_operation,
@@ -105,8 +106,15 @@ class SshLinuxHostOperations(
                 SSH_UNAVAILABLE if result.returncode else None,
             )
         memory = check_linux_memory(self._run, secret_values=self.secret_values)
+        if not memory.ok:
+            return HostActionResult(
+                False, {**evidence, **memory.evidence}, memory.error_code
+            )
+        manager = check_linux_user_manager(self._run, secret_values=self.secret_values)
         return HostActionResult(
-            memory.ok, {**evidence, **memory.evidence}, memory.error_code
+            manager.ok,
+            {**evidence, **memory.evidence, **manager.evidence},
+            manager.error_code,
         )
 
     def check_terminal_bridge(self) -> HostActionResult:

@@ -142,7 +142,10 @@ Doctor checks the current unit, whether it is enabled and active, the connected
 heartbeat, and authorization. Without systemd as PID 1 (including containers
 or WSL configured without systemd), it reports that the relay is not supervised
 and why. Enable systemd in WSL or use a systemd Linux host. If the user manager
-is unavailable, log in through a PAM session that starts it and retry.
+is unavailable, log in through a PAM session that starts it and retry. On WSL
+the user manager belongs to the distro's session-1 login; when that session
+ends, run `wsl.exe --terminate <distro>` from Windows and retry. Never enable
+linger.
 Doctor never waits for a heartbeat. After a fresh install, setup waits up to
 30 seconds for the relay's first connected heartbeat before its readiness check,
 because starting the relay can pin a release and restart; a relay that never

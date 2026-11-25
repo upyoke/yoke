@@ -143,7 +143,14 @@ def test_linger_refuses_before_launcher_or_unit_mutation(
     assert not any("enable" in call for call in calls)
 
 
-def test_missing_user_manager_teaches_login_session(tmp_path, instance, pid1):
+@pytest.mark.parametrize("wsl", [False, True])
+def test_missing_user_manager_teaches_the_host_recovery(
+    tmp_path, instance, pid1, monkeypatch, wsl
+):
+    from yoke_core.domain import relay_systemd_status as status_owner
+
+    monkeypatch.setattr(status_owner, "is_wsl", lambda: wsl)
+    monkeypatch.setenv("WSL_DISTRO_NAME", "Lab-Distro")
     status = service.relay_systemd_status(
         instance=instance,
         home=tmp_path,
@@ -151,7 +158,10 @@ def test_missing_user_manager_teaches_login_session(tmp_path, instance, pid1):
         pid1_path=pid1,
     )
     assert not status.supported
-    assert "user_manager_unavailable" in status.reason and "PAM" in status.reason
+    assert status.reason.startswith("relay_systemd_user_manager_unavailable: ")
+    assert "test refusal" in status.reason and "`yoke relay install`" in status.reason
+    assert ("wsl.exe --terminate Lab-Distro" in status.reason) is wsl
+    assert ("PAM" in status.reason) is not wsl
 
 
 def test_release_failure_keeps_existing_unit_untouched(
