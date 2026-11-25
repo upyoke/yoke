@@ -24,18 +24,7 @@ They deliver only changed scope sections and an unchanged count; identical
 reports deliver nothing. Slow paths are diagnostics in `--full` and never
 change delivery identity. Removed scope sections are named once.
 
-## Deployment runs
-
-A created run without a live driver is marked for action, including when it
-carries outstanding item QA. Start the named run with
-`yoke --env <control-plane> watch deploy -- RUN-ID` using the connection that
-owns the run. Use the paired `*-db-admin` connection for a run that replaces
-its own serving API. If start refuses with `target_occupied`, follow the refusal
-and re-drive the same run after the named holder frees the target.
-
-A live preflight attachment counts as a driver while the run still reads
-`created`. If it goes away before start, the changes-only watcher shows the
-new action even when the stage and QA counts stay the same.
+See [when a deployment needs a driver](../deployments/start-diagnostics.md#runs-that-need-a-driver).
 
 ## Scope and available work
 

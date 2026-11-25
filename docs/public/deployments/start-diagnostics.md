@@ -8,6 +8,19 @@ Read why a run refuses or waits at start, and how to recover each case.
 Every refusal names its recovery; re-drive the same run, and never use
 `--fresh` to recover a lost answer.
 
+## Runs that need a driver
+
+The steering report marks a created run without a live driver for action,
+including when it carries outstanding item QA. Start the named run with
+`yoke --env <control-plane> watch deploy -- RUN-ID` using the connection that
+owns the run. Use the paired `*-db-admin` connection for a run that replaces
+its own serving API. If start refuses with `target_occupied`, follow the refusal
+and re-drive the same run after the named holder frees the target.
+
+A live preflight attachment counts as a driver while the run still reads
+`created`. If it goes away before start, the changes-only watcher shows the
+new action even when the stage and QA counts stay the same.
+
 ## The release checkout
 
 Every Yoke self-release run — the stage run over HTTPS and the serving-API
