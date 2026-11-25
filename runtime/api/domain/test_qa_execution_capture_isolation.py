@@ -6,6 +6,8 @@ import pytest
 
 from runtime.api.fixtures.backlog_qa_inserts import insert_qa_run
 from runtime.api.fixtures.qa_captured_plan_review_fixture import captured_plan_review
+from runtime.api.domain.qa_verdict_citation_test_support import cite_case
+
 from yoke_core.domain.qa_plan_detail import get_plan
 from yoke_core.domain.qa_plan_execution_lifecycle import finish_plan_execution
 from yoke_core.domain.qa_plan_review import begin_plan_review
@@ -46,7 +48,7 @@ def test_execution_termination_only_settles_its_bound_capture(test_db, terminati
                 {
                     "requirement_id": requirement_id,
                     "verdict": "pass",
-                    "rationale": "Only the frozen older capture passes.",
+                    "rationale": cite_case(bundle, "Only the frozen older capture passes."),
                 }
             ],
             reviewer_actor_id=None,

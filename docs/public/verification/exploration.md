@@ -79,7 +79,7 @@ constrain the host set. The plan runner queues each slot at the execution's one
 queue place and admits the set only when every slot has a free, verified,
 healthy host, giving each slot a distinct one in a single step; otherwise
 nothing is acquired and every slot keeps its place. Both leases remain
-held and heartbeated through the walk and independent review. Mission access
+held through the walk and verdict submission. Mission access
 refuses if either lease has been lost; completion or abort releases both.
 
 Every machine-run case declares the state it starts from, and authoring and
@@ -104,13 +104,10 @@ from the plan's bound environment through `{{app_url}}`, `{{installer_base_url}}
 `{{release_channel}}`, and `{{environment_display_name}}`. Each plan tests one environment;
 testing another requires a separate plan bound to it, using the same template.
 
-Use `informed_subagent` for each case. It isolates the walk and supplies the
-relevant project and Progress Log context on the controller. For a host mission, drive the target
-with the printed host commands; a fresh target needs no Yoke or source checkout.
-Do not add a checkout or project internals to bypass missing installed guidance.
-Walkers inherit the parent session tools and permissions on every harness.
-Their role instructions permit mission host, browser and artifact writes while
-forbidding repository edits.
+Set `executor` to `informed_subagent` in the case configuration. Walk the
+mission in the session's main thread with its existing project context. For a
+host mission, drive the target with the printed host commands. Keep a fresh
+target free of a source checkout and use its installed guidance.
 Unsupported executors refuse as `agent_mission_executor_invalid`: update the
 saved case to `informed_subagent` and rematerialize affected requirements.
 
@@ -147,7 +144,7 @@ repository the product creates during the mission, and delete each with
 `gh repo delete OWNER/NAME --yes` before walk-end. Never delete an upstream or
 pre-existing repository, and never hand cleanup to steering. When a removal is
 refused, record the refusal and its recovery and list everything still present
-in the walker report and the main agent's final verdict. Do not report that
+in the mission report and verdict rationale. Do not report that
 cleanup is complete.
 
 ## Execution and Review
@@ -190,62 +187,13 @@ recapturing. A gone owner routes to steering for normal idle/gone-holder
 restaffing. The review notice has its own execution key; the earlier stage
 wait notice cannot suppress it.
 
-While parked, the execution retains and heartbeats its Test Machine lease. The
-returned dispatch has `dispatch_kind=main_agent_mission`. The main agent owns:
+The returned bundle has `dispatch_kind=main_agent_mission`. Walk each
+`walker_dispatches[].prompt` in this session's main thread, one mission at a
+time. Record evidence as you walk and submit a cited verdict for every case.
+[Walking QA missions](walking.md) covers the method and the human gate route.
 
-- the item, work claim, Progress Log, and the human-request route;
-- starting a fresh walker per chunk: one source case or a small same-host group,
-  with `walker_dispatches[].prompt` unchanged plus a compact handoff of host
-  state, held windows, proven facts and evidence ids; never resume a large
-  walker history;
-- combining walker returns into the primary written report;
-- retaining leases and choosing/submitting each bundled case's final verdict.
-
-On Codex, `spawn_agent` can refuse with `collab spawn failed: agent thread
-limit reached` while an earlier walker still holds its thread, and no tool
-closes that thread. Wait for the running walker to return, then spawn the fresh
-walker. If the spawn still refuses, walk the remaining chunk yourself with
-foreground calls under the walker rules below, and note the refusal in the
-primary report. Do not raise Codex thread limits or edit Codex config.
-
-Walkers run host-command calls foreground with tool yield at or above the
-call timeout (`yield_time_ms` uses milliseconds), never short-yield polling.
-They return one status, never a verdict:
-
-- `WALK_STATUS: COMPLETE` — the walk reached a natural stopping point;
-- `WALK_STATUS: HOST_WAIT` — submit only `host_wait` through the current bundle; [host turns](deployment-plan-execution.md#shared-host-turns-and-starting-state) owns queue/resume authority;
-- `WALK_STATUS: HUMAN_GATE` — a person must act before it can continue;
-- `WALK_STATUS: UNDETERMINED` — an essential fact could not be established for
-  a reason other than a pending human action.
-
-## Human-Gate Handoff
-
-The walker does every step an agent physically can: it drives the leased
-GUI/desktop session (opening harnesses, choosing permission modes, typing codes
-into wizards), approves machine-connect and device codes in the host's already
-signed-in browser, and follows approval links. It answers consent prompts, selects
-the declared identity's email in Google's chooser and dismisses stray sheets.
-It records every workaround with evidence in the existing ranked findings.
-A workaround must preserve the tested behavior: CLI machine approval cannot
-replace browser approval when that is the assertion. The reviewer must not pass
-a case whose workaround touched the behavior under test; rerun it preserving
-that boundary. Real password, 2FA and payment steps are human gates.
-There it returns `WALK_STATUS: HUMAN_GATE` naming exactly that one entry, why,
-observed state, and resume point, then stops. It never sends Fleet mail. The parent
-records that on the Progress Log and reads this run for host, browser
-substrate, project profile, URL, and access route — not a Test Machine list.
-Managed sign-in is `yoke browser authorize --identity NAME` on that host;
-setup only starts the runtime. A host-native browser uses its declared access
-surface. Preview `yoke say --preview --steering`: `delivered` means a live
-covering seat, so send `--steering` and read the receipt. `awaiting_seat` is
-not delivery — cancel it, then `yoke say --preview --actor` and `--actor` for
-the human owner: `yoke items get PREFIX-N owner` prints `NAME (actor id: N)`.
-An `unassigned`, `unknown actor`, nonhuman, or refused owner is a named recovery. `--item` returns the answer to the holder. Acknowledgement
-is not proof. Dispatch a fresh walker, continuing when the held host must keep its state.
-Prepare the required session during the walk or in a preceding case in the
-same chain. Ask for password entry while holding the host lease. The
-[starting-state contract](case-attachment-rules.md#machine-case-starting-state)
-describes how an inherited case can verify prepared files.
+Run `host-command` in the foreground with a tool timeout and yield at or above
+the call timeout. On Codex, `yield_time_ms` is measured in milliseconds.
 
 ## Holding a Walk, and Continuing a Settled One
 
@@ -261,9 +209,9 @@ minutes the sweep mails the live, unparked owner once per silence, naming the ex
 Machine, abort time and fix: run the next step through `yoke qa mission host-command`,
 which heartbeats the walk, or cancel it with `yoke qa plan abort` (holder release
 refuses `qa_execution_holds_lease`). `yoke watch fleet` prints it as `stale-walk`.
-A walker told to hold can park (`yoke sessions touch --mode parked --reason "..."`); a live parked owner
-protects its active walk from the stale sweep. An ended owner provides no
-such protection. Terminal settlement stamps an unreviewed capture with an
+At a human gate, park with `yoke sessions touch --mode parked --reason
+qa-human-gate`. A live parked owner protects its active walk from the stale
+sweep. The host lease can still expire at `qa_host_idle_hold_minutes`. Terminal settlement stamps an unreviewed capture with an
 `error` verdict.
 
 That verdict records the execution, not a judgment on the walk, and the Test

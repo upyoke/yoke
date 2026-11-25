@@ -202,6 +202,7 @@ root:
       - {title: "Browser evidence", summary: "Read captures and distinguish execution from inspected verdicts.", path: "verification/browser-evidence.md"}
       - {title: "Browser identities", summary: "Declare personas, sign in and use isolated browser profiles.", path: "verification/browser-identities.md"}
       - {title: "Exploratory missions", summary: "Discovery scope, execution, review and human gates.", path: "verification/exploration.md"}
+      - {title: "Walking QA missions", summary: "Walk a mission, route human gates and submit cited verdicts.", path: "verification/walking.md"}
       - {title: "Exploratory evidence", summary: "Use substrates, retain evidence and submit mission decisions.", path: "verification/exploration-evidence.md"}
       - {title: "QA model", summary: "Read requirement, execution and artifact storage contracts.", path: "verification/model/qa.md"}
       - {title: "QA CLI", summary: "Use registered requirement, execution and evidence commands.", path: "verification/qa-cli.md"}

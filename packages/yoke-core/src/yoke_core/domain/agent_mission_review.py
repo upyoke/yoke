@@ -1,4 +1,4 @@
-"""Main-owned review dispatch for exploratory mission bundles."""
+"""Main-thread instructions for exploratory mission bundles."""
 
 from __future__ import annotations
 
@@ -85,53 +85,39 @@ def agent_mission_dispatch_contract(
         prompt = (
             f"Own exploratory QA bundle {bundle_id} ({digest}) as the main "
             f"agent for immutable environment {authority['environment']} at "
-            f"target digest {target_digest}. Dispatch informed subagents, one "
-            "walker at a time, passing walker_dispatches[].prompt to its walker unchanged: "
-            "host missions retain their Test Machine, and each host walk resets "
-            "it on walk-start and restores it on walk-end. A walker turn is "
-            "atomic and cannot ask the operator or send Fleet mail. "
-            "When it returns HUMAN_GATE, append the action, why, observed "
-            "state, and resume point to the item's Progress Log. Verify the "
-            "executing host, browser substrate, project profile, target URL, "
-            "and live access route from this run. A Test Machine inventory "
-            "is not where the browser ran. Managed sign-in is `yoke browser "
-            "authorize --identity NAME` on that host; `yoke qa browser setup` "
-            "only starts the runtime. A host-native browser uses its declared "
-            "human access surface, not a fabricated authorize command. Put no "
-            "credential content in the request. Preview with `yoke say "
-            "--preview --steering --json`. steering_recipient.state delivered "
-            "means a live seat covers this item: send `printf %s BODY | yoke "
-            "say --steering --stdin --idempotency-key KEY` and read the "
-            "receipt. awaiting_seat is not delivery; cancel it with `yoke "
-            "messages cancel MESSAGE-ID` and use the owner path. Read `yoke "
-            "items get PREFIX-N owner` (`NAME (actor id: N)`); `unassigned` or "
-            "`unknown actor` is unresolved: report it. Confirm with `yoke say "
-            "--preview --actor ACTOR --json`. actor_recipient_not_human or "
-            "actor_recipient_forbidden is a named refusal, not a successful "
-            "ask. Otherwise send `printf %s BODY | yoke say --actor ACTOR "
-            "--stdin --idempotency-key KEY`. --item addresses the current "
-            "holder, not the human owner. The body names the item, execution, "
-            "requirement, action, access route, and resume point, and asks "
-            "that the answer return with `yoke say --item PREFIX-N --stdin`. "
-            "Acknowledgement is read, not sign-in proof. Record the answer, "
-            "verify the action, and dispatch a fresh walker with the resume "
-            "state. Use the declared continuation when the held host must "
-            "keep its state; do not start an ordinary reset run. "
-            "The walker opens sessions and approves codes itself "
-            "and requests human help for real password, 2FA or payment steps. "
-            "Keep the fresh target free of a source checkout; the informed "
-            "walker uses controller context and installed target guidance. "
+            f"target digest {target_digest}. Walk each mission in this session's "
+            "main thread, one at a time, following walker_dispatches[].prompt and "
+            ".yoke/docs/verification/walking.md. Save evidence with "
+            "`yoke qa artifact add` as you go. Record each case's verdict from "
+            "what you saw, naming the evidence it rests on, then submit. "
+            "For a password, 2FA or payment gate, verify this run's host, "
+            "browser, profile, target URL and human access route. Preview "
+            "with `yoke say --preview --steering --json`; send with "
+            "`yoke say --steering --stdin --idempotency-key KEY` when the "
+            "preview says delivered. If steering is unavailable, look up the "
+            "item owner with `yoke items get PREFIX-N owner`, preview "
+            "`yoke say --preview --actor ACTOR --json`, and send with "
+            "`yoke say --actor ACTOR --stdin --idempotency-key KEY`. Verify the "
+            "receipt; report an unresolved owner or refusal as a blocker. "
+            "Name the plan, execution, requirement, action, access route and "
+            "resume point. Keep credentials out of the request and ask for the "
+            "answer with `yoke say --session YOUR_SESSION_ID --stdin`. Run "
+            "`yoke sessions touch --mode parked --reason qa-human-gate` and end "
+            "the turn. On return, verify the human action and continue with "
+            "host-command on the held lease. Use the declared continuation if "
+            "the held host must keep its state. "
             + stopped_mission_guidance(
                 subject_flag,
                 execution_id,
                 has_host=any(needs_test_machine(case) for case in cases),
             )
-            + "Review every non-mission case yourself from its transcript and "
-            "artifact-read commands. Review ranked reports and evidenced workarounds. "
-            "Never pass a case whose workaround touched its tested behavior "
-            "(such as CLI replacing browser approval); rerun preserving that "
-            "boundary. Choose final verdicts and submit exactly one row "
+            + "Read every non-mission case's capture and record its verdict the "
+            "same way. Record findings and workarounds with their evidence. "
+            "If a workaround changed the behavior under test, rerun preserving "
+            "that behavior before recording a pass. Submit exactly one row "
             f"for each of the {len(cases)} bundle cases in one complete batch. "
+            "Cite artifact N from that case in each pass or fail rationale, "
+            "or run N for its capture run when the case has no artifacts. "
             + inconclusive_verdict_guidance(allowed_verdicts)
             + _screen_recording_warning(cases)
         )
@@ -143,8 +129,8 @@ def agent_mission_dispatch_contract(
     else:
         prompt = (
             f"QA bundle {bundle_id} ({digest}) has no immutable target "
-            "authority. Preserve it as historical evidence; do not dispatch "
-            "walkers, access the leased host, or submit verdicts."
+            "authority. Preserve it as historical evidence; do not walk missions or "
+            "access the leased host, or submit verdicts."
         )
         submit_command = None
         walker_dispatches = []

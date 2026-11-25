@@ -5,6 +5,8 @@ import pytest
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.backlog_qa_inserts import insert_qa_requirement, insert_qa_run
 from runtime.api.fixtures.qa_captured_plan_review_fixture import captured_plan_review
+from runtime.api.domain.qa_verdict_citation_test_support import cite_case
+
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
@@ -185,7 +187,7 @@ def test_reviewed_capture_history_keeps_utc_selection_and_original_evidence(
             {
                 "requirement_id": requirement_id,
                 "verdict": "pass",
-                "rationale": "The captured frame matches the contract.",
+                "rationale": cite_case(bundle, "The captured frame matches the contract."),
             }
         ],
         reviewer_actor_id=None,

@@ -6,6 +6,8 @@ import pytest
 
 from runtime.api.domain.qa_plan_agent_review_test_support import _review_execution
 from runtime.api.fixtures.pg_testdb import test_database
+from runtime.api.domain.qa_verdict_citation_test_support import cite_case
+
 from yoke_core.domain import qa_plan_review_submission, qa_review_requests
 from yoke_core.domain.coordination_claims import acquire, get_claim
 from yoke_core.domain.work_claim_targets import make_qa_admission_target
@@ -197,7 +199,7 @@ def test_telemetry_failure_cannot_undo_committed_review(monkeypatch) -> None:
                 {
                     "requirement_id": requirement_id,
                     "verdict": "pass",
-                    "rationale": "The supplied evidence satisfies the case.",
+                    "rationale": cite_case(bundle, "The supplied evidence satisfies the case."),
                 }
             ],
             reviewer_actor_id="7",

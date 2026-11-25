@@ -75,10 +75,16 @@ def run_start(args: list[str]) -> int:
     if preparation["ok"]:
         return 0
     failure = preparation["evidence"]["preparation_failure"]
+    recovery = failure["recovery"]
+    if preparation["error_code"] != "mission_walk_already_started":
+        recovery += (
+            ". Do not walk until preparation succeeds. "
+            "Report the failure as the walk's blocker"
+        )
     print(
         compose_refusal(
             f"{PROG_START}: {preparation['error_code']}: {failure['diagnostic']}.",
-            recovery=f"{failure['recovery']}. Do not walk this mission until walk-start succeeds; report the failure as the walk's blocker.",
+            recovery=recovery,
         ),
         file=sys.stderr,
     )

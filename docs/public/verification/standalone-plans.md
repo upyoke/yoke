@@ -44,6 +44,9 @@ single-host cases it recovers each platform’s original host from durable lease
 a fresh eligible host only for a platform not used before. Read `yoke qa plan run --help` for
 the complete requirements.
 
+For exploratory cases, follow [Walking QA missions](walking.md) to walk the
+mission and submit a cited verdict.
+
 ## Function protocol
 
 Source-generated plans record their exporter commit with

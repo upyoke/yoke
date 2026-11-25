@@ -9,6 +9,8 @@ from runtime.api.domain.deployment_qa_run_settlement_test_support import (
     exercise_late_verdict,
 )
 from runtime.api.fixtures.qa_captured_plan_review_fixture import captured_plan_review
+from runtime.api.domain.qa_verdict_citation_test_support import cite_case
+
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
@@ -83,10 +85,24 @@ def test_plan_review_submit_binds_capture_evidence_before_freeze(test_db):
             {
                 "requirement_id": requirement,
                 "verdict": "pass",
-                "rationale": "The captured project frame is correct.",
+                "rationale": cite_case(bundle, "The captured project frame is correct."),
             }
         ],
     }
+    uncited = handle_plan_review_submit(
+        FunctionCallRequest(
+            function="qa.plan_review.submit",
+            actor=actor,
+            target=target,
+            payload={
+                **payload,
+                "verdicts": [{**payload["verdicts"][0], "rationale": "Looks correct."}],
+            },
+        )
+    )
+    assert not uncited.primary_success
+    assert uncited.error.code == "qa_verdict_evidence_uncited"
+    assert cite_case(bundle, "").removeprefix(" See ").rstrip(".") in uncited.error.message
     for _ in range(2):
         submitted = handle_plan_review_submit(
             FunctionCallRequest(

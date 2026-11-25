@@ -3,6 +3,8 @@
 import pytest
 
 from runtime.api.fixtures.qa_captured_plan_review_fixture import captured_plan_review
+from runtime.api.domain.qa_verdict_citation_test_support import cite_case
+
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
@@ -124,7 +126,7 @@ def test_closed_deployment_still_authorizes_its_bound_capture_review(
                     {
                         "requirement_id": requirement,
                         "verdict": "pass",
-                        "rationale": "The completed capture is correct.",
+                        "rationale": cite_case(bundle, "The completed capture is correct."),
                     }
                 ],
             },
@@ -188,7 +190,7 @@ def test_partial_terminal_walk_can_review_completed_capture_without_reopening(
                     {
                         "requirement_id": requirement_id,
                         "verdict": "pass",
-                        "rationale": "The completed frame is correct.",
+                        "rationale": cite_case(bundle, "The completed frame is correct."),
                     }
                 ],
             },

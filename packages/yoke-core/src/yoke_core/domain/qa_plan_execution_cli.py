@@ -260,12 +260,12 @@ def report_plan_result(result: dict[str, Any]) -> int:
     if state in {"walking", "awaiting_walk_review"}:
         print(
             (
-                "QA mission walking; hand-back pending, not a pass. "
+                "QA mission walking in this session; verdict pending. "
                 if state == "walking"
-                else "QA capture complete; independent review pending, not a pass. "
+                else "QA capture complete; verdict pending. "
             )
-            + "Dispatch the returned typed reviewer contract now; its submitted "
-            "verdict batch is the QA verdict.",
+            + "Follow the returned bundle instructions and submit the complete "
+            "verdict batch.",
             file=sys.stderr,
         )
         return AGENT_REVIEW_REQUIRED_EXIT

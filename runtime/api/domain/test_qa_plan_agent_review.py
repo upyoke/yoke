@@ -11,6 +11,8 @@ from runtime.api.fixtures.qa_captured_plan_review_fixture import (
     captured_plan_review as _review_execution,
 )
 from runtime.api.fixtures.pg_testdb import test_database
+from runtime.api.domain.qa_verdict_citation_test_support import cite_case
+
 from yoke_core.domain.qa_plan_detail import get_plan
 from yoke_core.domain.qa_plan_review import (
     QaPlanReviewError,
@@ -158,7 +160,7 @@ def test_agent_verdict_is_per_case_and_only_undetermined_escalates(
                 {
                     "requirement_id": requirement_id,
                     "verdict": verdict,
-                    "rationale": f"Recorded {verdict} from the supplied evidence.",
+                    "rationale": cite_case(bundle, f"Recorded {verdict} from the supplied evidence."),
                 }
             ],
             reviewer_actor_id=None,

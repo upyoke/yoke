@@ -17,6 +17,8 @@ from runtime.api.fixtures.qa_declared_replacement_fixture import (
     requirement_row,
 )
 from runtime.api.fixtures.pg_testdb import test_database
+from runtime.api.domain.qa_verdict_citation_test_support import cite_case
+
 from yoke_core.domain.deployment_qa_source_obligation import unsatisfied_blocking
 from yoke_core.domain.deployment_qa_stage_gate import deployment_qa_stage_status
 from yoke_core.domain.qa_plan_execution_roster import ordered_plan_requirements
@@ -51,7 +53,7 @@ def _review(conn: Any, execution: dict, requirement_id: int, verdict: str) -> di
             {
                 "requirement_id": requirement_id,
                 "verdict": verdict,
-                "rationale": f"Recorded {verdict} from the supplied evidence.",
+                "rationale": cite_case(bundle, f"Recorded {verdict} from the supplied evidence."),
             }
         ],
         reviewer_actor_id=None,

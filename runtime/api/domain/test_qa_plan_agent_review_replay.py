@@ -2,6 +2,8 @@
 
 from runtime.api.domain.qa_plan_agent_review_test_support import _review_execution
 from runtime.api.fixtures.pg_testdb import test_database
+from runtime.api.domain.qa_verdict_citation_test_support import cite_case
+
 from yoke_core.domain.qa_plan_review import begin_plan_review
 from yoke_core.domain.qa_plan_review_submission import submit_plan_review
 
@@ -14,7 +16,7 @@ def test_completed_submission_replay_preserves_reviewer_and_single_verdict() -> 
             {
                 "requirement_id": requirement_id,
                 "verdict": "pass",
-                "rationale": "The captured frame matches the expected outcome.",
+                "rationale": cite_case(bundle, "The captured frame matches the expected outcome."),
             }
         ]
         first = submit_plan_review(

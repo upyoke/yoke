@@ -4,6 +4,8 @@ import pytest
 
 from runtime.api.domain.qa_review_seed import _seed_undetermined_review
 from runtime.api.fixtures.qa_captured_plan_review_fixture import captured_plan_review
+from runtime.api.domain.qa_verdict_citation_test_support import cite_case
+
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
@@ -90,7 +92,7 @@ def test_agent_judgment_projects_same_capture_outcome(test_db, verdict, outcome)
             {
                 "requirement_id": requirement_id,
                 "verdict": verdict,
-                "rationale": "Judgment of the supplied capture.",
+                "rationale": cite_case(bundle, "Judgment of the supplied capture."),
             }
         ],
         reviewer_actor_id=None,

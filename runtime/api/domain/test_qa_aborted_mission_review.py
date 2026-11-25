@@ -15,6 +15,8 @@ from runtime.api.domain.agent_mission_qa_test_support import (
     ACTOR,
     _request,
 )
+from runtime.api.domain.qa_verdict_citation_test_support import cite_case
+
 from yoke_contracts.api.function_call import FunctionCallRequest, TargetRef
 from yoke_core.domain.agent_mission_recording import (
     handle_agent_mission_access,
@@ -74,7 +76,7 @@ def test_recorded_mission_is_reviewed_from_evidence_after_the_walk_stops(
     assert "no walker can reach it" in refused.error.message
     assert "yoke qa plan review-begin" in refused.error.message
 
-    rationale = "Only setup receipts were recorded; the mission was never walked."
+    rationale = cite_case(bundle, "Only setup receipts were recorded; the mission was never walked.")
     submitted = handle_plan_review_submit(
         FunctionCallRequest(
             function="qa.plan_review.submit",

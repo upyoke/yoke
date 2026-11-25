@@ -31,9 +31,9 @@ def test_unsupported_executor_refuses_authoring_and_pending_dispatch(executor) -
 
 def test_informed_dispatch_drives_target_and_uploads_bytes_from_controller() -> None:
     walker = _walker("informed_subagent")
-    assert walker["dispatch_kind"] == "subagent"
-    assert walker["subagent_type"] == "yoke-qa-walker"
-    assert walker["context_policy"] == "project-informed"
+    assert "main thread" in walker["prompt"]
+    assert "subagent_type" not in walker
+    assert "result_schema" not in walker
     assert (
         "--content-file LOCAL_PATH [--filename NAME]" in walker["artifact_add_command"]
     )

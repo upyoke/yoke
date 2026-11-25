@@ -3,6 +3,8 @@
 from unittest import mock
 from time import monotonic
 
+from runtime.api.domain.qa_verdict_citation_test_support import cite_case
+
 from yoke_contracts.lock_retry import RETRYABLE_LOCK_CODES
 
 from runtime.api.domain.deployment_qa_stage_execution_test_support import (
@@ -186,7 +188,7 @@ def test_review_submit_returns_saved_verdict_after_member_lock_contention(
             {
                 "requirement_id": requirement,
                 "verdict": "pass",
-                "rationale": "Capture passes.",
+                "rationale": cite_case(bundle, "Capture passes."),
             }
         ],
     )

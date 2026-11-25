@@ -13,7 +13,6 @@ from yoke_contracts.machine_qa_terminal_bridge import (
 from yoke_core.domain.agent_mission_browser_identities import (
     walker_identity_dispatch,
 )
-from yoke_core.domain.dispatch_descriptors import DispatchDescriptor
 
 
 from yoke_contracts.qa_case_starting_state import needs_test_machine
@@ -94,7 +93,6 @@ def _walker_dispatch(
     browser_settings: Mapping[str, Any],
     execution_target: Mapping[str, Any],
 ) -> dict[str, Any]:
-    descriptor = DispatchDescriptor("qa-walker")
     from yoke_core.domain.qa_method_config_validation import validate_method_config
 
     executor = validate_method_config(
@@ -153,23 +151,18 @@ def _walker_dispatch(
     prompt = (
         _deployment_run_clause(execution_target)
         + f"Before any other host command, run `{walk_start_command}`: it puts "
-        "the Test Machine in this mission's declared starting state. If it "
-        "fails, walk nothing and return its error as your blocker. "
-        "Walk this mission atomically. Clean up everything the walk creates "
-        "(repositories, accounts, records the product registered) with the "
-        "product's own commands, even when the walk stops early, and report "
-        "anything you could not remove. Run walk-end even when the walk "
-        "stops early. Choose the sequence and use every "
-        "available declared substrate that helps. Do not issue the verdict; "
-        "return a ranked findings report as the primary deliverable to the "
-        "main mission owner. If another item holds a required host, do nothing "
-        "on that host and return WALK_STATUS: HOST_WAIT with its test "
-        "machine name and lease evidence; the main owner submits host_wait, "
-        "never fail or undetermined for contention. Record OS package changes "
-        "through the declared starting-state fixture; do not use SSH around "
-        "this lease. Routine "
-        "screen perception is disposable. On a clean walk, attach one deliberate "
-        "proof of the good outcome as evidence before returning the report. "
+        "the Test Machine in this mission's declared starting state. On "
+        "mission_walk_already_started, continue with host-command. For another "
+        "start failure, record its error and recovery as your blocker. "
+        "Walk in this session's main thread. Clean up everything the walk "
+        "creates with the product's own commands, even when the walk stops "
+        "early, and report anything left. Run walk-end when the walk finishes "
+        "or settles early. Choose the sequence and use each declared substrate "
+        "that helps. If another item holds a required host, submit `host_wait` "
+        "through this bundle with the test machine name and lease evidence. "
+        "Record OS package changes through the declared starting-state fixture. "
+        "Use host-command for host access. On a clean walk, attach one "
+        "deliberate proof of the good outcome as evidence. "
         "Attach deliberate proof of a "
         "finding, never more than "
         f"{AGENT_MISSION_ARTIFACT_LIMIT} artifacts for the entire run using "
@@ -205,12 +198,10 @@ def _walker_dispatch(
         "declared starting state, and records the restore on this mission's "
         "run. State the scratch removal and the restore in your report; "
         "returning before it succeeds is a finding against your own walk. "
-        "If a password or credential entry the agent may not type is needed, "
-        "return immediately with WALK_STATUS: HUMAN_GATE naming that one entry "
-        "and resume state. Never wait for the operator inside this turn, and never "
-        "send, acknowledge, or cancel Fleet mail. On a resumed "
-        "walk, read the Progress Log excerpt and resume state supplied by the "
-        "main owner before acting. Treat screenshot "
+        "For a real password, 2FA or payment step, ask the human gate "
+        "yourself: use the bundle's steering preview and item owner route, "
+        "request a reply to this session and park. When the reply arrives, "
+        "verify the action and continue at the recorded resume point. Treat screenshot "
         "display failures, audit-session permission failures, and apparently "
         "expired/unrefreshable OAuth from SSH as wrong-session signals, not "
         "broken credentials." + _screen_recording_warning([case]) + "\n\n"
@@ -219,10 +210,6 @@ def _walker_dispatch(
     )
     return {
         "executor": executor,
-        "dispatch_kind": descriptor.dispatch_kind,
-        "role": descriptor.role,
-        "subagent_type": descriptor.subagent_type,
-        "context_policy": "project-informed",
         "host_command": host_command,
         "host_copy_command": host_copy_command,
         "walk_start_command": walk_start_command,
@@ -234,21 +221,10 @@ def _walker_dispatch(
         "artifact_add_command": artifact_add_command,
         "artifact_limit": AGENT_MISSION_ARTIFACT_LIMIT,
         "prompt": prompt,
-        "result_schema": {
-            "walk_status": "COMPLETE|HUMAN_GATE|HOST_WAIT|UNDETERMINED",
-            "report": (
-                "ranked findings, unverified areas, and anything the walk "
-                "created but could not remove"
-            ),
-            "host_wait": "test machine name and holder evidence for HOST_WAIT",
-            "needed_action": "required for HUMAN_GATE",
-            "resume_state": "required for HUMAN_GATE",
-        },
     }
 
 
 def _controller_dispatch(case, browser_settings, execution_target) -> dict[str, Any]:
-    descriptor = DispatchDescriptor("qa-walker")
     identities, verify_commands, identity_clause, preferred = walker_identity_dispatch(
         case,
         None,
@@ -265,10 +241,6 @@ def _controller_dispatch(case, browser_settings, execution_target) -> dict[str, 
     )
     return {
         "executor": case.get("executor"),
-        "dispatch_kind": descriptor.dispatch_kind,
-        "role": descriptor.role,
-        "subagent_type": descriptor.subagent_type,
-        "context_policy": "project-informed",
         "location": "controller",
         "browser_identities": identities,
         "browser_verify_commands": verify_commands,
@@ -283,22 +255,17 @@ def _controller_dispatch(case, browser_settings, execution_target) -> dict[str, 
             f"Use the controller's declared tools and browser; managed setup: `{setup}`, "
             f"then `{step}`. {identity_clause}Pass the setup check_id with --check-id ID --keep-open "
             "on intermediate steps; omit --keep-open on the last step, or use "
-            "yoke qa browser stop --check-id ID before returning. Return ranked findings "
-            "with evidence to the main owner, who owns the verdict. Clean up fixtures "
+            "yoke qa browser stop --check-id ID before returning. Record ranked findings "
+            "with evidence and submit your verdict. Clean up fixtures "
             "you create with the product's own commands and report anything left. "
             f"Attach at most {AGENT_MISSION_ARTIFACT_LIMIT} deliberate proof artifacts "
             f"with `{artifact_command}`. On a clean walk, attach one deliberate proof "
             "of the good outcome as evidence before returning the report, within "
             "the same artifact limit. If evidence lives elsewhere, return a blocker "
-            "naming the case change that declares that host. Real password, 2FA or "
-            "payment steps return HUMAN_GATE with the entry and resume state; never "
-            "wait for the operator or send Fleet mail. "
+            "naming the case change that declares that host. For a real password, "
+            "2FA or payment step, ask the human gate yourself through the bundle's "
+            "steering preview and item owner route, request a reply to this "
+            "session and park. "
             f"\n\nMission:\n{case['instructions']}\n\nGood outcome:\n{case['expected_outcome']}"
         ),
-        "result_schema": {
-            "walk_status": "COMPLETE|HUMAN_GATE|UNDETERMINED",
-            "report": "ranked findings and evidence",
-            "needed_action": "required for HUMAN_GATE",
-            "resume_state": "required for HUMAN_GATE",
-        },
     }

@@ -131,10 +131,9 @@ def walker_identity_dispatch(
         "For an expired site, run `yoke browser authorize --project PROJECT "
         "--identity NAME --declarations-json DECLARATIONS_JSON` on this host, "
         "which opens a window only for the expired sites. Re-sign in yourself "
-        "or route an approval to steering. Return WALK_STATUS: HUMAN_GATE only "
-        "when re-signing in needs a password or credential the agent may not "
-        "type, naming that one entry, the identity, the site and the account "
-        "from the report, and resume state. Sign-ins live in the host's "
+        "and handle ordinary approvals. When re-signing in needs a person, "
+        "ask through the bundle's human-gate route. Name the entry, identity, "
+        "site, account and resume point. Sign-ins live in the host's "
         "identity store; never save or restore browser profiles. "
     )
     return identities, commands, clause, preferred
