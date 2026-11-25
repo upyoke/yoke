@@ -125,6 +125,7 @@ def run(args: List[str]) -> int:
     parser.add_argument("--stage", help="Deployment stage to run QA for.")
     parser.add_argument("--transition", help="Workflow transition of the item's plans.")
     parser.add_argument("--plan", help="QA plan to run.")
+    parser.add_argument("--partition", help="One partition key from yoke qa plan partitions.")
     parser.add_argument("--project", help="Project that owns the plan.")
     parser.add_argument("--base-url", default="", help="Base URL the cases test.")
     parser.add_argument(
@@ -165,6 +166,8 @@ def run(args: List[str]) -> int:
     parsed = parser.parse_args(args)
     if parsed.resume_execution_id and parsed.replaces:
         parser.error("--resume-execution-id cannot replace cases")
+    if parsed.resume_execution_id and parsed.partition:
+        parser.error("--resume-execution-id already identifies its partition")
     if parsed.continue_mission and not parsed.resume_execution_id:
         parser.error("--continue-mission requires --resume-execution-id")
     if parsed.recovery_file and not parsed.resume_execution_id:
@@ -218,6 +221,7 @@ def run(args: List[str]) -> int:
             deployment_run_id=parsed.deployment_run_id,
             deployment_stage=parsed.stage,
             plan=parsed.plan,
+            partition=parsed.partition,
             project=parsed.project,
             base_url=parsed.base_url,
             test_machine=parsed.test_machine,

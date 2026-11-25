@@ -143,11 +143,8 @@ def record_lane_head_after_merge(ctx: MergeContext) -> None:
 
     Shares :mod:`yoke_core.domain.lane_head_record` with the QA gate's own
     publish, because both are the same event -- a lane HEAD advanced by a
-    rebase or merge this engine ran. The managed git hooks record such moves
-    too, but only where they are installed and only within a hook's short
-    deadline, so this engine records the head it produced rather than
-    relying on them. Best-effort like those hooks: a write failure is
-    reported, never silent, but never fails an otherwise-landed merge.
+    rebase or merge this engine ran. A write failure is reported and does not
+    fail an otherwise-landed merge.
     """
     from yoke_core.domain import lane_head_record
 

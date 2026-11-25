@@ -31,8 +31,8 @@ REQUIREMENT_SUBJECT_EXPRESSION = f"""(standalone_execution_id IS NULL AND ({DEPL
 """.strip()
 
 STANDALONE_EXECUTION_INDEX_SQL = f"""
-CREATE UNIQUE INDEX IF NOT EXISTS idx_qa_plan_executions_standalone_active
-ON qa_plan_executions(standalone_plan_id)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_qa_plan_executions_standalone_session_active
+ON qa_plan_executions(standalone_plan_id, session_id)
 WHERE standalone_plan_id IS NOT NULL
 AND state IN ({LIVE_EXECUTION_STATE_SQL});
 """
@@ -136,8 +136,8 @@ def assert_standalone_subjects(conn: Any) -> None:
         "qa_plan_executions",
         (
             (
-                "idx_qa_plan_executions_standalone_active",
-                ("standalone_plan_id",),
+                "idx_qa_plan_executions_standalone_session_active",
+                ("standalone_plan_id", "session_id"),
                 "standalone_plan_id IS NOT NULL",
             ),
         ),

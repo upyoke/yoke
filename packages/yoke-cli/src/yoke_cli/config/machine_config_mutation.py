@@ -58,10 +58,12 @@ def load_payload(path: str | Path | None) -> tuple[dict[str, Any], Path]:
 
 
 @serialized_mutation
-def _seed_machine_config(*, path: str | Path | None = None) -> None:
+def _seed_machine_config(*, path: str | Path | None = None, machine_id: str | None = None) -> None:
     """Seed a fresh, unconfigured config document once, when none exists yet."""
     payload, cfg_path = load_payload(path)
     if not cfg_path.is_file():
+        if machine_id is not None:
+            payload[contract.MACHINE_ID_KEY] = machine_id
         write_payload(payload, cfg_path, allow_unconfigured=True)
 
 
@@ -77,6 +79,18 @@ def ensure_local_machine_identity(*, path: str | Path | None = None) -> str:
     _seed_machine_config(path=path)
     try:
         return machine_runtime.ensure_machine_id(path)
+    except machine_runtime.MachineConfigError as exc:
+        raise MachineConfigWriteError(str(exc)) from exc
+
+
+
+def bind_draft_machine_identity(
+    machine_id: str, *, replacing: str | None = None, path: str | Path | None = None
+) -> str:
+    """Persist the UUID already bound to an authorization before it can register."""
+    _seed_machine_config(path=path, machine_id=machine_id)
+    try:
+        return machine_runtime.bind_draft_machine_id(machine_id, path, replacing=replacing)
     except machine_runtime.MachineConfigError as exc:
         raise MachineConfigWriteError(str(exc)) from exc
 

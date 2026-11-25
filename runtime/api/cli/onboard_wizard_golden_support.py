@@ -206,7 +206,6 @@ FINISH_PLAN_FULL = {
             {"action": "project-install-scaffold", "target": ""},
             {"action": "project-install-agent-rules", "target": ""},
             {"action": "project-install-tool-permissions", "target": ""},
-            {"action": "project-install-git-hooks", "target": ""},
             {"action": "project-write-board-art", "target": ""},
         ],
     },

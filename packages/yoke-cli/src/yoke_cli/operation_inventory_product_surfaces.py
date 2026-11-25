@@ -9,6 +9,7 @@ from yoke_cli.operation_inventory_item_strategy_surfaces import (
 )
 from yoke_cli.operation_inventory_model import _w
 from yoke_cli.operation_inventory_qa_catalog import (
+    PERMANENT_ROWS as QA_CATALOG_PERMANENT_ROWS,
     WRAPPED_ROWS as QA_CATALOG_WRAPPED_ROWS,
 )
 
@@ -91,7 +92,7 @@ WRAPPED_ROWS = (
     _w("yoke overview activation get", "overview"),
     _w("yoke harness machine-report upsert", "harness.machine_report"),
 )
-PERMANENT_ROWS = DIRECT_WORKFLOW_PERMANENT_ROWS
+PERMANENT_ROWS = (*DIRECT_WORKFLOW_PERMANENT_ROWS, *QA_CATALOG_PERMANENT_ROWS)
 
 
 __all__ = ["PERMANENT_ROWS", "WRAPPED_ROWS"]

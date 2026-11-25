@@ -4,20 +4,21 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
+import time
 from pathlib import PurePosixPath, PureWindowsPath
 from typing import Any, Callable, Sequence
 
+from yoke_contracts.harness_provider_unavailable import stall_retry_allowed
 from yoke_contracts.machine_qa_execution import GUI_SESSION_CONTEXT
 from yoke_harness.baseline_harness_requests import harness_request
+from yoke_harness import baseline_probe_provider_stall as stall
 from yoke_harness.baseline_probe_failure_causes import (
     UNDECLARED_EXIT,
     classify_declared_failure,
     with_reply_rejection,
 )
 from yoke_contracts.ssh_mac_full_reset_contract import GOLDEN_PROBES_SUFFIX
-from yoke_harness.ssh_mac_gui_session import (
-    classify_macos_session_context_failure,
-)
+from yoke_harness.ssh_mac_gui_session import classify_macos_session_context_failure
 from yoke_harness.standard_baseline_probes import (
     prove_current_standard,
     read_error_event_count,
@@ -30,18 +31,14 @@ PROBE_LIMIT = 20
 PROBE_ARGUMENT_LIMIT = 24
 PROBE_TIMEOUT_SECONDS = 120
 
-NO_VERDICT_ERROR_CODE = "baseline_probe_bridge_unavailable"
-FAILED_ERROR_CODE = "baseline_probe_failed"
-
 BRIDGE_CALL_RAISED_CAUSE = "bridge_call_raised"
 BRIDGE_CALL_RAISED_REASON = "the GUI-session bridge could not be called at all"
-BRIDGE_UNDELIVERED_CAUSE = "macos_gui_session_context_unavailable"
 _RECOVERY_BY_CAUSE = {
     BRIDGE_CALL_RAISED_CAUSE: (
         "check SSH reachability and Terminal.app control on the host, then "
         "re-run `yoke test-machine verify`"
     ),
-    BRIDGE_UNDELIVERED_CAUSE: (
+    stall.BRIDGE_UNDELIVERED_CAUSE: (
         "repair the Terminal.app bridge on the host and re-run "
         "`yoke test-machine verify`; the probe never reached its program"
     ),
@@ -161,12 +158,16 @@ def run_baseline_probes(
     *,
     run_gui_command: Callable[..., Any],
     classify_gui_failures: bool = True,
+    sleep: Callable[[float], None] = time.sleep,
+    stall_retry: bool | None = None,
 ) -> HostActionResult:
-    """Run probes with sanitized evidence and retry one undeclared exit."""
+    """Run probes; retry one undeclared exit per probe, one provider stall per run."""
     rows: list[dict[str, Any]] = []
+    stall_retry = stall_retry_allowed() if stall_retry is None else stall_retry
     for probe in probes:
         request = harness_request(probe.argv)
-        for attempt in range(2):
+        # Undeclared-exit and stall retries each add at most one attempt.
+        for attempt in range(1, 4):
             try:
                 result = run_gui_command(
                     list(request.argv if request else probe.argv),
@@ -198,7 +199,7 @@ def run_baseline_probes(
                     "reason": rows[-1]["reason"],
                     "recovery": rows[-1]["recovery"],
                 }
-                return HostActionResult(False, evidence, NO_VERDICT_ERROR_CODE)
+                return HostActionResult(False, evidence, stall.NO_VERDICT_ERROR_CODE)
             exit_code = int(result.returncode)
             expectation = probe.expect_output_contains
             stdout, stderr = result.stdout or "", result.stderr or ""
@@ -246,8 +247,13 @@ def run_baseline_probes(
                     probe, exit_code=exit_code, expectation_met=matched, failure=failure
                 )
             )
-            if failure["cause"] == UNDECLARED_EXIT.cause and attempt == 0:
-                rows[-1].update(outcome="retrying", attempt=1)
+            if failure["cause"] == UNDECLARED_EXIT.cause and attempt == 1:
+                rows[-1].update(outcome="retrying", attempt=attempt)
+                continue
+            if stall_retry and stall.provider_stalled(failure):
+                stall_retry = False
+                rows[-1].update(outcome="retrying", attempt=attempt)
+                sleep(stall.STALL_RETRY_DELAY_SECONDS)
                 continue
             return HostActionResult(
                 False,
@@ -256,9 +262,7 @@ def run_baseline_probes(
                     "reason": failure["reason"],
                     "recovery": failure["recovery"],
                 },
-                NO_VERDICT_ERROR_CODE
-                if failure["cause"] == BRIDGE_UNDELIVERED_CAUSE
-                else FAILED_ERROR_CODE,
+                stall.failure_error_code(failure),
             )
     return HostActionResult(True, {"probes": rows})
 
@@ -332,8 +336,6 @@ def reach_user_equivalent_baseline(control: Any) -> HostActionResult:
 
 
 __all__ = [
-    "FAILED_ERROR_CODE",
-    "NO_VERDICT_ERROR_CODE",
     "PROBE_ARGUMENT_LIMIT",
     "PROBE_LIMIT",
     "PROBE_TIMEOUT_SECONDS",

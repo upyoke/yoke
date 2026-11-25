@@ -24,6 +24,7 @@ from yoke_core.domain.hook_observation_db_session import (
     apply_hook_observation_statement_timeout,
 )
 from yoke_core.domain.observe_timing import PENDING_DELIVERY_WINDOW
+from yoke_core.domain.session_ownership import delegated_launch_actor
 
 
 def _value(row: Any, key: str, index: int) -> Any:
@@ -51,22 +52,35 @@ def _matching_event(conn: Any, event_id: str) -> Any | None:
     return row, envelope, context
 
 
-def _authorize(conn: Any, row: Any, actor_id: int | None) -> None:
+def _authorize(
+    conn: Any, row: Any, actor_id: int | None, machine_id: str | None
+) -> None:
     if actor_id is None:
         return
-    stored_actor = _value(row, "actor_id", 4)
-    if stored_actor is not None:
-        if int(stored_actor) == int(actor_id):
+    session_id = str(_value(row, "session_id", 3) or "")
+    owner = _value(row, "actor_id", 4)
+    if owner is None:
+        marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+        session = conn.execute(
+            f"SELECT actor_id FROM harness_sessions WHERE session_id={marker}",
+            (session_id,),
+        ).fetchone()
+        if session is not None:
+            owner = _value(session, "actor_id", 0)
+    if owner is not None:
+        if int(owner) == actor_id:
             return
-        raise PermissionError("hook telemetry belongs to another actor")
-    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    session = conn.execute(
-        f"SELECT actor_id FROM harness_sessions WHERE session_id={marker}",
-        (str(_value(row, "session_id", 3) or ""),),
-    ).fetchone()
-    session_actor = _value(session, "actor_id", 0) if session is not None else None
-    if session_actor is not None:
-        if int(session_actor) == int(actor_id):
+        delegated = (
+            delegated_launch_actor(
+                session_id=session_id,
+                machine_id=machine_id,
+                token_actor_id=actor_id,
+                conn=conn,
+            )
+            if machine_id and session_id
+            else None
+        )
+        if delegated == int(owner):
             return
         raise PermissionError("hook telemetry belongs to another actor")
     project_id = _value(row, "project_id", 5)
@@ -84,6 +98,7 @@ def _apply_one_report(
     event_id: str,
     reported_ms: int,
     actor_id: int | None,
+    machine_id: str | None,
 ) -> None:
     """Complete one dispatch row, holding no lock across the lookup.
 
@@ -95,7 +110,7 @@ def _apply_one_report(
     if match is None:
         return
     row, envelope, context = match
-    _authorize(conn, row, actor_id)
+    _authorize(conn, row, actor_id, machine_id)
     duration_ms = max(0, int(_value(row, "duration_ms", 1) or 0))
     hook_wait_ms = max(0, int(context.get("hook_wait_ms") or 0))
     context["client_wall_ms"] = max(duration_ms, hook_wait_ms, max(0, int(reported_ms)))
@@ -113,6 +128,7 @@ def record_client_wall_reports(
     reports: Iterable[tuple[str, int]],
     *,
     actor_id: int | None = None,
+    machine_id: str | None = None,
 ) -> int:
     """Apply idempotent reports; absent best-effort telemetry is accepted."""
     conn = db_backend.connect()
@@ -120,7 +136,7 @@ def record_client_wall_reports(
     try:
         apply_hook_observation_statement_timeout(conn)
         for event_id, reported_ms in reports:
-            _apply_one_report(conn, event_id, reported_ms, actor_id)
+            _apply_one_report(conn, event_id, reported_ms, actor_id, machine_id)
             accepted += 1
     except Exception:
         conn.rollback()

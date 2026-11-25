@@ -1,46 +1,37 @@
 """External task commits bind the candidate consumed by review insertion."""
 
+import subprocess
+from types import SimpleNamespace
+from unittest.mock import MagicMock
+
 from runtime.api.conftest import insert_epic_task
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.backlog_qa_inserts import insert_qa_requirement
-from runtime.api.head_moving_hooks_test_support import (
-    _bridge,
-    _commit,
-    _fired,
-    _git,
-    _hooked_repo,
-)
-from yoke_cli.commands import git_hook
-from yoke_cli.main import main as cli_main
-from yoke_core.domain import epic
+from yoke_cli.commands.adapters import epic_review
+from yoke_contracts.api.function_call import ActorContext, FunctionCallRequest, FunctionCallResponse
+from yoke_core.domain.handlers import project_snapshot_sync
+from yoke_core.domain import epic, lane_head_client
 from yoke_core.domain.item_worktrees import record_item_worktree
 
 
-class BorrowedConnection:
-    def __init__(self, conn):
-        self.conn = conn
-
-    def __getattr__(self, name):
-        return getattr(self.conn, name)
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *_args):
-        pass
-
-    def close(self):
-        pass
+def _git(repo, *args):
+    return subprocess.run(
+        ["git", "-C", str(repo), *args], capture_output=True, text=True, check=True,
+    ).stdout.strip()
 
 
 def test_external_task_commit_records_head_and_accepts_review(
     tmp_path, test_db, monkeypatch,
 ):
-    repo, env, log = _hooked_repo(tmp_path)
-    _commit(repo, env, "seed")
-    lane = repo / ".worktrees" / "task"
-    _git(repo, "worktree", "add", "-q", "-b", "task", str(lane), env=env)
-    _fired(log)
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, "init", "-q", "-b", "main")
+    _git(repo, "config", "user.email", "test@example.com")
+    _git(repo, "config", "user.name", "Test")
+    _git(repo, "commit", "--allow-empty", "-qm", "seed")
+    lane = tmp_path / "task"
+    _git(repo, "worktree", "add", "-q", "-b", "task", str(lane))
+    assert not (repo / ".git/hooks/post-commit").exists()
     item_id = 4254
     insert_item(test_db, id=item_id, workflow_id="epic", project="external")
     lane_row = record_item_worktree(
@@ -59,57 +50,66 @@ def test_external_task_commit_records_head_and_accepts_review(
         success_policy='{"type":"deterministic","criteria":"verdict_pass"}',
     )
     test_db.commit()
-    monkeypatch.setattr(
-        "yoke_core.domain.db_helpers.connect", lambda *_a, **_k: BorrowedConnection(test_db),
-    )
-    monkeypatch.setattr(
-        "yoke_core.domain.qa_execution.connect", lambda *_a, **_k: BorrowedConnection(test_db),
-    )
-    chunked = "yoke_cli.commands.adapters.project_snapshot_chunked"
-    monkeypatch.setattr(f"{chunked}.call_dispatcher", _bridge)
-    monkeypatch.setattr(f"{chunked}.ensure_handlers_loaded", lambda: None)
-    seen_roots = []
+    borrowed = MagicMock(wraps=test_db, spec=type(test_db))
+    borrowed.__enter__.return_value = test_db
+    borrowed.close.return_value = None
+    monkeypatch.setattr("yoke_core.domain.db_helpers.connect", lambda **kw: borrowed)
+    monkeypatch.setattr("yoke_core.domain.qa_execution.connect", lambda **kw: borrowed)
 
-    def mapped_project(root):
-        seen_roots.append(root)
-        return "external" if root == str(repo.resolve()) else "yoke"
+    def dispatch(**kwargs):
+        outcome = project_snapshot_sync.handle_project_snapshot_sync(
+            FunctionCallRequest(
+                function=kwargs["function_id"],
+                actor=ActorContext(session_id="test-session"),
+                target=kwargs["target"],
+                payload=kwargs["payload"],
+            )
+        )
+        return FunctionCallResponse(
+            success=outcome.primary_success,
+            function=kwargs["function_id"],
+            version="v1",
+            result=outcome.result_payload or {},
+            error=outcome.error,
+        )
 
-    monkeypatch.setattr("yoke_contracts.machine_config.reader.project_id", mapped_project)
-    monkeypatch.setenv("YOKE_PROJECT_ID", "yoke")
-    monkeypatch.setenv("YOKE_PROJECT", "yoke")
-    monkeypatch.setenv("YOKE_RESOLVE_CWD", str(tmp_path))
-    monkeypatch.delenv(git_hook.HEAD_RECORDING_SKIP_ENV, raising=False)
-    _commit(lane, env, "task-change")
+
+    reads = {
+        "workflow_item.epic_task.get": {"worktree_id": lane_id},
+        "items.detail.get": {"item": {"project": {"slug": "external"}, "worktrees": [lane_row]}},
+    }
+
+    def review(**call):
+        payload = call["payload"]
+        result = epic.review_insert(
+            test_db, str(item_id), 1, "PASS", payload["body"], head_sha=payload["head_sha"]
+        )
+        assert "verdict=PASS" in result
+        return 0
+
+    monkeypatch.setattr(lane_head_client, "get_structured_dispatch", lambda: SimpleNamespace(
+        build_actor=ActorContext,
+        call_dispatcher=lambda **call: SimpleNamespace(success=True, result=reads[call["function_id"]]),
+    ))
+    monkeypatch.setattr(epic_review, "dispatch_and_emit", review)
+    adapter = "yoke_cli.commands.adapters.project_snapshot"
+    monkeypatch.setattr(f"{adapter}.call_dispatcher", dispatch)
+    monkeypatch.setattr(f"{adapter}.ensure_handlers_loaded", lambda: None)
+    _git(lane, "commit", "--allow-empty", "-qm", "task change")
     head = _git(lane, "rev-parse", "HEAD")
     monkeypatch.chdir(lane)
-    # Drive the actual installed shim's invocation through its real client
-    # and server handler, retaining the disposable database in this process.
-    fired = _fired(log)
-    assert [hook for hook, _, _ in fired] == ["post-commit"]
-    for hook, observed, args in fired:
-        assert observed == head
-        assert cli_main(["git", hook, *args]) == 0
-    assert seen_roots == [str(repo.resolve())]
+    assert epic_review.epic_task_review_insert([
+        "--epic", "EXT-4254", "--task-num", "1", "--verdict", "pass",
+        "--body", "Reviewed", "--head-sha", head, "--session-id", "test-session",
+    ]) == 0
+
     assert test_db.execute(
         "SELECT commit_sha FROM item_worktrees WHERE id=%s", (lane_id,),
     ).fetchone()[0] == head
 
-    result = epic.review_insert(test_db, str(item_id), 1, "PASS", "Reviewed", head_sha=head)
-
-    assert "verdict=PASS" in result
     run = test_db.execute(
         "SELECT verdict,raw_result FROM qa_runs WHERE qa_requirement_id=%s",
         (requirement["id"],),
     ).fetchone()
     assert run[0] == "pass"
     assert head in run[1]
-
-
-def test_missing_checkout_registration_teaches_repair(monkeypatch, capsys):
-    monkeypatch.setattr("yoke_contracts.machine_config.reader.project_id", lambda _root: None)
-    monkeypatch.delenv(git_hook.HEAD_RECORDING_SKIP_ENV, raising=False)
-    assert cli_main(["git", "post-commit"]) == 0
-    diagnostic = capsys.readouterr().err
-    assert "checkout_project_unavailable" in diagnostic
-    assert "yoke project register" in diagnostic
-    assert "yoke project snapshot sync --head-only" in diagnostic

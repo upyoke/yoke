@@ -98,10 +98,18 @@ _EXECUTION_INDEX_SPECS = (
 )
 
 # Applied history imports the old execution specs; boot uses current keys.
+_BOOT_EXECUTION_KEYS = {
+    "idx_qa_plan_executions_deployment_stage_active": (
+        "idx_qa_plan_executions_deployment_stage_target_active", ("execution_target_digest",)
+    ),
+    "idx_qa_plan_executions_deployment_member_stage_active": (
+        "idx_qa_plan_executions_deployment_member_session_active", ("session_id",)
+    ),
+}
 EXECUTION_INDEX_SPECS = tuple(
-    ("idx_qa_plan_executions_deployment_stage_target_active", keys + ("execution_target_digest",), scope)
-    if name == "idx_qa_plan_executions_deployment_stage_active" else (name, keys, scope)
+    (boot_name, keys + extra_keys, scope)
     for name, keys, scope in _EXECUTION_INDEX_SPECS
+    for boot_name, extra_keys in (_BOOT_EXECUTION_KEYS.get(name, (name, ())),)
 )
 
 _REQUIREMENT_INDEX_SPECS = requirement_index_specs(_EXECUTION_INDEX_SPECS)

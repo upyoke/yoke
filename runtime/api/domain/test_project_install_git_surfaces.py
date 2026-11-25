@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 import json
-import shutil
 from pathlib import Path
 
 import pytest
 
 from yoke_cli.project_install import checkout_gate, clone_excludes
 from yoke_cli.project_install import runner as project_install
-from yoke_cli.project_install.runner import ProjectInstallError, apply_bundle
+from yoke_cli.project_install.runner import apply_bundle
 from yoke_core.domain.project_install_test_helpers import DEFAULT_FILES, make_bundle
 
 
@@ -61,79 +60,19 @@ def test_manifest_and_report_record_copy_mode(repo) -> None:
     assert _manifest(repo)["mode"] == "copy"
 
 
-def test_copy_install_writes_git_hook_shims(repo) -> None:
-    from yoke_cli.project_install import git_hooks as git_hooks
-
+def test_fresh_install_and_uninstall_leave_git_hooks_alone(repo) -> None:
     _git_init(repo)
+    hooks = repo / ".git/hooks"
+    before = {hook.name: hook.read_bytes() for hook in hooks.iterdir()}
 
-    report = apply_bundle(repo, make_bundle(), source="test")
-
-    assert report["git_hooks_installed_or_updated"] == len(git_hooks.GIT_HOOK_NAMES)
-    for spec in git_hooks.managed_git_hook_specs():
-        name, marker = spec["name"], spec["marker"]
-        hook = repo / ".git" / "hooks" / name
-        assert hook.is_file(), f"{name} shim must be installed in copy mode"
-        assert marker in hook.read_text(encoding="utf-8")
-
-    rerun = apply_bundle(repo, make_bundle(), operation="refresh", source="test")
-    assert rerun["git_hooks_installed_or_updated"] == 0
-    assert rerun["warnings"] == []
-
-
-def test_copy_install_skips_git_hooks_without_git_dir(repo) -> None:
-    report = apply_bundle(repo, make_bundle(), source="test")
-
-    assert report["git_hooks_installed_or_updated"] == 0
-    assert [a for a in report["git_hook_actions"] if "Skipped" in a]
-    assert report["warnings"] == []
-
-
-def test_copy_uninstall_removes_yoke_hooks_preserves_foreign(repo) -> None:
-    _git_init(repo)
     installed = apply_bundle(repo, make_bundle(), source="test")
+    assert installed["git_hooks_removed"] == []
+    assert {hook.name: hook.read_bytes() for hook in hooks.iterdir()} == before
+
     checkout_gate.commit_touched_paths(repo, installed)
-    foreign = repo / ".git" / "hooks" / "post-commit"
-    foreign.write_text("#!/bin/sh\nexec /custom/notify\n", encoding="utf-8")
-
     report = project_install.uninstall(repo)
-
-    assert report["git_hooks_removed"] == [
-        "pre-commit",
-        "pre-merge-commit",
-        "post-merge",
-        "post-rewrite",
-        "post-checkout",
-    ]
-    assert not (repo / ".git" / "hooks" / "pre-commit").exists()
-    assert foreign.read_text(encoding="utf-8") == ("#!/bin/sh\nexec /custom/notify\n")
-
-
-def test_git_hook_marker_mention_is_never_treated_as_ownership(repo) -> None:
-    _git_init(repo)
-    ambiguous = repo / ".git" / "hooks" / "pre-commit"
-    content = (
-        "#!/bin/sh\n"
-        "# docs mention yoke-pre-commit but this is operator-owned\n"
-        "exec /custom/gate\n"
-    )
-    ambiguous.write_text(content, encoding="utf-8")
-
-    report = apply_bundle(repo, make_bundle(), source="test")
-
-    assert ambiguous.read_text(encoding="utf-8") == content
-    assert any("not Yoke-managed" in warning for warning in report["warnings"])
-    assert ".git/hooks/pre-commit" not in _manifest(repo)["git_hook_hashes"]
-
-    checkout_gate.commit_touched_paths(repo, report)
-    uninstall_report = project_install.uninstall(repo)
-    assert ambiguous.read_text(encoding="utf-8") == content
-    assert uninstall_report["git_hooks_removed"] == [
-        "post-commit",
-        "pre-merge-commit",
-        "post-merge",
-        "post-rewrite",
-        "post-checkout",
-    ]
+    assert report["git_hooks_removed"] == []
+    assert {hook.name: hook.read_bytes() for hook in hooks.iterdir()} == before
 
 
 def test_clone_excludes_install_and_uninstall_preserve_foreign_rules(repo) -> None:
@@ -185,28 +124,6 @@ def test_legacy_root_ignore_line_survives(repo, repair) -> None:
         assert ".worktrees/" in root_ignore.read_text(encoding="utf-8").splitlines()
     project_install.uninstall(repo)
     assert root_ignore.read_text(encoding="utf-8") == ".worktrees/\n"
-
-
-def test_git_hook_symlink_escape_fails_before_uninstall_mutation(
-    repo,
-    tmp_path,
-) -> None:
-    _git_init(repo)
-    apply_bundle(repo, make_bundle(), source="test")
-    hooks_dir = repo / ".git/hooks"
-    shutil.rmtree(hooks_dir)
-    outside_hooks = tmp_path / "outside-hooks"
-    outside_hooks.mkdir()
-    outside_hook = outside_hooks / "pre-commit"
-    outside_hook.write_text("outside\n", encoding="utf-8")
-    hooks_dir.symlink_to(outside_hooks, target_is_directory=True)
-    before = _tree_bytes(repo)
-
-    with pytest.raises(ProjectInstallError, match="resolves outside repo root"):
-        project_install.uninstall(repo)
-
-    assert _tree_bytes(repo) == before
-    assert outside_hook.read_text(encoding="utf-8") == "outside\n"
 
 
 def test_install_refresh_drop_uninstall_round_trip(repo) -> None:

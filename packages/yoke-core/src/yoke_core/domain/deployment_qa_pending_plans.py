@@ -7,6 +7,9 @@ from yoke_core.domain.deployment_qa_case_failure_kinds import RED_VERDICTS
 from yoke_core.domain.qa_attempt_target_currency import current_target_attempts
 from yoke_core.domain.qa_latest_execution import latest_verdict_executions
 from yoke_core.domain.qa_obligation_settlement import settled_obligation_sql
+from yoke_core.domain.qa_pending_agent_review import pending_review_requirements
+from yoke_core.domain.qa_plan_case_chain import ends_chain
+from yoke_core.domain.qa_plan_partition_custody import PartitionScope, held_partition_cases
 
 
 class QaDispatchResult(tuple):
@@ -19,13 +22,7 @@ class QaDispatchResult(tuple):
 
 
 def pending_stage_plans(conn: Any, stage: dict, run_id: str) -> list[dict]:
-    """Return runnable group plans or the run stage's own selected plan.
-
-    Manual evidence stays with its owner; a pending review is already captured.
-    A live case's determinate failure needs correction, not another capture;
-    a failure recorded against a superseded target is unrun and recaptures.
-    The target digest distinguishes later groups of the same plan.
-    """
+    """Return open plans for the driver to assess partition by partition."""
     name = str(stage["name"])
     if stage.get("scope") == "item":
         subjects = [
@@ -36,34 +33,53 @@ def pending_stage_plans(conn: Any, stage: dict, run_id: str) -> list[dict]:
         subjects = [(int(plan_id), "")] if plan_id else []
     found = []
     for plan_id, digest in subjects:
-        rows = conn.execute(
-            "SELECT id,wake_path FROM qa_requirements WHERE deployment_run_id=%s "
-            "AND deployment_stage=%s AND plan_id=%s AND retracted_at IS NULL "
-            f"AND NOT {settled_obligation_sql(conn)} "
-            "AND (%s='' OR execution_target_digest=%s)",
-            (run_id, name, plan_id, digest, digest),
-        ).fetchall()
-        if not rows or any(row[1] == "manual" for row in rows):
-            continue
-        verdicts = current_target_attempts(
-            conn, latest_verdict_executions(conn, [row[0] for row in rows])
-        )
-        if any(row["verdict"] in RED_VERDICTS for row in verdicts.values()):
-            continue
-        review = conn.execute(
-            "SELECT 1 FROM qa_plan_executions WHERE deployment_run_id=%s "
-            "AND deployment_stage=%s AND state='awaiting_walk_review' "
-            "AND (%s='' OR execution_target_digest=%s) LIMIT 1",
-            (run_id, name, digest, digest),
-        ).fetchone()
-        if review:
-            continue
         row = conn.execute(
             "SELECT p.slug,pr.slug FROM qa_plans p JOIN projects pr ON pr.id=p.project_id "
             "WHERE p.id=%s",
             (plan_id,),
         ).fetchone()
+        if row is None or not _has_pending_partition(conn, run_id, name, plan_id, digest):
+            continue
         found.append(
             {"plan": str(row[0]), "project": str(row[1]), "target_digest": digest}
         )
     return found
+
+
+def _has_pending_partition(conn, run_id, stage, plan_id, digest):
+    from itertools import groupby
+
+    from yoke_core.domain.db_helpers import query_rows
+
+    rows = query_rows(
+        conn,
+        "SELECT id,plan_id,baseline_position,starting_state,wake_path,execution_target_digest "
+        "FROM qa_requirements WHERE deployment_run_id=%s AND deployment_stage=%s "
+        "AND deployment_member_item_id IS NULL AND plan_id=%s AND retracted_at IS NULL "
+        f"AND NOT {settled_obligation_sql(conn)} AND (%s='' OR execution_target_digest=%s) "
+        "ORDER BY execution_target_digest,baseline_position,case_position,id",
+        (run_id, stage, plan_id, digest, digest),
+    )
+    if not rows:
+        return False
+    ids = [int(row["id"]) for row in rows]
+    attempts = current_target_attempts(conn, latest_verdict_executions(conn, ids))
+    pending = pending_review_requirements(conn, ids)
+    scope = PartitionScope(deployment_run_id=run_id, deployment_stage=stage)
+    held = held_partition_cases(conn, scope)
+    for target, rows_for_target in groupby(rows, lambda row: row["execution_target_digest"]):
+        chain = list(rows_for_target)
+        available = True
+        for ordinal, row in enumerate(chain):
+            requirement = int(row["id"])
+            review = pending.get(requirement)
+            available = available and (
+                row["wake_path"] != "manual" and requirement not in held
+                and attempts.get(requirement, {}).get("verdict") not in RED_VERDICTS
+                and (review is None or review.execution_target_digest != target)
+            )
+            if ends_chain(chain, ordinal):
+                if available:
+                    return True
+                available = True
+    return False

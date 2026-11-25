@@ -21,7 +21,7 @@ _WALK_LAUNCH_PREFIX = "qa-walk:"
 
 WALK_LAUNCH_GUIDANCE = (
     "Run command-only partitions yourself and run lane cases from their lane. "
-    "Launch each free walk in an itemless CLI session. See "
+    "Launch each free walk in an itemless CLI session with an explicit --level. The walker uses delegated QA access and never acquires the holder’s item claim. See "
     ".yoke/docs/verification/walking.md#launch-a-walker."
 )
 
@@ -32,7 +32,7 @@ _WALK_LAUNCH_RECOVERY = (
     "`yoke session-control launch create --project P --level LEVEL --surface SURFACE "
     "--raw-instructions --stdin --idempotency-key qa-walk:SUBJECT:SCOPE:KEY:ATTEMPT` "
     "without --item. Use the subject item's requested launch level, or your own "
-    "level for a group or standalone plan. Give the walker the subject flags, "
+    "level for a group or standalone plan. The item claim stays with the holder. Instruct the walker to skip claim acquisition and use delegated QA access for the subject flags, "
     "--partition KEY, frozen source when required, and the report route. "
     "If no relay has capacity, staff a relay machine serving claude-cli, "
     "codex-cli or cursor-cli. Follow .yoke/docs/verification/walking.md#launch-a-walker"

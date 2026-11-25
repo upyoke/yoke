@@ -55,6 +55,7 @@ def test_edit_opens_only_authorable_fields_and_dispatches_full_cas() -> None:
             "host_baselines",
             "starting_state",
             "starting_state_reason",
+            "after_case_key",
             "target_envs",
             "stage_reason",
             "entry_surface",

@@ -12,7 +12,6 @@ from yoke_core.domain.dispatch_descriptors import (
     VERDICT_PASS_FAIL,
     VERDICT_READY_NOT_READY_CAVEATS,
     VERDICT_SIMULATION,
-    WALK_STATUS,
     DispatchDescriptor,
     render_for_harness,
 )
@@ -177,9 +176,9 @@ def test_boss_result_schema_contains_ready_not_ready_caveats() -> None:
     assert VERDICT_READY_NOT_READY_CAVEATS in descriptor.result_schema
 
 
-def test_qa_walker_result_schema_contains_walk_status() -> None:
-    descriptor = DispatchDescriptor(role="qa-walker")
-    assert WALK_STATUS in descriptor.result_schema
+def test_retired_mission_role_cannot_dispatch() -> None:
+    with pytest.raises(ValueError, match="qa-walker"):
+        DispatchDescriptor(role="qa-walker")
 
 
 def test_role_result_schema_table_covers_every_role() -> None:

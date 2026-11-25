@@ -74,94 +74,6 @@ def test_sync_scans_once_for_same_commit_refs(
     assert [line.split(":")[0] for line in out.splitlines()] == ["created", "reused"]
 
 
-def test_hook_mode_reports_failure_but_exits_zero(tmp_path: Path) -> None:
-    repo = _make_repo(tmp_path)
-    response = FunctionCallResponse(
-        success=False,
-        function="project.snapshot.sync",
-        version="v1",
-        error=FunctionError(code="snapshot_sync_failed", message="nope"),
-    )
-    rc, _out, err = _run(
-        "project",
-        "snapshot",
-        "sync",
-        str(repo),
-        "--project",
-        "demo",
-        "--head-only",
-        "--hook",
-        "post-commit",
-        response=response,
-    )
-    assert rc == 0
-    assert "warning: snapshot sync failed" in err
-    assert "yoke project snapshot sync" in err
-
-
-def test_hook_mode_timeout_does_not_prescribe_full_sync(tmp_path: Path) -> None:
-    repo = _make_repo(tmp_path)
-    response = FunctionCallResponse(
-        success=False,
-        function="project.snapshot.sync",
-        version="v1",
-        error=FunctionError(
-            code="https_transport_failed",
-            message="HTTPS function relay response exceeded the time limit",
-        ),
-    )
-    rc, _out, err = _run(
-        "project",
-        "snapshot",
-        "sync",
-        str(repo),
-        "--project",
-        "demo",
-        "--head-only",
-        "--hook",
-        "post-commit",
-        response=response,
-    )
-    assert rc == 0
-    assert "exceeded the time limit" in err
-    assert "yoke project snapshot sync" not in err
-
-
-def test_hook_mode_deferral_reads_as_calm_note(tmp_path: Path) -> None:
-    # A by-design deferral (large snapshot kept off the hot path) must NOT read
-    # as a scary "FAILED ... repair" warning — it's a calm note.
-    repo = _make_repo(tmp_path)
-    response = FunctionCallResponse(
-        success=False,
-        function="project.snapshot.sync",
-        version="v1",
-        error=FunctionError(
-            code="snapshot_sync_deferred",
-            message=(
-                "large path snapshot deferred to keep this write fast; it "
-                "uploads on the next `yoke project snapshot sync` "
-                "(nothing is broken)"
-            ),
-        ),
-    )
-    rc, _out, err = _run(
-        "project",
-        "snapshot",
-        "sync",
-        str(repo),
-        "--project",
-        "demo",
-        "--head-only",
-        "--hook",
-        "post-commit",
-        response=response,
-    )
-    assert rc == 0
-    assert "note:" in err
-    assert "deferred" in err
-    assert "snapshot sync failed" not in err
-
-
 def _write_sync(
     tmp_path,
     monkeypatch,
@@ -217,12 +129,12 @@ def _write_sync(
     return result, captured, err.getvalue(), repo
 
 
-def test_write_sync_default_keeps_short_hook_budget(tmp_path, monkeypatch) -> None:
-    from yoke_cli.commands.adapters.project_snapshot import HOOK_WRITE_TIMEOUT_S
+def test_write_sync_default_keeps_short_write_budget(tmp_path, monkeypatch) -> None:
+    from yoke_cli.commands.adapters.project_snapshot import SNAPSHOT_WRITE_TIMEOUT_S
 
     result, captured, _err, _repo = _write_sync(tmp_path, monkeypatch)
     assert result["status"] == "ok"
-    assert captured[0]["timeout_s"] == HOOK_WRITE_TIMEOUT_S
+    assert captured[0]["timeout_s"] == SNAPSHOT_WRITE_TIMEOUT_S
 
 
 def test_write_sync_none_timeout_uses_normal_request_budget(

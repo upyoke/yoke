@@ -18,7 +18,7 @@ from runtime.api.domain.workflow_item_migration_compatibility_test_support impor
 )
 from runtime.api.fixtures.pg_testdb import connect_test_database
 from runtime.api.fixtures.backlog import insert_item
-from yoke_core.domain import qa_plan_execution_begin, qa_plan_execution_state
+from yoke_core.domain import qa_plan_execution_state
 from yoke_core.domain.builtin_workflow_definitions import (
     builtin_workflow_definition,
 )
@@ -73,18 +73,19 @@ def test_stale_execution_replacement_relocks_after_committing_cleanup(
     allow_relock = threading.Event()
     begin_done = threading.Event()
     outcomes: dict[str, Any] = {}
-    original_cleanup = qa_plan_execution_begin.finish_plan_execution
+    original_commit = type(begin_conn).commit
 
-    def pause_after_cleanup(conn: Any, execution: Any, **kwargs: Any) -> None:
-        original_cleanup(conn, execution, **kwargs)
-        cleanup_committed.set()
-        assert allow_relock.wait(timeout=10)
+    def pause_after_cleanup(conn: Any) -> None:
+        original_commit(conn)
+        if conn is begin_conn and not cleanup_committed.is_set():
+            state = test_db.execute(
+                "SELECT state FROM qa_plan_executions WHERE id=%s", (stale["id"],)
+            ).fetchone()
+            assert state[0] == "aborted"
+            cleanup_committed.set()
+            assert allow_relock.wait(timeout=10)
 
-    monkeypatch.setattr(
-        qa_plan_execution_begin,
-        "finish_plan_execution",
-        pause_after_cleanup,
-    )
+    monkeypatch.setattr(type(begin_conn), "commit", pause_after_cleanup)
 
     def replace_execution() -> None:
         try:

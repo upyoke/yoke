@@ -73,7 +73,6 @@ def preview_report(
     settings_would_delete = sorted(
         rel for rel, plan in hook_plans.items() if plan["deleted_file"]
     )
-    git_hook_preview = preflight["git_hook_preview"]
     return {
         "install_drift": {
             k: preflight["install_recovery"][k]
@@ -113,17 +112,13 @@ def preview_report(
         "hooks_would_remove": hooks_would_remove,
         "settings_files_would_create": settings_would_create,
         "settings_files_would_delete": settings_would_delete,
-        "git_hooks_would_install_or_update": (
-            git_hook_preview.installed + git_hook_preview.updated
-        ),
-        "git_hook_actions": git_hook_preview.actions,
         "clone_excludes_would_add": preflight["clone_excludes_would_add"],
         "snapshot_sync": {
             "status": "skipped",
             "reason": "preview performs no external or server snapshot writes",
         },
         "machine_config_newly_registered": False,
-        "warnings": git_hook_preview.warnings,
+        "warnings": [],
         "harness_health": preflight["harness_health"],
     }
 

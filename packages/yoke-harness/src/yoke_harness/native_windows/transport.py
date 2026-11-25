@@ -50,7 +50,19 @@ $code=$p.ExitCode; $p.Dispose(); exit $code
 class WindowsTransport(SshTestMachineTransport):
     """Use encoded scripts so neither cmd.exe nor ssh reparses user arguments."""
 
-    def __init__(self, **kwargs):
+    elevated = False
+    login_user = None
+    admin_refusal = None
+    task_logon_type = 3
+
+    def __init__(self, *, elevated=False, login_user=None, **kwargs):
+        # An elevated control requires an administrator token; the second
+        # user logs in by name through `-l`, never as a `user@host` string.
+        self.elevated = elevated
+        self.login_user = login_user
+        self.admin_refusal = None
+        # S4U (2) for a user with no console session; else the console token (3).
+        self.task_logon_type = 2 if login_user else 3
         # The parent resolves POSIX shell state on the controller. Windows paths
         # must instead be resolved from the remote host's Windows facts.
         super().__init__(**kwargs)
@@ -66,7 +78,23 @@ class WindowsTransport(SshTestMachineTransport):
             supported_startup_files=(),
         )
 
+    @property
+    def test_user(self):
+        return self._user
+
+    def refresh_host_facts(self):
+        """Re-read the token after a SYSTEM change; an admin token still refuses."""
+        self.admin_refusal = None
+        facts = self._host_facts()
+        if self.admin_refusal is not None:
+            raise self.admin_refusal
+        return facts
+
     def _ssh_argv(self, script):
+        # An admin token without --elevated fails every command loudly, but
+        # only once one runs: a reset must first reach its fixture undo.
+        if self.admin_refusal is not None:
+            raise self.admin_refusal
         wrapped = (
             "$ErrorActionPreference='Stop'; "
             # Progress records reach a redirected stderr as CLIXML and bury
@@ -77,10 +105,14 @@ class WindowsTransport(SshTestMachineTransport):
         )
         if len(encoded(wrapped)) + 80 >= 8000:
             raise RuntimeError("windows_command_too_long: use verified script staging")
-        return super()._ssh_argv(
+        argv = super()._ssh_argv(
             "powershell.exe -NoLogo -NoProfile -NonInteractive -EncodedCommand "
             + encoded(wrapped)
         )
+        if self.login_user:
+            at = argv.index(f"{self._user}@{self._host}")
+            argv[at : at + 1] = ["-l", self.login_user, self._host]
+        return argv
 
     def _run(self, command, *, input_text=None, timeout=60, debug_log=None):
         # Windows OpenSSH commonly launches through cmd.exe's 8191-character
@@ -154,12 +186,25 @@ $version=Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion'
                         for key in ("edition", "build", "user"))
                 and facts["build"].isascii() and facts["build"].isdigit()
             ):
-                if facts["admin"] is False or self.os == "wsl":
+                if self.os == "wsl" or facts["admin"] is bool(self.elevated):
                     self.windows_facts = facts
                     return facts
-                code = "native_windows_test_user_required"
-                detail = "Native Windows QA requires a standard Windows SSH user; this token is an administrator."
-                recovery = "Select the provisioned standard test user and retry; do not grant it administrator privileges."
+                if not self.elevated:
+                    self.windows_facts = facts
+                    self.admin_refusal = HostControlLocalError(
+                        code="native_windows_test_user_required",
+                        phase="host_facts_ssh",
+                        detail="Native Windows QA requires a standard Windows SSH user; this token is an administrator.",
+                        recovery_hint=(
+                            "Undo the grant with `yoke qa mission host-command --fixture grant-admin --undo`, "
+                            "or run `yoke test-machine reset`, which undoes every machine fixture; "
+                            "pass --elevated only for a command that needs the grant."
+                        ),
+                    )
+                    return facts
+                code = "native_windows_elevation_not_granted"
+                detail = "--elevated needs an administrator token; this SSH token is standard."
+                recovery = "Apply `yoke qa mission host-command --fixture grant-admin` first, then rerun with --elevated."
         raise HostControlLocalError(
             code=code,
             phase="host_facts_ssh",
@@ -192,7 +237,12 @@ $version=Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion'
 
             from yoke_harness.native_windows.display_geometry import ENSURE
 
-            return desktop_script(self, "$ErrorActionPreference='Stop'\n" + ENSURE + script, timeout=timeout)
+            # An S4U task has no display to size.
+            ensure = "" if self.login_user else ENSURE
+            result = desktop_script(self, "$ErrorActionPreference='Stop'\n" + ensure + script, timeout=timeout)
+            if self.login_user:
+                result.desktop_session = "s4u_task"
+            return result
         if required_session_context is not None:
             raise ValueError("unknown Windows session context")
         return self._run(script, timeout=timeout)

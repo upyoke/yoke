@@ -22,7 +22,7 @@ def test_route_preserves_native_thread_id(monkeypatch) -> None:
     monkeypatch.setattr(
         routes,
         "_authorize_scope",
-        lambda *_: (HookScopeDecision(project_id=1, project_slug="example"), None),
+        lambda *_: (HookScopeDecision(project_id=1, project_slug="example"), 2, None),
     )
     monkeypatch.setattr(
         remote_entry,

@@ -109,6 +109,7 @@ PLAN_CASE_COLUMNS = (
     "target_envs",
     "starting_state",
     "starting_state_reason",
+    "after_case_key",
     "entry_surface",
     "required_completion",
     "wake_path",
@@ -123,6 +124,8 @@ def semantic_row(row: Mapping[str, Any], fields: Iterable[str]) -> dict[str, Any
     requirement and its correction when the stored text is not JSON.
     """
     result = {field: row.get(field) for field in fields}
+    if row.get("after_case_key") is not None:
+        result["after_case_key"] = row["after_case_key"]
     if "success_policy" in result:
         result["success_policy"] = decode_success_policy(
             result["success_policy"], requirement_id=row.get("id")

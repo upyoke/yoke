@@ -21,7 +21,6 @@ from yoke_cli.commands.adapters.project_snapshot import (
     sync_local_snapshot_for_write,
 )
 from yoke_cli.project_install import files as files_layer
-from yoke_cli.project_install import git_hooks as git_hooks_layer
 from yoke_cli.project_install import checkout_gate
 from yoke_cli.project_install import owned_cleanup
 from yoke_cli.project_install import repository_layer
@@ -80,7 +79,6 @@ def install(
         f"yoke project {operation}: delivery strategy = {resolved_mode} ({reason})",
         file=sys.stderr,
     )
-    git_hooks_layer.assert_pre_commit_runtime_available()
     resolved_id, explicit_given = _resolve_project_id(root, project_id, config_path)
     bundle, source = resolved_bundle or _resolve_bundle(
         resolved_id, explicit_env=explicit_env, config_path=config_path

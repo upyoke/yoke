@@ -149,6 +149,7 @@ def materialized_definition(
         "host_baseline": baseline,
         "starting_state": case.get("starting_state") or (BASELINE if baseline else None),
         "starting_state_reason": case.get("starting_state_reason"),
+        "after_case_key": case.get("after_case_key"),
         "entry_surface": case["entry_surface"],
         "required_completion": case["required_completion"],
         "wake_path": stored_wake_path(case.get("wake_path")),

@@ -18,6 +18,7 @@ from yoke_contracts.api.function_call import (
     TargetRef,
 )
 from yoke_core.domain.handlers.sessions_identity import handle_identity
+from yoke_core.domain.harness_capability_registry import shared_downstream_paths
 from yoke_core.domain.sessions_identity_read import (
     SessionIdentity,
     resolve_session_identity,
@@ -87,6 +88,43 @@ class TestResolveSessionIdentity:
         assert identity.workspace == "/tmp/workspace"
         assert identity.project_id == 1
         assert identity.ended_at is None
+
+    @pytest.mark.parametrize(
+        "slash_prefixed",
+        [
+            False,
+            pytest.param(
+                True,
+                marks=pytest.mark.windows_only(reason="native Windows drive paths"),
+            ),
+        ],
+    )
+    @pytest.mark.parametrize("has_manifest", [False, True])
+    def test_cursor_workspace_identity_read(
+        self, test_db, tmp_path, slash_prefixed, has_manifest
+    ):
+        workspace = str(tmp_path)
+        if slash_prefixed:
+            workspace = "/" + tmp_path.drive.lower() + tmp_path.as_posix()[2:]
+        if has_manifest:
+            manifest_dir = tmp_path / "runtime" / "harness" / "cursor"
+            manifest_dir.mkdir(parents=True)
+            (manifest_dir / "manifest.json").write_text("{}", encoding="utf-8")
+        _insert_session(
+            test_db,
+            "identity-cursor-workspace",
+            executor="cursor",
+            executor_surface="cursor-desktop",
+            provider="cursor",
+            workspace=workspace,
+        )
+
+        identity = resolve_session_identity(test_db, "identity-cursor-workspace")
+
+        assert identity.executor_surface == "cursor-desktop"
+        assert identity.project_id == 1
+        assert identity.workspace == workspace
+        assert identity.capabilities == (shared_downstream_paths() if has_manifest else [])
 
     def test_missing_row_raises_with_recovery(self, test_db):
         from yoke_core.domain.sessions import SessionError

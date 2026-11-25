@@ -129,8 +129,7 @@ def main(argv: list[str] | None = None) -> int:
 
     actor = get_structured_dispatch().build_actor(session_id=data.get("session_id") or None)
     try:
-        # One execution only: the installed controller drives further partitions.
-        result = execute_plan.__wrapped__(
+        result = execute_plan(
             **data["plan_kwargs"], adopted_execution=data["execution"], actor=actor
         )
     except QaPlanExecutionError as exc:

@@ -17,9 +17,8 @@ The substrate renderer expands one canonical body into each harness adapter:
 
 In a Yoke source checkout the six native views (`.claude/agents`,
 `.claude/rules`, `.claude/skills/yoke`, `.codex/hooks.json`, `.codex/agents`,
-`.cursor/agents`) are gitignored. `yoke dev setup`, lane preparation and the
-checkout's pull, merge, checkout and rebase git hooks recreate any that are
-missing or stale; `yoke agents render` does the same by hand. They use a
+`.cursor/agents`) are gitignored. `yoke dev setup` and lane preparation recreate missing or stale views.
+Run `yoke agents render` to refresh them directly. They use a
 symlink, directory junction, or content-checked copy; Git symlink support is
 not required. `HC-harness-substrate-drift` fails on a missing or stale view.
 
@@ -54,11 +53,10 @@ verification anchors are its `.yoke/test-inventory.md`, never a copied repo layo
 | Architect | [architect](../runtime/agents/architect.md) | Technical plan, task specs and lane plan |
 | Engineer | [engineer](../runtime/agents/engineer.md) | Implementation, incremental commits and durable submission |
 | Tester | [tester](../runtime/agents/tester.md) | Read-only completeness/contract/test/doc review and binary verdict |
-| QA Walker | [qa-walker](../runtime/agents/qa-walker.md) | One exploratory mission, ranked findings or human gate |
 | Simulator | [simulator](../runtime/agents/simulator.md) | Cross-task plan/integration gap tracing |
 | Boss | [boss](../runtime/agents/boss.md) | Parameterized spec/PRD/plan quality gate |
 
-All eight agents inherit the parent session tools and permissions on Claude,
+All seven agents inherit the parent session tools and permissions on Claude,
 Codex and Cursor. Role instructions own editing and state-change boundaries.
 Claude sidecars declare opus and maxTurns300; Engineer uses bypassPermissions
 for unattended dispatch. Model settings remain harness-specific.
@@ -157,20 +155,11 @@ requires both URL and command, otherwise skip with reason. E2E failures are FAIL
 even if units pass, with failing tests/errors/screenshots/traces/videos. Mocked
 Browser integration belongs to full, shallow real-stack smoke to smoke.
 
-### QA Walker
+### Exploratory QA
 
-Walk one mission sequence chosen at runtime as an informed subagent driving
-the target from the controller without adding a source checkout. Main retains
-item/Progress Log/human-request/report/final verdict.
-Walker returns ranked findings and unverified areas; its turn is atomic.
-The walker opens sessions, answers permission dialogs and approves codes itself;
-only a password or credential entry returns `WALK_STATUS: HUMAN_GATE` naming that
-one entry and the resume state, no Fleet mail. Main records handoff, routes
-to live covering steering or human owner and dispatches a fresh walker;
-acknowledgement is not sign-in proof. Discard routine screen perception, attach
-only deliberate finding proof within runtime artifact limit. macOS window-server/
-login-keychain commands use Terminal GUI-session bridge; display failures,
-audit-session denial and misleading SSH OAuth expiry are wrong-session signals.
+Walk missions and record cited verdicts in the current session. Follow
+[Walking QA missions](public/verification/walking.md) for host commands,
+human gates, cleanup and evidence.
 
 ### Simulator
 
@@ -240,13 +229,13 @@ diagnostic SQL. Startup points to reads; no duplicate hand-authored cheat sheet.
 | Role | Current ROLE_TOPICS |
 |---|---|
 | main_agent | core, claims, auth, qa, packs; project depth pointer |
-| engineer_agent, tester_agent, qa_walker_agent | core, claims, qa, project |
+| engineer_agent, tester_agent | core, claims, qa, project |
 | architect_agent, simulator_agent, boss_agent | core, claims |
 
 Authority is `schema_api_context_seed.ROLE_TOPICS`, not this snapshot. Main QA
 recipes support case/run/tester-review inspection before re-dispatch. Engineer
 progress/submission/verification, Tester review/verdict, Main/Architect authoring
-coordination are needed at action; Boss/Simulator read, QA Walker follows mission.
+coordination are needed at action; Boss and Simulator read context.
 Lifecycle repair, raw SQL, Pulumi state migration and expanded delivery remain
 explicit topics. Retained startup recipes also exist in full depth.
 PM/Designer have no Bash/packet section; a future Bash grant adds role topic key
@@ -269,8 +258,7 @@ definition. No harness task suggestions.
 
 Claude subagents obey configured300-turn ceiling; inline Shepherd/Conduct carry
 the segment without that subagent ceiling. Reserve role-specific reporting time:
-read-only roles end with complete report, Engineer commits/submits, QA Walker
-returns status/mission report. Absolute paths/active claims own access; independent
+Read-only roles report their findings. Engineer commits and submits the work. Absolute paths/active claims own access; independent
 calls anchor git/test/source paths. Durable current-state checkpoints retain
 live decisions/holds/blockers/actions and evidence links without historical essays.
 

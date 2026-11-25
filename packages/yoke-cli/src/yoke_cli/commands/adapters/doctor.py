@@ -46,7 +46,8 @@ from yoke_cli.commands.adapters.doctor_output import (
     stream_progress_to_stderr,
 )
 from yoke_cli.transport.dispatcher import call_dispatcher
-from yoke_cli.transport.https import resolve_https_connection, TransportError
+from yoke_cli.transport import https as https_transport
+from yoke_cli.transport.https import TransportError
 from yoke_contracts.api.function_call import FunctionCallResponse, FunctionError, TargetRef
 from yoke_contracts.doctor_budget import CHUNK_BUDGET_S
 
@@ -299,7 +300,7 @@ def _dispatch_in_process(
 
 def _active_transport_is_https() -> bool:
     try:
-        return resolve_https_connection() is not None
+        return https_transport.resolve_https_connection() is not None
     except TransportError:
         return False
 
@@ -313,7 +314,7 @@ def _runtime_for_active_connection() -> str:
     the runner never has to guess whether it can see a source tree.
     """
     try:
-        connection = resolve_https_connection()
+        connection = https_transport.resolve_https_connection()
     except TransportError:
         return DESTINATION_LOCAL
     if connection is None:

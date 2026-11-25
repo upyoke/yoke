@@ -17,15 +17,17 @@ from yoke_contracts.platform_fs import remove_tree
 from yoke_core.domain.relay_release_path import relay_venv_python, relay_venv_executable
 from yoke_core.tools.session_relay_links import activate_link, remove_link
 from yoke_contracts.runtime_ports.manifest import get_manifest
-from yoke_contracts.machine_config.relay_instance import RelayInstance, resolve_relay_instance
+from yoke_contracts.machine_config import relay_instance
+from yoke_contracts.machine_config.relay_instance import RelayInstance
 from yoke_core.tools.session_relay_links import create_relay_directory as create_private_directory
 from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.timestamps import iso8601_now
 
 from yoke_core.tools import session_relay_local_install as local_install
+from yoke_core.tools import session_relay_release
 from yoke_core.tools.session_relay_package_validate import relay_package_runnable_reason
 from yoke_core.domain.relay_release_path import relay_launch_executable
-from yoke_core.tools.session_relay_release import PYTHON_ISOLATION_FLAG, RELAY_ACTIVE_RELEASE_NAME, RELAY_RELEASE_ERROR_NAME, RELAY_RELEASE_INSTALL_FAILED, RELAY_RELEASE_RECEIPT_NAME, ManifestFetcher, RelayReleaseError, RelayReleaseStatus, distribution_index_for_instance, fetch_served_build, relay_active_release_path, relay_release_receipt, relay_release_status, relay_runtime_executable, relay_runtime_python, release_version_from_build, write_release_json
+from yoke_core.tools.session_relay_release import PYTHON_ISOLATION_FLAG, RELAY_ACTIVE_RELEASE_NAME, RELAY_RELEASE_ERROR_NAME, RELAY_RELEASE_INSTALL_FAILED, RELAY_RELEASE_RECEIPT_NAME, ManifestFetcher, RelayReleaseError, RelayReleaseStatus, distribution_index_for_instance, fetch_served_build, relay_active_release_path, relay_release_receipt, relay_runtime_executable, relay_runtime_python, release_version_from_build, write_release_json
 from yoke_core.tools.session_relay_release_packages import install_release_packages
 from yoke_core.tools.session_relay_release_retention import (
     prune_relay_releases,
@@ -53,7 +55,7 @@ def pin_relay_release(
     runner: Runner = subprocess.run,
 ) -> RelayReleaseStatus:
     """Converge stable runtime identity and the atomic release pointer."""
-    selected = instance or resolve_relay_instance()
+    selected = instance or relay_instance.resolve_relay_instance()
     observed = str(served_build or "")
     try:
         create_private_directory(selected.state_dir)
@@ -70,7 +72,7 @@ def pin_relay_release(
                 create_runtime=create_runtime,
             )
             _report_timing("runtime", started)
-            existing = relay_release_status(
+            existing = session_relay_release.relay_release_status(
                 instance=selected, refresh_served=False, runner=runner
             )
             if existing.package_ready and existing.pinned_release == release:

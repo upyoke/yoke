@@ -34,7 +34,6 @@ APPLY_STEPS = [
     {"action": "project-install-agent-rules", "target": ""},
     {"action": "project-install-tool-permissions", "target": ""},
     {"action": "project-install-harness-hooks", "target": ""},
-    {"action": "project-install-git-hooks", "target": ""},
 ]
 
 FAILED_AT = "project-install-agent-rules"

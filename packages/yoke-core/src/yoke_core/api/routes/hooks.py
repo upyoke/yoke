@@ -6,8 +6,8 @@ whose project-local hooks run ``yoke hook evaluate <event>`` over https
 transport (the relay client evaluates the client-home policies itself,
 ships the client facts the rest read, and composes the verdicts). Auth
 is enforced by the app-level bearer-token middleware like every other
-``/v1`` route; the verified token's actor binds to the ``harness_sessions``
-row at relayed ensure-register. The wire contract is frozen: see
+``/v1`` route; the credential binds the session actor at relayed
+registration. An exact attested launch delegates that actor to its machine. The wire contract is frozen: see
 :mod:`yoke_harness.hooks.relay` (client) and
 :mod:`yoke_core.hooks.remote_entry` (evaluation).
 
@@ -19,6 +19,7 @@ it, with the server's request wall time on the dispatch row.
 
 from __future__ import annotations
 
+from contextlib import nullcontext
 from datetime import datetime, timezone
 import json
 from typing import Any
@@ -30,14 +31,17 @@ from fastapi.routing import APIRouter
 from yoke_contracts.session_model_facts import facts_from_mapping
 from yoke_contracts.hook_evaluator_protocol import HOOK_EVALUATOR_CAPABILITIES
 from yoke_core.api.http_auth import HttpAuthContext, require_auth_context
+from yoke_core.api.launch_machine_actor import session_actor_for
 from yoke_core.api.observability import (
     now_ms,
     record_counter,
     record_histogram,
     request_phases,
 )
+from yoke_core.domain import db_helpers
 from yoke_core.domain.execution_provenance import collect_execution_provenance
 from yoke_core.domain.session_scope_identity import (
+    HOOK_SCOPE_UNAVAILABLE,
     HookScopeDecision,
     authorize_hook_request,
 )
@@ -104,13 +108,13 @@ def post_hooks_evaluate(
     )
     auth = require_auth_context(http_request)
     observed_at = datetime.now(timezone.utc)
-    scope, auth_error = _authorize_scope(auth, request)
+    scope, actor_id, auth_error = _authorize_scope(auth, request)
     if auth_error is not None:
         runtime = get_hook_service_runtime()
         posture_error = runtime.persist_authorization_denied_turn_end(
             event_name=request.event_name,
             session_id=str(_stdin_payload(request).get("session_id") or ""),
-            actor_id=auth.actor_id,
+            actor_id=actor_id,
             observed_at=observed_at,
         )
         if posture_error:
@@ -135,8 +139,11 @@ def post_hooks_evaluate(
         native_thread_id=request.native_thread_id,
         payload_extra=request.payload_extra,
         deadline_ms=deadline_ms,
-        actor_id=auth.actor_id,
+        actor_id=actor_id,
         denial_revisions=_denial_revisions(request),
+        correlate_client_wall=(
+            actor_id == auth.actor_id or request.event_name not in {"Stop", "SessionEnd"}
+        ),
     )
     attributes = {"event": request.event_name, "outcome": result.outcome}
     record_histogram("yoke.hook.wait_ms", result.wait_ms, attributes=attributes)
@@ -294,20 +301,29 @@ def _refuse_conversation_shaped(request: HookEvaluateRequest) -> JSONResponse | 
 def _authorize_scope(
     auth: HttpAuthContext,
     request: HookEvaluateRequest,
-) -> tuple[HookScopeDecision, JSONResponse | None]:
-    decision = authorize_hook_request(
-        auth.actor_id,
-        request.project_id,
-        [str(_stdin_payload(request).get("session_id") or "")],
-        machine_id=request.machine_id,
-        authenticated_machine_id=auth.machine_id,
-        event_name=request.event_name,
-    )
+) -> tuple[HookScopeDecision, int, JSONResponse | None]:
+    session_id = str(_stdin_payload(request).get("session_id") or "")
+    actor_id = auth.actor_id
+    try:
+        authority = db_helpers.connect() if auth.machine_id and session_id else nullcontext()
+        with authority as conn:
+            actor_id = session_actor_for(auth, session_id, conn=conn)
+            decision = authorize_hook_request(
+                actor_id,
+                request.project_id,
+                [session_id],
+                machine_id=request.machine_id,
+                authenticated_machine_id=auth.machine_id,
+                event_name=request.event_name,
+                conn=conn,
+            )
+    except Exception:
+        decision = HOOK_SCOPE_UNAVAILABLE
     if decision.denial_code is None:
-        return decision, None
+        return decision, actor_id, None
     reason = f"{decision.denial_code}: {decision.reason}"
     _emit_route_denial(decision.denial_code, reason, request, close_tool_call=False)
-    return decision, JSONResponse(
+    return decision, actor_id, JSONResponse(
         status_code=503
         if decision.denial_code == "HOOK_SCOPE_AUTH_UNAVAILABLE"
         else 200,

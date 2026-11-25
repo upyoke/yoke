@@ -45,6 +45,7 @@ PLAN_DEFINITION_COLUMNS: tuple[str, ...] = (
     "entry_surface",
     "required_completion",
     "starting_state",
+    "after_case_key",
     "success_policy",
     "capability_requirements",
     "case_position",

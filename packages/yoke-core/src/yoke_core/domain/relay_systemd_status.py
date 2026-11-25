@@ -9,6 +9,8 @@ import subprocess
 from typing import Callable, Mapping
 from yoke_contracts.machine_config import paths as machine_config
 from yoke_contracts.machine_config.relay_instance import RelayInstance, resolve_relay_instance
+from yoke_contracts.systemd_user_manager import USER_MANAGER_PROBE, user_manager_unavailable
+from yoke_contracts.wsl import is_wsl
 from yoke_contracts.systemd_service import SERVICE_OPERATION_TIMEOUT_SECONDS, SERVICE_QUERY_TIMEOUT_SECONDS
 from yoke_core.domain.relay_launchd_status import RelayInstallError
 from yoke_core.domain.session_relay_executable import relay_executable_search_path
@@ -74,14 +76,19 @@ def systemd_unavailable_reason(
             "Use a systemd Linux host; enable systemd in WSL before retrying."
         )
     try:
-        result = _run(["systemctl", "--user", "show-environment"], runner)
+        result = _run(list(USER_MANAGER_PROBE), runner)
     except RelayInstallError as exc:
         return str(exc)
     if result.returncode:
+        missing = user_manager_unavailable(
+            result.stderr,
+            wsl=is_wsl(),
+            distro=os.environ.get("WSL_DISTRO_NAME"),
+            retry="retry `yoke relay install`",
+        )
         return (
             "relay_systemd_user_manager_unavailable: relay is not supervised; "
-            f"{result.stderr.strip()}. Log in through a PAM session with "
-            "a systemd user manager, then retry `yoke relay install`."
+            f"{missing['user_manager_stderr']}. {missing['recovery']}"
         )
     return ""
 

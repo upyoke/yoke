@@ -165,5 +165,6 @@ def test_settled_walk_refusal_names_the_server_cleanup_still_owed(
     assert refused.error is not None
     assert refused.error.code == "agent_mission_access_failed"
     assert RETIRE in refused.error.message
-    assert "machine retire" in refused.error.message
+    assert "delete its fixture repositories" in refused.error.message
+    assert "machine retire" not in refused.error.message
     assert "Progress Log" in refused.error.message

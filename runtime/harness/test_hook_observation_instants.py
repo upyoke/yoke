@@ -70,7 +70,7 @@ def test_deferred_capture_uses_native_clock_and_canonical_payload(monkeypatch) -
             headers={"Authorization": "Bearer test"},
         )
     )
-    observation = opener.observation(hook_wait_ms=7)
+    observation = opener.observation(hook_wait_ms=7, session_key="session")
     assert observation.observed_at == INSTANT
     assert observation.payload()["observed_at"] == CANONICAL
     assert observation.payload()["hook_request"] == OPAQUE

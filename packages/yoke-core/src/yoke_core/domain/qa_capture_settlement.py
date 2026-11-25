@@ -118,9 +118,11 @@ def settle_unreviewed_execution_captures(
     bindings = " OR ".join(
         f"(qa_requirement_id={placeholder} AND id={placeholder})" for _ in captures
     )
+    # A case blocked before it started judged nothing, so it keeps no verdict.
     unjudged = conn.execute(
         f"SELECT id, verdict_reason FROM qa_runs WHERE ({bindings}) "
-        f"AND performed_by IN ({runners}) AND verdict IS NULL ORDER BY id",
+        f"AND performed_by IN ({runners}) AND verdict IS NULL "
+        "AND COALESCE(case_outcome,'')<>'blocked_on_precondition' ORDER BY id",
         (*(value for binding in captures for value in binding), *CAPTURE_RUNNERS),
     ).fetchall()
     now = utc_now()

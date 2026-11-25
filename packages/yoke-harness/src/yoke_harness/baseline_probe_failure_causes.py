@@ -89,6 +89,15 @@ APP_QUIT_BLOCKED = ProbeFailureCause(
     "the home, then retry.",
 )
 
+MACHINE_DRIFT = ProbeFailureCause(
+    "probe_machine_drift",
+    "the native Windows host carries machine-wide state its baseline forbids "
+    "(a fixture's policy, proxy, CA, account change or files)",
+    "Run `yoke test-machine reset --test-machine TEST_MACHINE`, which undoes every "
+    "machine fixture before it restores; if the drift survives, rebuild the lab in "
+    "place as the native Windows provisioning recovery guide describes.",
+)
+
 # The one code-to-cause table. Codes avoid 1 and 2, which Python itself uses
 # for an uncaught exception and a usage error.
 PROBE_FAILURE_CAUSES: dict[int, ProbeFailureCause] = {
@@ -101,6 +110,7 @@ PROBE_FAILURE_CAUSES: dict[int, ProbeFailureCause] = {
     22: LAYOUT_UNRECOGNIZED,
     23: APP_OPEN_FAILED,
     24: APP_QUIT_BLOCKED,
+    25: MACHINE_DRIFT,
 }
 # Sealed exit codes carry native diagnoses; receipts retain the execution category.
 PROBE_EXIT_CODES: dict[str, int] = {
@@ -248,6 +258,7 @@ __all__ = [
     "HARNESS_EXIT_NONZERO",
     "LAUNCH_FAILED",
     "LAYOUT_UNRECOGNIZED",
+    "MACHINE_DRIFT",
     "PROBE_EXIT_CODES",
     "PROBE_FAILURE_CAUSES",
     "REJECTION_RECORD_MISSING",

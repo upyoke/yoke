@@ -8,7 +8,6 @@ check resolves through ``project_github_auth.resolve_project_github_auth``
 from __future__ import annotations
 
 import argparse
-import os
 import shutil
 import subprocess
 import sys
@@ -73,34 +72,6 @@ def _git_version_ok() -> bool:
     except Exception:
         return False
     return major > 2 or (major == 2 and minor >= 15)
-
-
-def _git_common_dir(repo_root: Path) -> Path:
-    dot_git = repo_root.joinpath(".git")
-    if dot_git.is_dir():
-        return dot_git
-    if not dot_git.is_file():
-        return dot_git
-
-    first_line = dot_git.read_text(encoding="utf-8").splitlines()[0]
-    prefix = "gitdir:"
-    if not first_line.lower().startswith(prefix):
-        return dot_git
-
-    git_dir_text = first_line[len(prefix) :].strip()
-    git_dir = Path(git_dir_text)
-    if not git_dir.is_absolute():
-        git_dir = repo_root.joinpath(git_dir).resolve()
-
-    common_dir_file = git_dir.joinpath("commondir")
-    if common_dir_file.is_file():
-        common_text = common_dir_file.read_text(encoding="utf-8").strip()
-        common_dir = Path(common_text)
-        if not common_dir.is_absolute():
-            common_dir = git_dir.joinpath(common_dir).resolve()
-        return common_dir
-
-    return git_dir
 
 
 def run_checks(repo_root: Path, *, strict: bool = False) -> int:
@@ -172,15 +143,6 @@ def run_checks(repo_root: Path, *, strict: bool = False) -> int:
     )
     _add_result(results, "Python entrypoints present", "✅" if entrypoints_ok else "❌")
     critical_fail = critical_fail or not entrypoints_ok
-
-    pre_commit = _git_common_dir(repo_root).joinpath("hooks", "pre-commit")
-    pre_commit_ok = (
-        pre_commit.is_file()
-        and os.access(pre_commit, os.X_OK)
-        and "yoke-pre-commit" in pre_commit.read_text(encoding="utf-8")
-    )
-    _add_result(results, "Git pre-commit hook", "✅" if pre_commit_ok else "❌")
-    critical_fail = critical_fail or not pre_commit_ok
 
     settings = repo_root / ".claude" / "settings.json"
     settings_ok = settings.is_file() and all(

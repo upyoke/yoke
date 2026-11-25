@@ -25,8 +25,7 @@ def record_head_for_checkout(
 ) -> Optional[int]:
     """Bind an active lane at ``checkout_path`` to its just-committed HEAD.
 
-    The global post-commit snapshot already proves the checkout path and
-    commit identity locally. Matching both project and active lane path keeps
+    Snapshot sync supplies the checkout path and commit identity. Matching both project and active lane path keeps
     ordinary commits outside a registered lane as a no-op.
     """
     clean_path = normalize_repo_path(str(checkout_path).strip())

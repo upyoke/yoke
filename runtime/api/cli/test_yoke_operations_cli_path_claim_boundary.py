@@ -100,7 +100,7 @@ def test_boundary_prove_observes_recorded_lane_then_relays_proof(tmp_path):
 
 
 def test_boundary_prove_timeout_retries_original_command(tmp_path):
-    from yoke_cli.commands.adapters.project_snapshot import HOOK_WRITE_TIMEOUT_S
+    from yoke_cli.commands.adapters.project_snapshot import SNAPSHOT_WRITE_TIMEOUT_S
     from yoke_contracts.api.function_call import FunctionError
     from runtime.api.cli.project_snapshot_cli_test_helpers import make_repo
 
@@ -164,7 +164,7 @@ def test_boundary_prove_timeout_retries_original_command(tmp_path):
     assert rc == 1
     assert snapshot_calls
     assert snapshot_calls[0]["timeout_s"] is None
-    assert snapshot_calls[0]["timeout_s"] is not HOOK_WRITE_TIMEOUT_S
+    assert snapshot_calls[0]["timeout_s"] is not SNAPSHOT_WRITE_TIMEOUT_S
     refusal = err.getvalue()
     assert "exceeded the time limit" in refusal
     assert "rerun the same command" in refusal

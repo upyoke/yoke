@@ -17,6 +17,7 @@ from yoke_contracts.machine_qa_failures import (
 from yoke_harness.posix_mission_operations import PosixMissionOperations
 from yoke_harness.ssh_host_baselines import SshHostBaselines
 from yoke_harness.ssh_linux_memory import check_linux_memory
+from yoke_harness.ssh_linux_user_manager import check_linux_user_manager
 from yoke_harness.ssh_test_machine_transport import SshTestMachineTransport
 from yoke_harness.ssh_linux_baseline import (
     archive_operation,
@@ -28,6 +29,7 @@ from yoke_harness.ssh_linux_terminal import (
 )
 from yoke_contracts.ssh_mac_full_reset_contract import GOLDEN_PROBES_SUFFIX
 from yoke_harness.ssh_tool_resolution import probe_reset_tools, tools_present
+from yoke_harness.test_machine_reset_identity import retire_reset_identity
 from yoke_contracts.test_machine_types import HostActionResult
 
 
@@ -105,8 +107,15 @@ class SshLinuxHostOperations(
                 SSH_UNAVAILABLE if result.returncode else None,
             )
         memory = check_linux_memory(self._run, secret_values=self.secret_values)
+        if not memory.ok:
+            return HostActionResult(
+                False, {**evidence, **memory.evidence}, memory.error_code
+            )
+        manager = check_linux_user_manager(self._run, secret_values=self.secret_values)
         return HostActionResult(
-            memory.ok, {**evidence, **memory.evidence}, memory.error_code
+            manager.ok,
+            {**evidence, **memory.evidence, **manager.evidence},
+            manager.error_code,
         )
 
     def check_terminal_bridge(self) -> HostActionResult:
@@ -129,9 +138,14 @@ class SshLinuxHostOperations(
                 },
                 "golden_baseline_not_declared",
             )
+        retirement = retire_reset_identity(self)
+        if not retirement.ok:
+            return retirement
         restored = archive_operation(self, "reset", self.golden_baseline_path)
         if not restored.ok:
-            return restored
+            return HostActionResult(
+                False, {**retirement.evidence, **restored.evidence}, restored.error_code
+            )
         observed = probe_reset_tools(self)
         failed = any(
             probe["state"] == "probe-failed"
@@ -143,6 +157,7 @@ class SshLinuxHostOperations(
         return HostActionResult(
             absent,
             {
+                **retirement.evidence,
                 **restored.evidence,
                 "path_state": {
                     "launcher_present": tools_present(observed, ("yoke",)),

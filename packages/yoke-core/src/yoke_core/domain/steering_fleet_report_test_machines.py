@@ -3,6 +3,10 @@
 from __future__ import annotations
 import json
 from typing import Any, NamedTuple
+from yoke_contracts.harness_provider_unavailable import (
+    PROVIDER_UNAVAILABLE_ERROR_CODE,
+    PROVIDER_UNAVAILABLE_RECOVERY,
+)
 from yoke_core.domain.schema_common import _table_exists
 
 
@@ -163,12 +167,14 @@ def read_reset_debts(
             continue
         execution_id = _holding_execution(conn, name)
         failed = debt.attempt is not None and execution_id is None
+        code = (debt.attempt["error_code"] or "machine_needs_repair") if failed else None
+        manual = not execution_id and code != PROVIDER_UNAVAILABLE_ERROR_CODE
         debts.append(
             ResetDebt(
                 name,
-                None if execution_id else reset_command(name, debt.baseline),
+                reset_command(name, debt.baseline) if manual else None,
                 execution_id,
-                (debt.attempt["error_code"] or "machine_needs_repair") if failed else None,
+                code,
             )
         )
     return (*debts, *read_queue(conn))
@@ -188,6 +194,9 @@ def reset_debt_lines(rows):
         if isinstance(row, IdleHostHold)
         else f"Test Machine {row.test_machine}: reset owed after {row.execution_id}"
         if row.execution_id
+        else f"Test Machine {row.test_machine}: {PROVIDER_UNAVAILABLE_ERROR_CODE}: "
+        + PROVIDER_UNAVAILABLE_RECOVERY
+        if row.error_code == PROVIDER_UNAVAILABLE_ERROR_CODE
         else f"Test Machine {row.test_machine}: machine_needs_repair: automatic reset failed "
         f"({row.error_code}); run `{row.recovery}`"
         if row.error_code

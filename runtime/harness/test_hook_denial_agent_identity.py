@@ -27,7 +27,7 @@ from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 from yoke_harness.hooks import local_subset
 from yoke_harness.hooks.deadline import start_hook_deadline
 
-AGENT = "yoke-qa-walker"
+AGENT = "yoke-tester"
 
 
 class _FakeHttpRequest:

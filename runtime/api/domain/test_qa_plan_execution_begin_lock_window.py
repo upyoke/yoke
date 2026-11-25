@@ -204,7 +204,6 @@ def test_a_stage_wide_begin_reads_again_unlocked_then_refuses_by_name(
 def test_a_begin_that_retired_an_execution_reads_again_unlocked(
     test_db, monkeypatch
 ):
-    from yoke_core.domain import qa_plan_execution_begin
     from yoke_core.domain.qa_plan_execution_lifecycle import finish_plan_execution
 
     run_id, members = ("run-begin-lock-retired", tuple(range(9811, 9813)))
@@ -215,9 +214,9 @@ def test_a_begin_that_retired_an_execution_reads_again_unlocked(
         finish_plan_execution(conn, execution, state="aborted", reason="test retire")
         return True
 
-    monkeypatch.setattr(
-        qa_plan_execution_begin, "retire_unstarted_changed_roster", retire
-    )
+    from yoke_core.domain import qa_plan_execution_roster_change
+
+    monkeypatch.setattr(qa_plan_execution_roster_change, "retire_unstarted_changed_roster", retire)
     probe, reads, _locked = _record_roster_reads(
         test_db, monkeypatch, run_id, [True, False]
     )

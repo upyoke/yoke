@@ -6,6 +6,8 @@ import subprocess
 
 import pytest
 
+from yoke_contracts.machine_fixture_verify import VERIFY_MARKER
+
 from yoke_harness.native_windows import admin, provision
 from yoke_harness.native_windows.stdin_frame import (
     MAX_BYTES,
@@ -130,6 +132,8 @@ def test_ssh_bootstrap_uses_admin_ssh_without_azure_or_password_trimming(monkeyp
 
     def admin(key, host, user, script, **kwargs):
         scripts.append((script, kwargs))
+        if "fixture='second-user';operation='setup'" in script:
+            return completed(VERIFY_MARKER + '{"fixture":"second-user","operation":"setup","ok":true}')
         return completed("Native OpenSSH ready; password authentication disabled.")
 
     monkeypatch.setattr(provision.subprocess, "run", run)
@@ -137,7 +141,9 @@ def test_ssh_bootstrap_uses_admin_ssh_without_azure_or_password_trimming(monkeyp
     provision.provision(
         "project", "machine", "host", "group", "admin", "qa", bootstrap_transport="ssh"
     )
-    assert len(scripts) == 2  # bootstrap, setup
+    assert len(scripts) == 3  # bootstrap, setup, second user
+    # The second user's script carries the project key and no password input.
+    assert "ssh-ed25519 PUBLIC" in scripts[2][0] and "input_text" not in scripts[2][1]
     assert scripts[1][1]["input_text"] == " secret "
     assert "Read-YokeFrame" in scripts[1][0]
     assert "ReadToEnd" not in scripts[1][0]

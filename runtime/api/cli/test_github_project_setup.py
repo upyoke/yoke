@@ -154,9 +154,6 @@ def test_install_and_refresh_converge_before_upstream_and_publication(
     )
     monkeypatch.setattr(runner, "validate_bundle_for_project", lambda *args: None)
     monkeypatch.setattr(
-        runner.git_hooks_layer, "assert_pre_commit_runtime_available", lambda: None
-    )
-    monkeypatch.setattr(
         runner.checkout_gate,
         "assert_ready_for_write",
         lambda *a, **kw: {"branch": "main"},

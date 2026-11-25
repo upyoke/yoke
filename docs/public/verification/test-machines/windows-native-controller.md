@@ -6,7 +6,7 @@
 
 Prepare the controller before continuing [native Windows host setup](windows-native-host-provisioning.md).
 
-Agents drive the lab's desktop apps without any RDP client. QA walkers list,
+Agents drive the lab's desktop apps without any RDP client. During a mission, list,
 focus, click, type into, press keys in and read any window with
 `yoke qa mission desktop`, launch apps with `yoke qa mission host-command
 --gui-session`, and see the result with `yoke test-machine screenshot`. All

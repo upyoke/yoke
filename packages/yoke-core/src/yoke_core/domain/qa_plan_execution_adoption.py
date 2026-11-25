@@ -58,10 +58,19 @@ def adopt_execution(
             f"`{_reconcile_command(conn, execution)}`"
         )
     claim = get_claim_for_work_unit(conn, item_id=str(owner_item))
+    claim_session = session_id
     if claim is None or str(claim["session_id"]) != session_id:
-        raise QaPlanExecutionStateError(
-            "qa_adoption_claim_required: acquire the execution item's work claim, then retry adoption"
+        from yoke_core.domain.qa_walk_authority import delegating_adoption_claim
+
+        claim = delegating_adoption_claim(
+            conn, item_id=owner_item, session_id=session_id, execution=execution,
         )
+        if claim is None:
+            raise QaPlanExecutionStateError(
+                "qa_adoption_claim_required: hold the item claim or use a replacement "
+                "launch for the ended owner's partition"
+            )
+        claim_session = str(claim["session_id"])
     # Serialize release/termination with the transfer, rechecking after locking.
     held = query_one(
         conn, "SELECT * FROM work_claims WHERE id=%s FOR UPDATE", (claim["id"],)
@@ -69,7 +78,7 @@ def adopt_execution(
     if (
         held is None
         or held["released_at"] is not None
-        or str(held["session_id"]) != session_id
+        or str(held["session_id"]) != claim_session
     ):
         raise QaPlanExecutionStateError(
             "qa_adoption_claim_lost: reacquire the execution item's work claim, then retry"

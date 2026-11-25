@@ -16,6 +16,7 @@ from yoke_cli.config import onboard as onboard_config
 from yoke_cli.config import onboard_apply_report
 from yoke_contracts import onboard_destinations as onboard_destinations
 from yoke_contracts.api_urls import HOSTED_PROD_API_URL
+from yoke_contracts.machine_config.directories import create_private_directory
 from yoke_contracts.machine_config.schema import DEFAULT_TRANSPORT
 
 pytestmark = pytest.mark.usefixtures("stub_onboard_session_relay")
@@ -198,7 +199,7 @@ def test_resume_reuses_hosted_browser_approved_credential(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     home = tmp_path / "home"
-    home.mkdir()
+    create_private_directory(home)
     set_home(monkeypatch, str(home))
     monkeypatch.setenv("ZDOTDIR", str(home))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(home / ".config"))

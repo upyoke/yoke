@@ -256,7 +256,7 @@ def _stamp_heartbeat(conn: Any, session_id: str, observed_at: datetime) -> None:
 
 
 def persist_observation_batch(
-    observations: list[Mapping[str, Any]], *, actor_id: int
+    observations: list[Mapping[str, Any]],
 ) -> tuple[int, dict[str, str]]:
     """Persist a validated batch; raise so the resident retains failed work."""
     conn = db_backend.connect()
@@ -289,7 +289,7 @@ def persist_observation_batch(
                 conn,
                 payload=payload,
                 context=context,
-                actor_id=actor_id,
+                actor_id=payload["actor_id"],
                 observed_at=observed_at,
             )
             _tool_event(

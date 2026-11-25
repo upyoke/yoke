@@ -3,8 +3,8 @@
 An installed project receives the public docs at ``.yoke/docs`` and each
 harness manifest at ``.yoke/harness/<harness>/manifest.json``. A Yoke source
 checkout commits only the sources, so the teaching that names those installed
-paths reads gitignored copies that ``yoke dev setup``, lane preparation and the
-checkout's head-moving git hooks refresh here. The same refresh recreates the
+paths reads gitignored copies refreshed by ``yoke dev setup`` and lane
+preparation. The same refresh recreates the
 gitignored native harness views (``.claude/agents``, ``.codex/hooks.json`` ...)
 listed in :mod:`source_native_views`.
 """

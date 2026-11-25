@@ -68,7 +68,7 @@ def test_deferred_observation_preserves_transport_final_url() -> None:
         opener=opener,
     )
     assert response.payload["outcome"] == "completed"
-    assert opener.observation(hook_wait_ms=1).endpoint == (
+    assert opener.observation(hook_wait_ms=1, session_key="session").endpoint == (
         "https://example.test/v1/hooks/telemetry/batch"
     )
     assert opener.client_wall_target() == (

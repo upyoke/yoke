@@ -31,12 +31,19 @@ QA_PLAN_RUN_USAGE = (
     "(--item PREFIX-N (--transition TRANSITION | --stage STAGE [--plan PLAN] "
     "[--deployment-run-id RUN]) | "
     "--deployment-run-id RUN --stage STAGE [--plan PLAN] | "
-    "--plan PLAN --project P | --resume-execution-id ID) [--replaces CASE_KEY=REQUIREMENT_ID] "
+    "--plan PLAN --project P | --resume-execution-id ID) [--partition KEY] [--replaces CASE_KEY=REQUIREMENT_ID] "
     "[--project P] [--base-url URL] [--test-machine TEST_MACHINE] "
     "[--expected-branch BRANCH --expected-sha SHA] "
     "[--timeout-seconds N] [--checkout-path PATH] "
     "[--allow-tree-mismatch] [--continue-mission] "
     "[--session-id S]"
+)
+QA_PLAN_PARTITIONS_USAGE = (
+    "yoke qa plan partitions "
+    "(--item PREFIX-N (--transition TRANSITION | --stage STAGE --deployment-run-id RUN) | "
+    "--deployment-run-id RUN --stage STAGE --plan PLAN | --plan PLAN --project P) "
+    "[--checkout-path PATH] [--expected-branch BRANCH --expected-sha SHA] "
+    "[--project P] [--session-id S] [--json]"
 )
 QA_PLAN_ADOPT_USAGE = (
     "yoke qa plan adopt [--item PREFIX-N] "
@@ -111,6 +118,15 @@ def qa_plan_run(args: List[str]) -> int:
         "yoke_core.domain.qa_plan_execution_cli",
         args,
     )
+
+
+def qa_plan_partitions(args: List[str]) -> int:
+    if show_delegate_help(
+        args, QA_PLAN_PARTITIONS_USAGE,
+        "Read each partition's cases, hosts and custody. Item reads also record the lane head.",
+    ):
+        return 0
+    return run_execution_module("yoke_core.domain.qa_plan_partitions_cli", args)
 
 
 def qa_plan_adopt(args: List[str]) -> int:
@@ -262,6 +278,7 @@ TOOL_COMMANDS = {
     ("qa", "case", "run"): qa_case_run,
     ("qa", "plan", "abort"): qa_plan_abort,
     ("qa", "plan", "adopt"): qa_plan_adopt,
+    ("qa", "plan", "partitions"): qa_plan_partitions,
     ("qa", "plan", "reconcile"): qa_plan_reconcile,
     ("qa", "plan", "review-submit"): qa_plan_review_submit,
     ("qa", "plan", "review-begin"): qa_plan_review_begin,
@@ -272,6 +289,7 @@ USAGE = {
     "yoke qa case run": QA_CASE_RUN_USAGE,
     "yoke qa plan abort": QA_PLAN_ABORT_USAGE,
     "yoke qa plan adopt": QA_PLAN_ADOPT_USAGE,
+    "yoke qa plan partitions": QA_PLAN_PARTITIONS_USAGE,
     "yoke qa plan reconcile": QA_PLAN_RECONCILE_USAGE,
     "yoke qa plan review-submit": QA_PLAN_REVIEW_SUBMIT_USAGE,
     "yoke qa plan review-begin": QA_PLAN_REVIEW_BEGIN_USAGE,

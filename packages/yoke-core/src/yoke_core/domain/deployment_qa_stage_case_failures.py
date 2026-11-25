@@ -1,10 +1,7 @@
 """Which blocking cases of one deployment QA stage are not yet acceptable.
 
-Walks the cases pinned to one stage/member subject and grades each one on
-its latest verdict and the evidence behind it. What each answer *means* --
-red, unrun, undetermined, or passed-without-evidence -- is
-:mod:`deployment_qa_case_failure_kinds`; this module decides which of them
-each case is.
+Grades each case of one stage/member subject on its latest verdict and
+evidence; what each kind *means* is :mod:`deployment_qa_case_failure_kinds`.
 """
 
 from __future__ import annotations
@@ -280,6 +277,9 @@ def case_failures(
         [rid for rid in graded if (verdicts.get(rid) or (0, ""))[1] != "pass"],
         stopped_only=False,
     )
+    from yoke_core.domain.deployment_qa_precondition_blocks import precondition_notes
+
+    blocked = precondition_notes(conn, (v[0] for v in verdicts.values() if not v[1]))
     failures: list[CaseFailure] = []
     for row in rows:
         if obligation_settled(row):
@@ -299,6 +299,7 @@ def case_failures(
                     detail=(
                         f"requirement #{row['id']} ({row['plan_case_key']}) latest "
                         f"verdict is {verdict or 'missing'}{replacement_note(row)}"
+                        + (blocked.get(latest[0], "") if latest else "")
                         + case_next_step(
                             conn,
                             verdict=verdict,

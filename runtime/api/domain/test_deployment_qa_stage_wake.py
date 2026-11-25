@@ -124,7 +124,8 @@ def test_item_message_names_the_stage_and_member_bound_invocation():
     )
     assert "never counts" in body
     assert "Launch each free walk in an itemless CLI session" in body
-    assert "yoke qa plan run" not in body
+    assert "--partition KEY" in body
+    assert "qa-walk:EXT-541:item-qa:KEY:1" in body
 
 
 def test_run_message_names_driver_execution_and_review_recovery():

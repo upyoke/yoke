@@ -32,6 +32,8 @@ def test_linux_verify_proves_total_ram_before_baseline_work(observed, ok):
 
     def run(command, **kwargs):
         calls.append(command)
+        if "show-environment" in command:
+            return SimpleNamespace(returncode=0, stdout="null", stderr="")
         assert kwargs["timeout"] == 20
         return SimpleNamespace(returncode=0, stdout=str(observed), stderr="")
 
@@ -39,8 +41,9 @@ def test_linux_verify_proves_total_ram_before_baseline_work(observed, ok):
     rows, error = run_verification_sequence(
         checks=[("connection", control.check_connection)], baselines=[]
     )
-    assert len(calls) == 2 and calls[0] == "/usr/bin/true"
+    assert len(calls) == (3 if ok else 2) and calls[0] == "/usr/bin/true"
     assert "SC_PHYS_PAGES" in calls[1] and "SC_PAGE_SIZE" in calls[1]
+    assert ok is ("show-environment" in calls[-1])  # undersized hosts stop at RAM
     assert rows[0]["ok"] is ok
     assert rows[0]["total_memory_bytes"] == observed
     assert rows[0]["required_total_memory_bytes"] == 3758096384

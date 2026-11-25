@@ -5,7 +5,6 @@ from __future__ import annotations
 import os
 import pathlib
 import subprocess
-import sys
 
 import pytest
 
@@ -97,61 +96,6 @@ def test_octopus_merge_reads_all_parents(repo, checker):
     verdict = checker.changed_files_check(repo_root=repo, staged=True)
     assert verdict.ok
     assert next(c for c in verdict.warnings if c.path == "big.py").old_line_count == 401
-
-
-def install_line_hook(repo, name):
-    hook = repo / ".git" / "hooks" / name
-    hook.write_text(
-        f"#!{sys.executable}\nimport sys\nsys.path[:] = {sys.path!r}\n"
-        "from yoke_harness.git_hooks.pre_commit import main\n"
-        "raise SystemExit(main())\n", encoding="utf-8", newline="\n"
-    )
-    hook.chmod(0o755)
-
-
-@pytest.mark.parametrize("extra_growth", [0, 1])
-def test_pre_merge_commit_hook_checks_inherited_and_combined_growth(repo, extra_growth):
-    if extra_growth:
-        _commit_file(repo, "big.py", "lane\n" + _make_lines(400))
-    install_line_hook(repo, "pre-merge-commit")
-    result = git(repo, "merge", "--no-ff", "main", "-m", "Integrate base", check=False)
-    assert result.returncode == extra_growth, result.stderr
-    if extra_growth:
-        assert "existing 401-line file grew" in result.stderr
-    else:
-        assert len(git(repo, "rev-list", "--parents", "-n", "1", "HEAD").stdout.split()) == 3
-
-
-def test_automatic_octopus_merge_hook_reads_all_parents(repo):
-    git(repo, "checkout", "-b", "other")
-    _commit_file(repo, "other.txt", "other\n")
-    git(repo, "checkout", "lane")
-    install_line_hook(repo, "pre-merge-commit")
-    result = git(repo, "merge", "--no-ff", "other", "main", "-m", "Integrate parents", check=False)
-    assert result.returncode == 0, result.stderr
-    assert len(git(repo, "rev-list", "--parents", "-n", "1", "HEAD").stdout.split()) == 4
-
-
-@pytest.mark.parametrize("extra_growth", [0, 1])
-def test_plain_commit_finishes_conflicted_merge(repo, extra_growth):
-    # Change the same existing line on both sides to require resolution.
-    git(repo, "checkout", "main")
-    _commit_file(repo, "big.py", _make_lines(401).replace("x0\n", "base\n", 1))
-    git(repo, "checkout", "lane")
-    _commit_file(repo, "big.py", _make_lines(400).replace("x0\n", "lane\n", 1))
-    result = git(repo, "merge", "--no-ff", "main", check=False)
-    assert result.returncode == 1
-    assert "CONFLICT" in result.stdout
-    (repo / "big.py").write_text(_make_lines(401 + extra_growth), encoding="utf-8", newline="\n")
-    git(repo, "add", "big.py")
-    install_line_hook(repo, "pre-commit")
-    result = git(repo, "commit", "-m", "Resolve merge", check=False)
-    assert result.returncode == extra_growth
-    if extra_growth:
-        assert "file-line-limit gate blocked" in result.stderr
-        assert "existing 401-line file grew" in result.stderr
-    else:
-        assert len(git(repo, "rev-list", "--parents", "-n", "1", "HEAD").stdout.split()) == 3
 
 
 @pytest.mark.parametrize("checker", [core, harness])

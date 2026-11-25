@@ -178,13 +178,10 @@ def test_keystrokes_during_transition_reach_the_new_input() -> None:
     The transition Enter (project mode -> "Name your new project folder") and the
     first character are pressed back to back, the way a fast typist starts a path
     before the new screen settles. The leading "~" of a home-relative path is the
-    painful real case: losing it turns "~/proj" into a broken path. The body swap
-    + focus now run synchronously inside the transition handler, so the new input
-    owns focus before the next key is dispatched and the character is captured.
-
-    Note (test honesty): the pilot serializes key events and the swap on one
-    message loop, so it cannot reproduce the *raw-terminal* interleave where a
-    keystroke arrives mid-transition; the operator verifies that on the live TUI.
+    painful real case: losing it turns "~/proj" into a broken path. The project
+    mode transition can show a Git check before the folder input appears. The
+    pilot verifies the result of typing through that transition; a separate
+    gated test guarantees that keys are sent while the check is still running.
     """
     app, _spy = make_app()
 
@@ -202,8 +199,6 @@ def test_keystrokes_during_transition_reach_the_new_input() -> None:
             )
             for _ in range(create_index):
                 await pilot.press("down")
-            # Transition Enter and the first character back to back, no pause: the
-            # transition lands on the "Name your new project folder" input.
             await pilot.press("enter")
             await pilot.press("~")
             await pilot.press("t")

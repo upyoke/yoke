@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import PurePosixPath
 import re
 import shlex
-from typing import Protocol
+from typing import Callable, Protocol
 
 from yoke_contracts.machine_qa_failures import bounded_machine_qa_diagnostic
 from yoke_cli.config.path_doctor import (
@@ -159,6 +159,7 @@ def execute_full_test_machine_reset(
     home: str,
     golden_baseline_path: str | None,
     path_state: PathStateContract | None = None,
+    before_restore: Callable[[], HostActionResult] | None = None,
 ) -> HostActionResult:
     """Restore the declared golden baseline with closed output and cleanup."""
     if not is_safe_test_mac_home(home):
@@ -196,6 +197,9 @@ def execute_full_test_machine_reset(
             {"paths": []},
             "unsafe_test_mac_tool_path",
         )
+    retirement = before_restore() if before_restore else HostActionResult(True, {})
+    if not retirement.ok:
+        return retirement
     reset_script = render_full_reset_script(reset_contract)
 
     calls = _ResetCalls(run_remote)
@@ -251,13 +255,15 @@ def execute_full_test_machine_reset(
     if calls.error_code is None and outcomes is not None:
         return HostActionResult(
             True,
-            success_evidence(
-                reset_contract,
-                outcomes,
-                golden_baseline_path=golden_baseline_path,
-            ),
+            {
+                **retirement.evidence,
+                **success_evidence(
+                    reset_contract, outcomes, golden_baseline_path=golden_baseline_path
+                ),
+            },
         )
     failure_evidence: dict[str, object] = {
+        **retirement.evidence,
         "paths": [
             {"path": home, "outcome": "reset-failed"},
             {"path": golden_baseline_path, "outcome": "not-restored"},

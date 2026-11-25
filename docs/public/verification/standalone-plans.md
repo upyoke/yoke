@@ -10,15 +10,10 @@ Read a saved plan at its pinned revision and [launch free walks](walking.md#laun
 yoke qa plan partitions --plan PLAN --project P --expected-branch REF --expected-sha SHA
 ```
 
-Each fresh run freezes cases and host baselines in saved order in existing QA
-execution, requirement, run, review, and artifact records. Its standalone execution
-owns the evidence and changes no item transition, delivery acceptance, or stage gate.
-An interrupted live run resumes its immutable roster and cursor in its owning session.
-Latest-execution reads select the unique live owner first, then the greatest
-database-assigned execution order. Requirement creation, timestamp precision,
-and random execution ids do not determine that order. The identity column is
-added on boot to existing databases; historical rows receive an order at that
-convergence, which cannot recover their original same-second creation order.
+Each run freezes one chain and its baselines. Its standalone execution
+owns the evidence independently of item and release gates. Resume its cursor
+in the owning session. The read shows live owners and outcomes at the requested
+commit. Independent partitions run in parallel. Use `after_case_key` to wait for an earlier partition.
 Unsupported runners or missing capabilities refuse before any case executes.
 
 Commands require `--checkout-path PATH --expected-sha FULL_SHA`: the checkout
@@ -115,21 +110,16 @@ The control plane records QA against environments the plan project owns or
 is authorized to use through a same-organization hosted-runtime bridge.
 Execution rechecks the frozen environment's registered identity; cross-org
 targets refuse. A declared `qa.identity_path` is read from the owning
-environment by ID, using its registered origin. Begin, owner resume and
-result writes observe the full served SHA; heartbeats and host operations
-recheck only the target's authorization. Results store `served_build_sha` and
-`served_build_status`; environments without a path record `no_declared_path`.
-An unreadable answer refuses as `served_build_unobservable`. After a
-redeploy, the owner's resume of an execution that has run no case rebinds it
-to the new build in place, so it keeps its queue position and host
-reservation. Once cases have run, resume and result writes refuse as
-`served_build_changed`, naming both SHAs and the owner's
-`yoke qa plan abort --execution-id ID --reason TEXT`; run the plan again after
-it and the session keeps its host turn as a hold-over. An execution whose
-every case runs on a Test Machine keeps walking across a redeploy: its owner
-resumes it without a build check, and each result records
-`served_build_changed` with the new SHA and keeps both SHAs under
-`served_build_changed` in the run's `raw_result`.
+environment by ID, using its registered origin. Begin and result writes
+observe the full served SHA. Owner resume, heartbeats, and host operations
+recheck authorization; the execution keeps its begin SHA across a redeploy.
+Results store `served_build_sha` and `served_build_status`; environments
+without a path record `no_declared_path`. An unreadable answer refuses as
+`served_build_unobservable`. QA continues when the served build changes.
+Each result write, inside or outside a plan execution, records
+`served_build_changed` when the observed SHA differs from the begin SHA.
+The run's `raw_result.served_build_changed` records both `began_sha` and
+`served_sha` alongside the verdict.
 Deployment and project targets retain their own identity proofs.
 
 

@@ -21,7 +21,7 @@ def product_env(
     if extra_path is not None:
         path_parts.append(str(extra_path))
     path_parts.append(os.environ.get("PATH", "") if os.name == "nt" else BASE_PATH)
-    return {
+    env = {
         **{key: os.environ[key] for key in ("SYSTEMROOT", "COMSPEC", "PATHEXT", "TEMP", "TMP") if key in os.environ},
         "HOME": str(machine_home.parent),
         "USERPROFILE": str(machine_home.parent),
@@ -36,4 +36,10 @@ def product_env(
         "LANG": os.environ.get("LANG", "C.UTF-8"),
         "LC_ALL": os.environ.get("LC_ALL", "C.UTF-8"),
     }
+    if os.name == "nt":
+        # A fake Windows profile can make PowerShell fall back to the checkout.
+        env["PSModuleAnalysisCachePath"] = str(
+            machine_home.resolve() / "powershell-module-analysis.cache"
+        )
+    return env
 

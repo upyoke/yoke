@@ -1,6 +1,0 @@
-{
-  "name": "yoke-qa-walker",
-  "description": "Walks one exploratory QA mission across declared substrates and returns ranked findings or a precise human-gate handoff. Never issues the final verdict.",
-  "model": "opus",
-  "maxTurns": 300
-}

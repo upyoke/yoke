@@ -29,6 +29,7 @@ SCOPED_RUN_FUNCTIONS = (
             "qa.plan.materialize",
             "qa.plan.rematerialize",
             "qa.plan_execution.begin",
+            "qa.plan_execution.partitions",
         }
     )
     | EXECUTION_FUNCTIONS

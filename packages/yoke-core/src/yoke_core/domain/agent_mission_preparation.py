@@ -121,27 +121,21 @@ def prepare_mission(
                 )
 
         from yoke_contracts.qa_continuity_fingerprint import check_continuity
-        from yoke_core.domain.machine_reset_recovery import recover_owed_reset
+        from yoke_core.domain.machine_reset_recovery import (
+            owed_reset_refusal,
+            recover_owed_reset,
+        )
 
         phase = "owed_reset"
         with heartbeat_during(phase, progress_callback):
             owed = recover_owed_reset(contract, execution)
         if owed is not None:
             preparation["evidence"]["owed_reset"] = owed
-            if not owed["ok"]:
-                evidence = owed.get("evidence") or {}
-                cause = evidence.get("reason") or owed.get("diagnostic") or ""
-                raise HostControlLocalError(
-                    code="machine_needs_repair",
-                    phase=phase,
-                    detail="The owed host reset failed; do not walk this mission: "
-                    f"{owed.get('error_code')}: {cause}",
-                    exit_code=evidence.get("exit_code"),
-                    stdout=evidence.get("stdout", ""),
-                    stderr=evidence.get("stderr", ""),
-                    secrets=secrets,
-                    recovery_hint=owed["recovery"],
-                )
+            refusal = owed_reset_refusal(
+                contract, owed, consequence="do not walk this mission", secrets=secrets
+            )
+            if refusal is not None:
+                raise refusal
 
         if (
             not baseline_name
@@ -231,9 +225,10 @@ def preparation_failure_result(
     if preparation["ok"]:
         return result
     failure = preparation["evidence"]["preparation_failure"]
+    # A case that never started says nothing about the product: no verdict.
     return {
         **result,
-        "verdict": "error",
+        "verdict": None,
         "case_outcome": "blocked_on_precondition",
         "preparation": preparation,
         "error_code": preparation["error_code"],

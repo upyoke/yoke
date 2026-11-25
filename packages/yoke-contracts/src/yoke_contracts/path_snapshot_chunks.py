@@ -72,7 +72,6 @@ class PathSnapshotChunkSyncPayload(BaseModel):
     chunk_index: Optional[int] = None
     files: List[SnapshotFileEntry] = Field(default_factory=list)
     delta: Optional[PathSnapshotDelta] = None
-    hook_mode: bool = False
 
     @field_validator("upload_id")
     @classmethod

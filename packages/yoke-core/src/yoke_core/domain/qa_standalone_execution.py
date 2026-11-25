@@ -15,10 +15,16 @@ from yoke_core.domain.qa_plan_execution_store import (
     roster_digest,
     same_owner,
     resume_owned_plan_execution,
-    STANDALONE_HISTORY_ORDER_SQL,
 )
 from yoke_core.domain.qa_plan_execution_schema import (
     LIVE_PLAN_EXECUTION_STATES,
+)
+from yoke_core.domain.qa_plan_partition_chains import partition_key
+from yoke_core.domain.qa_plan_partition_custody import (
+    PartitionScope,
+    admit_partition,
+    live_partition_executions,
+    partition_unavailable,
 )
 
 
@@ -52,6 +58,7 @@ def begin_requested_standalone_execution(conn, request, parsed):
         source_revision=parsed.source_revision,
         source_ref=parsed.source_ref,
         checkout_path=parsed.checkout_path,
+        partition=parsed.partition,
     )
 
 
@@ -71,16 +78,6 @@ def _plan(conn: Any, plan: str, project: str) -> dict:
     return dict(row)
 
 
-def _latest(conn: Any, plan_id: int) -> dict | None:
-    row = conn.execute(
-        "SELECT id FROM qa_plan_executions "
-        f"WHERE standalone_plan_id={marker(conn)} "
-        f"ORDER BY {STANDALONE_HISTORY_ORDER_SQL} LIMIT 1",
-        (plan_id,),
-    ).fetchone()
-    return select_plan_execution(conn, str(row[0]), lock=True) if row else None
-
-
 def _roster(
     conn: Any,
     plan: dict,
@@ -90,6 +87,7 @@ def _roster(
     source_revision: str | None,
     source_ref: str | None,
     checkout_path: str | None,
+    selected_cases: set[tuple[str, int]] | None,
 ) -> list[dict]:
     from yoke_core.domain.qa_plan_case_definition import case_baselines, plan_cases
     from yoke_core.domain.qa_plan_requirement_snapshot import insert_requirement
@@ -114,6 +112,8 @@ def _roster(
     roster = []
     for case in cases:
         for position, baseline in enumerate(case_baselines(case), 1):
+            if selected_cases is not None and (case["case_key"], position) not in selected_cases:
+                continue
             requirement_id = insert_requirement(
                 conn,
                 standalone_execution_id=execution_id,
@@ -135,6 +135,8 @@ def _roster(
                 host_capability_kinds=capabilities,
             )
             runner = context["runner_id"]
+            if source_revision:
+                context["standalone_source_revision"] = source_revision.lower()
             if runner not in {
                 "worktree_run",
                 "ci_run",
@@ -169,7 +171,6 @@ def _roster(
                         "standalone_ci_workflow_required: declare method_config.ci_workflow on the case"
                     )
                 context.update(
-                    standalone_source_revision=source_revision.lower(),
                     standalone_source_ref=source_ref,
                     standalone_checkout_path=checkout_path,
                 )
@@ -181,7 +182,8 @@ def _roster(
                     "baseline_position": position,
                 }
             )
-    return roster
+    roster.sort(key=lambda row: (row["baseline_position"], row["case_position"]))
+    return [{**row, "ordinal": ordinal} for ordinal, row in enumerate(roster)]
 
 
 def begin_standalone_execution(
@@ -197,13 +199,9 @@ def begin_standalone_execution(
     source_revision: str | None = None,
     source_ref: str | None = None,
     checkout_path: str | None = None,
+    partition: str | None = None,
 ) -> dict:
     """Fresh snapshots per manual run; a live run resumes its immutable roster."""
-    from yoke_core.domain.qa_plan_execution_authority import plan_execution_is_abandoned
-    from yoke_core.domain.qa_plan_execution_lifecycle import (
-        finish_plan_execution,
-        STALE_PLAN_EXECUTION_REASON,
-    )
     from yoke_core.domain.qa_plan_execution_continuation import (
         require_continuable_execution,
     )
@@ -222,34 +220,34 @@ def begin_standalone_execution(
         )
     selected = _plan(conn, plan, project)
     plan_id = int(selected["id"])
-    prior = _latest(conn, plan_id)
+    scope = PartitionScope(standalone_plan_id=plan_id)
+    own = next((
+        row for row in live_partition_executions(conn, scope) if row["session_id"] == session_id
+    ), None)
+    prior = select_plan_execution(conn, own["id"], lock=True) if own else None
     if prior and prior["state"] in LIVE_PLAN_EXECUTION_STATES:
         if continue_mission:
             raise QaPlanExecutionStateError(
                 "standalone_live_execution: omit --continue-mission to resume it"
             )
-        if same_owner(prior, actor_id=actor_id, session_id=session_id):
-            from yoke_core.domain.qa_environment_served_build import observe_resume
+        if not same_owner(prior, actor_id=actor_id, session_id=session_id) or (
+            partition and partition_key(prior["roster"], standalone=True) != partition
+        ):
+            raise partition_unavailable(
+                partition or "<selected>",
+                f"conflicts with this session's execution {prior['id']}; resume it by execution id",
+            )
+        from yoke_core.domain.qa_environment_served_build import require_execution_access
 
-            observe_resume(conn, prior)
-            require_same_source(
-                prior["roster"],
-                source_revision=source_revision,
-                source_ref=source_ref,
-                checkout_path=checkout_path,
-            )
-            validate_roster_machine(conn, prior["roster"], test_machine)
-            return resume_owned_plan_execution(
-                conn, prior, digest=str(prior["roster_digest"])
-            )
-        if not plan_execution_is_abandoned(conn, prior):
-            raise QaPlanExecutionStateError(
-                "standalone_execution_owned: another session owns the live run; let it finish or stop it with yoke qa plan abort"
-            )
-        finish_plan_execution(
-            conn, prior, state="aborted", reason=STALE_PLAN_EXECUTION_REASON
+        require_execution_access(conn, prior)
+        require_same_source(
+            prior["roster"],
+            source_revision=source_revision,
+            source_ref=source_ref,
+            checkout_path=checkout_path,
         )
-        selected = _plan(conn, plan, project)
+        validate_roster_machine(conn, prior["roster"], test_machine)
+        return resume_owned_plan_execution(conn, prior, digest=str(prior["roster_digest"]))
     continuation = None
     if continue_mission:
         continuation = require_continuable_execution(
@@ -257,6 +255,29 @@ def begin_standalone_execution(
             standalone_plan_id=plan_id,
             expected_execution_id=continuation_execution_id,
         )
+    from yoke_core.domain.qa_plan_partitions import select_partition
+    from yoke_core.domain.qa_standalone_partitions import standalone_partition_views
+
+    selected_cases = None
+    if continuation is not None:
+        cases = continuation["roster"]
+        selected_key = partition_key(cases, standalone=True)
+    else:
+        views = standalone_partition_views(conn, plan_id, source_revision=source_revision)
+        if partition is None and all(not view.partition.predecessors for view in views):
+            cases = [case for view in views for case in view.partition.roster]
+            selected_key = "<selected>"
+        else:
+            view = select_partition(views, key=partition, session_id=session_id, allow_failed=True)
+            if view is None:
+                raise partition_unavailable(
+                    partition or "<selected>", "has no owed cases at this revision"
+                )
+            cases, selected_key = view.partition.roster, view.partition.key
+            selected_cases = {(row["case_key"], row["baseline_position"]) for row in cases}
+    if continuation is not None:
+        selected_cases = {(row["case_key"], row["baseline_position"]) for row in cases}
+    admit_partition(conn, scope, key=selected_key, roster=cases, session_id=session_id)
     execution_id = str(uuid4())
     roster = _roster(
         conn,
@@ -266,17 +287,8 @@ def begin_standalone_execution(
         source_revision=source_revision,
         source_ref=source_ref,
         checkout_path=checkout_path,
+        selected_cases=selected_cases,
     )
-    from yoke_core.domain.qa_plan_chain_hosts import chain_host_groups
-
-    partitions = {group[2] for group in chain_host_groups(roster).values()}
-    if len(partitions) > 1:
-        raise QaPlanExecutionStateError(
-            "inherited_mission_requires_isolated_plan: a standalone inheriting "
-            "mission must run only with its own predecessor chain; move that "
-            "chain to a separate plan, or attach the plan to an item or "
-            "deployment stage for automatic execution partitioning"
-        )
     from yoke_core.domain.qa_walk_launch_required import require_walk_launch
 
     require_walk_launch(conn, roster, session_id=session_id)

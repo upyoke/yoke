@@ -1,7 +1,7 @@
 """Product-safe authored-file line-limit checker.
 
 This is the installable-client implementation for ``yoke check file-line``
-and the git pre-commit hook. It uses only git, filesystem reads, and shared
+and Yoke CI. It uses only git, filesystem reads, and shared
 contracts; authority-bearing source-dev checks stay in ``yoke_core``.
 """
 

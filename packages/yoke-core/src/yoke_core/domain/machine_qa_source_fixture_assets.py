@@ -95,12 +95,7 @@ for relative in links:
 materialized = manifest.get("materialized_files") or {}
 for relative, source in materialized_configs:
     require(materialized.get(relative) == source)
-for hook, marker in (
-    ("pre-commit", "yoke-pre-commit"),
-    ("post-commit", "yoke-post-commit"),
-):
-    text = (root / ".git" / "hooks" / hook).read_text(encoding="utf-8")
-    require(marker in text)
+require(all(hook.name.endswith(".sample") for hook in (root / ".git" / "hooks").glob("*")))
 for relative in links:
     require(os.path.islink(root / relative))
 """
@@ -163,20 +158,6 @@ def _ensure_file(root, relative, source, actions, warnings):
     actions.append(f"Updated: {relative} (materialized from {source})")
 
 
-def _write_hook(root, name, marker, command):
-    hook = root / ".git" / "hooks" / name
-    if not hook.parent.is_dir():
-        return False
-    hook.write_text(
-        "#!/bin/sh\n"
-        f"# {marker} hook installed by `yoke project install`\n"
-        f'exec {command} "$@"\n',
-        encoding="utf-8",
-    )
-    hook.chmod(0o755)
-    return True
-
-
 def install_source_link(repo_root, operation="install"):
     root = Path(repo_root)
     actions = []
@@ -185,17 +166,12 @@ def install_source_link(repo_root, operation="install"):
         _ensure_link(root, relative, target, actions, warnings)
     for relative, source in DEV_MATERIALIZED_FILES:
         _ensure_file(root, relative, source, actions, warnings)
-    hooks = [
-        _write_hook(root, "pre-commit", "yoke-pre-commit", "yoke git pre-commit"),
-        _write_hook(root, "post-commit", "yoke-post-commit", "yoke git post-commit"),
-    ]
     manifest = {
         "manifest_schema": 1,
         "yoke_version": "source-dev-recipe",
         "mode": "source-link",
         "symlinks": dict(DEV_SYMLINKS),
         "materialized_files": dict(DEV_MATERIALIZED_FILES),
-        "git_hooks": ["pre-commit", "post-commit"],
         "contract_files": {},
     }
     manifest_path = root / ".yoke" / "install-manifest.json"
@@ -212,7 +188,6 @@ def install_source_link(repo_root, operation="install"):
         "source": "in-checkout",
         "symlinks_created": len(actions),
         "symlinks_ok": 0,
-        "hooks_installed_or_updated": sum(bool(item) for item in hooks),
         "actions": actions,
         "contract_files_written": 0,
         "contract_files_existing": 0,

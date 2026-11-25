@@ -1,96 +1,6 @@
-"""Scoped client orchestration stops on waits and continues completed hosts."""
+"""One CLI invocation freezes and runs one explicit QA partition."""
 
 from unittest import mock
-
-import pytest
-
-from yoke_core.domain.qa_member_plan_execution import execute_serial_partitions
-from yoke_core.domain.qa_plan_execution_result_state import QaPlanExecutionError
-
-
-def _result(execution_id, requirement_id, remaining, state="passed"):
-    return {
-        "execution_id": execution_id,
-        "state": state,
-        "remaining_requirement_count": remaining,
-        "results": [{"requirement_id": requirement_id, "verdict": "pass"}],
-        "requirement_count": 1,
-        "executed_count": 1,
-    }
-
-
-def test_completed_hosts_continue_with_same_scope_and_aggregate_results():
-    runner = mock.Mock(side_effect=[_result("linux", 10, 1), _result("mac", 11, 0)])
-    result = execute_serial_partitions(runner)(
-        deployment_run_id="run-hosts",
-        deployment_stage="item-qa",
-        deployment_member="member",
-        project="project",
-        continue_mission=True,
-    )
-    assert result["execution_ids"] == ["linux", "mac"]
-    assert result["requirement_count"] == result["executed_count"] == 2
-    assert [row["requirement_id"] for row in result["results"]] == [10, 11]
-    first, second = (call.kwargs for call in runner.call_args_list)
-    assert first == {**second, "continue_mission": True}
-    assert second["continue_mission"] is False
-
-
-@pytest.mark.parametrize(
-    "state", ["waiting", "awaiting_walk_review", "failed", "error"]
-)
-def test_unsettled_host_stops_before_another_execution(state):
-    runner = mock.Mock(return_value=_result("linux", 10, 1, state))
-    result = execute_serial_partitions(runner)(
-        deployment_stage="item-qa", deployment_member="member"
-    )
-    runner.assert_called_once()
-    assert result["state"] == state and result["remaining_requirement_count"] == 1
-
-
-def test_old_server_response_keeps_single_execution_semantics():
-    runner = mock.Mock(
-        return_value={
-            "execution_id": "single",
-            "state": "passed",
-            "results": [],
-            "requirement_count": 2,
-            "executed_count": 2,
-        }
-    )
-    result = execute_serial_partitions(runner)(
-        deployment_stage="item-qa", deployment_member="member"
-    )
-    runner.assert_called_once()
-    assert result["state"] == "passed"
-
-
-def test_a_repeated_completed_execution_refuses_with_recovery():
-    runner = mock.Mock(return_value=_result("same", 10, 1))
-    with pytest.raises(QaPlanExecutionError, match="qa_plan_partition_stalled.*report"):
-        execute_serial_partitions(runner)(
-            deployment_stage="item-qa", deployment_member="member"
-        )
-
-
-def test_item_target_partitions_continue_in_one_plan_run():
-    runner = mock.Mock(side_effect=[_result("ci", 10, 1), _result("prod", 11, 0)])
-    result = execute_serial_partitions(runner)(
-        public_ref="YOK-1",
-        transition_id="reviewing-implementation",
-        resume_execution_id="ci",
-    )
-    assert result["execution_ids"] == ["ci", "prod"]
-    assert [row["requirement_id"] for row in result["results"]] == [10, 11]
-    assert "resume_execution_id" not in runner.call_args_list[1].kwargs
-
-
-def test_a_reselected_passed_requirement_refuses_with_recovery():
-    runner = mock.Mock(side_effect=[_result("first", 10, 1), _result("again", 10, 1)])
-    with pytest.raises(QaPlanExecutionError, match="qa_plan_partition_stalled.*report"):
-        execute_serial_partitions(runner)(
-            public_ref="YOK-1", transition_id="reviewing-implementation"
-        )
 
 
 def test_scoped_client_executes_each_host_roster_under_its_own_plan_lease():
@@ -144,6 +54,7 @@ def test_scoped_client_executes_each_host_roster_under_its_own_plan_lease():
         assert "test_machine" not in kwargs
         return {"requirement_id": case["requirement_id"], "verdict": "pass"}
 
+    results = []
     with (
         mock.patch.object(
             qa_plan_execution, "_call_plan_function", side_effect=dispatch
@@ -153,14 +64,22 @@ def test_scoped_client_executes_each_host_roster_under_its_own_plan_lease():
             side_effect=run_case,
         ) as execute,
     ):
-        result = qa_plan_execution.execute_plan(
-            deployment_run_id="run-hosts",
-            deployment_stage="item-qa",
-            deployment_member="member",
-            project="project",
-            actor=ActorContext(actor_id="2", session_id="host-owner"),
-        )
-    assert result["state"] == "passed" and result["execution_ids"] == list(machines)
+        for index in range(2):
+            results.append(qa_plan_execution.execute_plan(
+                deployment_run_id="run-hosts",
+                deployment_stage="item-qa",
+                deployment_member="member",
+                project="project",
+                partition=str(index) * 64,
+                actor=ActorContext(actor_id="2", session_id=f"host-owner-{index}"),
+            ))
+            assert execute.call_count == index + 1
+    assert [result["execution_id"] for result in results] == list(machines)
+    assert all(result["state"] == "passed" for result in results)
+    assert [
+        call["payload"]["partition"]
+        for call in calls if call["function_id"] == "qa.plan_execution.begin"
+    ] == ["0" * 64, "1" * 64]
     assert execute.call_count == 2
     assert [
         call["payload"]["execution_id"]

@@ -16,6 +16,7 @@ from pathlib import Path
 
 
 from tests.import_graph.onboard_wheel_smoke_support import (
+    _assert_checkout_unchanged,
     _fake_external_command_bin,
     _format_result,
     _product_env,
@@ -143,7 +144,7 @@ def _run_onboard_flow(
     assert "source-link" not in plan.stdout
     assert "source-dev" not in plan.stdout
     assert not config.exists()
-    assert _tree_snapshot(checkout) == before_checkout
+    _assert_checkout_unchanged(checkout, before_checkout, "Quick setup plan")
     assert not gh_marker.exists()
 
     advanced_plan = _run(
@@ -169,6 +170,7 @@ def _run_onboard_flow(
     assert advanced_payload["mode"] == "advanced"
     assert advanced_payload["applied"] is False
     assert not (machine_home / "advanced.json").exists()
+    _assert_checkout_unchanged(checkout, before_checkout, "Advanced setup plan")
 
     applied = _run(
         [
@@ -213,6 +215,7 @@ def _run_onboard_flow(
     assert "product-token" not in applied.stdout
     assert "product-token" not in config.read_text("utf-8")
     assert is_owner_private_file(config)
+    _assert_checkout_unchanged(checkout, before_checkout, "Advanced setup apply")
 
     # The stub answers only the registry, so /v1/health 404s: no control plane.
     status = _run(
@@ -238,5 +241,5 @@ def _run_onboard_flow(
     assert status_payload["connection"]["transport"] == "https"
     assert status_payload["connection"]["credential_source"]["present"] is True
 
-    assert _tree_snapshot(checkout) == before_checkout
+    _assert_checkout_unchanged(checkout, before_checkout, "Status")
     assert not gh_marker.exists()

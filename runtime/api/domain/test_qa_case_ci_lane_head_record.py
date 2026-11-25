@@ -166,7 +166,7 @@ def test_publishing_a_lane_records_its_head(tmp_path, recorded):
     ]
 
 
-def test_the_record_does_not_run_on_the_post_commit_hook_deadline(
+def test_the_record_uses_the_normal_dispatch_budget(
     tmp_path,
     recorded,
 ):
@@ -183,7 +183,7 @@ def test_the_record_does_not_run_on_the_post_commit_hook_deadline(
     lane.push_lane(checkout, "PRJ-9", project="widgets", target="trunk")
 
     assert recorded[0]["timeout_s"] is None
-    assert recorded[0]["timeout_s"] is not project_snapshot.HOOK_WRITE_TIMEOUT_S
+    assert recorded[0]["timeout_s"] is not project_snapshot.SNAPSHOT_WRITE_TIMEOUT_S
 
 
 def test_a_push_that_failed_records_nothing(tmp_path, recorded):

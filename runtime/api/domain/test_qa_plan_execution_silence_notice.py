@@ -171,9 +171,9 @@ def test_the_roster_read_serves_each_owner_its_heartbeat_walks(
     "executor,tool,agent",
     [
         pytest.param("claude-code", "Read", None, id="claude-owner"),
-        pytest.param("claude-code", "Read", "yoke-qa-walker", id="claude-child"),
+        pytest.param("claude-code", "Read", "yoke-tester", id="claude-child"),
         pytest.param("codex", "Bash", None, id="codex-owner-shell"),
-        pytest.param("codex", "Bash", "yoke-qa-walker", id="codex-child-shell"),
+        pytest.param("codex", "Bash", "yoke-tester", id="codex-child-shell"),
         # Cursor's walker calls are recorded on the parent session.
         pytest.param("cursor", "Read", None, id="cursor-owner-or-folded-child"),
     ],

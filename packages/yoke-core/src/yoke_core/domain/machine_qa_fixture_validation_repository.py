@@ -225,7 +225,6 @@ def _checkout_state_assertion(
         "expected_origin": SOURCE_DEV_ORIGIN,
         "forbid_product_copy_directories": True,
         "require_git_history": True,
-        "require_git_hooks": True,
         "require_source_links": True,
     }
     if dict(parameters) != expected:

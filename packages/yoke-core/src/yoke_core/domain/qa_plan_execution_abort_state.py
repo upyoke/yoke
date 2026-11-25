@@ -144,10 +144,9 @@ _MISSION_WALK_END = (
 SERVER_FIXTURE_CLEANUP = (
     "Server cleanup needs no lease and is never handed to steering: retire "
     "each project the walk created with `yoke --env ENV projects retire "
-    '--project SLUG --reason "QA fixture cleanup"`, retire each Machine its '
-    "connect registered with `yoke --env ENV machine retire MACHINE_ID "
-    "--confirm`, and delete its fixture repositories. The walker report in "
-    "the item's Progress Log lists what the walk created."
+    '--project SLUG --reason "QA fixture cleanup"` and delete its fixture '
+    "repositories. The walker report in the item's Progress Log lists what the "
+    "walk created."
 )
 
 

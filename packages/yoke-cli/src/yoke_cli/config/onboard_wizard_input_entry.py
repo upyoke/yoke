@@ -64,7 +64,12 @@ class InputEntry:
             and not event.is_forwarded
             and event.character
             and event.character.isprintable()
-            and (self._selection_pending or self._swap_pending or self._body_swap_active)
+            and (
+                self._selection_pending
+                or self._swap_pending
+                or self._body_swap_active
+                or self._checking
+            )
         ):
             self._transition_text += event.character
             return
@@ -81,6 +86,8 @@ class InputEntry:
         await super().on_event(event)
 
     def _flush_transition_text(self) -> None:
+        if self._checking:
+            return
         text, self._transition_text = self._transition_text, ""
         if not text or not self.is_running:
             return
@@ -88,7 +95,7 @@ class InputEntry:
         if target is not None:
             self.set_focus(target)
             self._insert_input_text(target, text)
-        # A selection/checking view takes no typed answer: discard its keys so
+        # A settled selection view takes no typed answer: discard its keys so
         # they cannot become text on an unrelated later screen.
 
     def on_key(self, event: Any) -> None:

@@ -84,6 +84,7 @@ CREATE TABLE IF NOT EXISTS qa_plan_cases (
     updated_at TIMESTAMPTZ NOT NULL,
     starting_state TEXT,
     starting_state_reason TEXT,
+    after_case_key TEXT,
     stage_reason TEXT,
     wake_path TEXT,
     wake_evidence TEXT,
@@ -141,6 +142,7 @@ _REQUIREMENT_COLUMNS = (
     ("host_baseline", "TEXT"),
     ("starting_state", "TEXT"),  # see yoke_contracts.qa_case_starting_state
     ("starting_state_reason", "TEXT"),
+    ("after_case_key", "TEXT"),
     ("entry_surface", "TEXT"),
     ("required_completion", "TEXT"),
     ("workflow_transition_id", "TEXT"),
@@ -183,6 +185,7 @@ _PLAN_COLUMNS = (
 _PLAN_CASE_TEXT_COLUMNS = (
     "starting_state",
     "starting_state_reason",
+    "after_case_key",
     "stage_reason",
     "wake_path",
     "wake_evidence",
@@ -221,13 +224,7 @@ def _placeholder(conn: Any) -> str:
 
 
 def seed_builtin_qa_methods(conn: Any) -> None:
-    """Project the methods this build ships into the catalog.
-
-    Deliberately separate from creating the catalog: this writes the column
-    names the current code knows, so it is only correct against a schema the
-    ordered migration history has finished transforming. Callers that want a
-    complete catalog call both, in that order.
-    """
+    """Project this build's methods into the catalog after schema migration."""
     marker = _placeholder(conn)
     now = instant_parameter(conn, utc_now())
     columns = (

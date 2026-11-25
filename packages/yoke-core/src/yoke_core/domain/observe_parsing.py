@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
 from yoke_contracts.cursor_shell_timing import native_duration_ms
+from yoke_contracts.harness_shell_tools import SHELL_KIND_BASH, ShellKind, payload_shell_kind
 from yoke_core.domain.events_crud import normalize_event_item_id
 from yoke_core.domain.observe_codex_transcript import _reconcile_codex_exit_code
 from yoke_core.domain.observe_db_reads import measure_tool_call_duration
@@ -33,6 +34,7 @@ class EventRecord:
 
     tool_name: str = ""
     command: str = ""
+    shell_kind: ShellKind = SHELL_KIND_BASH
     file_path: str = ""
     exit_code: Optional[int] = None
     duration_ms: Optional[int] = None
@@ -218,6 +220,7 @@ def parse_hook_event(
     rec = EventRecord(
         tool_name=tool_name,
         command=command,
+        shell_kind=payload_shell_kind(data) if tool_name == "Bash" else SHELL_KIND_BASH,
         file_path=file_path,
         exit_code=exit_code,
         duration_ms=duration_ms,

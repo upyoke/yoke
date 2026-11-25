@@ -163,6 +163,30 @@ def test_each_failure_class_names_its_reason_with_details(
 
 
 @POSIX
+def test_invalid_receipt_keeps_stderr_after_child_exit(target, monkeypatch, docker):
+    _child(
+        monkeypatch,
+        "import sys; sys.stdin.buffer.readline(); "
+        f"print('client refused {TOKEN}',file=sys.stderr,flush=True); "
+        'print(\'{"healthy":"maybe"}\',flush=True)',
+    )
+    exchange = handoff_receipt._exchange
+
+    def exchange_and_reap(process, directory, header):
+        try:
+            return exchange(process, directory, header)
+        except handoff_receipt._Refused:
+            process.wait(timeout=10)
+            raise
+
+    monkeypatch.setattr(handoff_receipt, "_exchange", exchange_and_reap)
+    details = "\n".join(_refusal(target).detail_lines)
+    assert "docker compose exec exit: 0" in details
+    assert "Exec stderr: client refused [Yoke API token redacted]" in details
+    assert TOKEN not in details
+
+
+@POSIX
 def test_failure_reasons_are_distinct_and_each_names_a_recovery():
     reasons = handoff_receipt.RECOVERIES
     assert len(set(reasons.values())) == len(reasons)

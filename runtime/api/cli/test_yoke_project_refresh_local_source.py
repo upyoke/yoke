@@ -6,9 +6,7 @@ import hashlib
 import json
 from pathlib import Path
 
-from yoke_cli.project_install.managed_git_hooks import GIT_HOOK_NAMES
 from yoke_cli.main import main as cli_main
-from yoke_cli.project_install import git_hooks as git_hooks_layer
 
 
 from runtime.api.cli.project_refresh_test_support import (
@@ -50,7 +48,6 @@ def test_preview_reports_changes_without_target_writes(
     assert report["server_state_writes"] is False
     assert report["snapshot_sync"]["status"] == "skipped"
     assert report["files_would_write"]
-    assert report["git_hooks_would_install_or_update"] == len(GIT_HOOK_NAMES)
     assert report["clone_excludes_would_add"] == ["/.worktrees/", "/.claude/settings.local.json"]
     assert _project_tree(target) == before
     assert not (target / ".yoke/install-manifest.json").exists()
@@ -193,16 +190,13 @@ def test_preview_reports_non_file_convergence_when_source_files_unchanged(
     settings["hooks"]["PreToolUse"].pop()
     settings_path.write_text(json.dumps(settings), encoding="utf-8")
     pre_commit = target / ".git/hooks/pre-commit"
-    stale_shim = git_hooks_layer.PRE_COMMIT_SHIM.replace(
-        "# Hard-fails",
-        "# stale source copy\n# Hard-fails",
-    )
+    stale_shim = "#!/bin/sh\n# older Yoke release\nexec yoke git pre-commit \"$@\"\n"
     pre_commit.write_text(stale_shim, encoding="utf-8")
     manifest_path = target / ".yoke/install-manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    manifest["git_hook_hashes"][".git/hooks/pre-commit"] = hashlib.sha256(
-        stale_shim.encode("utf-8")
-    ).hexdigest()
+    manifest["git_hook_hashes"] = {
+        ".git/hooks/pre-commit": hashlib.sha256(stale_shim.encode()).hexdigest(),
+    }
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
     exclude = target / ".git/info/exclude"
     exclude.write_text(exclude.read_text().replace("/.worktrees/\n", ""), encoding="utf-8")
@@ -211,14 +205,14 @@ def test_preview_reports_non_file_convergence_when_source_files_unchanged(
     preview = json.loads(capsys.readouterr().out)
     assert preview["files_would_write"] == []
     assert preview["hooks_would_add"][".claude/settings.json"]
-    assert preview["git_hooks_would_install_or_update"] == 1
+    assert pre_commit.exists()
     assert preview["clone_excludes_would_add"] == ["/.worktrees/"]
 
     assert cli_main([*base[:-1], "--force", "--no-commit", "--apply", "--json"]) == 0
-    capsys.readouterr()
-    assert pre_commit.read_text(encoding="utf-8") == git_hooks_layer.render_git_hook(
-        git_hooks_layer.PRE_COMMIT_SHIM
-    )
+    applied = json.loads(capsys.readouterr().out)
+    assert applied["git_hooks_removed"] == ["pre-commit"]
+    assert not pre_commit.exists()
+    assert "git_hook_hashes" not in json.loads(manifest_path.read_text())
     assert "/.worktrees/" in exclude.read_text(encoding="utf-8").splitlines()
 
 

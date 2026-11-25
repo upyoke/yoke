@@ -1,6 +1,6 @@
 """Operation inventory rows for QA methods, plans, and evidence reads."""
 
-from yoke_cli.operation_inventory_model import _Row, _w
+from yoke_cli.operation_inventory_model import REASON_TOOL_SHAPED, _Row, _p, _w
 
 
 WRAPPED_ROWS: tuple[_Row, ...] = (
@@ -31,4 +31,9 @@ WRAPPED_ROWS: tuple[_Row, ...] = (
 )
 
 
-__all__ = ["WRAPPED_ROWS"]
+PERMANENT_ROWS: tuple[_Row, ...] = (
+    _p("yoke qa plan partitions", "qa.plan_execution", REASON_TOOL_SHAPED),
+)
+
+
+__all__ = ["PERMANENT_ROWS", "WRAPPED_ROWS"]

@@ -8,7 +8,6 @@ from typing import Any
 from yoke_cli.project_install import clone_excludes
 from yoke_cli.project_install import cursor_permissions as cursor_permissions_layer
 from yoke_cli.project_install import files as files_layer
-from yoke_cli.project_install import git_hooks as git_hooks_layer
 from yoke_cli.project_install import hooks as hooks_layer
 from yoke_cli.project_install import managed_markdown as managed_markdown_layer
 from yoke_cli.project_install import (
@@ -75,7 +74,6 @@ def preflight_apply(
         *dict(old_manifest.get("files", {})),
         *dict(old_manifest.get("contract_files", {})),
         *dict(old_manifest.get("strategy_files", {})),
-        *dict(old_manifest.get("git_hook_hashes", {})),
     ]
     files_layer.assert_resolved_targets_within(
         repo_root,
@@ -96,17 +94,6 @@ def preflight_apply(
         prior_hooks,
         created_settings,
     )
-    git_hook_specs = git_hooks_layer.git_hook_specs_from_bundle(bundle)
-    owned_git_hook_hashes = (
-        dict(old_manifest["git_hook_hashes"])
-        if "git_hook_hashes" in old_manifest
-        else None
-    )
-    git_hook_preview = git_hooks_layer.preview_git_hooks(
-        repo_root,
-        git_hook_specs,
-        owned_git_hook_hashes,
-    )
     harness_health = instruction_discovery.preflight(repo_root)
     managed_markdown_preview = managed_markdown_layer.preview_managed_markdown(
         repo_root,
@@ -126,9 +113,6 @@ def preflight_apply(
         "harness_health": harness_health,
         "install_recovery": recovery,
         "hook_plans": hook_plans,
-        "git_hook_specs": git_hook_specs,
-        "git_hook_preview": git_hook_preview,
-        "owned_git_hook_hashes": owned_git_hook_hashes,
         "managed_markdown_preview": managed_markdown_preview,
         "settings_permissions_preview": settings_permissions_preview,
         "settings_status_line_preview": (

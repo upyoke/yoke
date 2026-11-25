@@ -67,18 +67,13 @@ def test_taught_items_get_fields_match_handler_allowlist() -> None:
 
 
 def test_execution_agents_receive_project_and_qa_topics() -> None:
-    """Engineer, Tester, and QA Walker get execution topics; Architect / Simulator /
+    """Engineer and Tester get execution topics; Architect / Simulator /
     Boss intentionally omit `qa` and `project` (they plan, trace, or
     review without invoking project execution surfaces directly)."""
 
     assert seed.ROLE_TOPICS["engineer_agent"] == ("core", "claims", "qa", "project")
     assert seed.ROLE_TOPICS["tester_agent"] == ("core", "claims", "qa", "project")
-    assert seed.ROLE_TOPICS["qa_walker_agent"] == (
-        "core",
-        "claims",
-        "qa",
-        "project",
-    )
+    assert "qa_walker_agent" not in seed.ROLE_TOPICS
     for role in ("architect_agent", "simulator_agent", "boss_agent"):
         assert seed.ROLE_TOPICS[role] == ("core", "claims"), (
             f"role={role} should NOT carry qa or project topics — see "

@@ -13,37 +13,30 @@ from yoke_core.domain.deployment_runs_lock import (
 )
 from yoke_contracts.timestamps import utc_now
 from yoke_core.domain.db_helpers import instant_parameter
-from yoke_core.domain.qa_plan_execution_authority import plan_execution_is_abandoned
 from yoke_core.domain.qa_plan_execution_begin_admission import (
     PreparedRoster,
     admit_current_roster,
     begin_inputs,
     prepare_roster,
 )
-from yoke_core.domain.qa_plan_execution_continuation import (
-    resolve_continuation_source,
-)
-from yoke_core.domain.qa_plan_execution_lifecycle import (
-    STALE_PLAN_EXECUTION_REASON,
-    finish_plan_execution,
+from yoke_core.domain.qa_plan_execution_begin_existing import (
+    continuation_source,
+    resume_existing,
 )
 
 from yoke_core.domain.qa_plan_execution_store import (
     QaPlanExecutionStateError,
     canonical,
     converge_plan_execution_insert_race,
-    live_plan_execution_id,
-    lock_plan_execution,
     marker,
-    resume_owned_plan_execution,
-    same_owner,
     select_plan_execution,
 )
-from yoke_core.domain.qa_plan_execution_roster_change import (
-    retire_unstarted_changed_roster,
+from yoke_core.domain.qa_plan_partition_custody import PartitionScope, admit_partition
+from yoke_core.domain.qa_walk_authority import (
+    require_walk_claim,
+    require_walk_partition,
+    walk_launch,
 )
-from yoke_core.domain.qa_stage_execution_holders import admit_stage_roster
-from yoke_core.domain.qa_deployment_requirement_identity_schema import shared_group_id
 from yoke_core.domain.workflow_item_binding_lock import (
     lock_item_workflow_bindings,
     rollback_workflow_binding_write_errors,
@@ -64,6 +57,7 @@ def begin_plan_execution(
     deployment_member_item_id: int | None = None,
     checkout_path: str | None = None,
     expected_branch: str | None = None,
+    expected_sha: str | None = None,
     test_machine: str | None = None,
     continue_mission: bool = False,
     continuation_execution_id: str | None = None,
@@ -74,6 +68,7 @@ def begin_plan_execution(
     _run_inputs: str | None = None,
     plan: str | None = None,
     requirement_id: int | None = None,
+    partition: str | None = None,
 ) -> dict[str, Any]:
     """Admit unlocked roster reads under the run lock; resume retained custody."""
     if not str(session_id or "").strip():
@@ -116,6 +111,22 @@ def begin_plan_execution(
         expected_deployment_target_digest = target_digest(expected_deployment_target)
     if item_id is not None:
         lock_item_workflow_bindings(conn, (int(item_id),))
+    authority_item = item_id or deployment_member_item_id
+    launch = (
+        walk_launch(conn, item_id=authority_item, session_id=session_id)
+        if authority_item is not None else None
+    )
+    if launch is not None:
+        require_walk_partition(launch, leg=transition_id or deployment_stage, key=partition)
+    if launch is not None and item_id is not None:
+        from yoke_core.domain.qa_case_source_lane import resolve_walk_lane
+
+        require_walk_claim(conn, item_id=item_id, launch=launch, lock=True)
+        lane = resolve_walk_lane(
+            conn, item_id=item_id, session_id=launch.requester,
+            expected_branch=expected_branch, expected_sha=expected_sha,
+        )
+        checkout_path = lane["lane_path"]
     from yoke_core.domain.qa_case_execution_context import (
         execution_host_capability_kinds,
     )
@@ -156,6 +167,8 @@ def begin_plan_execution(
             expected_branch=expected_branch,
             session_id=session_id,
             test_machine=test_machine,
+            partition=partition,
+            source_session_id=launch.requester if launch is not None else None,
         )
 
     # Every roster read runs before the run lock; it covers the re-check and write.
@@ -186,80 +199,30 @@ def begin_plan_execution(
         deployment_member_item_id=deployment_member_item_id,
         session_id=session_id,
     )
-    existing_id = live_plan_execution_id(
-        conn, **subject_key, execution_target_digest=prepared.execution_target_digest,
-        group_id=shared_group_id(prepared.execution_target),
-    )
-
-    def continuation_source():
-        return resolve_continuation_source(
-            conn,
-            live_execution_id=live_plan_execution_id(
-                conn, **subject_key, execution_target_digest=prepared.execution_target_digest
-            ),
-            expected_execution_id=continuation_execution_id,
-            **subject_key,
-        )
-
-    continues_execution_id = continuation_source() if continue_mission else None
-    admission_repeated = False
-    retired = False
-    if existing_id is not None:
-        existing = lock_plan_execution(conn, existing_id)
-        if requirement_id is not None and [
-            int(r["requirement_id"]) for r in existing["roster"]
-        ] != [requirement_id]:
-            from yoke_core.domain.qa_plan_execution_roster_change import abort_command
-
-            raise QaPlanExecutionStateError(
-                f"qa_single_case_scope_busy: another roster is live; finish it or use `{abort_command(conn, existing)}`, then retry the case"
-            )
-        if existing["state"] in {
-            "active",
-            "waiting",
-            "walking",
-            "awaiting_walk_review",
-        }:
-            if same_owner(existing, actor_id=actor_id, session_id=session_id):
-                from yoke_core.domain.qa_environment_served_build import observe_resume
-                from yoke_core.domain.deployment_qa_execution_refreeze import refreeze_unbegun_execution as refreeze
-                refreeze(conn, existing, prepared)  # a takeover's successor redeployed
-                observe_resume(conn, existing)
-                if not retire_unstarted_changed_roster(
-                    conn, existing, digest=prepared.digest
-                ):
-                    return {
-                        **resume_owned_plan_execution(
-                            conn, existing, digest=prepared.digest
-                        ),
-                        "remaining_requirement_count": prepared.remaining,
-                    }
-            elif plan_execution_is_abandoned(conn, existing):
-                finish_plan_execution(
-                    conn,
-                    existing,
-                    state="aborted",
-                    reason=STALE_PLAN_EXECUTION_REASON,
-                )
-            else:
-                conn.rollback()
-                raise QaPlanExecutionStateError(
-                    "another actor or session owns the active QA plan execution; use yoke qa plan abort to stop it"
-                )
-            retired = True
+    scope = PartitionScope(item_id, transition_id, deployment_run_id, deployment_stage, deployment_member_item_id)
+    continues_execution_id = None
     for _attempt in range(RUN_READ_ATTEMPTS + 1):
-        if stage_wide and admit_stage_roster(
-            conn,
-            prepared.roster,
-            deployment_run_id=str(deployment_run_id),
-            deployment_stage=str(deployment_stage),
-            session_id=session_id,
-        ):
-            retired = True
+        if continue_mission:
+            continues_execution_id = continuation_source(
+                conn, subject_key, prepared, continuation_execution_id
+            )
+        if launch is not None:
+            require_walk_claim(conn, item_id=authority_item, launch=launch, lock=True)
+        resumed, retired = resume_existing(
+            conn, subject_key, prepared, actor_id=actor_id, partition=partition,
+            requirement_id=requirement_id,
+        )
+        if resumed is not None:
+            return resumed
+        if not retired and (item_id is not None or deployment_stage is not None):
+            retired = admit_partition(
+                conn, scope, key=prepared.partition or "<selected>",
+                roster=prepared.roster, session_id=session_id,
+            )
+            if retired:
+                conn.commit()
         if not retired:
             break
-        retired = False
-        admission_repeated = True
         # Retiring a live execution committed; read the roster again first.
         if item_id is not None:
             lock_item_workflow_bindings(conn, (int(item_id),))
@@ -286,8 +249,6 @@ def begin_plan_execution(
     else:
         raise DeploymentRunChanging(str(deployment_run_id))
 
-    if continue_mission and admission_repeated:
-        continues_execution_id = continuation_source()
     roster, remaining, digest = prepared.roster, prepared.remaining, prepared.digest
     execution_target = prepared.execution_target
     execution_target_digest = prepared.execution_target_digest

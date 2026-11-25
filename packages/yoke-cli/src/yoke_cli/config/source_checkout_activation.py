@@ -27,15 +27,15 @@ _SOURCE_LINK_SNIPPET = (
     "from pathlib import Path\n"
     "from yoke_core.domain.project_install_source_link import install_source_link\n"
     "from yoke_cli.config.github_project_setup import GitHubProjectSetupError\n"
+    "from yoke_contracts.project_contract.install_error import ProjectInstallError\n"
     "try:\n"
     "    result = install_source_link(Path(sys.argv[1]), operation=sys.argv[2], "
     "config_path=sys.argv[3])\n"
-    "except GitHubProjectSetupError as exc:\n"
+    "except (GitHubProjectSetupError, ProjectInstallError) as exc:\n"
     "    print(str(exc), file=sys.stderr)\n"
     "    sys.exit(1)\n"
     "print(json.dumps(result, default=str))\n"
 )
-
 
 def install_source_checkout(
     root: Path,
