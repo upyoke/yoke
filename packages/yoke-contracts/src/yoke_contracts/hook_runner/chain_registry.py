@@ -44,11 +44,8 @@ _LIFECYCLE_EVENTS: frozenset[str] = TERMINAL_HOOK_EVENTS | frozenset(
     }
 )
 
-# The default event on which a client composes session orientation. Claude
-# accepts context on UserPromptSubmit; Codex and Cursor also carry early
-# orientation on SessionStart. Both the product adapter and the shared
-# composer call ``session_orientation_event`` so hot-path events can skip the
-# engine without independently reconstructing that harness mapping.
+# The default event on which a client composes session orientation.
+# Surface declarations can select a different event where native delivery differs.
 SESSION_ORIENTATION_EVENT = "UserPromptSubmit"
 
 # The canonical name for the event a harness fires once when a session
@@ -60,8 +57,16 @@ SESSION_END_EVENT = "SessionEnd"
 PRE_COMPACT_EVENT = "PreCompact"
 
 
-def session_orientation_event(*, cursor: bool = False, executor: str = "") -> str:
-    """Return the context-bearing startup event for one harness family."""
+def session_orientation_event(
+    *, cursor: bool = False, executor: str = "", surface: str = "", platform: str = ""
+) -> str:
+    """Return the context-bearing startup event for the declared surface."""
+    if platform == "win32" and surface:
+        from yoke_contracts.session_control.capabilities import capability_for_surface
+
+        capability = capability_for_surface(surface)
+        if capability and capability.windows_orientation_event:
+            return capability.windows_orientation_event
     return (
         SESSION_START_EVENT
         if cursor or executor == "codex"

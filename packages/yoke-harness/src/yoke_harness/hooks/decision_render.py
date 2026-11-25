@@ -8,7 +8,11 @@ import sys
 from yoke_contracts.executor_labels import canonical_harness_id
 from yoke_contracts.hook_diagnostics import format_hook_diagnostic
 from yoke_contracts.hook_context_compose import compose_context_list
-from yoke_contracts.hook_runner.cursor_response import cursor_allow_stdout
+from yoke_contracts.hook_runner.cursor_response import (
+    CURSOR_PROMPT_EVENT,
+    cursor_allow_stdout,
+    cursor_context_reply,
+)
 
 
 HOOK_SPECIFIC_OUTPUT_KEY = "hookSpecificOutput"
@@ -70,7 +74,7 @@ def _render_additional_context_envelope(
     return json.dumps(envelope)
 
 
-def _context_envelope_kind(text: str) -> tuple[str, str] | None:
+def _context_envelope_kind(text: str, event_name: str) -> tuple[str, str] | None:
     """Return ``(kind, body)`` for one context envelope, else ``None``.
 
     Kind is ``cursor`` or ``claude``. Merge uses the input wire shape so two
@@ -82,8 +86,13 @@ def _context_envelope_kind(text: str) -> tuple[str, str] | None:
         return None
     if not isinstance(parsed, dict):
         return None
-    if set(parsed) == {"additional_context"}:
-        body = parsed["additional_context"]
+    keys = set(parsed)
+    if keys == {"additional_context"} or (
+        event_name == CURSOR_PROMPT_EVENT
+        and parsed.get("continue") is True
+        and keys <= {"additional_context", "continue"}
+    ):
+        body = parsed.get("additional_context", "")
         return ("cursor", body) if isinstance(body, str) else None
     if set(parsed) != {HOOK_SPECIFIC_OUTPUT_KEY}:
         return None
@@ -115,8 +124,8 @@ def merge_allow_stdout(
         return second
     if not second:
         return first
-    first_parts = _context_envelope_kind(first)
-    second_parts = _context_envelope_kind(second)
+    first_parts = _context_envelope_kind(first, event_name)
+    second_parts = _context_envelope_kind(second, event_name)
     if first_parts is None or second_parts is None:
         if cursor:
             allow = {"permission": "allow"}
@@ -147,16 +156,17 @@ def merge_allow_stdout(
     emit_cursor = first_kind == "cursor"
     contexts = [body for body in (first_body, second_body) if body.strip()]
     if not contexts:
-        return json.dumps({"additional_context": ""}) if emit_cursor else ""
+        return cursor_context_reply(event_name, "") if emit_cursor else ""
     body = compose_context_list(
         contexts, harness_id=_merge_harness_id(cursor=cursor, harness_id=harness_id)
     )
+    if emit_cursor:
+        return cursor_context_reply(event_name, body or "")
     if not body:
-        return json.dumps({"additional_context": ""}) if emit_cursor else ""
+        return ""
     return _render_additional_context_envelope(
         [body],
         event_name,
-        cursor=emit_cursor,
     )
 
 

@@ -1,10 +1,8 @@
 """Cursor session-lifecycle handlers consumed by the shared dispatch.
 
-Cursor delivers orientation through the ``sessionStart`` hook's
-``additional_context`` JSON reply — the one injection channel that fires
-on both Cursor surfaces (IDE chat and the non-interactive terminal
-agent), and the only one a resumed print-mode turn reaches before its
-first tool call. Identity comes from the hook payload: the parser has
+Cursor registers at ``sessionStart``. The surface's startup orientation
+event decides where the checkout context is emitted. Identity comes from
+the hook payload: the parser has
 already folded subagent session ids into the top-level container, and the
 active model is named per payload because Cursor multiplexes providers.
 
@@ -18,8 +16,10 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 from pathlib import Path
 
+from yoke_contracts.hook_runner.chain_registry import session_orientation_event
 from yoke_contracts.session_model_facts import SessionModelFacts
 
 from yoke_core.hooks import session_dispatch_cursor_lifecycle as _lifecycle
@@ -74,7 +74,13 @@ def _render_orientation(
         ]
         warning.append(remediation or "Run: yoke sessions identity --json; repair the named cause and retry the hook.")
         blocks.append("\n".join(warning))
-    if not record.payload.get(CLIENT_ORIENTATION_PRESENT_KEY):
+    surface = record.executor_surface
+    if surface == "cursor":
+        surface = _entrypoint()
+    startup_event = session_orientation_event(
+        cursor=True, surface=surface, platform=sys.platform,
+    )
+    if startup_event == "SessionStart" and not record.payload.get(CLIENT_ORIENTATION_PRESENT_KEY):
         orientation = render_scoped_orientation(
             record.payload,
             Path(root),
@@ -85,10 +91,7 @@ def _render_orientation(
 
 
 def run_session_start(record: HookContext, root: str) -> str:
-    """Register the container session and inject orientation.
-
-    The reply is Cursor's ``sessionStart`` JSON shape: the orientation
-    body travels under ``additional_context``.
+    """Register the container session and emit any startup context due here.
 
     Task/subagent and linked-worktree remount sessionStart events (parser
     sets ``is_subagent_session`` / ``is_worktree_remap_session``) must not
