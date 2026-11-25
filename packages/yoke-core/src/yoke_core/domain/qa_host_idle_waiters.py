@@ -9,6 +9,7 @@ host is served (:func:`serving_waiters`), so each host goes to the next waiter.
 Control-plane upkeep hands the reservations it already holds to the next
 waiter the same way (:func:`hand_off_idle_waiter_reservations`).
 
+A live session that Yoke can resume keeps its turn while stopped.
 A new running turn or tool call ends the skip. The next release serves the
 waiter at its place and upkeep checks hosts that are already free.
 """
@@ -18,6 +19,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Any, Iterable, Mapping
 
+from yoke_contracts.session_control.capabilities import native_wake_supported
 from yoke_contracts.timestamps import parse_instant, utc_now
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.qa_plan_execution_store import marker as _p
@@ -32,7 +34,8 @@ def _sessions(conn: Any, session_ids: Iterable[str]) -> dict[str, dict[str, Any]
         conn,
         "SELECT session_id, session_id AS live_row, mode, last_tool_call_at, "
         "last_child_tool_call_at, "
-        "native_process_gone_at, ended_at, terminated_at, turn_posture, turn_posture_at "
+        "native_process_gone_at, ended_at, terminated_at, turn_posture, turn_posture_at, "
+        "executor_surface, launch_origin "
         "FROM harness_sessions "
         f"WHERE session_id IN ({','.join([_p(conn)] * len(ids))})",
         tuple(ids),
@@ -54,6 +57,10 @@ def waiter_away(
     if not wait.get("qa_plan_execution_id"):
         return False
     row = dict(session or {})
+    if not (row.get("ended_at") or row.get("terminated_at")) and native_wake_supported(
+        row.get("executor_surface"), row.get("launch_origin")
+    ):
+        return False
     if not holder_away(row, now=now, limit=limit):
         return False
     last = row.get("last_tool_call_at") or wait["queued_at"]

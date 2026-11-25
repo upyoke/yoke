@@ -1,4 +1,4 @@
-"""A steering seat stops another session's live QA walk through its runner.
+"""A launcher or steering seat stops another session's QA walk through its runner.
 
 The owning runner is the only process that can put its host back: it holds
 the lease, knows which case is in flight, and records the restore proof. So
@@ -135,9 +135,9 @@ def request_steering_stop(
         else (
             f"Session {owner}'s runner stops this execution at its next case "
             "check-in or host heartbeat, cleans up its host and settles it as "
-            "aborted with this reason. Nothing else is needed. If that session "
-            "is gone, any session may abandon the execution once it has not "
-            f"heartbeated for {PLAN_EXECUTION_STALE_SECONDS // 60} minutes."
+            "aborted with this reason. Any session may abandon it once its owner ends, "
+            f"or after {PLAN_EXECUTION_STALE_SECONDS // 60} minutes without progress "
+            "while its owner is unparked."
         ),
     }
 
@@ -160,7 +160,7 @@ def stop_plan_execution(
     """Stop an execution the caller's abort authority already admitted.
 
     A caller that is neither the owner nor abandoning a left execution holds
-    a steering seat. A walk its runner still drives gets a stop request; one
+    a launcher grant or a steering seat. A walk its runner still drives gets a stop request; one
     no runner drives (waiting, or awaiting review) settles here under the
     steering reason. Every other abort settles here under its own reason, or
     the reason a recorded stop request already names.
@@ -181,16 +181,16 @@ def stop_plan_execution(
     from yoke_core.domain.qa_plan_execution_store import same_owner
 
     abandoned = plan_execution_is_abandoned(conn, execution)
-    steering = not abandoned and not same_owner(
+    remote_stop = not abandoned and not same_owner(
         execution, actor_id=actor_id, session_id=session_id
     )
     mission = None if abandoned else mission_walk_owed(conn, execution)
-    if steering and (execution["state"] == RUNNER_DRIVEN_STATE or mission):
+    if remote_stop and (execution["state"] == RUNNER_DRIVEN_STATE or mission):
         stop = request_steering_stop(
             conn, execution, actor_id=actor_id, session_id=session_id, reason=reason
         )
         return {**plan_execution_view(conn, execution), "stop_request": stop}
-    if steering:
+    if remote_stop:
         reason = steering_stop_reason(session_id, reason)
     if mission and abort_request(execution) is None:
         # The owner's own stop keeps the lease too; finishing below refuses
@@ -204,7 +204,7 @@ def stop_plan_execution(
     from yoke_core.domain.qa_host_holdover import OWNER_ABORT
 
     # The owner's own stop keeps its hosts for its next execution.
-    execution[OWNER_ABORT] = not steering and not abandoned
+    execution[OWNER_ABORT] = not remote_stop and not abandoned
     finish_plan_execution(
         conn,
         execution,

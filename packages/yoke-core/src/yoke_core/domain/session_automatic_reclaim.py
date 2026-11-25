@@ -15,6 +15,7 @@ from .session_cleanup_holdings import (
     effective_cleanup_ttl,
 )
 from .session_keepalive import session_keepalive_holds
+from .session_qa_execution_holdings import sessions_owning_live_qa_executions
 from .session_reclaim_activity import (
     REASON_KEEPALIVE_HELD,
     REASON_WAKE_DELIVERY_IN_FLIGHT,
@@ -100,6 +101,7 @@ def automatic_reclaim(
     return classify_activity(
         evidence,
         holds_work_claim=bool(row["holds_work_claim"]),
+        owns_live_qa_execution=bool(row.get("owns_live_qa_execution")),
         progress_threshold_minutes=progress_ttl if row.get("tool_call_count") else None,
         now=now,
     )
@@ -143,11 +145,13 @@ def reclaim_facts(
     rows: Iterable[Mapping[str, Any]],
     *,
     session_facts_complete: bool = False,
+    include_qa_ownership: bool = True,
 ) -> list[dict[str, Any]]:
     """Complete roster or sweep rows in bounded reads, independent of harness.
 
     Session, open-call, and holdings facts have durable owners. No telemetry
     event or harness-specific interpretation participates in eligibility.
+    Raw activity readers and callers with their own QA snapshot skip its query.
     """
     page = [dict(row) for row in rows]
     ids = tuple(dict.fromkeys(str(row["session_id"]) for row in page))
@@ -168,6 +172,7 @@ def reclaim_facts(
             ).fetchall()
         }
     delivery = _reclaim_delivery_facts(conn, ids)
+    qa_owners = sessions_owning_live_qa_executions(conn) if include_qa_ownership else set()
     claims = active_work_claim_sessions(conn)
     holdings = active_holding_sessions(conn)
     tools: dict[str, Any] = {}
@@ -211,6 +216,7 @@ def reclaim_facts(
         )
         row.update(delivery[sid])
         row["holds_work_claim"] = sid in claims
+        row["owns_live_qa_execution"] = sid in qa_owners
         row["has_active_holdings"] = sid in holdings
         row["open_tool_call_at"] = tools.get(sid)
     return page

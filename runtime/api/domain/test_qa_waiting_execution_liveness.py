@@ -43,6 +43,8 @@ def _begin(conn, session=OWNER):
         ("awaiting_walk_review", True, True, True),
         ("awaiting_walk_review", True, False, True),
         ("active", False, True, True),
+        ("active", True, False, True),
+        ("walking", True, False, True),
     ],
 )
 def test_abandonment_paths_follow_waiting_owner_lifetime(

@@ -154,15 +154,17 @@ def plan_execution_is_abandoned(
     *,
     now: datetime | None = None,
 ) -> bool:
-    """Held walks follow session lifetime; active walks follow progress.
+    """All walks follow owner lifetime, and active walks also follow progress.
 
     Nothing heartbeats a walk that is waiting or awaiting walk review, and a
     wake can change the owner's mode. Only an explicit session end abandons
-    a held execution. Other states use the activity clock and the live
+    a held execution. Other states also use the activity clock and the live
     parked-owner exemption.
     """
+    if owning_session_has_ended(conn, execution):
+        return True
     if execution.get("state") in HELD_PLAN_EXECUTION_STATES:
-        return owning_session_has_ended(conn, execution)
+        return False
     if not plan_execution_is_stale(conn, execution, now=now):
         return False
     return not owning_session_is_parked(conn, execution)
@@ -278,6 +280,7 @@ def plan_execution_abort_authority(
     its held owner ended. Any caller may settle it. ``steering``: a
     live steering seat stops a walk another session still drives; the stop
     goes through the runner, which cleans up its host and settles it.
+    ``launcher`` grants the same stop to the live requester of this worker.
     """
     from yoke_core.domain.qa_plan_execution_store import same_owner
     from yoke_core.domain.qa_plan_execution_stop import (
@@ -295,6 +298,10 @@ def plan_execution_abort_authority(
     parked = owning_session_is_parked(conn, execution)
     if plan_execution_is_abandoned(conn, execution, now=now):
         return "abandon"
+    from yoke_core.domain.session_launch_report_backstop import is_live_launcher
+
+    if is_live_launcher(conn, owner=str(execution["session_id"]), caller=session_id):
+        return "launcher"
     if steering_seat_covers(conn, execution, session_id=session_id):
         return "steering"
     from yoke_core.domain.session_steering_authority import steering_authority_message
@@ -310,12 +317,12 @@ def plan_execution_abort_authority(
         "qa_execution_stop_requires_steering: QA plan execution "
         f"{execution.get('id')} belongs to session "
         f"{str(execution.get('session_id') or '')!r}, which {holding}. Stopping "
-        "it from another session "
+        "it from another session requires its live launcher or a covering steering seat. "
         f"{steering_authority_message(execution_project_id(conn, execution))} "
         "Then rerun this abort: it records a stop that the owning runner obeys "
         "at its next case or heartbeat. Without a seat, ask the owning session "
         "to abort its own execution. A walk that is waiting or awaiting walk "
-        "review may be abandoned only after its owning session ends; other walks may be abandoned after "
+        "review may be abandoned once its owner ends. Active walks may also be abandoned after "
         f"{PLAN_EXECUTION_STALE_SECONDS // 60} minutes without a heartbeat or owner tool activity "
         "unless its owner is parked"
     )

@@ -6,5 +6,5 @@
  "page": "runtime-execution",
  "position": 5,
  "sources": ["packages/yoke-core/src/yoke_core/domain/session_process_liveness_report.py", "runtime/api/domain/test_session_process_death_supersession.py", "docs/public/agents/claude.md"],
- "summary": "The destructive process-death decision reuses canonical observation chronology under the session lifecycle lock. Later heartbeat, tool or episode activity supersedes even launch-named evidence; repeated reports preserve the original death time. Current deaths retain immediate settlement and holdings, parked-wait and reply protections. Deployed proof remains required."
+ "summary": "The destructive process-death decision reuses canonical observation chronology under the session lifecycle lock. Later heartbeat, tool or episode activity supersedes even launch-named evidence; repeated reports preserve the original death time. Current deaths retain immediate settlement and holdings, parked-wait and reply protections. Deployed proof remains required. A live QA execution retains its owner across Stop and stale cleanup regardless of inactivity. A verified native exit retains the QA owner while its transcript can resume. A failed native resume lets the session end so another begin can settle its waiting execution."
 }

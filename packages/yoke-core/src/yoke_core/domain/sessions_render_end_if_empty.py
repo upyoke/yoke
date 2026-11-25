@@ -8,6 +8,7 @@ from typing import Any, Dict, Sequence
 from .qa_host_turns import cancel_host_waits
 from . import sessions_analytics as _sa
 from .session_launch_abandonment import settle_and_notify
+from .session_qa_execution_holdings import session_owns_live_qa_execution
 from .sessions_analytics import EVENT_HARNESS_SESSION_ENDED
 from .sessions_claim_lifecycle_lock import lock_session_rows_for_claim_lifecycle
 from .sessions_lifecycle_registry import _get_session
@@ -209,6 +210,15 @@ def end_session_if_empty(
             "session_id": session_id,
             "ended": False,
             **end_session_blocker_facts(active_claim_count=int(claim_count)),
+        }
+
+    if session_owns_live_qa_execution(conn, session_id):
+        conn.commit()
+        return {
+            "session_id": session_id,
+            "ended": False,
+            "status": "has_live_qa_execution",
+            "active_claim_count": 0,
         }
 
     deploy_run = deployment_driver_holds(conn).get(session_id)

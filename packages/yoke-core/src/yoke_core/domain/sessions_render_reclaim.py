@@ -116,6 +116,15 @@ def reclaim_stale_session(
             "complete or cancel its work, or use authorized session termination.",
         )
 
+    from .session_qa_execution_holdings import session_owns_live_qa_execution
+
+    if session_owns_live_qa_execution(conn, session_id):
+        raise SessionError(
+            "ACTIVE_QA_EXECUTION",
+            f"Session '{session_id}' owns a live QA execution. "
+            "Let it finish or stop it with `yoke qa plan abort`, then retry reclaim.",
+        )
+
     # Capture claim details before releasing for per-claim telemetry
     active_claim_rows = conn.execute(
         f"""SELECT id, session_id, target_kind, scope
