@@ -6,6 +6,7 @@ from pathlib import Path
 import sys
 
 from yoke_contracts.machine_config import reader as machine_config
+from yoke_contracts.machine_config.paths import assert_write_owned
 from yoke_cli.config import machine_config_file, onboard_apply_progress
 
 BROWSER_SETUP_ACTION = "browser-setup"
@@ -38,7 +39,9 @@ def setup_directories(config_path: Path, *, reuse=None, progress=None) -> None:
     if not steps:
         return
     onboard_apply_progress.emit_many(progress, steps, "running")
-    machine_config_file.ensure_owner_only_directory(config_path.parent)
+    assert_write_owned(config_path)
+    machine_config_file.ensure_owner_only_directory(machine_config.yoke_home())
+    machine_config_file.prepare_config_parent(config_path)
     for _, key in steps:
         paths[key].mkdir(parents=True, exist_ok=True)
     onboard_apply_progress.emit_many(progress, steps, "done")

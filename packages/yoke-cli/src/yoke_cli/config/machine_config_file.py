@@ -76,13 +76,19 @@ def config_lock_path(config_path: str | Path) -> Path:
     return selected.with_name(selected.name + ".lock")
 
 
+def prepare_config_parent(config_path: str | Path) -> None:
+    """Create a missing parent and preserve an existing owner's read-sharing policy."""
+    parent = Path(config_path).expanduser().parent
+    create_private_directory(parent)
+    _assert_secure_parent(parent)
+
+
 @contextmanager
 def exclusive_lock(config_path: str | Path) -> Iterator[None]:
     """Hold the stable owner-only lock associated with ``config_path``."""
     selected = Path(config_path).expanduser()
     try:
-        create_private_directory(selected.parent)
-        _assert_secure_parent(selected.parent)
+        prepare_config_parent(selected)
         lock_path = config_lock_path(selected)
         if _WINDOWS:
             try:
@@ -297,6 +303,7 @@ __all__ = [
     "config_lock_path",
     "ensure_owner_only_directory",
     "exclusive_lock",
+    "prepare_config_parent",
     "remove_idle_lock_file",
     "remove_file",
 ]

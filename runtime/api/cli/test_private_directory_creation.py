@@ -11,11 +11,12 @@ import subprocess
 
 import pytest
 
-from yoke_cli.config import github_git_credential_file, machine_config_file, onboard_apply_report, onboard_checklist, universe_ui_daemon_state
+from yoke_cli.config import github_git_credential_file, machine_config_file, onboard_apply_report, onboard_checklist, onboard_machine_setup, universe_ui_daemon_state
 from yoke_contracts.machine_config import capability_secret_store as capability_secrets
 from yoke_contracts.machine_config import secret_files as secrets
 from yoke_cli.local_core import state
 from yoke_contracts.machine_config.directories import create_private_directory
+from yoke_contracts.testing.real_home_isolation import set_home
 from yoke_contracts.owner_private_path import (
     create_owner_private_directory,
     is_owner_private_directory,
@@ -155,3 +156,50 @@ def test_existing_file_cannot_be_used_as_directory(tmp_path: Path):
     with pytest.raises(FileExistsError):
         create_private_directory(target)
     assert target.read_text(encoding="utf-8") == "unchanged"
+
+
+@pytest.mark.posix_only(reason="POSIX mode bits distinguish shared-read config directories")
+def test_setup_preserves_shared_read_on_separate_config_parent(tmp_path, monkeypatch):
+    home = create_private_directory(tmp_path / "machine-home")
+    parent = home / "selected-config"
+    parent.mkdir(mode=0o755)
+    parent.chmod(0o755)
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
+
+    onboard_machine_setup.setup_directories(parent / "config.json")
+
+    assert stat.S_IMODE(parent.stat().st_mode) == 0o755
+    assert is_owner_private_directory(home)
+    assert (parent / "tmp").is_dir() and (parent / "cache").is_dir()
+    assert not (parent / "config.json").exists()
+
+
+@pytest.mark.windows_only(reason="native Windows ACLs distinguish shared-read config and machine home")
+def test_setup_accepts_shared_read_config_parent_but_refuses_shared_machine_home(
+    tmp_path, monkeypatch
+):
+    set_home(monkeypatch, str(tmp_path))
+    monkeypatch.delenv("YOKE_MACHINE_HOME", raising=False)
+    home = create_private_directory(tmp_path / ".yoke")
+    shared = create_private_directory(tmp_path / "shared")
+    subprocess.run(
+        ["icacls", str(shared), "/grant", f"{_BUILTIN_USERS}:(OI)(CI)(RX)"], check=True
+    )
+    parent = shared / "selected-config"
+    parent.mkdir()
+    monkeypatch.setenv("YOKE_MACHINE_CONFIG_FILE", str(parent / "config.json"))
+    assert not is_owner_private_directory(parent)
+    assert is_others_unwritable_directory(parent)
+
+    onboard_machine_setup.setup_directories(parent / "config.json")
+
+    assert not is_owner_private_directory(parent)
+    assert is_owner_private_directory(home)
+    assert (parent / "tmp").is_dir() and (parent / "cache").is_dir()
+    assert not (parent / "config.json").exists()
+
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
+    subprocess.run(["icacls", str(home), "/grant", f"{_BUILTIN_USERS}:(RX)"], check=True)
+    with pytest.raises(machine_config_file.MachineConfigFileError, match="not owner-only"):
+        onboard_machine_setup.setup_directories(home / "config.json")
+    assert not (home / "tmp").exists()
