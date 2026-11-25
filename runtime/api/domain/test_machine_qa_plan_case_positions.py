@@ -67,7 +67,8 @@ def test_a_planned_case_that_lost_its_positions_is_named_as_drift() -> None:
     assert "yoke qa plan abort" in message
 
 
-def test_transferred_case_keeps_definition_and_target_checks(monkeypatch):
+@pytest.mark.parametrize("delegated", [False, True])
+def test_transferred_case_keeps_definition_and_target_checks(monkeypatch, delegated):
     from yoke_core.domain.machine_qa_plan_case_snapshot import assert_current_snapshot
 
     stored = {
@@ -78,6 +79,8 @@ def test_transferred_case_keeps_definition_and_target_checks(monkeypatch):
         "instructions": "Keep this definition",
     }
     current = {**stored, "deployment_run_id": "successor"}
+    if delegated:
+        stored["delegated_walk"] = True
     monkeypatch.setattr(
         "yoke_core.domain.qa_plan_case_currency.require_current_requirement",
         lambda *args: None,
@@ -96,6 +99,8 @@ def test_transferred_case_keeps_definition_and_target_checks(monkeypatch):
         lambda *args: lineage[0],
     )
     assert_current_snapshot(object(), stored)
+    if delegated:
+        assert stored["delegated_walk"] is True
     current["instructions"] = "Changed definition"
     with pytest.raises(ValueError, match="snapshot changed"):
         assert_current_snapshot(object(), stored)

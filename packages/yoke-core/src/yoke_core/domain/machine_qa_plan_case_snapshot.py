@@ -115,7 +115,8 @@ def assert_current_snapshot(conn: Any, case: dict[str, Any]) -> None:
     if row is None:
         raise ValueError("ordered plan requirement no longer exists")
     current["case_position"], current["baseline_position"] = case_positions(case, row)
-    stored = {key: value for key, value in case.items() if key != "ordinal"}
+    # Ordinal and delegation custody belong to the execution, not the requirement.
+    stored = {key: value for key, value in case.items() if key not in {"ordinal", "delegated_walk"}}
     if current.get("deployment_run_id") != stored.get("deployment_run_id"):
         _forgive_takeover(conn, current, stored)
     # The checkout source follows the current owning run, not the admission.
