@@ -79,6 +79,7 @@ class CheckingFlow:
         self._checking_token += 1
         if self._history:
             self._history.pop()
+        self._transition_text = ""
         cancel()
         return True
 
