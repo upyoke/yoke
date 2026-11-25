@@ -228,6 +228,24 @@ def open_unsettled_roster(
     return stored, []
 
 
+def current_review_passes(conn, roster: list[dict[str, Any]], **scope) -> set[int]:
+    """Current recorded review passes grouped by their exact execution target."""
+    if not roster or not _review_tables(conn):
+        return set()
+    by_target: dict[str, list[int]] = {}
+    for case in roster:
+        if case.get("verdict_path") == "agent" and case.get("execution_target_digest"):
+            by_target.setdefault(case["execution_target_digest"], []).append(int(case["requirement_id"]))
+    subject_sql, subject_params = _subject_filter(conn, **scope)
+    passed = set()
+    for digest, ids in by_target.items():
+        _, verdicts = _persisted_verdicts(
+            conn, ids, digest=digest, subject_sql=subject_sql, subject_params=subject_params,
+        )
+        passed.update(verdicts)
+    return passed
+
+
 def settled_review_run_result(execution: Mapping[str, Any]) -> dict[str, Any]:
     """The plan-runner result that reprints a batch and captures nothing."""
     verdicts = [dict(row) for row in execution["settled_review"]]

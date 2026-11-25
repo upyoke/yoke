@@ -51,7 +51,7 @@ def _notify_group_review(
         run_id=run_id,
         project_id=int(row[0]),
         body_for_route=body_for_route,
-        idempotency_key=idempotency_key if owner_live else f"{idempotency_key}:fallback",
+        idempotency_key=_notice_key(conn, idempotency_key, owner_live=owner_live),
         owner_session_id=owner if owner_live else None,
         now=utc_now(),
     )
@@ -107,7 +107,12 @@ def notify_scoped_agent_review(conn: Any, execution: Mapping[str, Any]) -> str:
             "reprints the pending bundle without recapturing; follow its "
             "bundle instructions and submit the complete verdict batch."
             if owner_live
-            else _replacement_adoption(conn, execution, item_ref, str(row[1]))
+            else (
+                f"Owning session {owner or 'unrecorded'} is gone. Route normal "
+                "idle/gone-holder starvation and restaffing. "
+                f"{_replacement_adoption(conn, execution, item_ref, str(row[1]))} "
+                f"The adopted execution resumes with `{command}`."
+            )
         )
         return (
             f"Scoped QA capture for {item_ref} on deployment run {run_id}, "
@@ -122,7 +127,7 @@ def notify_scoped_agent_review(conn: Any, execution: Mapping[str, Any]) -> str:
         project_id=int(row[0]),
         owner_session_id=owner if owner_live else None,
         body_for_route=body_for_route,
-        idempotency_key=f"{REVIEW_WAKE_PREFIX}{execution_id}{'' if owner_live else ':fallback'}",
+        idempotency_key=_notice_key(conn, f"{REVIEW_WAKE_PREFIX}{execution_id}", owner_live=owner_live),
         now=utc_now(),
     )
 
@@ -154,6 +159,14 @@ def _project_id(conn: Any, item_id: int) -> int | None:
         f"SELECT project_id FROM items WHERE id={marker(conn)}", (int(item_id),)
     ).fetchone()
     return int(row[0]) if row is not None else None
+
+
+def _notice_key(conn, key: str, *, owner_live: bool) -> str:
+    if not owner_live and conn.execute(
+        f"SELECT 1 FROM session_messages WHERE idempotency_key={marker(conn)}", (key,),
+    ).fetchone():
+        return f"{key}:fallback"
+    return key
 
 
 def _replacement_adoption(conn, execution, item_ref: str, project: str) -> str:

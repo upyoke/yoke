@@ -233,6 +233,18 @@ def _prepare_partition_roster(
         stage_wide=scope.stage_wide,
     )
     if selected is None:
+        from yoke_core.domain.qa_plan_settled_review import open_unsettled_roster
+
+        for view in views:
+            if not any(row["verdict_path"] == "agent" for row in view.partition.roster):
+                continue
+            reprint, _ = open_unsettled_roster(
+                conn, view.partition.roster, item_id=item_id, transition_id=transition_id,
+                deployment_run_id=deployment_run_id, deployment_stage=deployment_stage,
+                deployment_member_item_id=deployment_member_item_id,
+            )
+            if reprint:
+                return reprint
         if item_id is not None:
             raise QaPlanExecutionStateError(
                 "qa_plan_roster_passed_at_candidate: every partition already passed. "

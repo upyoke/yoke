@@ -89,16 +89,14 @@ def scoped_partition_views(
 ) -> list[PartitionView]:
     if not roster:
         return []
+    from yoke_core.domain.qa_plan_settled_review import current_review_passes
+
     ids = [int(row["requirement_id"]) for row in roster]
     if scope.item_id is not None:
         from yoke_core.domain.qa_plan_item_target_partition import candidate_passed_requirements
         from yoke_core.domain.qa_merging_identity import recorded_head_sha
-        from yoke_core.domain.qa_requirement_pass_currency import current_passing_requirements
 
         candidate, passed = candidate_passed_requirements(conn, roster, item_id=scope.item_id)
-        passed |= current_passing_requirements(
-            conn, [int(row["requirement_id"]) for row in roster if row["verdict_path"] == "agent"]
-        )
         attempts = {
             requirement: attempt for requirement, attempt in latest_executions(conn, ids).items()
             if not candidate or recorded_head_sha(attempt["raw_result"]) in ("", None, candidate)
@@ -115,6 +113,11 @@ def scoped_partition_views(
             deployment_member_item_id=scope.deployment_member_item_id,
         )
         attempts = current_target_attempts(conn, latest_verdict_executions(conn, ids))
+    passed |= current_review_passes(
+        conn, roster, item_id=scope.item_id, transition_id=scope.transition_id,
+        deployment_run_id=scope.deployment_run_id, deployment_stage=scope.deployment_stage,
+        deployment_member_item_id=scope.deployment_member_item_id,
+    )
     failed = {
         requirement for requirement, attempt in attempts.items()
         if attempt.get("verdict") in {"fail", "undetermined", "error"}
