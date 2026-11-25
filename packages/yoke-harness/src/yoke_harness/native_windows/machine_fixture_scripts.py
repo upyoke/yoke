@@ -71,20 +71,28 @@ APPLOCKER_POLICY = f"""<AppLockerPolicy Version="1">
 
 APPLOCKER_HELPERS = r"""
 function Get-YokeAppLockerIds {
- $local=[xml](Get-AppLockerPolicy -Local -Xml)
+ try {$local=[xml](Get-AppLockerPolicy -Local -Xml -ErrorAction Stop)} catch {return @('unreadable')}
  @($local.SelectNodes('//*[@Id]') | ForEach-Object {$_.Id.ToLowerInvariant()} | Sort-Object)
 }
 function Set-YokeAppLockerPolicy([string]$xml) {
  $file=Join-Path $env:TEMP ('yoke-applocker-'+[Guid]::NewGuid().ToString('N')+'.xml')
  try {
   [IO.File]::WriteAllText($file,$xml,[Text.UTF8Encoding]::new($false))
-  Set-AppLockerPolicy -XmlPolicy $file
+  # A write that races the running AppIDSvc can fail transiently; three tries.
+  for($try=1;;$try++){
+   try {Set-AppLockerPolicy -XmlPolicy $file -ErrorAction Stop; break}
+   catch {if($try -ge 3){throw}; Start-Sleep -Seconds 2}
+  }
  } finally {Remove-Item -LiteralPath $file -Force -ErrorAction SilentlyContinue}
 }
 function Get-YokeSrpRuleCount {
  $root='HKLM:\SOFTWARE\Policies\Microsoft\Windows\SrpV2'
- if(!(Test-Path -LiteralPath $root)){return 0}
- @(Get-ChildItem -LiteralPath $root | ForEach-Object {Get-ChildItem -LiteralPath $_.PSPath}).Count
+ # AppIDSvc rewrites these keys while it applies a policy; a read that races
+ # it ("No more data is available") counts as not yet clear, and callers retry.
+ try {
+  if(!(Test-Path -LiteralPath $root)){return 0}
+  @(Get-ChildItem -LiteralPath $root -ErrorAction Stop | ForEach-Object {Get-ChildItem -LiteralPath $_.PSPath -ErrorAction Stop}).Count
+ } catch {return -1}
 }
 """
 
