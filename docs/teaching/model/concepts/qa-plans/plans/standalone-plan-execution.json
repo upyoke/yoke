@@ -3,5 +3,8 @@
  "title": "Standalone plan execution",
  "status": "draft-copy",
  "page": "qa-plans",
- "position": 5
+ "position": 5,
+ "commands": ["yoke qa plan partitions", "yoke qa plan run"],
+ "summary": "Read the partitions for one standalone plan and source revision. Each session can own one live partition, and independent partitions can run together. Their keys use case keys and baseline positions, since each run creates its own requirement rows.",
+ "sources": ["docs/public/verification/standalone-plans.md"]
 }
