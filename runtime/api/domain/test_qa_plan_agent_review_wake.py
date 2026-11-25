@@ -100,7 +100,10 @@ def test_prior_stage_wait_does_not_absorb_review_notice(test_db, monkeypatch):
     )
 
     assert _recipients(test_db, f"qa-plan-agent-review:{execution['id']}") == [OWNER]
-    assert test_db.execute("SELECT COUNT(*) FROM session_messages").fetchone()[0] == 2
+    assert test_db.execute(
+        "SELECT COUNT(*) FROM session_messages m WHERE NOT EXISTS "
+        "(SELECT 1 FROM session_launches l WHERE l.message_id=m.message_id)"
+    ).fetchone()[0] == 2
 
 
 @pytest.mark.parametrize("gone", ["missing", "terminated"])
@@ -121,7 +124,7 @@ def test_gone_owner_reaches_steering_with_normal_restaffing_recovery(test_db, go
         scope_json='{"project_id":1}',
     )
     execution, _bundle, _requirement = _seed_pending(
-        test_db, f"run-review-{gone}", "item"
+        test_db, f"run-review-{gone}", "item", owner_gone=gone
     )
 
     key = f"qa-plan-agent-review:{execution['id']}"
@@ -149,7 +152,10 @@ def test_delegated_capture_wakes_execution_owner_rather_than_another_holder(test
 def test_run_scoped_review_does_not_emit_an_item_notice(test_db):
     _owner(test_db)
     _seed_pending(test_db, "run-review-run-scope", "run")
-    assert test_db.execute("SELECT COUNT(*) FROM session_messages").fetchone()[0] == 0
+    assert test_db.execute(
+        "SELECT COUNT(*) FROM session_messages m WHERE NOT EXISTS "
+        "(SELECT 1 FROM session_launches l WHERE l.message_id=m.message_id)"
+    ).fetchone()[0] == 0
 
 
 def test_capture_and_notice_roll_back_together_on_notice_failure(test_db, monkeypatch):
