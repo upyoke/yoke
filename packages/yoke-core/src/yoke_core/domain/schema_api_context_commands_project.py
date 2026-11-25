@@ -32,7 +32,6 @@ PROJECT_COMMANDS: list[dict] = [
             "main_agent",
             "engineer_agent",
             "tester_agent",
-            "qa_walker_agent",
         ),
         "topic": "project",
         "purpose": "Read one branch preview environment",

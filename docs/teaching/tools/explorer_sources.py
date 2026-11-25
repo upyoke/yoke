@@ -80,7 +80,7 @@ SKILL_GROUPS = {
 ROLE_GROUPS = {
     'Plan and design': 'product-manager product-designer architect',
     'Build': 'engineer',
-    'Review and verify': 'boss simulator tester tester-browser qa-walker',
+    'Review and verify': 'boss simulator tester tester-browser',
 }
 
 # Named cross-source connections, distinct from topic similarity.

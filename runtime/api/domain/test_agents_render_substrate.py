@@ -144,20 +144,19 @@ def test_no_codex_canonical_md_exists(repo_root: Path) -> None:
     assert stray == [], f"stray .codex.md canonical bodies present: {stray}"
 
 
-def test_render_emits_eight_codex_agents() -> None:
-    """AGENTS contains exactly the eight primary Yoke agents."""
+def test_render_emits_seven_codex_agents() -> None:
+    """AGENTS contains exactly the seven primary Yoke agents."""
     expected = {
         "architect",
         "boss",
         "engineer",
         "product-designer",
         "product-manager",
-        "qa-walker",
         "simulator",
         "tester",
     }
     assert set(AGENTS) == expected
-    assert len(AGENTS) == 8
+    assert len(AGENTS) == 7
 
 
 # ---------------------------------------------------------------------------

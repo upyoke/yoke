@@ -1,4 +1,4 @@
-"""Shape and refusals of one desktop input action a QA walker sends a host."""
+"""Shape and refusals of one desktop input action a walking session sends to a host."""
 
 from __future__ import annotations
 
@@ -59,8 +59,8 @@ def refuse_secret_text(text: str, secrets: Sequence[str]) -> None:
         raise _refuse(
             "desktop_input_secret_refused",
             "the text carries a secret or credential-shaped value",
-            "Never type secrets through desktop input. Return WALK_STATUS: "
-            "HUMAN_GATE naming the credential entry so a person enters it",
+            "Ask for the credential entry through the mission human-gate route "
+            "in .yoke/docs/verification/walking.md so a person enters it",
         )
 
 

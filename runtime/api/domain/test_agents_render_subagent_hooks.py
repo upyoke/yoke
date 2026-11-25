@@ -31,7 +31,6 @@ _BASH_CAPABLE_ROLES = (
     "architect",
     "boss",
     "simulator",
-    "qa-walker",
 )
 _NON_BASH_ROLES = ("product-manager", "product-designer")
 

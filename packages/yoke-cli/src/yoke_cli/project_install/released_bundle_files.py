@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+from pathlib import Path
 from functools import cache
 from importlib.resources import files
+from yoke_contracts.filesystem_safety import first_symlink_component
 from yoke_contracts.project_contract.install_error import ProjectInstallError
 from yoke_cli.project_install.files import sha256_text
 
@@ -13,6 +15,14 @@ from yoke_cli.project_install import checkout_gate
 from yoke_contracts.install_binding import source_checkout_root
 from yoke_contracts.release_version import release_version
 from yoke_contracts.project_contract.source_installed_views import view_source
+
+
+# An older project can have installed copies without a local ownership record.
+_RETIRED_AGENT_PATHS = (
+    ".claude/agents/yoke-qa-walker.md",
+    ".codex/agents/yoke-qa-walker.toml",
+    ".cursor/agents/yoke-qa-walker.md",
+)
 
 
 class ReleasedBundleFiles:
@@ -47,6 +57,25 @@ class ReleasedBundleFiles:
             return self.proven[key]
         self.proven[key] = self._in_release(canonical, blob)
         return self.proven[key]
+
+    def retired_agent_hashes(
+        self, root: Path, known_paths: set[str]
+    ) -> dict[str, str]:
+        """Recover immutable ownership for retired installed agents before pruning."""
+        retired = {}
+        for rel in _RETIRED_AGENT_PATHS:
+            target = root / rel
+            if rel in known_paths or first_symlink_component(
+                root, target, include_leaf=True
+            ) is not None:
+                continue
+            try:
+                content = target.read_bytes().decode("utf-8")
+            except (OSError, UnicodeError):
+                continue
+            if self.proves(rel, content):
+                retired[rel] = sha256_text(content)
+        return retired
 
     def _in_release(self, canonical: str, blob: str) -> bool:
         assert self.root is not None

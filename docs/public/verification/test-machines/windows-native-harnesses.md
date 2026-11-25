@@ -228,7 +228,7 @@ finish, deallocate the VM, verify its actual power state and report it.
 
 ## Driving desktop apps
 
-QA walkers drive any native app on the lab, such as Codex Desktop or Claude
+A QA session can drive any native app on the lab, such as Codex Desktop or Claude
 Desktop, with no RDP session and no Windows App on the controller. Use the
 walk's mission flags:
 

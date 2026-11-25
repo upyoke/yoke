@@ -156,6 +156,7 @@ def plan(root: Path, bundle: dict[str, Any], prior: dict[str, Any]) -> dict[str,
     from yoke_cli.project_install.released_bundle_files import ReleasedBundleFiles
 
     archives = ReleasedBundleFiles()
+    previous.update(archives.retired_agent_hashes(root, set(previous) | set(incoming)))
     for rel in sorted(set(previous) | set(incoming)):
         baseline = previous.get(rel)
         target = root / rel

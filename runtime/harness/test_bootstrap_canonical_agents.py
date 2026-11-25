@@ -12,10 +12,15 @@ Validates that:
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
 
+from yoke_cli.project_install.files import prune_files
+from yoke_cli.project_install.install_recovery import plan
+from yoke_cli.project_install.released_bundle_files import ReleasedBundleFiles
+from yoke_core.domain.agents_render import AGENTS
 from yoke_core.hooks.bootstrap import load_spec
 
 
@@ -86,7 +91,8 @@ def test_manifest_canonical_agents_points_at_bootstrap(manifest: dict) -> None:
 def test_load_spec_accepts_new_key(bootstrap_spec: dict) -> None:
     """load_spec returns the full dict including canonical_agents."""
     assert isinstance(bootstrap_spec["canonical_agents"], dict)
-    assert "qa-walker" in bootstrap_spec["canonical_agents"]["agents"]
+    assert set(bootstrap_spec["canonical_agents"]["agents"]) == set(AGENTS)
+    assert "qa-walker" not in AGENTS
 
 
 def test_recommended_files_no_agents_bloat(bootstrap_spec: dict) -> None:
@@ -102,3 +108,46 @@ def test_recommended_files_no_agents_bloat(bootstrap_spec: dict) -> None:
     assert agent_in_required == [], (
         f"required_files must not contain agent paths: {agent_in_required}"
     )
+
+
+
+@pytest.mark.parametrize(
+    "rel",
+    (
+        ".claude/agents/yoke-qa-walker.md",
+        ".codex/agents/yoke-qa-walker.toml",
+        ".cursor/agents/yoke-qa-walker.md",
+    ),
+)
+def test_install_recovery_prunes_only_proven_retired_adapters(tmp_path, monkeypatch, rel):
+    monkeypatch.setattr(
+        ReleasedBundleFiles, "proves",
+        lambda self, path, content: path == rel and content == "released adapter",
+    )
+    target = tmp_path / rel
+    target.parent.mkdir(parents=True)
+    target.write_text("local agent", encoding="utf-8")
+    result = plan(tmp_path, {"files": []}, {})
+    assert prune_files(tmp_path, result["prior_files"], ())[0] == []
+    assert target.read_text(encoding="utf-8") == "local agent"
+
+    target.write_text("released adapter", encoding="utf-8")
+    result = plan(tmp_path, {"files": []}, {})
+    assert prune_files(tmp_path, result["prior_files"], ())[0] == [rel]
+    assert not target.exists()
+
+
+def test_retired_role_has_no_live_definition_or_teaching_reference():
+    result = subprocess.run(
+        [
+            "git", "grep", "-inE", "qa-walker|qa_walker_agent|QA Walker", "--",
+            "README.md", "docs", "packages", "runtime", ".yoke/doctor",
+            ":!docs/repairs", ":!docs/archive", ":!**/test_*.py",
+            ":!**/released_bundle_files.py", ":!**/released_bundle_hashes.json",
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 1, result.stdout + result.stderr

@@ -117,7 +117,6 @@ and [execution levels](public/agents/levels.md).
 | Architect | Plan session-sized tasks, exact interfaces and lane assignments. |
 | Engineer | Implement assigned code, tests and documentation; commit changes. |
 | Tester | Verify implementation against artifacts without modifying code. |
-| QA Walker | Explore one declared mission, return findings or a precise human gate; main owns verdict. |
 | Simulator | Trace plan/integration paths across tasks and return gaps. |
 | Boss | Apply structured quality gates to specifications and plans. |
 
