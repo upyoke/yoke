@@ -317,7 +317,7 @@ def test_foreground_powershell_runs_both_printed_lines(monkeypatch, tmp_path):
     )
     monkeypatch.setattr(watch_doctor._watch_runner, "mint_capture_paths", lambda _: (raw, progress))
     monkeypatch.chdir(checkout)
-    suffix = ["--quick", "", 'spaces & 100% "quoted"']
+    suffix = ["--quick", "", 'spaces & 100% "quoted"', "Sam’s input"]
     stream = io.StringIO()
     with redirect_stdout(stream):
         assert watch_doctor.main(["--print-streaming-pair", "--", *suffix]) == 0
