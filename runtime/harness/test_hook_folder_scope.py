@@ -111,7 +111,8 @@ def test_unregistered_skips_every_transport_and_telemetry(
     monkeypatch.setattr(identity, "detect_executor", lambda: executor)
     monkeypatch.setattr(entry, "_session_orientation", lambda *a, **kw: "local orientation")
     monkeypatch.setattr(entry, "_touch_detached_resume", lambda: None)
-    monkeypatch.setattr(https, "resolve_https_connection", lambda: pytest.fail("connection selected"))
+    # Block the lookup without replacing the resolver that lazy imports can retain.
+    monkeypatch.setattr(https, "active_connection", lambda *a, **kw: pytest.fail("connection selected"))
     monkeypatch.setattr(entry, "_active_local_universe", lambda: pytest.fail("Postgres selected"))
     monkeypatch.setattr(relay, "relay_hook_event", lambda *a, **kw: pytest.fail("network relay"))
     def local(event, **kwargs):
@@ -170,7 +171,7 @@ def test_outside_orientation_and_machine_guards_are_local(tmp_path, folder_confi
 
     monkeypatch.setattr(identity, "detect_executor", lambda: "cursor")
     monkeypatch.setattr(entry, "_touch_detached_resume", lambda: None)
-    monkeypatch.setattr(https, "resolve_https_connection", lambda: pytest.fail("connection selected"))
+    monkeypatch.setattr(https, "active_connection", lambda *a, **kw: pytest.fail("connection selected"))
     monkeypatch.setattr(machine_hooks, "ensure_machine_hooks_for_executor", lambda *a, **k: None)
     monkeypatch.setattr(relay, "evaluate_local_subset", local_subset.evaluate_local_subset)
     monkeypatch.setattr(relay, "detect_executor", lambda: "cursor")
