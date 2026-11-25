@@ -166,3 +166,22 @@ def test_cleanup_skips_a_session_that_ends_after_selection(test_db, monkeypatch,
     assert stored[terminal] == stamp
     if terminal == "terminated_at":
         assert stored["ended_at"] is None
+
+
+@pytest.mark.parametrize(
+    "facts,reason,reclaimable",
+    [
+        ({"keepalive": True}, "keepalive_held", False),
+        ({"keepalive": True, "wake_delivery": True}, "keepalive_held", False),
+        ({"wake_delivery": True}, "wake_delivery_in_flight", False),
+        ({"open_wake_attempt": True}, "wake_delivery_in_flight", False),
+        ({"ended_at": OLD, "keepalive": True, "open_wake_attempt": True}, "ended", True),
+        ({"terminated_at": OLD, "wake_delivery": True}, "ended", True),
+    ],
+)
+def test_delivery_guards_only_protect_live_sessions(facts, reason, reclaimable):
+    decision = automatic_reclaim(
+        {"last_heartbeat": OLD, "holds_work_claim": False, **facts}, now=NOW
+    )
+    assert decision.reason == reason
+    assert decision.is_reclaimable is reclaimable

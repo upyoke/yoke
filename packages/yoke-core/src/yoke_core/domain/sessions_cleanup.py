@@ -9,15 +9,14 @@ from . import sessions_analytics as _sa
 from . import db_backend
 from .session_automatic_reclaim import automatic_reclaim, reclaim_facts
 from .session_reclaim_activity import (
+    REASON_KEEPALIVE_HELD,
+    REASON_WAKE_DELIVERY_IN_FLIGHT,
     SCOPE_SESSION_CLEANUP,
     classify_reclaimable,
     read_activity_signals,
 )
-from .session_cleanup_holdings import (
-    active_holding_sessions,
-    active_work_claim_sessions,
-    session_has_active_work_claim,
-)
+from .session_reclaim_evidence import ReclaimClassification
+from .session_cleanup_holdings import session_has_active_work_claim
 from .schema_common import _get_columns as _schema_get_columns
 from .session_staleness import activity_is_stale
 from .time_parse import age_minutes_since
@@ -110,22 +109,14 @@ def clean_stale_harness_sessions(
         progress_threshold_minutes=progress_threshold_minutes,
         executor_ttl_overrides=executor_ttl_overrides,
     )
-    holdings = active_holding_sessions(conn)
-    claims = active_work_claim_sessions(conn)
     deploy_drivers = None
-    for raw in all_active:
-        row = dict(raw)
+    for row in reclaim_facts(conn, all_active):
         sid = row["session_id"]
-        signals = read_activity_signals(conn, sid)
-        row.update(signals.session_facts)
-        if sid not in claims and deploy_drivers is None:
+        signals = read_activity_signals(conn, sid, session_facts=row)
+        if not row["holds_work_claim"] and deploy_drivers is None:
             deploy_drivers = deployment_driver_holds(conn)
-        row["holds_work_claim"] = sid in claims or sid in (deploy_drivers or {})
-        row["has_active_holdings"] = sid in holdings
+        row["holds_work_claim"] = row["holds_work_claim"] or sid in (deploy_drivers or {})
         row["last_heartbeat"] = signals.activity_at
-        # A protected holder needs no open-call query interpretation. Its
-        # durable activity still supplies the exact elapsed-age diagnostic.
-        row["open_tool_call_at"] = None if sid in claims else signals.open_tool_call_at
         decision = automatic_reclaim(row, now=now, **options)
         evidence = decision.evidence
         entry = {
@@ -150,7 +141,16 @@ def clean_stale_harness_sessions(
                 now=now,
                 base_ttl_minutes=stale_threshold_minutes,
             ):
-                skipped_between_turns.append({**entry, "reason": "between_turns"})
+                if decision.reason in (
+                    REASON_KEEPALIVE_HELD,
+                    REASON_WAKE_DELIVERY_IN_FLIGHT,
+                ):
+                    skipped_between_turns.append(entry)
+                    _emit_reclaim_aborted(
+                        decision, now_iso, has_active_holdings=row["has_active_holdings"]
+                    )
+                else:
+                    skipped_between_turns.append({**entry, "reason": "between_turns"})
             continue
         if not row.get("tool_call_count"):
             never_engaged.append({**entry, "reason": "never_engaged"})
@@ -172,7 +172,6 @@ def clean_stale_harness_sessions(
 
         lock_session_rows_for_claim_lifecycle(conn, (sid,))
         row = reclaim_facts(conn, [{"session_id": sid}])[0]
-        has_active_holdings = row["has_active_holdings"]
         row["holds_work_claim"] = session_has_active_work_claim(
             conn, sid
         ) or sid in deployment_driver_holds(conn)
@@ -191,25 +190,11 @@ def clean_stale_harness_sessions(
             skipped_between_turns.append(
                 {**entry, "reason": recheck.reason, "recheck": True}
             )
-            evidence_payload = recheck.evidence.as_payload()
-            _sa._emit_session_event(
-                EVENT_RECLAIM_ABORTED,
-                session_id=sid,
-                context={
-                    "scope": SCOPE_SESSION_CLEANUP,
-                    "original_session_id": sid,
-                    "attempting_session_id": None,
-                    "abort_reason": recheck.reason,
-                    "candidate_reason": entry["reason"],
-                    "executor": evidence_payload["executor"],
-                    "has_active_holdings": has_active_holdings,
-                    "effective_ttl_minutes": evidence_payload["effective_ttl_minutes"],
-                    "original_session_last_heartbeat": evidence_payload[
-                        "last_heartbeat"
-                    ],
-                    "original_session_last_event_at": evidence_payload["last_event_at"],
-                    "janitor_now": now_iso,
-                },
+            _emit_reclaim_aborted(
+                recheck,
+                now_iso,
+                has_active_holdings=row["has_active_holdings"],
+                candidate_reason=entry["reason"],
             )
             continue
 
@@ -251,7 +236,7 @@ def clean_stale_harness_sessions(
                 "stale_minutes": entry["stale_minutes"],
                 "last_event_at": entry["last_event_at"],
                 "effective_ttl_minutes": recheck.evidence.effective_ttl_minutes,
-                "has_active_holdings": has_active_holdings,
+                "has_active_holdings": row["has_active_holdings"],
                 "released_claim_count": released_claim_count,
                 "chain_checkpoint_cleared": chain_state.chainable,
                 "chain_checkpoint_step": chain_state.step,
@@ -306,6 +291,33 @@ def clean_stale_harness_sessions(
             scratch_cleanup=scratch_cleanup,
         ),
     }
+
+
+def _emit_reclaim_aborted(
+    decision: ReclaimClassification,
+    now_iso: str,
+    *,
+    has_active_holdings: bool,
+    candidate_reason: str | None = None,
+) -> None:
+    evidence = decision.evidence.as_payload()
+    _sa._emit_session_event(
+        EVENT_RECLAIM_ABORTED,
+        session_id=decision.evidence.session_id,
+        context={
+            "scope": SCOPE_SESSION_CLEANUP,
+            "original_session_id": decision.evidence.session_id,
+            "attempting_session_id": None,
+            "abort_reason": decision.reason,
+            "candidate_reason": candidate_reason,
+            "executor": evidence["executor"],
+            "has_active_holdings": has_active_holdings,
+            "effective_ttl_minutes": evidence["effective_ttl_minutes"],
+            "original_session_last_heartbeat": evidence["last_heartbeat"],
+            "original_session_last_event_at": evidence["last_event_at"],
+            "janitor_now": now_iso,
+        },
+    )
 
 
 cleanup_never_engaged_sessions = clean_stale_harness_sessions

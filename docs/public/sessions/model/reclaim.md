@@ -17,6 +17,15 @@ longer in flight. Heartbeat pulses and running posture alone cannot extend it.
 Reclaim, message delivery, vendor-error recovery and fleet reports all read
 `session_state.session_in_flight`; claim protection remains independent of it.
 
+The stale-session preview, cleanup sweep and session custody check protect live
+sessions with a keepalive, an open relay or broker wake attempt, or a pending
+acknowledgement within five minutes of the wake. A keepalive expires within
+one hour of being set unless renewed. Wake attempts stay protected until the
+attempt is settled, including settlement on relay lease expiry. A stale sweep
+that skips a protected session records `ReclaimAborted` with reason
+`keepalive_held` or `wake_delivery_in_flight` and leaves its message receipt
+available for delivery and acknowledgement.
+
 **Stale-session thresholds (canonical reference).** The reclaim windows are config-tunable, not code literals. The sweep first selects an occupancy tier:
 
 - `session_stale_ttl_minutes` (default `20`) — the short tier for a session with no active work claim, no session-owned strategy-document claim, and no session-owned coordination lease. One base applies on every harness; transient stop signals attempt only a non-destructive empty-session end.

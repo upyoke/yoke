@@ -89,3 +89,55 @@ def test_holding_an_ended_session_refuses_with_its_recovery(conn):
 
     assert ended.value.code == "SESSION_ENDED"
     assert "yoke sessions begin" in ended.value.message
+
+
+def test_stale_sweep_preserves_held_session_and_receipt_until_expiry(conn, monkeypatch):
+    from datetime import timedelta
+
+    from runtime.api.fixtures.session_reclaim_messages import (
+        message_receipt,
+        pending_message,
+        start_message_attempt,
+    )
+    from yoke_core.domain import sessions_analytics
+    from yoke_core.domain.sessions_cleanup import clean_stale_harness_sessions
+    from yoke_core.domain.sessions_render_reclaim import find_stale_sessions
+
+    session_id = "stale-held"
+    _register(conn, session_id=session_id, mode="parked")
+    hold_session_keepalive(conn, session_id, seconds=600, reason="await a wake")
+    now = utc_now()
+    conn.execute(
+        "UPDATE harness_sessions SET last_heartbeat=%s WHERE session_id=%s",
+        (now - timedelta(days=2), session_id),
+    )
+    message_id = pending_message(conn, session_id)
+    start_message_attempt(conn, message_id, session_id, kind="hook", started_at=now)
+    conn.commit()
+    aborted = []
+
+    def capture(name, *, session_id, context=None, **_kwargs):
+        if name == "ReclaimAborted":
+            aborted.append((session_id, context["abort_reason"]))
+
+    monkeypatch.setattr(sessions_analytics, "_emit_session_event", capture)
+    assert session_id not in {row["session_id"] for row in find_stale_sessions(conn)}
+    assert clean_stale_harness_sessions(conn, project_ids=[1])["total_reclaimed"] == 0
+    assert aborted == [(session_id, "keepalive_held")]
+    assert _ended_at(conn, session_id) is None
+    assert message_receipt(conn, message_id)["state"] == "pending"
+
+    conn.execute(
+        "UPDATE harness_sessions SET keepalive_until=%s WHERE session_id=%s",
+        (now - timedelta(seconds=1), session_id),
+    )
+    conn.commit()
+
+    assert clean_stale_harness_sessions(conn, project_ids=[1])["total_reclaimed"] == 1
+    assert _ended_at(conn, session_id) is not None
+    assert message_receipt(conn, message_id)["state"] == "cancelled"
+    attempt = conn.execute(
+        "SELECT result_code FROM session_message_attempts WHERE message_id=%s",
+        (message_id,),
+    ).fetchone()
+    assert attempt["result_code"] == "session_reclaimed"
