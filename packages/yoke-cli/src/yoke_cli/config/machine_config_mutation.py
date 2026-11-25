@@ -81,6 +81,24 @@ def ensure_local_machine_identity(*, path: str | Path | None = None) -> str:
         raise MachineConfigWriteError(str(exc)) from exc
 
 
+
+@serialized_mutation
+def bind_draft_machine_identity(
+    machine_id: str, *, replacing: str | None = None, path: str | Path | None = None
+) -> str:
+    """Persist the UUID already bound to an authorization before it can register."""
+    payload, cfg_path = load_payload(path)
+    current = payload.get(contract.MACHINE_ID_KEY)
+    if current == machine_id:
+        return machine_id
+    if current != replacing:
+        raise MachineConfigWriteError(
+            "another identity is already saved; restart browser approval with that identity"
+        )
+    payload[contract.MACHINE_ID_KEY] = machine_id
+    write_payload(payload, cfg_path, allow_unconfigured=True)
+    return machine_id
+
 def replace_retired_machine_identity(
     retired_machine_id: str, *, path: str | Path | None = None
 ) -> str:

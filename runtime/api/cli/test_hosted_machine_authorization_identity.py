@@ -1,12 +1,25 @@
 from __future__ import annotations
 
 from collections import deque
+from subprocess import CompletedProcess
+from types import SimpleNamespace
 import json
 import uuid
 
 import pytest
 
 from yoke_cli.config import hosted_machine_authorization as auth
+from yoke_cli.config import onboard_machine_setup
+from yoke_cli.config.onboard_wizard_flow_hosted_machine import HostedMachineConnectFlow
+from yoke_cli.config.onboard_wizard_flow_machine_admission import store_machine_credential
+from yoke_contracts.test_machine_types import HostActionResult
+from yoke_contracts.timestamps import utc_now
+from yoke_core.domain import machine_authorization_codes, machine_authorization_decisions
+from yoke_core.domain import machine_credentials, machine_registry, actors
+from yoke_core.domain.actor_role_grants import grant_actor_org_role
+from yoke_core.domain.external_identities import default_org_id
+from yoke_harness import ssh_linux_host_operations as lab
+from runtime.api.web_sign_in_door_test_support import db_conn as db_conn
 from yoke_contracts.bounded_json_http import (
     BoundedJsonHttpResponse,
     BoundedJsonHttpStatusError,
@@ -234,12 +247,104 @@ def test_start_sends_identity_and_platform_before_browser_approval(
         )
 
     monkeypatch.setattr(auth, "request_json", request_json)
-    auth.start("https://team.example", self_host=self_host)
-    configured = json.loads(config_path.read_text())
+    pending = auth.start("https://team.example", self_host=self_host)
+    assert not config_path.exists()
     assert requests == [
         {
-            "machine_id": configured["machine_id"],
+            "machine_id": pending.draft_machine_id,
             "machine_name": "Build Host",
             "platform": "macOS",
         }
     ]
+
+
+def test_cancelled_draft_and_registered_setup_follow_reset_safety(
+    monkeypatch, tmp_path, db_conn
+):
+    home = tmp_path / "lab"
+    config = home / ".yoke/config.json"
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(config.parent))
+    origin = "https://lab.invalid"
+    owner = actors.seed_human_actor(db_conn, "Disposable lab approver")
+    grant_actor_org_role(
+        db_conn, actor_id=owner, org_id=default_org_id(db_conn), role_name="viewer"
+    )
+    sent = []
+
+    def exchange(url, payload, **kwargs):
+        sent.append((url, payload["machine_id"]))
+        if url.endswith(auth.START_PATH):
+            assert not config.exists()
+            response = machine_authorization_codes.start(
+                db_conn, origin=origin, client_key="disposable-reset-test", **payload
+            )
+        else:
+            assert url.endswith(auth.POLL_PATH)
+            assert json.loads(config.read_text())["machine_id"] == payload["machine_id"]
+            response = machine_authorization_codes.poll(db_conn, origin=origin, **payload)
+        return response, 200, {}
+
+    retired = []
+    wipes = []
+
+    def read(path):
+        assert path == '/home/lab/.yoke/config.json'
+        return config.read_text() if config.exists() else None
+
+    def retire(argv, **kwargs):
+        machine_id = sent[-1][1]
+        assert argv == [
+            "/bin/yoke", "--env", active_env, "machine", "retire",
+            machine_id, "--confirm", "--json",
+        ]
+        machine_credentials.retire_with_credentials(
+            db_conn, machine_id=machine_id, actor_id=owner, is_admin=False, now=utc_now()
+        )
+        retired.append(machine_id)
+        return CompletedProcess(argv, 0, "{}", "")
+
+    def wipe(*args):
+        if config.exists():
+            assert retired == [sent[-1][1]]
+        wipes.append(True)
+        return HostActionResult(False, {}, "simulated_wipe_boundary")
+
+    monkeypatch.setattr(auth, "_post_json", exchange)
+    monkeypatch.setattr(lab, "archive_operation", wipe)
+    control = SimpleNamespace(
+        home="/home/lab", golden_baseline_path="/golden/disposable",
+        read_remote_text=read, run_command=retire,
+        path_state=SimpleNamespace(yoke_bin="/bin/yoke"),
+    )
+    reset = lab.SshLinuxHostOperations.reset_installer_test_host
+    assert reset(control).error_code == "simulated_wipe_boundary"
+    onboard_machine_setup.setup_directories(config)
+    pending = auth.start(origin, self_host=True)
+    cancelled_id = sent[-1][1]
+    shell = SimpleNamespace(
+        result=SimpleNamespace(config_path=config), _hosted_machine_authorization=pending,
+        _return_to_destination_picker=lambda **kwargs: None,
+    )
+    HostedMachineConnectFlow._abandon_hosted_machine_authorization(shell)
+    clock = _Clock()
+    with pytest.raises(auth.HostedMachineAuthorizationCancelled):
+        auth.complete(pending, sleep=clock.sleep, monotonic=clock.monotonic,
+                      cancelled=lambda: True)
+    assert len(sent) == 1 and not config.exists()
+    assert machine_registry.get_machine(db_conn, cancelled_id) is None
+    assert reset(control).error_code == "simulated_wipe_boundary"
+    assert not retired
+
+    pending = auth.start(origin, self_host=True)
+    machine_id = sent[-1][1]
+    machine_authorization_decisions.resolve(
+        db_conn, code=pending.user_code, actor_id=owner, action="approve"
+    )
+    credential = auth.poll_once(pending)
+    assert credential is not None and machine_id != cancelled_id
+    store_machine_credential(credential, {}, config)
+    active_env = credential.org
+    assert machine_registry.get_machine(db_conn, machine_id).retired_at is None
+    assert reset(control).error_code == "simulated_wipe_boundary"
+    assert machine_registry.get_machine(db_conn, machine_id).retired_at is not None
+    assert len(wipes) == 3

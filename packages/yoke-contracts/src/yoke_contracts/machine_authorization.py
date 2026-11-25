@@ -69,8 +69,9 @@ class PendingMachineAuthorization:
     expires_in: int
     interval: int
     self_host: bool = False
-    # Set when start replaced this computer's retired machine id.
+    # Set when start requested a replacement for this computer's retired id.
     retired_machine_id: str | None = None
+    draft_machine_id: str | None = None
 
 
 @dataclass(frozen=True)

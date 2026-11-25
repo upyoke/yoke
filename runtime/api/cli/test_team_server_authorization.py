@@ -18,6 +18,7 @@ MACHINE_ID = "c37ab111-0a67-4b50-8b4a-72463f9e5dd3"
 
 
 def test_shared_client_sends_identity_and_accepts_self_host_authority(monkeypatch):
+    monkeypatch.setattr(auth, "machine_id", lambda: MACHINE_ID)
     monkeypatch.setattr(
         auth.machine_config_mutation,
         "ensure_local_machine_identity",
