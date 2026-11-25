@@ -39,6 +39,9 @@ def _native_executable(path: Path) -> Path:
 
 def test_native_cli_consumers_derive_identifiers_from_the_manifest() -> None:
     assert harness_cli_executables() == ("claude", "codex", "cursor-agent")
+    assert tuple(session_relay_surface_probes.CLI_SURFACE_PROBES) == (
+        "claude-cli", "codex-cli", "cursor-cli",
+    )
     assert session_relay_surface_probes.CLI_SURFACE_PROBES == (
         harness_cli_probe_commands()
     )

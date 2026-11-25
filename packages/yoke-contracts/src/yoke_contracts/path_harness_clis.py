@@ -12,6 +12,7 @@ from typing import Iterable
 
 from yoke_contracts.harness_cli_manifest import (
     HARNESS_CLI_MANIFESTS,
+    VSCODE_CLI_BY_SURFACE,
     HarnessCliManifest,
 )
 
@@ -72,23 +73,36 @@ def resolve_native_cli_source(
             candidate = Path(os.path.expandvars(raw)).expanduser()
             if candidate.is_file() and os.access(candidate, os.X_OK):
                 return ResolvedNativeCli(str(candidate), "bundled")
-        versioned = []
-        for raw in patterns:
-            pattern = str(Path(os.path.expandvars(raw)).expanduser())
-            prefix = pattern.split("{version}", 1)[0]
-            for match in glob.glob(pattern.replace("{version}", "[0-9]*")):
-                candidate = Path(match)
-                if "{version}" not in pattern:
-                    if candidate.is_file() and os.access(candidate, os.X_OK):
-                        versioned.append(((), str(candidate)))
-                    continue
-                version = re.match(r"[0-9]+(?:\.[0-9]+)+", match[len(prefix) :])
-                if version and candidate.is_file() and os.access(candidate, os.X_OK):
-                    key = tuple(int(part) for part in version.group().split("."))
-                    versioned.append((key, str(candidate)))
+        versioned = newest_versioned_executable(patterns)
         if versioned:
-            return ResolvedNativeCli(max(versioned)[1], "bundled_versioned")
+            return ResolvedNativeCli(versioned, "bundled_versioned")
     return None
+
+
+def newest_versioned_executable(patterns: Iterable[str]) -> str | None:
+    """Select an executable by its numeric version directory."""
+    versioned = []
+    for raw in patterns:
+        pattern = str(Path(os.path.expandvars(raw)).expanduser())
+        prefix = pattern.split("{version}", 1)[0]
+        for match in glob.glob(pattern.replace("{version}", "[0-9]*")):
+            candidate = Path(match)
+            if "{version}" not in pattern:
+                if candidate.is_file() and os.access(candidate, os.X_OK):
+                    versioned.append(((), str(candidate)))
+                continue
+            version = re.match(r"[0-9]+(?:\.[0-9]+)+", match[len(prefix) :])
+            if version and candidate.is_file() and os.access(candidate, os.X_OK):
+                key = tuple(int(part) for part in version.group().split("."))
+                versioned.append((key, str(candidate)))
+    return max(versioned)[1] if versioned else None
+
+
+def resolve_vscode_extension_cli(surface: str) -> str | None:
+    manifest = VSCODE_CLI_BY_SURFACE.get(surface)
+    if manifest is None:
+        return None
+    return newest_versioned_executable(manifest.vscode_binaries_for_platform())
 
 
 def resolve_harness_clis(

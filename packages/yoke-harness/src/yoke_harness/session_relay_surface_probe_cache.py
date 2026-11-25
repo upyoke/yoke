@@ -13,10 +13,10 @@ from typing import Callable, Mapping, Sequence
 
 from yoke_harness.session_relay_schedule import relay_state_dir
 from yoke_harness.session_relay_surface_probes import (
-    CLI_SURFACE_PROBES,
+    CLI_SURFACE_PROBES, EXTENSION_SURFACES,
     KNOWN_SURFACE_PROBES,
     SurfaceProbeResult,
-    probe_cli_surface,
+    probe_cli_surface, probe_extension_surface,
     probe_surface,
     probe_surfaces,
 )
@@ -222,6 +222,8 @@ def bounded_surface_probe(
     command = CLI_SURFACE_PROBES.get(surface)
     if command:
         return probe_cli_surface(surface, command, timeout=timeout)
+    if surface in EXTENSION_SURFACES:
+        return probe_extension_surface(surface, timeout=timeout)
     return probe_surface(surface)
 
 

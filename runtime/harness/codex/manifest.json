@@ -10,6 +10,11 @@
     "version_args": [
       "--version"
     ],
+    "vscode_surface_id": "codex-vscode",
+    "vscode_binary_patterns": [
+      "~/.vscode/extensions/openai.chatgpt-{version}*/bin/*/codex",
+      "~/.vscode-server/extensions/openai.chatgpt-{version}*/bin/*/codex"
+    ],
     "bundled_candidates": [
       "~/.local/bin/codex",
       "/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex"
@@ -21,7 +26,11 @@
       "bundled_candidates": [
         "%LOCALAPPDATA%/Programs/OpenAI/Codex/bin/codex.exe"
       ],
-      "bundled_patterns": []
+      "bundled_patterns": [],
+      "vscode_binary_patterns": [
+        "~/.vscode/extensions/openai.chatgpt-{version}*/bin/*/codex.exe",
+        "~/.vscode-server/extensions/openai.chatgpt-{version}*/bin/*/codex.exe"
+      ]
     },
     "authentication": {
       "status_args": [

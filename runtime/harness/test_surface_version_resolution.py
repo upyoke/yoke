@@ -167,14 +167,14 @@ def test_an_empty_observation_names_its_cause_on_the_shared_cache(
         lambda **_kwargs: (_ for _ in ()).throw(OSError("relay state dir is gone")),
     )
 
-    observation = observe_surface_version("claude-vscode", state_dir=tmp_path)
+    observation = observe_surface_version("nonexistent-surface", state_dir=tmp_path)
 
     assert observation.version is None
     assert observation.source == "none"
     assert "relay state dir is gone" in (observation.reason or "")
     assert "unknown relay surface" in (observation.reason or "")
 
-    recorded = _cache_entry(tmp_path, surface="claude-vscode")
+    recorded = _cache_entry(tmp_path, surface="nonexistent-surface")
     assert recorded["last_version_reason"] == observation.reason
 
 

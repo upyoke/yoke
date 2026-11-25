@@ -13,6 +13,11 @@
     "version_args": [
       "--version"
     ],
+    "vscode_surface_id": "claude-vscode",
+    "vscode_binary_patterns": [
+      "~/.vscode/extensions/anthropic.claude-code-{version}*/resources/native-binary/claude",
+      "~/.vscode-server/extensions/anthropic.claude-code-{version}*/resources/native-binary/claude"
+    ],
     "bundled_candidates": [],
     "bundled_patterns": [
       "~/Library/Application Support/Claude/claude-code/{version}/*/claude.app/Contents/MacOS/claude",
@@ -26,6 +31,10 @@
       ],
       "bundled_patterns": [
         "~/.vscode/extensions/anthropic.claude-code-{version}*/resources/native-binary/claude.exe"
+      ],
+      "vscode_binary_patterns": [
+        "~/.vscode/extensions/anthropic.claude-code-{version}*/resources/native-binary/claude.exe",
+        "~/.vscode-server/extensions/anthropic.claude-code-{version}*/resources/native-binary/claude.exe"
       ]
     },
     "authentication": {

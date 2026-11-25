@@ -59,6 +59,13 @@ def test_live_and_idle_sessions_keep_their_own_surface_routes() -> None:
     assert idle["wake_interface"] == "private"
 
 
+def test_qualifying_claude_vscode_version_accepts_hook_delivery() -> None:
+    routing = messageability(_row(version="2.1.331"), liveness="active")
+
+    assert routing["messageable"] is True
+    assert routing["reason"] == "hook_delivery"
+
+
 def test_stopped_session_without_a_qualifying_installed_cli_has_no_route() -> None:
     for installed in ({}, {"claude-cli": "2.1.237"}, {"codex-cli": "0.149.0"}):
         routing = messageability(

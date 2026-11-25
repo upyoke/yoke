@@ -13,9 +13,11 @@ import time
 from typing import Callable, Sequence
 
 from yoke_contracts.harness_cli_manifest import (
-    harness_cli_probe_commands,
+    VSCODE_CLI_BY_SURFACE, harness_cli_probe_commands, harness_vscode_surfaces,
 )
-from yoke_contracts.path_harness_clis import ResolvedNativeCli, resolve_native_cli_source
+from yoke_contracts.path_harness_clis import (
+    ResolvedNativeCli, resolve_native_cli_source, resolve_vscode_extension_cli,
+)
 from yoke_contracts.machine_config.relay_instance import strip_relay_owned_python_state
 from yoke_harness.linux_desktop_apps import read_linux_desktop_version
 from yoke_harness.windows_desktop_apps import read_windows_desktop_version
@@ -29,7 +31,8 @@ MACOS_APP_BUNDLE_PLISTS = {
     "codex-desktop": Path("/Applications/ChatGPT.app/Contents/Info.plist"),
     "cursor-desktop": Path("/Applications/Cursor.app/Contents/Info.plist"),
 }
-KNOWN_SURFACE_PROBES = (*CLI_SURFACE_PROBES, *APP_SURFACES)
+EXTENSION_SURFACES = harness_vscode_surfaces()
+KNOWN_SURFACE_PROBES = (*CLI_SURFACE_PROBES, *APP_SURFACES, *EXTENSION_SURFACES)
 
 
 @dataclass(frozen=True)
@@ -251,11 +254,25 @@ def probe_app_surface(
     )
 
 
+def probe_extension_surface(
+    surface: str, *, timeout: float = SURFACE_PROBE_TIMEOUT_SECONDS
+) -> SurfaceProbeResult:
+    manifest = VSCODE_CLI_BY_SURFACE[surface]
+    path = resolve_vscode_extension_cli(surface)
+    if path:
+        return probe_cli_surface(surface, (path, *manifest.version_args), timeout=timeout)
+    patterns = " or ".join(manifest.vscode_binaries_for_platform())
+    error = f"bundled CLI not found at {patterns}; check the extension install"
+    return SurfaceProbeResult(surface, "exec", "missing", None, 0, error, time.time())
+
+
 def probe_surface(surface: str) -> SurfaceProbeResult:
     if surface in CLI_SURFACE_PROBES:
         return probe_cli_surface(surface, CLI_SURFACE_PROBES[surface])
     if surface in APP_SURFACES:
         return probe_app_surface(surface)
+    if surface in EXTENSION_SURFACES:
+        return probe_extension_surface(surface)
     return SurfaceProbeResult(
         surface,
         "unknown",
@@ -278,7 +295,7 @@ def _probe_safely(
     except Exception as exc:
         source = (
             "exec"
-            if surface in CLI_SURFACE_PROBES
+            if surface in CLI_SURFACE_PROBES or surface in EXTENSION_SURFACES
             else "file"
             if surface in APP_SURFACES
             else "unknown"
@@ -311,6 +328,7 @@ def probe_surfaces(
 __all__ = [
     "APP_SURFACES",
     "CLI_SURFACE_PROBES",
+    "EXTENSION_SURFACES",
     "KNOWN_SURFACE_PROBES",
     "MACOS_APP_BUNDLE_PLISTS",
     "SURFACE_PROBE_TIMEOUT_SECONDS",
@@ -318,6 +336,7 @@ __all__ = [
     "SurfaceProbeResult",
     "probe_app_surface",
     "probe_cli_surface",
+    "probe_extension_surface",
     "probe_surface",
     "probe_surfaces",
     "resolve_native_cli",

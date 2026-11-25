@@ -1,0 +1,8 @@
+{
+ "id": "vscode-bundled-version",
+ "title": "VS Code bundled CLI versions govern hook delivery",
+ "status": "observed",
+ "commands": ["yoke relay probe-surface"],
+ "summary": "Claude Code and Codex VS Code sessions qualify for hook delivery using the version reported by the newest installed extension's bundled CLI. The probe checks the local and remote VS Code extension roots on the host running the hook. A later hook can fill an unknown session version once the relay observes the bundle. Native Windows delivery proof is pending.",
+ "sources": ["docs/public/guide/sessions.md", "packages/yoke-contracts/src/yoke_contracts/harness_cli_manifest.py", "packages/yoke-harness/src/yoke_harness/session_relay_surface_probes.py"]
+}
