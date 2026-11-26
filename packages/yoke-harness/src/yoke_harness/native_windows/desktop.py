@@ -12,7 +12,7 @@ from yoke_contracts.designed_wait import announce_designed_wait
 from yoke_contracts.machine_screenshot import screenshot_png
 from yoke_contracts.test_machine_types import HostActionResult
 from yoke_harness.native_windows.desktop_job import (
-    RECOVERY, SCHEDULER_GRACE_SECONDS, TIMEOUT, UNRESOLVED, supervisor_script,
+    CLEANUP_SECONDS, RECOVERY, SCHEDULER_GRACE_SECONDS, TIMEOUT, UNRESOLVED, supervisor_script,
 )
 from yoke_harness.native_windows.transport import quote
 from yoke_harness.native_windows.tasks import (
@@ -84,7 +84,7 @@ try {{
         announce_designed_wait("native Windows desktop task and cleanup", max_wait_seconds=scheduler_timeout)
         diagnostics["phase"] = "receipt"
         deadline = time.monotonic() + scheduler_timeout
-        while time.monotonic() < deadline:
+        while time.monotonic() < deadline - CLEANUP_SECONDS:
             text = control.read_remote_text(receipt)
             if text:
                 row = json.loads(text.lstrip("\ufeff"))
@@ -96,7 +96,7 @@ try {{
         return outcome(
             124,
             "",
-            f"{TIMEOUT}: {UNRESOLVED}: task {name} published no job receipt; recovery: {RECOVERY}",
+            f"{TIMEOUT}: {UNRESOLVED}: task {name} published no verifiable job receipt; recovery: {RECOVERY}",
         )
     except BaseException as exc:
         failure = exc
@@ -125,7 +125,21 @@ try {{
                     "Remove-YokeTask " + quote(name),
                     "$t=Get-YokeTask " + quote(name) + ";if($t -and ($t.Definition.Actions.Count -ne 1 -or $t.Definition.Actions.Item(1).Path -ne " + quote(path) + " -or $t.Definition.Actions.Item(1).Arguments -ne " + quote(arguments) + ")){throw 'Desktop task action changed; preserve'};Remove-YokeTask " + quote(name),
                 )
-                cleanup = control._run(removal + f"\nif(Get-YokeTask {quote(name)}){{throw 'Owned task cleanup incomplete'}}\nRemove-Item -LiteralPath {files} -Force -ErrorAction SilentlyContinue; foreach($p in @({files})){{if(Test-Path -LiteralPath $p){{throw 'Owned desktop cleanup incomplete'}}}}")
+                cleanup_script = removal + f"""
+if(Get-YokeTask {quote(name)}){{throw 'Owned task cleanup incomplete'}}
+Remove-Item -LiteralPath {files} -Force -ErrorAction SilentlyContinue
+foreach($p in @({files})){{if(Test-Path -LiteralPath $p){{throw 'Owned desktop cleanup incomplete'}}}}
+"""
+                if diagnostics.get("process_cleanup") == "missing desktop job receipt":
+                    budget_ms = max(0, int((deadline - time.monotonic()) * 1000))
+                    cleanup_script = _reconcile_timeout(source, receipt, budget_ms, cleanup_script)
+                cleanup = control._run(cleanup_script)
+                if diagnostics.get("process_cleanup") == "missing desktop job receipt" and cleanup.stdout:
+                    row = _read_timeout_receipt(cleanup.stdout)
+                    if row is not None:
+                        diagnostics["process_cleanup"] = row["process_cleanup"]
+                        completed_result.stdout = row["stdout"]
+                        completed_result.stderr = row["stderr"]
             if diagnostics["cleanup"] != "preserved_ambiguous_upload":
                 process_cleanup = diagnostics.get("process_cleanup", "verified_empty")
                 diagnostics["cleanup"] = (
@@ -143,6 +157,53 @@ try {{
             else:
                 exc.desktop_diagnostics = diagnostics
                 raise
+
+
+def _reconcile_timeout(source, receipt, budget_ms, cleanup):
+    # The existing grace covers a final read. Source is also the publisher's
+    # guard: deny any other reader while reading and removing the receipt.
+    # Allow deletion of our open source so a delayed publisher cannot start.
+    return f"""$ErrorActionPreference='Stop'
+$clock=[Diagnostics.Stopwatch]::StartNew()
+$publisher=$null
+do {{
+  if ((Test-Path -LiteralPath {quote(receipt)}) -or $clock.ElapsedMilliseconds -ge {budget_ms}) {{
+    try {{ $publisher=[IO.File]::Open({quote(source)}, 'Open', 'Read', 'Delete') }}
+    catch {{
+      # ERROR_SHARING_VIOLATION means the publisher still has the guard.
+      if ($_.Exception.GetBaseException().HResult -ne -2147024864 -or
+          $clock.ElapsedMilliseconds -ge {budget_ms}) {{ throw }}
+    }}
+    if ($null -ne $publisher) {{ break }}
+  }}
+  Start-Sleep -Milliseconds 50
+}} while ($true)
+try {{
+  if (Test-Path -LiteralPath {quote(receipt)}) {{
+    $entry=Get-Item -LiteralPath {quote(receipt)} -Force
+    if ($entry.PSIsContainer -or ($entry.Attributes -band [IO.FileAttributes]::ReparsePoint) -or
+        (Get-Acl -LiteralPath $entry.FullName).GetOwner([Security.Principal.SecurityIdentifier]).Value -ne
+        [Security.Principal.WindowsIdentity]::GetCurrent().User.Value) {{
+      throw 'Desktop timeout receipt ownership could not be established; preserve it'
+    }}
+    [IO.File]::ReadAllText($entry.FullName)
+  }}
+{cleanup}
+}} finally {{ $publisher.Dispose() }}
+"""
+
+
+def _read_timeout_receipt(text):
+    try:
+        row = json.loads(text.lstrip("\ufeff"))
+    except ValueError:
+        return None
+    if (
+        isinstance(row, dict) and row.get("exit_code") == 124
+        and all(isinstance(row.get(key), str) for key in ("stdout", "stderr", "process_cleanup"))
+    ):
+        return row
+    return None
 
 
 def capture_desktop(control, *, focused_window=False):
