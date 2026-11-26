@@ -148,12 +148,16 @@ def stage_wait_message(
         f"--project PROJECT'. Run free command partitions with 'yoke qa plan run "
         f"--item {item_ref} --stage {stage_name} --deployment-run-id {run_id}"
         f"{_plan_selection(names_cases)} --project PROJECT --partition KEY'. "
-        "For each free walk, send that command as the instructions to "
+        "If steering has already directed shared missions, send your pending "
+        "requirements to steering and use the returned evidence for your "
+        "member verdict. Otherwise, for each free walk, send that command as "
+        "the instructions to "
         "'yoke session-control launch create --project PROJECT --raw-instructions --stdin "
         f"--idempotency-key qa-walk:{item_ref}:{stage_name}:KEY:1'. "
+        f"{HOST_WAIT_TEACHING} "
         "The stage binds the run's own "
         "deployed target, so a plan authored before this release still "
-        f"verifies it. {HOST_WAIT_TEACHING} Check 'yoke deployment-runs get "
+        "verifies it. Check 'yoke deployment-runs get "
         f"{run_id}' for the current state."
     )
 

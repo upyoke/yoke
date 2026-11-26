@@ -127,7 +127,13 @@ def test_item_message_names_the_stage_and_member_bound_invocation():
         "--deployment-run-id run-1 --plan PLAN" in body
     )
     assert "--partition KEY" in body
+    assert (
+        "If steering has already directed shared missions, send your pending "
+        "requirements to steering and use the returned evidence for your "
+        "member verdict. Otherwise, for each free walk" in body
+    )
     assert "qa-walk:EXT-541:item-qa:KEY:1" in body
+    assert "runner queues this session in the Test Machine queue" in body
 
 
 def test_run_message_names_driver_execution_and_review_recovery():
@@ -145,6 +151,7 @@ def test_run_message_names_driver_execution_and_review_recovery():
     assert "Review or manual evidence remains pending (awaiting agent verdict)" in body
     assert "yoke --env ENV watch deploy -- run-9" in body
     assert "--member" not in body
+    assert "shared missions" not in body
 
 
 def test_a_stage_that_already_names_cases_gets_a_recipe_without_a_plan():
