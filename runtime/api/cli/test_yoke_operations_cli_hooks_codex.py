@@ -48,12 +48,25 @@ def detached_from_runner_session(monkeypatch):
     monkeypatch.setattr(relay, "_record_client_anchor", lambda *_a, **_k: None)
 
 
-def test_hand_started_codex_exec_uses_its_session_under_a_parent_harness(
+@pytest.mark.parametrize(
+    ("originator", "source", "cli_version"),
+    [("codex_exec", "exec", "0.152.1"), ("codex-tui", "cli", "0.172.0")],
+)
+def test_hand_started_codex_cli_uses_its_session_under_a_parent_harness(
     monkeypatch,
     https_connection,
     tmp_path,
+    originator,
+    source,
+    cli_version,
 ) -> None:
     """A shell-started Codex reads its own rollout, not its parent's env."""
+    monkeypatch.delenv("CODEX_INTERNAL_ORIGINATOR_OVERRIDE", raising=False)
+    monkeypatch.delenv("CODEX_ORIGINATOR", raising=False)
+    monkeypatch.setattr(
+        "yoke_harness.hooks.identity_codex_runtime._entrypoint_cache_path",
+        lambda thread_id: tmp_path / f"entrypoint-{thread_id}.txt",
+    )
     transcripts = tmp_path / "sessions"
     transcripts.mkdir()
     (transcripts / "rollout-codex-thread-1.jsonl").write_text(
@@ -61,9 +74,9 @@ def test_hand_started_codex_exec_uses_its_session_under_a_parent_harness(
             {
                 "type": "session_meta",
                 "payload": {
-                    "originator": "codex_exec",
-                    "source": "exec",
-                    "cli_version": "0.152.1",
+                    "originator": originator,
+                    "source": source,
+                    "cli_version": cli_version,
                 },
             }
         )
@@ -106,10 +119,8 @@ def test_hand_started_codex_exec_uses_its_session_under_a_parent_harness(
         ),
     )
     monkeypatch.setattr(
-        "yoke_harness.hooks.identity_relay.client_executor_version",
-        lambda executor, surface: (
-            "0.152.1" if (executor, surface) == ("codex", "codex-cli") else None
-        ),
+        "yoke_harness.session_relay_surface_probe_cache.observed_surface_version",
+        lambda surface: cli_version if surface == "codex-cli" else None,
     )
     captured: dict = {}
 
@@ -133,7 +144,7 @@ def test_hand_started_codex_exec_uses_its_session_under_a_parent_harness(
     assert cache_writes == [("codex-thread-1", raw_stdin)]
     assert captured["body"]["model"] == "gpt-6-real"
     assert captured["body"]["entrypoint"] == "codex-cli"
-    assert captured["body"]["executor_version"] == "0.152.1"
+    assert captured["body"]["executor_version"] == cli_version
 
 
 def test_hook_evaluate_https_codex_unresolved_model_ships_nothing(
