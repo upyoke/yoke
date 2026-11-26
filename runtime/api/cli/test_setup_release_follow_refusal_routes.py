@@ -44,7 +44,8 @@ def test_agent_follow_failure_is_not_saved_as_a_sign_in_error(monkeypatch):
     monkeypatch.setattr(approvals.yoke_token_verify, "verify", lambda *_a: {"ok": True})
     monkeypatch.setattr(
         approvals, "store_machine_credential",
-        lambda *a: stored.append(a) or (credential, {"ok": True}, "/token"),
+        lambda *a, **kw: stored.append((a, kw))
+        or admission.SavedMachineApproval("acme", "https://a", {"ok": True}, "/token"),
     )
 
     def refuse(_url):
@@ -53,7 +54,7 @@ def test_agent_follow_failure_is_not_saved_as_a_sign_in_error(monkeypatch):
     monkeypatch.setattr(admission.setup_release_start, "follow_after_sign_in", refuse)
     shell = Shell({"kind": "machine", "device_code": "d"})
     with pytest.raises(start.StartFollowRefused):
-        shell._poll_hosted_machine_authorization(SimpleNamespace(device_code="d"), "")
+        shell._poll_hosted_machine_authorization(SimpleNamespace(device_code="d", self_host=False), "")
     assert len(stored) == 1 and shell.errors == []
     assert shell.kept == [None] and shell._answers.pending_approval is None
 
@@ -95,7 +96,9 @@ def test_tui_poll_error_exits_with_the_refusal_not_the_sign_in_view():
         _goto_hosted_machine_denied=lambda _m: pytest.fail("routed to denial"),
     )
     shell.exit = lambda: setattr(shell, "exited", True)
-    hosted.HostedMachineConnectFlow._poll_hosted_machine_authorization(shell, object(), "")
+    hosted.HostedMachineConnectFlow._poll_hosted_machine_authorization(
+        shell, SimpleNamespace(self_host=False), ""
+    )
     captured["on_error"](REFUSAL)
     assert shell.exited and shell.follow_refused is REFUSAL
 

@@ -20,18 +20,19 @@ class _Shell(Protocol):  # pragma: no cover - structural typing only
     _stored_machine_github_api_url: str | None
 
 
-def _stored_connection(config_path: Any, env_name: str | None) -> Any:
+def _stored_connection(
+    config_path: Any, env_name: str | None, *, explicit_alias: bool
+) -> Any:
     """The saved connection this run may reuse, or ``None``.
 
-    ``--connect URL`` only defaults the env name. Browser approval and invite
-    redemption save the connection under the org's name and activate it, so a
-    defaulted name that is not configured falls back to the active connection;
-    the caller still requires its URL to match the selected server.
+    When a defaulted name is missing, approval may have activated a connection
+    named for the org. Reuse it if its URL matches. An explicit private alias
+    must resolve on its own.
     """
     try:
         return machine_config.active_connection(config_path, explicit_env=env_name)
     except (OSError, RuntimeError, ValueError):
-        if env_name != DEFAULT_SIGN_IN_ENV:
+        if explicit_alias or env_name != DEFAULT_SIGN_IN_ENV:
             return None
     try:
         return machine_config.active_connection(config_path)
@@ -55,7 +56,11 @@ class StoredConnectionHydration:
     def _hydrate_stored_yoke_connection(self: _Shell, defaults: WizardDefaults) -> None:
         if defaults.token:
             return
-        connection = _stored_connection(self.result.config_path, defaults.env_name)
+        connection = _stored_connection(
+            self.result.config_path,
+            defaults.env_name,
+            explicit_alias=bool(defaults.private_connect_alias),
+        )
         if connection is None:
             return
         if str(connection.get("transport") or "") != "https":
