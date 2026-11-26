@@ -96,8 +96,10 @@ yoke --env <connection> qa mission walk-end --item PREFIX-N \
 Where the product reads a secret on stdin, pipe it and touch no disk at all.
 Otherwise every file carrying a token or password is staged inside that
 directory and nowhere else, never a loose temp-directory path. `walk-end`
-removes the directory with plain OS commands (no Yoke install on the host),
-restores the declared starting state, and records that restore as a
+removes the directory with plain OS commands (no Yoke install on the host).
+On Windows it uses the same native directory removal as the stale scratch
+sweep. This supports long descendant paths and removes junctions without
+following them. Walk-end restores the declared starting state, and records that restore as a
 `starting_state_restore` artifact on the mission's run. A failed restore records reset debt. The command exits non-zero
 naming `mission_scratch_not_removed` (removal counts only when the removal
 command exits 0 and the probe finds no directory), `mission_scratch_state_unknown`
@@ -106,6 +108,8 @@ restore SSH access and re-run), `starting_state_restore_failed` (with the
 `yoke test-machine reset` recovery) or `starting_state_restore_unrecorded`.
 `yoke qa plan review-submit` refuses with `mission_walk_unfinished` while any
 mission's scratch is still on the host. Both delete a stale owner marker.
+If walk-end reports `mission_scratch_not_removed` while it holds a cleanup
+lease, it keeps the lease so the same walk-end can verify cleanup on retry.
 Genuine member removal keeps a walk's Test Machine: the
 execution stays under a recorded abort and holds its lease, so no other QA gets
 that host before teardown. Its original session runs `walk-end` on the held

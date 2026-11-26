@@ -50,7 +50,7 @@ class _PosixHost(FakeHostControl):
 def _windows_host(*, removal: int = 0, probe: int = WINDOWS_SCRATCH_ABSENT_EXIT):
     return FakeWindowsHost(
         {
-            "-Recurse -Force": (removal, "", "Access is denied"),
+            "rmdir /s /q": (removal, "", "Access is denied"),
             "exit 3": (probe, "", "ssh lost"),
         }
     )

@@ -138,7 +138,10 @@ def run_end(args: list[str]) -> int:
         )
         return 2
     finally:
-        if getattr(parsed, "cleanup_lease", False):
+        # A successful baseline restore cannot settle failed scratch removal.
+        if getattr(parsed, "cleanup_lease", False) and (
+            result is None or result["removed"]
+        ):
             try:
                 cleanup_error = _finish_cleanup(parsed, contract, result)
             except Exception as exc:
