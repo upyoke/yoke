@@ -32,7 +32,24 @@ jobs:
         with:
           enable-cache: true
           cache-dependency-glob: uv.lock
-      - run: uv sync --all-packages --locked --python ${{ runner.os == 'Windows' && '3.12.16' || '3.12' }}
+      - name: Select the public installer's Windows Python
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # The uv download catalog on this runner does not include this patch.
+          $archive = Join-Path $env:RUNNER_TEMP 'yoke-cpython-3.12.16.tar.gz'
+          $uri = 'https://github.com/astral-sh/python-build-standalone/releases/download/20261026/cpython-3.12.16%2B20261026-x86_64-pc-windows-msvc-install_only_stripped.tar.gz'
+          Invoke-WebRequest -Uri $uri -OutFile $archive
+          if ((Get-FileHash $archive -Algorithm SHA256).Hash -ne '1f2ab53880fc67ea323398c6388e05af28addc99a8e389209f08a51fdff4b149') {
+            throw 'Windows CPython 3.12.16 archive checksum mismatch'
+          }
+          tar.exe -xzf $archive -C $env:RUNNER_TEMP
+          if ($LASTEXITCODE -ne 0) { throw 'Could not extract the Windows CPython test interpreter' }
+          $python = Join-Path $env:RUNNER_TEMP 'python\python.exe'
+          & $python --version
+          if ($LASTEXITCODE -ne 0) { throw 'Could not start the Windows CPython test interpreter' }
+          "UV_PYTHON=$python" >> $env:GITHUB_ENV
+      - run: uv sync --all-packages --locked
       - name: Local engine lifecycle, owner isolation, and universe round trip
         run: uv run --frozen python -m runtime.api.tools.verify_windows_local_postgres
       - name: Portable engine helpers and detached dashboard lifecycle
