@@ -38,14 +38,11 @@ connects the first machine. Yoke rejects non-Yoke servers with `server_not_yoke`
   and `machine_name`. The client saves a fresh UUID in machine config before
   this first potentially registering poll. Earlier cancellation leaves no UUID
   in machine config. Success returns `token`, `org`, and `api_url`.
-- Retry HTTP 202 `authorization_pending`, HTTP 503
-  `machine_credential_unavailable`, and HTTP 429
-  `authorization_poll_rate_limited` (honoring `Retry-After`). HTTP 410
-  `authorization_denied`, `authorization_expired`, or `authorization_consumed`
-  requires a new connection. During the CLI's bounded browser approval wait,
-  HTTP 502 is transient. The CLI polls the same code at the normal interval,
-  within the existing expiry and cancellation limits. Other statuses are
-  diagnosed refusals.
+- The CLI wait retries 202 `authorization_pending`, 503
+  `machine_credential_unavailable`, 429 `authorization_poll_rate_limited`
+  (honoring `Retry-After`), and HTTP 502 (same code, normal interval).
+  HTTP 410 `authorization_denied`, `authorization_expired`, or
+  `authorization_consumed` requires a new connection. Other statuses fail.
 - Hosted beta (upyoke.com)'s API authority is `/api/orgs/<slug>` on the selected origin. Self-host's
   authority is the server origin. Clients reject foreign origins or mismatched
   authorities before persisting a credential.
