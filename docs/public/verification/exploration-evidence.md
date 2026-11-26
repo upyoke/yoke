@@ -108,8 +108,9 @@ restore SSH access and re-run), `starting_state_restore_failed` (with the
 `yoke test-machine reset` recovery) or `starting_state_restore_unrecorded`.
 `yoke qa plan review-submit` refuses with `mission_walk_unfinished` while any
 mission's scratch is still on the host. Both delete a stale owner marker.
-If walk-end reports `mission_scratch_not_removed` while it holds a cleanup
-lease, it keeps the lease so the same walk-end can verify cleanup on retry.
+If walk-end reports `mission_scratch_not_removed`, it keeps the lease and
+prints the restore result. Rerun walk-end to verify cleanup and record the
+restore receipt.
 Genuine member removal keeps a walk's Test Machine: the
 execution stays under a recorded abort and holds its lease, so no other QA gets
 that host before teardown. Its original session runs `walk-end` on the held
