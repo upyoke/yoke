@@ -176,6 +176,7 @@ def complete(
         outcome = _poll(
             authorization,
             opener=opener,
+            retry_bad_gateway=True,
             timeout_seconds=min(timeout_seconds, max(0.1, remaining))
             if remaining > 0 else timeout_seconds,
         )
@@ -207,6 +208,7 @@ def _poll(
     *,
     opener: Callable[..., Any] | None,
     timeout_seconds: float,
+    retry_bad_gateway: bool = False,
 ) -> HostedMachineCredential | float:
     """Persist the draft before polling, which can create the registry row."""
     identity = (
@@ -224,6 +226,8 @@ def _poll(
     except BoundedJsonHttpStatusError as exc:
         payload = exc.payload if isinstance(exc.payload, Mapping) else {}
         status, headers = exc.status, exc.headers
+    if retry_bad_gateway and status == 502:
+        return float(authorization.interval)
     response = parse_authorization_response(dict(payload), status, operation="poll")
     error = (
         response.error if isinstance(response, MachineAuthorizationRefused) else None
@@ -268,9 +272,7 @@ def _poll(
         response.org,
         self_host=authorization.self_host,
     )
-    return HostedMachineCredential(
-        api_url=api_url, org=response.org, token=response.token
-    )
+    return HostedMachineCredential(api_url=api_url, org=response.org, token=response.token)
 
 
 def authorize(

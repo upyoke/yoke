@@ -42,7 +42,10 @@ connects the first machine. Yoke rejects non-Yoke servers with `server_not_yoke`
   `machine_credential_unavailable`, and HTTP 429
   `authorization_poll_rate_limited` (honoring `Retry-After`). HTTP 410
   `authorization_denied`, `authorization_expired`, or `authorization_consumed`
-  requires a new connection. Other statuses are diagnosed refusals.
+  requires a new connection. During the CLI's bounded browser approval wait,
+  HTTP 502 is transient. The CLI polls the same code at the normal interval,
+  within the existing expiry and cancellation limits. Other statuses are
+  diagnosed refusals.
 - Hosted beta (upyoke.com)'s API authority is `/api/orgs/<slug>` on the selected origin. Self-host's
   authority is the server origin. Clients reject foreign origins or mismatched
   authorities before persisting a credential.
