@@ -249,6 +249,11 @@ periodic lane sweep or the same sweep a landing or lane creation runs, or the he
 yoke watch doctor -- --only HC-worktree-health --fix
 ```
 
+All three callers use the checkout's shared sweep lock for both eligibility
+checks and removal. When another sweep holds the lock, a deploy start skips
+retirement and continues pinning its own source. Doctor `--fix` also skips
+driver retirement for that invocation when the lock is busy.
+
 Only a status the run-status vocabulary names terminal (`succeeded`, `failed`,
 `cancelled`) releases the directory, and only while the run has no live driver
 attachment: a re-driven terminal run still reads `failed` while its driver

@@ -62,11 +62,17 @@ class _Residue:
 
 
 @pytest.fixture
-def relayed_client(monkeypatch):
+def relayed_client(monkeypatch, tmp_path):
     """An https-style client: a checkout on disk, no local database."""
     calls: Dict[str, List[Any]] = {"relay": [], "prune": []}
+    git_common_dir = tmp_path / ".git"
+    git_common_dir.mkdir()
 
     def fake_run(cmd, *_a, **_kw):
+        if cmd[:3] == ["git", "-C", "/repo"]:
+            cmd = ["git", *cmd[3:]]
+        if cmd == ["git", "rev-parse", "--git-common-dir"]:
+            return _completed(f"{git_common_dir}\n")
         if cmd[:3] == ["git", "worktree", "list"]:
             return _completed(_PORCELAIN)
         if cmd[:2] == ["git", "for-each-ref"]:
