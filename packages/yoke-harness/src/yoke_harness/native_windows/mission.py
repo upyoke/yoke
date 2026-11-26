@@ -75,6 +75,8 @@ def windows_scratch_remove_script(path: str) -> str:
         "if(!(Test-Path -LiteralPath $p)){exit 0}\n"
         + _windows_scratch_tree_remove("$p")
         + "[Console]::Error.Write($removeStderr)\n"
+        # rmdir can print an error for a locked descendant and still exit 0.
+        "if($removeExit -eq 0 -and $removeStderr.Trim()){exit 1}\n"
         "exit $removeExit\n"
     )
 

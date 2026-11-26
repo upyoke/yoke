@@ -285,7 +285,8 @@ def test_walk_end_removes_only_owned_scratch(tmp_path, monkeypatch, locked):
     with extended.open("rb") if locked else nullcontext():
         teardown = walk.execute_agent_mission_walk_end({})
         assert teardown["removed"] is not locked
-        assert (teardown["removal_exit_code"] != 0) is locked
+        assert (teardown["removal_exit_code"] != 0) is locked, teardown
+        assert bool(teardown["removal_stderr"]) is locked, teardown
         assert scratch.exists() is locked
 
     assert sentinel.read_text() == "OUTSIDE"
