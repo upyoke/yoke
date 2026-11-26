@@ -96,6 +96,9 @@ def _format_status_human(payload: dict[str, object]) -> str:
     repairs = payload.get("repairs") or []
     if daemon.get("detail"):
         lines.append(str(daemon["detail"]))
+    for facet in (deps, chromium):
+        if facet.get("detail"):
+            lines.append(str(facet["detail"]))
     if repairs:
         lines.append("repairs:")
         lines.extend(f"  - {hint}" for hint in repairs)
@@ -137,12 +140,10 @@ def qa_browser_setup(args: List[str]) -> int:
             prerequisite_actions = _ensure_node_toolchain(
                 emit=lambda line: print(line, file=sys.stderr)
             )
-        readiness = _browser_readiness(
-            browser_runtime_home,
-            project=parsed.project,
-            identity=identity,
-        )
         if parsed.dry_run:
+            readiness = _browser_readiness(
+                browser_runtime_home, project=parsed.project, identity=identity
+            )
             result = {
                 "ok": True,
                 "dry_run": True,
@@ -228,21 +229,34 @@ def _browser_readiness(
     project: str | None = None,
     identity: str = DEFAULT_IDENTITY,
 ) -> dict[str, object]:
+    from yoke_harness import browser_setup
+
     runtime_dir = browser_runtime_home.runtime_dir()
     expected_hash = browser_runtime_home.source_hash()
     marker = runtime_dir / browser_runtime_home.HASH_MARKER_NAME
     current_hash = _read_text(marker)
     node = browser_node_toolchain.toolchain_status()
-    deps_ready = (runtime_dir / "node_modules" / "playwright").is_dir()
-    chromium = _chromium_status(runtime_dir) if deps_ready and node["ok"] else "unknown"
+    toolchain = browser_node_toolchain.resolve_node_toolchain() if node["ok"] else None
+    npm_error = chromium_error = None
+    deps_ready = False
+    chromium = "unknown"
+    if toolchain is not None:
+        npm_error = browser_setup.playwright_load_error(runtime_dir, toolchain)
+        deps_ready = npm_error is None
+        if deps_ready:
+            chromium, chromium_error = browser_setup.chromium_status(
+                runtime_dir, toolchain
+            )
     repairs = _repair_hints(node, deps_ready, chromium)
     return {
         "runtime_dir": str(runtime_dir),
         "source_hash": expected_hash,
         "materialized": current_hash == expected_hash,
         "node": node,
-        "npm_dependencies": {"status": "ready" if deps_ready else "missing"},
-        "chromium": {"status": chromium},
+        "npm_dependencies": _readiness_facet(
+            "ready" if deps_ready else "missing", npm_error
+        ),
+        "chromium": _readiness_facet(chromium, chromium_error),
         "daemon": {
             "status": "not_running",
             "detail": "No private check selected. Pass --check-id ID to inspect one.",
@@ -259,13 +273,10 @@ def _read_text(path: Path) -> str | None:
         return None
 
 
-def _chromium_status(runtime_dir: Path) -> str:
-    from yoke_harness import browser_setup
-
-    toolchain = browser_node_toolchain.resolve_node_toolchain()
-    if toolchain is None:
-        return "unknown"
-    return browser_setup.chromium_status(runtime_dir, toolchain)
+def _readiness_facet(status: str, detail: str | None) -> dict[str, str]:
+    return (
+        {"status": status} if detail is None else {"status": status, "detail": detail}
+    )
 
 
 def _ensure_node_toolchain(*, emit: Callable[[str], None]) -> list[dict[str, str]]:

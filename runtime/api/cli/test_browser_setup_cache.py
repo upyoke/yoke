@@ -4,6 +4,7 @@ from yoke_contracts.testing.real_home_isolation import set_home
 
 from pathlib import Path
 import subprocess
+import sys
 from types import SimpleNamespace
 
 import pytest
@@ -51,7 +52,8 @@ def test_install_failure_preserves_warning_and_download_error(
                 "End of central directory record signature not found",
                 'npm warn Unknown env config "http-proxy"',
             )
-        return subprocess.CompletedProcess(argv, 0, "missing", "")
+        loaded = command != "npm" and argv[-1] == browser_setup.PLAYWRIGHT_LOAD_PROBE_JS
+        return subprocess.CompletedProcess(argv, 0, "ok" if loaded else "missing", "")
 
     monkeypatch.setattr(browser_setup.subprocess, "run", run)
     with pytest.raises(RuntimeError) as failure:
@@ -130,6 +132,8 @@ def test_setup_install_and_runtime_find_the_same_cache(
         if argv[0] == "npx":
             installs.append(argv)
             installed.write_text("browser")
+        if argv[-1] == browser_setup.PLAYWRIGHT_LOAD_PROBE_JS:
+            return subprocess.CompletedProcess(argv, 0, "ok", "")
         return subprocess.CompletedProcess(
             argv, 0, "ok" if installed.exists() else "missing", ""
         )
@@ -200,3 +204,107 @@ def test_cache_writability_refuses_before_install(setup_host, monkeypatch, failu
     assert cache in str(failure.value)
     assert "make this directory and its parents writable" in str(failure.value)
     assert "retry yoke qa browser setup" in str(failure.value)
+
+
+@pytest.mark.parametrize("repair_succeeds", [True, False])
+def test_partial_playwright_is_rechecked_before_chromium(
+    setup_host, monkeypatch, repair_succeeds
+):
+    browser, toolchain = setup_host
+    package = browser / "node_modules/playwright/package.json"
+    package.parent.mkdir(parents=True)
+    calls = []
+
+    def run(argv, **kwargs):
+        command = argv[0] if argv[0] == "npm" else argv[2]
+        calls.append(command)
+        if command == "npm":
+            if repair_succeeds:
+                package.write_text("{}")
+        elif command == browser_setup.PLAYWRIGHT_LOAD_PROBE_JS:
+            assert kwargs["timeout"] == browser_setup.PLAYWRIGHT_PROBE_TIMEOUT_SECONDS
+            if not package.exists():
+                return subprocess.CompletedProcess(
+                    argv, 1, "", "Cannot find module './node_modules/playwright'"
+                )
+        else:
+            assert package.exists(), "Chromium ran before Playwright was repaired"
+        return subprocess.CompletedProcess(argv, 0, "ok", "")
+
+    monkeypatch.setattr(browser_setup.subprocess, "run", run)
+    if repair_succeeds:
+        browser_setup.ensure_browser_runtime(browser, toolchain, emit=lambda _: None)
+        assert "npx" not in calls
+    else:
+        with pytest.raises(
+            RuntimeError, match="browser_playwright_unloadable_after_install"
+        ) as failure:
+            browser_setup.ensure_browser_runtime(
+                browser, toolchain, emit=lambda _: None
+            )
+        assert "Cannot find module './node_modules/playwright'" in str(failure.value)
+        assert "retry yoke qa browser setup" in str(failure.value)
+        assert len(calls) == 3
+    assert calls[:3] == [
+        browser_setup.PLAYWRIGHT_LOAD_PROBE_JS,
+        "npm",
+        browser_setup.PLAYWRIGHT_LOAD_PROBE_JS,
+    ]
+
+
+@pytest.mark.parametrize("executable_present", [False, True])
+def test_installer_success_requires_usable_chromium(
+    setup_host, monkeypatch, executable_present
+):
+    browser, toolchain = setup_host
+    installed = False
+    events = []
+
+    def run(argv, **kwargs):
+        nonlocal installed
+        if argv[0] == "npx":
+            installed = True
+        elif argv[-1] == browser_setup.browser_runtime_home.CHROMIUM_PRESENT_PROBE_JS:
+            if not (installed and executable_present):
+                return subprocess.CompletedProcess(argv, 1, "", "Chromium file missing")
+        elif argv[2] == browser_setup.browser_system_browser.LAUNCH_PROBE_JS:
+            return subprocess.CompletedProcess(
+                argv, 1, "", "Chromium exec format error"
+            )
+        return subprocess.CompletedProcess(argv, 0, "ok", "")
+
+    monkeypatch.setattr(browser_setup.subprocess, "run", run)
+    with pytest.raises(
+        RuntimeError, match="browser_chromium_unusable_after_install"
+    ) as failure:
+        browser_setup.ensure_browser_runtime(browser, toolchain, emit=events.append)
+    expected = (
+        "Chromium exec format error" if executable_present else "Chromium file missing"
+    )
+    assert expected in str(failure.value)
+    assert "retry yoke qa browser setup" in str(failure.value)
+    assert not any("installation verified" in event for event in events)
+
+
+def test_npm_failure_preserves_diagnostics_with_malformed_bytes(
+    setup_host, monkeypatch
+):
+    browser, toolchain = setup_host
+    real_run = subprocess.run
+
+    def run(argv, **kwargs):
+        if argv[0] == "npm":
+            return real_run(
+                [
+                    sys.executable,
+                    "-c",
+                    "import sys; sys.stderr.buffer.write(b'first \\xff final diagnostic'); sys.exit(1)",
+                ],
+                **kwargs,
+            )
+        return subprocess.CompletedProcess(argv, 1, "", "module missing")
+
+    monkeypatch.setattr(browser_setup.subprocess, "run", run)
+    with pytest.raises(RuntimeError, match="browser_npm_install_failed") as failure:
+        browser_setup.ensure_browser_runtime(browser, toolchain, emit=lambda _: None)
+    assert "first � final diagnostic" in str(failure.value)

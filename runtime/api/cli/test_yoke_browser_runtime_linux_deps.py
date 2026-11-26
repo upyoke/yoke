@@ -43,12 +43,18 @@ def _prepare_browser_start(tmp_path, monkeypatch):
             health="healthy",
         )
 
+    installed = False
+
     def fake_run(command, **_kwargs):
-        # The Chromium-presence probe is the only command whose output the
-        # launch path reads; it answers "missing" so the install runs.
-        if command[1:2] == ["-e"]:
+        nonlocal installed
+        if command[1:] == ["playwright", "install", "chromium"]:
+            installed = True
+        if (
+            command[-1] == browser_setup.browser_runtime_home.CHROMIUM_PRESENT_PROBE_JS
+            and not installed
+        ):
             return subprocess.CompletedProcess(command, 0, "missing", "")
-        return subprocess.CompletedProcess(command, 0, "", "")
+        return subprocess.CompletedProcess(command, 0, "ok", "")
 
     class FakeProcess:
         pid = 123

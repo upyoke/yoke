@@ -184,15 +184,18 @@ unit depends on the connection you selected.
 
 The Account step opens the approval link with your installed default browser.
 On a Linux desktop without one, it uses Yoke's Chromium runtime, installing it
-through the same setup and cache browser QA uses. The wizard shows a progress
-screen while preparing the browser; the approval link and one-time code remain
+through the same setup and cache browser QA uses. Setup repairs an unloadable
+Playwright package and verifies it can load before checking Chromium. It
+verifies Chromium with a local test page before reporting success. The wizard
+shows a progress screen while preparing the browser; the approval link and one-time code remain
 visible, with the copy keys available. Later browser QA reuses that download.
 If the bundled-browser download fails, setup checks installed Chromium/Chrome
 browsers with a sandboxed test-page launch. Only a successful executable is
 saved in machine config at `settings.browser_executable_path`. Setup, browser
-QA and browser authorization use that same selection; browser status checks
-that the selected executable can still open a sandboxed test page. No browser is copied
-into Playwright's cache. Later setup prefers an available bundled browser and
+QA and browser authorization use that same selection. Browser status checks
+that Playwright loads and Chromium can open a local test page without
+installing anything. Its system-browser check requires a sandboxed launch.
+No browser is copied into Playwright's cache. Later setup prefers an available bundled browser and
 clears the system selection after verifying its dependencies. If an HTML block
 page or corrupt ZIP replaces the download and no installed browser works, allow
 `cdn.playwright.dev`, `playwright.download.prss.microsoft.com`, and
