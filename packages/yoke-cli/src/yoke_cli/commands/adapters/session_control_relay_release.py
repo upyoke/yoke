@@ -88,7 +88,10 @@ def release_status_is_healthy(payload: Mapping[str, Any]) -> bool:
 
 def serve_release_daemon(*, cycle_maintenance: Callable[[], None] | None = None) -> Any:
     """Run this relay's build: a pinned release, or the machine's own Yoke."""
-    from yoke_cli.config.cli_release_resident import running_release_superseded
+    from yoke_cli.config.cli_release_resident import (
+        collect_superseded_releases,
+        running_release_superseded,
+    )
     from yoke_harness.session_relay_daemon import serve_forever
     from yoke_harness.session_relay_harness_reconcile import (
         refresh_harness_inventory,
@@ -127,6 +130,7 @@ def serve_release_daemon(*, cycle_maintenance: Callable[[], None] | None = None)
 
         def maintain_local_universe() -> None:
             maintain()
+            collect_superseded_releases()
             upkeep.run_control_plane_upkeep()
 
         def restart_from_launcher(_argv=None, *, executable=None) -> None:
