@@ -197,6 +197,7 @@ def qa_browser_step(args: List[str]) -> int:
         parsed.project = required_project_context(parsed.project)
     except MissingProjectError as exc:
         return usage_error(str(exc))
+    result = None
     try:
         with check_scope(
             parsed.project,
@@ -219,19 +220,25 @@ def qa_browser_step(args: List[str]) -> int:
                     page_id=page_id,
                 )
             except RuntimeError as exc:
+                print(f"yoke qa browser step: {exc}", file=sys.stderr)
                 if not parsed.keep_open:
-                    raise
+                    return 1
                 # A refusal leaves the page as it stands. A kept check keeps
                 # it, so the caller can inspect it before any repair.
-                print(f"yoke qa browser step: {exc}", file=sys.stderr)
                 result = {"success": False, "error": str(exc)}
             if parsed.keep_open:
                 result["check_id"] = check.check_id
     except (RuntimeError, BrowserIdentityError) as exc:
         print(f"yoke qa browser step: {exc}", file=sys.stderr)
         return 1
-    print(json.dumps(result))
-    return 1 if result.get("success") is False else 0
+    finally:
+        # The scope may refuse cleanup after the daemon has returned a receipt.
+        if result is not None:
+            print(json.dumps(result))
+    step_result = result.get("data")
+    if result.get("success") is False:
+        return 1
+    return 1 if isinstance(step_result, dict) and step_result.get("success") is False else 0
 
 
 # CLI token tuples -> adapter, merged into the launcher's tool-shaped
