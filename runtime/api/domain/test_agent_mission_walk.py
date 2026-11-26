@@ -205,6 +205,53 @@ def test_walk_end_removes_scratch_then_restores_the_declared_baseline(
     assert result["starting_state_restore"]["baseline"] == "fresh-host"
 
 
+@pytest.mark.parametrize(
+    ("os_name", "restored", "retry_absent", "removals", "removed"),
+    [
+        ("windows", True, True, 2, True),
+        ("windows", True, False, 2, False),
+        ("windows", False, True, 1, False),
+        ("macos", True, True, 1, False),
+    ],
+)
+def test_walk_end_retries_locked_windows_scratch_after_successful_restore(
+    monkeypatch, os_name, restored, retry_absent, removals, removed,
+):
+    contract = _walk_contract()
+    contract.settings["os"] = os_name
+    events = []
+
+    class LockedScratch(FakeHostControl):
+        def remove_mission_scratch_directory(self, path, *, timeout):
+            events.append("remove")
+            if "restore" in events and retry_absent:
+                return super().remove_mission_scratch_directory(path, timeout=timeout)
+            # The remover can return zero while the independent probe still finds the path.
+            return SimpleNamespace(returncode=0, stderr="")
+
+        def probe_mission_scratch(self, path, *, timeout):
+            events.append("probe")
+            return super().probe_mission_scratch(path, timeout=timeout)
+
+    control = LockedScratch()
+    create_mission_scratch(control, execution_id=EXECUTION_ID)
+
+    def reach(name):
+        assert name == "fresh-host"
+        events.append("restore")
+        return SimpleNamespace(ok=restored, error_code=None, evidence={})
+
+    monkeypatch.setattr(machine_qa_mission_walk, "_mission_contract", lambda _: contract)
+    monkeypatch.setattr(
+        machine_qa_mission_walk, "_execution",
+        lambda _: SimpleNamespace(control=control, material=SimpleNamespace(secrets={}), reach_baseline=reach),
+    )
+    result = machine_qa_mission_walk.execute_agent_mission_walk_end({})
+    assert result["removed"] is removed
+    assert result["starting_state_restore"]["restored"] is restored
+    assert events == ["remove", "probe", "restore"] + ["remove", "probe"] * (removals - 1)
+
+
 def test_walk_start_refuses_to_walk_when_preparation_failed(monkeypatch, capsys):
     monkeypatch.setattr(
         agent_mission_walk_cli,

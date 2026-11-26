@@ -97,7 +97,8 @@ def run_end(args: list[str]) -> int:
         description=(
             "Remove the mission's owner-only secret staging, restore the "
             "Test Machine to the mission's declared starting state, and "
-            "record that restore on the mission's run (--run-id)."
+            "record that restore on the mission's run (--run-id). On Windows, "
+            "retry a failed removal after a successful restore."
         ),
     )
     add_mission_subject_arguments(parser)

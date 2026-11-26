@@ -5,7 +5,8 @@ Machine it needs is put in place when the walk begins, not when the plan
 recorded its docket: ``walk-start`` resets to the mission's declared
 baseline, restores its declared OS packages and stages its scratch.
 ``walk-end`` removes the scratch, restores the declared baseline, and
-records that restore on the mission's run.
+records that restore on the mission's run. Windows retries failed scratch
+removal after a successful restore can release its locks.
 """
 
 from __future__ import annotations
@@ -44,19 +45,23 @@ def execute_agent_mission_walk_end(
     *,
     timeout_seconds: int = 60,
 ) -> dict[str, Any]:
-    """Remove secret staging, then restore the declared starting state."""
+    """Remove secret staging and restore the declared starting state."""
     contract = _mission_contract(raw_contract)
     execution = _execution(contract)
-    teardown = remove_mission_scratch(
-        execution.control,
-        execution_id=str(contract.plan_execution_id),
-        timeout_seconds=timeout_seconds,
-    )
-    teardown[STARTING_STATE_RESTORE] = restore_chain_start(
+    scratch = {
+        "execution_id": str(contract.plan_execution_id),
+        "timeout_seconds": timeout_seconds,
+    }
+    teardown = remove_mission_scratch(execution.control, **scratch)
+    restore = restore_chain_start(
         contract.cases[0],
         execution.reach_baseline,
         test_machine=contract.settings["resource_name"],
     )
+    # Native Windows restore can stop processes holding the scratch open.
+    if not teardown["removed"] and restore["restored"] and contract.settings.get("os") == "windows":
+        teardown = remove_mission_scratch(execution.control, **scratch)
+    teardown[STARTING_STATE_RESTORE] = restore
     redacted = redact_machine_qa_value(
         teardown,
         tuple(execution.material.secrets.values()),
