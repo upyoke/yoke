@@ -293,12 +293,6 @@ def record_qa_artifact(
             return _error(exc.code, str(exc))
         except ValueError as exc:
             return _error("target_invalid", str(exc))
-    if artifact_type == "starting_state_restore":
-        from yoke_core.domain.machine_restore_debt import record_restore_artifact
-
-        record_restore_artifact(
-            conn, int(req_id), run_id, inline_content, request.actor
-        )
     # ensure_artifact_capacity holds FOR UPDATE on this qa_runs row
     # until commit, so a retry racing a still-running writer waits,
     # then sees the inserted handle. No extra unique index.
@@ -333,6 +327,13 @@ def record_qa_artifact(
         run_id=run_id,
         locked_execution=locked_execution,
     )
+    if artifact_type == "starting_state_restore":
+        from yoke_core.domain.machine_restore_debt import record_restore_artifact
+
+        record_restore_artifact(
+            conn, int(req_id), run_id, inline_content, request.actor,
+            new_artifact_id=artifact_id if existing is None else None,
+        )
     return HandlerOutcome(
         result_payload={"qa_artifact_id": artifact_id},
         primary_success=True,
