@@ -11,6 +11,8 @@ record names the same host under a different spelling.
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from yoke_core.domain import deployment_runs as dr
@@ -20,14 +22,22 @@ from runtime.api.deployment_runs_test_db import db_path  # noqa: F401 — fixtur
 from runtime.api.fixtures.file_test_db import connect_test_db
 
 STAGE_URL = "https://app.stage.example.test"
-QA_STAGES = (
-    '[{"name":"deploy"},'
-    '{"name":"item-qa","stage_kind":"qa","step_runner":"qa","scope":"item"},'
-    '{"name":"complete"}]'
-)
+DEPLOY = {
+    "name": "deploy",
+    "stage_kind": "execution",
+    "step_runner": "core-container-deploy",
+}
+ITEM_QA = {
+    "name": "item-qa",
+    "stage_kind": "qa",
+    "step_runner": "qa",
+    "scope": "item",
+}
+WARM_UP = {"name": "warm-up", "stage_kind": "execution", "step_runner": "warm-up"}
+COMPLETE = {"name": "complete", "stage_kind": "execution", "step_runner": "auto"}
 
 
-def _seed(db_path: str) -> None:
+def _seed(db_path: str, *, holder_stages=None) -> None:
     conn = connect_test_db(db_path)
     conn.execute("UPDATE environments SET url=%s WHERE id=202", (STAGE_URL,))
     conn.execute("UPDATE environments SET url='https://app.example.test' WHERE id=201")
@@ -38,17 +48,21 @@ def _seed(db_path: str) -> None:
         "VALUES (203, 102, 2, 'stage', %s)",
         ("HTTPS://App.Stage.Example.Test/",),
     )
-    conn.execute(
-        "INSERT INTO deployment_flows "
-        "(id, project_id, name, stages, target_tier, target_environment_id) "
-        "VALUES ('web-stage', 2, 'Web stage', %s, 'persistent', 203)",
-        (QA_STAGES,),
+    flows = (
+        ("web-stage", 2, 203, holder_stages or [DEPLOY, ITEM_QA, COMPLETE]),
+        ("yoke-stage", 1, 202, [DEPLOY, COMPLETE]),
+        ("stage-observer", 1, 202, [WARM_UP, ITEM_QA, COMPLETE]),
     )
+    for flow, project, environment, stages in flows:
+        conn.execute(
+            "INSERT INTO deployment_flows "
+            "(id, project_id, name, stages, target_tier, target_environment_id) "
+            "VALUES (%s, %s, %s, %s, 'persistent', %s)",
+            (flow, project, flow, json.dumps(stages), environment),
+        )
     conn.execute(
-        "INSERT INTO deployment_flows "
-        "(id, project_id, name, stages, target_tier, target_environment_id) "
-        "VALUES ('yoke-stage', 1, 'Yoke stage', "
-        '\'[{"name":"deploy"},{"name":"complete"}]\', \'persistent\', 202)'
+        "UPDATE deployment_flows SET stages=%s WHERE id='flow-main'",
+        (json.dumps([DEPLOY, COMPLETE]),),
     )
     conn.commit()
     conn.close()
@@ -179,3 +193,70 @@ def test_production_origins_are_occupied_too(db_path: str) -> None:
     refusal = _start(db_path, second)
 
     assert refusal is not None and "https://app.example.test" in refusal
+
+
+def test_observer_starts_during_item_qa_and_holds_the_origin_until_its_qa_settles(
+    db_path: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _seed(db_path)
+    holder = dr.cmd_create_run("externalwebapp", "web-stage", db_path=db_path)
+    observer = dr.cmd_create_run("yoke", "stage-observer", db_path=db_path)
+    deployer = dr.cmd_create_run("yoke", "yoke-stage", db_path=db_path)
+    pending = {
+        holder: ("member WEB-1: verdict not recorded",),
+        observer: ("member YOK-2: verdict not recorded",),
+    }
+
+    def outstanding_by_run(conn, *, run_id, stage_name):
+        assert stage_name == "item-qa"
+        lines = pending[run_id]
+        return outstanding.QaStageOutstanding(lines, subjects=1, waiting=int(bool(lines)))
+
+    monkeypatch.setattr(outstanding, "qa_stage_outstanding", outstanding_by_run)
+    assert _start(db_path, holder) is None
+    _at_stage(db_path, holder, "item-qa")
+    assert _start(db_path, observer) is None
+    _at_stage(db_path, observer, "item-qa")
+
+    refusal = _start(db_path, deployer)
+    assert refusal is not None and "target_occupied" in refusal
+    assert holder in refusal and pending[holder][0] in refusal
+    assert observer in refusal and pending[observer][0] in refusal
+
+    pending[holder] = ()
+    refusal = _start(db_path, deployer)
+
+    assert refusal is not None and observer in refusal and holder not in refusal
+    assert pending[observer][0] in refusal
+    assert dr.cmd_get(deployer, field="status", db_path=db_path) == "created"
+
+    pending[observer] = ()
+    _at_stage(db_path, observer, "complete")
+    assert _start(db_path, deployer) is None
+
+
+@pytest.mark.parametrize(
+    "runner",
+    ["core-container-deploy", "github-actions-workflow", "unclassified-runner"],
+)
+@pytest.mark.parametrize("qa_lines", [(), ("member WEB-1: verdict not recorded",)])
+def test_observer_refuses_when_a_holder_can_still_change_the_origin(
+    db_path: str, monkeypatch: pytest.MonkeyPatch, runner: str, qa_lines: tuple[str, ...]
+) -> None:
+    later = {**DEPLOY, "name": "later", "step_runner": runner}
+    _seed(db_path, holder_stages=[DEPLOY, ITEM_QA, later, COMPLETE])
+    _qa_open(monkeypatch, qa_lines)
+    holder = dr.cmd_create_run(
+        "externalwebapp", "web-stage", release_lineage="a" * 40, db_path=db_path
+    )
+    observer = dr.cmd_create_run("yoke", "stage-observer", db_path=db_path)
+    assert _start(db_path, holder) is None
+
+    for stage in ("deploy", "item-qa"):
+        _at_stage(db_path, holder, stage)
+        refusal = _start(db_path, observer)
+        assert refusal is not None and "target_occupied" in refusal and holder in refusal
+        assert dr.cmd_get(observer, field="status", db_path=db_path) == "created"
+
+    _at_stage(db_path, holder, "complete")
+    assert _start(db_path, observer) is None
