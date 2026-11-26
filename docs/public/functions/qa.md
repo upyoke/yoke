@@ -97,6 +97,12 @@ Read [envelope and authority](index.md) first. `none` means no dispatcher work-c
 | `test_machine.settings_replace` | `none` |
 | `test_machine.verify` | `none` |
 
+## Resume a Test Machine wait
+
+Run the printed `yoke qa plan run --resume-execution-id ID` command. If a
+single-host case queued for an explicitly selected Test Machine, the command
+keeps that host and its queue position without repeating `--test-machine`.
+
 ## Withdraw a Test Machine wait
 
 ```text
