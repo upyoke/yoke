@@ -96,12 +96,13 @@ _MARKER = "# --- controller side"
 def gather_script():
     """Read-only facts for ``drift``; the fixture library names what to look for."""
     from yoke_harness.native_windows import machine_fixtures as fixtures
-    from yoke_harness.native_windows.machine_fixture_accounts import CA_SUBJECT, PROXY_ADDRESS
+    from yoke_harness.native_windows.machine_fixture_accounts import PROXY_ADDRESS, PROXY_CA_CENSUS
     from yoke_harness.native_windows.machine_fixture_scripts import TASK_POLICY_KEY
     from yoke_contracts.windows_powershell import quote
 
     port = PROXY_ADDRESS.rsplit(":", 1)[1]
     return f"""$ErrorActionPreference='Stop'; $ProgressPreference='SilentlyContinue'
+{PROXY_CA_CENSUS}
 $o=[ordered]@{{}}
 $srp='HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\SrpV2'
 $o.srp_rules=if(Test-Path -LiteralPath $srp){{@(Get-ChildItem -LiteralPath $srp | ForEach-Object {{Get-ChildItem -LiteralPath $_.PSPath}}).Count}}else{{0}}
@@ -110,7 +111,7 @@ $is='SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Internet Settings'
 $o.hklm_proxy_enable=(Get-ItemProperty -LiteralPath ('HKLM:\\'+$is) -ErrorAction SilentlyContinue).ProxyEnable
 $o.hkcu_proxy_enable=(Get-ItemProperty -LiteralPath ('HKCU:\\'+$is) -ErrorAction SilentlyContinue).ProxyEnable
 $o.proxy_per_user=(Get-ItemProperty -LiteralPath 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\CurrentVersion\\Internet Settings' -ErrorAction SilentlyContinue).ProxySettingsPerUser
-$o.fixture_ca_present=[bool](@('Root','CA') | ForEach-Object {{Get-ChildItem ('Cert:\\LocalMachine\\'+$_)}} | Where-Object {{$_.Subject -eq {quote(CA_SUBJECT)}}})
+$o.fixture_ca_present=@(Get-YokeProxyCaResidue).Count -gt 0
 $o.mitmproxy_processes=@(Get-Process mitmdump,mitmproxy,mitmweb -ErrorAction SilentlyContinue).Count
 $o.proxy_port_listening=@([Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().GetActiveTcpListeners() | Where-Object {{$_.Port -eq {port}}}).Count -gt 0
 $o.fixture_entries=if(Test-Path -LiteralPath {quote(fixtures.FIXTURE_ROOT)}){{@(Get-ChildItem -LiteralPath {quote(fixtures.FIXTURE_ROOT)} -Force).Count}}else{{0}}

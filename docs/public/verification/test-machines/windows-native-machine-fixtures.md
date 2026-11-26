@@ -29,11 +29,20 @@ Exploratory walkers reach machine-wide Windows state through
 
 Every native Windows reset first runs every undo, in one run-command, then
 restores the profile and runs the probes. A failed undo fails the reset with
-its verify records and leaves the lab `machine_needs_repair`. The
-`machine-baseline` standard probe then seals what is left: AppLocker rules, a WinHTTP or WinINET proxy, the fixture CA, a mitmproxy
-process or port, files under `C:\YokeQa\fixtures`, the Task Scheduler
-policy, an administrator test user, or a missing, disabled or administrator
-second user fail it as `probe_machine_drift`. The recovery is a plain
+its verify records and leaves the lab `machine_needs_repair`.
+
+The proxy fixture verifies trust by the thumbprint in its generated certificate
+file. Undo verifies removal of that thumbprint before deleting the file. Undo
+and the baseline probe detect the mitmproxy subject attributes in either order.
+If a matching certificate has no ownership proof, undo reports its store and
+thumbprint and leaves it in place. Establish ownership through an authorized
+lab maintenance turn before changing that trust entry.
+
+The `machine-baseline` standard probe fails with `probe_machine_drift`
+when it finds AppLocker rules, WinHTTP or WinINET proxy settings, the fixture
+CA, a mitmproxy process or port, files under `C:\YokeQa\fixtures`, the Task
+Scheduler policy, an administrator test user, or a missing, disabled or
+administrator second user. The recovery is a plain
 `yoke test-machine reset`. The probe cannot read the second user's profile;
 the `second-user` undo removes Yoke and uv from it as SYSTEM and fails with
 its record if either remains.
