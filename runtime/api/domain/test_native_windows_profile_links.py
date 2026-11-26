@@ -272,7 +272,8 @@ def test_mirror_keeps_windows_profile_compatibility_junctions():
 
 
 @pytest.mark.windows_only(reason="requires Windows PowerShell")
-def test_desktop_stop_resolves_only_test_user_app_targets(tmp_path, monkeypatch):
+@pytest.mark.parametrize("desktop", [False, True])
+def test_reset_stops_only_eligible_processes(tmp_path, monkeypatch, desktop):
     from yoke_harness.native_windows import profile_processes as processes
 
     monkeypatch.setattr(processes, "_PROCESS_IDENTITY", "")
@@ -280,17 +281,29 @@ def test_desktop_stop_resolves_only_test_user_app_targets(tmp_path, monkeypatch)
     result = _run_powershell(tmp_path, rf"""
 $profileRoot={quote(HOME)}
 $env:ProgramFiles='C:\Program Files'
+$includeOtherSession={"$true" if desktop else "$false"}
 """ + r"""
 $packageRoot=Join-Path $env:ProgramFiles 'WindowsApps\Codex_fixture'
 $codex=Join-Path $packageRoot 'app\Codex.exe'
 $claude=Join-Path $profileRoot 'AppData\Local\Programs\Claude.exe'
 $preserved=Join-Path $profileRoot 'AppData\Local\Microsoft\Keep.exe'
 $other=Join-Path $packageRoot 'Other.exe'
+$daemon=Join-Path $profileRoot '.codex\packages\app-server-daemon\releases\0.172.0-x86_64-pc-windows-msvc\bin\codex.exe'
+$standalone=Join-Path $profileRoot '.codex\packages\standalone\current\bin\codex.exe'
 $entries=@()
-foreach($path in @($codex,$claude,$preserved,$other)){
+foreach($path in @($codex,$claude,$preserved,$other,$daemon,$daemon,$daemon,$daemon,$standalone)){
  $entries+= [pscustomobject]@{Id=$entries.Count+1;Path=$path;SessionId=1;MainWindowHandle=1;HasExited=$false}
 }
-function Get-Process($Id){if($Id -eq $PID){@{SessionId=1}}else{$entries}}
+$entries[7].SessionId=2
+function Get-Process($Id){
+ if($Id -eq $PID){@{SessionId=1}; return}
+ $entries | Where-Object {!$_.HasExited -and ($includeOtherSession -or $_.SessionId -eq 1)}
+}
+function Get-YokeOwnedCommandLine($processId,$image){
+ if($processId -eq 6){return ('"'+$image+'" app-server daemon pid-update-loop')}
+ if($processId -eq 7){return ('"'+$image+'" app-server --listen unix://')}
+ '"'+$image+'" app-server --listen unix:// --managed-daemon'
+}
 function Get-YokeOwnedExecutable($processId){
  if($processId -ne 4){$entries[$processId-1].Path}
 }
@@ -299,15 +312,28 @@ function Get-AppxPackageManifest($Package) {
  [xml]'<Package><Applications><Application Id="App" Executable="app\Codex.exe"/></Applications></Package>'
 }
 function Stop-Process($InputObject,[switch]$Force){$InputObject.HasExited=$true}
-""" + processes.profile_process_stop_script(HOME, PRESERVED_DIRECTORIES, desktop=True) + r"""
-if($entries[2].HasExited -or $entries[3].HasExited){throw 'excluded process stopped'}
+""" + processes.profile_process_stop_script(HOME, PRESERVED_DIRECTORIES, desktop=desktop) + r"""
+if(!$entries[4].HasExited -or !$entries[5].HasExited){throw 'daemon still running'}
+foreach($index in @(2,3,6,7,8)){
+ if($entries[$index].HasExited){throw 'excluded process stopped'}
+}
 """)
     assert result.returncode == 0, result.stderr
-    stopped, targets = (
-        json.loads(next(line[len(marker):] for line in result.stdout.splitlines() if line.startswith(marker)))
-        for marker in (processes.STOPPED_MARKER, processes.TARGETS_MARKER)
+    stopped = processes.stopped_processes(result.stdout)
+    assert stopped[:2] == [
+        r"C:\Program Files\WindowsApps\Codex_fixture\app\Codex.exe",
+        HOME + r"\AppData\Local\Programs\Claude.exe",
+    ]
+    assert len(stopped[2:]) == 2
+    assert all(r"\packages\app-server-daemon\releases" in path for path in stopped[2:])
+    if not desktop:
+        assert processes.TARGETS_MARKER not in result.stdout
+        return
+    targets = next(
+        json.loads(line[len(processes.TARGETS_MARKER):])
+        for line in result.stdout.splitlines() if line.startswith(processes.TARGETS_MARKER)
     )
-    assert [app["path"] for app in targets] == stopped
+    assert [app["path"] for app in targets] == stopped[:2]
     assert [app["target"] for app in targets] == [
         r"shell:AppsFolder\Codex_fixture!App", HOME + r"\AppData\Local\Programs\Claude.exe",
     ]
