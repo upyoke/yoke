@@ -3,6 +3,7 @@
 import json
 import subprocess
 import sys
+import time
 from types import SimpleNamespace
 
 import pytest
@@ -13,41 +14,110 @@ from yoke_harness.native_windows.transport import quote
 
 
 @pytest.mark.parametrize(
-    ("receipt", "cleanup"),
+    ("phase", "code", "receipt", "cleanup"),
     [
-        ("verified_empty", "verified_absent"),
-        ("TerminateJobObject failed (Win32 5)", "unverified"),
-        (None, "unverified"),
+        ("poll", 124, "verified_empty", "verified_absent"),
+        ("poll", 124, "TerminateJobObject failed (Win32 5)", "unverified"),
+        ("reconcile", 124, "verified_empty", "verified_absent"),
+        ("reconcile", 124, "TerminateJobObject failed (Win32 5)", "unverified"),
+        ("reconcile", 0, "verified_empty", "unverified"),
+        ("reconcile", 124, None, "unverified"),
+        ("writer_active", 124, None, "unverified"),
     ],
 )
-def test_desktop_timeout_requires_a_job_receipt(monkeypatch, receipt, cleanup):
-    def read_remote_text(_path):
-        if receipt is not None:
-            return json.dumps(
-                {"exit_code": 124, "stdout": "", "stderr": "timeout", "process_cleanup": receipt}
-            )
-        return None
+def test_desktop_timeout_requires_a_job_receipt(monkeypatch, phase, code, receipt, cleanup):
+    stderr = (
+        "owned timeout" if receipt == "verified_empty"
+        else "windows_desktop_cleanup_unresolved: owned timeout; recovery: inspect the fixture"
+    )
+    body = json.dumps(
+        {"exit_code": code, "stdout": "", "stderr": stderr, "process_cleanup": receipt}
+    ) if receipt else ""
 
-    # Allow one poll, then expire the controller's grace period.
-    ticks = iter((0, 0, 22))
+    # Allow one poll and leave reconciliation four seconds of the existing grace.
+    ticks = iter((0, 0, 17, 17))
     monkeypatch.setattr(desktop, "time", SimpleNamespace(monotonic=lambda: next(ticks), sleep=lambda _: None))
     scripts = []
+
+    def run(script):
+        scripts.append(script)
+        if len(scripts) == 1:
+            return subprocess.CompletedProcess([], 0, "", "")
+        if phase == "writer_active":
+            return subprocess.CompletedProcess([], 1, "", "sharing violation")
+        return subprocess.CompletedProcess([], 0, body if phase == "reconcile" else "", "")
+
     control = SimpleNamespace(
         home=r"C:\Users\qa",
         upload_remote_text=lambda *_: None,
-        read_remote_text=read_remote_text,
-        _run=lambda script: scripts.append(script) or subprocess.CompletedProcess([], 0, "", ""),
+        read_remote_text=lambda _: body if phase == "poll" else None,
+        _run=run,
     )
     result = desktop.desktop_script(control, "Start-Sleep 600", timeout=1)
     assert result.returncode == 124
     assert result.desktop_diagnostics["cleanup"] == cleanup
     assert "Remove-YokeTask 'YokeQa-" in scripts[-1]
-    if receipt is None:
+    if phase != "poll":
+        script = scripts[-1]
+        assert "$clock.ElapsedMilliseconds -ge 4000" in script
+        assert script.index("[IO.File]::Open") < script.index("[IO.File]::ReadAllText")
+        assert script.index("[IO.File]::ReadAllText") < script.rindex("Remove-Item -LiteralPath")
+        assert script.rindex("Remove-Item -LiteralPath") < script.rindex("$publisher.Dispose()")
+    if receipt is None or code != 124:
         assert "windows_desktop_cleanup_unresolved" in result.stderr
         assert "recovery:" in result.stderr
         assert result.desktop_diagnostics["task"] in result.stderr
     else:
+        assert result.stderr == stderr
         assert result.desktop_diagnostics["process_cleanup"] == receipt
+
+
+@pytest.mark.windows_only(reason="Uses native file sharing and PowerShell publication")
+def test_final_reconciliation_reads_late_receipt_after_publisher_exits(tmp_path):
+    source = tmp_path / "producer.ps1"
+    receipt = tmp_path / "receipt.json"
+    ready = tmp_path / "ready"
+    trigger = tmp_path / "trigger"
+    staged = tmp_path / "receipt.tmp"
+    cleanup = f"Remove-Item -LiteralPath {quote(str(source))},{quote(str(receipt))} -ErrorAction Stop"
+    source.write_text(
+        f"""$ErrorActionPreference='Stop'
+$publisher=[IO.File]::Open($PSCommandPath, 'Open', 'Read', 'Read, Delete')
+try {{
+  New-Item -ItemType File -Path {quote(str(ready))} | Out-Null
+  while (!(Test-Path -LiteralPath {quote(str(trigger))})) {{ Start-Sleep -Milliseconds 25 }}
+  @{{exit_code=124;stdout='';stderr='timeout';process_cleanup='verified_empty'}} |
+    ConvertTo-Json -Compress | Set-Content -Encoding UTF8 {quote(str(staged))}
+  Move-Item -LiteralPath {quote(str(staged))} -Destination {quote(str(receipt))}
+  Start-Sleep -Milliseconds 200
+}} finally {{ $publisher.Dispose() }}
+""",
+        encoding="utf-8-sig",
+    )
+    reader = tmp_path / "reader.ps1"
+    reader.write_text(
+        f"New-Item -ItemType File -Path {quote(str(trigger))} | Out-Null\n"
+        + desktop._cleanup_after_publisher(str(source), 3000, cleanup, receipt=str(receipt)),
+        encoding="utf-8-sig",
+    )
+    powershell = ["powershell.exe", "-NoProfile", "-File"]
+    publisher = subprocess.Popen([*powershell, str(source)])
+    try:
+        deadline = time.monotonic() + 10
+        while not ready.exists():
+            assert publisher.poll() is None and time.monotonic() < deadline
+            time.sleep(0.05)
+        result = subprocess.run(
+            [*powershell, str(reader)], check=True, capture_output=True, text=True, timeout=10
+        )
+        assert json.loads(result.stdout)["process_cleanup"] == "verified_empty"
+        assert not source.exists()
+        assert not receipt.exists()
+        assert publisher.wait(timeout=5) == 0
+    finally:
+        if publisher.poll() is None:
+            publisher.terminate()
+            publisher.wait(timeout=5)
 
 
 @pytest.mark.windows_only(reason="Runs the Windows PowerShell supervisor against the Win32 Job API")

@@ -163,6 +163,11 @@ def supervisor_script(worker, worker_result, staged, receipt, timeout, task):
     unresolved = quote(f"{UNRESOLVED}: task {task}")
     recovery = quote(RECOVERY)
     return f"""$ErrorActionPreference='Stop'
+# Hold the exact script open until the last possible receipt write. The
+# timeout controller can then exclude this publisher without relying on the
+# Scheduler action state (the hidden action is conhost, not PowerShell).
+$publisher=[IO.File]::Open($PSCommandPath, 'Open', 'Read', 'Read, Delete')
+try {{
 $clock=[Diagnostics.Stopwatch]::StartNew()
 try {{
   Add-Type -TypeDefinition {quote(_JOB)}
@@ -185,4 +190,5 @@ try {{
 }}
 $row | ConvertTo-Json -Compress | Set-Content -Encoding UTF8 {quote(staged)}
 Move-Item -LiteralPath {quote(staged)} -Destination {quote(receipt)}
+}} finally {{ $publisher.Dispose() }}
 """
