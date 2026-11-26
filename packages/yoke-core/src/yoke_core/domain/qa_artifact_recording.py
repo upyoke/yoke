@@ -68,14 +68,37 @@ def _store_inline_bytes(
 
 
 def handle_qa_artifact_add(request: FunctionCallRequest) -> HandlerOutcome:
-    """Record one artifact on its own connection and commit only a success."""
-    from yoke_core.domain.db_helpers import connect
+    """Commit the artifact before retrying settlement for a deployment pass."""
+    from yoke_contracts.api.function_call import FunctionWarning
+    from yoke_core.domain.db_helpers import connect, query_one
+    from yoke_core.domain.qa_run_execution_evidence import (
+        VerdictSettlementRefused,
+        commit_settled_verdict,
+    )
 
     conn = connect()
     try:
         outcome = record_qa_artifact(conn, request)
-        if outcome.primary_success:
-            conn.commit()
+        if not outcome.primary_success:
+            return outcome
+        conn.commit()
+        run_id = (request.payload or {}).get("run_id")
+        if "qa_artifact_id" in outcome.result_payload and query_one(
+            conn,
+            "SELECT 1 FROM qa_runs r JOIN qa_requirements q ON q.id=r.qa_requirement_id "
+            f"WHERE r.id={_p(conn)} AND r.verdict='pass' AND q.deployment_run_id IS NOT NULL",
+            (run_id,),
+        ):
+            try:
+                commit_settled_verdict(conn, run_id)
+            except VerdictSettlementRefused as exc:
+                outcome.warnings.append(
+                    FunctionWarning(
+                        code=exc.code,
+                        step="deployment_qa_settlement",
+                        detail=f"The artifact is recorded. {exc}",
+                    )
+                )
         return outcome
     finally:
         conn.close()
