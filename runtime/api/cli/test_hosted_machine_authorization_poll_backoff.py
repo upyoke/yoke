@@ -1,5 +1,6 @@
-"""Poll throttling preserves one-time authorization and its wait boundaries."""
+"""Poll retries preserve one-time authorization and its wait boundaries."""
 
+from dataclasses import replace
 import io
 import json
 import urllib.error
@@ -53,6 +54,89 @@ def _response(request, status, payload, headers):
     response.headers = headers
     response.geturl = lambda: request.full_url
     return response
+
+
+def _bad_gateway(request):
+    return urllib.error.HTTPError(
+        request.full_url,
+        502,
+        "Bad Gateway",
+        {"Content-Type": "text/html"},
+        io.BytesIO(b"<html>Bad Gateway</html>"),
+    )
+
+
+def test_poll_bad_gateway_then_approval_preserves_request_and_cadence():
+    clock = _Clock()
+    seen = []
+
+    def opener(request, timeout):
+        seen.append((clock.now, request.full_url, request.data))
+        if len(seen) == 1:
+            raise _bad_gateway(request)
+        return _response(
+            request, 200, {"token": "token", "org": "team", "api_url": ORIGIN}, {}
+        )
+
+    credential = auth.complete(
+        _pending(), opener=opener, sleep=clock.sleep, monotonic=clock.monotonic
+    )
+
+    assert credential.token == "token"
+    assert [poll[0] for poll in seen] == [2, 4]
+    assert seen[0][1:] == seen[1][1:]
+    assert seen[0][1] == ORIGIN + auth.POLL_PATH
+    assert json.loads(seen[0][2]) == {
+        "device_code": "same-device-secret",
+        "machine_id": "test-machine",
+        "machine_name": "laptop",
+    }
+
+
+def test_poll_persistent_bad_gateway_stops_at_original_deadline():
+    clock = _Clock()
+    polls = []
+
+    def opener(request, timeout):
+        polls.append(clock.now)
+        raise _bad_gateway(request)
+
+    with pytest.raises(auth.HostedMachineAuthorizationError, match="authorization_expired"):
+        auth.complete(
+            replace(_pending(), expires_in=5),
+            opener=opener,
+            sleep=clock.sleep,
+            monotonic=clock.monotonic,
+        )
+
+    assert clock.waits == [2, 2, 1]
+    assert polls == [2, 4, 5]
+
+
+def test_poll_bad_gateway_then_consumed_is_terminal():
+    clock = _Clock()
+    polls = []
+
+    def opener(request, timeout):
+        polls.append(clock.now)
+        if len(polls) == 1:
+            raise _bad_gateway(request)
+        return _response(request, 410, {"error": "authorization_consumed"}, {})
+
+    with pytest.raises(auth.HostedMachineAuthorizationError, match="authorization_consumed"):
+        auth.complete(
+            _pending(), opener=opener, sleep=clock.sleep, monotonic=clock.monotonic
+        )
+
+    assert polls == [2, 4]
+
+
+def test_poll_once_reports_bad_gateway_without_waiting():
+    def opener(request, timeout):
+        raise _bad_gateway(request)
+
+    with pytest.raises(auth.HostedMachineAuthorizationError, match="HTTP 502"):
+        auth.poll_once(_pending(), opener=opener)
 
 
 @pytest.mark.parametrize("http_error", [True, False])
