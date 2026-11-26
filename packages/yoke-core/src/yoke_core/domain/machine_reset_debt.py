@@ -105,7 +105,9 @@ def last_verified_baseline(conn, test_machine):
     return verified["checks"][0]["name"] if verified else None
 
 
-def record_reset_owed(conn, *, case, test_machine, lease_id, contract_digest=""):
+def record_reset_owed(
+    conn, *, case, test_machine, lease_id, contract_digest="", performed_at=None
+):
     baseline = case.get("host_baseline") or last_verified_baseline(conn, test_machine)
     if not baseline:
         return  # A host never verified clean has no baseline to owe.
@@ -119,6 +121,7 @@ def record_reset_owed(conn, *, case, test_machine, lease_id, contract_digest="")
         lease_id=lease_id,
         contract_digest=contract_digest,
         commit=False,
+        performed_at=performed_at,
     )
 
 

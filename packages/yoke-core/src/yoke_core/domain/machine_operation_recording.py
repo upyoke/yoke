@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hmac
 import json
+from datetime import datetime
 from typing import Any, Mapping, Sequence
 
 from yoke_contracts.machine_qa_execution import (
@@ -50,6 +51,7 @@ def record_test_machine_operation(
     lease_id: int,
     contract_digest: str,
     commit: bool = True,
+    performed_at: datetime | None = None,
 ) -> dict[str, Any]:
     """Persist one server-accepted, secret-free operation receipt."""
     if operation not in RECORDED_OPERATIONS:
@@ -57,6 +59,7 @@ def record_test_machine_operation(
     marker = _marker(conn)
     machine_id = test_machine_id(conn, test_machine)
     now = utc_now()
+    performed_at = now if performed_at is None else performed_at
     receipt = json.dumps(
         {"checks": list(checks)},
         separators=(",", ":"),
@@ -76,7 +79,7 @@ def record_test_machine_operation(
             machine_id,
             operation,
             status,
-            instant_parameter(conn, now),
+            instant_parameter(conn, performed_at),
             receipt,
             error_code,
             int(lease_id),
@@ -89,7 +92,7 @@ def record_test_machine_operation(
     return {
         "operation": operation,
         "status": status,
-        "performed_at": now,
+        "performed_at": performed_at,
         "checks": list(checks),
         "error_code": error_code,
     }

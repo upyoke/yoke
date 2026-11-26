@@ -100,7 +100,10 @@ removes the directory with plain OS commands (no Yoke install on the host).
 On Windows it uses the same native directory removal as the stale scratch
 sweep. This supports long descendant paths and removes junctions without
 following them. Walk-end restores the declared starting state, and records that restore as a
-`starting_state_restore` artifact on the mission's run. A failed restore records reset debt. The command exits non-zero
+`starting_state_restore` artifact on the mission's run. A failed restore records
+reset debt. If a retry verifies the owed baseline for that walk under its
+live lease, the restore itself pays that debt before review releases the
+host. The command exits non-zero
 naming `mission_scratch_not_removed` (removal counts only when the removal
 command exits 0 and the probe finds no directory), `mission_scratch_state_unknown`
 (the probe itself never ran: SSH lost, timed out or the command was missing;
