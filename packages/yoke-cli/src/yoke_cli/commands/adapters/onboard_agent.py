@@ -34,7 +34,9 @@ SHELL_AGENT = "agent"
 SHELL_WIZARD = "wizard"
 SHELL_DETECT = "detect"
 
-AGENT_ONLY_OPTIONS = frozenset({"agent", "tui", "agent_answers", "discard"})
+NON_PRESET_OPTIONS = frozenset(
+    {"agent", "tui", "agent_answers", "discard", "resume_run_id"}
+)
 AGENT_USAGE = "yoke setup --agent [SETUP FLAGS] [--answer KEY=VALUE ...] | --discard"
 
 
@@ -181,6 +183,8 @@ def run(
         prepared = onboard_resume.prepare_run(parsed)
         if prepared.error:
             return _usage(prepared.error)
+        if getattr(parsed, "resume_run_id", None):
+            store.resume_run_id = parsed.resume_run_id
         setup_release_start.check_at_start(parsed, prepared.destination)
         onboard_machine_setup.prepare(machine_config.config_path(parsed.config_path))
         selected_mode = "advanced" if parsed.advanced else "quick"
@@ -233,7 +237,7 @@ def _apply_presets(
     given = {
         name: value
         for name, value in vars(parsed).items()
-        if name not in AGENT_ONLY_OPTIONS and value != getattr(defaults, name, None)
+        if name not in NON_PRESET_OPTIONS and value != getattr(defaults, name, None)
     }
     prefix = given.get("project_public_item_prefix", store.presets.get("project_public_item_prefix"))
     if prefix is not None:
@@ -243,6 +247,8 @@ def _apply_presets(
     refusal = store.apply_presets(given)
     for name, value in store.presets.items():
         setattr(parsed, name, value)
+    # The next answer may arrive in another invocation without --resume.
+    parsed.resume_run_id = parsed.resume_run_id or store.resume_run_id
     return refusal
 
 
