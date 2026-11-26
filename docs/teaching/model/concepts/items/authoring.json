@@ -2,6 +2,7 @@
  "id": "authoring",
  "title": "Read and edit",
  "status": "draft-copy",
+ "summary": "Dash resume requests the compact item index with --include= to pass an explicitly empty selection in PowerShell and POSIX shells. Omitting --include selects the CLI default.",
  "commands": ["yoke items detail get", "yoke items get", "yoke items scalar update", "yoke items search", "yoke items section delete", "yoke items section get", "yoke items section upsert", "yoke items structured-field append-addendum", "yoke items structured-field replace", "yoke items structured-field section-append", "yoke items structured-field section-upsert"],
  "functions": ["items.detail.get", "items.get.run", "items.scalar.update", "items.search.run", "items.section.delete", "items.section.get", "items.section.upsert", "items.structured_field.append_addendum", "items.structured_field.replace", "items.structured_field.section_append", "items.structured_field.section_upsert"],
  "page": "items",
