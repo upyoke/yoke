@@ -58,10 +58,11 @@ def _requirement(conn, run_id, stage, member):
     return int(row["id"])
 
 
-def _seed_old(conn, *, run_qa: bool) -> dict[int, int]:
+def _seed_old(conn, *, run_qa: bool, deploy_runner: str = "auto") -> dict[int, int]:
     """OLD stands on item QA with PASSED accepted and WAITING still open."""
     plan = create_smoke_plan(conn, project="yoke", slug=f"smoke-{OLD}")
     stages = item_qa_stage_definitions(plan)
+    stages[0]["step_runner"] = deploy_runner
     if run_qa:
         stages.append(
             {
