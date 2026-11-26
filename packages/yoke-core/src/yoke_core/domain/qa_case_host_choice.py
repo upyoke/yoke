@@ -1,7 +1,8 @@
 """Which hosts a machine plan case continues on, or how its opener selects.
 
 Only the case that opens a chain selects hosts: by OS slots, or by OS and
-capability tags, or the operator's per-run ``--test-machine``. Every later
+capability tags, or the operator's per-run ``--test-machine``. A queued
+single-host opener keeps its sole required wait on resume. Every later
 ``inherit`` case continues on the hosts its chain holds: the opener's bound
 leases for a slotted chain, the recorded host (``execution_machine``) for a
 single-host chain. An inherit case whose custody is gone never picks a
@@ -90,6 +91,7 @@ def case_host_choice(
         MACHINE_CONSTRAINT_MISMATCH,
         resolve_case_machine,
     )
+    from yoke_core.domain.qa_host_set_turns import execution_waits
     from yoke_core.domain.qa_plan_execution_reentry import admitted_case
     from yoke_core.domain.qa_resume_machine import (
         execution_host_set,
@@ -130,6 +132,11 @@ def case_host_choice(
         return recorded, (recorded,), ()
     if explicit:
         return explicit, (explicit,), ()
+    if not continues and execution.get("cursor_ordinal") == ordinal:
+        waits = execution_waits(conn, str(execution["id"]))
+        if len(waits) == 1 and waits[0]["need_id"] is None:
+            driver = str(waits[0]["test_machine"])
+            return driver, (driver,), ()
     driver = execution_machine(conn, execution, case) if continues else None
     if driver is None and primary and _serves_chain(conn, primary, chain):
         # A new opener keeps a held host that already matches; never by name.
