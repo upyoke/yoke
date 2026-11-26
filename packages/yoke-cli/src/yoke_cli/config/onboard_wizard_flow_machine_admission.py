@@ -1,5 +1,9 @@
 """Choose own-machine approval, a teammate invite, or an explicit token."""
 
+from dataclasses import dataclass, replace
+from typing import Any
+
+from yoke_contracts.machine_authorization import HostedMachineCredential
 from yoke_contracts.refusal_recovery import compose_refusal
 
 from yoke_cli.config import hosted_machine_authorization as authorization
@@ -7,6 +11,16 @@ from yoke_cli.config import local_reachability, teammate_invite_redemption
 from yoke_cli.config import writer, yoke_token_verify
 from yoke_cli.config import onboard_wizard_run_connection as run_connection
 from yoke_cli.config import setup_release_start
+from yoke_cli.config.setup_release_follow import ReleaseFollowed
+
+
+@dataclass(frozen=True)
+class SavedMachineApproval:
+    env_name: str
+    api_url: str
+    verification: dict[str, Any]
+    token_file: str
+    followed: ReleaseFollowed | None = None
 
 
 def approval_hint(code: str) -> str:
@@ -17,10 +31,17 @@ def approval_hint(code: str) -> str:
     )
 
 
-def store_machine_credential(credential, verification, config_path):
-    """Save verified delivered credentials through the existing private writer."""
+def store_machine_credential(
+    credential: HostedMachineCredential,
+    verification: dict[str, Any],
+    config_path,
+    *,
+    env_alias: str | None = None,
+) -> SavedMachineApproval:
+    """Save the approved credential under the chosen machine-local name."""
+    env_name = env_alias or credential.org
     connection = writer.set_connection(
-        credential.org,
+        env_name,
         transport="https",
         api_url=credential.api_url,
         token=credential.token,
@@ -28,23 +49,25 @@ def store_machine_credential(credential, verification, config_path):
         path=config_path,
     )
     token_file = str(connection["connection"]["credential_source"]["path"])
-    return credential, verification, token_file
+    return SavedMachineApproval(env_name, credential.api_url, verification, token_file)
 
 
-def follow_stored_credential(stored):
+def follow_stored_credential(stored: SavedMachineApproval) -> SavedMachineApproval:
     """The first moment a fresh setup knows its server: move onto its release.
 
     This runs before any project question; the rerun reuses the saved
     connection. A refusal here is an install failure, not a sign-in failure.
     """
-    credential, verification, token_file = stored
-    followed = setup_release_start.follow_after_sign_in(credential.api_url)
-    return credential, verification, token_file, followed
+    return replace(
+        stored, followed=setup_release_start.follow_after_sign_in(stored.api_url)
+    )
 
 
-def save_machine_credential(credential, verification, config_path):
+def save_machine_credential(credential, verification, config_path, *, env_alias=None):
     return follow_stored_credential(
-        store_machine_credential(credential, verification, config_path)
+        store_machine_credential(
+            credential, verification, config_path, env_alias=env_alias
+        )
     )
 
 
@@ -70,19 +93,18 @@ def exit_on_followed_release(shell, followed):
     shell.exit()
 
 
-def accept_machine_credential(shell, value):
-    credential, verification, token_file, followed = value
-    if followed is not None:
-        exit_on_followed_release(shell, followed)
+def accept_machine_credential(shell, value: SavedMachineApproval):
+    if value.followed is not None:
+        exit_on_followed_release(shell, value.followed)
         return
-    shell.result.env_name = credential.org
-    shell.result.api_url = credential.api_url
+    shell.result.env_name = value.env_name
+    shell.result.api_url = value.api_url
     shell.result.token = None
-    shell.result.token_file = token_file
+    shell.result.token_file = value.token_file
     shell.result.token_source_kind = "token_file"
-    shell.result.yoke_token_verification = verification
+    shell.result.yoke_token_verification = value.verification
     run_connection.record_approved(shell)
-    shell._goto_yoke_verify_success(verification)
+    shell._goto_yoke_verify_success(value.verification)
 
 
 class MachineAdmissionChoiceFlow:

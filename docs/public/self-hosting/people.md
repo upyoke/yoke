@@ -33,7 +33,10 @@ through the intended member's connected machine or signed-in browser.
 
 With company sign-in (OIDC), sign in on the web dashboard to approve your first
 machine. The setup wizard's **A team server** option discovers that sign-in
-method after you enter the server URL.
+method after you enter the server URL. To choose a local connection name, start
+with `yoke setup --connect URL --env NAME`. Machine approval saves the
+connection as `NAME`, and the credential keeps the server's organization
+identity. Use `yoke --env NAME status` to check the connection.
 
 Without company sign-in, an organization admin invites a teammate by name:
 

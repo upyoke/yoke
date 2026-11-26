@@ -98,7 +98,10 @@ class AgentApprovals:
                 credential.api_url, credential.token
             )
             stored = store_machine_credential(
-                credential, verification, self.result.config_path
+                credential,
+                verification,
+                self.result.config_path,
+                env_alias=self._private_connect_alias if pending.self_host else None,
             )
         except hosted_machine_authorization.HostedMachineAuthorizationDenied as exc:
             self._forget_approval("machine")

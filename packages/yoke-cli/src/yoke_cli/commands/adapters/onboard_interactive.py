@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 from typing import Any, Callable
 
+from yoke_contracts import onboard_destinations
 from yoke_contracts.machine_config import reader as machine_config
+from yoke_contracts.machine_config.schema import ENV_OVERRIDE
 from yoke_cli.config import onboard_machine_setup
 from yoke_cli.config import onboard_wizard, onboard_wizard_resume_seed
 from yoke_cli.config.onboard_terminal import (
@@ -57,9 +60,17 @@ def wizard_defaults(
     destination: str | None,
 ) -> onboard_wizard.WizardDefaults:
     """The presets every setup shell starts from, taken from the command line."""
+    private_connect_alias = None
+    if (
+        destination == onboard_destinations.DESTINATION_SERVER and parsed.connect_url
+    ):
+        private_connect_alias = (
+            parsed.env_name or os.environ.get(ENV_OVERRIDE, "").strip() or None
+        )
     return onboard_wizard.WizardDefaults(
         config_path=str(machine_config.config_path(parsed.config_path)),
         env_name=env_name or None,
+        private_connect_alias=private_connect_alias,
         api_url=parsed.api_url,
         destination=destination,
         token=parsed.token,

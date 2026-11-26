@@ -14,6 +14,7 @@ from yoke_cli.config import onboard_wizard_diagnostics
 from yoke_cli.config import onboard_wizard_steps as steps
 from yoke_cli.config import yoke_token_verify
 from yoke_cli.config.onboard_wizard_flow_machine_admission import (
+    SavedMachineApproval,
     accept_machine_credential,
     exit_with_follow_refusal,
     save_machine_credential,
@@ -59,6 +60,7 @@ if TYPE_CHECKING:  # pragma: no cover
 
 class _Shell(Protocol):  # pragma: no cover
     result: Any
+    _private_connect_alias: str | None
     _hosted_machine_authorization: (
         hosted_machine_authorization.PendingMachineAuthorization | None
     )
@@ -181,11 +183,9 @@ class HostedMachineConnectFlow(HostedMachineApprovalViews):
     ) -> None:
         stop = threading.Event()
 
-        def _work() -> tuple[
-            hosted_machine_authorization.HostedMachineCredential,
-            dict[str, Any],
-            str,
-        ]:
+        env_alias = self._private_connect_alias if pending.self_host else None
+
+        def _work() -> SavedMachineApproval:
             credential = hosted_machine_authorization.complete(
                 pending,
                 sleep=stop.wait,
@@ -195,7 +195,7 @@ class HostedMachineConnectFlow(HostedMachineApprovalViews):
                 credential.api_url, credential.token
             )
             return save_machine_credential(
-                credential, verification, self.result.config_path
+                credential, verification, self.result.config_path, env_alias=env_alias
             )
 
         def _error(exc: BaseException) -> None:
