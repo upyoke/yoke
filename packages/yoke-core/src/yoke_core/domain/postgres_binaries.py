@@ -266,6 +266,16 @@ class _OwnerPrivateTarFile(tarfile.TarFile):
         create_owner_private_directory(selected)
 
 
+def _windows_tar_filter(member: tarfile.TarInfo, path: str) -> tarfile.TarInfo:
+    member = tarfile.tar_filter(member, path)
+    if member.isdir():
+        # extractall joins directory names again for metadata, before the
+        # separator conversion used during extraction. Win32 verbatim paths
+        # require native separators at that boundary too.
+        return member.replace(name=member.name.replace("/", os.sep), deep=False)
+    return member
+
+
 def _unpack_release(tarball: Path, staging: Path, dest: Path) -> None:
     """Extract the release and move its single top-level dir into place."""
     extract_root = staging / "extracted"
@@ -278,7 +288,7 @@ def _unpack_release(tarball: Path, staging: Path, dest: Path) -> None:
         with archive_type.open(tarball, "r:gz", encoding="utf-8") as archive:
             # "tar" filter: blocks absolute paths / parent escapes while
             # preserving the executable modes the engine binaries need.
-            archive.extractall(extract_root, filter="tar")
+            archive.extractall(extract_root, filter=_windows_tar_filter if _WINDOWS else "tar")
         entries = list(extract_root.iterdir())
     except (tarfile.TarError, OSError) as exc:
         raise PostgresBinariesError(
