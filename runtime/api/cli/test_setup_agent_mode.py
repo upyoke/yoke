@@ -11,12 +11,22 @@ from pathlib import Path
 
 import pytest
 
+from runtime.api.cli.setup_agent_test_support import (
+    MACHINE_ONLY_ANSWERS,
+    AgentDriver,
+    isolate_agent_setup,
+)
 from yoke_cli import main as yoke_operations_cli
 from yoke_cli.commands.adapters import onboard_hosted_authorization as hosted_auth
 from yoke_cli.commands.adapters import onboard_interactive
-from yoke_cli.config import onboard_machine_setup, onboard_wizard
+from yoke_cli.config import (
+    onboard_apply_report,
+    onboard_machine_setup,
+    onboard_wizard,
+    setup_agent_answers,
+    setup_release_follow,
+)
 from yoke_contracts import onboard_destinations as onboard_destinations
-from yoke_cli.config import setup_agent_answers
 from yoke_cli.config.onboard_wizard_path import PathFlow
 
 pytest.importorskip("textual")
@@ -70,6 +80,52 @@ def test_agent_flag_forces_agent_mode_in_a_terminal(monkeypatch, capsys):
     assert code == 0
     assert lines[-1]["setup"] == "agent"
     assert lines[-1]["state"] == "question"
+
+
+def test_agent_release_follow_resumes_same_report_on_review_confirmation(
+    tmp_path, monkeypatch, capsys
+):
+    fake = isolate_agent_setup(tmp_path, monkeypatch)
+    agent = AgentDriver(capsys)
+    agent.walk(MACHINE_ONLY_ANSWERS)
+    resumed_args = []
+
+    def follow_once(kwargs):
+        if kwargs.get("resume_run_id"):
+            return
+        report = onboard_apply_report.ApplyReportWriter.start({}, kwargs)
+        followed = setup_release_follow.ReleaseFollowed(
+            report.payload["run_id"], "old", "new", "/bin/yoke"
+        )
+        report.payload["cli_followed_release"] = followed.record()
+        report.write()
+        raise followed
+
+    def run_on_release(_launcher, args, _marker):
+        resumed_args.extend(args)
+        return yoke_operations_cli.main(args)
+
+    fake.effects = follow_once
+    monkeypatch.setattr(setup_release_follow, "run_on_release", run_on_release)
+
+    code, lines = agent("review.confirm=apply")
+
+    assert code == 0, lines
+    assert (lines[-1]["state"], lines[-1]["key"]) == ("question", "review.confirm")
+    run_id = resumed_args[2]
+    assert resumed_args == ["setup", "--resume", run_id, "--agent"]
+    assert len(fake.applied) == 1
+
+    code, lines = agent("review.confirm=apply")
+
+    assert (code, lines[-1]["state"]) == (0, "done"), lines
+    assert len(fake.applied) == 2
+    resumed = fake.applied[-1]
+    assert resumed["resume_run_id"] == run_id
+    assert resumed["resume_payload"]["cli_followed_release"] == {"from": "old", "to": "new"}
+    assert resumed["project_mode"] == "machine-only"
+    assert resumed["admin_name"] == "Test Person"
+    assert not setup_agent_answers.store_path().exists()
 
 
 def test_tui_without_a_terminal_refuses(monkeypatch, capsys):
