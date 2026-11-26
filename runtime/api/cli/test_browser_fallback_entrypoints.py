@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_cli.config import browser_executable, browser_identities, browser_profile
-from yoke_cli.commands import browser_authorize, browser_sign_in, qa_browser_lifecycle
+from yoke_cli.commands import browser_authorize, browser_sign_in
 from yoke_core.domain import browser_client, browser_client_lifecycle
 from yoke_harness import browser_runtime_home, browser_setup, browser_system_browser
 
@@ -36,6 +36,8 @@ def fallback(tmp_path, monkeypatch):
 
     def run(command, **kwargs):
         calls.append((command, kwargs))
+        if command[-1] == browser_setup.PLAYWRIGHT_LOAD_PROBE_JS:
+            return subprocess.CompletedProcess(command, 0, "ok", "")
         if command[1:2] == ["playwright"]:
             return subprocess.CompletedProcess(command, 1, "<html>Site Unavailable", "")
         if command[-1] == str(executable):
@@ -98,7 +100,7 @@ def test_status_proves_the_saved_selection_without_mutating_it(fallback):
     browser_setup.ensure_browser_runtime(root, toolchain, emit=lambda _: None)
     before = config.read_bytes()
     calls.clear()
-    assert qa_browser_lifecycle._chromium_status(root) == "ready"
+    assert browser_setup.chromium_status(root, toolchain) == ("ready", None)
     assert len(calls) == 1 and calls[0][0][-1] == str(executable)
     assert config.read_bytes() == before
 
@@ -112,7 +114,9 @@ def test_status_refuses_a_selection_that_cannot_launch(fallback, monkeypatch):
         "run",
         lambda cmd, **k: subprocess.CompletedProcess(cmd, 1, "", "sandbox refused"),
     )
-    assert qa_browser_lifecycle._chromium_status(root) == "missing"
+    status, detail = browser_setup.chromium_status(root, toolchain)
+    assert status == "missing"
+    assert "sandbox refused" in detail
     assert config.read_bytes() == before
 
 

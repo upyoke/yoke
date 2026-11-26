@@ -48,7 +48,7 @@ def setup_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Report readiness only; install and start nothing.",
+        help="Check readiness without installing dependencies or starting a daemon.",
     )
     parser.add_argument(
         "--project",

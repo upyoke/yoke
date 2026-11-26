@@ -41,7 +41,7 @@ def _prepare_daemon_launch(tmp_path, monkeypatch):
             raise AssertionError("healthy daemon must not be killed")
 
     def fake_run(command, **_kwargs):
-        # The Chromium-presence probe is the only command a ready runtime runs.
+        # A ready runtime probes dependencies without running an installer.
         if command[1:2] == ["-e"]:
             return subprocess.CompletedProcess(command, 0, "ok", "")
         raise AssertionError(f"unexpected command: {command}")

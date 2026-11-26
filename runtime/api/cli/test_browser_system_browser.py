@@ -47,8 +47,12 @@ def _probe_only_executable(monkeypatch, executable):
         "run",
         lambda command, **kw: subprocess.CompletedProcess(
             command,
-            0 if command[-1] == str(executable) else 1,
-            "ok" if command[-1] == str(executable) else "<html>Site Unavailable</html>",
+            0
+            if command[-1] in (str(executable), browser_setup.PLAYWRIGHT_LOAD_PROBE_JS)
+            else 1,
+            "ok"
+            if command[-1] in (str(executable), browser_setup.PLAYWRIGHT_LOAD_PROBE_JS)
+            else "<html>Site Unavailable</html>",
             "",
         ),
     )
@@ -65,7 +69,9 @@ def test_browser_setup_secures_the_machine_home_before_persisting(runtime, monke
     assert browser_executable.configured() == str(executable)
 
 
-@pytest.mark.windows_only(reason="native Windows DACL: a shared machine home is refused")
+@pytest.mark.windows_only(
+    reason="native Windows DACL: a shared machine home is refused"
+)
 def test_browser_setup_refuses_a_shared_machine_home_before_persisting(
     runtime, monkeypatch
 ):
@@ -86,6 +92,8 @@ def test_blocked_download_saves_only_after_real_test_page_probe(runtime, monkeyp
 
     def run(command, **kwargs):
         calls.append(command)
+        if command[-1] == browser_setup.PLAYWRIGHT_LOAD_PROBE_JS:
+            return subprocess.CompletedProcess(command, 0, "ok", "")
         assert browser_executable.EXECUTABLE_ENV not in kwargs["env"]
         if command[1:2] == ["playwright"]:
             return subprocess.CompletedProcess(
@@ -109,14 +117,19 @@ def test_blocked_download_saves_only_after_real_test_page_probe(runtime, monkeyp
         calls.append(command)
         assert command[1] == "-e", "saved browser must not download again"
         return subprocess.CompletedProcess(
-            command, 0, "ok" if command[-1] == str(executable) else "missing", ""
+            command,
+            0,
+            "ok"
+            if command[-1] in (str(executable), browser_setup.PLAYWRIGHT_LOAD_PROBE_JS)
+            else "missing",
+            "",
         )
 
     monkeypatch.setattr(browser_setup.subprocess, "run", reuse)
     assert browser_setup.ensure_browser_runtime(root, toolchain, emit=lambda _: None)[
         browser_executable.EXECUTABLE_ENV
     ] == str(executable)
-    assert len(calls) == 2
+    assert len(calls) == 3
 
 
 def test_failed_system_launch_does_not_save_path_and_names_blocked_hosts(
@@ -125,6 +138,8 @@ def test_failed_system_launch_does_not_save_path_and_names_blocked_hosts(
     root, toolchain, executable, config = runtime
 
     def run(command, **kwargs):
+        if command[-1] == browser_setup.PLAYWRIGHT_LOAD_PROBE_JS:
+            return subprocess.CompletedProcess(command, 0, "ok", "")
         if command[1:2] == ["playwright"]:
             return subprocess.CompletedProcess(
                 command, 1, "<html>Site Unavailable</html>", ""

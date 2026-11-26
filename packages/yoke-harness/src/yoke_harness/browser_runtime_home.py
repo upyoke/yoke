@@ -18,16 +18,14 @@ from yoke_contracts.machine_config import reader as machine_config
 
 
 RUNTIME_DIR_NAME = "browser-runtime"
-#: Node one-liner answering whether the materialized runtime can find a
-#: Chromium binary. Writes ``ok``, ``missing``, or ``error:<message>`` to
-#: stdout. Every caller that decides whether to install Chromium runs this
-#: exact probe, so "installed" never means two different things.
+# Check the full browser executable before running OS dependency setup.
 CHROMIUM_PRESENT_PROBE_JS = (
-    "try { var pw = require('./node_modules/playwright'); "
-    "var fs = require('fs'); "
-    "process.stdout.write(fs.existsSync(pw.chromium.executablePath()) "
-    "? 'ok' : 'missing'); } "
-    "catch(e) { process.stdout.write('error:' + e.message); }"
+    "const { chromium } = require('./node_modules/playwright'); "
+    "const fs = require('node:fs'); "
+    "const executable = chromium.executablePath(); "
+    "if (!fs.statSync(executable).isFile()) throw new Error('Not a file: ' + executable); "
+    "fs.accessSync(executable, fs.constants.X_OK); "
+    "process.stdout.write('ok');"
 )
 HASH_MARKER_NAME = ".source-hash"
 _RESOURCE_PACKAGE = "yoke_harness.browser_runtime"

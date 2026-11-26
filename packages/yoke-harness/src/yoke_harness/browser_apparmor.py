@@ -109,7 +109,8 @@ def _sandbox_probe(browser, toolchain, env, executables):
         cwd=str(browser),
         env=env,
         capture_output=True,
-        text=True,
+        encoding="utf-8",
+        errors="replace",
         timeout=90,
     )
 
@@ -136,14 +137,18 @@ def ensure_chromium_apparmor(browser, toolchain, *, env, emit, autoinstall=True)
     if not sys.platform.startswith("linux"):
         return True
     try:
-        if not RESTRICTION.exists() or RESTRICTION.read_text(encoding="utf-8").strip() == "0":
+        if (
+            not RESTRICTION.exists()
+            or RESTRICTION.read_text(encoding="utf-8").strip() == "0"
+        ):
             return True
         result = terminal_detached_process.run(
             [str(toolchain.node), "-e", EXECUTABLES_JS],
             cwd=str(browser),
             env=env,
             capture_output=True,
-            text=True,
+            encoding="utf-8",
+            errors="replace",
         )
         executables = json.loads(result.stdout) if result.returncode == 0 else None
         if (
@@ -199,7 +204,8 @@ def ensure_chromium_apparmor(browser, toolchain, *, env, emit, autoinstall=True)
                 parser,
             ],
             env=env,
-            text=True,
+            encoding="utf-8",
+            errors="replace",
             capture_output=not interactive,
         )
         if result.returncode:

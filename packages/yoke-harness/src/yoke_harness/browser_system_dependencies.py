@@ -43,7 +43,8 @@ def _probe(browser, toolchain, env):
         cwd=str(browser),
         env=env,
         capture_output=True,
-        text=True,
+        encoding="utf-8",
+        errors="replace",
     )
     try:
         data = json.loads(result.stdout) if result.returncode == 0 else None
@@ -132,7 +133,8 @@ def _ensure_linux_libraries(browser, toolchain, *, env, emit, autoinstall):
         result = run(
             [*prefix, *command],
             env=env,
-            text=True,
+            encoding="utf-8",
+            errors="replace",
             capture_output=not interactive,
         )
         if result.returncode:
