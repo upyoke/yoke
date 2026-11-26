@@ -1,4 +1,4 @@
-"""Walk-end always records cleanup custody loss, even after local failure."""
+"""Walk-end retains cleanup custody when scratch removal fails."""
 
 from types import SimpleNamespace
 
@@ -13,9 +13,9 @@ RUN = cleanup_support.RUN
 removed_mission = cleanup_support.removed_mission
 
 
-@pytest.mark.parametrize("local_failure", [False, True])
-def test_walk_end_always_finishes_its_cleanup_lease(
-    monkeypatch, capsys, local_failure, removed_mission, test_db
+@pytest.mark.parametrize("failure", [None, "teardown", "scratch"])
+def test_walk_end_keeps_the_cleanup_lease_on_scratch_failure(
+    monkeypatch, capsys, failure, removed_mission, test_db
 ):
     from yoke_core.domain import agent_mission_walk_cli, machine_qa_mission_walk
     from yoke_core.domain import qa_composed_dispatch
@@ -29,10 +29,13 @@ def test_walk_end_always_finishes_its_cleanup_lease(
         return acquired.result_payload["execution"]
 
     def teardown(*args, **kwargs):
-        if local_failure:
+        if failure == "teardown":
             raise RuntimeError("private-token")
         return {
-            "removed": True,
+            "removed": failure != "scratch",
+            "scratch_path": r"C:\Users\tester\AppData\Local\YokeQaMission\walk",
+            "removal_exit_code": int(failure == "scratch"),
+            "removal_stderr": "Access is denied" if failure == "scratch" else "",
             "stale_owner_marker_removed": True,
             "starting_state_restore": {"restored": True, "baseline": "fresh-host"},
         }
@@ -68,9 +71,18 @@ def test_walk_end_always_finishes_its_cleanup_lease(
             str(request.payload["run_id"]),
         ]
     )
-    assert code == (2 if local_failure else 0)
-    # Cleanup finishes and ends the execution, even after a local teardown
-    # failure; nothing else reaches the control plane.
+    from yoke_core.domain.coordination_claims import get_claim
+
+    assert code == {None: 0, "teardown": 2, "scratch": 3}[failure]
+    assert get_claim(test_db, original["lease_id"]).is_active is (failure == "scratch")
+    if failure == "scratch":
+        assert sent == []
+        err = capsys.readouterr().err
+        assert "mission_scratch_not_removed" in err
+        assert "removal exited 1 (Access is denied)" in err
+        return
+
+    # An unexpected teardown exception still settles with reset debt.
     assert [call["function_id"] for call in sent] == ["test_machine.mission.access"]
     finish = sent[0]
     assert finish["payload"]["cleanup"] == "finish"
@@ -78,8 +90,8 @@ def test_walk_end_always_finishes_its_cleanup_lease(
     from yoke_core.domain.machine_reset_debt import reset_owed
 
     assert reset_owed(test_db, original["settings"]["resource_name"]) == (
-        "fresh-host" if local_failure else None
+        "fresh-host" if failure == "teardown" else None
     )
-    assert (finish["payload"]["restore"] is None) == local_failure
+    assert (finish["payload"]["restore"] is None) == (failure == "teardown")
     output = capsys.readouterr()
     assert "private-token" not in output.out + output.err

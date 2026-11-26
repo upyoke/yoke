@@ -138,7 +138,10 @@ def run_end(args: list[str]) -> int:
         )
         return 2
     finally:
-        if getattr(parsed, "cleanup_lease", False):
+        # A successful baseline restore cannot settle failed scratch removal.
+        if getattr(parsed, "cleanup_lease", False) and (
+            result is None or result["removed"]
+        ):
             try:
                 cleanup_error = _finish_cleanup(parsed, contract, result)
             except Exception as exc:
@@ -149,16 +152,14 @@ def run_end(args: list[str]) -> int:
             if cleanup_error:
                 print(f"{PROG_END}: {cleanup_error}", file=sys.stderr)
     restore = result[STARTING_STATE_RESTORE]
-    unrecorded = (
-        cleanup_error
-        if getattr(parsed, "cleanup_lease", False)
-        else record_mission_restore(
+    unrecorded = cleanup_error
+    if result["removed"] and not getattr(parsed, "cleanup_lease", False):
+        unrecorded = record_mission_restore(
             requirement_id=parsed.requirement_id,
             run_id=parsed.run_id,
             restore=restore,
             actor=build_actor(session_id=parsed.session_id),
         )
-    )
     print(
         json.dumps(
             {

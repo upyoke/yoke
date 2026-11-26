@@ -49,10 +49,35 @@ def windows_scratch_create_script(root: str, path: str) -> str:
     )
 
 
+def _windows_scratch_tree_remove(path_expression: str) -> str:
+    """Call the native no-follow remover with one literal extended-length path."""
+    # Pass the path via the child environment so cmd cannot reinterpret its
+    # spaces, percent signs, or other shell metacharacters as syntax.
+    return (
+        "$removeInfo=[Diagnostics.ProcessStartInfo]::new()\n"
+        "$removeInfo.FileName=$env:ComSpec\n"
+        "$removeInfo.UseShellExecute=$false\n"
+        "$removeInfo.RedirectStandardError=$true\n"
+        "$removeInfo.Arguments='/d /v:off /c rmdir /s /q \"%YOKE_MISSION_REMOVE_PATH%\"'\n"
+        rf"$removeInfo.EnvironmentVariables['YOKE_MISSION_REMOVE_PATH']='\\?\'+{path_expression}"
+        "\n"
+        "$remove=[Diagnostics.Process]::Start($removeInfo)\n"
+        "$removeStderr=$remove.StandardError.ReadToEnd()\n"
+        "$remove.WaitForExit()\n"
+        "$removeExit=$remove.ExitCode\n"
+        "$remove.Dispose()\n"
+    )
+
+
 def windows_scratch_remove_script(path: str) -> str:
     return (
         f"$p={quote(path)}\n"
-        "if(Test-Path -LiteralPath $p){Remove-Item -LiteralPath $p -Recurse -Force}\n"
+        "if(!(Test-Path -LiteralPath $p)){exit 0}\n"
+        + _windows_scratch_tree_remove("$p")
+        + "[Console]::Error.Write($removeStderr)\n"
+        # rmdir can print an error for a locked descendant and still exit 0.
+        "if($removeExit -eq 0 -and $removeStderr.Trim()){exit 1}\n"
+        "exit $removeExit\n"
     )
 
 
@@ -76,7 +101,9 @@ def windows_stale_scratch_script(root: str, kept: tuple[str, ...]) -> str:
         "$missionLeft=@()\n"
         "foreach($entry in @(Get-ChildItem -LiteralPath $missionRoot -Force -ErrorAction SilentlyContinue)){\n"
         " if($missionKeep -contains $entry.FullName){continue}\n"
-        " if($entry.Attributes -band [IO.FileAttributes]::Directory){cmd /c rmdir /s /q $entry.FullName 2>&1|Out-Null}\n"
+        " if($entry.Attributes -band [IO.FileAttributes]::Directory){\n"
+        + _windows_scratch_tree_remove("$entry.FullName")
+        + " }\n"
         " else{Remove-Item -LiteralPath $entry.FullName -Force -ErrorAction SilentlyContinue}\n"
         " if($null -ne (Get-Item -LiteralPath $entry.FullName -Force -ErrorAction SilentlyContinue)){$missionLeft+=$entry.FullName}\n"
         "}\n"
@@ -171,7 +198,7 @@ class WindowsMissionOperations:
         self, path: str, *, timeout: int = 60
     ) -> MissionHostStep:
         script = windows_scratch_remove_script(path)
-        return _step(self, f"Remove-Item -Recurse -Force {path}", script, timeout)
+        return _step(self, f"rmdir /s /q {path}", script, timeout)
 
     def probe_mission_scratch(
         self, path: str, *, timeout: int = 60
