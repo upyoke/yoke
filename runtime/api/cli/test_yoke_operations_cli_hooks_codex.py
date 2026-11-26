@@ -50,7 +50,11 @@ def detached_from_runner_session(monkeypatch):
 
 @pytest.mark.parametrize(
     ("originator", "source", "cli_version"),
-    [("codex_exec", "exec", "0.152.1"), ("codex-tui", "cli", "0.172.0")],
+    [
+        ("codex_exec", "exec", "0.152.1"),
+        ("codex-tui", "cli", "0.172.0"),
+        ("codex-tui", "vscode", "0.172.0"),
+    ],
 )
 def test_hand_started_codex_cli_uses_its_session_under_a_parent_harness(
     monkeypatch,
