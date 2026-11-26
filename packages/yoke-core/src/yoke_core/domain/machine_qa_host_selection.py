@@ -64,7 +64,7 @@ class TestMachineFleetBusy(TestMachineCapabilityError):
 
 
 class TestMachineHostUnhealthy(TestMachineCapabilityError):
-    """Every eligible free machine last failed verification; plans queue."""
+    """Every eligible free machine needs repair; plans queue."""
 
     #: Every host the refused plan case needs; its plan waits on all of them.
     test_machines: tuple[str, ...] = ()
@@ -147,10 +147,12 @@ def acquire_test_machine_admission(
     """Acquire a named host or the first verified, healthy available match.
 
     *healthy_only* is a scoped plan's admission: an unhealthy host is skipped
-    so its waiters stay queued until a verify or golden capture heals it.
-    Operator operations admit unverified hosts so they can establish readiness.
+    so its waiters stay queued until the failed reset or verification is repaired.
+    Explicit QA also requires repair of failed owed resets. Operator operations
+    can acquire a host to repair it.
     """
     from yoke_core.domain.qa_host_health import host_unhealthy
+    from yoke_core.domain.qa_host_queue import lock_host_queue
 
     automatic = test_machine is None and select_any
     if test_machine is not None or not select_any:
@@ -182,6 +184,8 @@ def acquire_test_machine_admission(
                 f"{', '.join(sorted(tags))}; select a Test Machine with "
                 "the required capability_tags or correct the case's declared tags"
             )
+    # Read readiness under the same lock as the release that exposes reset debt.
+    lock_host_queue(conn)
     verification = _verification_by_machine(conn, candidates)
     reserved = _reserved_for(conn, session_id)
     candidates.sort(
@@ -198,8 +202,10 @@ def acquire_test_machine_admission(
         name = candidate.settings["resource_name"]
         target = host_claim_target(name)
         verified_only = automatic and require_verified
-        health = host_unhealthy(conn, name) if healthy_only or verified_only else None
-        if health is not None:
+        health = host_unhealthy(conn, name) if healthy_only or require_verified else None
+        if health is not None and (
+            healthy_only or verified_only or "reset_baseline" in health
+        ):
             unhealthy.append(health)
             continue
         if verified_only and verification[name].status != "verified":

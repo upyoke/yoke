@@ -166,9 +166,10 @@ def read_reset_debts(
         if (debt := owed_reset(conn, name)) is None:
             continue
         execution_id = _holding_execution(conn, name)
-        failed = debt.attempt is not None and execution_id is None
-        code = (debt.attempt["error_code"] or "machine_needs_repair") if failed else None
-        manual = not execution_id and code != PROVIDER_UNAVAILABLE_ERROR_CODE
+        code = debt.failure_code if execution_id is None else None
+        manual = execution_id is None and (
+            debt.attempt is None or debt.repair_error_code is not None
+        )
         debts.append(
             ResetDebt(
                 name,

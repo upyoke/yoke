@@ -2,8 +2,9 @@
 
 from typing import NamedTuple
 
-from yoke_contracts.qa_case_starting_state import declares_starting_state
+from yoke_contracts.harness_provider_unavailable import PROVIDER_UNAVAILABLE_ERROR_CODE
 from yoke_contracts.machine_qa_host_control import RESET_OWED_OPERATION
+from yoke_contracts.qa_case_starting_state import declares_starting_state
 from yoke_core.domain.machine_operation_recording import (
     _marker,
     _row_result,
@@ -54,6 +55,17 @@ class OwedReset(NamedTuple):
     baseline: str
     attempt: dict | None
 
+    @property
+    def failure_code(self) -> str | None:
+        if self.attempt is None:
+            return None
+        return self.attempt["error_code"] or "machine_needs_repair"
+
+    @property
+    def repair_error_code(self) -> str | None:
+        code = self.failure_code
+        return None if code == PROVIDER_UNAVAILABLE_ERROR_CODE else code
+
 
 def owed_reset(conn, test_machine):
     receipts = _reset_receipts(conn, test_machine)
@@ -72,9 +84,6 @@ def owed_reset(conn, test_machine):
 
 def provider_unavailable_at(debt):
     """When the debt's latest reset attempt read provider-unavailable, if it did."""
-    from yoke_contracts.harness_provider_unavailable import (
-        PROVIDER_UNAVAILABLE_ERROR_CODE,
-    )
     from yoke_contracts.timestamps import format_instant
 
     attempt = debt.attempt if debt else None

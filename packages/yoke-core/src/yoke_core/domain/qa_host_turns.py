@@ -170,7 +170,7 @@ def reserve_host_turn(conn: Any, target: Any) -> None:
     (``qa_host_idle_waiters``).
 
     An unhealthy host keeps its waiters waiting and stays free for the operator
-    verify or golden capture that heals it; that operation's release serves
+    reset, verify or golden capture that heals it; that operation's release serves
     the queue.
     """
     if not target.test_machine:

@@ -20,6 +20,8 @@ from yoke_core.domain.coordination_claims import acquire, active_claim, release
 from yoke_core.domain.db_helpers import query_one
 from yoke_core.domain.machine_qa_capability import replace_test_machine_settings
 from yoke_core.domain.machine_qa_case_machine import MachineConstraintError
+from yoke_core.domain.machine_operation_recording import record_test_machine_operation
+from yoke_core.domain.machine_reset_debt import record_reset_owed, reset_command
 from yoke_core.domain.machine_verification_recording import record_test_machine_verification
 from yoke_core.domain.qa_host_health import host_unhealthy, unhealthy_rationale
 from yoke_core.domain.qa_host_set_turns import record_host_wait
@@ -269,3 +271,46 @@ def test_slotted_wait_explains_failed_verification_and_resumes_after_repair(
     assert assign_slot_hosts(test_db, execution) is True
     assert active_claim(test_db, make_qa_admission_target("win-a")).session_id == "walker"
     assert active_claim(test_db, make_qa_admission_target("win-unverified")) is None
+
+
+def test_slotted_wait_blocks_on_failed_owed_reset_until_recovery(
+    test_db, mixed_fleet, monkeypatch,
+):
+    notices = _notices(monkeypatch)
+    seed_qa_session(test_db, "walker", "operator", messageable=True)
+    execution = _execution(test_db, "walker")
+    case = _slotted(MAC_AND_WINDOWS, {"macos": ["macos:15"]})
+    target = make_qa_admission_target("win-a")
+    held = acquire(test_db, target, "operator")
+    record_reset_owed(
+        test_db, case={"host_baseline": "fresh-host"},
+        test_machine="win-a", lease_id=held.id,
+    )
+    record_test_machine_operation(
+        test_db, test_machine="win-a", operation="reset", status="error",
+        checks=[{"name": "fresh-host", "ok": False}], error_code="machine_fixture_failed",
+        lease_id=held.id, contract_digest="",
+    )
+    release(test_db, held.id, "test-machine-reset-failed")
+
+    with pytest.raises(SlotsBusy, match="machine_fixture_failed") as refused:
+        select_slot_hosts(test_db, execution, case, [case])
+    busy = refused.value
+    assert reset_command("win-a", "fresh-host") in str(busy)
+    record_host_wait(
+        test_db, execution, test_machine=busy.test_machine, slots=busy.slots, rationale=str(busy),
+    )
+    assert assign_slot_hosts(test_db, execution) is False
+    assert active_claim(test_db, target) is None
+    assert notices == []
+
+    healing = acquire(test_db, target, "operator")
+    record_test_machine_operation(
+        test_db, test_machine="win-a", operation="reset", status="verified",
+        checks=[{"name": "fresh-host", "ok": True}], error_code=None,
+        lease_id=healing.id, contract_digest="",
+    )
+    release(test_db, healing.id, "test-machine-reset-complete")
+
+    assert active_claim(test_db, target).session_id == "walker"
+    assert len(notices) == 1 and "QA host turn ready" in notices[0]

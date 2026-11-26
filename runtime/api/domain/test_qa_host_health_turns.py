@@ -18,13 +18,22 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+import pytest
+
 from runtime.api.domain.machine_qa_host_test_support import (
     configure_test_machine,
     materialize_installer_campaign,
 )
+from runtime.api.domain.machine_reset_debt_test_support import verified_reset
 from runtime.api.domain.machine_qa_session_seed import seed_qa_session
+from yoke_contracts.harness_provider_unavailable import PROVIDER_UNAVAILABLE_ERROR_CODE
 from yoke_core.domain.coordination_claims import acquire, active_claim, release
+from yoke_core.domain.machine_qa_host_selection import (
+    TestMachineHostUnhealthy as HostUnhealthy,
+    acquire_test_machine_admission,
+)
 from yoke_core.domain.machine_qa_plan_case_execution import _waiting_case
+from yoke_core.domain.machine_reset_debt import record_reset_owed, reset_command
 from yoke_core.domain.qa_host_health import HOST_UNHEALTHY_REASON, host_unhealthy
 from yoke_core.domain.qa_host_turns import machine_waiters
 from yoke_core.domain.qa_plan_execution_state import begin_plan_execution
@@ -44,7 +53,7 @@ def _plan(conn: Any, tmp_path: Path, monkeypatch: Any) -> tuple[dict, dict]:
     return execution, execution["roster"][0]
 
 
-def test_health_reads_verification_and_golden_capture_only(
+def test_health_ignores_reset_receipts_without_owed_debt(
     test_db: Any, tmp_path: Path, monkeypatch: Any
 ) -> None:
     configure_test_machine(test_db, tmp_path, monkeypatch)
@@ -58,6 +67,94 @@ def test_health_reads_verification_and_golden_capture_only(
     assert host_unhealthy(test_db, MACHINE) is None
     _record(test_db, "reset", "error", "test_machine_sign_in_app_quit_not_proved")
     assert host_unhealthy(test_db, MACHINE) is None
+
+
+def test_failed_owed_reset_blocks_qa_and_waiter_wake_until_reset(
+    test_db: Any, tmp_path: Path, monkeypatch: Any
+) -> None:
+    execution, case = _plan(test_db, tmp_path, monkeypatch)
+    notices = _notices(monkeypatch)
+    seed_qa_session(test_db, ACTOR.session_id, "operator")
+    _record(test_db, "verify", "verified")
+    target = make_qa_admission_target(MACHINE)
+    held = acquire(test_db, target, "operator")
+    record_reset_owed(
+        test_db, case={"host_baseline": "fresh-host"},
+        test_machine=MACHINE, lease_id=held.id,
+    )
+    assert host_unhealthy(test_db, MACHINE) is None
+    assert _begin(execution, case)["state"] == "waiting"
+    _record(test_db, "reset", "error", "machine_fixture_failed")
+    release(test_db, held.id, "test-machine-reset-failed")
+
+    assert active_claim(test_db, target) is None
+    assert _wait_state(test_db, ACTOR.session_id) == "waiting"
+    assert notices == []
+    command = reset_command(MACHINE, "fresh-host")
+    waiting = _begin(execution, case)
+    assert waiting["state"] == "waiting"
+    assert "machine_fixture_failed" in waiting["host_wait"]["rationale"]
+    assert command in waiting["host_wait"]["rationale"]
+    for explicit in (None, MACHINE):
+        with pytest.raises(HostUnhealthy, match="machine_fixture_failed") as refusal:
+            acquire_test_machine_admission(
+                test_db, project="yoke", session_id=ACTOR.session_id,
+                test_machine=explicit, select_any=True, cases=(case,),
+            )
+        assert command in str(refusal.value)
+
+    healing = acquire_test_machine_admission(
+        test_db, project="yoke", session_id="operator", test_machine=MACHINE,
+        select_any=False, require_verified=False,
+    )
+    _record(test_db, "verify", "verified")
+    assert host_unhealthy(test_db, MACHINE) is not None
+    verified_reset(test_db, MACHINE, "fresh-host")
+    release(test_db, healing.lease.id, "test-machine-reset-complete")
+
+    assert host_unhealthy(test_db, MACHINE) is None
+    assert active_claim(test_db, target).session_id == ACTOR.session_id
+    assert len(notices) == 1 and "QA host turn ready" in notices[0]
+    begin_plan_execution(
+        test_db,
+        item_id=ITEM_ID,
+        transition_id="reviewing-implementation",
+        actor_id=ACTOR.actor_id,
+        session_id=ACTOR.session_id,
+    )
+    assert _begin(execution, case)["state"] == "ready"
+
+
+def test_transient_owed_reset_still_wakes_waiter_for_retry(
+    test_db: Any, tmp_path: Path, monkeypatch: Any
+) -> None:
+    execution, case = _plan(test_db, tmp_path, monkeypatch)
+    notices = _notices(monkeypatch)
+    seed_qa_session(test_db, ACTOR.session_id, "operator")
+    _record(test_db, "verify", "verified")
+    target = make_qa_admission_target(MACHINE)
+    held = acquire(test_db, target, "operator")
+    record_reset_owed(
+        test_db, case={"host_baseline": "fresh-host"},
+        test_machine=MACHINE, lease_id=held.id,
+    )
+    assert _begin(execution, case)["state"] == "waiting"
+    _record(test_db, "reset", "error", PROVIDER_UNAVAILABLE_ERROR_CODE)
+    release(test_db, held.id, "test-machine-reset-provider-unavailable")
+
+    assert host_unhealthy(test_db, MACHINE) is None
+    assert active_claim(test_db, target).session_id == ACTOR.session_id
+    assert len(notices) == 1 and "QA host turn ready" in notices[0]
+    begin_plan_execution(
+        test_db,
+        item_id=ITEM_ID,
+        transition_id="reviewing-implementation",
+        actor_id=ACTOR.actor_id,
+        session_id=ACTOR.session_id,
+    )
+    ready = _begin(execution, case)
+    assert ready["state"] == "ready"
+    assert ready["execution"]["reset_owed_baseline"] == "fresh-host"
 
 
 def test_leased_host_queues_the_plan_and_release_hands_it_the_turn(
