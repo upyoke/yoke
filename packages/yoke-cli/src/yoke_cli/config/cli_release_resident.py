@@ -1,10 +1,13 @@
 """Retain a resident's release and re-exec it into the current CLI."""
 
+import logging
 import os
 from pathlib import Path
 import sys
 
 from yoke_cli.config import cli_release_runtime as runtime
+
+_LOGGER = logging.getLogger(__name__)
 
 
 def _running_generation() -> Path | None:
@@ -24,6 +27,24 @@ def running_release_superseded() -> bool:
         return running is not None and runtime._generation(running.parent.parent) != running
     except (OSError, RuntimeError, UnicodeError):
         return False
+
+
+def collect_superseded_releases() -> None:
+    """Retry retirement from the current stable-launcher child."""
+    if not getattr(sys, "_yoke_stable_launcher", False):
+        return
+    try:
+        generation = _running_generation()
+        if generation is None:
+            return
+        root = generation.parent.parent
+        with runtime.locked(root / "publication.lock", nonblocking=True):
+            if runtime._generation(root) == generation:
+                runtime.collect(root)
+    except BlockingIOError:
+        return  # A publication or another collector is already doing this work.
+    except (OSError, RuntimeError, UnicodeError) as exc:
+        _LOGGER.debug("CLI release collection deferred: %s", exc)
 
 
 def hold_release(*, current: bool = False) -> Path | None:

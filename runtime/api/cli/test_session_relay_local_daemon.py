@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_cli.commands.adapters import session_control_relay_release as release_cli
+from yoke_cli.config import cli_release_resident
 from yoke_cli.config.cli_release_resident import running_release_superseded
 from yoke_contracts.machine_config import relay_instance as session_relay_instance
 from yoke_core.tools import session_relay_release
@@ -99,6 +100,9 @@ def test_local_universe_daemon_runs_upkeep_after_each_cycle_maintenance(
     monkeypatch.setattr(
         control_plane_upkeep, "run_control_plane_upkeep", lambda: ran.append("upkeep")
     )
+    monkeypatch.setattr(
+        cli_release_resident, "collect_superseded_releases", lambda: ran.append("collect")
+    )
     monkeypatch.setattr(session_relay_daemon, "serve_forever", serve_forever)
 
     # Threads an earlier test left in this worker are not the daemon's.
@@ -108,6 +112,6 @@ def test_local_universe_daemon_runs_upkeep_after_each_cycle_maintenance(
     )
 
     assert outcome.reason == "stopped"
-    assert ran == ["contained", "upkeep", "contained", "upkeep"]
+    assert ran == ["contained", "collect", "upkeep"] * 2
     started = threads_at_serve[0] - threads_before
     assert not any(name.startswith("yoke-") for name in started)
