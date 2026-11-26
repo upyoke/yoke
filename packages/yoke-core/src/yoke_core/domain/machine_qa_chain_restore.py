@@ -16,6 +16,12 @@ STARTING_STATE_RESET_FAILED = "starting_state_reset_failed"
 STARTING_STATE_RESTORE_FAILED = "starting_state_restore_failed"
 
 
+def failed_baseline_probe(evidence: dict[str, Any]) -> dict[str, Any] | None:
+    """Find the last failed probe in one layer of baseline evidence."""
+    rows = [row for row in evidence.get("probes") or [] if isinstance(row, dict)]
+    return next((row for row in reversed(rows) if row.get("ok") is False), None)
+
+
 def baseline_receipt(
     name: str, reach: Any, *, failure_code: str = STARTING_STATE_RESTORE_FAILED
 ) -> dict[str, Any]:
@@ -83,6 +89,7 @@ __all__ = [
     "STARTING_STATE_RESTORE_FAILED",
     "baseline_receipt",
     "capture_allows_chain",
+    "failed_baseline_probe",
     "restore_chain_start",
     "restore_due",
     "restore_summary",
