@@ -42,6 +42,7 @@ from yoke_core.engines.deploy_run_worktree_naming import (
     deploy_run_worktree_paths,
     run_id_for_driver_worktree,
 )
+from yoke_core.engines.lane_sweep_lock import lane_sweep_lock
 from yoke_core.engines.merge_worktree_cleanliness import assess_lane_residue
 from yoke_contracts.timestamps import utc_now
 from yoke_core.domain.deployment_run_driver_attachment import (
@@ -240,7 +241,32 @@ def retire_terminal_deploy_run_worktrees(
     run_git: Callable[..., Any] | None = None,
     keep_run_ids: tuple[str, ...] = (),
 ) -> tuple[DeployRunLane, ...]:
-    """Reclaim every driver worktree whose run is over; report the rest.
+    """Sweep under the checkout's shared lock, skipping when it is busy."""
+    git = run_git or _runtime_git()
+    root = Path(repo_root).resolve()
+    common = git(["rev-parse", "--git-common-dir"], cwd=str(root), capture=True)
+    git_dir = (common.stdout or "").strip()
+    if common.returncode or not git_dir:
+        detail = (common.stderr or "").strip() or "Git returned no common directory"
+        raise RuntimeError(
+            f"git common directory unreadable for {root}: {detail}. "
+            "Restore access to the checkout and retry cleanup."
+        )
+    with lane_sweep_lock(root / git_dir) as held:
+        if not held:
+            return ()
+        return retire_terminal_deploy_run_worktrees_already_locked(
+            repo_root=root, run_git=git, keep_run_ids=keep_run_ids
+        )
+
+
+def retire_terminal_deploy_run_worktrees_already_locked(
+    *,
+    repo_root: str | Path,
+    run_git: Callable[..., Any] | None = None,
+    keep_run_ids: tuple[str, ...] = (),
+) -> tuple[DeployRunLane, ...]:
+    """Reclaim finished driver worktrees while the caller holds the sweep lock.
 
     Returns one :class:`DeployRunLane` per driver worktree found, carrying what
     happened to it, so a caller can show both what it reclaimed and what it
@@ -292,4 +318,5 @@ __all__ = [
     "RUN_STATUS_FUNCTION_ID",
     "assess_deploy_run_worktrees",
     "retire_terminal_deploy_run_worktrees",
+    "retire_terminal_deploy_run_worktrees_already_locked",
 ]

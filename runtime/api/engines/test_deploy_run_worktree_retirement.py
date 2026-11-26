@@ -162,6 +162,36 @@ def test_generated_caches_do_not_block_retirement(
     assert not path.exists()
 
 
+def test_git_locked_driver_worktree_reports_the_removal_refusal(
+    tmp_path: Path, statuses: dict[str, str]
+) -> None:
+    repo = _repo(tmp_path / "repo")
+    run_id = "run-20260101-012"
+    path = _driver_worktree(repo, run_id)
+    statuses[run_id] = "succeeded"
+    _git(repo, "worktree", "lock", "--reason", "maintenance hold", str(path))
+
+    [verdict] = retire_terminal_deploy_run_worktrees(repo_root=repo, run_git=_run_git)
+
+    assert verdict.state == LANE_BLOCKED
+    assert verdict.reason == "removal refused: worktree is locked (maintenance hold)"
+    assert path.is_dir()
+    assert deploy_run_worktree_paths(_run_git, repo) == [path.resolve()]
+
+
+def test_unregistered_driver_directory_is_not_a_retirement_candidate(
+    tmp_path: Path, statuses: dict[str, str]
+) -> None:
+    repo = _repo(tmp_path / "repo")
+    run_id = "run-20260101-013"
+    path = driver_worktree_path(repo, run_id)
+    path.mkdir(parents=True)
+    statuses[run_id] = "succeeded"
+
+    assert retire_terminal_deploy_run_worktrees(repo_root=repo, run_git=_run_git) == ()
+    assert path.is_dir()
+
+
 def test_unreadable_run_status_keeps_the_worktree(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

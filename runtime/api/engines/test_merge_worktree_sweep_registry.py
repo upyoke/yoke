@@ -90,6 +90,23 @@ def test_an_unregistered_folder_of_only_ignored_files_is_removed(
     assert any("only ignored files" in line for line in lines)
 
 
+def test_merge_sweep_retires_finished_driver_under_its_existing_lock(
+    monkeypatch, tmp_path: Path
+):
+    repo, _worktree, branch = _repo(tmp_path)
+    driver = driver_worktree_path(repo, "run-20260101-010")
+    _git(repo, "worktree", "add", "--detach", str(driver), "HEAD")
+    monkeypatch.setattr(
+        _retirement, "_run_record", lambda _run_id: ({"status": "succeeded"}, "")
+    )
+    git_io, _lines = _install(monkeypatch, repo, _Conn(branch))
+
+    sweep = prune_managed_worktrees(**git_io, repo_root=str(repo), target="main")
+
+    assert not driver.exists()
+    assert str(driver.resolve()) in sweep.removed
+
+
 def test_an_unregistered_folder_with_a_non_ignored_file_is_kept(
     monkeypatch, tmp_path: Path
 ):

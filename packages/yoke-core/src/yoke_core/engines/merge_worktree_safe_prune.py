@@ -43,7 +43,7 @@ from yoke_core.api import service_client_structured_api_adapter
 from yoke_core.engines.cancelled_lane_discard import discard_and_record
 from yoke_core.engines.deploy_run_worktree_naming import run_id_for_driver_worktree
 from yoke_core.engines.deploy_run_worktree_retirement import (
-    retire_terminal_deploy_run_worktrees,
+    retire_terminal_deploy_run_worktrees_already_locked,
 )
 from yoke_core.engines.git_worktree_registry import (
     is_managed_worktree_path,
@@ -191,7 +191,9 @@ def _sweep(
     for leftover in finish_tombstones(repo_root):
         if leftover.reason:
             say(f"WARNING: {leftover.reason}", err=True)
-    for lane in retire_terminal_deploy_run_worktrees(repo_root=repo_root):
+    for lane in retire_terminal_deploy_run_worktrees_already_locked(
+        repo_root=repo_root, run_git=git
+    ):
         if lane.retired:
             say(f"Retired finished deploy-run worktree: {lane.path}")
             removed.append(str(lane.path))
