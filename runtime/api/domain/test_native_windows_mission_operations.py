@@ -236,7 +236,9 @@ def test_walk_end_removes_only_owned_scratch(tmp_path, monkeypatch, locked):
                 [
                     "powershell.exe", "-NoProfile", "-NonInteractive",
                     "-EncodedCommand", encoded(
-                        "$ErrorActionPreference='Stop'\n" + script
+                        "$ErrorActionPreference='Stop'\n"
+                        "$ProgressPreference='SilentlyContinue'\n"
+                        + script
                     ),
                 ],
                 capture_output=True, text=True, timeout=timeout,
