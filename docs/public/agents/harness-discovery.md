@@ -209,7 +209,10 @@ home and reconciles every registered checkout and its Git-registered lanes.
 It never creates an absent harness home; CLI presence alone is not installation.
 Lane hook trust is mirrored only from identical trusted checkout content.
 Malformed or unwritable files are preserved and named with recovery while
-other facets continue. Read without `--fix` to inspect without writing.
+other facets continue. If folder trust fails for the lane being prepared,
+preparation reports the affected harness and path and returns an error.
+Repair the named file and rerun the same preparation command to reuse the
+recorded lane. Read doctor without `--fix` to inspect without writing.
 The relay's `harness-setup-reconcile.json` records successful fingerprints and
 failed rows; failures retry after 15 minutes or immediately on another change.
 Doctor includes that durable failure only while its own inspection still

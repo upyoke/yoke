@@ -138,7 +138,16 @@ def provision_planned_lanes(
     for entry in plan.worktrees:
         refresh_source_installed_views(Path(entry.path))
         provision_worktree_harness_enablement(repo_root, entry.path)
-        provision_worktree_harness_setup(entry.path)
+        trust_error = provision_worktree_harness_setup(entry.path)
+        if trust_error:
+            entry.error = trust_error
+            return LaneProvisioningOutcome(
+                error=trust_error,
+                path=entry.path,
+                branch=entry.branch,
+                created=any_created,
+                failed_branch=entry.branch,
+            )
 
     # Step 4 — the blocking readiness proof. A lane is ready when its tests
     # can run in it. This runs for reused lanes too, so a lane prepared
