@@ -31,7 +31,10 @@ function Test-YokeCodexDaemon($processId,$exe){
  $command=Get-YokeOwnedCommandLine $processId $exe
  # These are the managed transport and its updater, even when the same
  # codex.exe is used for a foreground CLI or an unmanaged app-server.
- $command -cmatch '^("[^"]+"|\S+)\s+app-server\s+(?:(?:--remote-control\s+)?--listen\s+unix://\s+--managed-daemon|daemon\s+pid-update-loop(?:\s+--restore-release\s+\S+)?)\s*$'
+ # Codex 0.172.0 inserts analytics and boolean feature overrides before the managed marker.
+ $options='(?:--analytics-default-enabled\s+(?:-c\s+features\.[A-Za-z0-9_-]+=(?:true|false)\s+)*)?'
+ $command -cmatch ('^("[^"]+"|\S+)\s+app-server\s+(?:(?:--remote-control\s+)?--listen\s+unix://\s+' +
+  $options + '--managed-daemon|daemon\s+pid-update-loop(?:\s+--restore-release\s+\S+)?)\s*$')
 }
 function Get-YokeProfileProcesses {
  foreach($proc in @(Get-Process -ErrorAction Stop)){
