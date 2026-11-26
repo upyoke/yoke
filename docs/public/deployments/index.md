@@ -63,12 +63,12 @@ commit. Yoke's own project cuts its Stage and Production runs together by
 habit, as a **release pair**. Each run of the pair runs on its own: neither
 waits for the other, and each owes its own QA.
 
-Only one run holds a server at a time. A run holds it from its start until
-its QA has settled or it ends, so a run waiting on QA still holds it. A newer
-run cut behind a run that waits only on QA takes that run over (see
-Takeover). A newer run cut behind a run that is still deploying waits as
-`created`; it is never started over the busy one, and its start refuses with
-`target_occupied`, naming the holder.
+A run that can change the server needs exclusive access. A flow consisting
+only of warm-up, QA and automatic settlement can start on the same server
+once every holder has only those stages left. The observer's open QA holds
+the server against later deploys. Other conflicts refuse with
+`target_occupied`, naming the holder. An eligible newer run on the same
+flow and target can take over an older run waiting on QA (see Takeover).
 
 [More on cutting runs and release sets](cutting-runs.md)
 

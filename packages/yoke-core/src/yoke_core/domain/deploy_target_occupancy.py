@@ -3,12 +3,11 @@
 A run's QA walks the build it froze. Deploying a different build to the
 same server while that walk is open makes every verdict it records describe
 a build nobody is serving any more. So a run *occupies* each server it
-targets from the moment it starts executing until its cursor reaches its QA
-stages and they settle, or the run reaches a terminal status, and a second
-run that would deploy to an occupied server refuses before it changes
-anything. A run still in a stage before its first QA stage is deploying, so
-it occupies its servers whatever its QA would later owe: a memberless run
-whose QA owes nothing still holds them until its deploy stages are done.
+targets from the moment it starts executing until its QA settles and its
+remaining stages are safe to share, or the run reaches a terminal status.
+Observation-only runs can share an origin once every holder has only proven
+read, QA and settlement stages left. Until its first QA stage, a run holds
+its servers against deploys even if it has no members and owes no QA.
 
 The unit is the server's origin (``scheme://host[:port]``), not the
 environment record and not the project: two environment records in two
@@ -36,7 +35,12 @@ from typing import Any, Iterable, Optional
 from yoke_contracts.refusal_recovery import compose_refusal
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.deployment_flow_policy import QA_STEP_RUNNER, STAGE_KIND_QA
+from yoke_core.domain.deployment_flow_policy import (
+    QA_SCOPES,
+    QA_STEP_RUNNER,
+    STAGE_KIND_EXECUTION,
+    STAGE_KIND_QA,
+)
 from yoke_core.domain.deployment_target_identity_config import (
     environment_urls,
     qa_target_environment_names,
@@ -89,7 +93,7 @@ def _stages(raw: Any) -> tuple[Mapping[str, Any], ...]:
         return ()
     if not isinstance(stages, list):
         return ()
-    return tuple(stage for stage in stages if isinstance(stage, Mapping))
+    return tuple(stage if isinstance(stage, Mapping) else {} for stage in stages)
 
 
 _RUN_SQL = """SELECT dr.id, dr.project_id, dr.current_stage, df.stages,
@@ -125,6 +129,35 @@ def run_target(conn: Any, run_id: str) -> Optional[RunTarget]:
     return _run_target(conn, row) if row is not None else None
 
 
+def _is_qa_stage(stage: Mapping[str, Any]) -> bool:
+    return (
+        stage.get("stage_kind") == STAGE_KIND_QA
+        and stage.get("step_runner") == QA_STEP_RUNNER
+    )
+
+
+def _observation_only(stages: tuple[Mapping[str, Any], ...]) -> bool:
+    """Allow only frozen stages whose runner is known to leave the build alone."""
+    return bool(stages) and all(
+        stage.get("name")
+        and (
+            (_is_qa_stage(stage) and str(stage.get("scope") or "") in QA_SCOPES)
+            or (
+                stage.get("stage_kind") == STAGE_KIND_EXECUTION
+                and stage.get("step_runner") in ("warm-up", "auto")
+            )
+        )
+        for stage in stages
+    )
+
+
+def _remaining_stages(target: RunTarget) -> tuple[Mapping[str, Any], ...]:
+    names = [stage.get("name") for stage in target.stages]
+    if not target.current_stage or names.count(target.current_stage) != 1:
+        return ()
+    return target.stages[names.index(target.current_stage) :]
+
+
 def _open_qa_lines(
     conn: Any, target: RunTarget, *, first_wait: bool = False
 ) -> Optional[tuple[str, ...]]:
@@ -141,12 +174,7 @@ def _open_qa_lines(
     )
 
     names = [str(stage.get("name") or "") for stage in target.stages]
-    qa_stages = [
-        name
-        for name, stage in zip(names, target.stages)
-        if stage.get("stage_kind") == STAGE_KIND_QA
-        and stage.get("step_runner") == QA_STEP_RUNNER
-    ]
+    qa_stages = [name for name, stage in zip(names, target.stages) if _is_qa_stage(stage)]
     if not qa_stages:
         return None
     current = target.current_stage
@@ -183,22 +211,17 @@ def open_qa_lines(
     return (_NO_QA_STAGE_LINE,) if lines is None else lines
 
 
-def occupancies(
-    conn: Any,
-    origins: Iterable[str],
-    *,
-    excluding_run: str = "",
-    first_wait: bool = False,
-) -> list[Occupancy]:
-    """Every executing run that still occupies one of *origins*."""
-    wanted = set(origins)
+def target_blockers(conn: Any, contender: RunTarget) -> list[Occupancy]:
+    """Return the executing runs that prevent this contender from starting."""
+    wanted = set(contender.origins)
     if not wanted:
         return []
+    observing = _observation_only(contender.stages)
     p = _marker(conn)
     rows = conn.execute(
         f"{_RUN_SQL} WHERE dr.status = {p} "
         f"AND dr.superseded_by_run_id IS NULL AND dr.id <> {p} ORDER BY dr.id",
-        (OCCUPYING_STATUS, excluding_run),
+        (OCCUPYING_STATUS, contender.run_id),
     ).fetchall()
     held: list[Occupancy] = []
     for row in rows:
@@ -206,10 +229,17 @@ def occupancies(
         shared = wanted.intersection(target.origins)
         if not shared:
             continue
-        open_lines = _open_qa_lines(conn, target, first_wait=first_wait)
-        if open_lines == ():
+        can_share = _observation_only(_remaining_stages(target))
+        if observing and can_share:
             continue
-        lines = open_lines or (_NO_QA_STAGE_LINE,)
+        open_lines = _open_qa_lines(conn, target, first_wait=True)
+        if open_lines == () and can_share:
+            continue
+        lines = open_lines
+        if lines is None:
+            lines = (_NO_QA_STAGE_LINE,)
+        elif not lines:
+            lines = ("remaining stages may change the target",)
         held.extend(
             Occupancy(
                 origin=origin,
@@ -242,9 +272,8 @@ def occupied_refusal(run_id: str, held: list[Occupancy]) -> str:
     """The refusal naming each holder, its open QA, and the recovery."""
     lines = [
         f"deployment run {run_id} refused: target_occupied. Another run is "
-        "still deploying to or being verified on a server this run would "
-        "deploy to, and deploying now would replace the build it is putting "
-        "there or the build its QA is walking."
+        "still holds a server this run targets. Starting now could change "
+        "the build that one of the runs needs to verify."
     ]
     for occupancy in held:
         lines.append(
@@ -259,7 +288,7 @@ def occupied_refusal(run_id: str, held: list[Occupancy]) -> str:
     return compose_refusal(
         "\n".join(lines),
         recovery="re-run this start once the holder finishes deploying and "
-        "its QA settles "
+        "its QA settles and its remaining stages are safe to share "
         f"(`yoke deployment-runs stages {holders[0]}` shows it). A holder on "
         "this run's flow and target that now waits only on item QA is taken "
         "over during creation only when its remaining stages are QA, approval, "
@@ -273,7 +302,7 @@ def occupied_refusal(run_id: str, held: list[Occupancy]) -> str:
 
 
 def require_target_unoccupied(conn: Any, run_id: str) -> RunTarget:
-    """Lock *run_id*'s origins and refuse if another run still holds one.
+    """Lock *run_id*'s origins and refuse any conflicting holder.
 
     Call inside the transaction that marks the run executing: the advisory
     locks are released when it commits, by which time this run's own
@@ -283,7 +312,7 @@ def require_target_unoccupied(conn: Any, run_id: str) -> RunTarget:
     if target is None:
         raise LookupError(f"deployment run {run_id} not found")
     _lock_origins(conn, target.origins)
-    held = occupancies(conn, target.origins, excluding_run=run_id, first_wait=True)
+    held = target_blockers(conn, target)
     if held:
         raise DeployTargetOccupiedError(occupied_refusal(run_id, held))
     return target
@@ -294,9 +323,9 @@ __all__ = [
     "OCCUPYING_STATUS",
     "Occupancy",
     "RunTarget",
-    "occupancies",
     "occupied_refusal",
     "open_qa_lines",
     "require_target_unoccupied",
     "run_target",
+    "target_blockers",
 ]

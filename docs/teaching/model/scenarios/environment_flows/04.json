@@ -4,7 +4,7 @@
  "status": "draft-copy",
  "audience": "agent",
  "when": "Run waits, is interrupted or refuses target occupancy",
- "need": "Read the named holder, current stage and structured refusal. Runs occupy target origins until QA settles, unless a newer run created on the same flow and target takes over one waiting only on item QA; a live driver owns re-entry. Recover the existing run using its printed command rather than duplicate it.",
+ "need": "Read the named holder, current stage and structured refusal. Observation-only runs can share an origin once every holder has only warm-up, QA or automatic settlement left. Open QA still blocks deploys. An eligible newer run on the same flow and target can take over a run waiting only on QA. A live driver owns re-entry. Recover the existing run using its printed command rather than duplicate it.",
  "disclosure": "current cue",
  "surface": "Delivery rules opening and run records.",
  "gap": "Expose one recovery link from the human run page and agent result. Never export Yoke self-deploy db-admin authority as an ordinary project requirement.",
