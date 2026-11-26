@@ -128,18 +128,25 @@ try {{
                 cleanup_script = removal + f"""
 if(Get-YokeTask {quote(name)}){{throw 'Owned task cleanup incomplete'}}
 Remove-Item -LiteralPath {files} -Force -ErrorAction SilentlyContinue
-foreach($p in @({files})){{if(Test-Path -LiteralPath $p){{throw 'Owned desktop cleanup incomplete'}}}}
 """
-                if diagnostics.get("process_cleanup") == "missing desktop job receipt":
-                    budget_ms = max(0, int((deadline - time.monotonic()) * 1000))
-                    cleanup_script = _reconcile_timeout(source, receipt, budget_ms, cleanup_script)
-                cleanup = control._run(cleanup_script)
-                if diagnostics.get("process_cleanup") == "missing desktop job receipt" and cleanup.stdout:
+                reconcile = diagnostics.get("process_cleanup") == "missing desktop job receipt"
+                if completed_result is not None:
+                    budget_ms = max(0, min(CLEANUP_SECONDS * 1000, int((deadline - time.monotonic()) * 1000)))
+                    cleanup_script = _cleanup_after_publisher(
+                        source, budget_ms, cleanup_script, receipt=receipt if reconcile else None
+                    )
+                # Windows completes deletion of the source after the last
+                # handle closes. Check absence outside the guarded block.
+                cleanup = control._run(cleanup_script + f"""
+foreach($p in @({files})){{if(Test-Path -LiteralPath $p){{throw 'Owned desktop cleanup incomplete'}}}}
+""")
+                if reconcile and cleanup.stdout:
                     row = _read_timeout_receipt(cleanup.stdout)
                     if row is not None:
                         diagnostics["process_cleanup"] = row["process_cleanup"]
-                        completed_result.stdout = row["stdout"]
-                        completed_result.stderr = row["stderr"]
+                        if row["process_cleanup"] == "verified_empty" or UNRESOLVED in row["stderr"]:
+                            completed_result.stdout = row["stdout"]
+                            completed_result.stderr = row["stderr"]
             if diagnostics["cleanup"] != "preserved_ambiguous_upload":
                 process_cleanup = diagnostics.get("process_cleanup", "verified_empty")
                 diagnostics["cleanup"] = (
@@ -159,15 +166,29 @@ foreach($p in @({files})){{if(Test-Path -LiteralPath $p){{throw 'Owned desktop c
                 raise
 
 
-def _reconcile_timeout(source, receipt, budget_ms, cleanup):
-    # The existing grace covers a final read. Source is also the publisher's
-    # guard: deny any other reader while reading and removing the receipt.
-    # Allow deletion of our open source so a delayed publisher cannot start.
+def _cleanup_after_publisher(source, budget_ms, cleanup, *, receipt=None):
+    # The source is also the publisher's guard. Deny reading while cleaning
+    # up, but allow deletion to prevent a delayed publisher from starting.
+    ready = "$true"
+    final_read = ""
+    if receipt is not None:
+        ready = f"(Test-Path -LiteralPath {quote(receipt)}) -or $clock.ElapsedMilliseconds -ge {budget_ms}"
+        final_read = f"""
+  if (Test-Path -LiteralPath {quote(receipt)}) {{
+    $entry=Get-Item -LiteralPath {quote(receipt)} -Force
+    if ($entry.PSIsContainer -or ($entry.Attributes -band [IO.FileAttributes]::ReparsePoint) -or
+        (Get-Acl -LiteralPath $entry.FullName).GetOwner([Security.Principal.SecurityIdentifier]).Value -ne
+        [Security.Principal.WindowsIdentity]::GetCurrent().User.Value) {{
+      throw 'Desktop timeout receipt ownership could not be established; preserve it'
+    }}
+    [IO.File]::ReadAllText($entry.FullName)
+  }}
+"""
     return f"""$ErrorActionPreference='Stop'
 $clock=[Diagnostics.Stopwatch]::StartNew()
 $publisher=$null
 do {{
-  if ((Test-Path -LiteralPath {quote(receipt)}) -or $clock.ElapsedMilliseconds -ge {budget_ms}) {{
+  if ({ready}) {{
     try {{ $publisher=[IO.File]::Open({quote(source)}, 'Open', 'Read', 'Delete') }}
     catch {{
       # ERROR_SHARING_VIOLATION means the publisher still has the guard.
@@ -179,16 +200,7 @@ do {{
   Start-Sleep -Milliseconds 50
 }} while ($true)
 try {{
-  if (Test-Path -LiteralPath {quote(receipt)}) {{
-    $entry=Get-Item -LiteralPath {quote(receipt)} -Force
-    if ($entry.PSIsContainer -or ($entry.Attributes -band [IO.FileAttributes]::ReparsePoint) -or
-        (Get-Acl -LiteralPath $entry.FullName).GetOwner([Security.Principal.SecurityIdentifier]).Value -ne
-        [Security.Principal.WindowsIdentity]::GetCurrent().User.Value) {{
-      throw 'Desktop timeout receipt ownership could not be established; preserve it'
-    }}
-    [IO.File]::ReadAllText($entry.FullName)
-  }}
-{cleanup}
+{final_read}{cleanup}
 }} finally {{ $publisher.Dispose() }}
 """
 

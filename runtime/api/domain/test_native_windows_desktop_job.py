@@ -26,8 +26,12 @@ from yoke_harness.native_windows.transport import quote
     ],
 )
 def test_desktop_timeout_requires_a_job_receipt(monkeypatch, phase, code, receipt, cleanup):
+    stderr = (
+        "owned timeout" if receipt == "verified_empty"
+        else "windows_desktop_cleanup_unresolved: owned timeout; recovery: inspect the fixture"
+    )
     body = json.dumps(
-        {"exit_code": code, "stdout": "", "stderr": "owned timeout", "process_cleanup": receipt}
+        {"exit_code": code, "stdout": "", "stderr": stderr, "process_cleanup": receipt}
     ) if receipt else ""
 
     # Allow one poll and leave reconciliation four seconds of the existing grace.
@@ -64,7 +68,7 @@ def test_desktop_timeout_requires_a_job_receipt(monkeypatch, phase, code, receip
         assert "recovery:" in result.stderr
         assert result.desktop_diagnostics["task"] in result.stderr
     else:
-        assert result.stderr == "owned timeout"
+        assert result.stderr == stderr
         assert result.desktop_diagnostics["process_cleanup"] == receipt
 
 
@@ -93,7 +97,7 @@ try {{
     reader = tmp_path / "reader.ps1"
     reader.write_text(
         f"New-Item -ItemType File -Path {quote(str(trigger))} | Out-Null\n"
-        + desktop._reconcile_timeout(str(source), str(receipt), 3000, cleanup),
+        + desktop._cleanup_after_publisher(str(source), 3000, cleanup, receipt=str(receipt)),
         encoding="utf-8-sig",
     )
     powershell = ["powershell.exe", "-NoProfile", "-File"]
