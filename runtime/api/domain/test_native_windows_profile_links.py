@@ -273,7 +273,13 @@ def test_mirror_keeps_windows_profile_compatibility_junctions():
 
 @pytest.mark.windows_only(reason="requires Windows PowerShell")
 @pytest.mark.parametrize("desktop", [False, True])
-def test_reset_stops_only_eligible_processes(tmp_path, monkeypatch, desktop):
+@pytest.mark.parametrize("daemon_args", [
+    "app-server --listen unix:// --managed-daemon",
+    "app-server --listen unix:// --analytics-default-enabled --managed-daemon",
+    "app-server --remote-control --listen unix:// --analytics-default-enabled "
+    "-c features.example=true -c features.other=false --managed-daemon",
+])
+def test_reset_stops_only_eligible_processes(tmp_path, monkeypatch, desktop, daemon_args):
     from yoke_harness.native_windows import profile_processes as processes
 
     monkeypatch.setattr(processes, "_PROCESS_IDENTITY", "")
@@ -282,6 +288,7 @@ def test_reset_stops_only_eligible_processes(tmp_path, monkeypatch, desktop):
 $profileRoot={quote(HOME)}
 $env:ProgramFiles='C:\Program Files'
 $includeOtherSession={"$true" if desktop else "$false"}
+$daemonArgs={quote(daemon_args)}
 """ + r"""
 $packageRoot=Join-Path $env:ProgramFiles 'WindowsApps\Codex_fixture'
 $codex=Join-Path $packageRoot 'app\Codex.exe'
@@ -291,7 +298,7 @@ $other=Join-Path $packageRoot 'Other.exe'
 $daemon=Join-Path $profileRoot '.codex\packages\app-server-daemon\releases\0.172.0-x86_64-pc-windows-msvc\bin\codex.exe'
 $standalone=Join-Path $profileRoot '.codex\packages\standalone\current\bin\codex.exe'
 $entries=@()
-foreach($path in @($codex,$claude,$preserved,$other,$daemon,$daemon,$daemon,$daemon,$standalone)){
+foreach($path in @($codex,$claude,$preserved,$other,$daemon,$daemon,$daemon,$daemon,$standalone,$daemon)){
  $entries+= [pscustomobject]@{Id=$entries.Count+1;Path=$path;SessionId=1;MainWindowHandle=1;HasExited=$false}
 }
 $entries[7].SessionId=2
@@ -301,8 +308,9 @@ function Get-Process($Id){
 }
 function Get-YokeOwnedCommandLine($processId,$image){
  if($processId -eq 6){return ('"'+$image+'" app-server daemon pid-update-loop')}
- if($processId -eq 7){return ('"'+$image+'" app-server --listen unix://')}
- '"'+$image+'" app-server --listen unix:// --managed-daemon'
+ if($processId -eq 7){return ('"'+$image+'" app-server --listen unix:// --analytics-default-enabled')}
+ if($processId -eq 10){return ('"'+$image+'" app-server --listen unix:// --analytics-default-enabled -c other.example=true --managed-daemon')}
+ '"'+$image+'" '+$daemonArgs
 }
 function Get-YokeOwnedExecutable($processId){
  if($processId -ne 4){$entries[$processId-1].Path}
@@ -314,7 +322,7 @@ function Get-AppxPackageManifest($Package) {
 function Stop-Process($InputObject,[switch]$Force){$InputObject.HasExited=$true}
 """ + processes.profile_process_stop_script(HOME, PRESERVED_DIRECTORIES, desktop=desktop) + r"""
 if(!$entries[4].HasExited -or !$entries[5].HasExited){throw 'daemon still running'}
-foreach($index in @(2,3,6,7,8)){
+foreach($index in @(2,3,6,7,8,9)){
  if($entries[$index].HasExited){throw 'excluded process stopped'}
 }
 """)
