@@ -18,6 +18,7 @@ from yoke_contracts.machine_qa_failures import (
     host_control_failure,
 )
 from yoke_contracts.qa_mission_scratch import mission_scratch_identity
+from yoke_core.domain.machine_qa_chain_restore import failed_baseline_probe
 from yoke_core.domain.machine_qa_mission_scratch import (
     MissionScratchStateUnknownError,
     mission_scratch_present,
@@ -163,16 +164,28 @@ def prepare_mission(
             if baseline.ok:
                 outcome["state"] = "completed"
             else:
+                evidence = baseline.evidence
+                user_equivalence = evidence.get("user_equivalence") or {}
+                exit_code = evidence.get("exit_code")
+                if exit_code is None:
+                    exit_code = user_equivalence.get("exit_code")
+                if exit_code is None:
+                    probe = failed_baseline_probe(evidence) or failed_baseline_probe(
+                        user_equivalence
+                    )
+                    exit_code = probe.get("exit_code") if probe else None
                 raise HostControlLocalError(
                     code=baseline.error_code or "baseline_operation_failed",
                     phase=phase,
-                    detail=baseline.evidence.get("reason")
+                    detail=evidence.get("reason")
+                    or user_equivalence.get("reason")
                     or "Baseline restore did not prove the requested host state",
-                    exit_code=baseline.evidence.get("exit_code"),
-                    stdout=baseline.evidence.get("stdout", ""),
-                    stderr=baseline.evidence.get("stderr") or str(baseline.evidence),
+                    exit_code=exit_code,
+                    stdout=evidence.get("stdout", ""),
+                    stderr=evidence.get("stderr") or str(evidence),
                     secrets=secrets,
-                    recovery_hint=baseline.evidence.get("recovery")
+                    recovery_hint=evidence.get("recovery")
+                    or user_equivalence.get("recovery")
                     or "Inspect the baseline receipt and reconcile the host state before retrying QA.",
                 )
             preparation["evidence"].update(baseline.evidence)

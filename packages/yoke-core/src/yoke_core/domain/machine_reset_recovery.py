@@ -9,7 +9,10 @@ from yoke_contracts.harness_provider_unavailable import (
 )
 from yoke_contracts.machine_qa_failures import HostControlLocalError
 from yoke_contracts.timestamps import parse_instant, utc_now
-from yoke_core.domain.machine_qa_chain_restore import baseline_receipt
+from yoke_core.domain.machine_qa_chain_restore import (
+    baseline_receipt,
+    failed_baseline_probe,
+)
 from yoke_core.domain.machine_reset_debt import reset_command
 
 NEEDS_REPAIR = "machine_needs_repair"
@@ -46,11 +49,6 @@ def recover_owed_reset(contract, execution, *, now: datetime | None = None):
     return receipt
 
 
-def _failed_probe(evidence):
-    rows = [row for row in evidence.get("probes") or [] if isinstance(row, dict)]
-    return next((row for row in reversed(rows) if row.get("ok") is False), None)
-
-
 def owed_reset_failure(
     receipt, *, prior_unavailable_at: datetime | None = None, now: datetime | None = None
 ) -> tuple[str, str, int | None]:
@@ -74,7 +72,7 @@ def owed_reset_failure(
         (each["exit_code"] for each in layers if each.get("exit_code") is not None),
         None,
     )
-    probe = next((row for each in layers if (row := _failed_probe(each))), None)
+    probe = next((row for each in layers if (row := failed_baseline_probe(each))), None)
     if probe is not None:
         reason = (
             f"{reason} " if reason else ""

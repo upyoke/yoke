@@ -94,6 +94,11 @@ permanent desktop tools must remain baseline.
 
 ## 8. Recovery without changing the seal
 
+If a requested baseline stops QA mission preparation, read the reported probe
+reason, recovery and exit code when available. For a provider quota refusal,
+preserve the golden and wait for the quota window to reset or restore plan
+capacity before retrying.
+
 | Refusal | Required recovery |
 | --- | --- |
 | `linux_desktop_stop_not_proved` | Repair termination of the named fixture desktop, then retry; other users are excluded |
