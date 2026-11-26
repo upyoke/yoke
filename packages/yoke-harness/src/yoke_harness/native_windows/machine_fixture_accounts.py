@@ -10,8 +10,6 @@ from yoke_harness.native_windows.user_ssh import SCRIPT as USER_SSH_SCRIPT
 
 PROXY_ADDRESS = "127.0.0.1:18080"
 PROXY_TASK = "YokeQaFixtureProxy"
-# mitmproxy's generated CA always carries this subject, whatever its thumbprint.
-CA_SUBJECT = "CN=mitmproxy, O=mitmproxy"
 MITMPROXY_VERSION = "12.1.2"
 MITMPROXY_URL = (
     f"https://downloads.mitmproxy.org/{MITMPROXY_VERSION}/"
@@ -24,9 +22,25 @@ WININET_POLICY_KEY = (
     r"HKLM:\SOFTWARE\Policies\Microsoft\Windows\CurrentVersion\Internet Settings"
 )
 
-_PROXY_VALUES = f"""$proxyAddress='{PROXY_ADDRESS}'; $proxyTask='{PROXY_TASK}'; $caSubject='{CA_SUBJECT}'
+PROXY_CA_CENSUS = r"""
+function Get-YokeProxyCaResidue {
+ foreach($store in @('Root','CA')){
+  foreach($candidate in Get-ChildItem -LiteralPath ('Cert:\LocalMachine\'+$store)){
+   # Decode attributes independently; the provider can display them in either order.
+   $attributes=$candidate.SubjectName.Decode([Security.Cryptography.X509Certificates.X500DistinguishedNameFlags]::UseNewLines) -split '\r?\n'
+   if(($attributes -match '^\s*CN\s*=\s*(mitmproxy|"mitmproxy")\s*$') -and
+      ($attributes -match '^\s*O\s*=\s*(mitmproxy|"mitmproxy")\s*$')){
+    [ordered]@{store=$store;thumbprint=$candidate.Thumbprint}
+   }
+  }
+ }
+}
+"""
+
+_PROXY_VALUES = f"""$proxyAddress='{PROXY_ADDRESS}'; $proxyTask='{PROXY_TASK}'
 $wininet='{WININET_KEY}'; $wininetPolicy='{WININET_POLICY_KEY}'
 $exe=Join-Path $fixtureRoot 'mitmdump.exe'; $conf=Join-Path $fixtureRoot 'conf'
+$cer=Join-Path $conf 'mitmproxy-ca-cert.cer'
 function Test-YokeProxyListening {{
  @([Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().GetActiveTcpListeners() |
   Where-Object {{$_.Port -eq {PROXY_ADDRESS.rsplit(':', 1)[1]}}}).Count -gt 0
@@ -61,14 +75,14 @@ if(!(Get-ScheduledTask -TaskName $proxyTask -ErrorAction SilentlyContinue)){{
  Register-ScheduledTask -TaskName $proxyTask -Action $action -User 'SYSTEM' -RunLevel Highest -Settings $settings | Out-Null
 }}
 if((Get-ScheduledTask -TaskName $proxyTask).State -ne 'Running'){{Start-ScheduledTask -TaskName $proxyTask}}
-$cer=Join-Path $conf 'mitmproxy-ca-cert.cer'
 $deadline=[DateTime]::UtcNow.AddSeconds(90)
 while(!((Test-Path -LiteralPath $cer) -and (Test-YokeProxyListening))){{
  if([DateTime]::UtcNow -gt $deadline){{throw 'proxy_fixture_not_listening: mitmdump did not listen with its CA within 90s; inspect the YokeQaFixtureProxy task'}}
  Start-Sleep -Milliseconds 500
 }}
 $cert=[Security.Cryptography.X509Certificates.X509Certificate2]::new($cer)
-if(!(Get-ChildItem Cert:\\LocalMachine\\Root | Where-Object {{$_.Thumbprint -eq $cert.Thumbprint}})){{
+$trustedCert='Cert:\\LocalMachine\\Root\\'+$cert.Thumbprint
+if(!(Test-Path -LiteralPath $trustedCert)){{
  Import-Certificate -FilePath $cer -CertStoreLocation Cert:\\LocalMachine\\Root | Out-Null
 }}
 if(((& netsh.exe winhttp show proxy) -join ' ') -notmatch [regex]::Escape($proxyAddress)){{
@@ -80,14 +94,18 @@ New-ItemProperty -LiteralPath $wininetPolicy -Name ProxySettingsPerUser -Propert
 New-ItemProperty -LiteralPath $wininet -Name ProxyEnable -PropertyType DWord -Value 1 -Force | Out-Null
 New-ItemProperty -LiteralPath $wininet -Name ProxyServer -PropertyType String -Value $proxyAddress -Force | Out-Null
 $verify=[ordered]@{{proxy=$proxyAddress;task=[string](Get-ScheduledTask -TaskName $proxyTask).State;listening=(Test-YokeProxyListening)
- ca_subject=$caSubject;ca_trusted=[bool](Get-ChildItem Cert:\\LocalMachine\\Root | Where-Object {{$_.Subject -eq $caSubject}})
- winhttp=!(Test-YokeWinHttpDirect);wininet_machine=((Get-ItemProperty -LiteralPath $wininet).ProxyEnable -eq 1)}}
-if($verify.task -ne 'Running' -or !$verify.listening -or !$verify.ca_trusted -or !$verify.winhttp){{throw 'proxy_fixture_not_applied: inspect the proxy task, CA and WinHTTP settings'}}
+ ca_subject=$cert.Subject;ca_thumbprint=$cert.Thumbprint;ca_trusted=(Test-Path -LiteralPath $trustedCert)
+ winhttp=(((& netsh.exe winhttp show proxy) -join ' ') -match [regex]::Escape($proxyAddress))
+ wininet_machine=((Get-ItemProperty -LiteralPath $wininet).ProxyEnable -eq 1)}}
+if($verify.task -ne 'Running' -or !$verify.listening -or !$verify.ca_trusted -or !$verify.winhttp -or !$verify.wininet_machine){{
+ throw ('proxy_fixture_not_applied: inspect the proxy task, CA and proxy settings: '+($verify | ConvertTo-Json -Compress))
+}}
 """
 )
 
 PROXY_UNDO = (
     _PROXY_VALUES
+    + PROXY_CA_CENSUS
     + r"""
 if(Get-ScheduledTask -TaskName $proxyTask -ErrorAction SilentlyContinue){
  Stop-ScheduledTask -TaskName $proxyTask -ErrorAction SilentlyContinue
@@ -96,8 +114,13 @@ if(Get-ScheduledTask -TaskName $proxyTask -ErrorAction SilentlyContinue){
 Get-Process mitmdump -ErrorAction SilentlyContinue | Stop-Process -Force
 $deadline=[DateTime]::UtcNow.AddSeconds(30)
 while((Get-Process mitmdump -ErrorAction SilentlyContinue) -and [DateTime]::UtcNow -lt $deadline){Start-Sleep -Milliseconds 500}
-foreach($store in @('Root','CA')){
- Get-ChildItem ('Cert:\LocalMachine\'+$store) | Where-Object {$_.Subject -eq $caSubject} | Remove-Item -Force
+if(Test-Path -LiteralPath $cer){
+ $cert=[Security.Cryptography.X509Certificates.X509Certificate2]::new($cer)
+ foreach($store in @('Root','CA')){
+  $ownedCert='Cert:\LocalMachine\'+$store+'\'+$cert.Thumbprint
+  if(Test-Path -LiteralPath $ownedCert){Remove-Item -LiteralPath $ownedCert -Force}
+  if(Test-Path -LiteralPath $ownedCert){throw "proxy_fixture_owned_ca_retained: inspect $ownedCert and retry; the fixture certificate file was kept"}
+ }
 }
 if(!(Test-YokeWinHttpDirect)){& netsh.exe winhttp reset proxy | Out-Null}
 Remove-ItemProperty -LiteralPath $wininetPolicy -Name ProxySettingsPerUser -ErrorAction SilentlyContinue
@@ -106,14 +129,15 @@ Remove-ItemProperty -LiteralPath $wininet -Name ProxyEnable,ProxyServer -ErrorAc
 $userSettings='Registry::HKEY_USERS\'+(Get-YokeUserSid $testUser)+'\Software\Microsoft\Windows\CurrentVersion\Internet Settings'
 if(Test-Path -LiteralPath $userSettings){Remove-ItemProperty -LiteralPath $userSettings -Name ProxyEnable,ProxyServer -ErrorAction SilentlyContinue}
 if(Test-Path -LiteralPath $fixtureRoot){Remove-Item -LiteralPath $fixtureRoot -Recurse -Force}
+$residue=@(Get-YokeProxyCaResidue)
 $verify=[ordered]@{task=[bool](Get-ScheduledTask -TaskName $proxyTask -ErrorAction SilentlyContinue)
  process=[bool](Get-Process mitmdump -ErrorAction SilentlyContinue);listening=(Test-YokeProxyListening)
- ca_present=[bool](@('Root','CA') | ForEach-Object {Get-ChildItem ('Cert:\LocalMachine\'+$_)} | Where-Object {$_.Subject -eq $caSubject})
+ ca_present=($residue.Count -gt 0);unattributed_ca=$residue
  winhttp_direct=(Test-YokeWinHttpDirect);wininet_machine=($null -ne (Get-ItemProperty -LiteralPath $wininet).ProxyEnable)
  per_user_policy=($null -ne (Get-ItemProperty -LiteralPath $wininetPolicy -ErrorAction SilentlyContinue).ProxySettingsPerUser)
  fixture_root=(Test-Path -LiteralPath $fixtureRoot)}
 if($verify.task -or $verify.process -or $verify.listening -or $verify.ca_present -or !$verify.winhttp_direct -or $verify.wininet_machine -or $verify.per_user_policy -or $verify.fixture_root){
- throw ('proxy_fixture_not_undone: '+($verify | ConvertTo-Json -Compress))
+ throw ('proxy_fixture_not_undone: inspect the failed state and establish certificate ownership before changing trust: '+($verify | ConvertTo-Json -Compress -Depth 4))
 }
 """
 )

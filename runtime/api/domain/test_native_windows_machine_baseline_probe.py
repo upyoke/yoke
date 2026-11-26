@@ -9,6 +9,7 @@ import pytest
 
 from yoke_harness.baseline_probe_failure_causes import PROBE_EXIT_CODES
 from yoke_harness.native_windows import machine_baseline_probe as probe
+from yoke_harness.native_windows.machine_fixture_accounts import PROXY_CA_CENSUS, PROXY_UNDO
 from yoke_harness.standard_baseline_probes import (
     current_standard_document,
     standard_probes,
@@ -100,6 +101,12 @@ def test_golden_sealed_before_the_seal_refreshes_to_include_it():
     assert digests["refreshed"] is True
     refreshed = {p["name"]: p["argv"] for p in json.loads(document)["probes"]}
     assert refreshed[probe.PROBE_NAME][0] == PYTHON
+
+
+def test_sealed_probe_and_undo_share_the_read_only_ca_census():
+    assert PROXY_CA_CENSUS in probe.gather_script()
+    assert PROXY_CA_CENSUS in PROXY_UNDO
+    assert "Remove-Item" not in PROXY_CA_CENSUS
 
 
 def test_drift_failure_names_the_reset_recovery_and_each_drift():
