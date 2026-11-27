@@ -1,9 +1,13 @@
 """Help text for ``yoke qa plan run``: the subject/scope matrix it teaches."""
 
+from textwrap import fill, indent
+
+from yoke_contracts.qa_plan_execution_cli_help import DELEGATED_ITEM_TRANSITION_HELP
+
 #: The subject/scope matrix: which invocation credits which subject, and the
 #: release-time form whose omission leaves a stage unsatisfied. Read as
 #: ``yoke qa plan run --help``.
-QA_PLAN_RUN_EPILOG = """\
+QA_PLAN_RUN_EPILOG = f"""\
 Pick the subject, then the scope
 --------------------------------
 Select an item, deployment run, or manual project plan.
@@ -24,10 +28,7 @@ Select an item, deployment run, or manual project plan.
       item/task claim and select its exact registered --checkout-path PATH
       --expected-branch BRANCH --expected-sha FULL_SHA. The claim holder
       runs cases marked lane with yoke qa case run --requirement-id ID.
-      For a claimless delegated item-transition walk, stay in the neutral
-      launch directory, omit --checkout-path and pass the exact --partition KEY,
-      --expected-branch BRANCH and --expected-sha FULL_SHA so the server resolves
-      the requester's recorded lane.
+{indent(fill(DELEGATED_ITEM_TRANSITION_HELP, width=73), '      ')}
 
   --item PREFIX-N --stage STAGE [--plan PLAN] [--project PROJECT]
       Fresh item QA uses its current completion authority, including a carrier
@@ -69,14 +70,6 @@ predecessor and must use the plan command.
 With --deployment-run-id at an item-scoped stage, --plan ID_OR_SLUG selects the
 run's open plan group of that plan; with none open it refuses
 plan_group_not_open, lists the plan's closed group_ids and says nothing is owed.
-At an item-scoped stage, a shared plan (two or more attachers at item QA entry)
-runs with --deployment-run-id RUN --plan P as the run's open plan group of P.
-A single-member plan is member QA: its claim holder runs it with
---item PREFIX-N --stage STAGE; a run-wide call refuses plan_member_owned.
-When several live runs could answer the item's stage, qa_item_stage_ambiguous
-lists each. Add --deployment-run-id RUN to pick one.
-Host selection respects the case OS. Resume and correction commands omit
---test-machine so the scheduler retains the recorded host.
 With --item at an item-scoped stage, --plan runs only a plan group the item
 attaches. Selection adds no obligations; a group runs the plan as the release
 pinned it, so plan edits wait for the next release. At a run-scoped stage that
@@ -193,11 +186,11 @@ Failed member QA recovery
 -------------------------
 Inspect the failed requirement and its QA runs, then classify product defect,
 setup failure, case defect, or unclear cause. Current-item failures belong to
-that item: retain the claim and lane, correct and verify the work. Record a
-closure dependency only when a finding is in this item and another item must
-land first. Name its owner and record ITEM -> FIX before parking, using
-fact:merged when the fix ships in the same release, status:done for completion,
-or fact:deployed:ENV when the fix must be live before this item's release.
+that item: retain the claim and lane, correct and verify the work. If a separate
+correction is justified, name its owner and record ITEM -> FIX with a closure
+dependency before parking: fact:merged when the fix ships in the same release
+or shared case, status:done for completion, fact:deployed:ENV only when the fix
+must be live in that registered environment before this item's release.
 Checkpoint the failed run/stage/member/target, diagnosis, exact milestone and
 next scoped command. Keep the claim while waiting; steering staffs corrections,
 arranges delivery and resumes an owner whose surface cannot wake automatically.

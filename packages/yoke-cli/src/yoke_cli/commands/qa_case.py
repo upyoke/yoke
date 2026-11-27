@@ -87,6 +87,36 @@ def qa_case_run(args: List[str]) -> int:
 
 
 def qa_plan_run(args: List[str]) -> int:
+    from yoke_contracts.qa_plan_execution_cli_help import DELEGATED_ITEM_TRANSITION_HELP
+
+    if show_delegate_help(
+        args,
+        QA_PLAN_RUN_USAGE,
+        "Requires the named immutable QA case or execution. "
+        f"{DELEGATED_ITEM_TRANSITION_HELP} "
+        "At an item-scoped stage, a shared plan (two or more attachers at item QA entry) "
+        "runs with --deployment-run-id RUN --plan P as the run's open plan group of P; "
+        "with none open it refuses plan_group_not_open and lists P's closed groups. "
+        "A single-member plan is member QA: its claim holder runs it with "
+        "--item PREFIX-N --stage STAGE; a run-wide call refuses plan_member_owned. "
+        "When several live runs could answer the item's stage, it refuses "
+        "qa_item_stage_ambiguous listing each; add --deployment-run-id RUN to pick one. "
+        "At a run-scoped stage, a new plan fills only an empty stage. "
+        "Host selection respects the case OS. Resume and correction commands omit --test-machine; "
+        "the scheduler retains each platform's or corrected case's recorded host.\n\n"
+        "Failed member QA: inspect the failed requirement and run, then classify product, setup, "
+        "case or unclear cause. Fix a finding in this item there. Record a closure dependency only "
+        "when a finding is in this item and another item must land first; name its owner: fact:merged "
+        "when that fix ships in the same release, status:done for completion, "
+        "fact:deployed:ENV only when the fix must be live before this item's release. "
+        "Checkpoint the failure, exact milestone and next command; keep the claim and lane. "
+        "Steering staffs and delivers corrections and arranges supported manual resume when needed. "
+        "Reread all blockers and the deployed target on resume; a dependency notice cannot "
+        "retarget a frozen run. Run scoped QA on a candidate containing the fix.\n"
+        "Complete recovery: .yoke/docs/verification/failed-item-qa.md "
+        "(source: docs/public/verification/failed-item-qa.md).",
+    ):
+        return 0
     return run_execution_module(
         "yoke_core.domain.qa_plan_execution_cli",
         args,
@@ -219,11 +249,7 @@ def run_execution_module(
     args: List[str],
 ) -> int:
     requested_args = list(args)
-    options = requested_args[:requested_args.index("--")] if "--" in requested_args else requested_args
-    if any(arg in ("--help", "-h") for arg in options):
-        child_args, session_id = requested_args, ""
-    else:
-        child_args, session_id = _pin_execution_session(requested_args)
+    child_args, session_id = _pin_execution_session(list(requested_args))
     if module == QA_MISSION_HOST_COMMAND_MODULE:
         _assert_unmodified_host_command_args(requested_args, child_args)
     child_env = dict(os.environ) if session_id else None
