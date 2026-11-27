@@ -43,8 +43,9 @@ def link(target: str | Path, path: str | Path) -> str:
     if os.name == "nt" and source.is_dir():
         # cmd is required for its built-in mklink; pass paths through environment
         # expansion so shell metacharacters in paths cannot become commands.
+        # Pass native cmd syntax verbatim instead of applying argv quoting.
         result = subprocess.run(
-            ["cmd.exe", "/d", "/v:off", "/c", 'mklink /J "%YOKE_LINK_PATH%" "%YOKE_LINK_TARGET%"'],
+            'cmd.exe /d /v:off /c mklink /J "%YOKE_LINK_PATH%" "%YOKE_LINK_TARGET%"',
             env={**os.environ, "YOKE_LINK_PATH": str(destination.absolute()),
                  "YOKE_LINK_TARGET": str(source)}, capture_output=True,
         )
