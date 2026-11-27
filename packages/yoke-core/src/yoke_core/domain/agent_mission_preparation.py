@@ -114,6 +114,13 @@ def prepare_mission(
     first. A cancelled preparation stops, restores the case's declared
     baseline unless it was just proven, and returns that
     ``starting_state_restore`` receipt so the plan can settle the abort.
+
+    Opening the execution can power on a cloud Test Machine, so the runner
+    checks in first: that check-in puts the admitted case's hosts, driver and
+    companions, in in-flight custody before the power call. A refused check-in
+    or a recorded cancellation stops here, before the host is touched, and
+    raises to the caller. The power call beats like any blocking phase and is
+    cancelled at its boundary.
     """
     baseline_name = contract.baselines[0] if contract.baselines else None
     outcome: dict[str, Any] = {
@@ -134,12 +141,25 @@ def prepare_mission(
         "scratch_path": mission_scratch_identity(str(contract.plan_execution_id)),
     }
     secrets: tuple[str, ...] = ()
-    phase = "credential_materialization"
     execution = None
     baseline_proof: dict[str, Any] | None = None
     try:
-        execution = execution_factory(contract, progress_callback=progress_callback)
+        check_abort(progress_callback)
+    except Exception as error:
+        if not communication_unknown(error):
+            error.host_contact_possible = False  # Nothing has reached a host.
+        raise
+    try:
+        phase = "credential_materialization"
+        with heartbeat_during(
+            "test_machine_power_on", progress_callback, propagate_abort=False
+        ):
+            execution = execution_factory(
+                contract, progress_callback=progress_callback
+            )
         secrets = tuple(execution.material.secrets.values())
+        phase = "preparation_heartbeat"
+        check_abort(progress_callback)
         execution_id = str(contract.plan_execution_id)
         if refuse_existing_scratch:
             phase = "mission_scratch_probe"
