@@ -32,6 +32,7 @@ from yoke_contracts.api.function_call import FunctionCallRequest, TargetRef
 from yoke_contracts.machine_config.capability_secret_store import (
     store_test_machine_secret,
 )
+from yoke_core.domain import db_backend
 from yoke_core.domain.agent_mission_recording import handle_agent_mission_ready
 from yoke_core.domain.coordination_claims import get_claim
 from yoke_core.domain.handlers.machine_qa_plan_case import handle_plan_case_begin
@@ -193,6 +194,12 @@ def test_abort_during_paired_power_on_keeps_both_hosts_until_restore(
         assert all(get_claim(test_db, lease).is_active for lease in leases.values())
 
     monkeypatch.setattr("yoke_core.domain.cloud_machine_power.power_on", power_on)
+    # The heartbeat thread and the abort need their own sessions, as in
+    # production; the host fixture hands every caller its one connection.
+    test_db.commit()
+    monkeypatch.setattr(
+        "yoke_core.domain.db_helpers.connect", lambda *_a, **_k: db_backend.connect()
+    )
     prepared = prepare_agent_mission_contract(
         paired["contract"], progress_callback=lambda: _beat(execution_id)
     )
