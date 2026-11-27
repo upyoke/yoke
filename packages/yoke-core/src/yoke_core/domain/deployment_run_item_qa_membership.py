@@ -199,8 +199,27 @@ def require_item_qa_membership_possible(conn: Any, run_id: str) -> None:
         raise ValueError(_custody_refusal(flow, project, stages))
 
 
+def terminal_members(conn: Any, run_id: str) -> frozenset[int]:
+    """Members whose item reached a terminal stage of its pinned workflow.
+
+    A closed member owes the run no active item QA: dispatch skips it, and
+    the outstanding and standing readers omit it the same way. It stays a
+    member, and its frozen row, target and prior verdicts stay as history.
+    """
+    from yoke_core.domain.workflow_status_queries import terminal_items_sql
+
+    rows = query_rows(
+        conn,
+        "SELECT m.item_id FROM deployment_run_items m JOIN items i ON i.id=m.item_id "
+        f"WHERE m.run_id=%s AND {terminal_items_sql(conn)}",
+        (run_id,),
+    )
+    return frozenset(int(row[0]) for row in rows)
+
+
 __all__ = [
     "NO_MEMBER_OWES_TARGET",
+    "terminal_members",
     "item_qa_membership_verdict",
     "memberless_item_qa_refusal",
     "owed_delivery_item_ids",

@@ -50,16 +50,7 @@ def materialize_and_gate_deployment_qa_stage(
     else:
         members = [None]
     if stage.get("scope") == "item":
-        from yoke_core.domain.workflow_status_queries import terminal_items_sql
-
-        closed = {
-            int(row[0])
-            for row in conn.execute(
-                "SELECT m.item_id FROM deployment_run_items m JOIN items i ON i.id=m.item_id "
-                f"WHERE m.run_id=%s AND {terminal_items_sql(conn)}",
-                (run_id,),
-            ).fetchall()
-        }
+        closed = item_qa.terminal_members(conn, run_id)
         members = [member for member in members if member not in closed]
     from yoke_core.domain.deployment_qa_dispatch_preparation import prepare_members
 

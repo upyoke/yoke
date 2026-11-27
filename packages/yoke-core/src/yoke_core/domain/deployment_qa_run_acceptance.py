@@ -181,7 +181,8 @@ def current_item_qa(
 
     *stages* is this run's already-read :func:`pinned_stages`. A caller
     answering for several members of one release passes it so the run's own
-    definition is read once for the set instead of once per member.
+    definition is read once for the set instead of once per member. A closed
+    member with no accepted standing here owes nothing active: ``None``.
     """
     pinned = _pinned_stages(conn, str(run_id)) if stages is None else stages
     stage = _applicable_item_stage(pinned, current_stage)
@@ -213,6 +214,11 @@ def current_item_qa(
         if state in (STAGE_ACCEPTED, STAGE_DISCHARGED):
             state = group_state
         blockers += tuple(f"{label}: {reason}" for reason in reasons)
+    if state not in (STAGE_ACCEPTED, STAGE_DISCHARGED):
+        from yoke_core.domain.deployment_run_item_qa_membership import terminal_members
+
+        if int(item_id) in terminal_members(conn, str(run_id)):
+            return None  # closed: nothing active to report, as dispatch skips it
     return ItemStageQa(
         stage=stage_name,
         state=state,
