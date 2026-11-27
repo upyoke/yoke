@@ -16,7 +16,10 @@ from typing import Any
 from runtime.api.domain.machine_qa_host_test_support import configure_test_machine
 from runtime.api.domain.machine_qa_test_support import FakeHostControl
 from runtime.api.domain import qa_execution_walk_states_test_support as walk_states
-from runtime.api.domain.qa_verdict_citation_test_support import cite_case
+from runtime.api.domain.qa_verdict_citation_test_support import (
+    attach_product_evidence,
+    cite_case,
+)
 
 from yoke_contracts.machine_qa_execution import (
     AGENT_MISSION_ARTIFACT_LIMIT,
@@ -194,9 +197,9 @@ def test_mission_parks_resumes_and_persists_the_main_report(
     assert resumed.primary_success, resumed.error
     assert int(resumed.result_payload["execution"]["lease_id"]) == lease_id
 
-    walk_states.record_handback(
-        ACTOR, requirement_id, ready.result_payload["result"]["run_id"]
-    )
+    run_id = ready.result_payload["result"]["run_id"]
+    attach_product_evidence(ACTOR, requirement_id, run_id)
+    walk_states.record_handback(ACTOR, requirement_id, run_id)
     current = lock_plan_execution(test_db, execution_id)
     assert current["state"] == "awaiting_walk_review"
     rationale = (

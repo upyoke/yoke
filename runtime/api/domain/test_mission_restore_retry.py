@@ -19,6 +19,7 @@ from yoke_core.domain.machine_idle_notice import (
 )
 from yoke_core.domain.machine_operation_recording import recorded_test_machine_operation
 from yoke_core.domain.machine_reset_debt import record_reset_owed, reset_owed
+from runtime.api.domain.qa_verdict_citation_test_support import attach_product_evidence
 from yoke_core.domain.qa_artifact_recording import handle_qa_artifact_add
 
 
@@ -135,6 +136,7 @@ def test_verified_retry_on_same_artifact_handle_leaves_no_reset_for_review_relea
     assert reset["checks"] == [{"name": "fresh-host", "ok": True}]
     assert reset_owed(test_db, machine) is None
 
+    evidence_id = attach_product_evidence(mission.ACTOR, requirement_id, run_id)
     execution = mission.lock_plan_execution(test_db, execution_id)
     bundle = mission.begin_plan_review(test_db, execution)
     with collect_released_hosts() as released:
@@ -147,7 +149,10 @@ def test_verified_retry_on_same_artifact_handle_leaves_no_reset_for_review_relea
                 {
                     "requirement_id": requirement_id,
                     "verdict": "pass",
-                    "rationale": f"Restoration verified in artifact {artifact_id}.",
+                    "rationale": (
+                        f"Restoration verified in artifact {artifact_id}; "
+                        f"the walk is shown in artifact {evidence_id}."
+                    ),
                 }
             ],
             reviewer_actor_id=mission.ACTOR.actor_id,

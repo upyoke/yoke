@@ -9,7 +9,10 @@ from runtime.api.domain.qa_plan_execution_authority_test_support import (
     _materialize_two_cases,
 )
 from runtime.api.fixtures.pg_testdb import test_database
-from runtime.api.domain.qa_verdict_citation_test_support import cite_case
+from runtime.api.domain.qa_verdict_citation_test_support import (
+    attach_product_evidence,
+    cite_case,
+)
 
 from yoke_core.domain import qa_case_execution as cases
 from yoke_core.domain import qa_case_mission_execution as missions
@@ -279,9 +282,9 @@ def test_single_mission_reaches_review_and_verdict_with_sibling_untouched(
     current = select_plan_execution(test_db, execution["id"], lock=True)
     bundle = begin_plan_review(test_db, current)
     walk_states.assert_walking_proof(test_db, current)
-    walk_states.record_handback(
-        ACTOR, selected, ready.result_payload["result"]["run_id"]
-    )
+    run_id = ready.result_payload["result"]["run_id"]
+    attach_product_evidence(ACTOR, selected, run_id)
+    walk_states.record_handback(ACTOR, selected, run_id)
     current = select_plan_execution(test_db, execution["id"], lock=True)
     assert current["state"] == "awaiting_walk_review"
     assert len(bundle["dispatch"]["walker_dispatches"]) == 1
