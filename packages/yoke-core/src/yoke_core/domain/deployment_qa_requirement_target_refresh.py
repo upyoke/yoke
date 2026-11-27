@@ -68,12 +68,15 @@ def rebind_subject(conn, *, subject, target):
                 carried_digest = recorded_execution_target_digest(
                     attempts[requirement_id]["raw_result"]
                 )
-            rebound_target = {**target, "deployment": {
-                **target["deployment"],
-                "starting_run_id": stored["deployment"].get(
-                    "starting_run_id", stored["deployment"]["run_id"]
-                ),
-            }}
+            rebound_target = {
+                **target,
+                "deployment": {
+                    **target["deployment"],
+                    "starting_run_id": stored["deployment"].get(
+                        "starting_run_id", stored["deployment"]["run_id"]
+                    ),
+                },
+            }
             conn.execute(
                 "UPDATE qa_requirements SET execution_target_json=%s,"
                 "execution_target_digest=%s,rebound_from_target_json=%s,"
@@ -150,10 +153,65 @@ def carry_execution_passes(conn, *, subject, target, execution):
                 )
 
 
-def credit_rebound_pass(conn, *, requirement_id, run_id, current_digest, recorded_digest):
+def credit_completed_rebound_pass(conn, *, requirement, run_id):
+    """Credit a pass that finished after its obligation was rebound.
+
+    A run started on the predecessor target records that target's digest.
+    When it completes after takeover rebound the case, it proves the successor
+    only if it is still the case's latest attempt, its recorded digest is the
+    stored rebound target's digest, and that target inherits the same
+    destination; method and config are graded by pass currency as usual.
+    """
+    if not requirement.get("rebound_at") or not requirement.get("deployment_run_id"):
+        return
+    frozen = _decode_stored_target(requirement.get("rebound_from_target_json"))
+    current = _decode_stored_target(requirement.get("execution_target_json"))
+    if frozen is None or current is None:
+        return
+    current_digest = str(requirement.get("execution_target_digest") or "")
+    predecessor_digest = target_digest(frozen)
+    if (
+        target_digest(current) != current_digest
+        or predecessor_digest == current_digest
+        or requirement.get("rebound_from_digest") == predecessor_digest
+    ):
+        return
+    requirement_id = int(requirement["id"])
+    attempts = latest_executions(conn, [requirement_id])
+    attempt = attempts.get(requirement_id)
+    if (
+        attempt is None
+        or int(attempt["id"]) != int(run_id)
+        or recorded_execution_target_digest(attempt["raw_result"]) != predecessor_digest
+    ):
+        return
+    owner = str(requirement["deployment_run_id"])
+    if not evidence_target_matches(conn, owner, frozen, current):
+        return
+    candidate = dict(requirement, rebound_from_digest=predecessor_digest)
+    if requirement_id not in passing_requirements_for_rows(conn, [candidate], attempts):
+        return
+    credit_rebound_pass(
+        conn,
+        requirement_id=requirement_id,
+        run_id=owner,
+        current_digest=current_digest,
+        recorded_digest=predecessor_digest,
+    )
+
+
+def credit_rebound_pass(
+    conn, *, requirement_id, run_id, current_digest, recorded_digest
+):
     """Mark frozen evidence current only while the credited target still owns the case."""
     conn.execute(
         "UPDATE qa_requirements SET rebound_from_digest=%s,rebound_at=%s WHERE id=%s "
         "AND deployment_run_id=%s AND execution_target_digest=%s",
-        (recorded_digest, instant_parameter(conn, utc_now()), requirement_id, run_id, current_digest),
+        (
+            recorded_digest,
+            instant_parameter(conn, utc_now()),
+            requirement_id,
+            run_id,
+            current_digest,
+        ),
     )
