@@ -20,6 +20,13 @@ from runtime.api.domain.ssh_mac_full_reset_test_support import (
 )
 
 
+def _retired_reply(machine_id, *, retired_at="2026-11-27T12:00:00Z"):
+    return json.dumps({
+        "success": True, "function": "machine.retire", "version": "v1",
+        "result": {"machine": {"machine_id": machine_id, "retired_at": retired_at}},
+    })
+
+
 @pytest.fixture
 def lab():
     config = {
@@ -55,7 +62,7 @@ def test_retirement_uses_exact_id_and_saved_environment(lab, native_windows, mon
 
     def run(argv, **kwargs):
         commands.append((argv, kwargs))
-        return CompletedProcess(argv, 0, "{}", "")
+        return CompletedProcess(argv, 0, _retired_reply(argv[5]), "")
 
     lab.read_remote_text, lab.run_command = read_text, run
     monkeypatch.setenv("YOKE_ENV", "controller-qa")
@@ -99,6 +106,34 @@ def test_identity_without_valid_owning_connection_skips_retirement(lab, connecti
 
 
 @pytest.mark.parametrize(
+    "reply",
+    [
+        "",
+        "{}",
+        "not json",
+        _retired_reply(str(uuid4())),
+        _retired_reply("{machine_id}", retired_at=None),
+        json.dumps({"success": False, "function": "machine.retire", "version": "v1"}),
+    ],
+    ids=["empty", "empty-object", "malformed", "other-machine", "not-retired", "unsuccessful"],
+)
+def test_zero_exit_without_matching_retirement_is_unconfirmed(lab, reply):
+    machine_id = lab.config["machine_id"]
+    lab.run_command = lambda argv, **_: CompletedProcess(
+        argv, 0, reply.replace("{machine_id}", machine_id), ""
+    )
+
+    result = retire_reset_identity(lab)
+
+    assert not result.ok
+    assert result.error_code == "test_machine_identity_retirement_failed"
+    evidence = result.evidence["machine_retirement"]
+    assert evidence["machine_id"] == machine_id
+    assert evidence["outcome"] == "unconfirmed"
+    assert evidence["reason"] == "retire_response_unconfirmed"
+
+
+@pytest.mark.parametrize(
     ("code", "expected"),
     [("machine_retired", "already_retired"), ("machine_unregistered", "already_absent")],
 )
@@ -125,7 +160,7 @@ def test_invalid_identity_skips_retirement(lab, document):
     assert result.evidence["machine_retirement"]["reason"] == "identity_file_invalid"
 
 
-@pytest.mark.parametrize("retirement_outcome", ["skipped", "failed", "retired"])
+@pytest.mark.parametrize("retirement_outcome", ["skipped", "failed", "unconfirmed", "retired"])
 @pytest.mark.parametrize("restore_succeeds", [False, True])
 @pytest.mark.parametrize(
     ("module", "reset", "wipe_operation"),
@@ -152,7 +187,10 @@ def test_restore_outcome_is_independent_of_lab_identity_retirement(
 
     def run(argv, **kwargs):
         events.append("retire")
-        return CompletedProcess(argv, 0 if retirement_outcome == "retired" else 1, "{}", "")
+        if retirement_outcome == "failed":
+            return CompletedProcess(argv, 1, "{}", "")
+        reply = _retired_reply(argv[5]) if retirement_outcome == "retired" else ""
+        return CompletedProcess(argv, 0, reply, "")
 
     def wipe(*args):
         events.append("wipe")
@@ -182,6 +220,8 @@ def test_restore_outcome_is_independent_of_lab_identity_retirement(
     assert evidence["outcome"] == retirement_outcome
     if retirement_outcome == "failed":
         assert evidence["reason"] == "retire_command_failed"
+    elif retirement_outcome == "unconfirmed":
+        assert evidence["reason"] == "retire_response_unconfirmed"
     elif retirement_outcome == "skipped":
         assert evidence["reason"] == "identity_connection_missing"
 
