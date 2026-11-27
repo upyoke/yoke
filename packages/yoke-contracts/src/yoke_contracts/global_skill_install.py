@@ -129,11 +129,13 @@ def global_skill_ready(
 ) -> tuple[bool, str]:
     """Whether *harness_id* discovers the current skill; detail names the gap."""
     home = user_home(environ)
-    folder = shared_skill_dir(home)
+    folders = [shared_skill_dir(home)]
     if HARNESS_GLOBAL_SKILLS[harness_id].placement == "copy":
-        folder = copy_path(harness_id, home)
-    if not _is_current(folder, skill_text()):
-        return False, f"global_skill_missing: {folder / SKILL_FILE}"
+        folders.append(copy_path(harness_id, home))
+    text = skill_text()
+    for folder in folders:
+        if not _is_current(folder, text):
+            return False, f"global_skill_missing: {folder / SKILL_FILE}"
     return True, ""
 
 

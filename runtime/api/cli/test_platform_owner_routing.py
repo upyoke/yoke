@@ -1,4 +1,4 @@
-"""Portable owner routing preserves standalone and link-placement behavior."""
+"""Portable owner routing preserves standalone and copy-placement behavior."""
 from pathlib import Path
 import shlex
 import shutil
@@ -53,28 +53,20 @@ print(posix_uid())
 
 
 def test_global_skill_copy_is_owned_and_refreshed(tmp_path, monkeypatch):
-    shared, link = tmp_path / "shared", tmp_path / "placement"
-    shared.mkdir()
-    (shared / "SKILL.md").write_text("first", encoding="utf-8")
+    placement = tmp_path / "placement"
     owned = set()
-    monkeypatch.setattr(global_skill_install, "_owned_paths", lambda: owned)
     def record(path, result, parents=()):
         owned.add(str(path))
         return True
-    def copy(source, destination):
-        shutil.copytree(source, destination)
-        return "copy"
     monkeypatch.setattr(global_skill_install, "_record", record)
-    monkeypatch.setattr(global_skill_install, "create_link", copy)
     result = global_skill_install.GlobalSkillResult()
-    assert global_skill_install._install_link(link, shared, owned, result)
-    assert global_skill_install._placement_matches(link, shared)
-    (shared / "SKILL.md").write_text("second", encoding="utf-8")
-    assert not global_skill_install._placement_matches(link, shared)
-    assert global_skill_install._install_link(link, shared, owned, result)
-    assert (link / "SKILL.md").read_text(encoding="utf-8") == "second"
+    assert global_skill_install._install_folder(placement, "first", owned, result)
+    assert global_skill_install._is_current(placement, "first")
+    assert not global_skill_install._is_current(placement, "second")
+    assert global_skill_install._install_folder(placement, "second", owned, result)
+    assert (placement / "SKILL.md").read_text(encoding="utf-8") == "second"
     owned.clear()
-    assert not global_skill_install._install_link(link, shared, owned, result)
+    assert not global_skill_install._install_folder(placement, "third", owned, result)
     assert result.reason == global_skill_install.NOT_OWNED
 
 
