@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 from yoke_contracts import harness_settings_ledger as ledger
+from yoke_contracts.platform_links import is_link, remove_link
 from yoke_contracts.codex_config_posture import (
     remove_top_level_key,
     replace_top_level_assignment,
@@ -96,8 +97,9 @@ def revert_entry(entry: Dict[str, Any]) -> str:
 
 
 def _revert_created_dir(target: Path) -> str:
-    if target.is_symlink():
-        target.unlink()
+    # A Windows junction is a link too: remove it without following it.
+    if is_link(target):
+        remove_link(target)
     elif target.is_dir():
         shutil.rmtree(target)
     else:

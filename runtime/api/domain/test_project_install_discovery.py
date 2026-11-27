@@ -78,6 +78,53 @@ def test_recorded_copy_is_refreshed_and_unrecorded_directory_refused(tmp_path):
     assert skills.entry_state(tmp_path, ".claude/skills/yoke") == skills.LINKED
 
 
+def test_a_recorded_junction_is_replaced_on_refresh(tmp_path, monkeypatch):
+    """Native Windows SSH does not follow a user-made junction (WinError 448)."""
+    _skill(tmp_path, ".agents/skills/yoke/SKILL.md")
+    records = dict(skills.SKILL_DISCOVERY_LINKS)
+    skills.apply(tmp_path, records)
+    entry = tmp_path / ".claude/skills/yoke"
+    monkeypatch.setattr(skills, "_is_junction", lambda path: path == entry)
+    made = []
+    real_link = skills.link
+
+    def recording_link(source, target, **kwargs):
+        made.append(kwargs)
+        return real_link(source, target, **kwargs)
+
+    monkeypatch.setattr(skills, "link", recording_link)
+
+    skills.preflight(tmp_path, records)
+    assert skills.apply(tmp_path, records) == [".claude/skills/yoke"]
+    assert made == [{"junction": False}]
+    assert (entry / "SKILL.md").read_text() == "# skill\n"
+
+
+@pytest.mark.windows_only(reason="requires native Windows junctions")
+def test_windows_without_symlink_privilege_gets_a_copy_not_a_junction(tmp_path, monkeypatch):
+    from yoke_contracts import platform_links
+
+    _skill(tmp_path, ".agents/skills/yoke/SKILL.md")
+    entry = tmp_path / ".claude/skills/yoke"
+    records = dict(skills.SKILL_DISCOVERY_LINKS)
+
+    def deny_symlink(*args, **kwargs):
+        raise PermissionError("symlink privilege unavailable")
+
+    monkeypatch.setattr(Path, "symlink_to", deny_symlink)
+    entry.parent.mkdir(parents=True)
+    assert platform_links.link(tmp_path / ".agents/skills/yoke", entry) == "junction"
+
+    skills.preflight(tmp_path, records)
+    assert skills.apply(tmp_path, records) == [".claude/skills/yoke"]
+    assert entry.is_dir() and not platform_links.is_link(entry)
+    assert (entry / "SKILL.md").read_text() == "# skill\n"
+    assert skills.entry_state(tmp_path, ".claude/skills/yoke", records) == skills.COPIED
+    assert skills.remove(tmp_path, records) == [".claude/skills/yoke"]
+    assert not os.path.lexists(entry)
+    assert (tmp_path / ".agents/skills/yoke/SKILL.md").is_file()
+
+
 def test_install_ignores_the_local_entry_and_uninstall_removes_the_line(tmp_path):
     _skill(tmp_path, ".agents/skills/yoke/SKILL.md")
     (tmp_path / ".gitignore").write_text("dist/\n", encoding="utf-8")

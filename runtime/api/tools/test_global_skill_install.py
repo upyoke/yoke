@@ -1,7 +1,7 @@
 """The user-level ``yoke-global`` skill installs once and uninstall removes it.
 
-One shared folder serves Codex and Cursor; Claude Code gets a symlink to it.
-Every created folder and link is recorded in the harness settings ledger, so
+One shared folder serves Codex and Cursor; Claude Code gets its own copy of
+the skill in a real folder, never a link. Every created folder is recorded in the harness settings ledger, so
 ``revert_recorded`` (what ``yoke uninstall`` runs) removes them. A path Yoke
 did not create is never overwritten.
 """
@@ -36,20 +36,21 @@ def _shared(home: Path) -> Path:
     return home / ".agents" / "skills" / "yoke-global"
 
 
-def test_install_places_one_copy_and_a_claude_link(home: Path) -> None:
+def test_install_places_the_shared_folder_and_a_claude_copy(home: Path) -> None:
     result = install.ensure_global_skill({"HOME": str(home)})
 
     assert not result.reason
     skill = _shared(home) / "SKILL.md"
     assert skill.read_text(encoding="utf-8") == install.skill_text()
     assert skill.read_text(encoding="utf-8").startswith("---\nname: yoke-global\n")
-    link = home / ".claude" / "skills" / "yoke-global"
-    assert link.is_symlink() and link.resolve() == _shared(home).resolve()
+    copy = home / ".claude" / "skills" / "yoke-global"
+    assert copy.is_dir() and not links.is_link(copy)
+    assert (copy / "SKILL.md").read_text(encoding="utf-8") == install.skill_text()
     assert [(e["kind"], e["file"]) for e in ledger.read()] == [
         ("created_dir", str(_shared(home))),
         ("created_parent_dir", str(home / ".agents" / "skills")),
         ("created_parent_dir", str(home / ".agents")),
-        ("created_dir", str(link)),
+        ("created_dir", str(copy)),
         ("created_parent_dir", str(home / ".claude" / "skills")),
     ]
     assert any(line.startswith("codex: reads") for line in result.lines)
@@ -139,14 +140,14 @@ def test_an_owned_older_copy_is_refreshed(home: Path) -> None:
     assert (_shared(home) / "SKILL.md").read_text(encoding="utf-8") == install.skill_text()
 
 
-def test_a_claude_link_yoke_did_not_create_is_refused(home: Path) -> None:
-    link = home / ".claude" / "skills" / "yoke-global"
-    link.mkdir(parents=True)
+def test_a_claude_folder_yoke_did_not_create_is_refused(home: Path) -> None:
+    folder = home / ".claude" / "skills" / "yoke-global"
+    folder.mkdir(parents=True)
 
     result = install.ensure_global_skill({"HOME": str(home)})
 
-    assert result.reason == install.NOT_OWNED and str(link) in result.recovery
-    assert link.is_dir() and not link.is_symlink()
+    assert result.reason == install.NOT_OWNED and str(folder) in result.recovery
+    assert folder.is_dir() and not any(folder.iterdir())
 
 
 def test_codex_home_override_decides_installation(tmp_path: Path) -> None:
@@ -163,7 +164,7 @@ def test_codex_home_override_decides_installation(tmp_path: Path) -> None:
 
 def test_contract_covers_every_manifest_harness() -> None:
     assert set(HARNESS_GLOBAL_SKILLS) == {"claude-code", "codex", "cursor"}
-    assert global_skill_for_harness("claude-code").placement == "link"
+    assert global_skill_for_harness("claude-code").placement == "copy"
     with pytest.raises(KeyError, match="HARNESS_GLOBAL_SKILLS"):
         global_skill_for_harness("unknown-harness")
 
@@ -187,14 +188,15 @@ def test_every_docs_link_in_the_skill_names_a_published_page() -> None:
         ).is_file(), f"yoke-global links https://upyoke.com/docs{path}, not a page"
 
 
-# The Claude placement is judged by the target its link records, never by
-# following it: a native Windows SSH session may refuse to traverse a junction
-# (WinError 448, untrusted mount point). On Windows these links are junctions.
+# The Claude placement is a real folder because a native Windows SSH session
+# may refuse to traverse a junction (WinError 448, untrusted mount point). A
+# link an earlier release recorded is replaced without following it; on
+# Windows those links are junctions.
 
 windows_smoke = pytest.mark.windows
 
 
-def _claude_link(home: Path) -> Path:
+def _claude_copy(home: Path) -> Path:
     return home / ".claude" / "skills" / "yoke-global"
 
 
@@ -203,7 +205,7 @@ def _deny_symlink(*args, **kwargs):
 
 
 def _native_link(target: Path, path: Path, monkeypatch) -> None:
-    """A junction on Windows, a symlink elsewhere: the placement each gets."""
+    """A junction on Windows, a symlink elsewhere: what earlier releases placed."""
     path.parent.mkdir(parents=True, exist_ok=True)
     if os.name == "nt":
         with monkeypatch.context() as patch:
@@ -211,14 +213,6 @@ def _native_link(target: Path, path: Path, monkeypatch) -> None:
             assert links.link(target, path) == "junction"
     else:
         assert links.link(target, path) == "symlink"
-
-
-def _install(home: Path, monkeypatch) -> install.GlobalSkillResult:
-    """Install as a native Windows host without symlink privilege does."""
-    with monkeypatch.context() as patch:
-        if os.name == "nt":
-            patch.setattr(Path, "symlink_to", _deny_symlink)
-        return install.ensure_global_skill({"HOME": str(home)})
 
 
 def _refuse_traversal(monkeypatch) -> None:
@@ -229,92 +223,74 @@ def _refuse_traversal(monkeypatch) -> None:
     monkeypatch.setattr(os.path, "realpath", untrusted)
 
 
-@windows_smoke
-def test_known_link_is_current_without_traversing_it(home: Path, monkeypatch) -> None:
-    assert not _install(home, monkeypatch).reason
-    link = _claude_link(home)
-    assert links.is_link(link)
-    before = ledger.read()
-    _refuse_traversal(monkeypatch)
-
-    assert install.global_skill_ready("claude-code", {"HOME": str(home)}) == (True, "")
-    result = install.ensure_global_skill({"HOME": str(home)})
-
-    assert not result.reason and ledger.read() == before
-    assert links.link_target(link) == _shared(home).absolute()
-    assert (link / "SKILL.md").read_text(encoding="utf-8") == install.skill_text()
+def _owned_link_from_an_earlier_release(home: Path, monkeypatch) -> Path:
+    install.ensure_global_skill({"HOME": str(home)})
+    copy = _claude_copy(home)
+    (copy / "SKILL.md").unlink()
+    copy.rmdir()
+    _native_link(_shared(home), copy, monkeypatch)
+    return copy
 
 
 @windows_smoke
-@pytest.mark.parametrize("dangling", [False, True])
-def test_owned_mismatched_or_dangling_link_is_repaired(
-    home: Path, tmp_path: Path, monkeypatch, dangling: bool
+def test_an_owned_link_is_replaced_by_a_copy_without_traversing_it(
+    home: Path, monkeypatch
 ) -> None:
-    _install(home, monkeypatch)
-    link = _claude_link(home)
-    links.remove_link(link)
-    elsewhere = tmp_path / "elsewhere"
-    elsewhere.mkdir()
-    _native_link(elsewhere, link, monkeypatch)
-    if dangling:
-        elsewhere.rmdir()
+    copy = _owned_link_from_an_earlier_release(home, monkeypatch)
+    before = ledger.read()
     _refuse_traversal(monkeypatch)
     assert install.global_skill_ready("claude-code", {"HOME": str(home)}) == (
         False,
-        f"global_skill_link_missing: {link}",
+        f"global_skill_missing: {copy / 'SKILL.md'}",
     )
 
-    result = _install(home, monkeypatch)
+    result = install.ensure_global_skill({"HOME": str(home)})
 
-    assert not result.reason
-    assert links.link_target(link) == _shared(home).absolute()
+    assert not result.reason and ledger.read() == before
+    assert not links.is_link(copy) and copy.is_dir()
+    assert (copy / "SKILL.md").read_text(encoding="utf-8") == install.skill_text()
+    assert (_shared(home) / "SKILL.md").read_text(encoding="utf-8") == install.skill_text()
     assert install.global_skill_ready("claude-code", {"HOME": str(home)}) == (True, "")
 
 
 @windows_smoke
-@pytest.mark.parametrize("dangling", [False, True])
-def test_foreign_mismatched_or_dangling_link_is_left_untouched(
-    home: Path, tmp_path: Path, monkeypatch, dangling: bool
-) -> None:
-    link = _claude_link(home)
+def test_a_foreign_link_is_left_untouched(home: Path, tmp_path: Path, monkeypatch) -> None:
+    copy = _claude_copy(home)
     elsewhere = tmp_path / "elsewhere"
     elsewhere.mkdir()
-    _native_link(elsewhere, link, monkeypatch)
-    if dangling:
-        elsewhere.rmdir()
+    _native_link(elsewhere, copy, monkeypatch)
     _refuse_traversal(monkeypatch)
 
     result = install.ensure_global_skill({"HOME": str(home)})
 
-    assert result.reason == install.NOT_OWNED and str(link) in result.recovery
-    assert links.is_link(link) and links.link_target(link) == elsewhere.absolute()
-    assert str(link) not in {e["file"] for e in ledger.read()}
+    assert result.reason == install.NOT_OWNED and str(copy) in result.recovery
+    assert links.is_link(copy) and links.link_target(copy) == elsewhere.absolute()
+    assert str(copy) not in {e["file"] for e in ledger.read()}
 
 
-@pytest.mark.posix_only(reason="a relative directory symlink needs symlink privilege on Windows")
-def test_relative_link_to_the_shared_folder_counts_as_placed(home: Path, monkeypatch) -> None:
+@windows_smoke
+def test_uninstall_removes_an_owned_link_and_keeps_its_target(
+    home: Path, monkeypatch
+) -> None:
+    copy = _owned_link_from_an_earlier_release(home, monkeypatch)
+
+    lines, failures = revert_recorded()
+
+    assert failures == [] and f"removed {copy}" in lines
+    assert not os.path.lexists(copy) and not _shared(home).exists()
+
+
+def test_a_stale_claude_copy_is_reported_then_refreshed(home: Path) -> None:
     install.ensure_global_skill({"HOME": str(home)})
-    link = _claude_link(home)
-    links.remove_link(link)
-    link.symlink_to(Path("..") / ".." / ".agents" / "skills" / "yoke-global")
-    _refuse_traversal(monkeypatch)
+    stale = _claude_copy(home) / "SKILL.md"
+    stale.write_text("older release text\n", encoding="utf-8")
+    assert install.global_skill_ready("claude-code", {"HOME": str(home)}) == (
+        False,
+        f"global_skill_missing: {stale}",
+    )
 
-    assert install.global_skill_ready("claude-code", {"HOME": str(home)}) == (True, "")
-
-
-def test_unreadable_link_refuses_with_its_recovery(home: Path, monkeypatch) -> None:
-    _install(home, monkeypatch)
-    link = _claude_link(home)
-
-    def denied(path):
-        raise PermissionError(13, "Access is denied", str(path))
-
-    monkeypatch.setattr(install, "link_target", denied)
-
-    ready, detail = install.global_skill_ready("claude-code", {"HOME": str(home)})
     result = install.ensure_global_skill({"HOME": str(home)})
 
-    assert not ready and detail.startswith(f"{install.LINK_UNREADABLE}: {link}: ")
-    assert result.refused and result.reason == install.LINK_UNREADABLE
-    assert str(link) in result.recovery and "harness-setup --fix" in result.recovery
-    assert links.is_link(link)
+    assert not result.reason
+    assert stale.read_text(encoding="utf-8") == install.skill_text()
+    assert install.global_skill_ready("claude-code", {"HOME": str(home)}) == (True, "")

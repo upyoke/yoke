@@ -90,7 +90,7 @@ YOKE_ABSENT_RELATIVE_DIRECTORIES = (
     *(
         f"{skill.user_skills_dir.removeprefix('~/')}/{GLOBAL_SKILL_NAME}"
         for skill in HARNESS_GLOBAL_SKILLS.values()
-        if skill.placement == "link"
+        if skill.placement == "copy"
     ),
 )
 YOKE_ABSENT_TEMP_FILES = (INSTALLER_TEMP_PATH,)

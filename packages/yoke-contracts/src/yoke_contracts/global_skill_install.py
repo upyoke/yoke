@@ -1,36 +1,30 @@
 """Install the user-level ``yoke-global`` skill for every installed harness.
 
 Facts come from :mod:`yoke_contracts.harness_global_skill`: one shared folder
-``~/.agents/skills/yoke-global`` that Codex and Cursor read, plus a symlink
-for each ``link`` harness (Claude Code). A harness whose home folder is
-absent is not installed; the installer names it and never creates its home.
+``~/.agents/skills/yoke-global`` that Codex and Cursor read, plus a copy of
+the same skill file for each ``copy`` harness (Claude Code). A harness whose
+home folder is absent is not installed; the installer names it and never
+creates its home.
 
-Every folder or link Yoke creates is recorded in the harness settings ledger
+The Claude placement is a real folder, never a link: a native Windows SSH
+session runs under Redirection Guard and does not follow a directory junction
+its user created (WinError 448, untrusted mount point), so Claude started
+there could not see a linked skill. Every install rewrites a copy whose text
+differs from the shipped skill, so refresh keeps both placements current.
+
+Every folder Yoke creates is recorded in the harness settings ledger
 (:mod:`yoke_contracts.harness_settings_ledger`) as a ``created_dir`` entry, so
 ``yoke uninstall`` removes it. Parent folders the install had to create
 (``~/.agents``, ``~/.agents/skills``, ``~/.claude/skills``) are recorded as
-``created_parent_dir`` and removed only while empty. A folder or link already present that Yoke did
-not record is never overwritten: install refuses with
-``global_skill_path_not_owned``, the path and the recovery step.
-
-The Claude link is judged by the target it records, read without following
-it: a native Windows SSH session may not traverse a directory junction
-(WinError 448, untrusted mount point), and the record alone says whether the
-link is Yoke's. A link whose record cannot be read refuses with
-``global_skill_link_unreadable`` and the recovery step.
+``created_parent_dir`` and removed only while empty. A folder or link already
+present that Yoke did not record is never overwritten: install refuses with
+``global_skill_path_not_owned``, the path and the recovery step. A link Yoke
+recorded is replaced by the copy without following it.
 """
 
 from __future__ import annotations
 
-from yoke_contracts.platform_links import (
-    is_link,
-    link as create_link,
-    link_target,
-    remove_link,
-)
-
 import os
-import shutil
 from dataclasses import dataclass, field
 from importlib import resources
 from pathlib import Path
@@ -39,24 +33,15 @@ from typing import List, Mapping, Optional, Sequence
 from yoke_contracts import harness_settings_ledger as ledger
 from yoke_contracts.harness_global_skill import (
     HARNESS_GLOBAL_SKILLS,
-    link_path,
+    copy_path,
     shared_skill_dir,
 )
 from yoke_contracts.harness_machine_hooks import machine_hooks_for_harness
+from yoke_contracts.platform_links import is_link, remove_link
 
 SKILL_FILE = "SKILL.md"
 NOT_OWNED = "global_skill_path_not_owned"
 NO_HARNESS = "no_harness_installed"
-LINK_UNREADABLE = "global_skill_link_unreadable"
-
-
-class _LinkUnreadable(Exception):
-    """The placement is a link whose recorded target the account cannot read."""
-
-    def __init__(self, link: Path, error: OSError) -> None:
-        super().__init__(f"{LINK_UNREADABLE}: {link}: {error}")
-        self.link = link
-        self.error = error
 
 
 @dataclass
@@ -92,7 +77,7 @@ def skill_text() -> str:
 
 
 def user_home(environ: Optional[Mapping[str, str]] = None) -> Path:
-    """The home folder the shared skill folder and link harnesses live in."""
+    """The home folder the shared skill folder and copy harnesses live in."""
     env = os.environ if environ is None else environ
     return Path(env.get("HOME") or str(Path.home()))
 
@@ -121,8 +106,9 @@ def ensure_global_skill(
         )
         return result
     owned = _owned_paths()
+    text = skill_text()
     shared = shared_skill_dir(home)
-    if not _install_shared(shared, owned, result):
+    if not _install_folder(shared, text, owned, result):
         return result
     for harness_id in HARNESS_GLOBAL_SKILLS:
         if harness_id not in installed:
@@ -131,10 +117,10 @@ def ensure_global_skill(
         if HARNESS_GLOBAL_SKILLS[harness_id].placement == "shared":
             result.lines.append(f"{harness_id}: reads {shared}")
             continue
-        link = link_path(harness_id, home)
-        if not _install_link(link, shared, owned, result):
+        copy = copy_path(harness_id, home)
+        if not _install_folder(copy, text, owned, result):
             return result
-        result.lines.append(f"{harness_id}: {link} -> {shared}")
+        result.lines.append(f"{harness_id}: reads its copy at {copy}")
     return result
 
 
@@ -143,76 +129,37 @@ def global_skill_ready(
 ) -> tuple[bool, str]:
     """Whether *harness_id* discovers the current skill; detail names the gap."""
     home = user_home(environ)
-    shared = shared_skill_dir(home)
-    target = shared / SKILL_FILE
-    if not target.is_file() or target.read_text(encoding="utf-8") != skill_text():
-        return False, f"global_skill_missing: {target}"
-    if HARNESS_GLOBAL_SKILLS[harness_id].placement == "link":
-        link = link_path(harness_id, home)
-        try:
-            matches = _placement_matches(link, shared)
-        except _LinkUnreadable as exc:
-            return False, str(exc)
-        if not matches:
-            return False, f"global_skill_link_missing: {link}"
+    folders = [shared_skill_dir(home)]
+    if HARNESS_GLOBAL_SKILLS[harness_id].placement == "copy":
+        folders.append(copy_path(harness_id, home))
+    text = skill_text()
+    for folder in folders:
+        if not _is_current(folder, text):
+            return False, f"global_skill_missing: {folder / SKILL_FILE}"
     return True, ""
 
 
-def _placement_matches(link: Path, shared: Path) -> bool:
-    if is_link(link):
-        try:
-            target = link_target(link)
-        except OSError as exc:
-            raise _LinkUnreadable(link, exc) from exc
-        return _same_path(target, shared.absolute())
-    # The copy fallback is valid only for a placement this installer owns.
-    copied = link / SKILL_FILE
-    return (str(link) in _owned_paths() and copied.is_file()
-            and copied.read_bytes() == (shared / SKILL_FILE).read_bytes())
+def _is_current(folder: Path, text: str) -> bool:
+    """A real folder (checked before any traversal) holding the shipped text."""
+    if is_link(folder):
+        return False
+    target = folder / SKILL_FILE
+    return target.is_file() and target.read_text(encoding="utf-8") == text
 
 
-def _same_path(left: Path, right: Path) -> bool:
-    """Lexical equality under the platform's path case rules; no traversal."""
-    return os.path.normcase(os.path.normpath(left)) == os.path.normcase(
-        os.path.normpath(right)
-    )
-
-
-def _install_shared(shared: Path, owned: set, result: GlobalSkillResult) -> bool:
-    text = skill_text()
-    target = shared / SKILL_FILE
-    if target.is_file() and target.read_text(encoding="utf-8") == text:
-        return _record(shared, result)
-    if (shared.exists() or shared.is_symlink()) and str(shared) not in owned:
-        return _refuse(shared, result)
-    parents = _missing_parents(shared)
-    shared.mkdir(parents=True, exist_ok=True)
-    target.write_text(text, encoding="utf-8", newline="\n")
-    return _record(shared, result, parents)
-
-
-def _install_link(
-    link: Path, shared: Path, owned: set, result: GlobalSkillResult
+def _install_folder(
+    folder: Path, text: str, owned: set, result: GlobalSkillResult
 ) -> bool:
-    try:
-        matches = _placement_matches(link, shared)
-    except _LinkUnreadable as exc:
-        return _refuse_unreadable(exc, result)
-    if matches:
-        return _record(link, result)
-    if os.path.lexists(link):
-        if str(link) not in owned:
-            return _refuse(link, result)
-        if is_link(link):
-            remove_link(link)
-        elif link.is_dir():
-            shutil.rmtree(link)
-        else:
-            link.unlink()
-    parents = _missing_parents(link)
-    link.parent.mkdir(parents=True, exist_ok=True)
-    create_link(shared, link)
-    return _record(link, result, parents)
+    if _is_current(folder, text):
+        return _record(folder, result)
+    if os.path.lexists(folder) and str(folder) not in owned:
+        return _refuse(folder, result)
+    if is_link(folder):
+        remove_link(folder)
+    parents = _missing_parents(folder)
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / SKILL_FILE).write_text(text, encoding="utf-8", newline="\n")
+    return _record(folder, result, parents)
 
 
 def _missing_parents(path: Path) -> List[Path]:
@@ -249,17 +196,6 @@ def _refuse(path: Path, result: GlobalSkillResult) -> bool:
     return False
 
 
-def _refuse_unreadable(exc: _LinkUnreadable, result: GlobalSkillResult) -> bool:
-    result.reason = LINK_UNREADABLE
-    result.recovery = (
-        f"Yoke could not read where {exc.link} points ({exc.error}). Grant "
-        "this account read access to it, or move it aside, then run "
-        "`yoke doctor run --only harness-setup --fix`; it works outside a project."
-    )
-    result.lines.append(result.warning)
-    return False
-
-
 def _owned_paths() -> set:
     try:
         entries = ledger.read()
@@ -270,7 +206,6 @@ def _owned_paths() -> set:
 
 __all__ = [
     "GlobalSkillResult",
-    "LINK_UNREADABLE",
     "NOT_OWNED",
     "NO_HARNESS",
     "ensure_global_skill",

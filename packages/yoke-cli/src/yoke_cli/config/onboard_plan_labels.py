@@ -105,7 +105,7 @@ def friendly_line(action: str, target: str, project_name: str = "") -> str:
     if action == onboard_global_skill.INSTALL_ACTION:
         return (
             f"Install the yoke-global skill at {target} for sessions outside a "
-            "project (Claude Code links it from ~/.claude/skills)"
+            "project (Claude Code gets its own copy in ~/.claude/skills)"
         )
     if action == onboard_hook_resident.RESTART_ACTION:
         return "Start the hook evaluator so the first harness session answers fast"

@@ -7,8 +7,10 @@ differs from the project ``yoke`` skill, so it never shadows one.
 
 The skill lives once, in the shared user skill folder
 ``~/.agents/skills/yoke-global``. Codex and Cursor read that folder natively;
-Claude Code reads only ``~/.claude/skills``, so Claude gets a symlink to the
-shared folder — the same shape as a project's ``.claude/skills/yoke`` link.
+Claude Code reads only ``~/.claude/skills``, so Claude gets its own copy of
+the same skill file there. It is a real folder, not a link: native Windows
+OpenSSH sessions run under Redirection Guard and do not follow a junction the
+user created, so a linked skill was invisible to Claude started over SSH.
 This module is the single source for those facts. The renderer copies each
 entry into ``runtime/harness/<harness_id>/manifest.json`` under
 ``global_skill`` (documented in ``runtime/harness/manifest-global-skill.md``)
@@ -17,7 +19,7 @@ and :mod:`yoke_contracts.global_skill_install` installs from it.
 ``verified_on_surface`` names a surface only where a live session listed the
 installed skill; ``evidence`` says what was observed. Cursor also reads
 ``~/.claude/skills`` and ``~/.codex/skills`` when its third-party skill import
-is on; the Claude link resolves to the same folder.
+is on; the Claude copy carries the same skill text.
 """
 
 from __future__ import annotations
@@ -31,8 +33,8 @@ GLOBAL_SKILL_NAME = "yoke-global"
 #: The shared user skill folder, relative to the home directory.
 SHARED_SKILLS_DIR = ".agents/skills"
 
-#: ``shared`` reads the shared folder natively; ``link`` needs a symlink.
-Placement = Literal["shared", "link"]
+#: ``shared`` reads the shared folder natively; ``copy`` needs its own copy.
+Placement = Literal["shared", "copy"]
 
 
 @dataclass(frozen=True)
@@ -61,12 +63,13 @@ HARNESS_GLOBAL_SKILLS: dict[str, HarnessGlobalSkill] = {
     "claude-code": HarnessGlobalSkill(
         harness_home="~/.claude",
         user_skills_dir="~/.claude/skills",
-        placement="link",
-        verified_on_surface="claude-cli",
+        placement="copy",
+        verified_on_surface="",
         evidence=(
-            "Observed 2026-10-18: claude-cli 2.1.288 started outside every "
-            "project listed yoke-global through the ~/.claude/skills link to "
-            "$HOME/.agents/skills/yoke-global and invoked it."
+            "Copy placement not yet observed live. Observed 2026-11-27 (QA "
+            "artifact 59365): claude-cli 2.1.332 over native Windows SSH did "
+            "not list yoke-global through the earlier ~/.claude/skills "
+            "junction, which Redirection Guard refused to traverse."
         ),
     ),
     "codex": HarnessGlobalSkill(
@@ -108,8 +111,8 @@ def shared_skill_dir(home: Path) -> Path:
     return home / SHARED_SKILLS_DIR / GLOBAL_SKILL_NAME
 
 
-def link_path(harness_id: str, home: Path) -> Path:
-    """Where a ``link`` harness discovers the skill."""
+def copy_path(harness_id: str, home: Path) -> Path:
+    """Where a ``copy`` harness discovers its copy of the skill."""
     fact = global_skill_for_harness(harness_id)
     return home / fact.user_skills_dir.removeprefix("~/") / GLOBAL_SKILL_NAME
 
@@ -120,6 +123,6 @@ __all__ = (
     "HarnessGlobalSkill",
     "SHARED_SKILLS_DIR",
     "global_skill_for_harness",
-    "link_path",
+    "copy_path",
     "shared_skill_dir",
 )

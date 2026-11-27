@@ -72,7 +72,7 @@ the host. Extra probes name absolute argv and optional
 
 Keep signed-in vendor state but remove Yoke/uv state through the registered
 baseline preparation path. Remove the installed `yoke-global` skill and its
-Claude discovery link from the dedicated fixture before capture. Other skills
+Claude discovery copy from the dedicated fixture before capture. Other skills
 stay in place. If reset reports Yoke residue inside the golden, prepare and
 register a clean replacement before running another reset.
 

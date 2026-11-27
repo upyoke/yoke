@@ -42,9 +42,12 @@ def remove_link(path: str | Path) -> None:
         selected.unlink()
 
 
-def link(target: str | Path, path: str | Path) -> str:
+def link(target: str | Path, path: str | Path, *, junction: bool = True) -> str:
     """Return symlink/junction/copy; never overwrite an existing destination.
 
+    ``junction=False`` skips the junction step for a path a harness must read
+    over native Windows SSH: Redirection Guard does not follow a junction its
+    user created (WinError 448), so a copy serves there instead.
     A copied destination has no target identity: the caller must record its source.
     """
     source, destination = Path(target).absolute(), Path(path)
@@ -59,7 +62,7 @@ def link(target: str | Path, path: str | Path) -> str:
         raise FileExistsError(f"link_destination_exists: {destination}; remove the owned destination first") from exc
     except OSError:
         pass
-    if os.name == "nt" and source.is_dir():
+    if junction and os.name == "nt" and source.is_dir():
         # cmd is required for its built-in mklink; pass paths through environment
         # expansion so shell metacharacters in paths cannot become commands.
         # Pass native cmd syntax verbatim instead of applying argv quoting.

@@ -199,10 +199,10 @@
     "name": "yoke-global",
     "harness_home": "~/.claude",
     "user_skills_dir": "~/.claude/skills",
-    "placement": "link",
+    "placement": "copy",
     "shared_skill_dir": "~/.agents/skills/yoke-global",
-    "verified_on_surface": "claude-cli",
-    "evidence": "Observed 2026-10-18: claude-cli 2.1.288 started outside every project listed yoke-global through the ~/.claude/skills link to $HOME/.agents/skills/yoke-global and invoked it."
+    "verified_on_surface": "",
+    "evidence": "Copy placement not yet observed live. Observed 2026-11-27 (QA artifact 59365): claude-cli 2.1.332 over native Windows SSH did not list yoke-global through the earlier ~/.claude/skills junction, which Redirection Guard refused to traverse."
   },
   "turn_record": {
     "source": "yoke_contracts.harness_turn_record_capability.HARNESS_TURN_RECORD_CAPABILITIES",
