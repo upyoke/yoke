@@ -288,6 +288,10 @@ def test_opposite_host_orders_both_finish_without_deadlock(test_db, monkeypatch)
     assert [state for _, state, _ in _waits(test_db, e2)] == ["waiting", "waiting"]
     release(test_db, zb.id, "done")
     assert len(bodies) == 1 and f"QA host turn ready: {B}" in bodies[0]
+    assert (
+        "`yoke watch qa-plan --print-streaming-pair -- --resume-execution-id "
+        f"{e1}`, then run the invocation it prints once."
+    ) in bodies[0]
     with pytest.raises(MachineQaProtocolLeaseHeld):
         require_host_set_turn(test_db, {"id": e2}, (A, B))
     require_host_set_turn(test_db, {"id": e1}, (A, B))

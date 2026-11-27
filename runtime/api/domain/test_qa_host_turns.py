@@ -64,7 +64,7 @@ def test_manual_and_execution_waiters_share_one_fifo_line(test_db, monkeypatch):
     assert f"yoke claims coordination-claim release --claim-id {held.id}" in (
         refused.error.message
     )
-    _execution_wait(test_db, "plan")
+    execution_id = _execution_wait(test_db, "plan")
     assert [row["session_id"] for row in machine_waiters(test_db, MACHINE)] == [
         "manual",
         "plan",
@@ -89,6 +89,13 @@ def test_manual_and_execution_waiters_share_one_fifo_line(test_db, monkeypatch):
     release(test_db, reservation.id, "diagnosed")
     assert active_claim(test_db, target).session_id == "plan"
     assert len(notices) == 2 and "requirement is still open" in notices[1]
+    assert "watch qa-plan" not in notices[0]
+    assert (
+        "Take it on this same connection through the plan watcher: run "
+        "`yoke watch qa-plan --print-streaming-pair -- --resume-execution-id "
+        f"{execution_id}`, then run the invocation it prints once."
+    ) in notices[1]
+    assert "Take it with: yoke qa plan run" not in notices[1]
 
 
 def test_work_claim_release_by_id_advances_the_line(test_db, monkeypatch):

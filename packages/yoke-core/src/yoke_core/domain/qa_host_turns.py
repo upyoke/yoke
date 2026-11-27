@@ -219,12 +219,19 @@ def _wake_waiter(conn: Any, wait: dict[str, Any], claim: Any) -> None:
     if awaits_other_hosts(conn, wait):
         # The reservation that completes the execution's host set wakes it.
         return
-    open_requirement = (
-        " The requirement is still open; restore its declared starting state "
-        "before walking."
-        if wait["qa_plan_execution_id"]
-        else ""
-    )
+    resume = _resume_command(conn, wait)
+    take, open_requirement = f"Take it with: {resume}.", ""
+    if wait["qa_plan_execution_id"]:
+        plan_args = resume.removeprefix("yoke qa plan run ")
+        take = (
+            "Take it on this same connection through the plan watcher: run "
+            f"`yoke watch qa-plan --print-streaming-pair -- {plan_args}`, then run "
+            "the invocation it prints once."
+        )
+        open_requirement = (
+            " The requirement is still open; restore its declared starting state "
+            "before walking."
+        )
     created = send_message(
         conn,
         actor_id=int(wait["actor_id"]),
@@ -232,9 +239,8 @@ def _wake_waiter(conn: Any, wait: dict[str, Any], claim: Any) -> None:
         selector=RecipientSelector(session_ids=[str(wait["session_id"])]),
         body=(
             f"QA host turn ready: {wait['test_machine']}; reserved lease {claim.id} "
-            f"for this session. Take it with: {_resume_command(conn, wait)}."
-            f"{open_requirement} If you no longer need this turn, release it "
-            "before taking it so the next waiter gets it: "
+            f"for this session. {take}{open_requirement} If you no longer need "
+            "this turn, release it before taking it so the next waiter gets it: "
             f"`{holder_release_command(claim.id)}`."
         ),
         idempotency_key=f"qa-host-turn:{wait['id']}:{claim.id}",
