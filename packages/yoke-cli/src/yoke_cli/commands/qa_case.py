@@ -87,10 +87,13 @@ def qa_case_run(args: List[str]) -> int:
 
 
 def qa_plan_run(args: List[str]) -> int:
+    from yoke_core.domain.qa_plan_execution_cli_help import DELEGATED_ITEM_TRANSITION_HELP
+
     if show_delegate_help(
         args,
         QA_PLAN_RUN_USAGE,
-        "Requires the named immutable QA case or execution; item cases require the item work claim. "
+        "Requires the named immutable QA case or execution. "
+        f"{DELEGATED_ITEM_TRANSITION_HELP} "
         "At an item-scoped stage, a shared plan (two or more attachers at item QA entry) "
         "runs with --deployment-run-id RUN --plan P as the run's open plan group of P; "
         "with none open it refuses plan_group_not_open and lists P's closed groups. "
@@ -167,7 +170,8 @@ def qa_plan_abort(args: List[str]) -> int:
     if show_delegate_help(
         args,
         QA_PLAN_ABORT_USAGE,
-        "Requires the named immutable QA case or execution; item cases require the item work claim. "
+        "Requires the named immutable QA case or execution. "
+        f"{DELEGATED_ITEM_TRANSITION_HELP} "
         "--reason holds at most 200 characters: a code and a short diagnosis; "
         "cite the Progress Log or an artifact for the full rationale.",
     ):

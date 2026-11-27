@@ -1,9 +1,17 @@
 """Help text for ``yoke qa plan run``: the subject/scope matrix it teaches."""
 
+from textwrap import fill, indent
+
+DELEGATED_ITEM_TRANSITION_HELP = (
+    "For a claimless delegated item-transition walk, stay in the neutral launch directory, "
+    "omit --checkout-path and pass the exact --partition KEY, --expected-branch BRANCH "
+    "and --expected-sha FULL_SHA so the server resolves the requester's recorded lane."
+)
+
 #: The subject/scope matrix: which invocation credits which subject, and the
 #: release-time form whose omission leaves a stage unsatisfied. Read as
 #: ``yoke qa plan run --help``.
-QA_PLAN_RUN_EPILOG = """\
+QA_PLAN_RUN_EPILOG = f"""\
 Pick the subject, then the scope
 --------------------------------
 Select an item, deployment run, or manual project plan.
@@ -24,6 +32,7 @@ Select an item, deployment run, or manual project plan.
       item/task claim and select its exact registered --checkout-path PATH
       --expected-branch BRANCH --expected-sha FULL_SHA. The claim holder
       runs cases marked lane with yoke qa case run --requirement-id ID.
+{indent(fill(DELEGATED_ITEM_TRANSITION_HELP, width=73), '      ')}
 
   --item PREFIX-N --stage STAGE [--plan PLAN] [--project PROJECT]
       Fresh item QA uses its current completion authority, including a carrier
@@ -202,4 +211,4 @@ Source: docs/public/verification/failed-item-qa.md
 """
 
 
-__all__ = ["QA_PLAN_RUN_EPILOG"]
+__all__ = ["DELEGATED_ITEM_TRANSITION_HELP", "QA_PLAN_RUN_EPILOG"]
