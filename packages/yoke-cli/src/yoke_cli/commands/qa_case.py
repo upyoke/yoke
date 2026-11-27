@@ -170,8 +170,7 @@ def qa_plan_abort(args: List[str]) -> int:
     if show_delegate_help(
         args,
         QA_PLAN_ABORT_USAGE,
-        "Requires the named immutable QA case or execution. "
-        f"{DELEGATED_ITEM_TRANSITION_HELP} "
+        "Requires the named immutable QA case or execution; item cases require the item work claim. "
         "--reason holds at most 200 characters: a code and a short diagnosis; "
         "cite the Progress Log or an artifact for the full rationale.",
     ):
