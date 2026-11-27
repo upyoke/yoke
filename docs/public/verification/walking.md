@@ -264,5 +264,9 @@ remaining unknowns, and cleanup or restore receipts. For non-mission cases
 read the supplied capture and record the verdict the same way.
 
 In each pass or fail rationale cite `artifact N` using an artifact ID from
-that case. When the case has no artifacts, cite `run N` using its capture run
-ID. Submit one verdict row per case through the bundle's review-submit command.
+that case. A mission pass must cite a product artifact the walk attached: the
+docket's capture run and its `diagnostic` or `starting_state_restore`
+artifacts record only setup, so review-submit refuses that pass with
+`qa_mission_pass_without_product_proof`. Only a non-mission case with no
+artifacts may cite `run N` using its capture run ID. Submit one verdict row
+per case through the bundle's review-submit command.

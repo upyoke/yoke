@@ -52,7 +52,9 @@ def _validated_verdicts(
         ):
             raise QaPlanReviewError("agent review verdict batch is invalid")
         if verdict != UNDETERMINED_VERDICT and requirement_id not in persisted:
-            require_verdict_evidence(expected[requirement_id], rationale)
+            require_verdict_evidence(
+                expected[requirement_id], rationale, verdict=verdict
+            )
         result[requirement_id] = (verdict, rationale)
     if result.keys() != expected.keys():
         raise QaPlanReviewError(

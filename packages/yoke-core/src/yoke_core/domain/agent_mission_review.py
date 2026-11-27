@@ -116,8 +116,11 @@ def agent_mission_dispatch_contract(
             "If a workaround changed the behavior under test, rerun preserving "
             "that behavior before recording a pass. Submit exactly one row "
             f"for each of the {len(cases)} bundle cases in one complete batch. "
-            "Cite artifact N from that case in each pass or fail rationale, "
-            "or run N for its capture run when the case has no artifacts. "
+            "Cite artifact N from that case in each pass or fail rationale. "
+            "A mission pass must cite a product artifact the walk attached; "
+            "diagnostic and restore artifacts, and the docket's run N, prove "
+            "only setup. Cite run N only for a non-mission case with no "
+            "artifacts. "
             + inconclusive_verdict_guidance(allowed_verdicts)
             + _screen_recording_warning(cases)
         )
