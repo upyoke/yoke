@@ -8,6 +8,7 @@ did not create is never overwritten.
 
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 
@@ -15,6 +16,7 @@ import pytest
 
 from yoke_contracts import global_skill_install as install
 from yoke_contracts import harness_settings_ledger as ledger
+from yoke_contracts import platform_links as links
 from yoke_contracts.harness_global_skill import (
     HARNESS_GLOBAL_SKILLS,
     global_skill_for_harness,
@@ -183,3 +185,136 @@ def test_every_docs_link_in_the_skill_names_a_published_page() -> None:
         assert (DOCS_ROOT / f"{page}.md").is_file() or (
             DOCS_ROOT / page / "index.md"
         ).is_file(), f"yoke-global links https://upyoke.com/docs{path}, not a page"
+
+
+# The Claude placement is judged by the target its link records, never by
+# following it: a native Windows SSH session may refuse to traverse a junction
+# (WinError 448, untrusted mount point). On Windows these links are junctions.
+
+windows_smoke = pytest.mark.windows
+
+
+def _claude_link(home: Path) -> Path:
+    return home / ".claude" / "skills" / "yoke-global"
+
+
+def _deny_symlink(*args, **kwargs):
+    raise PermissionError("symlink privilege unavailable")
+
+
+def _native_link(target: Path, path: Path, monkeypatch) -> None:
+    """A junction on Windows, a symlink elsewhere: the placement each gets."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if os.name == "nt":
+        with monkeypatch.context() as patch:
+            patch.setattr(Path, "symlink_to", _deny_symlink)
+            assert links.link(target, path) == "junction"
+    else:
+        assert links.link(target, path) == "symlink"
+
+
+def _install(home: Path, monkeypatch) -> install.GlobalSkillResult:
+    """Install as a native Windows host without symlink privilege does."""
+    with monkeypatch.context() as patch:
+        if os.name == "nt":
+            patch.setattr(Path, "symlink_to", _deny_symlink)
+        return install.ensure_global_skill({"HOME": str(home)})
+
+
+def _refuse_traversal(monkeypatch) -> None:
+    def untrusted(*args, **kwargs):
+        raise OSError(22, "untrusted mount point (WinError 448)")
+
+    monkeypatch.setattr(Path, "resolve", untrusted)
+    monkeypatch.setattr(os.path, "realpath", untrusted)
+
+
+@windows_smoke
+def test_known_link_is_current_without_traversing_it(home: Path, monkeypatch) -> None:
+    assert not _install(home, monkeypatch).reason
+    link = _claude_link(home)
+    assert links.is_link(link)
+    before = ledger.read()
+    _refuse_traversal(monkeypatch)
+
+    assert install.global_skill_ready("claude-code", {"HOME": str(home)}) == (True, "")
+    result = install.ensure_global_skill({"HOME": str(home)})
+
+    assert not result.reason and ledger.read() == before
+    assert links.link_target(link) == _shared(home).absolute()
+    assert (link / "SKILL.md").read_text(encoding="utf-8") == install.skill_text()
+
+
+@windows_smoke
+@pytest.mark.parametrize("dangling", [False, True])
+def test_owned_mismatched_or_dangling_link_is_repaired(
+    home: Path, tmp_path: Path, monkeypatch, dangling: bool
+) -> None:
+    _install(home, monkeypatch)
+    link = _claude_link(home)
+    links.remove_link(link)
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    _native_link(elsewhere, link, monkeypatch)
+    if dangling:
+        elsewhere.rmdir()
+    _refuse_traversal(monkeypatch)
+    assert install.global_skill_ready("claude-code", {"HOME": str(home)}) == (
+        False,
+        f"global_skill_link_missing: {link}",
+    )
+
+    result = _install(home, monkeypatch)
+
+    assert not result.reason
+    assert links.link_target(link) == _shared(home).absolute()
+    assert install.global_skill_ready("claude-code", {"HOME": str(home)}) == (True, "")
+
+
+@windows_smoke
+@pytest.mark.parametrize("dangling", [False, True])
+def test_foreign_mismatched_or_dangling_link_is_left_untouched(
+    home: Path, tmp_path: Path, monkeypatch, dangling: bool
+) -> None:
+    link = _claude_link(home)
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    _native_link(elsewhere, link, monkeypatch)
+    if dangling:
+        elsewhere.rmdir()
+    _refuse_traversal(monkeypatch)
+
+    result = install.ensure_global_skill({"HOME": str(home)})
+
+    assert result.reason == install.NOT_OWNED and str(link) in result.recovery
+    assert links.is_link(link) and links.link_target(link) == elsewhere.absolute()
+    assert str(link) not in {e["file"] for e in ledger.read()}
+
+
+@pytest.mark.posix_only(reason="a relative directory symlink needs symlink privilege on Windows")
+def test_relative_link_to_the_shared_folder_counts_as_placed(home: Path, monkeypatch) -> None:
+    install.ensure_global_skill({"HOME": str(home)})
+    link = _claude_link(home)
+    links.remove_link(link)
+    link.symlink_to(Path("..") / ".." / ".agents" / "skills" / "yoke-global")
+    _refuse_traversal(monkeypatch)
+
+    assert install.global_skill_ready("claude-code", {"HOME": str(home)}) == (True, "")
+
+
+def test_unreadable_link_refuses_with_its_recovery(home: Path, monkeypatch) -> None:
+    _install(home, monkeypatch)
+    link = _claude_link(home)
+
+    def denied(path):
+        raise PermissionError(13, "Access is denied", str(path))
+
+    monkeypatch.setattr(install, "link_target", denied)
+
+    ready, detail = install.global_skill_ready("claude-code", {"HOME": str(home)})
+    result = install.ensure_global_skill({"HOME": str(home)})
+
+    assert not ready and detail.startswith(f"{install.LINK_UNREADABLE}: {link}: ")
+    assert result.refused and result.reason == install.LINK_UNREADABLE
+    assert str(link) in result.recovery and "harness-setup --fix" in result.recovery
+    assert links.is_link(link)
