@@ -16,8 +16,10 @@ any evaluation or server call:
   Claude hook steps aside only on the events Cursor fires on both configs;
   for tool events the imported project config can be the only one fired.
 
-A config the harness would reject does not own anything: skipping in its
-favour would drop the only invocation the event produces.
+A config the harness would reject does not own anything, and neither does an
+entry whose command cannot start on this machine (a ``/bin/sh`` project
+command on native Windows): skipping in its favour would drop the only
+invocation the event produces.
 """
 
 from __future__ import annotations
@@ -28,12 +30,15 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Optional
 
-from yoke_contracts.hook_shell_command import hook_command_owner, hook_command_source
+from yoke_contracts.hook_shell_command import (
+    hook_command_owner,
+    hook_command_source,
+    hook_command_start_problem,
+)
 from yoke_contracts.harness_machine_hooks import (
     HARNESS_BY_USER_OWNER,
     HARNESS_MACHINE_HOOKS,
     HarnessMachineHooks,
-    entry_commands,
 )
 from yoke_contracts.hook_runner.config_owner import (
     CLAUDE_CONFIG_OWNER,
@@ -104,28 +109,35 @@ def _config_owns(
     *,
     owner: Optional[str] = None,
 ) -> bool:
-    """Whether *path* holds a Yoke entry for every native event of *verb*.
+    """Whether *path* holds a startable Yoke entry for every native event of *verb*.
 
     With *owner*, the entry must carry that owner; without it, any Yoke entry
-    that is not a machine-wide one counts.
+    that is not a machine-wide one counts. An entry whose command cannot start
+    here never counts, so the machine-wide hook keeps the event.
     """
     native_events = spec.native_events_for(verb)
     hooks = _hooks_block(path, spec.harness_id) if native_events else None
     if hooks is None:
         return False
     evaluate = _evaluate_pattern(verb)
+    codex = spec.harness_id == "codex"
 
-    def counts(command: str) -> bool:
+    def counts(handler: dict[str, Any]) -> bool:
+        command = handler.get("command", "")
         if not evaluate.search(hook_command_source(command)):
             return False
         carried = hook_command_owner(command)
-        return carried == owner if owner else carried not in HARNESS_BY_USER_OWNER
+        if not (carried == owner if owner else carried not in HARNESS_BY_USER_OWNER):
+            return False
+        return not hook_command_start_problem(handler, codex=codex)
 
+    # The schema check above already proved each entry's shape: a nested
+    # entry lists its handlers, a flat (Cursor) entry is its own handler.
     return all(
         any(
-            counts(command)
+            counts(handler)
             for entry in hooks.get(native, [])
-            for command in entry_commands(entry)
+            for handler in entry.get("hooks", [entry])
         )
         for native in native_events
     )
