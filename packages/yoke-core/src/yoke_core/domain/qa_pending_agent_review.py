@@ -158,14 +158,28 @@ def pending_review_for_requirement(
 
 
 def _current_target_digests(conn: Any, requirement_ids: set[int]) -> dict[int, str]:
-    """Each requirement's current execution-target digest (``""`` when none)."""
-    p = marker(conn)
-    rows = conn.execute(
-        "SELECT id,execution_target_digest FROM qa_requirements "
-        f"WHERE id IN ({','.join(p for _ in requirement_ids)})",
-        tuple(sorted(requirement_ids)),
-    ).fetchall()
-    return {int(row["id"]): str(row["execution_target_digest"] or "") for row in rows}
+    """Each requirement's current execution-target digest (``""`` when none).
+
+    A stage presentation already holds its requirements; only the rest are read.
+    """
+    from yoke_core.domain.deployment_qa_presentation_facts import requirement_row
+
+    digests: dict[int, str] = {}
+    for requirement_id in requirement_ids:
+        row = requirement_row(conn, requirement_id)
+        if row is not None:
+            digests[requirement_id] = str(row["execution_target_digest"] or "")
+    unread = sorted(requirement_ids - digests.keys())
+    if unread:
+        p = marker(conn)
+        rows = conn.execute(
+            "SELECT id,execution_target_digest FROM qa_requirements "
+            f"WHERE id IN ({','.join(p for _ in unread)})",
+            tuple(unread),
+        ).fetchall()
+        for row in rows:
+            digests[int(row["id"])] = str(row["execution_target_digest"] or "")
+    return digests
 
 
 def pending_review_requirements(
