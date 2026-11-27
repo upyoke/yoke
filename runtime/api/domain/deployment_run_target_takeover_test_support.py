@@ -165,8 +165,10 @@ def _memberless_copy(conn, requirement_id: int, *, stage: str = ITEM_QA_STAGE) -
     return int(row["id"])
 
 
-def _dated_copy(conn, run_id, *, status, created_at, open_requirement=None):
-    """Another run on this target, optionally owning open QA for a closed member."""
+def _dated_copy(
+    conn, run_id, *, status, created_at, open_requirement=None, member=PASSED
+):
+    """Another run on this target, optionally owning a member's open QA."""
     conn.execute(
         "INSERT INTO deployment_runs(id,project_id,flow,target_tier,"
         "target_environment_id,release_lineage,status,current_stage,created_at) "
@@ -179,12 +181,12 @@ def _dated_copy(conn, run_id, *, status, created_at, open_requirement=None):
         conn.execute(
             "UPDATE qa_requirements SET deployment_run_id=%s,"
             "deployment_member_item_id=%s WHERE id=%s",
-            (run_id, PASSED, requirement),
+            (run_id, member, requirement),
         )
         conn.execute(
             "INSERT INTO deployment_run_items(run_id,item_id,added_at) "
             "SELECT %s,%s,created_at FROM deployment_runs WHERE id=%s",
-            (run_id, PASSED, run_id),
+            (run_id, member, run_id),
         )
     conn.commit()
 
