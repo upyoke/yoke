@@ -1,4 +1,5 @@
 """Link fallbacks preserve data and refuse existing destinations."""
+import ntpath
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -51,6 +52,7 @@ def test_windows_directory_link_creates_junction_without_symlink_privilege(monke
         assert links.link(source, destination) == "junction"
         assert destination.is_junction()
         assert destination.resolve() == source.resolve()
+        assert links.link_target(destination) == source.absolute()
         links.remove_link(destination)
         assert not destination.exists()
         assert data.read_text(encoding="utf-8") == "original"
@@ -59,6 +61,19 @@ def test_windows_directory_link_creates_junction_without_symlink_privilege(monke
             links.remove_link(destination)
         elif destination.exists():
             remove_tree(destination)
+
+
+@pytest.mark.parametrize("recorded, expected", [
+    ("\\\\?\\C:\\Users\\me\\shared", "C:\\Users\\me\\shared"),
+    ("\\\\?\\UNC\\server\\share\\shared", "\\\\server\\share\\shared"),
+    ("C:\\Users\\me\\shared", "C:\\Users\\me\\shared"),
+])
+def test_link_target_reads_the_windows_record_without_traversing(monkeypatch, recorded, expected):
+    def untraversable(*args, **kwargs):
+        raise OSError(22, "untrusted mount point (WinError 448)")
+    monkeypatch.setattr(Path, "resolve", untraversable)
+    monkeypatch.setattr(links, "os", SimpleNamespace(name="nt", path=ntpath, readlink=lambda path: recorded))
+    assert str(links.link_target("C:\\Users\\me\\.claude\\skills\\yoke-global")) == expected
 
 
 def test_missing_target_refuses(tmp_path):

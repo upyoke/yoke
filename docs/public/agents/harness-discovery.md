@@ -269,6 +269,11 @@ paths, and any parent folder setup created for them once it is empty. An
 existing path Yoke did not create refuses as
 `global_skill_path_not_owned`; move it aside, then run
 `yoke doctor run --only harness-setup --fix`, which works outside a project.
+Setup judges the Claude link by the target it records, without following it,
+so a native Windows SSH session that may not traverse the junction (an
+untrusted mount point) still sees it as current. A link whose target cannot be
+read refuses as `global_skill_link_unreadable`; grant your account read access
+or move the link aside, then run the same repair.
 
 ## Guard scope
 

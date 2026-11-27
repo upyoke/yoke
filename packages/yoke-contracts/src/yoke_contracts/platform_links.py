@@ -14,6 +14,25 @@ def is_link(path: str | Path) -> bool:
     return selected.is_symlink() or (os.name == "nt" and selected.is_junction())
 
 
+def link_target(path: str | Path) -> Path:
+    """The absolute path a symlink or junction names, read without traversing it.
+
+    Following a junction can be refused (Windows redirection trust raises
+    WinError 448 for an untrusted mount point), so the link's own record is
+    read instead. Windows reports that record in its extended form
+    (``\\\\?\\C:\\...``); the prefix is dropped so it compares with an
+    ordinary path. A relative target is joined to the link's folder lexically.
+    """
+    selected = Path(path)
+    target = os.readlink(selected)
+    if os.name == "nt":
+        if target.startswith("\\\\?\\UNC\\"):
+            target = "\\\\" + target[8:]
+        elif target.startswith("\\\\?\\"):
+            target = target[4:]
+    return Path(os.path.normpath(os.path.join(selected.absolute().parent, target)))
+
+
 def remove_link(path: str | Path) -> None:
     """Remove the link itself, preserving a directory junction's target."""
     selected = Path(path)
@@ -69,4 +88,4 @@ def link(target: str | Path, path: str | Path) -> str:
         raise OSError(f"link_creation_failed: {destination}; {recovery}, remove any incomplete owned copy, and retry: {exc}") from exc
 
 
-__all__ = ["link", "is_link", "remove_link"]
+__all__ = ["link", "is_link", "link_target", "remove_link"]

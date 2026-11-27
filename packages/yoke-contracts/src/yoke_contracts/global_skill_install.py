@@ -12,11 +12,22 @@ Every folder or link Yoke creates is recorded in the harness settings ledger
 ``created_parent_dir`` and removed only while empty. A folder or link already present that Yoke did
 not record is never overwritten: install refuses with
 ``global_skill_path_not_owned``, the path and the recovery step.
+
+The Claude link is judged by the target it records, read without following
+it: a native Windows SSH session may not traverse a directory junction
+(WinError 448, untrusted mount point), and the record alone says whether the
+link is Yoke's. A link whose record cannot be read refuses with
+``global_skill_link_unreadable`` and the recovery step.
 """
 
 from __future__ import annotations
 
-from yoke_contracts.platform_links import link as create_link, is_link, remove_link
+from yoke_contracts.platform_links import (
+    is_link,
+    link as create_link,
+    link_target,
+    remove_link,
+)
 
 import os
 import shutil
@@ -36,6 +47,16 @@ from yoke_contracts.harness_machine_hooks import machine_hooks_for_harness
 SKILL_FILE = "SKILL.md"
 NOT_OWNED = "global_skill_path_not_owned"
 NO_HARNESS = "no_harness_installed"
+LINK_UNREADABLE = "global_skill_link_unreadable"
+
+
+class _LinkUnreadable(Exception):
+    """The placement is a link whose recorded target the account cannot read."""
+
+    def __init__(self, link: Path, error: OSError) -> None:
+        super().__init__(f"{LINK_UNREADABLE}: {link}: {error}")
+        self.link = link
+        self.error = error
 
 
 @dataclass
@@ -128,18 +149,33 @@ def global_skill_ready(
         return False, f"global_skill_missing: {target}"
     if HARNESS_GLOBAL_SKILLS[harness_id].placement == "link":
         link = link_path(harness_id, home)
-        if not _placement_matches(link, shared):
+        try:
+            matches = _placement_matches(link, shared)
+        except _LinkUnreadable as exc:
+            return False, str(exc)
+        if not matches:
             return False, f"global_skill_link_missing: {link}"
     return True, ""
 
 
 def _placement_matches(link: Path, shared: Path) -> bool:
     if is_link(link):
-        return link.resolve() == shared.resolve()
+        try:
+            target = link_target(link)
+        except OSError as exc:
+            raise _LinkUnreadable(link, exc) from exc
+        return _same_path(target, shared.absolute())
     # The copy fallback is valid only for a placement this installer owns.
     copied = link / SKILL_FILE
     return (str(link) in _owned_paths() and copied.is_file()
             and copied.read_bytes() == (shared / SKILL_FILE).read_bytes())
+
+
+def _same_path(left: Path, right: Path) -> bool:
+    """Lexical equality under the platform's path case rules; no traversal."""
+    return os.path.normcase(os.path.normpath(left)) == os.path.normcase(
+        os.path.normpath(right)
+    )
 
 
 def _install_shared(shared: Path, owned: set, result: GlobalSkillResult) -> bool:
@@ -158,9 +194,13 @@ def _install_shared(shared: Path, owned: set, result: GlobalSkillResult) -> bool
 def _install_link(
     link: Path, shared: Path, owned: set, result: GlobalSkillResult
 ) -> bool:
-    if _placement_matches(link, shared):
+    try:
+        matches = _placement_matches(link, shared)
+    except _LinkUnreadable as exc:
+        return _refuse_unreadable(exc, result)
+    if matches:
         return _record(link, result)
-    if link.exists() or link.is_symlink():
+    if os.path.lexists(link):
         if str(link) not in owned:
             return _refuse(link, result)
         if is_link(link):
@@ -209,6 +249,17 @@ def _refuse(path: Path, result: GlobalSkillResult) -> bool:
     return False
 
 
+def _refuse_unreadable(exc: _LinkUnreadable, result: GlobalSkillResult) -> bool:
+    result.reason = LINK_UNREADABLE
+    result.recovery = (
+        f"Yoke could not read where {exc.link} points ({exc.error}). Grant "
+        "this account read access to it, or move it aside, then run "
+        "`yoke doctor run --only harness-setup --fix`; it works outside a project."
+    )
+    result.lines.append(result.warning)
+    return False
+
+
 def _owned_paths() -> set:
     try:
         entries = ledger.read()
@@ -219,6 +270,7 @@ def _owned_paths() -> set:
 
 __all__ = [
     "GlobalSkillResult",
+    "LINK_UNREADABLE",
     "NOT_OWNED",
     "NO_HARNESS",
     "ensure_global_skill",
