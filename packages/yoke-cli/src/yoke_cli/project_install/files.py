@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Tuple
 
 from yoke_cli.project_install.line_endings import fold_newlines
+from yoke_contracts.platform_links import resolve_links
 from yoke_cli.project_install.retired_git_hooks import LEGACY_HASH_KEY, remove as remove_retired_git_hooks
 from yoke_contracts.cursor_permissions import CURSOR_CONFIG_RELS
 from yoke_contracts.project_contract.install_policy import (
@@ -112,8 +113,8 @@ def assert_resolved_targets_within(
     *,
     context: str,
 ) -> None:
-    """Refuse mutation targets whose existing symlink parents escape root."""
-    root = repo_root.expanduser().resolve()
+    """Refuse targets whose existing link parents escape root; never traverse a link."""
+    root = resolve_links(repo_root)
     for rel in paths:
         if not isinstance(rel, str) or not rel:
             raise install_error.ProjectInstallError(f"{context} contains an invalid path")
@@ -123,10 +124,11 @@ def assert_resolved_targets_within(
                 f"{context} names unsafe repo-relative path {rel!r}"
             )
         try:
-            resolved = (root / path).resolve(strict=False)
+            resolved = resolve_links(root / path)
         except (OSError, RuntimeError) as exc:
             raise install_error.ProjectInstallError(
-                f"{context} target {rel!r} cannot be resolved safely: {exc}"
+                f"{context} target {rel!r} cannot be resolved safely: {exc}. Grant read "
+                "access to its links or move the link aside, then rerun yoke project refresh."
             ) from exc
         if resolved != root and root not in resolved.parents:
             raise install_error.ProjectInstallError(
