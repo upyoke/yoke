@@ -31,10 +31,12 @@ from yoke_core.domain.yoke_function_registry import lookup
 MEMBER = takeover.WAITING
 
 
-def _requirement(conn):
+def _case(conn):
+    """The member case wherever takeover moved it."""
     row = conn.execute(
-        "SELECT * FROM qa_requirements WHERE id=%s",
-        (takeover._requirement(conn, takeover.NEW, ITEM_QA_STAGE, MEMBER),),
+        "SELECT * FROM qa_requirements WHERE deployment_member_item_id=%s "
+        "AND deployment_stage=%s AND superseded_by_requirement_id IS NULL",
+        (MEMBER, ITEM_QA_STAGE),
     ).fetchone()
     return dict(row)
 
@@ -153,14 +155,14 @@ def test_late_pass_credits_successor_only_on_the_same_destination(
     assert _take_over_and_rebind(
         test_db, frozen, same_destination=same_destination
     ) == [requirement]
-    before = _requirement(test_db)
+    before = _case(test_db)
     assert before["rebound_at"] is not None and before["rebound_from_digest"] is None
     assert has_current_passing_run(test_db, requirement) is False
 
     outcome = _complete(requirement, run_id)
     assert outcome.primary_success, outcome.error
 
-    after = _requirement(test_db)
+    after = _case(test_db)
     attempt = test_db.execute(
         "SELECT verdict,raw_result FROM qa_runs WHERE id=%s", (run_id,)
     ).fetchone()
@@ -193,11 +195,11 @@ def test_late_failure_or_superseded_attempt_earns_no_credit(test_db, started):
     ).run_id
     test_db.commit()
     _complete(requirement, run_id)
-    assert _requirement(test_db)["rebound_from_digest"] is None
+    assert _case(test_db)["rebound_from_digest"] is None
 
     failed = _complete(requirement, int(newer), verdict="fail")
     assert failed.primary_success, failed.error
-    assert _requirement(test_db)["rebound_from_digest"] is None
+    assert _case(test_db)["rebound_from_digest"] is None
     assert has_current_passing_run(test_db, requirement) is False
 
 
@@ -238,14 +240,14 @@ def test_late_pass_settles_the_member_after_real_takeover(test_db, monkeypatch):
         ).fetchone()[0]
     )[1]
     materialize_and_gate_deployment_qa_stage(test_db, stage, run_id=takeover.NEW)
-    rebound = _requirement(test_db)
+    rebound = _case(test_db)
     assert rebound["id"] == requirement and rebound["rebound_from_digest"] is None
     assert json.loads(rebound["rebound_from_target_json"]) == frozen
 
     outcome = _complete(requirement, run_id)
     assert outcome.primary_success, outcome.error
 
-    assert _requirement(test_db)["rebound_from_digest"] == target_digest(frozen)
+    assert _case(test_db)["rebound_from_digest"] == target_digest(frozen)
     assert has_current_passing_run(test_db, requirement)
     # Ordinary settlement accepted the member and moved the successor on.
     assert (
@@ -258,3 +260,86 @@ def test_late_pass_settles_the_member_after_real_takeover(test_db, monkeypatch):
         "SELECT raw_result FROM qa_runs WHERE id=%s", (run_id,)
     ).fetchone()
     assert recorded_execution_target_digest(attempt[0]) == target_digest(frozen)
+
+
+THIRD = "run-takeover-third"
+
+
+def _take_over_again(conn, *, same_destination):
+    """A second takeover moves the open case from the successor onto THIRD."""
+    conn.execute(
+        "INSERT INTO deployment_runs(id,project_id,flow,target_tier,"
+        "target_environment_id,release_lineage,status,supersedes_run_id,created_at) "
+        "SELECT %s,project_id,flow,target_tier,target_environment_id,%s,"
+        "'created',%s,created_at FROM deployment_runs WHERE id=%s",
+        (THIRD, "d" * 40, takeover.NEW, takeover.OLD),
+    )
+    transfer_qa_on(conn, old_id=takeover.NEW, new_id=THIRD, moving={MEMBER})
+    current = json.loads(_case(conn)["execution_target_json"])
+    target = {
+        **current,
+        "deployment": {
+            **current["deployment"],
+            "run_id": THIRD,
+            "release_lineage": "d" * 40,
+        },
+    }
+    target["deployment"].pop("starting_run_id", None)
+    if not same_destination:
+        target["endpoints"] = {**target["endpoints"], "app_url": "https://moved.test"}
+    subject = {"id": THIRD, "stage": {"name": ITEM_QA_STAGE}, "member_item_id": MEMBER}
+    rebound = rebind_subject(conn, subject=subject, target=target)
+    conn.commit()
+    return rebound, current
+
+
+def _previous_digest(conn):
+    return target_digest(json.loads(_case(conn)["rebound_from_target_json"]))
+
+
+@pytest.mark.parametrize("same_destination", [True, False])
+def test_pass_started_on_a_credits_after_two_takeovers(
+    test_db, started, same_destination
+):
+    requirement, run_id, frozen = (
+        started["requirement"],
+        started["run_id"],
+        started["frozen"],
+    )
+    _take_over_and_rebind(test_db, frozen, same_destination=True)
+    rebound, immediate = _take_over_again(test_db, same_destination=same_destination)
+    assert rebound == [requirement]
+    # The open attempt's own start target survives the second rebind.
+    assert _previous_digest(test_db) == target_digest(
+        frozen if same_destination else immediate
+    )
+
+    outcome = _complete(requirement, run_id)
+    assert outcome.primary_success, outcome.error
+
+    after = _case(test_db)
+    assert after["deployment_run_id"] == THIRD
+    assert has_current_passing_run(test_db, requirement) is same_destination
+    assert after["rebound_from_digest"] == (
+        target_digest(frozen) if same_destination else None
+    )
+    attempt = test_db.execute(
+        "SELECT raw_result FROM qa_runs WHERE id=%s", (run_id,)
+    ).fetchone()
+    assert recorded_execution_target_digest(attempt[0]) == target_digest(frozen)
+
+
+def test_newer_attempt_on_the_immediate_target_keeps_it(test_db, started):
+    requirement, run_id = started["requirement"], started["run_id"]
+    _take_over_and_rebind(test_db, started["frozen"], same_destination=True)
+    newer = _start(test_db, requirement)
+    test_db.execute(
+        "UPDATE qa_runs SET started_at=%s WHERE id=%s",
+        (parse_instant("2026-11-27T05:00:00Z"), newer),
+    )
+    _, immediate = _take_over_again(test_db, same_destination=True)
+    assert _previous_digest(test_db) == target_digest(immediate)
+
+    _complete(requirement, run_id)
+    assert _case(test_db)["rebound_from_digest"] is None
+    assert has_current_passing_run(test_db, requirement) is False

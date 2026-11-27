@@ -84,7 +84,16 @@ def rebind_subject(conn, *, subject, target):
                 (
                     canonical_target(rebound_target),
                     target_digest(rebound_target),
-                    canonical_target(stored),
+                    canonical_target(
+                        _attempt_origin(
+                            conn,
+                            owner=str(subject["id"]),
+                            row=row,
+                            stored=stored,
+                            target=target,
+                            attempt=attempts.get(requirement_id),
+                        )
+                    ),
                     carried_digest,
                     instant_parameter(conn, utc_now()),
                     "Materialization follows the owning deployment's current target",
@@ -116,6 +125,29 @@ def rebind_subject(conn, *, subject, target):
                 execution=materialized_execution(execution),
             )
     return rebound
+
+
+def _attempt_origin(conn, *, owner, row, stored, target, attempt):
+    """The previous target to keep: where the case's latest attempt started.
+
+    A repeated takeover would otherwise overwrite a still-open attempt's
+    original target with the immediate predecessor. The already validated
+    previous target is kept only when the latest attempt recorded its digest
+    and it still inherits the same destination; otherwise, including when the
+    latest attempt started on the immediate target, the immediate one wins.
+    """
+    previous = _decode_stored_target(row.get("rebound_from_target_json"))
+    if attempt is None or previous is None or not row.get("rebound_at"):
+        return stored
+    recorded = recorded_execution_target_digest(attempt["raw_result"])
+    if (
+        not recorded
+        or recorded == target_digest(stored)
+        or recorded != target_digest(previous)
+        or not evidence_target_matches(conn, owner, previous, target)
+    ):
+        return stored
+    return previous
 
 
 def carry_execution_passes(conn, *, subject, target, execution):
