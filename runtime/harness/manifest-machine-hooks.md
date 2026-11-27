@@ -33,7 +33,10 @@ harness's project config for the session folder holds any non-machine-wide
 `yoke hook evaluate <Verb>` entry for the same native event, the user-level
 invocation exits as a no-op, for tool events too. Exactly one Yoke evaluation
 then runs per native event, so composed context is delivered once. A project
-file the harness would reject owns nothing.
+file the harness would reject owns nothing, and neither does an entry whose
+command cannot start on this machine (doctor's `hook_command_unstartable`
+check, such as a `/bin/sh` command on native Windows): the user-level hook then
+keeps the event.
 
 Cursor also fires imported Claude hook configs, including the user-level
 `~/.claude/settings.json`. The imported user-level Claude hook steps aside on
