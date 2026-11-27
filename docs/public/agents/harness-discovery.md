@@ -64,7 +64,9 @@ servers and hosted servers render the same canonical tree and discovery
 contract; wheels carry the same authored inputs.
 
 Each checkout gets a local, gitignored `.claude/skills/yoke` entry onto
-`.agents/skills/yoke` (symlink, else junction or copy); a fresh clone needs
+`.agents/skills/yoke`: a symlink, or a copy where Windows refuses symlinks. It
+is never a junction, because native Windows SSH sessions do not follow one
+the user created; refresh replaces an older junction and rewrites the copy. A fresh clone needs
 `yoke project refresh` before Claude finds the skill. An unexpected entry there
 refuses as `skill_discovery_entry_conflict`; preserve its contents elsewhere
 and rerun refresh. Codex and Cursor discover the canonical tree directly.

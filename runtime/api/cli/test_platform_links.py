@@ -36,6 +36,22 @@ def test_windows_copy_fallback(monkeypatch, tmp_path):
     assert (destination / 'data').read_bytes() == b'hello'
 
 
+def test_junction_false_copies_where_symlinks_are_refused(monkeypatch, tmp_path):
+    source = tmp_path / 'source'
+    source.mkdir()
+    (source / 'data').write_bytes(b'hello')
+    destination = tmp_path / 'copy'
+    monkeypatch.setattr(links, 'os', SimpleNamespace(name='nt', environ={}, path=links.os.path))
+    monkeypatch.setattr(Path, 'symlink_to', lambda *a, **k: (_ for _ in ()).throw(OSError('privilege')))
+
+    def no_junction(*args, **kwargs):
+        raise AssertionError('mklink /J must not run when junction=False')
+
+    monkeypatch.setattr(links.subprocess, 'run', no_junction)
+    assert links.link(source, destination, junction=False) == 'copy'
+    assert (destination / 'data').read_bytes() == b'hello'
+
+
 @pytest.mark.windows_only(reason="requires native Windows junctions")
 def test_windows_directory_link_creates_junction_without_symlink_privilege(monkeypatch, tmp_path):
     source = tmp_path / "source directory"

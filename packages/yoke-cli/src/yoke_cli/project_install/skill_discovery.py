@@ -2,8 +2,12 @@
 
 Claude finds the Yoke skill at ``.claude/skills/yoke``. Each checkout gets
 its own entry onto ``.agents/skills/yoke`` through
-:func:`yoke_contracts.platform_links.link`: a symlink, a junction where
-Windows refuses symlinks, or a copy as the last resort. The entry is local
+:func:`yoke_contracts.platform_links.link`: a symlink, or a copy where the
+platform refuses symlinks. It is never a junction: native Windows OpenSSH
+sessions run under Redirection Guard and do not follow a junction the user
+created, so Claude started there could not read the skill. Refresh replaces a
+junction an earlier install recorded with the copy, and rewrites a copy on
+every apply. The entry is local
 machine state. The installer's root ``.gitignore`` entry keeps it out of
 Git, and the next install commit untracks a link that older installs
 committed.
@@ -108,6 +112,11 @@ def _is_interrupted_copy(root: Path, rel: str, source: Path) -> bool:
     return True
 
 
+def _is_junction(path: Path) -> bool:
+    """A Windows junction, read from the entry itself without following it."""
+    return os.name == "nt" and path.is_junction()
+
+
 def is_link_entry(info: os.stat_result) -> bool:
     """A symlink, or a Windows junction or other reparse point."""
     reparse = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0)
@@ -129,7 +138,7 @@ def apply(root: Path, records: Mapping[str, str] | None = None) -> list[str]:
     changed = []
     for rel, destination in SKILL_DISCOVERY_LINKS.items():
         state = entry_state(root, rel, records)
-        if state == LINKED:
+        if state == LINKED and not _is_junction(root / rel):
             continue
         if state == FOREIGN:
             _refuse(rel, "an unexpected discovery entry")
@@ -145,12 +154,12 @@ def apply(root: Path, records: Mapping[str, str] | None = None) -> list[str]:
             _remove_entry(target)
         target.parent.mkdir(parents=True, exist_ok=True)
         try:
-            link(source, target)
+            link(source, target, junction=False)
         except OSError as exc:
             raise ProjectInstallError(
                 f"skill_discovery_link_unavailable: cannot create {rel} ({exc}). "
                 "Enable Windows Developer Mode, or allow the checkout folder to "
-                "hold junctions or copies, then rerun yoke project refresh."
+                "hold copies, then rerun yoke project refresh."
             ) from exc
         changed.append(rel)
     return changed
