@@ -51,8 +51,11 @@ def yoke_executable() -> str:
     return shutil.which("yoke") or "yoke"
 
 
-def answer_command(prompt: SetupPrompt) -> str:
+def answer_command(prompt: SetupPrompt, *, resume_run_id: str | None = None) -> str:
+    """The next accepted answer; ``resume_run_id`` binds it to that persisted run."""
     parts = [yoke_executable(), "setup", "--agent"]
+    if resume_run_id:
+        parts.append(f"--resume {resume_run_id}")
     if prompt.input is not None or prompt.choices and not prompt.fields:
         parts.append(f"--answer {prompt.key}=<value>")
     else:
@@ -94,7 +97,26 @@ def plain(text: str | None) -> str | None:
         return text
 
 
-def question_fields(prompt: SetupPrompt) -> dict[str, Any]:
+def failed_apply_run(prompt: SetupPrompt | None, report_path: str | None) -> str | None:
+    """The persisted run a failed-Apply answer continues, when its report resumes.
+
+    Answering by ``--resume`` reopens that run at Review with its own saved
+    inputs, so the retry never revalidates what its first pass already created
+    (the project and its item prefix). Without a resumable report the answer
+    replays the saved answers as before.
+    """
+    from yoke_cli.config import onboard_wizard_apply_prompts as apply_prompts
+    from yoke_cli.config import onboard_wizard_flow_apply as flow_apply
+
+    if prompt is None or prompt.key != apply_prompts.APPLY_FAILED_KEY:
+        return None
+    run_id = flow_apply._apply_report_run_id(report_path)
+    return run_id if flow_apply._can_resume_run(run_id) else None
+
+
+def question_fields(
+    prompt: SetupPrompt, *, resume_run_id: str | None = None
+) -> dict[str, Any]:
     detail = [text for text in (prompt.subtitle, prompt.message) if text]
     detail.extend(prompt.detail_lines)
     spec = prompt.input
@@ -131,7 +153,7 @@ def question_fields(prompt: SetupPrompt) -> dict[str, Any]:
         "secret": prompt.secret,
         "human": human_data(prompt.human),
         "guidance": _guidance(prompt),
-        "answer_command": answer_command(prompt),
+        "answer_command": answer_command(prompt, resume_run_id=resume_run_id),
     }
 
 
@@ -196,8 +218,16 @@ def approval_pending(
     )
 
 
-def refused(reason: str, recovery: str, prompt: SetupPrompt | None) -> dict[str, Any]:
-    current = question_fields(prompt) if prompt is not None else {}
+def refused(
+    reason: str,
+    recovery: str,
+    prompt: SetupPrompt | None,
+    *,
+    resume_run_id: str | None = None,
+) -> dict[str, Any]:
+    current = (
+        question_fields(prompt, resume_run_id=resume_run_id) if prompt is not None else {}
+    )
     return response(STATE_REFUSED, reason=reason, recovery=recovery, **current)
 
 
@@ -233,6 +263,7 @@ __all__ = [
     "browser",
     "emit",
     "failed",
+    "failed_apply_run",
     "plain",
     "question",
     "refused",

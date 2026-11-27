@@ -1,0 +1,10 @@
+{
+ "id": "apply-failure-resume",
+ "title": "A failed Apply's printed answer names its run with --resume RUN-ID, so retry, resume or back continues that run with the project and item prefix it already created.",
+ "status": "observed",
+ "form": "Teach",
+ "verification": "Agent shell regression tests run the printed command after the prefix is taken; deployed delivery is owed by QA plan setup-failed-apply-printed-retry.",
+ "topics": ["installation"],
+ "sources": ["packages/yoke-cli/src/yoke_cli/config/setup_agent_response.py", "packages/yoke-cli/src/yoke_cli/config/setup_agent_shell.py", "docs/public/start/agent-setup.md", "runtime/api/cli/test_setup_agent_apply_retry.py"],
+ "position": 15
+}
