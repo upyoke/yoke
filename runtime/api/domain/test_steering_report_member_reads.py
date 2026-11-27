@@ -28,7 +28,7 @@ RUN = "run-member-report"
 
 
 def _add_member(conn, member):
-    insert_item(conn, id=member, workflow_id="issue", status="done")
+    insert_item(conn, id=member, workflow_id="issue", status="release")
     plan = create_smoke_plan(conn, project="yoke", slug=f"member-smoke-{member}")
     conn.execute(
         "INSERT INTO qa_plan_item_attachments "

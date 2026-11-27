@@ -168,7 +168,7 @@ def seed_run_standing_on_qa_stage(
             project_sequence=item_id,
             project=project,
             workflow_id="issue",
-            status="done",
+            status="release",
         )
         conn.execute(
             "INSERT INTO deployment_run_items("

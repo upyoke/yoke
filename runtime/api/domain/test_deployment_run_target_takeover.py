@@ -226,8 +226,9 @@ def test_newest_live_run_wins_over_stale_failed_qa_without_restarting(
 
     cases = _dated_target(test_db)
     stale = "run-aaa-failed"
+    # The stale run still owes an unfinished member QA; a closed one would not hold it.
     _dated_copy(test_db, stale, status="failed", created_at="2026-11-01T00:00:00Z",
-                open_requirement=cases[WAITING])
+                open_requirement=cases[WAITING], member=WAITING)
     execution = begin_plan_execution(
         test_db, deployment_run_id=OLD, deployment_stage="item-qa",
         deployment_member_item_id=WAITING, actor_id="1", session_id=DRIVER_SESSION,
@@ -248,8 +249,9 @@ def test_newest_live_run_wins_over_stale_failed_qa_without_restarting(
 def test_only_newest_candidate_can_supply_qa(test_db, monkeypatch, newest_status):
     cases = _dated_target(test_db)
     stale = "run-aaa-failed"
+    # The stale run still owes an unfinished member QA; a closed one would not hold it.
     _dated_copy(test_db, stale, status="failed", created_at="2026-11-01T00:00:00Z",
-                open_requirement=cases[WAITING])
+                open_requirement=cases[WAITING], member=WAITING)
     test_db.execute("UPDATE deployment_runs SET status=%s WHERE id=%s",
                     (newest_status, OLD))
     if newest_status == "created":

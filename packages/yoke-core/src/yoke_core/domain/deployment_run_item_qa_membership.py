@@ -199,8 +199,42 @@ def require_item_qa_membership_possible(conn: Any, run_id: str) -> None:
         raise ValueError(_custody_refusal(flow, project, stages))
 
 
+def terminal_members(conn: Any, run_id: str) -> frozenset[int]:
+    """Members whose item reached a terminal stage of its pinned workflow.
+
+    A closed member owes the run no active item QA: dispatch skips it, and
+    the outstanding and standing readers omit it the same way. It stays a
+    member, and its frozen row, target and prior verdicts stay as history.
+    Inside a QA presentation every presented run is read in one statement.
+    """
+    from yoke_core.domain.deployment_qa_presentation_facts import presented_run_ids
+    from yoke_core.domain.deployment_qa_presentation_reads import presentation_read
+    from yoke_core.domain.workflow_status_queries import terminal_items_sql
+
+    runs = presented_run_ids(conn, str(run_id)) or (str(run_id),)
+
+    def read() -> dict[str, frozenset[int]]:
+        rows = query_rows(
+            conn,
+            "SELECT m.run_id,m.item_id FROM deployment_run_items m "
+            "JOIN items i ON i.id=m.item_id "
+            f"WHERE m.run_id IN ({','.join('%s' for _ in runs)}) "
+            f"AND {terminal_items_sql(conn)}",
+            tuple(runs),
+        )
+        found: dict[str, set[int]] = {run: set() for run in runs}
+        for row in rows:
+            found[str(row[0])].add(int(row[1]))
+        return {run: frozenset(items) for run, items in found.items()}
+
+    return presentation_read(conn, ("qa_terminal_members", tuple(runs)), read)[
+        str(run_id)
+    ]
+
+
 __all__ = [
     "NO_MEMBER_OWES_TARGET",
+    "terminal_members",
     "item_qa_membership_verdict",
     "memberless_item_qa_refusal",
     "owed_delivery_item_ids",

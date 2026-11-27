@@ -275,12 +275,16 @@ def _evaluate(
             no_obligation_lines=(item_qa.NO_MEMBER_OWES_TARGET,),
         )
     member_ref = member_ref_lookup(conn, members)
+    # A closed member stays attached but owes no active QA, as in dispatch.
+    closed = item_qa.terminal_members(conn, run_id) if members != [None] else ()
 
     # Every member's facts are read as one set for the walk, not per member.
     @member_presentation
     def walk(connection, subjects):
         found: list[tuple[int | None, list[str], list[str], str]] = []
         for member in members:
+            if member in closed:
+                continue
             label = f"member {member_ref(member)}" if member is not None else "run"
             member_lines, notes, state = _member_lines(
                 connection, run_id=run_id, stage=stage, member=member, label=label
@@ -296,7 +300,11 @@ def _evaluate(
     blocker_counts: list[int] = []
     member_states: list[str] = []
     no_obligation_lines: list[str] = []
-    subjects = [(run_id, member, stage_name) for member in members if member]
+    subjects = [
+        (run_id, member, stage_name)
+        for member in members
+        if member and member not in closed
+    ]
     for member, member_lines, notes, state in walk(conn, subjects):
         no_obligation_lines.extend(notes)
         if member_lines:

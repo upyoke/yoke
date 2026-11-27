@@ -178,6 +178,11 @@ def test_review_submit_returns_saved_verdict_after_member_lock_contention(
     test_db, monkeypatch
 ):
     execution, bundle, requirement = _seed_pending(test_db, "run-review-credit", "item")
+    # Replay of a completed credit is offered only once the item has closed.
+    test_db.execute(
+        "UPDATE items SET status='done' WHERE id=%s",
+        (execution["deployment_member_item_id"],),
+    )
     actor_id = register_session_actor(test_db, execution["session_id"])
     test_db.execute(
         "UPDATE qa_plan_executions SET actor_id=%s WHERE id=%s",
