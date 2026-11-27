@@ -153,21 +153,36 @@ def _bundle_requirement_ids(bundle_json: Any) -> set[int]:
 def pending_review_for_requirement(
     conn: Any, requirement_id: int
 ) -> PendingAgentReview | None:
-    """The pending review bundle that owns this requirement's verdict."""
-    for row in conn.execute(_PENDING_REVIEW_SQL).fetchall():
-        if int(requirement_id) in _bundle_requirement_ids(row["bundle_json"]):
-            return _pending(conn, row)
-    return None
+    """The pending review on this requirement's current target, if any."""
+    return pending_review_requirements(conn, [requirement_id]).get(int(requirement_id))
+
+
+def _current_target_digests(conn: Any, requirement_ids: set[int]) -> dict[int, str]:
+    """Each requirement's current execution-target digest (``""`` when none)."""
+    p = marker(conn)
+    rows = conn.execute(
+        "SELECT id,execution_target_digest FROM qa_requirements "
+        f"WHERE id IN ({','.join(p for _ in requirement_ids)})",
+        tuple(sorted(requirement_ids)),
+    ).fetchall()
+    return {int(row["id"]): str(row["execution_target_digest"] or "") for row in rows}
 
 
 def pending_review_requirements(
     conn: Any, requirement_ids: Iterable[int], *, stopped_only: bool = False
 ) -> dict[int, PendingAgentReview]:
-    """The pending review that owns each of these requirements' verdicts.
+    """The pending review that owns each requirement's verdict on its current target.
+
+    A release successor reuses requirement IDs under a new execution target,
+    so a bundle only answers for the requirement when its execution froze
+    the requirement's current digest. Targets are matched before the oldest
+    bundle is chosen; a historical bundle on another target stays pending
+    and readable on its own execution but never blocks or names the current
+    target's work.
 
     ``stopped_only`` keeps only reviews an aborted or errored execution
-    left. Roster admission compares their frozen targets before excluding
-    requirements, since only recapturing the same target races that review.
+    left, for roster admission: only recapturing the same target races that
+    review.
     """
     wanted = {int(value) for value in requirement_ids}
     if not wanted:
@@ -175,24 +190,27 @@ def pending_review_requirements(
     from yoke_core.domain.deployment_qa_presentation_reads import presentation_read
 
     stopped = " AND e.state IN ('aborted','error')" if stopped_only else ""
-    held: dict[int, PendingAgentReview] = {}
     # Decode each bundle once per presentation, including unmatched bundles.
     # A stage walk asks separately for every member's requirements.
     def read():
-        by_requirement: dict[int, Any] = {}
+        by_target: dict[tuple[int, str], Any] = {}
         rows = conn.execute(
             f"{_PENDING_REVIEW_SQL}{stopped} ORDER BY e.created_at, e.id"
         ).fetchall()
         for row in rows:
+            digest = str(row["execution_target_digest"] or "")
             for requirement_id in _bundle_requirement_ids(row["bundle_json"]):
-                by_requirement.setdefault(requirement_id, row)
-        return by_requirement
+                by_target.setdefault((requirement_id, digest), row)
+        return by_target
 
     rows = presentation_read(
         conn, ("qa_pending_review_index", stopped_only), read
     )
-    for requirement_id in wanted & rows.keys():
-        held[requirement_id] = _pending(conn, rows[requirement_id])
+    held: dict[int, PendingAgentReview] = {}
+    for requirement_id, digest in _current_target_digests(conn, wanted).items():
+        row = rows.get((requirement_id, digest))
+        if row is not None:
+            held[requirement_id] = _pending(conn, row)
     return held
 
 
