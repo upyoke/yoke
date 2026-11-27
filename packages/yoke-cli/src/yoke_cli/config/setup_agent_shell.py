@@ -221,8 +221,9 @@ class AgentSetup(AgentShell, *SETUP_FLOWS):
             if refusal.prompt is not None:
                 # The repeated question's printed answer must be the next one accepted.
                 self._answers.wait_at(refusal.prompt.key)
+            resume = responses.failed_apply_run(refusal.prompt, self.report_path)
             self._final = responses.refused(
-                refusal.reason, refusal.recovery, refusal.prompt
+                refusal.reason, refusal.recovery, refusal.prompt, resume_run_id=resume
             )
         except KeyboardInterrupt:
             self._final = responses.interrupted(report_path=self.report_path)
@@ -301,7 +302,9 @@ class AgentSetup(AgentShell, *SETUP_FLOWS):
             "continues the same run",
             report_path=self.report_path,
             failed_step=self.failed_step,
-            **responses.question_fields(prompt),
+            **responses.question_fields(
+                prompt, resume_run_id=responses.failed_apply_run(prompt, self.report_path)
+            ),
         )
 
     def _finish_done(self) -> None:

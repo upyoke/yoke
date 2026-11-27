@@ -141,7 +141,10 @@ Follow `recovery` and the failed checks' next steps before proceeding. For
 an evaluator start failure, `hook_evaluator` gives the cause and recovery.
 A failed Apply returns `state` `failed` with `reason` `setup_apply_failed`, the
 run report path and the failure question; show the person the cause, then
-answer it (`resume`, when offered, continues the same run). Answering a cancel
+answer it with its printed `answer_command`. When the run report can be
+resumed, that command carries `--resume RUN-ID`, so every answer continues
+that same run and keeps the project and item prefix it already created
+(`resume`, when offered, also keeps the completed steps). Answering a cancel
 choice returns `done` with `"cancelled": true` and deletes the saved answers.
 `yoke setup --agent --discard` deletes an in-progress agent setup.
 
