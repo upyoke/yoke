@@ -17,9 +17,19 @@ def _packaged_resource_bytes() -> bytes:
     return resource.read_bytes()
 
 
+def _long_paths_policy() -> str:
+    import winreg
+
+    try:
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SYSTEM\CurrentControlSet\Control\FileSystem") as key:
+            return str(winreg.QueryValueEx(key, "LongPathsEnabled")[0])
+    except FileNotFoundError:
+        return "absent"
+
+
 @pytest.mark.windows
 @pytest.mark.windows_only(reason="MAX_PATH and extended-length paths are native Windows filesystem behavior")
-def test_loader_reads_the_packaged_columns_beyond_max_path(tmp_path, monkeypatch):
+def test_loader_reads_the_packaged_columns_beyond_max_path(tmp_path, monkeypatch, request):
     data = tmp_path
     while len(str(data / _RESOURCE)) <= 300:
         data = data / ("release-generation-" + "x" * 40)
@@ -35,7 +45,12 @@ def test_loader_reads_the_packaged_columns_beyond_max_path(tmp_path, monkeypatch
         ordinary = resource.read_text(encoding="utf-8")
     except FileNotFoundError:
         ordinary = None
-    print(f"path length {len(str(resource))}; ordinary read {'failed' if ordinary is None else 'succeeded'}")
+    # The JUnit report carries the native boundary outcome as evidence.
+    request.node.user_properties += [
+        ("path_length", len(str(resource))),
+        ("ordinary_read", "failed" if ordinary is None else "succeeded"),
+        ("long_paths_enabled", _long_paths_policy()),
+    ]
     if ordinary is not None:
         assert art_data._parse_mixed_emoji_columns(ordinary) == art_data.MIXED_EMOJI_COLUMNS
     assert art_data._load_mixed_emoji_columns() == art_data.MIXED_EMOJI_COLUMNS
