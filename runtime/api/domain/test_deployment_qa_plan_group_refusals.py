@@ -92,12 +92,17 @@ def test_member_owned_plan_refusal_names_holder_command(test_db, function, selec
     assert subject["member_item_id"] == MEMBERS[0]
 
 
-def test_plan_run_help_teaches_member_and_shared_ownership(capsys):
+def test_plan_run_help_teaches_member_and_shared_ownership(capfd):
     from yoke_cli.commands.qa_case import qa_plan_run
 
     assert qa_plan_run(["--help"]) == 0
-    help_text = capsys.readouterr().out
+    help_text = " ".join(capfd.readouterr().out.split())
     assert "two or more attachers at item QA entry" in help_text
     assert "--deployment-run-id RUN --plan P" in help_text
     assert "its claim holder runs it with --item PREFIX-N --stage STAGE" in help_text
     assert "plan_member_owned" in help_text
+    assert (
+        "stay in the neutral launch directory, omit --checkout-path and pass the "
+        "exact --partition KEY, --expected-branch BRANCH and --expected-sha FULL_SHA "
+        "so the server resolves the requester's recorded lane"
+    ) in help_text

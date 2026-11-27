@@ -287,7 +287,7 @@ def test_run_recheck_reaches_a_holder_who_arrived_after_failure(test_db: Any) ->
     assert _recipients(test_db, key) == [HOLDER_A]
 
 
-def test_failure_text_records_a_dependency_only_for_a_finding_in_its_own_item(capsys):
+def test_failure_text_records_a_dependency_only_for_a_finding_in_its_own_item(capfd):
     from yoke_core.domain.deployment_qa_failure_handoff import failure_handoff_message
     from yoke_cli.commands.qa_case import qa_plan_run
 
@@ -299,7 +299,7 @@ def test_failure_text_records_a_dependency_only_for_a_finding_in_its_own_item(ca
         "dependency only when a finding is in this item and another item must land first."
     )
     assert qa_plan_run(["--help"]) == 0
-    help_text = " ".join(capsys.readouterr().out.split())
+    help_text = " ".join(capfd.readouterr().out.split())
     assert (
         "Record a closure dependency only when a finding is in this item and "
         "another item must land first" in help_text
