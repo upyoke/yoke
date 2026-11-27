@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import base64
+
 from runtime.api.domain.qa_aborted_mission_review_test_support import (
     _recorded_mission as _recorded_mission,
 )
@@ -29,6 +31,7 @@ from yoke_core.domain.qa_plan_execution_lifecycle import finish_plan_execution
 from yoke_core.domain.qa_plan_execution_state import (
     lock_plan_execution,
 )
+from yoke_core.domain.qa_artifact_recording import handle_qa_artifact_add
 
 
 @pytest.mark.parametrize("state", ["aborted", "error"])
@@ -39,6 +42,21 @@ def test_recorded_mission_is_reviewed_from_evidence_after_the_walk_stops(
     requirement_id, execution_id, run_id = _recorded_mission(
         test_db, tmp_path, monkeypatch, item_id
     )
+    evidence = handle_qa_artifact_add(
+        FunctionCallRequest(
+            function="qa.artifact.add",
+            actor=ACTOR,
+            target=TargetRef(kind="qa_requirement", qa_requirement_id=requirement_id),
+            payload={
+                "run_id": run_id,
+                "artifact_type": "evidence",
+                "content_type": "text/plain",
+                "filename": "mission-observation.txt",
+                "content_base64": base64.b64encode(b"Expected terminal frame was absent").decode(),
+            },
+        )
+    )
+    assert evidence.primary_success, evidence.error
     finish_plan_execution(
         test_db,
         lock_plan_execution(test_db, execution_id),
@@ -58,6 +76,9 @@ def test_recorded_mission_is_reviewed_from_evidence_after_the_walk_stops(
     assert begun.primary_success, begun.error
     bundle = begun.result_payload["review_bundle"]
     assert [case["capture_run_id"] for case in bundle["cases"]] == [run_id]
+    assert evidence.result_payload["qa_artifact_id"] in [
+        artifact["id"] for artifact in bundle["cases"][0]["artifacts"]
+    ]
     dispatch = bundle["dispatch"]
     assert "walker_dispatches" not in dispatch
     assert dispatch["submit_command"]
@@ -76,7 +97,7 @@ def test_recorded_mission_is_reviewed_from_evidence_after_the_walk_stops(
     assert "no walker can reach it" in refused.error.message
     assert "yoke qa plan review-begin" in refused.error.message
 
-    rationale = cite_case(bundle, "Only setup receipts were recorded; the mission was never walked.")
+    rationale = cite_case(bundle, "The expected terminal frame was absent.")
     submitted = handle_plan_review_submit(
         FunctionCallRequest(
             function="qa.plan_review.submit",

@@ -1,4 +1,4 @@
-"""An abandoned walk settles empty review dockets without judging the case."""
+"""A stopped walk settles empty review dockets without judging the case."""
 
 import pytest
 
@@ -19,8 +19,11 @@ from yoke_core.domain.qa_plan_review import begin_plan_review
     "artifact_type",
     [None, "diagnostic", "starting_state_restore", "terminal_screenshot"],
 )
-@pytest.mark.parametrize("reason", [STALE_PLAN_EXECUTION_REASON, IDLE_HOLD_RELEASED_REASON])
-def test_abandoned_mission_settles_only_review_without_product_evidence(
+@pytest.mark.parametrize(
+    "reason",
+    [STALE_PLAN_EXECUTION_REASON, IDLE_HOLD_RELEASED_REASON, "operator stopped the walk"],
+)
+def test_aborted_mission_settles_only_review_without_product_evidence(
     test_db, artifact_type, reason,
 ):
     execution, requirement_id, run_id = captured_plan_review(test_db, 9786)
@@ -59,11 +62,19 @@ def test_abandoned_mission_settles_only_review_without_product_evidence(
         (settled,) = reap_stale_plan_executions(test_db)
         assert settled["execution_id"] == str(execution["id"])
         assert settled["state"] == "aborted"
-    else:
+    elif reason == IDLE_HOLD_RELEASED_REASON:
         # The idle watchdog hands off the lease before finalizing the execution.
         finish_plan_execution(
             test_db, execution, state="aborted", reason=f"{reason}: returned host"
         )
+    else:
+        owner = test_db.execute(
+            "SELECT ended_at,terminated_at FROM harness_sessions WHERE session_id=%s",
+            (execution["session_id"],),
+        ).fetchone()
+        assert tuple(owner) == (None, None)
+        finish_plan_execution(test_db, execution, state="aborted", reason=reason)
+        assert execution["state"] == "aborted"
     run = test_db.execute(
         "SELECT case_outcome,verdict,verdict_reason FROM qa_runs WHERE id=%s",
         (run_id,),

@@ -68,24 +68,12 @@ def mission_review_cases(
     return reviewable
 
 
-def _abandoned_walk(conn: Any, execution: dict[str, Any], reason: str) -> bool:
-    from yoke_core.domain.qa_host_idle_hold import IDLE_HOLD_RELEASED_REASON
-    from yoke_core.domain.qa_plan_execution_abort_reason import abort_reason_code
-    from yoke_core.domain.qa_plan_execution_authority import plan_execution_is_abandoned
-    from yoke_core.domain.qa_plan_execution_lifecycle import STALE_PLAN_EXECUTION_REASON
-
-    return abort_reason_code(reason) in {
-        STALE_PLAN_EXECUTION_REASON,
-        IDLE_HOLD_RELEASED_REASON,
-    } or plan_execution_is_abandoned(conn, execution)
-
-
 def settle_stopped_mission_dockets(
     conn: Any, execution: dict[str, Any], *, state: str, reason: str
 ) -> None:
     """Keep diagnostics, but never offer a setup-only docket for judgment.
 
-    A setup refusal or abandoned walk can leave a docket with no product
+    A setup refusal or aborted walk can leave a docket with no product
     proof. Keep its verdict NULL so the gate can run the case again.
     """
     missions = {
@@ -96,9 +84,7 @@ def settle_stopped_mission_dockets(
     if not missions:
         return
     setup_blocked = reason.startswith("blocked_on_precondition:")
-    if not setup_blocked and (
-        state != "aborted" or not _abandoned_walk(conn, execution, reason)
-    ):
+    if not setup_blocked and state != "aborted":
         return
     p = marker(conn)
     for row in result_rows(conn, str(execution["id"])):
