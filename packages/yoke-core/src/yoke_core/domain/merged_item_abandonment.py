@@ -1,4 +1,8 @@
-"""Durable resolution audit and live-run guard for merged abandonment."""
+"""Admission, durable resolution audit and live-run guard for abandonment.
+
+``--abandon-merged`` admits merged work, and a laneless no-change Dash past
+review: its proved no-change close-out stands in for merge evidence.
+"""
 
 from __future__ import annotations
 
@@ -8,8 +12,21 @@ from typing import Any
 from yoke_contracts.timestamps import iso8601_now
 
 
+def abandonment_basis(
+    conn: Any, *, item_id: int, merged: bool, passed_review: bool
+) -> str | None:
+    """Which evidence admits abandonment, or None when it is ordinary work."""
+    if merged:
+        return "merged"
+    from yoke_core.domain.dash_execution import laneless_no_change_close_out
+
+    if passed_review and laneless_no_change_close_out(conn, item_id):
+        return "laneless_no_change"
+    return None
+
+
 def abandonment_audit(
-    conn: Any, *, item: dict, session_id: str | None, reason: str
+    conn: Any, *, item: dict, session_id: str | None, reason: str, basis: str | None
 ) -> str:
     """Keep the resolution audit in the close transaction."""
     from yoke_core.domain.project_identity import placeholder
@@ -22,10 +39,11 @@ def abandonment_audit(
     return json.dumps(
         {
             "action": "abandon_merged",
+            "basis": basis,
             "session_id": session_id,
             "actor_id": actor[0] if actor else None,
             "from_status": item["status"],
-            "merged_at": str(item["merged_at"]),
+            "merged_at": None if basis != "merged" else str(item["merged_at"]),
             "reason": reason,
             "recorded_at": iso8601_now(),
         },

@@ -91,9 +91,12 @@ def _build_parser() -> Any:
             "frozen is cleared as part of this close. There is no --thaw "
             "flag.\n\n"
             "--abandon-merged lets a caller with project items.write permission "
-            "close merged work that cannot finish. It preserves merge "
-            "evidence and records the actor, session, prior status and reason "
-            "in resolution_comment in the same transaction. It does not "
+            "close merged work that cannot finish, or a laneless no-change "
+            "Dash past review whose recorded no-change evidence stands in for "
+            "a merge. It preserves that evidence and records the actor, "
+            "session, prior status, basis and reason in resolution_comment in "
+            "the same transaction. Other unmerged work refuses "
+            "item_not_merged. It does not "
             "undo the code merge or mark the item delivered. Live deployment "
             "run membership refuses merged_item_live_deployment_run: first "
             "use yoke deployment-runs remove-item RUN ITEM --reason TEXT "
@@ -118,7 +121,7 @@ def _build_parser() -> Any:
     add_session_arg(parser)
     parser.add_argument(
         "--abandon-merged", action="store_true",
-        help="Close merged work with project items.write permission; see above.",
+        help="Close merged or no-change Dash work with project items.write permission; see above.",
     )
     add_json_arg(parser)
     return parser

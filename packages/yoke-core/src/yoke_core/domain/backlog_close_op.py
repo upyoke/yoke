@@ -87,16 +87,32 @@ def execute_close(
         item = dict(row)
         status = item["status"]
         merged = item.get("merged_at") not in (None, "", "null")
-        if abandon_merged:
-            from yoke_core.domain.merged_item_abandonment import abandonment_audit
+        runtime = load_item_workflow_runtime(conn, int(item_id))
+        position = runtime.stage_index(status)
+        passed_review = position is not None and any(
+            GATE_QA_VERIFICATION in runtime.gate_ids_for_stage(stage)
+            for stage in runtime.stage_ids[: position + 1]
+        )
+        from yoke_core.domain.merged_item_abandonment import (
+            abandonment_audit,
+            abandonment_basis,
+        )
 
+        basis = abandonment_basis(
+            conn, item_id=int(item_id), merged=merged, passed_review=passed_review
+        )
+        if abandon_merged:
             resolution_comment = abandonment_audit(
-                conn, item=item, session_id=session_id, reason=reason
+                conn, item=item, session_id=session_id, reason=reason, basis=basis
             )
-            if not merged:
+            if basis is None:
                 return {
                     "success": False,
-                    "error": "item_not_merged: use ordinary items cancel for unmerged work.",
+                    "error": (
+                        "item_not_merged: --abandon-merged admits merged work and "
+                        "laneless no-change Dashes past review; use ordinary "
+                        "items cancel for other unmerged work."
+                    ),
                 }
         normalized_resolution_ref = _normalize_item_ref(conn, resolution_ref)
 
@@ -107,26 +123,26 @@ def execute_close(
             )
             return {"success": True, "item_id": item_id, "noop": True}
 
-        runtime = load_item_workflow_runtime(conn, int(item_id))
         if status in runtime.terminal_stage_ids:
             return {
                 "success": False,
                 "error": f"{public_ref} is already done — cannot close a delivered item.",
             }
 
-        position = runtime.stage_index(status)
-        passed_review = position is not None and any(
-            GATE_QA_VERIFICATION in runtime.gate_ids_for_stage(stage)
-            for stage in runtime.stage_ids[: position + 1]
-        )
         if not abandon_merged and passed_review:
             return {
                 "success": False,
                 "error": (
                     f"{public_ref} is in delivery tail (status={status}). "
                     "Cannot close items past review."
-                    " For merged work that cannot finish, an operator may use "
-                    f"yoke items cancel {public_ref} --abandon-merged --reason TEXT."
+                    + (
+                        " For merged work or a laneless no-change Dash that cannot "
+                        "finish, an operator may use yoke items cancel "
+                        f"{public_ref} --abandon-merged --reason TEXT."
+                        if basis
+                        else " Unmerged work past review finishes through its "
+                        "workflow's delivery stages."
+                    )
                 ),
             }
 
