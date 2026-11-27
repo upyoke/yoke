@@ -47,8 +47,9 @@ baseline through its correction lineage within the run, stage and member.
 Replacement and supersession links join rows across plans and target digests;
 unrelated plans sharing a case key remain separate. System-retracted rows do
 not establish a lineage. Existing live requirements rebind in place to the current target. The requirement keeps its ID and
-records its previous target. A pass recorded before or after takeover carries
-when its destination matches. If a walk completes before the successor reaches
+records its previous target; after repeated takeovers that stays the target
+the case's latest attempt started on while the destination still matches. A
+pass recorded before or after takeover carries when its destination matches. If a walk completes before the successor reaches
 its QA stage, materialization credits the saved pass when the requirement
 rebinds. While the successor's item QA still has to credit the pass, the gate
 identifies it as carried and says to wait for the stage.
