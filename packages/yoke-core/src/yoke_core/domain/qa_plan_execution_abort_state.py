@@ -30,7 +30,10 @@ def owed_host_abort(conn, execution, *, reason):
     """Return the abort request held hosts still owe cleanup for, or None.
 
     A recorded agent_mission request stays owed while the mission holds its
-    machine lease: only its walk-end teardown releases that host.
+    machine lease: only its walk-end teardown releases that host. Before its
+    walk, a mission whose admitted preparation is in flight owes the same
+    restore proof as host_control work: its runner settles the blocking call,
+    restores the declared baseline and records that receipt with its docket.
     """
     from yoke_core.domain.qa_plan_execution_reentry import PAUSE_REASON
     from yoke_core.domain.qa_plan_host_leases import execution_host_leases
@@ -71,7 +74,10 @@ def owed_host_abort(conn, execution, *, reason):
         )
     )
     runner = roster[ordinal].get("runner_id")
-    if runner == "agent_mission" and needs_test_machine(roster[ordinal]) and request:
+    mission = runner == "agent_mission" and needs_test_machine(roster[ordinal])
+    if mission and execution["state"] in MISSION_WALK_STATES:
+        if not request:
+            return None
         from yoke_core.domain.agent_mission_restore import mission_restores_recorded
 
         return (
@@ -80,7 +86,11 @@ def owed_host_abort(conn, execution, *, reason):
             and not mission_restores_recorded(conn, execution)
             else None
         )
-    if runner != "host_control":
+    if mission and not request and not _preparation_in_flight(
+        conn, execution, ordinal
+    ):
+        return None  # Admission alone, or a settled docket, holds no host work.
+    if runner != "host_control" and not mission:
         return None
     if host_cleanup_proven(conn, execution, ordinal):
         return None
@@ -88,6 +98,17 @@ def owed_host_abort(conn, execution, *, reason):
 
 
 MISSION_WALK_STATES = frozenset({"walking", "awaiting_walk_review"})
+
+
+def _preparation_in_flight(conn, execution, ordinal):
+    """A checked-in mission admission whose docket preparation has not settled."""
+    from yoke_core.domain.qa_plan_execution_reentry import pause_checkpoint
+
+    if pause_checkpoint(execution).get("case_inflight") != ordinal:
+        return False
+    return not any(
+        row["ordinal"] == ordinal for row in result_rows(conn, str(execution["id"]))
+    )
 
 
 def mission_walk_owed(conn, execution):
@@ -207,9 +228,11 @@ def require_host_restored(conn, execution, *, reason, commit):
     if request is None:
         return
     ordinal = int(request["ordinal"])
-    if execution["roster"][ordinal].get(
-        "runner_id"
-    ) == "agent_mission" and needs_test_machine(execution["roster"][ordinal]):
+    if (
+        execution["state"] in MISSION_WALK_STATES
+        and execution["roster"][ordinal].get("runner_id") == "agent_mission"
+        and needs_test_machine(execution["roster"][ordinal])
+    ):
         raise QaPlanExecutionStateError(
             _MISSION_WALK_END + _ended_owner_recovery(conn, execution)
         )
@@ -252,6 +275,10 @@ def host_cleanup_proven(conn, execution, ordinal):
         if row["ordinal"] != ordinal:
             continue
         result = row["result"]
+        # A cancelled mission preparation records its restore with its docket.
+        prepared = (result.get("preparation") or {}).get("evidence") or {}
+        if case_restore_proven(case, prepared.get("starting_state_restore") or {}):
+            return True
         run = conn.execute(
             f"SELECT raw_result FROM qa_runs WHERE id={marker(conn)} AND qa_requirement_id={marker(conn)}",
             (result.get("run_id"), row["requirement_id"]),

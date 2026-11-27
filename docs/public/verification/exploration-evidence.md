@@ -134,6 +134,11 @@ reply then carries a `mission_walk_stopped` notice naming the cleanup still
 owed. The walker finishes cleanup and runs `walk-end`, which releases the host
 and settles the execution aborted with the abort's reason.
 
+Before any walk, an abort of checked-in docket preparation refuses with
+`qa_abort_restore_pending` and keeps the lease, not a hold-over. The runner
+finishes its blocking call, restores the baseline unless just proven, and its
+`mission.ready` receipt settles the abort with no walk.
+
 `walk-end` stores the restore receipt, releases the lease and settles the
 execution in one transaction. It owes a reset only when the receipt does not
 prove the baseline. If the receipt cannot be stored (a storage failure or a

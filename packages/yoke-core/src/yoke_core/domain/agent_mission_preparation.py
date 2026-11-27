@@ -23,7 +23,15 @@ from yoke_core.domain.machine_qa_mission_scratch import (
     MissionScratchStateUnknownError,
     mission_scratch_present,
 )
-from yoke_core.domain.machine_qa_phase_heartbeat import heartbeat_during
+from yoke_core.domain.machine_qa_chain_restore import (
+    STARTING_STATE_RESTORE,
+    restore_chain_start,
+)
+from yoke_core.domain.machine_qa_phase_heartbeat import (
+    MachineQaAborted,
+    check_abort,
+    heartbeat_during,
+)
 from yoke_core.domain.qa_controller_candidate import stamp_controller_runtime
 from yoke_contracts.machine_qa_result_safety import redact_machine_qa_value
 from yoke_core.domain.machine_qa_submission_artifacts import ensure_secret_free_result
@@ -56,6 +64,37 @@ def _failure(error: Exception, phase: str, secrets: tuple[str, ...]) -> dict[str
     }
 
 
+ABORT_ERROR_CODE = "qa_host_abort_requested"
+
+
+def _abort_restore(
+    contract: Any,
+    execution: Any,
+    baseline_proof: dict[str, Any] | None,
+    progress_callback: Callable[[], None] | None,
+) -> dict[str, Any]:
+    """The cleanup receipt a cancelled preparation owes before custody settles.
+
+    A baseline reached after the last host change already proves the case's
+    starting state; otherwise the case's declared baseline is restored. A
+    case without one records that no restoration is required.
+    """
+    case = contract.cases[0]
+    if not case.host_baseline:
+        return {"baseline": None, "restoration_required": False}
+    if baseline_proof is not None:
+        return {"restored": True, **baseline_proof}
+    settings = getattr(contract, "settings", None) or {}
+    with heartbeat_during(
+        STARTING_STATE_RESTORE, progress_callback, propagate_abort=False
+    ):
+        return restore_chain_start(
+            case,
+            execution.reach_baseline,
+            test_machine=str(settings.get("resource_name") or "TEST_MACHINE"),
+        )
+
+
 def prepare_mission(
     contract: Any,
     *,
@@ -70,6 +109,11 @@ def prepare_mission(
     the declared baseline, and again at ``yoke qa mission walk-start``: a
     mission is walked after its plan's other cases, which may have changed
     the machine since. Only walk-start creates scratch, which marks a live walk.
+
+    Each phase boundary checks for cancellation; a blocking phase finishes
+    first. A cancelled preparation stops, restores the case's declared
+    baseline unless it was just proven, and returns that
+    ``starting_state_restore`` receipt so the plan can settle the abort.
     """
     baseline_name = contract.baselines[0] if contract.baselines else None
     outcome: dict[str, Any] = {
@@ -91,6 +135,8 @@ def prepare_mission(
     }
     secrets: tuple[str, ...] = ()
     phase = "credential_materialization"
+    execution = None
+    baseline_proof: dict[str, Any] | None = None
     try:
         execution = execution_factory(contract, progress_callback=progress_callback)
         secrets = tuple(execution.material.secrets.values())
@@ -148,12 +194,14 @@ def prepare_mission(
             )
             preparation["evidence"]["continuity_fingerprint"] = continuity
         phase = "preparation_heartbeat"
-        if progress_callback is not None:
-            progress_callback()
+        check_abort(progress_callback)
         if baseline_name:
             phase = "baseline"
             outcome["state"] = "started"
-            with heartbeat_during("mission_baseline", progress_callback):
+            # The blocking reset settles before cancellation is acted on.
+            with heartbeat_during(
+                "mission_baseline", progress_callback, propagate_abort=False
+            ):
                 baseline = execution.reach_baseline(baseline_name)
             outcome["receipt"] = {
                 "baseline": baseline.name,
@@ -163,6 +211,7 @@ def prepare_mission(
             }
             if baseline.ok:
                 outcome["state"] = "completed"
+                baseline_proof = dict(outcome["receipt"])
             else:
                 evidence = baseline.evidence
                 user_equivalence = evidence.get("user_equivalence") or {}
@@ -190,21 +239,23 @@ def prepare_mission(
                 )
             preparation["evidence"].update(baseline.evidence)
         phase = "preparation_heartbeat"
-        if progress_callback is not None:
-            progress_callback()
+        check_abort(progress_callback)
         phase = "disk_preflight"
         preparation["evidence"]["disk_preflight"] = (
             execution.control.require_mission_disk_space()
         )
+        check_abort(progress_callback)
         if mission_manages_packages(contract) and not contract.continues_execution_id:
             restore_host_packages = get_qa_host_package_fixture().restore_host_packages
 
             phase = "os_packages"
+            baseline_proof = None  # Package restoration changes the host.
             preparation["evidence"]["os_packages"] = restore_host_packages(
                 execution.control,
                 contract.cases[0].method_config.get("host_starting_state"),
                 secrets=secrets,
             )
+            check_abort(progress_callback)
         else:
             preparation["evidence"]["os_packages"] = {}
         phase = "mission_scratch"
@@ -216,6 +267,16 @@ def prepare_mission(
             scratch = scratch_factory(execution.control, execution_id=execution_id)
             preparation["scratch_path"] = scratch["scratch_path"]
             preparation["evidence"]["scratch_created"] = True
+    except MachineQaAborted as error:
+        failure = {**_failure(error, phase, secrets), "error_code": ABORT_ERROR_CODE}
+        preparation.update(ok=False, error_code=ABORT_ERROR_CODE)
+        preparation["evidence"].update(
+            preparation_failure=failure,
+            abort={"reason": str(error), "host_work_stopped": True},
+        )
+        preparation["evidence"][STARTING_STATE_RESTORE] = _abort_restore(
+            contract, execution, baseline_proof, progress_callback
+        )
     except Exception as error:
         if communication_unknown(error) or checkin_busy(error):
             raise
