@@ -163,16 +163,8 @@ def test_small_benchmark_runs_normal_pre_and_post_hooks() -> None:
             )
             return subprocess.CompletedProcess(argv, 0, stdout, "")
         if "list" in tokens:
-            stdout = json.dumps(
-                {
-                    "result": {
-                        "rows": [
-                            {"turn_posture": "running"},
-                            {"turn_posture": "waiting"},
-                        ]
-                    }
-                }
-            )
+            posture = "running" if "working" in tokens else "waiting"
+            stdout = json.dumps({"result": {"rows": [{"turn_posture": posture}]}})
             return subprocess.CompletedProcess(argv, 0, stdout, "")
         if "events" in tokens:
             first, second = hook_identities[0], hook_identities[2]

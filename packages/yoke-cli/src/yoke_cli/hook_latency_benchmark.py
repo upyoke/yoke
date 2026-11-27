@@ -31,6 +31,10 @@ SAMPLE_COMMAND = (shutil.which("true") or "/usr/bin/true",)
 # bounded query. A run that still fills the limit says so in its coverage.
 UNRELATED_ROW_HEADROOM = 50
 EVENTS_QUERY_MAX_LIMIT = 1000
+# Live roster = Working plus Idle; Ended history is never scanned. Full rows
+# carry turn_posture, so each page stays small enough for the HTTPS reply.
+LIVE_ROSTER_STATUSES = ("working", "idle")
+ROSTER_PAGE_SIZE = 25
 _CLI_CODE = (
     "import sys; from yoke_cli.main import main; raise SystemExit(main(sys.argv[1:]))"
 )
@@ -39,6 +43,16 @@ Run = Callable[..., subprocess.CompletedProcess[str]]
 
 def _cli_argv(*args: str) -> list[str]:
     return [sys.executable, "-c", _CLI_CODE, *args]
+
+
+def _structured_error(stdout: str) -> Mapping[str, Any] | None:
+    try:
+        error = json.loads(stdout).get("error")
+    except (AttributeError, ValueError):
+        return None
+    if isinstance(error, dict) and error.get("code") and error.get("message"):
+        return error
+    return None
 
 
 def _run_json(run: Run, args: Sequence[str], env: Mapping[str, str]) -> dict[str, Any]:
@@ -50,9 +64,21 @@ def _run_json(run: Run, args: Sequence[str], env: Mapping[str, str]) -> dict[str
         check=False,
     )
     if completed.returncode != 0:
+        command = "yoke " + " ".join(args)
+        error = _structured_error(completed.stdout)
+        if error is not None:
+            raise BenchmarkRefusal(
+                str(error["code"]),
+                f"{command}: {error['message']}",
+                str(
+                    error.get("recovery_hint")
+                    or f"resolve the {error['code']} refusal of `{command}`, "
+                    "then rerun the benchmark"
+                ),
+            )
         raise BenchmarkRefusal(
             "HOOK_BENCHMARK_CONTEXT_UNAVAILABLE",
-            completed.stderr.strip() or "diagnostic read failed",
+            f"{command}: {completed.stderr.strip() or 'diagnostic read failed'}",
             "restore the active Yoke connection and registered session, then rerun",
         )
     try:
@@ -93,14 +119,36 @@ def _run_hook(
     return elapsed_ms, completed
 
 
-def _roster_evidence(rows: Sequence[Mapping[str, Any]]) -> dict[str, int]:
-    rows = [row for row in rows if (row.get("session_state") or {}).get("status") != "ended"]
-    return {
-        "live_roster_count": len(rows),
-        "tool_active_bucket_proxy_count": sum(
-            1 for row in rows if row.get("turn_posture") == "running"
-        ),
-    }
+def _roster_evidence(run: Run, env: Mapping[str, str]) -> dict[str, int]:
+    """Count live sessions page by page; one unbounded read outgrows the reply."""
+    live = running = 0
+    for status in LIVE_ROSTER_STATUSES:
+        offset = 0
+        while True:
+            rows = (
+                _run_json(
+                    run,
+                    (
+                        "sessions",
+                        "list",
+                        "--full",
+                        "--status",
+                        status,
+                        "--limit",
+                        str(ROSTER_PAGE_SIZE),
+                        "--offset",
+                        str(offset),
+                    ),
+                    env,
+                ).get("rows")
+                or []
+            )
+            live += len(rows)
+            running += sum(1 for row in rows if row.get("turn_posture") == "running")
+            if len(rows) < ROSTER_PAGE_SIZE:
+                break
+            offset += ROSTER_PAGE_SIZE
+    return {"live_roster_count": live, "tool_active_bucket_proxy_count": running}
 
 
 def run_benchmark(sample_count: int, *, run: Run = subprocess.run) -> dict[str, Any]:
@@ -115,9 +163,7 @@ def run_benchmark(sample_count: int, *, run: Run = subprocess.run) -> dict[str, 
     harness = str(identity.get("executor") or "unknown")
     surface = str(identity.get("executor_surface") or harness)
     env["YOKE_EXECUTOR"] = harness
-    roster_start = _roster_evidence(
-        _run_json(run, ("sessions", "list", "--full"), env).get("rows", [])
-    )
+    roster_start = _roster_evidence(run, env)
     started_at = parse_instant(utc_now())
     samples = []
     client_revisions: set[str] = set()
@@ -220,9 +266,7 @@ def run_benchmark(sample_count: int, *, run: Run = subprocess.run) -> dict[str, 
         sample["status"] = (
             "incomplete" if incomplete else "pending" if pending else "complete"
         )
-    roster_end = _roster_evidence(
-        _run_json(run, ("sessions", "list", "--full"), env).get("rows", [])
-    )
+    roster_end = _roster_evidence(run, env)
     summary = summarize_samples(samples)
     sample_statuses = {sample["status"] for sample in samples}
     if "incomplete" in sample_statuses:
@@ -262,7 +306,8 @@ def run_benchmark(sample_count: int, *, run: Run = subprocess.run) -> dict[str, 
         },
         "concurrency_evidence": {
             "definition": (
-                "live roster counts sessions.list present rows; tool-active bucket "
+                "live roster counts Working and Idle sessions.list rows, read in "
+                "bounded pages; tool-active bucket "
                 "proxy counts those rows whose turn_posture is running and does not "
                 "prove simultaneous tool execution"
             ),
