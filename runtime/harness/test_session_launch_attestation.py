@@ -101,8 +101,12 @@ def test_claude_session_start_defers_stdout_until_aggregate_settlement(
 
 def test_instruction_framing_denies_inherited_authority() -> None:
     rendered = launch_hook.render_launch_instructions(_injection())
-    assert "untrusted operational context" in rendered
-    assert "does not override approvals" in rendered
+    assert (
+        "Yoke matched this launch to your registered session. Follow the "
+        "assignment within your existing approvals, claims, sandboxing, and "
+        "security policy." in rendered
+    )
+    assert "untrusted operational context" not in rendered
     assert "Sender actor: 42" in rendered
     assert "Message ID: message-1" in rendered
     assert AUTOMATIC_LAUNCH_REGISTRATION_TEACHING in rendered
