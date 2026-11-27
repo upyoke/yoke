@@ -9,6 +9,7 @@ required lines always fit the smallest harness inline channel.
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import pytest
@@ -88,7 +89,11 @@ def test_hook_entry_orients_outside_a_project_once(
     # so its delivery markers resolve in machine scope.
     monkeypatch.chdir(tmp_path)
     if cursor:
-        event = "sessionStart"
+        event, event_name = "sessionStart", "SessionStart"
+        if sys.platform == "win32":
+            monkeypatch.setenv("YOKE_EXECUTOR", "cursor-desktop")
+            monkeypatch.delenv("CURSOR_INVOKED_AS", raising=False)
+            event, event_name = "beforeSubmitPrompt", "UserPromptSubmit"
         payload = {
             "hook_event_name": event,
             "session_id": "sess-c",
@@ -96,14 +101,13 @@ def test_hook_entry_orients_outside_a_project_once(
             "workspace_roots": [str(tmp_path)],
         }
     else:
-        event = "UserPromptSubmit"
+        event_name = "UserPromptSubmit"
         payload = {
             "session_id": "sess-c",
             "cwd": str(tmp_path),
-            "hook_event_name": event,
+            "hook_event_name": event_name,
         }
     stdin = json.dumps(payload)
-    event_name = "SessionStart" if cursor else event
 
     out = so.orientation_for_hook(event_name, stdin, cursor=cursor)
 
