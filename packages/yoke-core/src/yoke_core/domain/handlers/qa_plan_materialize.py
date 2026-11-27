@@ -234,7 +234,7 @@ def handle_materialize(request: FunctionCallRequest) -> HandlerOutcome:
                     stage=str(payload.deployment_stage),
                     member_ref=payload.deployment_member,
                     member_id=result.get("deployment_member_item_id"),
-                    project=payload.project,
+                    project=payload.project, plan=payload.plan,
                 )
                 result["retry"] = (
                     "These cases already exist, so nothing was created. A failed "

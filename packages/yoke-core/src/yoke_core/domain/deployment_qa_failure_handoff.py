@@ -10,6 +10,7 @@ from yoke_core.domain.deployment_run_driver_notice import push_member_notice
 from yoke_core.domain.json_helper import loads_text
 from yoke_core.domain.merge_queue_landing_notice import resolve_lane_recipient
 from yoke_core.domain.project_identity import render_item_ref, resolve_project
+from yoke_core.domain.qa_walk_launch_required import WALK_LAUNCH_GUIDANCE
 
 #: Identity every member QA failure handoff shares, ahead of its run/stage/item.
 FAILURE_HANDOFF_PREFIX = "deployment-qa-member-failure:"
@@ -30,7 +31,7 @@ def item_stage_retry_command(
 ) -> str:
     """The item-scoped retry, naming the run so a sibling run cannot answer."""
     return (
-        f"yoke qa plan run --item {item_ref} --stage {stage} "
+        f"yoke qa plan partitions --item {item_ref} --stage {stage} "
         f"--deployment-run-id {run_id} --project {project}"
     )
 
@@ -43,10 +44,13 @@ def retry_command_for_stage(
     member_ref: str | None,
     member_id: int | None,
     project: str | None,
+    plan: str | int | None = None,
 ) -> str:
     """Item stages retry by item; run stages keep the run id."""
     if not member_ref and member_id is None:
-        return f"yoke qa plan run --deployment-run-id {run_id} --stage {stage}"
+        if plan is None:
+            return f"yoke deployment runs get {run_id}"
+        return f"yoke qa plan partitions --deployment-run-id {run_id} --stage {stage} --plan {plan}"
     if not member_ref:
         member_ref = render_item_ref(conn, int(member_id))
     if not project and member_id is not None:
@@ -83,10 +87,10 @@ def failure_handoff_message(
         )
         return (
             f"{head}, recorded before this release took over. The current "
-            f"release contains the item's merge; retry the case: `{command}`."
+            f"release contains the item's merge; read partitions: `{command}`. {WALK_LAUNCH_GUIDANCE}"
         )
     return (
-        f"{head}; recovery: `yoke qa plan run --help`."
+        f"{head}; recovery: `yoke qa plan partitions --help`."
         " Classify the failure and fix a finding in this item; record a closure"
         " dependency only when a finding is in this item and another item must"
         " land first."

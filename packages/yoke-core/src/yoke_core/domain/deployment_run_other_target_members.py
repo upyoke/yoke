@@ -201,6 +201,7 @@ def set_aside_message(
 ) -> str:
     """Name each owed requirement, its environment, and how to run it."""
     from yoke_core.domain.merge_queue_landing_notice import HOLDER
+    from yoke_core.domain.qa_walk_launch_required import WALK_LAUNCH_GUIDANCE
 
     lines = [
         f"{public_ref} was delivered to {environment} by deployment run {run_id}, "
@@ -213,9 +214,9 @@ def set_aside_message(
             lines.append(f"- post-deploy plan {entry.plan_slug} on {target}: {entry.recovery}")
             continue
         lines.append(
-            f"- requirement {entry.requirement_id} ({entry.phase}) on {target}: run it "
-            f"on that environment's deployment run with `yoke qa plan run "
-            f"--item {public_ref} --stage STAGE`"
+            f"- requirement {entry.requirement_id} ({entry.phase}) on {target}: read its "
+            f"partitions on that environment with `yoke qa plan partitions "
+            f"--item {public_ref} --stage STAGE --deployment-run-id RUN`"
         )
     lines.append(
         f"Read `yoke qa requirement list --item {public_ref}` for each case and "
@@ -223,6 +224,7 @@ def set_aside_message(
         "closes against this delivery once they pass; delivery never accepts or "
         "waives them."
     )
+    lines.append(WALK_LAUNCH_GUIDANCE)
     if route == HOLDER:
         lines.append("You hold its work claim, so this acceptance is yours to drive.")
     else:

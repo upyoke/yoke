@@ -144,7 +144,7 @@ def test_failure_notice_is_inline_and_skips_its_verdict_producer(
         [body] = _bodies(test_db, key)
         assert f"#{requirement_id}" in body
         assert run_id in body and "item-qa" in body
-        assert "yoke qa plan run --help" in body
+        assert "yoke qa plan partitions --help" in body
         assert "\n" not in body
         # A report naming another item is no reason to depend on its fix.
         assert "record a closure dependency only when a finding is in this item" in body
@@ -237,7 +237,7 @@ def test_missing_holder_uses_member_project_steering_and_can_retry(
     ) in {"delivered", "undelivered"}
     assert _recipients(test_db, key) == [HOLDER_A]
     [body] = _bodies(test_db, key)
-    assert "yoke qa plan run --help" in body
+    assert "yoke qa plan partitions --help" in body
     assert f"#{requirement['id']}" in body
 
 

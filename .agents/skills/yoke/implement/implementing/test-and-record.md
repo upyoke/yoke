@@ -3,14 +3,12 @@
 ```text
 yoke qa plan materialize --item PREFIX-N --transition <verification-stage>
 yoke qa requirement list --item PREFIX-N --json
-yoke qa plan run --item PREFIX-N --transition <verification-stage>
-yoke qa case run --requirement-id <id>
+yoke qa plan partitions --item PREFIX-N --transition <verification-stage>
 ```
 
-The plan run is the one full execution. Never run a case's command by hand
-or substitute a smaller one.
-
-- Exit 12: dispatch the returned review bundle now; submit its verdicts.
+Run command-only and lane cases yourself and launch free walk partitions using
+`.yoke/docs/verification/walking.md#launch-a-walker`. Run cases through their registered commands.
+Reread partitions on walker reports before advancing.
 - `HUMAN_GATE`: checkpoint, route to steering or the owner, resume after.
 - A `machine_qa.operator_gate` line with `self_approving: true` needs no
   action; never forward its code.

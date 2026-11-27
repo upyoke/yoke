@@ -37,7 +37,6 @@ from yoke_core.domain.deployment_qa_stage_outcome import (
     OUTCOME_PASSED,
     OUTCOME_REJECTED,
 )
-from yoke_core.domain.session_message_service import send_message
 
 #: A stage result worth reporting. A stage still waiting is not one: the
 #: agent wake already addressed that, and this audience cannot act on it. A
@@ -175,6 +174,8 @@ def notify_qa_stage_result(
             "notified": [],
             "reason": "this stage configured no notification audience",
         }
+    from yoke_core.domain.session_message_service import send_message
+
     created = send_message(
         conn,
         # The sender shares an organization with every configured member,

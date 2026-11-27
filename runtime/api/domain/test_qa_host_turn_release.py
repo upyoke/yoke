@@ -77,11 +77,10 @@ def _report(conn) -> dict[int, str]:
 
 
 def test_released_reservation_aborts_the_waiting_execution_and_upkeep_wakes_it(
-    test_db, monkeypatch
+    test_db,
 ) -> None:
     conn = _seed(seed_steering_scope(test_db))
     execution_id = _waiting_member_execution(conn)
-    _notices(monkeypatch)
     target = make_qa_admission_target(MACHINE)
     reserve_host_turn(conn, target)
     conn.commit()
@@ -101,7 +100,7 @@ def test_released_reservation_aborts_the_waiting_execution_and_upkeep_wakes_it(
     assert state == "aborted"
     assert reason.startswith("qa_host_turn_released: ")
     assert f"QA host {MACHINE}" in reason
-    assert f"yoke qa plan run --item YOK-{MEMBER} --stage {ITEM_QA_STAGE}" in reason
+    assert f"yoke qa plan partitions --item YOK-{MEMBER} --stage {ITEM_QA_STAGE}" in reason
     assert active_claim(conn, target) is None
     assert _report(conn)[MEMBER] == DRIVERLESS
 

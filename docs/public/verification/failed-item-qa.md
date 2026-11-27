@@ -51,7 +51,7 @@ failed requirement.
   for a fresh capture of the failed requirement on that same target.
 - **Case defect:** repair the case when the product meets the intended outcome
   but the probe does not. Use the [correction-only replacement recipe](deployment-plan-execution.md#plan-groups)
-  or `yoke qa plan run --help`; retain the failed attempt and require a passing
+  or [the walker recipe](walking.md#launch-a-walker); retain the failed attempt and require a passing
   independent verdict on the replacement. Other failed or owed cases stay owed.
 - **Pass proven outside the run:** when another session's read proves the
   outcome, record the pass, then attach that read's output to the same run:
@@ -143,7 +143,7 @@ waived, superseded, retracted or passed; a shared plan's memberless rows never
 select a run for the item form. The run must be executing the stage:
 
 ```text
-yoke watch qa-plan -- --item ITEM --stage STAGE --project P
+yoke qa plan partitions --item ITEM --stage STAGE --deployment-run-id RUN --project P
 ```
 
 With no open rows yet, a run executing the stage qualifies when one of the
@@ -168,9 +168,9 @@ run creation remains the driver's responsibility:
 yoke deployment-runs create P FLOW --environment stage --idempotency-key KEY
 ```
 
-The driver confirms enrollment and drives the run to `item-qa`. Then the
-holder runs QA with `--item ITEM --stage item-qa`. To select an attached plan
-explicitly, use `yoke qa plan run --item ITEM --stage item-qa --plan PLAN`.
+The driver confirms enrollment and drives the run to `item-qa`. The holder
+reads partitions, adding `--plan PLAN` to select an attached plan. Run
+command-only cases and [launch free walks](walking.md#launch-a-walker).
 A finished run cannot execute QA again; arrange a new qualifying run before
 retrying.
 

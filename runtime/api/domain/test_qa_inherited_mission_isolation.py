@@ -2,6 +2,7 @@
 
 import pytest
 
+from runtime.api.domain.machine_qa_session_seed import seed_qa_session, seed_registered_qa_launch
 from runtime.api.domain.qa_member_machine_partitions_test_support import SESSION, _seed
 from yoke_core.domain.qa_plan_chain_hosts import chain_host_groups
 from yoke_core.domain.qa_plan_partition_chains import roster_partitions
@@ -91,6 +92,8 @@ def test_standalone_partition_keeps_the_inherited_mission_with_its_opener(
     assert len(execution["roster"]) == 2
     assert execution["roster"][-1]["starting_state"] == "inherit"
     if trailing:
+        seed_qa_session(test_db, "another-walker")
+        seed_registered_qa_launch(test_db, "another-walker")
         another = begin_standalone_execution(
             test_db, plan="host-check-0", project="yoke", actor_id="2",
             session_id="another-walker", source_revision="a" * 40,

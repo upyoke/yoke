@@ -1,5 +1,6 @@
 """Deployment-run QA execution through the serial Test Machine."""
 
+from runtime.api.domain.machine_qa_session_seed import seed_registered_qa_launch
 from runtime.api.domain.deployment_run_qa_plan_execution_test_support import (
     RUN_ID,
     deployment_run,
@@ -49,6 +50,7 @@ def test_deployment_plan_machine_case_uses_durable_serial_lease_and_evidence(
     )
     create_governed_tables(test_db)
     configure_test_machine(test_db, tmp_path, monkeypatch)
+    seed_registered_qa_launch(test_db, 'deployment-machine', actor_id=1)
     execution = begin_plan_execution(
         test_db,
         deployment_run_id=RUN_ID,

@@ -4,19 +4,17 @@
 [Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Verification](index.md) > Standalone plans
 <!-- /yoke:breadcrumbs -->
 
-Read a saved project's plan partitions, then run each free partition in its own session.
+Read a saved plan at its pinned revision and [launch free walks](walking.md#launch-a-walker).
 
 ```text
 yoke qa plan partitions --plan PLAN --project P --expected-branch REF --expected-sha SHA
-yoke qa plan run --plan PLAN --project P --expected-branch REF --expected-sha SHA --partition KEY
 ```
 
 Each run freezes one chain and its baselines. Its standalone execution
-owns the evidence independently of item and release gates. Resume its cursor
-in the owning session. The read shows live owners and outcomes at the requested
+owns the evidence independently of item and release gates. Start and resume
+the walk in the owning registered session, including a desktop session. The read shows live owners and outcomes at the requested
 commit. Independent partitions run in parallel. Use `after_case_key` to wait for an earlier partition.
 Unsupported runners or missing capabilities refuse before any case executes.
-For missions, follow [Walking QA missions](walking.md).
 
 Commands require `--checkout-path PATH --expected-sha FULL_SHA`: the checkout
 must be clean at that commit. CI cases require the SHA and `--expected-branch REF`,

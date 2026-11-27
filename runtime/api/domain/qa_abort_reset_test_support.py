@@ -7,6 +7,7 @@ from datetime import timedelta
 
 import pytest
 
+from runtime.api.domain.machine_qa_session_seed import seed_registered_qa_launch
 from runtime.api.domain.machine_qa_plan_execution_test_support import (
     ACTOR,
     _request,
@@ -70,6 +71,7 @@ def failed_restore(test_db, tmp_path, monkeypatch):
     item_id = 4550
     materialize_installer_campaign(test_db, item_id=item_id)
     configure_test_machine(test_db, tmp_path, monkeypatch)
+    seed_registered_qa_launch(test_db, ACTOR.session_id)
     execution = begin_plan_execution(
         test_db,
         item_id=item_id,

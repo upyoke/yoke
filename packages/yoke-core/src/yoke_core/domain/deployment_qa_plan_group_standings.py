@@ -31,7 +31,7 @@ def _open_group_standings(conn: Any, run_id: str, stage_name: str) -> list[tuple
         label = (
             f"plan group {group.group_id} ({slugs.get(group.plan_id) or group.plan_id})"
         )
-        command = f"yoke qa plan run --deployment-run-id {run_id} --stage {stage_name} --plan {group.plan_id}"
+        command = f"yoke qa plan partitions --deployment-run-id {run_id} --stage {stage_name} --plan {group.plan_id}"
         from yoke_core.domain.deployment_qa_plan_group_failure import group_failed
         from yoke_core.domain.deployment_qa_failure_triage import pinned_source_guidance
 

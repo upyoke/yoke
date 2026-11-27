@@ -39,8 +39,9 @@ The transition materializes the requirements its project and item
 attachments bind to it before any gate runs. A target stage that lists
 `qa_verification` requires every blocking verification requirement on the
 item to pass or be waived, including cases bound to an earlier stage that
-precedes it. Run them with `yoke qa plan run --item PREFIX-N --transition
-STAGE` before the QA-gated transition.
+precedes it. Read `yoke qa plan partitions --item PREFIX-N --transition STAGE`,
+run command-only and lane cases, and [launch free walks](../verification/walking.md#launch-a-walker).
+When no partition is free, held or blocked, attempt the QA-gated transition.
 
 ## Overrides and handoffs
 

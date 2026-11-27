@@ -25,6 +25,8 @@ from yoke_core.domain.deployment_run_driver_notice import (
 )
 from yoke_core.domain.merge_queue_landing_notice import HOLDER, push_notice
 from yoke_core.domain.qa_host_health import HOST_WAIT_TEACHING
+from yoke_core.domain.qa_partition_launch_recipe import partition_launch_command
+from yoke_core.domain.qa_walk_launch_required import WALK_LAUNCH_GUIDANCE
 
 #: Identity every item-scoped and run-scoped QA wait notice shares, so a
 #: later reader can find every still-pending wait without parsing bodies.
@@ -110,7 +112,7 @@ def stage_wait_message(
 
     ``discharge`` is the recorded no-obligation (or waiver-backed none)
     statement. When it is set, this member has nothing to run, so the
-    body names that fact instead of handing ``yoke qa plan run``.
+    body names that fact without asking for a partition read.
 
     ``owes_run=False`` means ``reasons`` are blockers no case run can clear
     (a pending review, an unsettled acceptance): the body names them and
@@ -139,25 +141,32 @@ def stage_wait_message(
             f"qa_plan_nothing_owed. Check 'yoke deployment-runs get {run_id}' "
             "for the current state."
         )
+    launch = partition_launch_command(
+        project="PROJECT", subject=item_ref, leg=stage_name, key="KEY",
+    )
     return (
         f"Deployment run {run_id} reached item-scoped QA stage {stage_name!r} "
         f"for {context}. Reaching {addressed}: {item_ref} still needs to "
         f"supply this stage's evidence/verdict ({reasons}). Read its partitions "
-        f"with 'yoke qa plan partitions --item {item_ref} --stage "
+        "naming BOTH the stage and the member, which is what this stage "
+        f"credits: 'yoke qa plan partitions --item {item_ref} --stage "
         f"{stage_name} --deployment-run-id {run_id}{_plan_selection(names_cases)} "
         f"--project PROJECT'. Run free command partitions with 'yoke qa plan run "
         f"--item {item_ref} --stage {stage_name} --deployment-run-id {run_id}"
         f"{_plan_selection(names_cases)} --project PROJECT --partition KEY'. "
         "If steering has already directed shared missions, send your pending "
         "requirements to steering and use the returned evidence for your "
-        "member verdict. Otherwise, for each free walk, send that command as "
-        "the instructions to "
-        "'yoke session-control launch create --project PROJECT --raw-instructions --stdin "
-        f"--idempotency-key qa-walk:{item_ref}:{stage_name}:KEY:1'. "
-        f"{HOST_WAIT_TEACHING} "
+        "member verdict. Otherwise, for each free walk, read requested_level with "
+        f"'yoke session-control launch preview --project PROJECT --item {item_ref}'. "
+        f"Use that value for LEVEL in '{launch}'. "
+        "Omit --item from launch create. Instruct the walker to use only the exact free "
+        "partition with delegated QA access. The holder retains its work claim. "
+        "Leave other held partitions and their host queues in place. "
+        "Supply the full walker instructions from the walking guide. "
+        "The stage credits its own member and stage; it never counts evidence from another stage. "
         "The stage binds the run's own "
         "deployed target, so a plan authored before this release still "
-        "verifies it. Check 'yoke deployment-runs get "
+        f"verifies it. {WALK_LAUNCH_GUIDANCE} {HOST_WAIT_TEACHING} Check 'yoke deployment-runs get "
         f"{run_id}' for the current state."
     )
 

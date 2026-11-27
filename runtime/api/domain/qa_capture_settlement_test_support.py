@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from runtime.api.domain.machine_qa_session_seed import seed_registered_qa_launch
 from runtime.api.domain.machine_qa_host_test_support import (
     configure_test_machine,
 )
@@ -136,6 +137,7 @@ def _capture_attempt(
     requirement_id: int,
 ) -> str:
     """Begin an execution and land its docket capture; returns execution id."""
+    seed_registered_qa_launch(test_db, ACTOR.session_id, actor_id=int(ACTOR.actor_id))
     execution = begin_plan_execution(
         test_db,
         item_id=item_id,

@@ -230,10 +230,10 @@ def case_failures(
                 )
             ]
         command = (
-            f"yoke qa plan run --item {member_ref_lookup(conn, [member_item_id])(member_item_id)} "
+            f"yoke qa plan partitions --item {member_ref_lookup(conn, [member_item_id])(member_item_id)} "
             f"--stage {stage_name} --deployment-run-id {run_id}"
             if member_item_id is not None
-            else f"yoke qa plan run --deployment-run-id {run_id} --stage {stage_name}"
+            else f"yoke deployment runs get {run_id}"
         )
         return [
             CaseFailure(
@@ -306,7 +306,7 @@ def case_failures(
                             review=reviewing.get(int(row["id"])),
                             live=live(),
                             recipe=(
-                                f"yoke qa plan run --deployment-run-id {run_id} "
+                                f"yoke qa plan partitions --deployment-run-id {run_id} "
                                 f"--stage {stage_name} --plan {shared_plan_id}"
                                 if shared_plan_id
                                 else f"yoke qa case run --requirement-id {row['id']}"

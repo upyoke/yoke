@@ -15,7 +15,7 @@ from runtime.api.domain.qa_member_machine_partitions_test_support import (
     host_slots,
     seed_fleet_cases,
 )
-from runtime.api.domain.machine_qa_session_seed import seed_qa_session
+from runtime.api.domain.machine_qa_session_seed import seed_qa_session, seed_registered_qa_launch
 from runtime.api.domain.deployment_qa_stage_execution_test_support import _complete_case
 from yoke_core.domain.coordination_claims import release
 from yoke_core.domain.machine_qa_case_hosts import normalize_config_machines
@@ -338,6 +338,7 @@ def test_mac_only_tags_pass_the_windows_driver_and_pick_the_tagged_mac(
         test_db, power_project="yoke", test_machine="z-mac", settings=tagged, base_settings=None,
     )
     verify_fixture_host(test_db, "z-mac")
+    seed_registered_qa_launch(test_db, SESSION)
     execution = _begin(test_db)
     response = _case_begin(execution)
     assert response.primary_success, response.error

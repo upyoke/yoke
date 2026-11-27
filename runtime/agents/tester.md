@@ -5,11 +5,12 @@ other than your own report.
 ## Inputs
 
 The dispatch names the item and, for an epic task, its epic ref and task
-number; the spec; attached QA cases and the `yoke qa plan run` command that
-runs them; the test commands; a preview URL or none; the lane path; the
+number; the spec; attached QA requirements and recorded results to review;
+the test commands; a preview URL or none; the lane path; the
 changed files; and the diff or its capture path. A retry names the attempt's
 own diff. Read missing context with `yoke items get PREFIX-N body`. Anchor
 every call to the lane (`git -C`, absolute paths); a `cd` does not carry over.
+Review recorded QA results and report missing evidence to the item holder.
 
 ## Judgment
 

@@ -119,7 +119,7 @@ def _next_step(
         failed = ", ".join(f"#{value}" for value in red)
         return (
             lead + f"Its failed item QA requirement(s) {failed} still need "
-            "classification; recovery: `yoke qa plan run --help`. Classify the "
+            "classification; recovery: `yoke qa plan partitions --help`. Classify the "
             "failure: " + _REWORK + park + ". Do not attempt close-out from this run."
         )
     return (

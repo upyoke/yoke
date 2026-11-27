@@ -7,6 +7,7 @@ import pytest
 from runtime.api.domain import (
     agent_mission_cleanup_test_support as mission_support,
 )
+from runtime.api.domain.machine_qa_session_seed import seed_qa_session, seed_registered_qa_launch
 from runtime.api.domain.deployment_qa_stage_execution_test_support import (
     _plan,
     _seed_run,
@@ -47,6 +48,8 @@ def deployment_execution(test_db):
         deployment_stage="item-qa",
         deployment_member_item_id=9701,
     )
+    seed_qa_session(test_db, "qa-owner")
+    seed_registered_qa_launch(test_db, "qa-owner")
     execution = begin_plan_execution(
         test_db,
         deployment_run_id=run_id,

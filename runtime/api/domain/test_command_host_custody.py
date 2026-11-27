@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from runtime.api.domain.machine_qa_session_seed import seed_registered_qa_launch
 from yoke_core.domain import host_lease_walk_heartbeat as walk_lease
 from yoke_core.domain import machine_qa_operation_lease as operations
 from yoke_core.domain import qa_plan_command_case as commands
@@ -245,6 +246,7 @@ def test_declared_command_acquires_lease_and_can_begin_nested_operation(
     requirement = materialize_for_item(
         test_db, item_id=item_id, transition_id="reviewing-implementation"
     )["created_requirement_ids"][0]
+    seed_registered_qa_launch(test_db, ACTOR.session_id, actor_id=int(ACTOR.actor_id))
     execution = begin_plan_execution(
         test_db,
         item_id=item_id,

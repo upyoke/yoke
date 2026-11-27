@@ -119,13 +119,11 @@ def test_item_message_names_the_stage_and_member_bound_invocation():
     )
 
     assert (
-        "yoke qa plan run --item EXT-541 --stage item-qa "
-        "--deployment-run-id run-1 --plan PLAN" in body
-    )
-    assert (
         "yoke qa plan partitions --item EXT-541 --stage item-qa "
         "--deployment-run-id run-1 --plan PLAN" in body
     )
+    assert "never counts" in body
+    assert "Launch each free walk in an itemless CLI session" in body
     assert "--partition KEY" in body
     assert (
         "If steering has already directed shared missions, send your pending "
@@ -133,6 +131,10 @@ def test_item_message_names_the_stage_and_member_bound_invocation():
         "member verdict. Otherwise, for each free walk" in body
     )
     assert "qa-walk:EXT-541:item-qa:KEY:1" in body
+    assert "launch preview --project PROJECT --item EXT-541" in body
+    assert "launch create --project PROJECT --level LEVEL" in body
+    assert "The holder retains its work claim" in body
+    assert "held partitions and their host queues" in body
     assert "runner queues this session in the Test Machine queue" in body
 
 
@@ -167,7 +169,7 @@ def test_a_stage_that_already_names_cases_gets_a_recipe_without_a_plan():
     )
 
     assert (
-        "yoke qa plan run --item EXT-541 --stage item-qa "
+        "yoke qa plan partitions --item EXT-541 --stage item-qa "
         "--deployment-run-id run-1 --project PROJECT"
     ) in body
     assert "--plan" not in body

@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from runtime.api.domain.machine_qa_session_seed import seed_registered_qa_launch
 from runtime.api.domain.machine_qa_host_test_support import configure_test_machine
 
 from runtime.api.domain.machine_qa_test_support import FakeHostControl
@@ -77,6 +78,7 @@ def removed_mission(test_db, tmp_path, monkeypatch, request):
     restored_before_removal = setup is True
     end_kind = setup if isinstance(setup, str) else "removed"
     configure_test_machine(test_db, tmp_path, monkeypatch)
+    seed_registered_qa_launch(test_db, ACTOR.session_id)
     requirement = _materialize_mission(test_db, item_id=ITEM)
     execution = begin_plan_execution(
         test_db,

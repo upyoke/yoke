@@ -101,3 +101,8 @@ def test_plan_run_help_teaches_member_and_shared_ownership(capsys):
     assert "--deployment-run-id RUN --plan P" in help_text
     assert "its claim holder runs it with --item PREFIX-N --stage STAGE" in help_text
     assert "plan_member_owned" in help_text
+    assert (
+        "stay in the neutral launch directory, omit --checkout-path and pass the "
+        "exact --partition KEY, --expected-branch BRANCH and --expected-sha FULL_SHA "
+        "so the server resolves the requester's recorded lane"
+    ) in help_text

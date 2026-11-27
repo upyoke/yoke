@@ -6,6 +6,7 @@ import json
 import pytest
 
 from runtime.api.domain import agent_mission_qa_test_support as mission
+from runtime.api.domain.machine_qa_session_seed import seed_registered_qa_launch
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
@@ -26,6 +27,7 @@ def walking(test_db, tmp_path, monkeypatch):
     mission.configure_test_machine(test_db, tmp_path, monkeypatch)
     item_id = 4596
     requirement_id = mission._materialize_mission(test_db, item_id=item_id)
+    seed_registered_qa_launch(test_db, mission.ACTOR.session_id, actor_id=int(mission.ACTOR.actor_id))
     execution = mission.begin_plan_execution(
         test_db,
         item_id=item_id,

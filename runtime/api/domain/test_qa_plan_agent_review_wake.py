@@ -100,7 +100,10 @@ def test_prior_stage_wait_does_not_absorb_review_notice(test_db, monkeypatch):
     )
 
     assert _recipients(test_db, f"qa-plan-agent-review:{execution['id']}") == [OWNER]
-    assert test_db.execute("SELECT COUNT(*) FROM session_messages").fetchone()[0] == 2
+    assert test_db.execute(
+        "SELECT COUNT(*) FROM session_messages m WHERE NOT EXISTS "
+        "(SELECT 1 FROM session_launches l WHERE l.message_id=m.message_id)"
+    ).fetchone()[0] == 2
 
 
 @pytest.mark.parametrize("gone", ["missing", "terminated"])
@@ -149,7 +152,10 @@ def test_delegated_capture_wakes_execution_owner_rather_than_another_holder(test
 def test_run_scoped_review_does_not_emit_an_item_notice(test_db):
     _owner(test_db)
     _seed_pending(test_db, "run-review-run-scope", "run")
-    assert test_db.execute("SELECT COUNT(*) FROM session_messages").fetchone()[0] == 0
+    assert test_db.execute(
+        "SELECT COUNT(*) FROM session_messages m WHERE NOT EXISTS "
+        "(SELECT 1 FROM session_launches l WHERE l.message_id=m.message_id)"
+    ).fetchone()[0] == 0
 
 
 def test_capture_and_notice_roll_back_together_on_notice_failure(test_db, monkeypatch):
@@ -248,7 +254,9 @@ def test_recorded_verdict_cancels_the_review_wake(test_db):
     assert str(row["cancellation_reason"]).startswith(SETTLED_REVIEW_WAKE_REASON)
     assert row["state"] == "cancelled"
     assert notify_scoped_agent_review(test_db, execution) == ""
-    assert _count(test_db, "session_messages") == 1
+    assert test_db.execute(
+        "SELECT COUNT(*) FROM session_messages WHERE idempotency_key LIKE 'qa-plan-agent-review:%'"
+    ).fetchone()[0] == 1
 
 
 def test_review_submission_not_receipt_expiry_cancels_the_wake(test_db, monkeypatch):

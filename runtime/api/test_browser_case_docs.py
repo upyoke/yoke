@@ -37,9 +37,10 @@ def test_gate_recovery_names_the_registered_case_runners() -> None:
     )
     for source in (text, gates):
         assert (
-            "`yoke qa plan run --item {name} --transition {transition_name}`" in source
+            "`yoke qa plan partitions --item {name} --transition {transition_name}`" in source
         )
         assert "`yoke qa case run --requirement-id <id>`" in source
+        assert "walking.md#launch-a-walker" in source
         assert "retry the lifecycle transition" in source
         assert "/yoke " + "advance" not in source
 

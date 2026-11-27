@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from runtime.api.domain.machine_qa_session_seed import seed_registered_qa_launch
 from runtime.api.domain.deployment_qa_admission_execution_test_support import (
     _original_requirement,
     _seed_selected_requirement_run,
@@ -111,6 +112,7 @@ def execute_member_stage(
     conn: Any, *, run_id: str, item_id: int, verdicts: dict[int, str]
 ) -> None:
     """Run the member's scoped execution, recording one verdict per case."""
+    seed_registered_qa_launch(conn, f"qa-{run_id}")
     execution = begin_plan_execution(
         conn,
         deployment_run_id=run_id,

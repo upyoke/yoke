@@ -168,62 +168,26 @@ QA_COMMANDS: list[dict] = [
         ),
     },
     {
-        "startup_roles": ("tester_agent",),
+        "startup_roles": ("main_agent",),
         "topic": "qa",
-        "purpose": "Execute immutable QA plans for an item, deployment, or project",
+        "purpose": "Read partitions for one member's deployment QA stage",
         "recipe": (
-            "yoke qa plan run --item PREFIX-N --transition TRANSITION "
-            "--base-url https://preview.example"
+            "yoke qa plan partitions --item PREFIX-N --stage STAGE "
+            "--deployment-run-id RUN --project P"
         ),
         "notes": (
-            "For standalone project evidence use `yoke qa plan run --plan PLAN --project P`; "
-            "it never credits an item or deployment gate. Read `yoke qa plan run --help` "
-            "for exact-commit source flags, direct CI dispatch, abort and continuation. "
-            "Begins or resumes a server-authorized execution before any "
-            "local runner runs. Stage pins the immutable roster, digest, "
-            "durable cursor, actor/session owner, and any machine lease; "
-            "each canonical result advances that cursor. After capture, "
-            "agent-verdict cases produce one immutable review bundle and "
-            "walking until hand-back, then awaiting_walk_review; exit 12: "
-            "follow the returned bundle instructions and submit the "
-            "complete verdict batch; until then review_status=pending, not a "
-            "pass, and a capture-side verdict is refused. Walk agent_mission cases "
-            "in this session's main thread. Route human gates, park and resume in "
-            "the same session, then cite evidence for each pass or fail. Agent "
-            "undetermined requires attached evidence, halts the item and creates "
-            "owner/operator Inbox work. A case that never ran uses "
-            "the failed/blocked outcome instead. Waiting runs resume from the same cursor, while "
-            "completion or abort releases the lease. Hosted services never "
-            "resolve local runner credentials."
+            "Use the run's active pinned QA stage. Run command-only partitions "
+            "from the owing session and launch each free walk in an itemless "
+            "CLI session. See .yoke/docs/verification/walking.md#launch-a-walker. "
+            "For a shared plan group, read with --deployment-run-id RUN "
+            "--stage STAGE --plan PLAN. Its passing verdicts credit the "
+            "covered members. Stage evidence stays bound to its target and lineage."
         ),
     },
     {
         "startup_roles": ("main_agent",),
         "topic": "qa",
-        "purpose": "Run one deployment QA stage",
-        "recipe": (
-            "yoke qa plan run --item PREFIX-N --stage STAGE [--plan PLAN] --project P"
-        ),
-        "notes": (
-            "Registered writes qa.plan.materialize and qa.plan_execution.begin. "
-            "The stage must be the run's active pinned schema-2 QA stage. A "
-            "stage is credited only by requirements bound to its own stage "
-            "name. At an item-scoped stage, --item runs that item's item cases, and "
-            "each attached post-deploy plan runs once per release as a plan group: "
-            "--deployment-run-id RUN --stage STAGE --plan P selects the run's open "
-            "plan group of P, and with none open refuses plan_group_not_open listing "
-            "P's closed groups. With --item, --plan runs only a plan group the item "
-            "attaches. A passing group closes and credits the items it covered. "
-            "Frozen snapshots supply flow cases and admitted item cases; at a "
-            "run-scoped stage a new plan fills only a stage naming none. Every case "
-            "and verdict stays on the existing qa_requirements/qa_runs/"
-            "qa_artifacts authority, bound to the deployed target and lineage."
-        ),
-    },
-    {
-        "startup_roles": ("main_agent", "tester_agent"),
-        "topic": "qa",
-        "purpose": "Run one QA case",
+        "purpose": "Run one lane QA case",
         "recipe": (
             "yoke qa case run --requirement-id R "
             "--base-url https://preview.example "
@@ -238,9 +202,9 @@ QA_COMMANDS: list[dict] = [
             "— its item, or its deployment run with item_id NULL — so the "
             "runner and qa.browser_context.get carry item_id OR "
             "deployment_run_id; never assume a case has an item. "
-            "This is not the form that credits a deployment QA stage: an "
-            "item-scoped binding refuses and names `yoke qa plan run "
-            "--item PREFIX-N --stage STAGE`. "
+            "For a deployment QA stage, read `yoke qa plan partitions "
+            "--item PREFIX-N --stage STAGE --deployment-run-id RUN`. Launch "
+            "free walk partitions using .yoke/docs/verification/walking.md#launch-a-walker. "
             "browser-check decides automatically; "
             "browser-inspection attaches evidence before an undetermined verdict, "
             "which halts the item and creates an owner/operator review request. "

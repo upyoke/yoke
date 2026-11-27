@@ -65,7 +65,7 @@ def test_a_wakeable_owner_of_a_qa_stage_holds_and_waits_for_the_wake():
     assert lines[0] == "ITEM-1 merged, not closed: awaiting delivery at release"
     assert "owes delivery: item-scoped QA stage item-qa (requirements 41, 42)" in body
     assert (
-        "`yoke watch qa-plan -- --item ITEM-1 --stage item-qa --project proj`" in body
+        "`yoke qa plan partitions --item ITEM-1 --stage item-qa --project proj`" in body
     )
     assert "woken natively when a stage needs it" in body
     assert "do not release, do not end this session" in body

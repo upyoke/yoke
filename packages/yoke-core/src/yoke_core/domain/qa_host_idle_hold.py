@@ -12,7 +12,7 @@ lease whose session is parked, process-exited or ended, and has made no tool
 call, host operation or other activity below for the machine setting
 :data:`IDLE_HOLD_SETTING`, is released through the manual release path
 (``qa_host_manual_release``): the reset the next holder owes is recorded and the
-owning walk is aborted with a reason naming the ``yoke qa plan run`` that starts
+owning walk is aborted with a reason naming the ``yoke qa plan partitions`` command that rediscovers
 it again. First, every unconsumed reservation held by an execution still waiting
 on that host returns to ``waiting`` at the execution's own place and its claim is
 released, so each of those hosts serves the queue. Each release reserves the host
@@ -238,7 +238,7 @@ def return_waiting_set_reservations(conn: Any, test_machine: str) -> list[int]:
 
 
 def _release_reason(conn: Any, claim: Any, row: dict, away: str, limit: timedelta) -> str:
-    from yoke_core.domain.qa_host_turn_release import rerun_command
+    from yoke_core.domain.qa_host_turn_release import read_partitions_command
     from yoke_core.domain.qa_plan_host_leases import HOST_SET_REASON
 
     reason = (
@@ -257,7 +257,7 @@ def _release_reason(conn: Any, claim: Any, row: dict, away: str, limit: timedelt
         (claim.id, claim.reason or "", HOST_SET_REASON),
     )
     if executions:
-        reason += f"; start the walk again with `{rerun_command(conn, executions[0])}`"
+        reason += f"; inspect QA with `{read_partitions_command(conn, executions[0])}`"
     return reason
 
 

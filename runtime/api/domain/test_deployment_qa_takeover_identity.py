@@ -214,7 +214,9 @@ def test_stale_inherited_mission_continues_by_execution_before_deployment(
             }
         ],
     )
-    execution = _execution(test_db, monkeypatch, plan=plan)
+    execution = _execution(
+        test_db, monkeypatch, plan=plan, walk_session="inherited-mission-walk",
+    )
     finish_plan_execution(
         test_db, execution, state="aborted", reason=STALE_PLAN_EXECUTION_REASON
     )
@@ -232,7 +234,7 @@ def test_stale_inherited_mission_continues_by_execution_before_deployment(
         FunctionCallRequest(
             function="qa.plan_execution.resume",
             target=TargetRef(kind="global"),
-            actor=ActorContext(actor_id="1", session_id=takeover.DRIVER_SESSION),
+            actor=ActorContext(actor_id="1", session_id=execution["session_id"]),
             payload={"execution_id": execution["id"], "continue_mission": True},
         )
     )

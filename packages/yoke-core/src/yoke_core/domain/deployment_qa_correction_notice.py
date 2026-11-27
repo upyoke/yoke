@@ -9,6 +9,7 @@ from yoke_core.domain.deployment_run_driver_notice import (
     push_run_scoped_notice,
 )
 from yoke_core.domain.project_identity import render_item_ref, resolve_project
+from yoke_core.domain.qa_walk_launch_required import WALK_LAUNCH_GUIDANCE
 
 
 def notify_correction(
@@ -38,7 +39,7 @@ def notify_correction(
         project_id = int(item["project_id"])
     project = resolve_project(conn, project_id)
     scope = (
-        f"--item {render_item_ref(conn, int(member))}"
+        f"--item {render_item_ref(conn, int(member))} --deployment-run-id {run_id}"
         if member is not None
         else f"--deployment-run-id {run_id}"
     )
@@ -48,11 +49,11 @@ def notify_correction(
         ).fetchone()
         if plan is not None and plan["plan_id"] is not None:
             scope += f" --plan {plan['plan_id']}"
-    command = f"yoke watch qa-plan -- {scope} --stage {stage} --project {project.slug}"
+    command = f"yoke qa plan partitions {scope} --stage {stage} --project {project.slug}"
     body = (
         f"Corrected QA requirement(s) {', '.join(map(str, ids))} are ready "
-        f"for deployment run {run_id} stage {stage!r}. Run `{command}` on "
-        "the pinned deployed target. The failed attempt remains history; "
+        f"for deployment run {run_id} stage {stage!r}. Read partitions with `{command}` on "
+        f"the pinned deployed target. {WALK_LAUNCH_GUIDANCE} The failed attempt remains history; "
         f"inspect `yoke deployment-runs get {run_id}` for any sibling blocker."
     )
     key = f"deployment-qa-correction:{run_id}:{stage}:{member or 'run'}:{','.join(map(str, ids))}"

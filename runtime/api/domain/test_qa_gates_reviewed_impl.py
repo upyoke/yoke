@@ -54,10 +54,11 @@ class TestCheckReviewedImplementationGate:
         assert not result.passed
         joined = "\n".join(result.errors)
         assert (
-            f"yoke qa plan run --item {TEST_ITEM_REF} "
+            f"yoke qa plan partitions --item {TEST_ITEM_REF} "
             "--transition reviewed-implementation" in joined
         )
         assert "`yoke qa case run --requirement-id <id>`" in joined
+        assert ".yoke/docs/verification/walking.md#launch-a-walker" in joined
         assert "retry the lifecycle transition" in joined
 
     def test_tc_passes_when_waived(self, qa_db):
@@ -106,10 +107,11 @@ class TestCheckReviewedImplementationGate:
         assert "yoke qa run add" not in joined
         assert "yoke qa artifact add" not in joined
         assert (
-            f"yoke qa plan run --item {TEST_ITEM_REF} "
+            f"yoke qa plan partitions --item {TEST_ITEM_REF} "
             "--transition reviewed-implementation" in joined
         )
         assert "`yoke qa case run --requirement-id <id>`" in joined
+        assert ".yoke/docs/verification/walking.md#launch-a-walker" in joined
         assert "retry the lifecycle transition" in joined
 
     def test_tc_browser_evidence_passes_with_substrate(self, qa_db, tmp_path):

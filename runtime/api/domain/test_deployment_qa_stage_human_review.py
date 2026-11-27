@@ -1,5 +1,6 @@
 """Human verdict policies follow scoped case evidence, never precede it."""
 
+from runtime.api.domain.machine_qa_session_seed import seed_registered_qa_launch
 from runtime.api.domain.deployment_qa_stage_human_review_test_support import (
     _human_actor as _human_actor,
 )
@@ -165,6 +166,7 @@ def test_human_if_unsure_waits_for_authorized_case_decision(test_db) -> None:
         deployment_run_id="run-unsure-stage",
         deployment_stage="item-qa",
     )
+    seed_registered_qa_launch(test_db, 'unsure-run-qa', actor_id=1)
     execution = begin_plan_execution(
         test_db,
         deployment_run_id="run-unsure-stage",

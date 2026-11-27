@@ -149,29 +149,17 @@ cleanup is complete.
 
 ## Execution and Review
 
-Run just one materialized mission without starting its sibling requirements:
+Read partitions at the attached plan's transition:
 
 ```text
-yoke qa case run --requirement-id N
+yoke qa plan partitions --item PREFIX-N --transition TRANSITION
 ```
 
-This creates a one-requirement plan execution using the same controller or host walk,
-review bundle and main-agent verdict path below, including deployment-member
-missions. Exit code `12` carries the typed review continuation. Repeating the
-case command reprints pending review without recapturing. An `inherit` mission
-cannot run alone because its predecessor must capture in the same execution;
-run the ordered plan instead. A case already owned by a standalone execution
-resumes through that execution rather than creating another one.
-
-Run the attached plan at its transition:
-
-```text
-yoke qa plan run --item PREFIX-N --transition <transition> \
-  --test-machine <registered-name>
-```
-
-The run pin is optional and must agree with every case-authored constraint.
-Without one, admission prefers a verified free machine and reports its reason.
+[Launch a walker](walking.md#launch-a-walker) for each free walk partition.
+A predecessor and its `inherit` missions belong to the same partition and
+capture in the same execution. An optional `--test-machine` on the walker
+must agree with every case-authored constraint. Without one, admission prefers
+a verified free machine and reports its reason.
 
 The plan runner reaches the declared host baseline, records a zero-artifact
 mission docket, advances the full roster, creates the existing review bundle,

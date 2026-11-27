@@ -1,5 +1,6 @@
 """Contention discovered by a walker queues fresh QA without a FAIL verdict."""
 
+from runtime.api.domain.machine_qa_session_seed import seed_registered_qa_launch
 from runtime.api.domain.agent_mission_qa_test_support import (
     ACTOR,
     _materialize_mission,
@@ -35,6 +36,7 @@ def test_host_wait_preserves_target_and_open_requirement(
     from runtime.api.domain.machine_qa_session_seed import seed_qa_session
 
     configure_test_machine(test_db, tmp_path, monkeypatch)
+    seed_registered_qa_launch(test_db, ACTOR.session_id)
     seed_qa_session(test_db, "busy-host-owner")
     replace_test_machine_settings(
         test_db,

@@ -2,6 +2,7 @@
 
 import json
 
+from runtime.api.domain.machine_qa_session_seed import seed_registered_qa_launch
 from runtime.api.fixtures.carried_release_candidate import (
     git,
     record_landing_receipt,
@@ -177,6 +178,7 @@ def close_group(conn, run_id):
         deployment_stage="member-qa",
         deployment_member_item_id=ITEM,
     )
+    seed_registered_qa_launch(conn, "release-qa", actor_id=2)
     execution = begin_plan_execution(
         conn,
         deployment_run_id=run_id,

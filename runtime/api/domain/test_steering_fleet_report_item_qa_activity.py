@@ -20,6 +20,7 @@ from runtime.api.domain.deployment_qa_plan_group_scenarios_test_support import (
     _manual_plan,
 )
 from runtime.api.domain.deployment_qa_stage_wake_delivery_test_support import (
+    SESSION_ACTOR_ID,
     _project,
     seed_session,
 )
@@ -230,12 +231,12 @@ def test_a_walking_mission_names_the_walk_and_still_refuses_a_capture_verdict(
 
 def test_a_queued_plan_group_execution_replaces_the_group_recipe(test_db) -> None:
     plan_id = _seed_group(test_db)
-    execution = _begin(test_db)
+    seed_session(test_db, "plan-group-qa")
+    execution = _begin(test_db, actor_id=SESSION_ACTOR_ID)
     test_db.execute(
         "UPDATE qa_plan_executions SET state='waiting' WHERE id=%s", (execution["id"],)
     )
     test_db.commit()
-    seed_session(test_db, "plan-group-qa")
     _queue(test_db, str(execution["id"]), "plan-group-qa", ahead=0)
 
     (progress,) = run_progress(test_db, project_id=1, now=utc_now())
@@ -244,6 +245,7 @@ def test_a_queued_plan_group_execution_replaces_the_group_recipe(test_db) -> Non
     assert f"plan execution {execution['id']} (waiting) already owns it" in text
     assert f"queued for {MACHINE}, 1st for {MACHINE}" in text
     assert "yoke qa plan run --deployment-run-id" not in text
+    assert "yoke qa plan partitions --deployment-run-id" not in text
     assert not progress.qa_notice_stalled
     assert plan_id
 

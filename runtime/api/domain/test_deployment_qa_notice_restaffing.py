@@ -80,7 +80,7 @@ def test_unanswered_group_with_no_driver_needs_steering_action(test_db):
     (group,) = run_groups(test_db, RUN)
     text = " ".join((*progress.unresolved, *progress.member_lines))
     assert all(str(rid) in text for rid in group.requirement_ids)
-    assert "yoke qa plan run --deployment-run-id" in text
+    assert "yoke qa plan partitions --deployment-run-id" in text
 
 
 def test_member_dispatch_replaces_notice_to_ended_holder(test_db):

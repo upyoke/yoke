@@ -6,6 +6,7 @@ import json
 
 import pytest
 
+from runtime.api.domain.machine_qa_session_seed import seed_registered_qa_launch
 from runtime.api.domain.machine_qa_host_test_support import TEST_MACHINE_SETTINGS
 from yoke_core.domain.machine_qa_capability import replace_test_machine_settings
 
@@ -172,6 +173,7 @@ def test_accepted_admitted_copies_auto_close_the_member(
     else:
         assert any(row["plan_id"] is None for row in copies)
     assert delivery._status(test_db, member) == "release"
+    seed_registered_qa_launch(test_db, f'qa-{admission}', actor_id=2)
     execution = begin_plan_execution(
         test_db,
         deployment_run_id=run_id,

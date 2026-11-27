@@ -123,7 +123,8 @@ def test_one_member_failing_leaves_its_sibling_accepted(test_db) -> None:
     outstanding = _standing(test_db, "run-siblings", 9905)
     assert outstanding.state == "cases unresolved"
     assert "no concrete QA cases are materialized" in outstanding.reason
-    assert "yoke qa plan run --item" in outstanding.reason
+    assert "yoke qa plan partitions --item" in outstanding.reason
+    assert "--deployment-run-id run-siblings" in outstanding.reason
     assert "--stage item-qa" in outstanding.reason
 
 

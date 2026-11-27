@@ -34,15 +34,17 @@ driver: `stage-db-admin` for Stage ownership, `prod-db-admin` for Production. Re
 
 ## Member QA
 
-The owner runs member QA (its post-deploy item cases) and keeps its claim.
+The owner coordinates member QA (its post-deploy item cases) and keeps its claim.
 The driver logs `Still waiting for scoped QA` per minute, exits 5 at timeout,
 then re-drives; longer silence is stuck. A recognised scoped-QA hold makes
 `watch deploy` exit 0 and report `outcome: waiting` with `child_exit=5`.
 Stop with `yoke qa plan abort`, never kill the runner.
 
 ```text
-yoke watch qa-plan -- --item PREFIX-N --stage STAGE --project {_project}
+yoke qa plan partitions --item PREFIX-N --stage STAGE --deployment-run-id RUN --project {_project}
 ```
+
+Run command-only partitions and launch free walks using `.yoke/docs/verification/walking.md#launch-a-walker`.
 
 Failed QA: `.yoke/docs/verification/failed-item-qa.md`.
 
@@ -56,11 +58,14 @@ before manual recovery; label that recovery a workaround. Then staff missing
 owners, use `yoke qa plan reconcile` for ownerless walks, or ask an owner parked
 without a required recheck to schedule it.
 
-Driver runs run-scoped QA:
+The driver coordinates run-scoped QA and open plan groups. For each group:
 
 ```text
-yoke watch qa-plan -- --deployment-run-id {RUN_ID} --stage STAGE --project {_project}
+yoke qa plan partitions --deployment-run-id {RUN_ID} --stage STAGE --plan PLAN --project {_project}
 ```
+
+Follow the same recipe for free walks. The deploy driver runs command-only
+run-scoped partitions.
 
 ## Orphans
 

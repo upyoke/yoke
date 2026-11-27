@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 import pytest
 
+from runtime.api.domain.machine_qa_session_seed import seed_registered_qa_launch
 from runtime.api.domain.qa_review_seed import resolve_capture_review
 from runtime.api.domain.standalone_requirement_execution_target_test_support import (
     PREVIEW_URL,
@@ -89,6 +90,7 @@ def test_bound_item_case_reaches_gate_after_linked_review() -> None:
             )
         bound = apply_requirement_update(conn, req_id, "target_env", "local")
         assert bound.ok, bound.message
+        seed_registered_qa_launch(conn, 'standalone-gate', actor_id=7)
         execution = begin_plan_execution(
             conn,
             item_id=6409,

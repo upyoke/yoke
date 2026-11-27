@@ -144,9 +144,13 @@ def test_standalone_multi_platform_resume_uses_durable_hosts(
     from yoke_core.domain.qa_host_set_turns import record_host_wait
 
     configure_test_machine(test_db, tmp_path, monkeypatch)
-    from runtime.api.domain.machine_qa_session_seed import seed_qa_session
+    from runtime.api.domain.machine_qa_session_seed import (
+        seed_qa_session,
+        seed_registered_qa_launch,
+    )
 
     seed_qa_session(test_db, "session-machine-plan", messageable=True)
+    seed_registered_qa_launch(test_db, "session-machine-plan")
     replace_test_machine_settings(
         test_db,
         power_project="yoke",

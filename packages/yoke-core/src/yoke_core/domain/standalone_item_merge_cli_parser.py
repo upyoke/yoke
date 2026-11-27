@@ -56,11 +56,12 @@ natively wakeable surface the deployment wake re-enters the owner to run item
 QA or recover a close-out that could not finish automatically; a surface whose
 wake authority is operator (a desktop app) is never resumed by Yoke, so its
 operator or a steering seat re-enters it. If it asks for
-item QA, credit it with the stage-scoped form -- a stage credits only the
-requirements bound to its own name. Name the item so the current admitted
-release supplies its membership:
+item QA, read partitions for the exact member and stage named in the notice:
 
-  yoke qa plan run --item PREFIX-N --stage STAGE --project P
+  yoke qa plan partitions --item PREFIX-N --stage STAGE --deployment-run-id RUN --project P
+
+Run command-only partitions and launch free walks using
+.yoke/docs/verification/walking.md#launch-a-walker.
 
 Add `--plan PLAN` only when the wake says the stage names no cases; a stage
 already naming its own accepts only a correction-only plan whose every case

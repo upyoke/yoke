@@ -7,6 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from runtime.api.domain.machine_qa_session_seed import seed_qa_session, seed_registered_qa_launch
 from runtime.api.domain.qa_plan_standalone_execution_test_support import _begin
 
 from yoke_contracts.api.function_call import (
@@ -70,4 +71,6 @@ def _mission(conn, *, with_host=False):
         cases[1]["position"] = 2
     replace_plan_cases(conn, plan_id=plan["id"], cases=cases)
     conn.commit()
+    seed_qa_session(conn, "manual-owner")
+    seed_registered_qa_launch(conn, "manual-owner")
     return _begin(conn, test_machine=None if with_host else "unused-run-pin")

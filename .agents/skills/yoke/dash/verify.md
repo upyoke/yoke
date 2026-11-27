@@ -10,8 +10,11 @@ Review plan: a plan chosen at filing (the project's `registered-command-quick` d
 yoke workflows item-posture amend ITEM --verification-plan ID_OR_SLUG --reason TEXT
 yoke qa item-plan attach --item ITEM --project P --plan-id <id> --transition reviewing-implementation --qa-phase verification
 yoke qa plan materialize --item ITEM --transition NEXT_STAGE --json
-yoke qa case run --requirement-id <requirement-id>
+yoke qa plan partitions --item ITEM --transition NEXT_STAGE
 ```
+
+Run command-only and lane cases and launch free walks using
+`.yoke/docs/verification/walking.md#launch-a-walker`.
 
 A requested screenshot selects `--verification-method browser-inspection` on the same amend. A capture is not a pass: submit the returned review bundle. Browser placement: `.yoke/docs/verification/browser-targets.md`.
 

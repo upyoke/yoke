@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from runtime.api.domain.machine_qa_session_seed import seed_registered_qa_launch
 from runtime.api.fixtures.actor_roles import seed_human_reviewer
 
 from runtime.api.domain.machine_qa_host_test_support import (
@@ -112,6 +113,7 @@ def captured_plan_review(conn, item_id: int, *, unfinished_case: bool = False):
         transition_id="implemented",
     )
     requirement_id = int(materialized["created_requirement_ids"][0])
+    seed_registered_qa_launch(conn, "review-session", actor_id=7)
     execution = begin_plan_execution(
         conn,
         item_id=item_id,

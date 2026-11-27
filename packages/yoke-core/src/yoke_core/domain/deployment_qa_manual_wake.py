@@ -5,7 +5,7 @@ A requirement with ``wake_path: "manual"`` (see
 production traffic exists. Its stage waits on it, and the stage driver wakes
 the member's owner with one notice per open manual requirement instead of the
 ordinary stage-wait notice. Each notice names the evidence: the owner checks
-it with a registered read, runs the member's cases if it exists, and otherwise
+it with a registered read, coordinates the member's partitions if it exists, and otherwise
 schedules its next recheck for whenever the evidence could plausibly exist,
 again after every recheck that still finds none; the holder cannot park
 without one (:mod:`session_park_recheck_guard`), and a release takeover skips
@@ -41,6 +41,7 @@ from yoke_core.domain.deployment_qa_manual_notice import (
 from yoke_core.domain.session_scheduled_wake import next_session_wakes, recheck_label
 from yoke_core.domain.session_staleness import activity_liveness
 from yoke_core.domain.schema_work_claim_sql import scope_int_sql
+from yoke_core.domain.qa_walk_launch_required import WALK_LAUNCH_GUIDANCE
 
 #: What the owner column says when no live session holds the item.
 NO_OWNER = "no live claim holder; staff the item before waking it"
@@ -82,9 +83,9 @@ class ManualWakeRequirement:
         return ", ".join(part for part in (self.owner_liveness, mode) if part)
 
     def run_command(self) -> str:
-        """The member's stage run, exactly as an automatic stage wake names it."""
+        """Read the member's partitions at this exact stage and run."""
         return (
-            f"yoke qa plan run --item {self.item_ref} --stage {self.stage} "
+            f"yoke qa plan partitions --item {self.item_ref} --stage {self.stage} "
             f"--deployment-run-id {self.run_id} --project {self.project_slug}"
         )
 
@@ -102,7 +103,7 @@ class ManualWakeRequirement:
             else f"{self.item_ref}'s project steering seat (its claim holder is gone)"
         )
         holder_instruction = (
-            "You hold this item, so run it in this session; do not hand it to a parent or the driver. "
+            "You hold this item and coordinate its stage QA. "
             if route == HOLDER
             else ""
         )
@@ -112,8 +113,8 @@ class ManualWakeRequirement:
             f"#{self.requirement_id} (case {self.case_key}). Reaching "
             f"{addressed}. Check this evidence with a registered read "
             "('yoke deployment-runs get', 'yoke qa requirement list', 'yoke db "
-            f"read'): {self.wake_evidence} If it exists, run the member's cases: "
-            f"'{self.run_command()}'. {holder_instruction}"
+            f"read'): {self.wake_evidence} If it exists, read the member's partitions: "
+            f"'{self.run_command()}'. {holder_instruction}{WALK_LAUNCH_GUIDANCE} "
             f"{MANUAL_WAKE_RECHECK_INSTRUCTION} "
             f"Check 'yoke deployment-runs get {self.run_id}' for the "
             "current state."

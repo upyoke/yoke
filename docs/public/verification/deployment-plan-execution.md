@@ -4,21 +4,20 @@
 [Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Verification](index.md) > Deployment plan execution
 <!-- /yoke:breadcrumbs -->
 
-The holder runs item cases and single-member plans with their pinned stage:
+The holder coordinates item cases and single-member plans at their pinned stage:
 
 ```text
-yoke qa plan run --item PREFIX-N --stage STAGE --project P
+yoke qa plan partitions --item PREFIX-N --stage STAGE --deployment-run-id RUN --project P
 ```
 
-A post-deploy plan shared by two or more release members at item QA entry runs
-once per release as one driver-owned
-[plan group](#plan-groups):
+The driver owns each shared [plan group](#plan-groups):
 
 ```text
-yoke qa plan run --deployment-run-id RUN --stage item-qa --plan PLAN --project P
+yoke qa plan partitions --deployment-run-id RUN --stage item-qa --plan PLAN --project P
 ```
 
-See [item recovery](failed-item-qa.md) and `yoke qa plan run --help`.
+Run command-only partitions and [launch free walks](walking.md#launch-a-walker).
+The server settles the stage on completion. See [item recovery](failed-item-qa.md).
 
 Admission copies executable item cases, retaining others on the item. Attached
 plans supply cases without copies; stage targets supply `target_env` for corrections.
@@ -70,18 +69,15 @@ bound to a live execution settle at completion. A failed settlement refuses as
 the cause and record an unsaved verdict again. For a saved verdict, run
 `yoke --env CONTROL-PLANE watch deploy -- RUN-ID`.
 
-Correct a wrong group check in its own plan, keeping its case key, then rerun
-with the group command below. A single-member correction uses a separate plan:
+Correct a group case in its own plan, keeping its key. Materialize the
+corrected plan on the same run, then reread partitions. A member correction
+uses a separate plan. Follow the deployment-stage recipe in
+`yoke qa plan materialize --help` with the exact member, stage, run and
+correction plan. Declare `--replaces CASE_KEY=FAILED_REQUIREMENT_ID` for each
+corrected case.
 
-```text
-yoke qa plan run --deployment-run-id RUN --stage item-qa --plan SAME_PLAN --project P
-yoke qa plan run --item PREFIX-N --stage STAGE \
-    --plan CORRECTED_PLAN --project P --replaces CASE_KEY=FAILED_REQUIREMENT_ID
-```
-
-Changed failed group cases get fresh rows; their passes supersede failed history.
-Pending and passed cases keep pinned content; new keys wait for another release.
-Single-member corrections run only replacement rows; other cases remain owed.
+Reread member partitions with `--plan CORRECTED_PLAN`. A replacement pass
+supersedes its failed predecessor. Other cases keep their pinned status.
 
 Takeover moves an open group, its results and any running execution to the
 successor unchanged; a successor member attaching the plan joins it. Closed
@@ -95,8 +91,7 @@ a later attacher gets a new group.
 
 Read each partition's cases, hosts, and custody with
 `yoke qa plan partitions --item ITEM --stage STAGE --deployment-run-id RUN`.
-Start a session per free partition with `yoke qa plan run --partition KEY`
-and the same scope. Host leases serialize independent chains on one host.
+Run command-only partitions and [launch free walks](walking.md#launch-a-walker). Host leases serialize independent chains on one host.
 
 Use `after_case_key` to wait for an earlier case's partition to pass.
 Each chain uses its own baseline. Use `starting_state: inherit` to reuse
@@ -113,7 +108,7 @@ For simultaneous hosts, list at least two OS slots in `method_config.test_machin
 with exactly one `driver` and no singular `os`, e.g.
 `[{"os":"linux"},{"os":"macos","driver":true}]`. Map each slot OS to its
 `capability_tags`, e.g. `{"macos":["macos:15"]}`, to tag every slot of that OS.
-Use `yoke qa plan run`. Each slot takes a distinct free, verified, healthy host.
+Launch the partition as one walk. Each slot takes a distinct free, verified, healthy host.
 The set stays leased through review and releases on completion or abort.
 [Completed captures remain reviewable](requirement-state.md).
 A wait gives each blocked slot's lease or repair reason. Queue views group
