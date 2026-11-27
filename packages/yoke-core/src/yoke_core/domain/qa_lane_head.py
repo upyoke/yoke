@@ -60,3 +60,31 @@ def reconcile_plan_lanes(
         seen.add(task)
         case = cases.fetch_case_execution_context(int(row["id"]), **selectors)
         reconcile_case_lane(case, actor)
+
+
+def reconcile_walk_lane(target: TargetRef, result: dict, actor: ActorContext) -> bool:
+    """Record the claimant lane's HEAD before a free walk partition's grant leaves it.
+
+    A delegated walker begins against the branch and commit this read issues,
+    so an unrecorded lane HEAD would refuse its first begin as ``qa_lane_moved``.
+    Returns whether a new HEAD was recorded, so the caller rereads the binding.
+    """
+    from yoke_core.domain.lane_head_client import LaneHeadClientError, read_item_lanes
+
+    lane_id = (result.get("lane") or {}).get("lane_id")
+    if lane_id is None or not any(
+        row.get("kind") == "walk" and row.get("state") == "free"
+        for row in result.get("partitions") or ()
+    ):
+        return False
+    project, lanes = read_item_lanes(
+        TargetRef(kind="item", public_ref=target.public_ref, project_id=target.project_id),
+        actor=actor,
+    )
+    record = next((row for row in lanes if row.get("id") == lane_id), None)
+    if record is None:
+        return False
+    head, error = reconcile_lane_head(project, record, session_id=actor.session_id)
+    if error:
+        raise LaneHeadClientError(error)
+    return bool(head)
