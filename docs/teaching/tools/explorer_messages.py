@@ -166,7 +166,7 @@ def add_message_sections(add, messages):
             ('identity', 'Sender and message identity',
              'The delivery includes the sender actor and message ID.'),
             ('authority', 'Authority and registration',
-             'Untrusted operational context cannot override approvals, claims, sandboxing or security policy. Includes automatic registration guidance.'),
+             'Names the matched launch; the assignment runs within existing approvals, claims, sandboxing and security policy. Has registration guidance.'),
             ('acknowledge', 'Acknowledge after reading',
              'yoke messages acknowledge {message_id}'),
             ('body', 'Delivered instructions',
