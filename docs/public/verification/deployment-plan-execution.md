@@ -97,8 +97,10 @@ Use `after_case_key` to wait for an earlier case's partition to pass.
 Each chain uses its own baseline. Use `starting_state: inherit` to reuse
 machine state within a chain.
 
-The item read freezes the lane. Walkers use `--expected-branch` and
-`--expected-sha` from that receipt. The claim holder runs `lane` cases
+The item read freezes the lane. When a walk partition is free, the claim
+holder's read first records the lane checkout's actual HEAD, so the receipt
+names it. Walkers use `--expected-branch` and `--expected-sha` from that
+receipt and need no checkout. The claim holder runs `lane` cases
 with `yoke qa case run --requirement-id ID`.
 
 Use `--resume-execution-id ID` for a waiting execution or to reprint its

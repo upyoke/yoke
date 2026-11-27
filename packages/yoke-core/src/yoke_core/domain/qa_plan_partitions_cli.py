@@ -33,6 +33,7 @@ def run(args: list[str]) -> int:
     if parsed.deployment_run_id and not (parsed.item or parsed.plan):
         parser.error("a run-wide read requires --plan")
     from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
+    from yoke_core.domain.lane_head_client import LaneHeadClientError
     from yoke_core.domain.qa_case_execution import QaCaseExecutionError
 
     actor = get_structured_dispatch().build_actor(session_id=parsed.session_id)
@@ -51,18 +52,24 @@ def run(args: list[str]) -> int:
                 checkout_path=checkout, expected_branch=parsed.expected_branch,
                 actor=actor, call=call_plan_function,
             )
+        read = {
+            **payload,
+            "checkout_path": checkout,
+            "expected_branch": parsed.expected_branch,
+            "source_revision": parsed.expected_sha,
+        }
         result = call_plan_function(
-            function_id="qa.plan_execution.partitions",
-            target=target,
-            payload={
-                **payload,
-                "checkout_path": checkout,
-                "expected_branch": parsed.expected_branch,
-                "source_revision": parsed.expected_sha,
-            },
-            actor=actor,
+            function_id="qa.plan_execution.partitions", target=target, payload=read, actor=actor,
         )
-    except (QaPlanExecutionError, QaCaseExecutionError) as exc:
+        if parsed.item and parsed.transition:
+            from yoke_core.domain.qa_lane_head import reconcile_walk_lane
+
+            if reconcile_walk_lane(target, result, actor):
+                result = call_plan_function(
+                    function_id="qa.plan_execution.partitions", target=target,
+                    payload=read, actor=actor,
+                )
+    except (QaPlanExecutionError, QaCaseExecutionError, LaneHeadClientError) as exc:
         print(f"yoke qa plan partitions: {exc}", file=sys.stderr)
         return 2
     if parsed.json:
