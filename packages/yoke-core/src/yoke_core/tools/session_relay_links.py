@@ -1,9 +1,17 @@
-"""Replace directory links under the relay's release pin lock."""
+"""Replace and read directory links under the relay's release pin lock.
 
+The relay's ``release`` and ``venv`` pointers are links (directory junctions
+on Windows). Setup reads them by their recorded target and never follows them:
+a native Windows SSH session may refuse to traverse a junction its user made
+(WinError 448, untrusted mount point).
+"""
+
+import os
 from pathlib import Path
 import uuid
 
-from yoke_contracts.platform_links import link
+from yoke_contracts.platform_links import is_link, link, link_target
+from yoke_contracts.platform_links import remove_link as remove_link_itself
 from yoke_contracts.platform_fs import remove_tree
 from yoke_contracts.owner_private_path import create_owner_private_directory
 
@@ -15,10 +23,15 @@ def create_relay_directory(path: Path) -> Path:
     return create_owner_private_directory(path)
 
 
+def relay_link_root(path: Path) -> Path:
+    """The directory *path* serves: a link's recorded target, else *path*."""
+    return link_target(path) if is_link(path) else Path(path)
+
+
 def remove_link(path: Path) -> None:
-    if path.is_symlink():
-        path.unlink()
-    elif path.exists():
+    if is_link(path):
+        remove_link_itself(path)
+    elif os.path.lexists(path):
         remove_tree(path)
 
 
@@ -33,13 +46,13 @@ def activate_link(target: Path, path: Path) -> None:
     activated = False
     try:
         link(target, temporary)
-        if path.exists() or path.is_symlink():
+        if os.path.lexists(path):
             path.rename(previous)
         try:
             temporary.rename(path)
             activated = True
         except OSError:
-            if previous.exists() or previous.is_symlink():
+            if os.path.lexists(previous):
                 previous.rename(path)
             raise
     finally:

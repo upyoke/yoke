@@ -132,7 +132,7 @@ def converge_relay_launcher(
             )
         return launcher
     pin_release(instance=instance)
-    if not launcher.is_file():
+    if not session_relay_release.relay_launch_executable_root(instance.state_dir).is_file():
         raise RelayReleaseError(
             RELAY_RELEASE_INSTALL_FAILED,
             f"pinned relay executable is missing at {launcher}; retry "
@@ -171,7 +171,7 @@ def _install_candidate(
     token = uuid.uuid4().hex
     candidate = releases / token
     link = instance.state_dir / f".{RELAY_ACTIVE_RELEASE_NAME}-{token}"
-    previous = Path(str(relay_release_receipt(instance.state_dir).get("physical_root") or relay_active_release_path(instance.state_dir).resolve()))
+    previous = Path(str(relay_release_receipt(instance.state_dir).get("physical_root") or session_relay_release.relay_active_release_root(instance.state_dir)))
     activated = False
     try:
         started = time.monotonic()
