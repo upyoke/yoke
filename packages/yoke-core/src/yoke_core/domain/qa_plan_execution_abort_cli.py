@@ -32,6 +32,8 @@ def run(args: List[str]) -> int:
             "be abandoned after 30 minutes of silence when the owner is not parked."
         ),
         epilog=(
+            "test_machine_holdovers lists the hosts this session still holds "
+            "for its next execution, each with its claim_id and expires_at. "
             "qa_abort_restore_pending means cancellation is recorded: keep the "
             "runner connected through cleanup, then retry. Failed restoration "
             "retains the lease and names operator recovery. "
@@ -99,6 +101,8 @@ def run(args: List[str]) -> int:
         receipt["standalone_plan_id"] = result["standalone_plan_id"]
     if result.get("stop_request") is not None:
         receipt["stop_request"] = result["stop_request"]
+    if result.get("test_machine_holdovers"):
+        receipt["test_machine_holdovers"] = result["test_machine_holdovers"]
     print(dumps_compact(receipt))
     return 0
 
