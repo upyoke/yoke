@@ -195,28 +195,40 @@ test("a run member remains visible when candidate delivery is settled", async ()
 });
 
 
-test("a promoted carried build has its own outcome while item QA stays open", async () => {
-  const { mounted, restore, box } = await mount([
-    run("run-stage", {
+// Rows are keyed by environment: their order follows creation time, which
+// is incidental here, so both fixture orders must give the same outcomes.
+function outcomesByEnvironment(box) {
+  return Object.fromEntries(byClass(box, "item-deployment").map((row) => [
+    byClass(row, "item-deployment-environment")[0].textContent,
+    byClass(row, "item-deployment-outcome")[0].textContent,
+  ]));
+}
+
+for (const order of ["stable", "reversed"]) {
+  test(`a promoted carried build has its own outcome while item QA stays open (${order} order)`, async () => {
+    const carried = run("run-stage", {
       target_environment: "stage",
       build_promoted: true,
       delivery_candidate_items: [{ public_ref: "YOK-50" }],
       member_items: [{ ref: "YOK-51", item_qa: { state: "pending" } }],
-    }),
-    run("run-prod", {
+    });
+    const active = run("run-prod", {
       build_promoted: true,
       member_items: [{ ref: "YOK-50", item_qa: { state: "pending" } }],
-    }),
-  ]);
-  try {
-    const outcomes = byClass(box, "item-deployment-outcome").map((node) => node.textContent);
-    assert.equal(outcomes[0], "○ in build");
-    assert.match(outcomes[1], /^◐ deploying · at item-qa · \d+[mhd]$/);
-  } finally {
-    mounted.unmount();
-    restore();
-  }
-});
+    });
+    const runs = order === "stable" ? [carried, active] : [active, carried];
+    const { mounted, restore, box } = await mount(runs);
+    try {
+      const outcomes = outcomesByEnvironment(box);
+      assert.deepEqual(Object.keys(outcomes).sort(), ["prod", "stage"]);
+      assert.equal(outcomes.stage, "○ in build");
+      assert.match(outcomes.prod, /^◐ deploying · at item-qa · \d+[mhd]$/);
+    } finally {
+      mounted.unmount();
+      restore();
+    }
+  });
+}
 
 test("a done card keeps its first carried link outside the run roster", async () => {
   const item = {
