@@ -190,6 +190,13 @@ def _settle_recorded_verdict(conn: Any, run_id: int) -> None:
         subject.get(key)
         for key in ("deployment_run_id", "deployment_stage", "execution_target_digest")
     ):
+        from yoke_core.domain.deployment_qa_requirement_target_refresh import (
+            credit_completed_rebound_pass,
+        )
+
+        # A pass started before takeover rebound the case may prove the
+        # successor; credit it before any gate reads the case.
+        credit_completed_rebound_pass(conn, requirement=subject, run_id=run_id)
         run = query_one(
             conn,
             "SELECT status,current_stage FROM deployment_runs WHERE id=%s",
@@ -206,7 +213,9 @@ def _settle_recorded_verdict(conn: Any, run_id: int) -> None:
             evidence = json.loads(raw) if isinstance(raw, str) else raw
         except ValueError:
             evidence = None
-        execution_id = evidence.get("execution_id") if isinstance(evidence, dict) else None
+        execution_id = (
+            evidence.get("execution_id") if isinstance(evidence, dict) else None
+        )
         if execution_id and query_one(
             conn,
             "SELECT id FROM qa_plan_executions WHERE id=%s "
