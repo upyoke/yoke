@@ -1,5 +1,4 @@
 """Link fallbacks preserve data and refuse existing destinations."""
-import sys
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -36,7 +35,7 @@ def test_windows_copy_fallback(monkeypatch, tmp_path):
     assert (destination / 'data').read_bytes() == b'hello'
 
 
-@pytest.mark.skipif(sys.platform != "win32", reason="requires native Windows junctions")
+@pytest.mark.windows_only(reason="requires native Windows junctions")
 def test_windows_directory_link_creates_junction_without_symlink_privilege(monkeypatch, tmp_path):
     source = tmp_path / "source directory"
     source.mkdir()
