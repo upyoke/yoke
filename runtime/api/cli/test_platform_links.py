@@ -1,4 +1,5 @@
 """Link fallbacks preserve data and refuse existing destinations."""
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -33,6 +34,32 @@ def test_windows_copy_fallback(monkeypatch, tmp_path):
     monkeypatch.setattr(links.subprocess, 'run', lambda *a, **k: SimpleNamespace(returncode=1))
     assert links.link(source, destination) == 'copy'
     assert (destination / 'data').read_bytes() == b'hello'
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="requires native Windows junctions")
+def test_windows_directory_link_creates_junction_without_symlink_privilege(monkeypatch, tmp_path):
+    source = tmp_path / "source directory"
+    source.mkdir()
+    data = source / "data.txt"
+    data.write_text("original", encoding="utf-8")
+    destination = tmp_path / "junction directory"
+
+    def deny_symlink(*args, **kwargs):
+        raise PermissionError("symlink privilege unavailable")
+
+    monkeypatch.setattr(Path, "symlink_to", deny_symlink)
+    try:
+        assert links.link(source, destination) == "junction"
+        assert destination.is_junction()
+        assert destination.resolve() == source.resolve()
+        links.remove_link(destination)
+        assert not destination.exists()
+        assert data.read_text(encoding="utf-8") == "original"
+    finally:
+        if destination.is_junction():
+            links.remove_link(destination)
+        elif destination.exists():
+            remove_tree(destination)
 
 
 def test_missing_target_refuses(tmp_path):
