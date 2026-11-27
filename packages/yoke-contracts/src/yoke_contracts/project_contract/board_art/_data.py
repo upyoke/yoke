@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+from importlib.resources import files as _resource_files
+from pathlib import Path as _Path
 from typing import Dict, Tuple
+
+from yoke_contracts.platform_fs import extended_length_path as _extended_length_path
 
 
 _ART_GLYPHS: Dict[str, Tuple[str, ...]] = {
@@ -112,10 +116,6 @@ _MASTER_MAP_GLYPHS: Dict[str, Tuple[str, ...]] = {
 # package data (board_art/data/mixed_emoji_columns.txt) so this module stays under
 # the authored-file line cap. Blocks are separated by a standalone sentinel line
 # that cannot appear in the emoji data.
-from importlib.resources import files as _resource_files
-from pathlib import Path as _Path
-
-from yoke_contracts.platform_fs import extended_length_path as _extended_length_path
 
 _MIXED_COLUMN_SEP = "@@YOKE-MIXED-COLUMN-SEP@@"
 _MIXED_COLUMN_SEP_LINE = f"\n{_MIXED_COLUMN_SEP}\n"
