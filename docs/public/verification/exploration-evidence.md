@@ -134,6 +134,18 @@ reply then carries a `mission_walk_stopped` notice naming the cleanup still
 owed. The walker finishes cleanup and runs `walk-end`, which releases the host
 and settles the execution aborted with the abort's reason.
 
+An abort during a mission's docket preparation, before any walk, keeps the
+same custody. Once the runner has checked in for the admitted mission, the
+abort records cancellation and refuses with `qa_abort_restore_pending`; the
+lease stays with the execution, with no hold-over, so no other admission gets
+the host. The runner lets its blocking baseline call finish, stops at the next
+phase boundary and restores the declared baseline unless it just proved it.
+Its `mission.ready` docket carries that `starting_state_restore` receipt and
+settles the abort without opening a walk. A failed restore keeps custody for
+the reset recovery in
+[Deployment plan execution](deployment-plan-execution.md). An admission with no
+check-in yet aborts at once.
+
 `walk-end` stores the restore receipt, releases the lease and settles the
 execution in one transaction. It owes a reset only when the receipt does not
 prove the baseline. If the receipt cannot be stored (a storage failure or a

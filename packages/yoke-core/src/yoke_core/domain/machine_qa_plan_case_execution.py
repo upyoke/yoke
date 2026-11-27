@@ -331,7 +331,14 @@ def execute_plan_agent_mission_case(
         )
     from yoke_core.domain.agent_mission_preparation import preparation_failure_result
 
-    return preparation_failure_result(result, prepared["preparation"])
+    preparation = prepared["preparation"]
+    if preparation["error_code"] == "qa_host_abort_requested":
+        raise MachinePlanCaseDispatchError(
+            "qa_host_abort_requested: mission preparation stopped before its walk and "
+            "recorded its starting_state_restore receipt; retry `yoke qa plan abort` "
+            "for this subject to confirm settlement or read the recovery still owed"
+        )
+    return preparation_failure_result(result, preparation)
 
 
 __all__ = [

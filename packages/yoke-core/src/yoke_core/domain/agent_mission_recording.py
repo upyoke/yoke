@@ -128,7 +128,11 @@ def handle_agent_mission_ready(request: FunctionCallRequest) -> HandlerOutcome:
                 result=result,
                 commit=False,
             )
-            heartbeat(commit_deferred_connection(conn), lease.id)
+            from yoke_core.domain.qa_plan_execution_abort_state import settle_host_abort
+            # A cancelled preparation's restore receipt settles its abort here.
+            settle_host_abort(conn, execution)
+            if execution["state"] != "aborted":
+                heartbeat(commit_deferred_connection(conn), lease.id)
             from yoke_core.domain.machine_operation_recording import (
                 record_test_machine_baseline_reset,
             )

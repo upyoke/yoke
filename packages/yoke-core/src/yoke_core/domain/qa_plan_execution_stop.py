@@ -10,7 +10,10 @@ the host while Yoke treats that host as free.
 
 A mission walk is stopped the same way, by owner or steering: the request
 keeps its Test Machine lease and mission access for cleanup, and the
-original session's walk-end teardown settles the abort.
+original session's walk-end teardown settles the abort. Before the walk, a
+mission whose preparation is in flight is host work like any other: the
+abort records cancellation and keeps custody until the runner's docket
+records the declared baseline's restore receipt.
 """
 
 from __future__ import annotations
