@@ -23,7 +23,8 @@ def _recorded_mission_clause(cases: list[Mapping[str, Any]], execution_id: str) 
         f" Execution {execution_id} stopped, so no walker can reach its Test "
         f"Machine: judge mission case(s) {', '.join(missions)} only from the "
         "mission evidence recorded before the stop. A docket that holds only "
-        "setup and restore receipts carries no product proof."
+        "setup and restore receipts carries no product proof: a mission pass "
+        "must cite a product artifact, never the docket's run N."
     )
 
 

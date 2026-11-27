@@ -141,3 +141,97 @@ def test_setup_only_mission_keeps_its_docket_reason(
     assert case["capture_degraded_reason"] == AGENT_MISSION_DOCKET_REASON
     assert "starting_state_restore" in [a["artifact_type"] for a in case["artifacts"]]
     assert _valid_capture(test_db, bundle["bundle_id"]) is False
+
+
+def _submit(test_db: Any, execution_id: str, bundle: dict, verdict: str, rationale: str):
+    from yoke_core.domain.qa_plan_review_submission import submit_plan_review
+
+    return submit_plan_review(
+        test_db,
+        lock_plan_execution(test_db, execution_id),
+        bundle_id=bundle["bundle_id"],
+        bundle_digest=bundle["bundle_digest"],
+        verdicts=[
+            {
+                "requirement_id": bundle["cases"][0]["requirement_id"],
+                "verdict": verdict,
+                "rationale": rationale,
+            }
+        ],
+        reviewer_actor_id=ACTOR.actor_id,
+        reviewer_session_id=ACTOR.session_id,
+    )
+
+
+@pytest.mark.parametrize("artifact_type", [None, "diagnostic"])
+def test_setup_only_mission_pass_refuses_without_product_proof(
+    test_db: Any, tmp_path: Any, monkeypatch: Any, artifact_type: str | None
+) -> None:
+    from yoke_core.domain.qa_verdict_evidence_cite import (
+        QaMissionPassWithoutProductProof,
+    )
+
+    item_id = 4593 if artifact_type is None else 4594
+    requirement_id, execution_id, run_id, _ = _prepared_mission(
+        test_db, tmp_path, monkeypatch, item_id
+    )
+    cited = [f"run {run_id}"]
+    if artifact_type is not None:
+        cited.append(f"artifact {_attach(requirement_id, run_id, artifact_type)}")
+    walk_states.record_handback(ACTOR, requirement_id, run_id)
+    bundle = begin_plan_review(test_db, lock_plan_execution(test_db, execution_id))
+    cited += [f"artifact {a['id']}" for a in bundle["cases"][0]["artifacts"]]
+
+    with pytest.raises(QaMissionPassWithoutProductProof, match="yoke qa artifact add"):
+        _submit(test_db, execution_id, bundle, "pass", "Passed: " + ", ".join(cited))
+
+    verdict = test_db.execute(
+        "SELECT verdict FROM qa_runs WHERE id=%s", (run_id,)
+    ).fetchone()[0]
+    assert verdict is None
+
+
+def test_setup_only_mission_diagnostic_fail_settles(
+    test_db: Any, tmp_path: Any, monkeypatch: Any
+) -> None:
+    requirement_id, execution_id, run_id, _ = _prepared_mission(
+        test_db, tmp_path, monkeypatch, 4595
+    )
+    diagnostic = _attach(requirement_id, run_id, "diagnostic")
+    walk_states.record_handback(ACTOR, requirement_id, run_id)
+    bundle = begin_plan_review(test_db, lock_plan_execution(test_db, execution_id))
+
+    submitted = _submit(
+        test_db, execution_id, bundle, "fail", f"Setup blocked; see artifact {diagnostic}."
+    )
+
+    assert submitted["submission"] == "persisted"
+    assert submitted["verdicts"][0]["verdict"] == "fail"
+
+
+def test_mission_pass_cites_its_product_artifact(
+    test_db: Any, tmp_path: Any, monkeypatch: Any
+) -> None:
+    from yoke_core.domain.qa_verdict_evidence_cite import QaVerdictEvidenceUncited
+
+    requirement_id, execution_id, run_id, _ = _prepared_mission(
+        test_db, tmp_path, monkeypatch, 4596
+    )
+    evidence = _attach(requirement_id, run_id, "evidence")
+    walk_states.record_handback(ACTOR, requirement_id, run_id)
+    bundle = begin_plan_review(test_db, lock_plan_execution(test_db, execution_id))
+    restore = next(
+        a["id"]
+        for a in bundle["cases"][0]["artifacts"]
+        if a["artifact_type"] == "starting_state_restore"
+    )
+
+    with pytest.raises(QaVerdictEvidenceUncited, match=f"artifact {evidence}"):
+        _submit(test_db, execution_id, bundle, "pass", f"Restored: artifact {restore}.")
+    test_db.rollback()
+    submitted = _submit(
+        test_db, execution_id, bundle, "pass", f"Behavior shown in artifact {evidence}."
+    )
+
+    assert submitted["submission"] == "persisted"
+    assert submitted["verdicts"][0]["verdict"] == "pass"

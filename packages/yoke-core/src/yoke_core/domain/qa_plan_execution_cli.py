@@ -264,12 +264,15 @@ def report_plan_result(result: dict[str, Any]) -> int:
     if state in {"walking", "awaiting_walk_review"}:
         print(
             (
-                "QA mission walking in this session; verdict pending. "
+                "QA mission docket prepared; no product proof captured yet. "
+                "Walk each mission in walker_dispatches, attach what the "
+                "product did with `yoke qa artifact add`, then submit the "
+                "complete verdict batch citing that proof."
                 if state == "walking"
-                else "QA capture complete; verdict pending. "
-            )
-            + "Follow the returned bundle instructions and submit the complete "
-            "verdict batch.",
+                else "QA capture complete; verdict pending. Follow the "
+                "returned bundle instructions and submit the complete "
+                "verdict batch."
+            ),
             file=sys.stderr,
         )
         return AGENT_REVIEW_REQUIRED_EXIT

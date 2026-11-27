@@ -35,3 +35,27 @@ def test_undetermined_and_already_recorded_verdicts_use_their_existing_rules():
     assert _validated_verdicts([case], [row], persisted=frozenset({5})) == {
         5: ("pass", row["rationale"])
     }
+
+
+def test_mission_pass_needs_a_product_artifact_but_fail_keeps_diagnostics():
+    from yoke_core.domain.qa_verdict_evidence_cite import (
+        QaMissionPassWithoutProductProof,
+    )
+
+    case = {
+        "requirement_id": 5,
+        "capture_run_id": 12,
+        "capture_runner": "agent_mission",
+        "artifacts": [{"id": 41, "artifact_type": "diagnostic"}],
+    }
+    row = {"requirement_id": 5, "verdict": "pass", "rationale": "run 12, artifact 41"}
+    with pytest.raises(QaMissionPassWithoutProductProof):
+        _validated_verdicts([case], [row])
+    row["verdict"] = "fail"
+    assert _validated_verdicts([case], [row]) == {5: ("fail", row["rationale"])}
+    case["artifacts"] = [{"id": 41, "artifact_type": "diagnostic"}, {"id": 42, "artifact_type": "evidence"}]
+    row.update(verdict="pass")
+    with pytest.raises(QaVerdictEvidenceUncited, match="Cite one of artifact 42"):
+        _validated_verdicts([case], [row])
+    row["rationale"] = "artifact 42"
+    assert _validated_verdicts([case], [row]) == {5: ("pass", "artifact 42")}

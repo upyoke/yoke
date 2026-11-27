@@ -19,7 +19,10 @@ from runtime.api.fixtures.deployment_scoped_qa_run_fixture import (
     item_qa_stage_definitions,
     seed_run_standing_on_qa_stage,
 )
-from runtime.api.domain.qa_verdict_citation_test_support import cite_case
+from runtime.api.domain.qa_verdict_citation_test_support import (
+    attach_product_evidence,
+    cite_case,
+)
 
 from yoke_contracts.api.function_call import FunctionCallRequest, TargetRef
 from yoke_core.domain.agent_mission_recording import (
@@ -323,6 +326,7 @@ def test_taken_over_mission_walk_commands_its_host_and_ends(
         assert stopped["release_reason"].startswith(STEERING_STOP_REASON)
         assert not get_claim(test_db, contract["lease_id"]).is_active
     else:
+        attach_product_evidence(ACTOR, requirement, run_id)
         bundle = begin_plan_review(test_db, current)
         test_db.commit()
         submitted = handle_plan_review_submit(FunctionCallRequest(
