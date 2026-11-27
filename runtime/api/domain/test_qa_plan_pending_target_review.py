@@ -117,10 +117,22 @@ def test_takeover_pending_review_holds_only_its_frozen_target(
                 deployment_member_item_id=None,
             )
 
-    # Other readers still expose the old review and its evidence as history.
+    # The historical bundle stays pending and readable on its own frozen target.
+    bundle = test_db.execute(
+        "SELECT b.state,e.execution_target_digest FROM qa_plan_review_bundles b "
+        "JOIN qa_plan_executions e ON e.id=b.execution_id WHERE b.id=%s",
+        (f"bundle-{execution['id']}",),
+    ).fetchone()
+    assert bundle["state"] == "pending"
+    assert bundle["execution_target_digest"] == execution["execution_target_digest"]
     pending = pending_review_requirements(test_db, [requirement_id], stopped_only=True)
-    assert pending[requirement_id].execution_id == execution["id"]
-    assert (
-        pending[requirement_id].execution_target_digest
-        == execution["execution_target_digest"]
-    )
+    if rematerialize:
+        # The successor target owns the reused requirement ID now; the old
+        # bundle no longer answers for its verdict.
+        assert pending == {}
+    else:
+        assert pending[requirement_id].execution_id == execution["id"]
+        assert (
+            pending[requirement_id].execution_target_digest
+            == execution["execution_target_digest"]
+        )
