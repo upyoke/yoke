@@ -79,7 +79,47 @@ def owed_reset(conn, test_machine):
     )
     if attempt is not None and _verified_reset(attempt):
         return None
-    return OwedReset(owed["checks"][0]["name"], attempt)
+    baseline = owed["checks"][0]["name"]
+    proved_at = _governed_baseline_proof_at(conn, test_machine, baseline)
+    # The attempt, when there is one, is already newer than the debt.
+    if proved_at is not None and proved_at > (attempt or owed)["performed_at"]:
+        return None
+    return OwedReset(baseline, attempt)
+
+
+def _governed_baseline_proof_at(conn, test_machine, baseline):
+    """When the host's latest governed verify reached ``baseline``, if it passed.
+
+    A verify runs its issued baselines on the host, so a fully passing one that
+    reached the owed baseline after the debt and its failed attempt pays that
+    debt. It proves a past reset only: the host now sits at whichever baseline
+    ran last, so it never becomes the host's verified reset baseline.
+    """
+    import json
+
+    from yoke_contracts.timestamps import parse_instant
+    from yoke_core.domain.machine_qa_execution_protocol import (
+        HOST_CONTROL_SUBMISSION_RECEIPT_KEY,
+    )
+
+    p = _marker(conn)
+    row = conn.execute(
+        "SELECT status,checked_at,receipt_json,error_code FROM test_machine_verifications "
+        f"WHERE test_machine_id=(SELECT id FROM test_machines WHERE name={p})",
+        (test_machine,),
+    ).fetchone()
+    if row is None or row["status"] != "verified" or row["error_code"]:
+        return None
+    if row["checked_at"] is None:
+        return None
+    receipt = json.loads(str(row["receipt_json"] or "{}"))
+    checks = receipt.get("checks") or []
+    governed = isinstance(receipt.get(HOST_CONTROL_SUBMISSION_RECEIPT_KEY), dict)
+    if not governed or not all(c.get("ok") is True for c in checks):
+        return None
+    if not any(c.get("name") == baseline for c in checks):
+        return None
+    return parse_instant(row["checked_at"])
 
 
 def provider_unavailable_at(debt):

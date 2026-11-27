@@ -230,9 +230,11 @@ unproven mission cleanup also requires a reset: its `reset_owed` machine receipt
 names the failed cleanup's baseline, or `fresh-host` when none was declared.
 The releasing CLI tries once on a free host and stops Yoke-started cloud hosts
 before and after reset. Case preparation can retry pending resets and
-`harness_provider_unavailable`. Repair-required failures keep QA queued even
-after a successful verify. Run the baseline reset named in the refusal or
-[steering report](../sessions/steering-report-delivery.md#reset-debt) to rejoin QA.
+`harness_provider_unavailable`. Repair-required failures keep QA queued until
+the baseline reset named in the refusal or
+[steering report](../sessions/steering-report-delivery.md#reset-debt) passes, or a
+later fully passing governed verify reaches that baseline. Later debt or reset
+failures block again; the verify never becomes the host's reset baseline.
 A failed ordinary case restore or current holder's mission restore artifact
 also records this debt before custody ends. A terminal case missing its
 restore receipt records debt too; an intermediate successful case keeps
