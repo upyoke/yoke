@@ -36,7 +36,9 @@ def _run_javascript_tests(test_modules: list[Path]) -> None:
             *map(str, test_modules),
         ],
         cwd=Path(__file__).resolve().parents[2],
-        text=True,
+        # Node writes UTF-8; the platform default (a Windows charmap) would
+        # raise on its bytes and lose the very diagnostic a failure needs.
+        encoding="utf-8",
         capture_output=True,
         timeout=120 if sys.platform == "win32" else 30,
         check=False,
@@ -56,14 +58,15 @@ def test_javascript_failure_names_file_and_test(tmp_path: Path) -> None:
     failing_module.write_text(
         "import { test } from 'node:test';\n"
         "test('deliberate contract failure', () => {\n"
-        "  throw new Error('failure diagnostic probe');\n"
-        "});\n"
+        "  throw new Error('failure diagnostic probe \u2190 \u0444\u2713');\n"
+        "});\n",
+        encoding="utf-8",
     )
     with pytest.raises(AssertionError) as failure:
         _run_javascript_tests([failing_module])
     assert failing_module.name in str(failure.value)
     assert "deliberate contract failure" in str(failure.value)
-    assert "failure diagnostic probe" in str(failure.value)
+    assert "failure diagnostic probe \u2190 \u0444\u2713" in str(failure.value)
 
 
 def test_javascript_premature_exit_is_a_failure(tmp_path: Path) -> None:
