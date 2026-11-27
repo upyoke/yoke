@@ -13,6 +13,7 @@ import pytest
 from yoke_core.domain import watch_capture_binding as _watch_capture_binding
 from yoke_core.domain import watch_runner as _watch_runner
 from yoke_core.tools import watch_deploy, watch_merge
+from yoke_core.domain import deploy_pipeline_gates as gates
 from yoke_core.domain import gate_stall_report
 from yoke_core.tools._watch_wait_mode import WatchWaitMode
 from yoke_core.domain.watch_throttle import Classification, LineClass
@@ -339,3 +340,10 @@ def test_wait_mode_changes_transport_not_outcome_policy(wait_mode, expected) -> 
         assert "Progress tail" not in text
     else:
         assert "yoke watch tail" in text
+
+
+def test_deploy_failure_shows_the_named_release_refusal(tmp_path: Path) -> None:
+    _, refusal = gates._verify_branch_merged("m", "Y-1", str(tmp_path), "a" * 40)
+    (raw := tmp_path / "deploy.raw").write_text(f"starting\n{refusal}\n")
+    outcome, rc = format_terminal_outcome(kind="deploy", exit_code=3, raw_capture=raw)
+    assert rc == 3 and f"failure: {refusal}; exit=3;" in outcome
