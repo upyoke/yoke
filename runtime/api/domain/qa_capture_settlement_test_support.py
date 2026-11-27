@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import base64
 from typing import Any
 
 from runtime.api.domain.machine_qa_session_seed import seed_registered_qa_launch
@@ -35,6 +36,7 @@ from yoke_core.domain.machine_qa_local_execution import (
     prepare_agent_mission_contract,
 )
 
+from yoke_core.domain.qa_artifact_recording import handle_qa_artifact_add
 from yoke_core.domain.qa_catalog_schema import seed_builtin_qa_methods
 
 from yoke_core.domain.qa_plan_attachments import (
@@ -136,7 +138,7 @@ def _capture_attempt(
     item_id: int,
     requirement_id: int,
 ) -> str:
-    """Begin an execution and land its docket capture; returns execution id."""
+    """Begin an execution and attach reviewable mission evidence."""
     seed_registered_qa_launch(test_db, ACTOR.session_id, actor_id=int(ACTOR.actor_id))
     execution = begin_plan_execution(
         test_db,
@@ -173,6 +175,23 @@ def _capture_attempt(
         )
     )
     assert ready.primary_success, ready.error
+    evidence = handle_qa_artifact_add(
+        FunctionCallRequest(
+            function="qa.artifact.add",
+            actor=ACTOR,
+            target=TargetRef(kind="qa_requirement", qa_requirement_id=requirement_id),
+            payload={
+                "run_id": int(ready.result_payload["result"]["run_id"]),
+                "artifact_type": "evidence",
+                "content_type": "text/plain",
+                "filename": "onboarding-findings.txt",
+                "content_base64": base64.b64encode(
+                    b"Onboarding completed with the expected prompts."
+                ).decode(),
+            },
+        )
+    )
+    assert evidence.primary_success, evidence.error
     return execution_id
 
 

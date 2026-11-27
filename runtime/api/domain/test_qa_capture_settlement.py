@@ -46,6 +46,8 @@ def test_review_submission_settles_the_capture_run_in_place(
     bundle = begin_plan_review(test_db, execution)
     assert bundle is not None
     capture_run_id = bundle["cases"][0]["capture_run_id"]
+    (artifact,) = bundle["cases"][0]["artifacts"]
+    assert artifact["artifact_type"] == "evidence"
     assert _unsettled_run_ids(test_db, requirement_id) == [capture_run_id]
 
     result = _submit_pass(
@@ -65,7 +67,7 @@ def test_review_submission_settles_the_capture_run_in_place(
     ).fetchone()
     assert capture_row["verdict"] == "pass"
     assert capture_row["verdict_reason"] == (
-        f"Ranked findings cover the expected outcome. See run {capture_run_id}."
+        f"Ranked findings cover the expected outcome. See artifact {artifact['id']}."
     )
     assert capture_row["execution_status"] == "captured"
     assert capture_row["case_outcome"] == "needs_review"
