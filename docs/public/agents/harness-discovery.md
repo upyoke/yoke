@@ -260,20 +260,17 @@ Full Yoke skills stay per-project. The one user-level skill is `yoke-global`,
 for a session opened outside every Yoke project: it checks the machine, picks
 or adds the project and names the folder where a new session does the work.
 Its startup orientation names the skill as the next action. Setup places it
-once in `~/.agents/skills/yoke-global`, which Codex and Cursor read natively,
-and links `~/.claude/skills/yoke-global` to it for Claude Code; the harness
-setup reconcile above keeps it current. A harness whose home folder is absent
-is skipped. Each manifest's
+in `~/.agents/skills/yoke-global`, which Codex and Cursor read natively,
+and writes the same skill file to `~/.claude/skills/yoke-global` for Claude
+Code; the harness setup reconcile above keeps both current. The Claude copy is
+a real folder, not a link, so Claude started over native Windows SSH, which
+does not follow a junction its user created, still finds it. A harness whose
+home folder is absent is skipped. Each manifest's
 `global_skill` field states its placement. `yoke uninstall` removes both
 paths, and any parent folder setup created for them once it is empty. An
 existing path Yoke did not create refuses as
 `global_skill_path_not_owned`; move it aside, then run
 `yoke doctor run --only harness-setup --fix`, which works outside a project.
-Setup judges the Claude link by the target it records, without following it,
-so a native Windows SSH session that may not traverse the junction (an
-untrusted mount point) still sees it as current. A link whose target cannot be
-read refuses as `global_skill_link_unreadable`; grant your account read access
-or move the link aside, then run the same repair.
 
 ## Guard scope
 
