@@ -9,6 +9,8 @@ members by activity and names the live execution instead.
 
 from __future__ import annotations
 
+import json
+
 from runtime.api.domain.deployment_qa_plan_groups_test_support import (
     RUN,
     _begin,
@@ -95,12 +97,21 @@ def _execution(conn, execution_id, member, state, *, machine=None, digest=None) 
         "AND deployment_member_item_id=%s AND method_id IS NOT NULL",
         (RUN_ID, member),
     ).fetchone()[0]
+    # The walk freezes the member's own cases into its roster.
+    roster = json.dumps([
+        {"requirement_id": int(row[0])}
+        for row in conn.execute(
+            "SELECT id FROM qa_requirements WHERE deployment_run_id=%s "
+            "AND deployment_member_item_id=%s AND method_id IS NOT NULL ORDER BY id",
+            (RUN_ID, member),
+        ).fetchall()
+    ])
     conn.execute(
         "INSERT INTO qa_plan_executions(id,deployment_run_id,deployment_stage,"
         "deployment_member_item_id,session_id,roster_digest,roster_json,state,"
         "created_at,heartbeat_at,execution_target_digest,test_machine_lease_id) "
-        "VALUES (%s,%s,%s,%s,%s,'roster','[]',%s,now(),now(),%s,%s)",
-        (execution_id, RUN_ID, ITEM_QA_STAGE, member, session, state, digest, lease),
+        "VALUES (%s,%s,%s,%s,%s,'roster',%s,%s,now(),now(),%s,%s)",
+        (execution_id, RUN_ID, ITEM_QA_STAGE, member, session, roster, state, digest, lease),
     )
     conn.commit()
 
