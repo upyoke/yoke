@@ -1,7 +1,6 @@
 """Portable owner routing preserves standalone and copy-placement behavior."""
 from pathlib import Path
 import shlex
-import shutil
 import subprocess
 from types import SimpleNamespace
 
