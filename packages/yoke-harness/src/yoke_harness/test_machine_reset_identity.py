@@ -7,6 +7,7 @@ from pathlib import PurePosixPath, PureWindowsPath
 import re
 from uuid import UUID
 
+from yoke_contracts.api.function_call import FunctionCallResponse
 from yoke_contracts.machine_authorization import MACHINE_RETIRED
 from yoke_contracts.machine_config.paths import DEFAULT_HOME_NAME
 from yoke_contracts.machine_config.schema import DEFAULT_CONFIG_NAME, MACHINE_ID_KEY
@@ -28,6 +29,22 @@ def _advisory(outcome: str, reason: str, **details) -> HostActionResult:
             "outcome": outcome, "reason": reason, "recovery": _RECOVERY, **details,
         }},
         "test_machine_identity_retirement_failed",
+    )
+
+
+def _confirms_retirement(stdout: str, machine_id: str) -> bool:
+    """True only for a successful typed reply retiring exactly ``machine_id``."""
+    try:
+        response = FunctionCallResponse.model_validate_json(stdout)
+    except ValueError:  # pydantic's ValidationError: empty or malformed reply
+        return False
+    machine = response.result.get("machine")
+    return (
+        response.success
+        and response.function == "machine.retire"
+        and isinstance(machine, dict)
+        and machine.get("machine_id") == machine_id
+        and bool(machine.get("retired_at"))
     )
 
 
@@ -76,6 +93,10 @@ def retire_reset_identity(control, *, native_windows: bool = False) -> HostActio
             "failed", "retire_command_failed", machine_id=machine_id, error_type=type(exc).__name__
         )
     outcome = "retired"
+    if not result.returncode and not _confirms_retirement(result.stdout, machine_id):
+        return _advisory(
+            "unconfirmed", "retire_response_unconfirmed", machine_id=machine_id, exit_code=0
+        )
     if result.returncode:
         try:
             code = json.loads(result.stdout)["error"]["code"]
