@@ -16,6 +16,8 @@ def card_delivery(
     conn: Any,
     drawn: list[dict[str, Any]],
     facts: dict[int, Any],
+    *,
+    actor_id: int | None,
 ) -> dict[int, dict[str, Any]]:
     """Resolve flow environments and delivery summaries for drawn cards.
 
@@ -26,6 +28,9 @@ def card_delivery(
     """
     if not drawn:
         return {}
+    from yoke_core.domain.actor_permissions import PERM_ITEMS_READ
+    from yoke_core.domain.actor_project_visibility import actor_project_ids_with_permission
+    from yoke_core.domain.deployment_run_item_delivery import first_carried_builds
     from yoke_core.domain.dash_execution import DASH_EVIDENCE_SECTION
     from yoke_core.domain.item_json_sections import read_json_sections
     from yoke_core.domain.item_overview_effective_flow import apply_effective_flows
@@ -67,6 +72,15 @@ def card_delivery(
 
     completed = completed_deliveries(conn, ids)
     merges_by_item = recorded_merge_shas_for_items(conn, ids)
+    landings = {
+        (int(facts[item_id]["project_id"]), item_id, sha)
+        for item_id, merges in merges_by_item.items()
+        for sha in merges
+    }
+    first_builds = {}
+    if landings:
+        readable = actor_project_ids_with_permission(conn, actor_id, PERM_ITEMS_READ)
+        first_builds = first_carried_builds(conn, landings, readable_project_ids=readable)
     evidence_by_item = read_json_sections(
         conn, item_ids=ids, section=DASH_EVIDENCE_SECTION
     )
@@ -107,6 +121,8 @@ def card_delivery(
             "flow": summary.flow,
             "no_code_change": evidence.get("no_changes") is True,
         }
+        if item_id in first_builds:
+            summaries[item_id]["carried_builds"] = first_builds[item_id]
     return summaries
 
 

@@ -1,8 +1,7 @@
 """``yoke browser verify`` — is one browser identity still signed in?
 
-Checks every site a project identity declares, headless on that identity's
-own profile, and reports each site separately. It only reads: nothing is
-typed, clicked or signed in, and no window opens. ``yoke browser authorize``
+Checks every site a project identity declares on that identity's own profile.
+It only reads and reports each site separately. ``yoke browser authorize``
 runs the same check first and asks a human only for the sites it reports
 expired.
 """
@@ -42,9 +41,10 @@ The report names every site:
 `expired` means the site answered and is signed out; sign in with
 `yoke browser authorize --identity NAME`, which opens a window only for the
 expired sites. `unreachable` means the check got no answer, which no sign-in
-fixes: repair the site or its declared probe. The identity's own browser
-daemon is stopped for the check (Chromium locks a profile); the next case
-starts it again.
+fixes: repair the site or its declared probe. If the managed browser is open,
+the check uses its own endpoint and preserves its tabs. If that endpoint is
+unavailable, finish any open approvals, close that browser and retry. With
+the profile closed, the check runs headless.
 
 Worked examples:
 

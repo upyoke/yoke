@@ -10,10 +10,10 @@ from yoke_cli.config import browser_executable
 from yoke_contracts import terminal_detached_process
 
 LAUNCH_PROBE_JS = r"""
-const { chromium } = require('playwright');
+const { chromium } = require('./node_modules/playwright');
 (async () => {
-  const browser = await chromium.launch({ executablePath: process.argv[1],
-    headless: true, chromiumSandbox: true, timeout: 15000 });
+  const browser = await chromium.launch({ executablePath: process.argv[2],
+    headless: true, chromiumSandbox: process.argv[1] === '1', timeout: 15000 });
   try {
     const page = await browser.newPage();
     await page.goto('data:text/html,<title>Yoke browser probe</title>', { timeout: 15000 });
@@ -70,14 +70,18 @@ def candidates(saved: str | None = None) -> list[str]:
     )
 
 
-def probe_installed(browser, toolchain, env, executable):
-    """Prove the selected executable can open a sandboxed test page."""
+def probe_launch(browser, toolchain, env, executable=None, *, sandbox=True):
+    """Prove the selected browser can open a local test page."""
+    command = [str(toolchain.node), "-e", LAUNCH_PROBE_JS, "1" if sandbox else "0"]
+    if executable is not None:
+        command.append(executable)
     return terminal_detached_process.run(
-        [str(toolchain.node), "-e", LAUNCH_PROBE_JS, executable],
+        command,
         cwd=str(browser),
         env=env,
         capture_output=True,
-        text=True,
+        encoding="utf-8",
+        errors="replace",
         timeout=40,
     )
 
@@ -86,7 +90,7 @@ def use_installed(browser, toolchain, env, *, emit, saved=None) -> bool:
     failures = []
     for executable in candidates(saved):
         try:
-            result = probe_installed(browser, toolchain, env, executable)
+            result = probe_launch(browser, toolchain, env, executable)
         except (OSError, subprocess.TimeoutExpired) as exc:
             failures.append(f"{executable}: {type(exc).__name__}")
             continue

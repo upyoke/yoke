@@ -115,6 +115,8 @@ def test_full_skill_suite_has_one_canonical_source(conn) -> None:
         p.relative_to(source).as_posix() for p in source.rglob("*") if p.is_file()
     }
     assert rels == source_rels
+    dash_recipe = by_path[f"{prefixes['canonical']}dash/file-and-claim.md"]
+    assert "yoke items detail get ITEM --include= --json" in dash_recipe.splitlines()
     skill_ref = r"\.agents/skills/yoke/[A-Za-z0-9_./-]+\.md"
     referenced = {
         ref for path in canonical_skills for ref in re.findall(skill_ref, by_path[path])

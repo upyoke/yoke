@@ -10,7 +10,7 @@ import sys
 
 from yoke_cli.config import cli_release_resident
 from yoke_cli.config import cli_release_runtime as runtime
-from yoke_contracts import platform_file_lock
+from yoke_contracts import platform_file_lock, platform_fs
 
 MAIN = """import json, sys
 def main(argv):
@@ -64,9 +64,9 @@ def candidate(root: Path, version: str) -> Path:
     contracts = site / "yoke_contracts"
     contracts.mkdir()
     (contracts / "__init__.py").touch()
-    (contracts / "platform_file_lock.py").write_text(
-        Path(platform_file_lock.__file__).read_text(encoding="utf-8"), encoding="utf-8"
-    )
+    for module in (platform_file_lock, platform_fs):
+        source = Path(module.__file__)
+        (contracts / source.name).write_bytes(source.read_bytes())
     for module in (runtime, cli_release_resident):
         source = Path(module.__file__)
         (package / "config" / source.name).write_text(source.read_text())

@@ -52,8 +52,13 @@ helper's exact dispatch builder: ref, both `product_ref` and `consumer_sha`
 inputs, request id, correlation input and project. Do not assemble a trigger
 command by hand. The release joins the same pair's run; another pair uses
 another request id, and changing a payload under a reused id still refuses
-with `idempotency_key_collision`. A pending dispatch names its retry recovery;
-repeat this command with the same pair to join it.
+with `idempotency_key_collision`. After a lost dispatch response, Yoke checks
+the exact pair and dispatch marker and joins any matching active run or verdict.
+The original dispatching actor can post a replacement under the same request
+after the two-minute join window, if the GitHub lookup completes without usable
+proof and the existing tag still names the bound Platform commit. Stage and
+production share the replacement attempt. A caller with a different actor can
+join the proof. Repeat the command with the same pair when the proof is pending.
 
 ## Diagnose a failed pair
 

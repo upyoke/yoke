@@ -224,6 +224,9 @@ DELIVERY_TABLES: dict[str, dict] = {
             "The prior-QA-stage refusal reader is "
             "`deployment_qa_stage_resume.prior_deployment_qa_refusals`, not "
             "`deployment_qa_stage_prerequisites` (stale module guess)."
+            " For start and creation conflicts use "
+            "`deploy_target_occupancy.target_blockers(conn, contender)`. The former "
+            "`occupancies(conn, origins)` helper no longer exists."
         ),
     },
     "deployment_stage_receipts": {

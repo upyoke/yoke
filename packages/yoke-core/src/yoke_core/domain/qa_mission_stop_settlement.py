@@ -68,22 +68,37 @@ def mission_review_cases(
     return reviewable
 
 
+def _abandoned_walk(conn: Any, execution: dict[str, Any], reason: str) -> bool:
+    from yoke_core.domain.qa_host_idle_hold import IDLE_HOLD_RELEASED_REASON
+    from yoke_core.domain.qa_plan_execution_abort_reason import abort_reason_code
+    from yoke_core.domain.qa_plan_execution_authority import plan_execution_is_abandoned
+    from yoke_core.domain.qa_plan_execution_lifecycle import STALE_PLAN_EXECUTION_REASON
+
+    return abort_reason_code(reason) in {
+        STALE_PLAN_EXECUTION_REASON,
+        IDLE_HOLD_RELEASED_REASON,
+    } or plan_execution_is_abandoned(conn, execution)
+
+
 def settle_stopped_mission_dockets(
-    conn: Any, execution: dict[str, Any], *, reason: str
+    conn: Any, execution: dict[str, Any], *, state: str, reason: str
 ) -> None:
     """Keep diagnostics, but never offer a setup-only docket for judgment.
 
-    The docket keeps a NULL verdict: a walk that never started proves nothing
-    about the product, so the gate reads it as unrun rather than red.
+    A setup refusal or abandoned walk can leave a docket with no product
+    proof. Keep its verdict NULL so the gate can run the case again.
     """
-    if not reason.startswith("blocked_on_precondition:"):
-        return
     missions = {
         int(case["requirement_id"])
         for case in execution.get("roster") or []
         if case.get("runner_id") == "agent_mission"
     }
     if not missions:
+        return
+    setup_blocked = reason.startswith("blocked_on_precondition:")
+    if not setup_blocked and (
+        state != "aborted" or not _abandoned_walk(conn, execution, reason)
+    ):
         return
     p = marker(conn)
     for row in result_rows(conn, str(execution["id"])):
@@ -94,11 +109,15 @@ def settle_stopped_mission_dockets(
             continue
         capture = query_one(
             conn,
-            f"SELECT verdict FROM qa_runs WHERE id={p} AND qa_requirement_id={p} "
+            f"SELECT verdict,case_outcome FROM qa_runs WHERE id={p} AND qa_requirement_id={p} "
             "AND performed_by='agent_mission'",
             (int(run_id), int(row["requirement_id"])),
         )
-        if capture is None or capture["verdict"] is not None:
+        if (
+            capture is None
+            or capture["verdict"] is not None
+            or (not setup_blocked and capture["case_outcome"] != "needs_review")
+        ):
             continue
         proof = query_one(
             conn,
@@ -108,9 +127,13 @@ def settle_stopped_mission_dockets(
         )
         if proof is not None:
             continue
-        diagnostic = (
-            f"mission_setup_blocked: {reason}; no product proof was captured. "
+        recovery = (
             "Resolve the named prerequisite, then run a fresh mission."
+            if setup_blocked
+            else "Run a fresh mission."
+        )
+        diagnostic = (
+            f"mission_setup_blocked: {reason}; no product proof was captured. {recovery}"
         )
         update_qa_run(
             conn,

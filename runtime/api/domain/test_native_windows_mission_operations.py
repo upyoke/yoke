@@ -8,7 +8,8 @@ from __future__ import annotations
 
 import json
 import subprocess
-from pathlib import PureWindowsPath
+from contextlib import nullcontext
+from pathlib import Path, PureWindowsPath
 from types import SimpleNamespace
 
 import pytest
@@ -17,6 +18,7 @@ from yoke_contracts.machine_config.test_machine import TestMachineCapabilityErro
 from yoke_contracts.machine_qa_failures import HostControlLocalError
 from yoke_contracts.qa_continuity_fingerprint import check_continuity
 from yoke_core.domain.agent_mission_preparation import prepare_mission
+from yoke_contracts.windows_powershell import encoded, quote
 from yoke_core.domain.machine_qa_mission_scratch import (
     create_mission_scratch,
     mission_scratch_present,
@@ -107,7 +109,9 @@ def test_scratch_remove_proves_absence() -> None:
     result = remove_mission_scratch(host, execution_id=EXECUTION_ID)
     assert result["removed"] is True
     assert result["stale_owner_marker_removed"] is True
-    assert any("Remove-Item -LiteralPath $p -Recurse -Force" in s for s in host.scripts)
+    _, remove, probe = host.scripts
+    assert "rmdir /s /q" in remove and "exit $removeExit" in remove
+    assert "Test-Path -LiteralPath" in probe and "exit 3" in probe
     _assert_windows_only(host)
 
 
@@ -214,3 +218,79 @@ def test_an_os_without_operations_refuses(monkeypatch) -> None:
     contract = SimpleNamespace(settings={"os": "windows"})
     with pytest.raises(TestMachineCapabilityError, match="no operations"):
         host_operations.host_operations_for(contract)
+
+
+@pytest.mark.windows_only(reason="requires native Windows long paths and junctions")
+@pytest.mark.parametrize("locked", [False, True])
+def test_walk_end_removes_only_owned_scratch(tmp_path, monkeypatch, locked):
+    from yoke_core.domain import machine_qa_mission_walk as walk
+
+    events = []
+
+    class LocalWindowsHost(WindowsMissionOperations):
+        home = str(tmp_path / "profile & %TEMP%")
+
+        def _run(self, script, *, timeout):
+            events.append("remove" if "rmdir /s /q" in script else "host")
+            return subprocess.run(
+                [
+                    "powershell.exe", "-NoProfile", "-NonInteractive",
+                    "-EncodedCommand", encoded(
+                        "$ErrorActionPreference='Stop'\n"
+                        "$ProgressPreference='SilentlyContinue'\n"
+                        + script
+                    ),
+                ],
+                capture_output=True, text=True, timeout=timeout,
+            )
+
+    execution_id = "local-walk"
+    host = LocalWindowsHost()
+    scratch = Path(host.mission_scratch_path(execution_id))
+    scratch.mkdir(parents=True)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    sentinel = outside / "target.txt"
+    sentinel.write_text("OUTSIDE")
+    # Create the junction through a short, literal path. The native removal
+    # must handle its target independently of the long descendant below.
+    result = host._run(
+        f"$link={quote(str(scratch / 'link'))}; $target={quote(str(outside))}\n"
+        "New-Item -ItemType Junction -Path $link -Target $target | Out-Null",
+        timeout=60,
+    )
+    assert result.returncode == 0, result.stderr
+
+    events.clear()
+
+    descendant = scratch / ("a" * 120) / ("b" * 120) / "nested.txt"
+    assert len(str(descendant)) > 260
+    extended = Path("\\\\?\\" + str(descendant))
+    extended.parent.mkdir(parents=True)
+    extended.write_text("SCRATCH")
+
+    def restore(baseline):
+        events.append("restore")
+        return SimpleNamespace(ok=True, error_code=None, evidence={"name": baseline})
+
+    contract = SimpleNamespace(
+        plan_execution_id=execution_id,
+        cases=[SimpleNamespace(starting_state="baseline", host_baseline="fresh-host", project="test")],
+        settings={"resource_name": "lab"},
+    )
+    execution = SimpleNamespace(
+        control=host, material=SimpleNamespace(secrets={}), reach_baseline=restore,
+    )
+    monkeypatch.setattr(walk, "_mission_contract", lambda raw: contract)
+    monkeypatch.setattr(walk, "_execution", lambda contract: execution)
+
+    with extended.open("rb") if locked else nullcontext():
+        teardown = walk.execute_agent_mission_walk_end({})
+        assert teardown["removed"] is not locked
+        assert (teardown["removal_exit_code"] != 0) is locked, teardown
+        assert bool(teardown["removal_stderr"]) is locked, teardown
+        assert scratch.exists() is locked
+
+    assert sentinel.read_text() == "OUTSIDE"
+    assert teardown["starting_state_restore"]["restored"]
+    assert events == ["host", "remove", "host", "restore"]

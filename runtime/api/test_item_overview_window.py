@@ -263,3 +263,56 @@ def test_a_stopped_item_is_terminal_but_never_finished(test_db):
     assert row["terminal"] is True
     assert row["finished"] is False
     assert row["finished_at"] is None
+
+
+def test_overview_card_keeps_first_successful_carried_build_outside_run_limit(test_db):
+    import json
+
+    from runtime.api.fixtures.backlog_inserts import insert_deployment_run
+    from yoke_core.domain.deployment_run_item_delivery import first_carried_builds
+    from yoke_core.domain.deployment_run_list_read import list_deployment_runs
+    from yoke_core.domain.item_merge_receipt_document import record_entry
+
+    item_id, project_id, stage_id = 619, 1, 7
+    merge_sha = "a" * 40
+    insert_item(test_db, id=item_id, title="carried and done", status="done")
+    _finished(test_db, item_id, "done", 1)
+    record_entry(
+        test_db, item_id=item_id, branch="carried", target="main",
+        commit_sha=merge_sha, merge_sha=merge_sha,
+    )
+    containment = json.dumps({"answers": [{
+        "id": item_id, "project_id": project_id, "merge_sha": merge_sha, "state": "contained",
+    }]})
+    first = "run-carried-first"
+    latest = "run-carried-later"
+    for run_id, age in ((first, 6), (latest, 2)):
+        insert_deployment_run(
+            test_db, id=run_id, project_id=project_id,
+            created_at=_iso(age + 1), completed_at=_iso(age),
+            status="succeeded", target_tier="persistent", target_environment_id=stage_id,
+            candidate_containment=containment,
+        )
+    test_db.execute("UPDATE environments SET name='stage' WHERE id=%s", (stage_id,))
+    test_db.commit()
+
+    runs = list_deployment_runs(project="yoke", status=None, limit=1, relevance="overview")
+    assert [run["id"] for run in runs] == [latest]
+    assert runs[0]["delivery_candidate_items"] == []
+
+    overview = item_page_reads.handle_items_overview_list(
+        request_for("items.overview.list", {"relevance": "overview"})
+    )
+    assert overview.primary_success
+    card = _rows_by_title(overview)["carried and done"]
+    assert card["delivery"]["carried_builds"] == [{
+        "id": first, "project_id": project_id, "target_environment": "stage",
+    }]
+
+    landings = {(project_id, item_id, merge_sha)}
+    assert first_carried_builds(test_db, landings, readable_project_ids=set()) == {}
+    test_db.execute(
+        "INSERT INTO deployment_run_items (run_id, item_id, added_at) VALUES (%s, %s, now())",
+        (first, item_id),
+    )
+    assert first_carried_builds(test_db, landings, readable_project_ids={project_id}) == {}

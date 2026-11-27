@@ -84,7 +84,7 @@ def test_set_aside_qa_is_adopted_by_next_enrolling_run(test_db, monkeypatch):
 def test_creation_beside_deploying_predecessor_names_the_occupant(test_db, monkeypatch):
     from yoke_core.domain.deployment_run_create_receipt import continuation_facts
 
-    _seed_old(test_db, run_qa=False)
+    _seed_old(test_db, run_qa=False, deploy_runner="core-container-deploy")
     test_db.execute("UPDATE deployment_runs SET current_stage='deploy' WHERE id=%s", (OLD,))
     _seed_new(test_db)
     _contains(monkeypatch)

@@ -9,8 +9,8 @@ Answers are keyed by question, not by position, because saved machine state
 can skip whole steps on a later run. Secret answers never reach this file: a
 secret answer is refused before it is staged. The one exception is a pending
 browser approval's short-lived device code, which the next invocation needs to
-ask whether the person approved; it is deleted once that approval completes,
-fails or expires, and the file stays owner-private. One invocation at a time
+check the approval's status. The code is deleted when approval completes,
+fails or expires. The file stays owner-private and one invocation at a time
 holds the store's lock.
 """
 
@@ -76,6 +76,8 @@ class AnswerStore:
     def __init__(self, record: dict[str, Any], *, existed: bool) -> None:
         self.existed = existed
         self.presets: dict[str, Any] = dict(record.get("presets") or {})
+        legacy_resume_run_id = self.presets.pop("resume_run_id", None)
+        self.resume_run_id: str | None = record.get("resume_run_id", legacy_resume_run_id)
         self.answers: dict[str, str] = dict(record.get("answers") or {})
         self.waiting_key: str | None = record.get("waiting_key")
         self.apply_failure: dict[str, Any] | None = record.get("apply_failure")
@@ -121,7 +123,9 @@ class AnswerStore:
             not name.startswith("project_") and value != self.presets.get(name)
             for name, value in given.items()
         ):
-            if not (self.answers or self.apply_failure or self.pending_approval):
+            if not (
+                self.answers or self.apply_failure or self.pending_approval or self.resume_run_id
+            ):
                 self.presets = given
                 return None
             return (
@@ -142,6 +146,7 @@ class AnswerStore:
         if prefix is not None and "project_public_item_prefix" not in self.presets:
             self.stage({"project.details.prefix": prefix})
         self.apply_failure = None
+        self.resume_run_id = None
         self.flush()
         return None
 
@@ -191,6 +196,7 @@ class AnswerStore:
         record = {
             "version": STORE_VERSION,
             "presets": self.presets,
+            "resume_run_id": self.resume_run_id,
             "answers": self.answers,
             "waiting_key": self.waiting_key,
             "apply_failure": self.apply_failure,

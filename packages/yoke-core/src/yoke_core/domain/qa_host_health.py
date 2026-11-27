@@ -1,11 +1,8 @@
 """Whether a physical Test Machine may take a scoped QA plan's next turn.
 
-A host is unhealthy while its newest health fact is a failed verification:
-the readiness row every availability surface reads. A later successful
-``verify`` or ``golden_capture`` heals it. Reset and diagnosis receipts record
-what was last done to the machine, not whether it works, so they never
-decide admission. Health is physical: every project registering the machine
-contributes its facts, like the one Test Machine queue.
+A failed owed reset requiring repair bars QA until a recovery reset succeeds.
+A failed verification independently bars QA until a successful ``verify`` or
+``golden_capture``. Health is physical, like the one Test Machine queue.
 """
 
 from __future__ import annotations
@@ -16,6 +13,7 @@ from yoke_contracts.machine_qa_host_control import GOLDEN_CAPTURE_OPERATION
 from yoke_contracts.timestamps import format_instant, parse_instant
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_rows
+from yoke_core.domain.machine_reset_debt import owed_reset, reset_command
 from yoke_core.domain.schema_common import _table_exists
 
 HOST_UNHEALTHY_REASON = "test_machine_host_unhealthy"
@@ -34,7 +32,15 @@ def host_heal_commands(test_machine: str) -> str:
 
 
 def host_unhealthy(conn: Any, test_machine: str) -> dict[str, Any] | None:
-    """Return the failed verification that still bars *machine*, else None."""
+    """Return the outstanding repair reset or failed verification, if any."""
+    has_receipts = _table_exists(conn, "test_machine_operation_receipts")
+    if has_receipts and (debt := owed_reset(conn, test_machine)) is not None:
+        if (code := debt.repair_error_code) is not None:
+            return {
+                "test_machine": test_machine,
+                "error_code": code,
+                "reset_baseline": debt.baseline,
+            }
     if not _table_exists(conn, "test_machine_verifications"):
         return None
     p = "%s" if db_backend.connection_is_postgres(conn) else "?"
@@ -47,7 +53,7 @@ def host_unhealthy(conn: Any, test_machine: str) -> dict[str, Any] | None:
             (test_machine,),
         )
     ]
-    if _table_exists(conn, "test_machine_operation_receipts"):
+    if has_receipts:
         facts += [
             (parse_instant(row["performed_at"]), "verified", None)
             for row in query_rows(
@@ -71,6 +77,14 @@ def host_unhealthy(conn: Any, test_machine: str) -> dict[str, Any] | None:
 
 def unhealthy_rationale(health: dict[str, Any]) -> str:
     """One sentence naming the failure and the operation that heals it."""
+    if baseline := health.get("reset_baseline"):
+        name = health["test_machine"]
+        return (
+            f"{HOST_UNHEALTHY_REASON}: QA must wait to acquire {name}: "
+            f"machine_needs_repair: its owed reset failed ({health['error_code']}). "
+            f"The operator must repair that failure and run `{reset_command(name, baseline)}` "
+            "to restore eligibility"
+        )
     return (
         f"{HOST_UNHEALTHY_REASON}: QA must wait to acquire {health['test_machine']}: "
         f"its last verification failed ({health['error_code']} at "

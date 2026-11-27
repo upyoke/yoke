@@ -53,8 +53,10 @@ STEP_ARGS = ["--base-url", "https://example.com", "--project", "acme"]
     "command", [browser_verify.browser_verify, browser_authorize.browser_authorize]
 )
 @pytest.mark.parametrize("json_argument", SOURCES, indirect=True)
-def test_declarations_sources(command, json_argument, monkeypatch, capsys):
-    monkeypatch.setattr(browser_profile, "profile_project_key", lambda project: project)
+def test_declarations_sources(command, json_argument, monkeypatch, tmp_path, capsys):
+    machine_home = tmp_path / "machine-home"
+    machine_home.mkdir()
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(machine_home))
     monkeypatch.setattr(browser_authorize, "prepare_browser_runtime", lambda _: None)
     monkeypatch.setattr(
         browser_authorize_automatic, "authorize_automatic", lambda *args: ([], [])

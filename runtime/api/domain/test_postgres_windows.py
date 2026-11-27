@@ -1,11 +1,17 @@
 """Native Windows engine resolution and helper process regressions."""
 from __future__ import annotations
 
-import pytest
-
+import hashlib
+import io
+from pathlib import Path
 import subprocess
 import sys
+import tarfile
 
+import pytest
+
+from yoke_contracts.owner_private_path import is_owner_private_directory
+from yoke_contracts.platform_fs import extended_length_path, remove_tree
 from yoke_core.domain import postgres_binaries, postgres_cluster_process
 
 
@@ -69,8 +75,6 @@ def test_missing_dll_hint_names_vc_runtime_first(monkeypatch):
 
 
 def test_windows_archive_directories_use_owner_private_creation(monkeypatch, tmp_path):
-    import tarfile
-    from pathlib import Path
     payload = tmp_path / "payload"
     (payload / "bin").mkdir(parents=True)
     (payload / "bin" / "initdb.exe").touch()
@@ -90,3 +94,89 @@ def test_windows_archive_directories_use_owner_private_creation(monkeypatch, tmp
     postgres_binaries._unpack_release(archive, staging, dest)
     assert (dest / "bin" / "initdb.exe").is_file()
     assert {"extracted", "postgresql", "bin"} <= set(created)
+
+
+@pytest.mark.windows_only(reason="requires native Windows extended paths and directory ACLs")
+@pytest.mark.parametrize("deep_home", [False, True], ids=["short-home", "deep-home"])
+def test_fetch_postgres_on_windows_paths(monkeypatch, tmp_path, deep_home):
+    home = tmp_path / "home"
+    if deep_home:
+        home = home / ("profile-" + "x" * 145)
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
+    # The test exercises the engine archive only and makes no runtime downloads.
+    monkeypatch.setattr(
+        postgres_binaries.windows_vc_runtime_install, "ensure_runtime",
+        lambda *_args, **_kwargs: None,
+    )
+    version, target = "9.9.9", "x86_64-pc-windows-msvc"
+    releases = tmp_path / "releases"
+    release = releases / version
+    release.mkdir(parents=True)
+    archive = release / postgres_binaries.release_asset_name(version, target)
+    top = archive.name.removesuffix(".tar.gz")
+    directory_name = "share/tsearch_data"
+    filename = f"extension-{'x' * 85}.sql" if deep_home else "extension.sql"
+    member = f"{directory_name}/{filename}"
+    payload = b"select 1;"
+    directory_mtime = 1_600_000_000
+    with tarfile.open(archive, "w:gz") as stream:
+        for name in (top, f"{top}/bin", f"{top}/share", f"{top}/{directory_name}"):
+            directory = tarfile.TarInfo(name)
+            directory.type = tarfile.DIRTYPE
+            directory.mtime = directory_mtime
+            stream.addfile(directory)
+        for name in ("bin/initdb.exe", member):
+            entry = tarfile.TarInfo(f"{top}/{name}")
+            entry.size = len(payload)
+            stream.addfile(entry, io.BytesIO(payload))
+    archive.with_suffix(".gz.sha256").write_text(
+        hashlib.sha256(archive.read_bytes()).hexdigest(), encoding="ascii",
+    )
+
+    # Hosted runners can opt into long paths. Assert the path at the write
+    # boundary so a regression fails even there, without changing host policy.
+    original_makefile = tarfile.TarFile.makefile
+    original_utime = tarfile.TarFile.utime
+    extended_prefix = "\\\\?\\"
+    metadata_targets = []
+
+    def check_write(stream, entry, targetpath):
+        if entry.name == f"{top}/{member}":
+            assert (len(targetpath.removeprefix(extended_prefix)) >= 260) == deep_home
+            assert targetpath.startswith(extended_prefix)
+        return original_makefile(stream, entry, targetpath)
+
+    def check_utime(stream, entry, targetpath):
+        if entry.isdir() and entry.name.endswith("tsearch_data"):
+            assert targetpath.startswith(extended_prefix)
+            assert "/" not in targetpath
+            metadata_targets.append(targetpath)
+        return original_utime(stream, entry, targetpath)
+
+    monkeypatch.setattr(tarfile.TarFile, "makefile", check_write)
+    monkeypatch.setattr(tarfile.TarFile, "utime", check_utime)
+    dest = postgres_binaries.version_dir(version)
+    installed = Path(extended_length_path(dest / member))
+    binaries_root = Path(extended_length_path(dest.parent))
+    assert (len(str(dest / member)) >= 260) == deep_home
+    try:
+        for _ in range(2):
+            assert postgres_binaries.fetch_binaries(
+                version, target, base_url=releases.as_uri(),
+            ) == dest / "bin"
+            assert installed.read_bytes() == payload
+            assert is_owner_private_directory(installed.parent)
+            assert installed.parent.stat().st_mtime == directory_mtime
+            assert list(binaries_root.glob(".fetch-*")) == []
+            # A second promotion must remove the old tree.
+            installed.write_bytes(b"stale")
+        assert len(metadata_targets) == 2
+    finally:
+        remove_tree(extended_length_path(home))
+
+
+def test_windows_tar_filter_rejects_directory_outside_destination(tmp_path):
+    directory = tarfile.TarInfo("../outside")
+    directory.type = tarfile.DIRTYPE
+    with pytest.raises(tarfile.OutsideDestinationError):
+        postgres_binaries._windows_tar_filter(directory, str(tmp_path))

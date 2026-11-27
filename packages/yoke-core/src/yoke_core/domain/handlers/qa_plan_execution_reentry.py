@@ -40,6 +40,8 @@ def require_resume_inputs(conn, execution, parsed):
         if parsed.deployment_member
         else None
     )
+    if parsed.deployment_member and member is None:
+        raise ValueError("qa_resume_subject_mismatch: use the execution's actual member")
     # Shared execution identity intentionally omits the attaching member.
     target = execution.get("execution_target") or {}
     shared = (target.get("deployment") or {}).get("shared_plan")
@@ -130,7 +132,7 @@ def handle_execution_reentry(request):
                 result[START_IDENTITY_FIELD] = start_identity_expectation(
                     conn, execution
                 )
-    except ValueError as exc:
+    except (LookupError, ValueError) as exc:
         conn.rollback()
         return _error("plan_execution_reentry_refused", str(exc), "$.payload")
     finally:

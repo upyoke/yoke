@@ -279,6 +279,7 @@ class WizardDefaults:
     machine_github: str | None = None
     project_public_item_prefix: str | None = None
     resume_answers: dict | None = None  # a resumed run's answers; opens at Review
+    private_connect_alias: str | None = None
 
 
 def run_wizard(

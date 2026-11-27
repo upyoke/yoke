@@ -182,7 +182,7 @@ def finish_plan_execution(
                 settle_stopped_mission_dockets,
             )
 
-            settle_stopped_mission_dockets(conn, execution, reason=reason)
+            settle_stopped_mission_dockets(conn, execution, state=state, reason=reason)
         if state in {"aborted", "error"} and any(
             case.get("verdict_path") == "agent"
             for case in execution.get("roster") or []

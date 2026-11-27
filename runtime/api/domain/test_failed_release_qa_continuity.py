@@ -7,6 +7,7 @@ import pytest
 from runtime.api.domain import test_deployment_run_target_takeover as takeover
 from runtime.api.domain.test_deployment_qa_successor_receipt import _arrive
 from runtime.api.fixtures.deployment_scoped_qa_run_fixture import ITEM_QA_STAGE, record_case_verdict
+from yoke_core.domain.deploy_target_occupancy import run_target, target_blockers
 from yoke_core.domain.deployment_qa_dispatch_preparation import prepare_members
 from yoke_core.domain.deployment_run_target_takeover import take_over_waiting_run
 from yoke_core.domain.qa_deployment_execution_cleanup import terminal_run_status
@@ -40,9 +41,6 @@ def test_failed_successor_keeps_red_sibling_and_live_execution_for_next_release(
     assert settle_unsuccessful_run(test_db, takeover.NEW, reason="driver failed")
     assert terminal_run_status(test_db, {"deployment_run_id": takeover.NEW}) is None
     test_db.commit()
-    from yoke_core.domain.deploy_target_occupancy import occupancies, run_target
-
-    assert occupancies(test_db, run_target(test_db, takeover.NEW).origins) == []
     assert test_db.execute("SELECT state FROM qa_plan_executions WHERE id=%s", (execution["id"],)).fetchone()[0] == "active"
     assert test_db.execute("SELECT count(*) FROM qa_requirements WHERE id=ANY(%s) AND retracted_at IS NULL", (list(cases.values()),)).fetchone()[0] == 2
     next_run = "run-takeover-next"
@@ -54,6 +52,9 @@ def test_failed_successor_keeps_red_sibling_and_live_execution_for_next_release(
     # A reopened member is already admitted; takeover preserves that admission.
     test_db.execute("UPDATE items SET status='implementing' WHERE id=%s", (takeover.WAITING,))
     test_db.commit()
+    target = run_target(test_db, next_run)
+    assert target is not None and target.origins
+    assert target_blockers(test_db, target) == []
     assert take_over_waiting_run(test_db, next_run, session_id=takeover.DRIVER_SESSION, actor_id=1) == takeover.NEW
     test_db.commit()
     assert takeover._members(test_db, next_run) == {takeover.WAITING, takeover.PASSED}

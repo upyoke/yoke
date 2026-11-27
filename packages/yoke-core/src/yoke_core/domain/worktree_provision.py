@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from yoke_contracts.runtime_ports.harness_setup_reconcile import get_harness_setup_reconcile
-
 import sys
 from pathlib import Path
 from typing import Optional
@@ -11,6 +9,8 @@ from typing import Optional
 from yoke_core.domain.worktree_create_plan import WorktreeCreationEntry
 from yoke_core.domain.worktree_paths import _run, captured_process_detail
 from yoke_contracts.project_contract.file_line_policy import item_base_config_key
+from yoke_contracts.refusal_recovery import compose_refusal
+from yoke_contracts.runtime_ports.harness_setup_reconcile import get_harness_setup_reconcile
 
 GIT_WORKTREE_ADD_TIMEOUT_SECONDS = 600
 
@@ -94,13 +94,27 @@ def create_worktree_lane(
     return None
 
 
-def provision_worktree_harness_setup(worktree_path: str) -> None:
-    """Reconcile only this lane and report each failed facet with recovery."""
-    reconcile_harness_setup = get_harness_setup_reconcile().reconcile_harness_setup
-
-    result = reconcile_harness_setup(paths=[Path(worktree_path)])
+def provision_worktree_harness_setup(worktree_path: str) -> Optional[str]:
+    """Reconcile harness setup and block on failures to trust this lane."""
+    reconcile = get_harness_setup_reconcile()
+    target = Path(worktree_path).resolve()
+    result = reconcile.reconcile_harness_setup(paths=[target])
     for line in result.lines():
         print(f"lane harness setup: {line}", file=sys.stderr)
+
+    failures = [
+        row.line()
+        for row in result.rows
+        if row.target_path == str(target)
+        and row.facet == "folder_trust"
+        and row.outcome in reconcile.FAILURES
+    ]
+    if failures:
+        return compose_refusal(
+            "Lane folder trust failed:\n" + "\n".join(failures),
+            recovery="After repairing the named file, rerun the same lane preparation command",
+        )
+    return None
 
 
 def provision_worktree_harness_enablement(

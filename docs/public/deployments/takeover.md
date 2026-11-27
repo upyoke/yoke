@@ -119,6 +119,13 @@ destination matches. The successor credits it at item QA. While credit is
 pending, the gate tells the owner to wait for the successor and tells them
 there is nothing to re-run. A different destination still needs a pass.
 
+An assigned worker waiting for a Test Machine resumes with the execution ID
+from its host-turn notice. If the successor serves a new build and the walk
+has yet to start, Yoke refreshes that execution in place when its ordered
+requirements still match. The worker keeps its queue position and eligible
+reservation. Its requester must still hold the item's work claim. A walk
+that already started keeps the build identity of its captures.
+
 A moved member with no open walk and its own item QA to run gets one notice:
 its QA moved to the newer run and opens when that run reaches its item QA
 stage, so the old run's wake is no longer the command. If all moved cases

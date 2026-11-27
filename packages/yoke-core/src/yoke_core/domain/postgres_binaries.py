@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from yoke_contracts.machine_config.directories import create_private_directory
 from yoke_contracts.owner_private_path import create_owner_private_directory
-from yoke_contracts.platform_fs import remove_tree
+from yoke_contracts.platform_fs import extended_length_path, remove_tree
 
 import os
 import platform
@@ -141,7 +141,7 @@ def _initdb_name() -> str:
 def installed_bin_dir(version: str = POSTGRES_VERSION) -> Optional[Path]:
     """The fetched bin directory for *version*, or None when absent."""
     candidate = version_dir(version) / "bin"
-    if (candidate / _initdb_name()).is_file():
+    if Path(extended_length_path(candidate / _initdb_name())).is_file():
         return candidate
     return None
 
@@ -179,7 +179,9 @@ def fetch_binaries(
     require_supported_host()
     resolved_target = target or platform_target()
     url = release_asset_url(version, resolved_target, base_url=base_url)
-    dest = version_dir(version)
+    # Prefix before adding staging and archive-member paths. Those paths can
+    # exceed MAX_PATH even when the eventual install directory fits.
+    dest = Path(extended_length_path(version_dir(version)))
     create_private_directory(dest.parent.parent)
     if _WINDOWS:
         create_owner_private_directory(dest.parent)
@@ -264,30 +266,49 @@ class _OwnerPrivateTarFile(tarfile.TarFile):
         create_owner_private_directory(selected)
 
 
+def _windows_tar_filter(member: tarfile.TarInfo, path: str) -> tarfile.TarInfo:
+    member = tarfile.tar_filter(member, path)
+    if member.isdir():
+        # extractall joins directory names again for metadata, before the
+        # separator conversion used during extraction. Win32 verbatim paths
+        # require native separators at that boundary too.
+        return member.replace(name=member.name.replace("/", os.sep), deep=False)
+    return member
+
+
 def _unpack_release(tarball: Path, staging: Path, dest: Path) -> None:
     """Extract the release and move its single top-level dir into place."""
     extract_root = staging / "extracted"
-    if _WINDOWS:
-        create_owner_private_directory(extract_root)
-    else:
-        extract_root.mkdir()
     archive_type = _OwnerPrivateTarFile if _WINDOWS else tarfile.TarFile
     try:
+        if _WINDOWS:
+            create_owner_private_directory(extract_root)
+        else:
+            extract_root.mkdir()
         with archive_type.open(tarball, "r:gz", encoding="utf-8") as archive:
             # "tar" filter: blocks absolute paths / parent escapes while
             # preserving the executable modes the engine binaries need.
-            archive.extractall(extract_root, filter="tar")
+            archive.extractall(extract_root, filter=_windows_tar_filter if _WINDOWS else "tar")
+        entries = list(extract_root.iterdir())
     except (tarfile.TarError, OSError) as exc:
-        raise PostgresBinariesError(f"unpack failed for {tarball.name}: {exc}") from exc
-    entries = [entry for entry in extract_root.iterdir()]
+        raise PostgresBinariesError(
+            f"embedded_postgres_unpack_failed: {tarball.name}: {exc}; "
+            "check access and free space, then retry `yoke local-postgres start`"
+        ) from exc
     if len(entries) != 1 or not entries[0].is_dir():
         raise PostgresBinariesError(
             f"unexpected release layout in {tarball.name}: expected one "
             f"top-level directory, found {[e.name for e in entries]}"
         )
-    if dest.exists():
-        remove_tree(dest)
-    entries[0].replace(dest)
+    try:
+        if dest.exists():
+            remove_tree(dest)
+        entries[0].replace(dest)
+    except OSError as exc:
+        raise PostgresBinariesError(
+            f"embedded_postgres_promotion_failed: {dest}: {exc}; "
+            "close processes using the installed files and retry `yoke local-postgres start`"
+        ) from exc
 
 
 __all__ = [

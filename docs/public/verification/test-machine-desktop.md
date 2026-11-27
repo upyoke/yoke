@@ -152,6 +152,15 @@ that line and retry, otherwise do not connect. Without `--view`, the direct
 route prints the pinned `certificate_sha256` for comparison in your own client;
 with `--view` the receipt names it too.
 
+A native Windows desktop command runs in a Windows Job in the test user's
+interactive session. When the command times out, Yoke returns exit 124 and
+checks that the Job has no active processes. A completed command can leave
+a desktop app running. If the timeout receipt cannot prove the Job emptied,
+Yoke reports `windows_desktop_cleanup_unresolved` with the task name. Retain
+the receipt, inspect Task Scheduler history for the named task, and check
+the test user's desktop. Reset the test machine before retrying if you
+cannot establish ownership.
+
 Linux and Windows WSL start XFCE and run desktop commands with
 `GDK_BACKEND=x11`, keeping GTK on the captured Xorg display even when WSLg
 also provides a Wayland socket. Screenshots wait for the desktop's first frame.

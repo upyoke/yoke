@@ -147,7 +147,10 @@ validates that metadata before mirroring the profile and verifies it afterward;
 older goldens without it require recapture rather than guessing a registry type.
 Before mirroring, reset stops the test user's processes that run from the
 resettable profile or WindowsApps, checking ownership under that account. It
-leaves executables in preserved directories running. Windows launches the Widgets
+leaves processes in preserved directories running, except for the managed Codex
+app-server and its updater in `.codex/packages/app-server-daemon`. Reset checks
+their owner, session, executable and command line, stops them without
+relaunching them, and preserves the installed package. Windows launches the Widgets
 packages (`MicrosoftWindows.Client.WebExperience`, `Microsoft.WidgetsPlatformRuntime`,
 and `Microsoft.StartExperiencesApp`) and the Microsoft Store package
 (`Microsoft.WindowsStore`) on its own. Every process in these packages stays

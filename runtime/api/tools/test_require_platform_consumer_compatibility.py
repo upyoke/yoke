@@ -197,9 +197,6 @@ def test_a_different_consumer_commit_is_a_different_pair(
 def test_the_gate_reuses_the_consumer_s_own_required_check(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    # A bespoke compatibility workflow would be a second definition of
-    # compatible. The consumer's existing required check already builds its
-    # host; a candidate commit only redirects what it builds against.
     seen: List[List[str]] = []
     monkeypatch.setattr(gate, "_yoke", _recorder(seen))
 
@@ -235,12 +232,13 @@ def _script(outcomes: List[tuple], calls: List[List[str]]):
     return _yoke
 
 
-def test_a_pending_join_retries_and_returns_the_run(
-    monkeypatch: pytest.MonkeyPatch,
+@pytest.mark.parametrize("response", [_PENDING, (1, "", "workflow_dispatch_ambiguous")])
+def test_an_unconfirmed_dispatch_retries_and_returns_the_run(
+    monkeypatch: pytest.MonkeyPatch, response,
 ) -> None:
     slept = _clock(monkeypatch)
     calls: List[List[str]] = []
-    monkeypatch.setattr(gate, "_yoke", _script([_PENDING, (0, "9001\n", "")], calls))
+    monkeypatch.setattr(gate, "_yoke", _script([response, (0, "9001\n", "")], calls))
     run_id, error = gate.dispatch(CANDIDATE, CONSUMER_REVISION)
     assert (run_id, error, slept) == ("9001", "", [2.0])
     ids = {argv[argv.index("--request-id") + 1] for argv in calls}
@@ -257,7 +255,7 @@ def test_a_pending_join_past_the_budget_stays_unavailable(
     assert (code, proven) == (gate.UNAVAILABLE, "")
     assert "could not be dispatched" in narrative
     assert "unproven:" in narrative and "workflow_dispatch_pending" in narrative
-    assert sum(slept) == pairs._PENDING_JOIN_BUDGET_SECONDS
+    assert sum(slept) == pairs.PENDING_JOIN_BUDGET_SECONDS
     ids = {argv[argv.index("--request-id") + 1] for argv in calls}
     assert len(calls) > 1 and len(ids) == 1
 

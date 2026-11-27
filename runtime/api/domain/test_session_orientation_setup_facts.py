@@ -88,7 +88,7 @@ def test_source_composers_use_same_summary(monkeypatch, harness):
     monkeypatch.setattr(orientation, "_git_line", lambda *_: "")
     if harness == "cursor":
         body = cursor._render_orientation(
-            SimpleNamespace(payload={"session_id": "session"}), "/external", ""
+            SimpleNamespace(payload={"session_id": "session"}, executor_surface="cursor-cli"), "/external", ""
         )
     elif harness == "codex":
         body = orientation.render_scoped_orientation(
@@ -167,7 +167,7 @@ def test_hook_scope_distinguishes_machine_state_from_project(
     monkeypatch.setattr(orientation, "_git_line", lambda *_: "")
     if harness == "cursor":
         body = cursor._render_orientation(
-            SimpleNamespace(payload={"session_id": "session"}), str(cwd), ""
+            SimpleNamespace(payload={"session_id": "session"}, executor_surface="cursor-cli"), str(cwd), ""
         )
     elif harness == "codex":
         body = orientation.render_scoped_orientation(

@@ -17,6 +17,7 @@ from uuid import uuid4
 import pytest
 
 from yoke_contracts.machine_fixture_verify import verify_records
+from yoke_harness.baseline_probe_failure_causes import PROBE_EXIT_CODES
 from yoke_harness.native_windows import machine_baseline_probe as probe
 from yoke_harness.native_windows import machine_fixtures as fixtures
 from yoke_harness.native_windows.profile import HELPERS as PROFILE_HELPERS
@@ -120,3 +121,74 @@ def test_machine_baseline_passes_after_the_roundtrips(lab):
     # The runner's own account is an administrator; the lab's test user is not
     # (the grant-admin undo record proves that above).
     assert [d for d in probe.drift(observed) if d != "test_user_administrator"] == [], observed
+
+
+def test_proxy_undo_removes_only_the_owned_thumbprint_and_seals_residue(lab, capsys):
+    directory, context = lab
+    conf = fixtures.FIXTURE_ROOT + r"\conf"
+    seeded = _powershell(
+        f"""$ErrorActionPreference='Stop'
+$conf='{conf}'
+New-Item -ItemType Directory -Force $conf | Out-Null
+$owned=New-SelfSignedCertificate -Type Custom -Subject 'O=mitmproxy, CN=mitmproxy' -CertStoreLocation Cert:\\CurrentUser\\My
+$other=New-SelfSignedCertificate -Type Custom -Subject 'CN=mitmproxy, O=mitmproxy' -CertStoreLocation Cert:\\CurrentUser\\My
+$ownedFile=Join-Path $conf 'mitmproxy-ca-cert.cer'
+$otherFile=Join-Path '{directory}' 'unattributed.cer'
+Export-Certificate -Cert $owned -FilePath $ownedFile | Out-Null
+Export-Certificate -Cert $other -FilePath $otherFile | Out-Null
+Import-Certificate -FilePath $ownedFile -CertStoreLocation Cert:\\LocalMachine\\Root | Out-Null
+Import-Certificate -FilePath $otherFile -CertStoreLocation Cert:\\LocalMachine\\CA | Out-Null
+@{{owned=$owned.Thumbprint;other=$other.Thumbprint}} | ConvertTo-Json -Compress
+""",
+        directory,
+    )
+    assert seeded.returncode == 0, seeded.stderr
+    thumbprints = json.loads(seeded.stdout)
+    owned = thumbprints["owned"]
+    other = thumbprints["other"]
+    try:
+        before = probe.observe(probe.gather_script())
+        assert before is not None
+        assert "fixture_root_ca_trusted" in probe.drift(before)
+        undo_script = fixtures.fixture_script(context, "system-proxy-root-ca", "undo")
+        for _ in range(2):
+            undo = _powershell(undo_script, directory)
+            records = verify_records(undo.stdout)
+            assert undo.returncode == 1 and len(records) == 1, (undo.stdout, undo.stderr)
+            record = records[0]
+            assert not record["ok"]
+            assert record["error"].startswith("proxy_fixture_not_undone")
+            assert other in record["error"] and owned not in record["error"]
+            assert not Path(conf).exists()
+            assert probe.main(probe.gather_script(), PROBE_EXIT_CODES) == 25
+            assert "fixture_root_ca_trusted" in json.loads(capsys.readouterr().out)["drift"]
+        remaining = _powershell(
+            f"(Test-Path -LiteralPath 'Cert:\\LocalMachine\\Root\\{owned}');"
+            f"(Test-Path -LiteralPath 'Cert:\\LocalMachine\\CA\\{other}')",
+            directory,
+        )
+        assert remaining.stdout.split() == ["False", "True"]
+    finally:
+        cleanup = _powershell(
+            f"Remove-Item -LiteralPath 'Cert:\\LocalMachine\\Root\\{owned}',"
+            f"'Cert:\\LocalMachine\\CA\\{other}',"
+            f"'Cert:\\CurrentUser\\My\\{owned}','Cert:\\CurrentUser\\My\\{other}' "
+            "-Force -ErrorAction SilentlyContinue",
+            directory,
+        )
+        assert cleanup.returncode == 0, cleanup.stderr
+    assert _run(lab, "system-proxy-root-ca", "undo")["state"]["unattributed_ca"] == []
+
+
+def test_proxy_setup_verifies_the_actual_certificate_and_undo_removes_it(lab):
+    directory, _ = lab
+    try:
+        setup = _run(lab, "system-proxy-root-ca", "setup")["state"]
+        assert setup["ca_trusted"] and len(setup["ca_thumbprint"]) == 40
+        assert setup["listening"] and setup["winhttp"] and setup["wininet_machine"]
+    finally:
+        undo = _run(lab, "system-proxy-root-ca", "undo")["state"]
+        assert undo["unattributed_ca"] == [] and not undo["ca_present"]
+    thumbprint = setup["ca_thumbprint"]
+    owned = _powershell(f"Test-Path -LiteralPath 'Cert:\\LocalMachine\\Root\\{thumbprint}'", directory)
+    assert owned.returncode == 0 and owned.stdout.strip() == "False"

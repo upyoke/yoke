@@ -6,7 +6,9 @@ from yoke_core.domain import qa_walk_authority as authority
 from yoke_core.domain.qa_plan_partition_chains import partition_key
 
 
-ROSTER = [{"requirement_id": 44, "execution_target_digest": "target"}]
+ROSTER = [
+    {"requirement_id": 44, "execution_target_digest": "target", "delegated_walk": "requester"},
+]
 KEY = partition_key(ROSTER)
 EXECUTION = {
     "id": "execution", "session_id": "walker", "item_id": 11,
@@ -80,3 +82,40 @@ def test_releasing_the_claim_between_dispatch_and_lock_refuses(launch, monkeypat
         authority.require_walk_claim(
             None, item_id=11, launch=authority.WalkLaunch("requester", "reviewing", KEY), lock=True,
         )
+
+
+def test_admitted_worker_uses_recorded_roster_after_target_change(launch, monkeypatch):
+    moved = {**EXECUTION, "roster": [{**ROSTER[0], "execution_target_digest": "successor"}]}
+    monkeypatch.setattr(authority, "select_plan_execution", lambda *_args, **_kwargs: moved)
+    for function in ("qa.plan_execution.resume", "test_machine.plan_case.begin",
+                     "test_machine.plan_case.submit"):
+        assert authority.delegated_walk_grants(
+            None, request(function, requirement=44, execution_id="execution"), item_id=11,
+        )
+        assert not authority.delegated_walk_grants(
+            None, request(function, requirement=45, execution_id="execution"), item_id=11,
+        )
+    with pytest.raises(authority.WalkAuthorityError):
+        authority.delegated_walk_grants(
+            None, request(
+                "qa.plan_execution.begin", transition_id="reviewing",
+                partition=partition_key(moved["roster"]),
+            ), item_id=11,
+        )
+    monkeypatch.setattr(authority, "walk_launch", lambda *_args, **_kwargs: None)
+    assert authority.delegated_walk_grants(
+        None, request("qa.plan_execution.resume", execution_id="execution"), item_id=11,
+    )
+    assert not authority.delegated_walk_grants(
+        None, request("qa.plan_execution.begin", transition_id="reviewing", partition=KEY), item_id=11,
+    )
+
+
+def test_already_admitted_boolean_roster_resolves_only_the_requester(launch, monkeypatch):
+    moved = {**EXECUTION, "roster": [
+        {**ROSTER[0], "execution_target_digest": "successor", "delegated_walk": True}
+    ]}
+    monkeypatch.setattr(authority, "select_plan_execution", lambda *_args, **_kwargs: moved)
+    assert authority.delegated_walk_grants(
+        None, request("qa.plan_execution.resume", execution_id="execution"), item_id=11,
+    )

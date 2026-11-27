@@ -28,7 +28,7 @@ class Installer(InstallerVerification, InstallerResolution):
         self.which = which or shutil.which
         self.stdout = stdout or sys.stdout
         self.color = self._resolve_color(self.stdout) if color is None else color
-        self.plain_glyphs = self._resolve_plain_glyphs()
+        self.plain_glyphs = self._resolve_plain_glyphs(self.stdout)
 
 
     @staticmethod
@@ -51,14 +51,14 @@ class Installer(InstallerVerification, InstallerResolution):
 
 
     @staticmethod
-    def _resolve_plain_glyphs() -> bool:
+    def _resolve_plain_glyphs(stream) -> bool:
         force = os.environ.get("YOKE_INSTALL_FORCE_PLAIN")
         if force == "1":
             return True
         if force == "0":
             return False
         try:
-            GUTTER.encode(getattr(sys.stdout, "encoding", None) or "utf-8")
+            GUTTER.encode(getattr(stream, "encoding", None) or "utf-8")
         except (UnicodeError, LookupError):
             return True
         term = os.environ.get("TERM", "")
@@ -69,7 +69,7 @@ class Installer(InstallerVerification, InstallerResolution):
 
     @staticmethod
     def _gutter(stream) -> str:
-        if Installer._resolve_plain_glyphs():
+        if Installer._resolve_plain_glyphs(stream):
             return PLAIN_GUTTER_ICON
         return _paint(GUTTER, "amber", enabled=Installer._resolve_color(stream))
 

@@ -230,10 +230,12 @@ def _orientation_for_hook(
 ) -> Optional[str]:
     from yoke_core.domain.json_helper import loads_text
 
-    detect_executor = get_identity().detect_executor
-
-    executor = detect_executor()
-    startup_event = session_orientation_event(cursor=cursor, executor=executor)
+    identity = get_identity()
+    executor = identity.detect_executor()
+    surface = identity.cursor_surface_entrypoint() if cursor else ""
+    startup_event = session_orientation_event(
+        cursor=cursor, executor=executor, surface=surface, platform=sys.platform,
+    )
     if event_name not in session_orientation_events(cursor=cursor, executor=executor):
         return None
     payload = loads_text(stdin_data) if stdin_data else None
@@ -261,9 +263,7 @@ def _orientation_for_hook(
     else:
         session_id = _text(payload, "session_id")
         cwd = _text(payload, "cwd")
-    if not session_id or session_id == "unknown":
-        return None
-    if not cwd:
+    if not session_id or session_id == "unknown" or not cwd:
         return None
     if resets_orientation(event_name, payload):
         reset_orientation_delivery(session_id)
@@ -286,7 +286,6 @@ def render_scoped_orientation(payload: dict[str, Any], cwd: Path) -> str:
     if root is None:
         return render_orientation({**payload, _GLOBAL_CONTEXT_KEY: True}, cwd)
     orientation_lines = get_setup_facts_summary().orientation_lines
-
     return render_orientation(
         {
             **payload,

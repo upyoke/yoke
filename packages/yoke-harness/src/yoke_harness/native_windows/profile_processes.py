@@ -5,6 +5,7 @@ import re
 import subprocess
 from pathlib import PureWindowsPath
 
+from yoke_harness.native_windows.profile_process_identity import PROCESS_IDENTITY as _PROCESS_IDENTITY
 from yoke_harness.native_windows.transport import quote
 
 DISCOVERY_MARKER = "YOKE_RESET_PROCESS_DISCOVERY "
@@ -22,58 +23,32 @@ WINDOWS_LAUNCHED_PACKAGES = (
     ("Microsoft.WindowsStore", "8wekyb3d8bbwe"),
 )
 
-# The SSH test user has no WMI namespace grant. Limited process handles can
-# read the owner's token and image without elevation or reading process memory.
-_PROCESS_IDENTITY = r"""Add-Type -TypeDefinition @'
-using System;
-using System.Runtime.InteropServices;
-using System.Security.Principal;
-using System.Text;
-
-public static class YokeResetProcess {
- [DllImport("kernel32.dll")] static extern IntPtr OpenProcess(uint access, bool inherit, int pid);
- [DllImport("advapi32.dll")] static extern bool OpenProcessToken(IntPtr process, uint access, out IntPtr token);
- [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr handle);
- [DllImport("kernel32.dll", CharSet=CharSet.Unicode)]
- static extern bool QueryFullProcessImageName(IntPtr process, int flags, StringBuilder name, ref int size);
-
- public static string OwnedImage(int pid, string owner) {
-  IntPtr process=OpenProcess(0x1000, false, pid); // PROCESS_QUERY_LIMITED_INFORMATION
-  if(process==IntPtr.Zero) return null;
-  IntPtr token=IntPtr.Zero;
-  try {
-   if(!OpenProcessToken(process, 8, out token)) return null; // TOKEN_QUERY
-   using(var identity=new WindowsIdentity(token)) {
-    if(identity.User.Value!=owner) return null;
-   }
-   var path=new StringBuilder(32768);
-   int size=path.Capacity;
-   return QueryFullProcessImageName(process, 0, path, ref size) ? path.ToString() : null;
-  } finally {
-   if(token!=IntPtr.Zero) CloseHandle(token);
-   CloseHandle(process);
-  }
- }
-}
-'@
-$testSid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value
-function Get-YokeOwnedExecutable($processId){
- [YokeResetProcess]::OwnedImage($processId, $testSid)
-}
-if(!(Get-YokeOwnedExecutable $PID)){throw 'Cannot verify ownership of the reset process'}
-"""
-
 _LIST = r"""$windowsApps=Join-Path $env:ProgramFiles 'WindowsApps'
 $stopSession=(Get-Process -Id $PID).SessionId
+$daemonImagePattern='^'+[regex]::Escape($profileRoot)+'\\.codex\\packages\\app-server-daemon\\(?:current|releases\\[^\\]+)\\bin\\codex\.exe$'
+function Test-YokeCodexDaemon($processId,$exe){
+ if($exe -notmatch $daemonImagePattern){return $false}
+ $command=Get-YokeOwnedCommandLine $processId $exe
+ # These are the managed transport and its updater, even when the same
+ # codex.exe is used for a foreground CLI or an unmanaged app-server.
+ # Codex 0.172.0 inserts analytics and boolean feature overrides before the managed marker.
+ $options='(?:--analytics-default-enabled\s+(?:-c\s+features\.[A-Za-z0-9_-]+=(?:true|false)\s+)*)?'
+ $command -cmatch ('^("[^"]+"|\S+)\s+app-server\s+(?:(?:--remote-control\s+)?--listen\s+unix://\s+' +
+  $options + '--managed-daemon|daemon\s+pid-update-loop(?:\s+--restore-release\s+\S+)?)\s*$')
+}
 function Get-YokeProfileProcesses {
  foreach($proc in @(Get-Process -ErrorAction Stop)){
   $exe=Get-YokeOwnedExecutable $proc.Id
   if(!$exe){continue}
   $packaged=$exe.StartsWith($windowsApps+'\',[StringComparison]::OrdinalIgnoreCase)
   if(!$packaged -and !$exe.StartsWith($profileRoot+'\',[StringComparison]::OrdinalIgnoreCase)){continue}
-  if(@($stopPreserved | Where-Object {$exe.StartsWith($_+'\',[StringComparison]::OrdinalIgnoreCase)}).Count){continue}
+  $daemon=$false
+  if(@($stopPreserved | Where-Object {$exe.StartsWith($_+'\',[StringComparison]::OrdinalIgnoreCase)}).Count){
+   $daemon=Test-YokeCodexDaemon $proc.Id $exe
+   if(!$daemon){continue}
+  }
   if($packaged -and $exe.Substring($windowsApps.Length+1).Split('\')[0] -match $windowsLaunched){continue}
-  [pscustomobject]@{process=$proc;path=$exe;packaged=$packaged}
+  [pscustomobject]@{process=$proc;path=$exe;packaged=$packaged;daemon=$daemon}
  }
 }
 function Get-YokeSessionProfileProcesses {
@@ -87,6 +62,7 @@ if(@($stopped | Where-Object packaged).Count){
  try {$packages=@(Get-AppxPackage -ErrorAction Stop)} catch {$packageFailure=$_.Exception.Message}
 }
 $targets=@(foreach($entry in $stopped){
+ if($entry.daemon){continue}
  try {$visible=$entry.process.MainWindowHandle -ne [IntPtr]::Zero} catch {$visible=$false}
  if(!$entry.packaged){
   if($visible){@{target=$entry.path;path=$entry.path}}
@@ -130,6 +106,9 @@ $clear=$false
 $deadline=[DateTime]::UtcNow.AddSeconds(20)
 do {
  foreach($entry in $stopping){
+  if($entry.daemon -and ($entry.process.HasExited -or
+     $entry.process.SessionId -ne $stopSession -or
+     !(Test-YokeCodexDaemon $entry.process.Id $entry.path))){continue}
   Stop-Process -InputObject $entry.process -Force -ErrorAction SilentlyContinue
  }
  $stopping=@()
@@ -149,7 +128,7 @@ if(!$clear){
 """
 
 _REFUSE = r"""if($alive.Count){
- throw ('windows_reset_profile_process_running: test-user processes are still running from the resettable profile or WindowsApps: '+(($alive | ForEach-Object {[string]$_.process.Id+' '+$_.path}) -join ', ')+'. End them from the signed-in test session, then rerun yoke test-machine reset')
+ throw ('windows_reset_profile_process_running: test-user processes are still running from the resettable profile, WindowsApps or the Codex daemon package: '+(($alive | ForEach-Object {[string]$_.process.Id+' '+$_.path}) -join ', ')+'. End them from the signed-in test session, then rerun yoke test-machine reset')
 }
 Write-Output ('YOKE_RESET_PROCESSES_STOPPED '+(ConvertTo-Json -Compress -InputObject @($stopped | ForEach-Object {$_.path})))
 """

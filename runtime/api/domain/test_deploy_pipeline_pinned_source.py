@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from threading import Event
 
 import pytest
 
@@ -273,6 +275,50 @@ def test_preparation_never_sweeps_the_run_it_is_preparing(
     assert prepared is not None
     assert prepared.root == mine
     assert mine.is_dir()
+
+
+def test_parallel_driver_preparation_skips_a_busy_retirement_sweep(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    repo = _init_repo(tmp_path / "repo")
+    pin = _commit(repo, "pin")
+    stale = pinned.ensure_pinned_worktree(str(repo), "run-stale", pin)
+    live = pinned.ensure_pinned_worktree(str(repo), "run-live", pin)
+    dirty = pinned.ensure_pinned_worktree(str(repo), "run-dirty", pin)
+    (dirty / "scratch").write_text("keep", encoding="utf-8")
+    entered, resume = Event(), Event()
+
+    def run_record(run_id):
+        if run_id == "run-stale":
+            entered.set()
+            assert resume.wait(timeout=15)
+        status = "executing" if run_id == "run-live" else "succeeded"
+        return {"status": status}, ""
+
+    monkeypatch.setattr(retirement, "_run_record", run_record)
+    monkeypatch.setattr(pinned, "self_release_checkout", lambda _p, _r: repo)
+    monkeypatch.setattr(
+        pinned.control_plane, "run_pin", lambda _r: {"release_lineage": pin, "project": "yoke"}
+    )
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        stage = pool.submit(pinned.prepare_self_deploy_driver, "run-stage")
+        try:
+            assert entered.wait(timeout=10)
+            prod = pool.submit(pinned.prepare_self_deploy_driver, "run-prod")
+            assert prod.result(timeout=10).root.is_dir()
+            assert stale.is_dir()
+            assert not stage.done()
+        finally:
+            resume.set()
+        assert stage.result(timeout=10).root.is_dir()
+
+    assert not stale.exists()
+    assert live.is_dir()
+    assert (dirty / "scratch").read_text(encoding="utf-8") == "keep"
+    output = capsys.readouterr()
+    assert output.out.count(f"Retired finished deploy-run worktree: {stale.resolve()}") == 1
+    assert "sweep failed" not in output.err
 
 
 def test_a_sweep_failure_never_blocks_the_deploy(

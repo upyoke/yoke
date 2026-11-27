@@ -111,10 +111,8 @@ with exactly one `driver` and no singular `os`, e.g.
 Launch the partition as one walk. Each slot takes a distinct free, verified, healthy host.
 The set stays leased through review and releases on completion or abort.
 [Completed captures remain reviewable](requirement-state.md).
-A wait names a host from a blocked OS and gives the lease or verification failure
-for each unavailable eligible host of every blocked OS. A failed verification
-can queue for repair. A host without a verification result is ineligible.
-Queue views show one host per slot and group its alternatives.
+A wait gives each blocked slot's lease or repair reason. Queue views group
+alternatives by slot. A host without a verification result is ineligible.
 
 An `inherit` chain retains the opener's hosts. Multiple walks in one execution
 acquire their combined hosts at one queue place before preparation. Walk one
@@ -225,10 +223,11 @@ Old snapshots left after a verified refresh capture only warn
 A declared host baseline restores the golden home. Before new case work, an
 unproven mission cleanup also requires a reset: its `reset_owed` machine receipt
 names the failed cleanup's baseline, or `fresh-host` when none was declared.
-The releasing CLI tries the owed reset once if the host stays free, stopping a
-Yoke-started cloud host before and after reset. A waiter that takes the turn
-clears the debt in case preparation. The [steering report](../sessions/steering-report-delivery.md#reset-debt)
-names any failed reset and its recovery command.
+The releasing CLI tries once on a free host and stops Yoke-started cloud hosts
+before and after reset. Case preparation can retry pending resets and
+`harness_provider_unavailable`. Repair-required failures keep QA queued even
+after a successful verify. Run the baseline reset named in the refusal or
+[steering report](../sessions/steering-report-delivery.md#reset-debt) to rejoin QA.
 A failed ordinary case restore or current holder's mission restore artifact
 also records this debt before custody ends. A terminal case missing its
 restore receipt records debt too; an intermediate successful case keeps

@@ -26,11 +26,12 @@ headless as the connection token's actor. Agents can run it and the resulting
 session counts like any other browser sign-in. Company sign-in uses the human
 window instead.
 
-The command first checks every declared site headless on the identity's
-profile and reports each one (`buyer: google ok, yoke ok, paypal expired`).
-With --url it always opens that URL, even when all sites are signed in,
-so you can complete extra access checks. Without --url, when all are signed
-in it returns at once and opens nothing. Otherwise it
+The command checks every declared site on the identity's profile and reports
+each one (`buyer: google ok, yoke ok, paypal expired`). It verifies an open
+managed browser in place and preserves its tabs. Without --url, when all
+sites are signed in it returns at once. New sign-in and --url need the profile
+closed. Finish any open approvals before closing its browser. With --url the
+sign-in window opens that URL for extra access checks. Otherwise the command
 signs automatic sites in, then opens a window with one tab per expired human site, naming the identity, the site
 and the account to use, then checks again after the window closes and fails
 naming any site still signed out. A site whose check cannot be reached fails

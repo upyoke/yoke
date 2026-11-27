@@ -86,6 +86,7 @@ def init_setup_state(
     shell._stored_github_attempted = False
     shell._stored_machine_github_api_url = None
     shell._api_url_preset = bool(defaults.api_url)
+    shell._private_connect_alias = defaults.private_connect_alias
     shell._stored_project_attempted = False
     shell._connection_status_line = None
     shell._carried_detail_lines: list[str] = []

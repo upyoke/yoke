@@ -74,10 +74,10 @@ class SetupField:
 
 @dataclass(frozen=True)
 class SetupHuman:
-    """What a person must do in a browser: the link, any code, and how long.
+    """A browser step with instructions, a link, an optional code and a wait.
 
     ``max_seconds`` and ``poll_interval_seconds`` bound the approval wait that
-    follows, so an agent can tell the person how long setup keeps waiting.
+    follows. Agent mode returns these details for the agent to act on.
     """
 
     instructions: str

@@ -163,7 +163,7 @@ def test_sign_in_follows_and_closes_the_shell(host, monkeypatch):
     admission.accept_machine_credential(shell, value)
 
     assert host["installs"] == [SERVED]
-    assert shell.exited and shell.release_followed is value[3]
+    assert shell.exited and shell.release_followed is value.followed
 
 
 def test_sign_in_on_the_served_release_continues(host, monkeypatch):
@@ -175,7 +175,7 @@ def test_sign_in_on_the_served_release_continues(host, monkeypatch):
     credential = SimpleNamespace(org="acme", api_url=API, token="secret")
     value = admission.save_machine_credential(credential, {"ok": True}, None)
 
-    assert value[3] is None and host["installs"] == []
+    assert value.followed is None and host["installs"] == []
 
 
 def _signed_in_follow(host, monkeypatch, shell):
@@ -186,7 +186,7 @@ def _signed_in_follow(host, monkeypatch, shell):
     credential = SimpleNamespace(org="acme", api_url=API, token="secret")
     value = admission.save_machine_credential(credential, {"ok": True}, None)
     admission.accept_machine_credential(shell, value)
-    return value[3]
+    return value.followed
 
 
 def test_sign_in_rerun_keeps_the_project_mode_asked_before_sign_in(host, monkeypatch):

@@ -2,7 +2,7 @@
 
 from yoke_core.domain.db_helpers import connect, query_one, query_rows
 from yoke_core.domain.deployment_run_target_takeover import takeover_available
-from yoke_core.domain.deploy_target_occupancy import run_target, occupancies
+from yoke_core.domain.deploy_target_occupancy import run_target, target_blockers
 
 
 def continuation_facts(run_id):
@@ -11,7 +11,7 @@ def continuation_facts(run_id):
         row = query_one(conn, "SELECT supersedes_run_id FROM deployment_runs WHERE id=%s",
                         (run_id,)) if takeover_available(conn) else None
         target = run_target(conn, run_id)
-        held = occupancies(conn, target.origins, excluding_run=run_id, first_wait=True) if target else []
+        held = target_blockers(conn, target) if target else []
         superseded = str(row[0]) if row and row[0] else None
         return {"supersedes_run_id": superseded,
                 "carried_execution_ids": carried_execution_ids(conn, run_id) if superseded else [],

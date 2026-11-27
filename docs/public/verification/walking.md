@@ -240,7 +240,9 @@ repositories with `gh repo create OWNER/NAME --private`, record every exact
 `OWNER/NAME` (including one the product creates), and delete each with
 `gh repo delete OWNER/NAME --yes`. Never delete upstream or pre-existing
 resources. Then run walk-end: it removes the scratch directory and restores the
-starting state. Report both, and report anything still present; a failed
+starting state. On native Windows, if the first removal fails, a successful
+restore lets walk-end retry removal once and independently check that the
+scratch is gone. Report both results and anything still present. A failed
 walk-end is a finding against this walk.
 
 ## Evidence

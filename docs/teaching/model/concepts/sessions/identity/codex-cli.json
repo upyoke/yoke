@@ -1,0 +1,7 @@
+{
+ "id": "codex-cli",
+ "title": "Codex CLI session identity",
+ "status": "observed",
+ "summary": "Yoke reports codex-cli for interactive Codex sessions with originator codex-tui and for codex exec sessions with originator codex_exec. The reported version comes from the native Codex CLI executable. The same surface labels apply across operating systems.",
+ "sources": ["packages/yoke-contracts/src/yoke_contracts/executor_labels.py", "packages/yoke-harness/src/yoke_harness/hooks/identity_observed.py", "runtime/api/cli/test_yoke_operations_cli_hooks_codex.py"]
+}

@@ -100,21 +100,17 @@ class SshLinuxHostOperations(
             "os": "linux",
             "runner_materialized": result.returncode == 0,
         }
-        if result.returncode or self.os != "linux":
-            return HostActionResult(
-                result.returncode == 0,
-                evidence,
-                SSH_UNAVAILABLE if result.returncode else None,
-            )
-        memory = check_linux_memory(self._run, secret_values=self.secret_values)
-        if not memory.ok:
-            return HostActionResult(
-                False, {**evidence, **memory.evidence}, memory.error_code
-            )
+        if result.returncode:
+            return HostActionResult(False, evidence, SSH_UNAVAILABLE)
+        if self.os == "linux":
+            memory = check_linux_memory(self._run, secret_values=self.secret_values)
+            evidence.update(memory.evidence)
+            if not memory.ok:
+                return HostActionResult(False, evidence, memory.error_code)
         manager = check_linux_user_manager(self._run, secret_values=self.secret_values)
         return HostActionResult(
             manager.ok,
-            {**evidence, **memory.evidence, **manager.evidence},
+            {**evidence, **manager.evidence},
             manager.error_code,
         )
 
@@ -138,6 +134,9 @@ class SshLinuxHostOperations(
                 },
                 "golden_baseline_not_declared",
             )
+        manager = check_linux_user_manager(self._run, secret_values=self.secret_values)
+        if not manager.ok:
+            return manager
         retirement = retire_reset_identity(self)
         restored = archive_operation(self, "reset", self.golden_baseline_path)
         if not restored.ok:

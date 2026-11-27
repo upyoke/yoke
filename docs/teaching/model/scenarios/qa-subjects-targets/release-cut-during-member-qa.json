@@ -4,7 +4,7 @@
  "status": "observed",
  "audience": "both",
  "when": "Member QA is walking and a newer candidate on the same flow and target is ready.",
- "need": "Cut the superseding release while the walk runs. Takeover moves each live execution with its leases and host turns, and the owner continues the same execution ID. A pass recorded before or after takeover carries when the destination matches. While the successor still has to credit the pass, wait for item QA without re-running.",
+ "need": "Cut the superseding release while the walk runs. Takeover moves each live execution with its leases and host turns, and the owner continues the same execution ID. An assigned worker waiting for a Test Machine uses the host-turn resume command. When its ordered requirements still match and no case has started, the same execution takes the successor build and keeps its queue position and eligible reservation. Its requester still needs the item work claim. A pass recorded before or after takeover carries when the destination matches. While the successor still has to credit the pass, wait for item QA without re-running.",
  "disclosure": "current cue",
  "surface": "Release-batch create, the member-owner role, and the delivery rules",
  "review": "The deployed takeover keeps the live execution; this lesson records that action.",

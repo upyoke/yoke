@@ -2,6 +2,7 @@
  "id": "runtime",
  "title": "Browser runtime",
  "status": "draft-copy",
+ "summary": "Browser setup repairs an unloadable packaged Playwright install and checks it again before checking Chromium. Setup verifies Chromium can open a local test page. Browser status checks module load and browser launch without installing dependencies, and reports repair guidance when a check fails.",
  "commands": ["yoke qa browser setup", "yoke qa browser status", "yoke qa browser stop", "yoke qa browser-context get"],
  "functions": ["qa.browser_context.get"],
  "page": "browser-qa",

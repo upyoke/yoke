@@ -120,7 +120,7 @@ class MachineGithubFlow:
                 if reuse
                 else "Opening your browser… Copy the one-time code with Ctrl-Y."
                 if getattr(self, "opens_browser", True)
-                else "Preparing a browser approval link for the person."
+                else "Preparing the GitHub browser approval link."
             ),
             detail_lines=[
                 "Authorization happens in GitHub; Yoke never asks you to paste a GitHub secret."

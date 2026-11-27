@@ -118,6 +118,83 @@ def _failed_archive(monkeypatch, completed):
     return baseline.archive_operation(control, "reset", "/sealed/golden")
 
 
+_QUOTA_RECOVERY = (
+    "Wait for the provider's quota window to reset or have the operator restore "
+    "plan capacity, then retry the probe; preserve the existing golden."
+)
+_QUOTA_REASON = (
+    "Claude real request failed: the provider reports an exhausted usage quota."
+)
+
+
+@pytest.mark.parametrize(
+    ("top_level", "reason", "recovery", "exit_code"),
+    [
+        ({}, _QUOTA_REASON, _QUOTA_RECOVERY, 16),
+        (
+            {"reason": "restore refused", "exit_code": 0},
+            "restore refused",
+            _QUOTA_RECOVERY,
+            0,
+        ),
+        ({"recovery": "retry restore"}, _QUOTA_REASON, "retry restore", 16),
+    ],
+)
+def test_requested_baseline_failure_reports_nested_quota_receipt(
+    top_level, reason, recovery, exit_code
+):
+    quota_refusal = {
+        "name": "Claude real request",
+        "ok": False,
+        "outcome": "failed",
+        "exit_code": 16,
+        "cause": "probe_harness_exit_nonzero",
+        "reason": f"{_QUOTA_REASON} private-token",
+        "recovery": _QUOTA_RECOVERY,
+    }
+    failed_baseline = SimpleNamespace(
+        name="fresh-host",
+        ok=False,
+        error_code="baseline_probe_failed",
+        evidence={
+            "path_state": {},
+            "transport_diagnostics": {},
+            "user_equivalence": {
+                "reason": quota_refusal["reason"],
+                "recovery": quota_refusal["recovery"],
+                "probes": [quota_refusal],
+            },
+            **top_level,
+        },
+    )
+    result = prepare_mission(
+        SimpleNamespace(
+            baselines=["fresh-host"],
+            plan_execution_id="failed-restore",
+            lease_id=7,
+            contract_digest="digest",
+        ),
+        execution_factory=lambda *a, **k: SimpleNamespace(
+            material=SimpleNamespace(secrets={"credential": "private-token"}),
+            reach_baseline=lambda name: failed_baseline,
+        ),
+        scratch_factory=lambda *a, **k: pytest.fail("scratch after failed probe"),
+    )
+
+    preparation = result["preparation"]
+    assert preparation["ok"] is False
+    assert preparation["error_code"] == "baseline_probe_failed"
+    evidence = preparation["evidence"]
+    assert evidence["scratch_created"] is False
+    assert evidence["baseline_outcome"]["state"] == "started"
+    failure = evidence["preparation_failure"]
+    assert failure["phase"] == "baseline"
+    assert failure["diagnostic"].startswith(reason)
+    assert failure["recovery"] == recovery
+    assert failure["exit_code"] == exit_code
+    assert "private-token" not in json.dumps(result)
+
+
 def test_malformed_archive_receipt_keeps_bounded_redacted_transport_evidence(
     monkeypatch,
 ):

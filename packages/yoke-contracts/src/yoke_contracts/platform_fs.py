@@ -1,4 +1,4 @@
-"""Bounded removal of local trees, including Windows read-only files."""
+"""Native filesystem paths and bounded removal of local trees."""
 
 from __future__ import annotations
 
@@ -7,6 +7,17 @@ from pathlib import Path
 import shutil
 import stat
 import time
+
+
+def extended_length_path(path: str | Path, *, windows: bool = os.name == "nt") -> str:
+    """Give Windows filesystem calls an absolute path outside MAX_PATH."""
+    target = os.fspath(path)
+    if not windows or target.startswith("\\\\?\\"):
+        return target
+    target = os.path.abspath(target)
+    if target.startswith("\\\\"):
+        return "\\\\?\\UNC\\" + target[2:]
+    return "\\\\?\\" + target
 
 
 def _is_reparse_point(path: Path) -> bool:
@@ -52,4 +63,4 @@ def remove_tree(path: str | Path) -> None:
         time.sleep(0.05 * (attempt + 1))
 
 
-__all__ = ["remove_tree"]
+__all__ = ["extended_length_path", "remove_tree"]

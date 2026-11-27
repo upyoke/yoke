@@ -80,8 +80,8 @@ def settle_launch_result(
 
 def record_launch_native_exit(
     conn: Any, session_id: str, evidence: Mapping[str, Any], *, exited_at: datetime,
-) -> None:
-    """Retain a measured exit once, on the bound launch that started that PID."""
+) -> bool:
+    """Acknowledge the measured exit once the initiating launch holds one."""
     # A resume can share the session and report several dead PIDs. Its
     # measured native PID takes precedence over that wider set.
     reported_pid = evidence.get("native_pid")
@@ -89,10 +89,10 @@ def record_launch_native_exit(
     if reported_pid is not None:
         reported_pids = (reported_pid,)
     if not isinstance(reported_pids, (list, tuple)):
-        return
+        return False
     pids = sorted({pid for pid in reported_pids if type(pid) is int and 0 < pid < 2**31})
     if not pids:
-        return
+        return False
 
     p = marker(conn)
     placeholders = ", ".join([p] * len(pids))
@@ -107,15 +107,16 @@ def record_launch_native_exit(
         params,
     ).fetchone()
     if row is None:
-        return
+        return False
     launch = row_to_launch(row)
     document = launch_evidence(launch.result_evidence)
-    if document.get("native_exit_at") or (
-        launch.launching_at is not None and exited_at < launch.launching_at
-    ):
-        return
+    if launch.launching_at is not None and exited_at < launch.launching_at:
+        return False
+    if document.get("native_exit_at"):
+        return True
     document["native_exit_at"] = format_instant(exited_at)
     update_launch(
         conn, launch.launch_id, native_launch_phase="native_exited",
         result_evidence=redacted_evidence(document),
     )
+    return True

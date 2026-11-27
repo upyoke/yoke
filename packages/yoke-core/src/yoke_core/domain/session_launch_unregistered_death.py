@@ -1,4 +1,4 @@
-"""Close a launch whose native died before any session registered for it.
+"""Retain native exit evidence and close a launch that never registered.
 
 A launch waits ten minutes for a registration that may still arrive, because
 silence has two causes the control plane cannot tell apart: a native that is
@@ -13,10 +13,9 @@ So a reported death closes the launch on the poll that observed it, with the
 exit status and the capture reference the machine sent, and the ordinary
 deadline stays exactly where it is for a process that is still alive.
 
-The registered half of this is deliberately elsewhere: a launch that bound a
-session is corrected by :mod:`session_launch_abandonment` from the same poll's
-session reports, which can also ask whether that session ever worked. Nothing
-here has a session to ask about — that is the whole shape being closed.
+An exit from the creating process does not settle the bound session's
+liveness. The session-death path independently decides whether the session
+ended and whether it ever worked.
 """
 
 from __future__ import annotations
@@ -35,6 +34,8 @@ from yoke_core.domain.session_launch_closure_evidence import (
     sign_in_recovery,
 )
 from yoke_core.domain.session_launch_delivery_state import IN_FLIGHT_LAUNCH_STATES
+from yoke_core.domain.db_savepoint import savepoint
+from yoke_core.domain.session_launch_settlement import record_launch_native_exit
 from yoke_core.domain.session_launch_store import (
     LAUNCH_COLUMNS,
     begin_mutation,
@@ -82,9 +83,6 @@ def _skip_reason(
     if int(launch.project_id) not in authorized_projects:
         return "project_unauthorized"
     if str(launch.registered_session_id or "").strip():
-        # A session did register, so this launch is the other path's to
-        # correct: it can ask whether that session ever worked, and this
-        # cannot.
         return "registered"
     if launch.state not in IN_FLIGHT_LAUNCH_STATES:
         return "not_in_flight"
@@ -126,6 +124,28 @@ def _close(
     )
 
 
+def _record_bound_exit(
+    conn: Any, launch: LaunchRecord, evidence: Mapping[str, Any]
+) -> bool:
+    """Require the assigned launch's process and a measured exit."""
+    session_id = launch.registered_session_id
+    reported_session = evidence.get("registered_session_id")
+    exit_at = evidence.get("native_exit_at")
+    if not session_id or (reported_session and reported_session != session_id):
+        return False
+    if type(evidence.get("native_pid")) is not int or not isinstance(exit_at, str):
+        return False
+    try:
+        measured = parse_instant(exit_at)
+    except ValueError:
+        return False
+    with savepoint(conn, "record_bound_native_exit", owns=False):
+        return record_launch_native_exit(
+            conn, session_id, {"launch_id": launch.launch_id, "native_pid": evidence["native_pid"]},
+            exited_at=measured,
+        )
+
+
 def apply_unregistered_native_death_reports(
     conn: Any,
     *,
@@ -139,6 +159,7 @@ def apply_unregistered_native_death_reports(
     projects = frozenset(int(value) for value in authorized_projects)
     closed: List[str] = []
     skipped: List[Dict[str, str]] = []
+    recorded_exits: List[str] = []
     begin_mutation(conn)
     for report in reports:
         launch_id = str(report.get("launch_id") or "").strip()
@@ -150,12 +171,19 @@ def apply_unregistered_native_death_reports(
             machine_id=machine_id,
             authorized_projects=projects,
         )
+        evidence = report.get("evidence") or {}
+        if status == "registered" and launch is not None and _record_bound_exit(conn, launch, evidence):
+            recorded_exits.append(launch_id)
+            continue
         if status is not None or launch is None:
             skipped.append({"launch_id": launch_id, "status": status or "unknown"})
             continue
-        _close(conn, launch, report.get("evidence") or {}, now=current)
+        _close(conn, launch, evidence, now=current)
         closed.append(launch_id)
-    return {"closed_launches": closed, "skipped_launches": skipped}
+    outcome = {"closed_launches": closed, "skipped_launches": skipped}
+    if recorded_exits:
+        outcome["recorded_native_exits"] = recorded_exits
+    return outcome
 
 
 __all__ = [

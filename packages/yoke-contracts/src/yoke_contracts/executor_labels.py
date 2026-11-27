@@ -136,16 +136,14 @@ Only the second is a surface, and only the second is in
 
 SURFACE_TOKEN_ALIASES: Mapping[str, str] = {
     "codex-exec": "codex-cli",
+    "codex-tui": "codex-cli",
     "sdk-cli": "claude-cli",
 }
 """Harness-reported tokens naming a surface :data:`EXECUTOR_EMOJI` already has.
 
-``codex exec`` reports originator ``codex_exec``: the non-interactive
-form of the Codex CLI, not a fourth Codex surface. Unmapped it resolves
-to nothing, and one observed ``codex exec`` session stored
-``executor_surface`` NULL beside every interactive Codex row's
-``codex-desktop``. Minting a ``codex-exec`` label instead would give one
-physical surface two names — the drift the glyph map exists to prevent.
+Non-interactive ``codex exec`` reports originator ``codex_exec``. The
+interactive terminal can report ``codex-tui``. Both identify the Codex CLI
+and share its surface label and executable version probe.
 
 Print-mode Claude Code reports entrypoint ``sdk-cli``, which is the
 non-interactive form of the Claude CLI, not a second Claude surface.

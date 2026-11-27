@@ -17,6 +17,8 @@ import sys
 import tempfile
 import time
 
+from yoke_contracts import platform_fs
+
 WINDOWS = os.name == "nt"
 if WINDOWS:
     import msvcrt
@@ -167,12 +169,7 @@ def _remove_tree(path: Path) -> None:
         function(failed)
 
     hook = "onexc" if sys.version_info >= (3, 12) else "onerror"
-    target = str(path)
-    if WINDOWS and not target.startswith("\\\\?\\"):
-        # Retired release names push bundled files past MAX_PATH (260).
-        target = os.path.abspath(target)
-        unc = target.startswith("\\\\")
-        target = ("\\\\?\\UNC\\" + target[2:]) if unc else "\\\\?\\" + target
+    target = platform_fs.extended_length_path(path, windows=WINDOWS)
     shutil.rmtree(target, **{hook: clear_read_only})
 
 def _retire(release: Path, retired: Path) -> bool:
@@ -240,6 +237,8 @@ def activate(root: Path, generation: Path, bin_dir: Path, version: str) -> None:
     (generation / "lease").touch()
     python = Path(sys._base_executable).resolve()
     source = Path(__file__).read_text(encoding="utf-8")
+    fs_source = Path(platform_fs.__file__).read_text(encoding="utf-8")
+    source = source.replace("from yoke_contracts import platform_fs", f"import types\nplatform_fs = types.ModuleType('platform_fs')\nexec({fs_source!r}, platform_fs.__dict__)", 1)
     source = source.replace("LOCK_SOURCE = None", f"LOCK_SOURCE = {Path(locking.__file__).read_text(encoding='utf-8')!r}", 1)
     source = source.replace("INSTALL_ROOT = None", f"INSTALL_ROOT = {str(root)!r}", 1)
     bin_dir.mkdir(parents=True, exist_ok=True)

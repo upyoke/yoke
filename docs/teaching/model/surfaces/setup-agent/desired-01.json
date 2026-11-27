@@ -1,6 +1,6 @@
 {
  "id": "desired-01",
- "title": "Emit the step’s question, allowed answers, guidance and human authorization link/code as structured data.",
+ "title": "Emit the step’s question, allowed answers, guidance and browser authorization link/code as structured data.",
  "status": "observed",
  "form": "Do",
  "verification": "Source and focused regression tests; deployed campaign proof remains pending.",

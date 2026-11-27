@@ -67,7 +67,22 @@ and has no live item QA. Remaining members keep frozen source containment.
 
 Creating a run (`deployment_runs.create`, `deployment_runs.start_for_item`) and executing one take no claim. Creation serializes against other creation for the same project under a transaction-scoped advisory lock that covers only the database re-check and insert (composition's repository reads finish before it is taken), and what used to need a project-wide hold is answered by the run itself:
 
-- **Occupancy.** A run occupies the origin (`scheme://host[:port]`, lowercased) of every environment it targets — the run's own target environment plus every environment a flow stage targets — from the moment it is marked `executing` until its cursor has reached its flow's QA stages and every one has settled (`deployment_qa_stage_outstanding` reports nothing outstanding) or it is terminal. A run whose cursor is still on a stage before its first QA stage is deploying and holds its origins with the open line `deploying: stage <name>`, whatever its QA will owe, so a memberless run whose QA owes nothing still holds them until its deploy stages are done. A run whose flow has no QA stage holds its origins until it is terminal. The start (`status -> executing`) takes a transaction-scoped advisory lock per origin and refuses with `target_occupied` when another executing run still holds one, naming the origin, the holding run, its project and stage, and its open QA lines, with the recovery: re-run the start once the holder finishes deploying and its QA settles, or terminalize a holder nobody will finish (`yoke deployment-runs terminalize RUN --disposition cancelled --reason R`). Environment records that resolve to one origin — two projects' stage environments on one host — are one occupancy unit with no configuration, and production origins are occupied exactly like stage ones, which keeps a later release from overtaking an earlier one on the same server. A run with no registered environment url (a frozen preview, which occupies its own slug instead) holds no origin. Owner: `deploy_target_occupancy`.
+- **Occupancy.** Start takes a transaction-scoped advisory lock per origin
+  (`scheme://host[:port]`, lowercased) across the run's target environment
+  and its stage targets. Environment records that name the same origin share
+  that lock across projects and tiers. Frozen previews hold their own slugs.
+  An executing run holds the origin before its first QA stage, during open
+  QA and while an unclassified or potentially mutating stage remains. A flow
+  without QA holds the origin until it is terminal.
+- **Observation-only starts.** A contender consisting entirely of warm-up,
+  scoped QA and automatic settlement may start when the cursor of every
+  holder on that origin has only those stages left. Each run keeps its own
+  QA and still occupies the origin against a later deploy while QA is open.
+  A conflicting start refuses with `target_occupied`, listing the origin,
+  holder, project, stage and open work. Retry when the conflict clears, or
+  terminalize an abandoned holder with
+  `yoke deployment-runs terminalize RUN --disposition cancelled --reason R`.
+  Owner is `deploy_target_occupancy`.
 - **Takeover.** A newer release on the same target, on the same flow or the active successor of a retired one, can take over a run waiting on QA, moving its unfinished members and QA intact. See [takeover](../takeover.md).
 - **Who drives.** A run's live driver attachment (`deployment_runs.driver_attachment`, heartbeat within ten minutes) is the session driving it. Execution, membership and containment calls from any other session refuse with `run_driven_elsewhere` naming that driver; a run with no live driver may be driven by any authorized session, and a driver whose heartbeat lapses frees the run by itself — nothing needs a human release. Run-scoped notices, prepared-run hand-offs, automatic completion and operator QA-waiver authority read the same attachment and fall back to the project's steering seat.
 - **Identity at QA start.** `qa.plan_execution.begin` for a deployment stage returns `deployment_start_identity`: the stage's persistent target, its served-revision path, and the commit the run delivered for that project. Before any host reset or human gate the runner asks the target what it serves. QA tests whatever is deployed, so a different build (for example a newer release that took over) is reported on stderr with both commits named and QA proceeds; a target that cannot be asked is reported as unverified. Each case records the commit it observed.

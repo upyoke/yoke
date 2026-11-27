@@ -94,18 +94,18 @@ when unkeyed.
 
 ## A run cut behind a busy server waits
 
-Only one run deploys to a server at a time. A run occupies the origin of
-every environment it targets from the moment it is marked `executing` until
-its QA stages have settled or it ends
+Start checks every origin the run targets under an advisory lock. An
+observation-only run can share the origin once every holder has only warm-up,
+QA or automatic settlement left. Each observer keeps its own QA obligations
+and holds the origin against deployment until its QA settles
 ([target occupancy](model/run-members.md#target-occupancy-serializes-deploys-no-claim-is-taken)).
 
-A run cut while another run still deploys there is not started over it. When
-the busy run waits only on QA, the newer run takes it over
-([takeover](takeover.md)). When it is still deploying, the newer run stays
-`created`, names the older run in `waiting_for_run_id`, and its start refuses
-with `target_occupied`, naming the origin, the holding run and its open QA
-lines. Re-run the start once the holder finishes deploying and its QA
-settles, or terminalize a holder nobody will finish.
+When a run needs exclusive access, an eligible predecessor waiting on QA
+may be superseded during creation ([takeover](takeover.md)). Otherwise the
+creation receipt names the blocking run in `waiting_for_run_id` and start
+refuses with `target_occupied`, naming the origin, each holder and its open
+work. Re-run the start once the conflict clears, or terminalize a holder
+nobody will finish.
 
 Creating and executing a run take no claim. Creation serializes against other
 creation for the same project under a transaction-scoped advisory lock.

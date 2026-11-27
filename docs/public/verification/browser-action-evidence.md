@@ -40,8 +40,12 @@ blocked answers no script, so the read stops after 5 seconds and the request
 refuses with `page_unresponsive`, naming the page URL. The page stays open
 and nothing replaces it. Treat it like any other uncertain outcome: inspect
 the page and retained evidence, and never replay a submit blindly.
-A refused `qa browser step --keep-open` exits 1 but keeps its check and page:
-its JSON carries the error and the same `check_id` for the next step.
+`qa browser step` exits nonzero if the RPC, the browser step, or required
+cleanup fails. A failed step can appear as `data.success: false` in a
+successful RPC envelope. Read the error in the JSON receipt. A kept check
+returns its `check_id` so you can inspect the page or stop that check.
+If cleanup fails after a completed step, stdout still carries the step's JSON
+receipt and stderr reports the cleanup failure.
 
 A missing creating-state capture or exact submit-to-next-screen measurement
 stays unknown when retained evidence cannot establish it. Keep the original

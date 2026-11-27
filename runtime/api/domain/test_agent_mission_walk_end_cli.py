@@ -53,7 +53,11 @@ def _run_walk_end(
         ["end", "--item", f"ITEM-{4550}", "--execution-id", EXECUTION_ID]
         + ["--requirement-id", "18152", "--run-id", "991"]
     )
-    assert recorded and recorded[0]["run_id"] == 991
+    if result["removed"]:
+        [receipt] = recorded
+        assert receipt["run_id"] == 991
+    else:
+        assert recorded == []
     return exit_code
 
 
@@ -97,10 +101,14 @@ def test_walk_end_names_each_thing_it_could_not_finish(monkeypatch, capsys):
         removed=False, stale_owner_marker_removed=False, starting_state_restore=failed
     )
 
-    assert _run_walk_end(monkeypatch, result, "not_found: run 991") == 3
+    assert _run_walk_end(monkeypatch, result, None) == 3
     err = capsys.readouterr().err
     assert "mission_scratch_not_removed" in err and "your own walk" in err
     assert "stale_owner_marker_not_removed" in err
     assert "starting_state_restore_failed" in err
     assert "yoke test-machine reset" in err
-    assert "starting_state_restore_unrecorded: not_found: run 991" in err
+
+
+def test_walk_end_reports_a_restore_receipt_write_failure(monkeypatch, capsys):
+    assert _run_walk_end(monkeypatch, _walk_result(), "not_found: run 991") == 3
+    assert "starting_state_restore_unrecorded: not_found: run 991" in capsys.readouterr().err

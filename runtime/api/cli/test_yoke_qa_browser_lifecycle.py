@@ -16,6 +16,7 @@ from yoke_cli.commands.qa_browser_lifecycle import (
     qa_browser_status,
 )
 from yoke_cli.commands.tool_shaped import resolve_tool_shaped
+from yoke_harness import browser_setup
 
 import pytest
 
@@ -32,10 +33,23 @@ MANAGED_TOOLCHAIN = NodeToolchain(
 )
 
 
-def _readiness_patches(runtime_dir: Path, *, toolchain, chromium_probe: str | None):
+def _readiness_patches(
+    runtime_dir: Path, *, toolchain, chromium_probe: str | None, module_error=""
+):
     """Patch the runtime home, daemon, toolchain, and Chromium probe."""
 
     def probe(command, **_kwargs):
+        assert command[1] == "-e", "status must not install dependencies"
+        if command[2] == browser_setup.PLAYWRIGHT_LOAD_PROBE_JS:
+            return subprocess.CompletedProcess(
+                command,
+                1 if module_error else 0,
+                "" if module_error else "ok",
+                module_error,
+            )
+        assert not module_error, "Chromium was probed without a loadable Playwright"
+        if command[2] == browser_setup.browser_runtime_home.CHROMIUM_PRESENT_PROBE_JS:
+            return subprocess.CompletedProcess(command, 0, "ok", "")
         if chromium_probe is None:
             raise OSError(f"{command[0]} missing")
         return subprocess.CompletedProcess(command, 0, chromium_probe, "")
@@ -83,6 +97,37 @@ class TestTokenRouting:
 
 
 class TestStatusAdapter:
+    def test_status_rejects_an_incomplete_playwright_directory(self, tmp_path):
+        runtime_dir = tmp_path / "browser-runtime"
+        runtime_dir.joinpath("node_modules", "playwright").mkdir(parents=True)
+        rc, output = _run_status(
+            ["--json"],
+            _readiness_patches(
+                runtime_dir,
+                toolchain=HOST_TOOLCHAIN,
+                chromium_probe=None,
+                module_error="Cannot find module './node_modules/playwright'",
+            ),
+        )
+        payload = json.loads(output)
+        assert rc == 0
+        assert payload["npm_dependencies"]["status"] == "missing"
+        assert "Cannot find module" in payload["npm_dependencies"]["detail"]
+        assert payload["chromium"]["status"] == "unknown"
+        assert any("yoke qa browser setup" in hint for hint in payload["repairs"])
+
+    def test_status_rejects_a_bundled_browser_that_cannot_launch(self, tmp_path):
+        rc, output = _run_status(
+            ["--json"],
+            _readiness_patches(
+                tmp_path, toolchain=HOST_TOOLCHAIN, chromium_probe="exec format error"
+            ),
+        )
+        assert rc == 0
+        chromium = json.loads(output)["chromium"]
+        assert chromium["status"] == "missing"
+        assert "exec format error" in chromium["detail"]
+
     def test_status_json_reports_browser_runtime_readiness(self, tmp_path):
         runtime_dir = tmp_path / "browser-runtime"
         runtime_dir.joinpath("node_modules", "playwright").mkdir(parents=True)

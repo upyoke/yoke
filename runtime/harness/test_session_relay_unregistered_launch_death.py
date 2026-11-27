@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import os
+import json
 import subprocess
 import sys
 from pathlib import Path
 from typing import Any
 
 from yoke_contracts.process_ancestry import process_start_time
+from yoke_harness import session_launch_handles, session_relay_launch_settlement
 from yoke_harness.session_launch_containment import (
     record_supervised_native,
     supervision_record_path,
@@ -19,6 +21,7 @@ from yoke_harness.session_relay_launch_settlement import (
 )
 from yoke_harness.session_relay_native_capture_format import compose_capture
 from yoke_harness.session_relay_native_diagnostics import native_diagnostic_path
+from yoke_harness.session_relay_process_liveness import verified_dead_sessions
 
 
 LAUNCH_ID = "33333333-3333-4333-8333-333333333333"
@@ -34,8 +37,9 @@ class _Inventory:
 class _Dispatcher:
     """Accept one report and answer the way the control plane answers."""
 
-    def __init__(self, *, success: bool = True) -> None:
+    def __init__(self, *, success: bool = True, result=None) -> None:
         self.success = success
+        self.result = {"closed_launches": [LAUNCH_ID]} if result is None else result
         self.payloads: list[dict[str, Any]] = []
 
     def __call__(self, *, function_id: str, target: Any, payload: Any, timeout_s: int):
@@ -43,7 +47,7 @@ class _Dispatcher:
         return type(
             "Response",
             (),
-            {"success": self.success, "result": {"closed_launches": [LAUNCH_ID]}},
+            {"success": self.success, "result": self.result},
         )()
 
 
@@ -150,3 +154,40 @@ def test_fatal_native_capture_reports_before_supervisor_pid_disappears(
         == REFUSAL
     )
     assert supervision_record_path(LAUNCH_ID, custody).exists()
+
+
+def test_finalized_bound_capture_is_reported_while_the_session_is_live(tmp_path, monkeypatch):
+    handles = tmp_path / "handles"
+    handles.mkdir()
+    monkeypatch.setattr(session_launch_handles, "native_handle_directory", lambda: handles)
+    monkeypatch.setattr(session_relay_launch_settlement, "native_handle_directory", lambda: handles)
+    handle = handles / f"{LAUNCH_ID}.json"
+    handle.write_text(json.dumps({
+        "launch_id": LAUNCH_ID, "pid": 4321, "process_start_time": "start",
+        "target_session_id": "bound-session",
+    }), encoding="utf-8")
+    native_diagnostic_path(f"nd-{LAUNCH_ID}", state_dir=tmp_path).write_bytes(
+        compose_capture(stdout=b"", stderr=b"", exit_code=0, exit_at="2026-09-04T17:31:02Z")
+    )
+    assert verified_dead_sessions(
+        state_dir=tmp_path, anchors_dir=tmp_path / "anchors",
+        start_time_of=lambda _pid: "start",
+    ) == ()
+
+    dispatcher = _Dispatcher(result={"skipped_launches": [{"launch_id": LAUNCH_ID, "status": "registered"}]})
+    assert report_unregistered_launch_deaths(
+        dispatcher, _Inventory(), state_dir=tmp_path, custody_state_dir=tmp_path,
+    ) == (LAUNCH_ID,)
+    assert "native_exit_reported" not in json.loads(handle.read_text(encoding="utf-8"))
+    dispatcher.result = {"recorded_native_exits": [LAUNCH_ID]}
+    assert report_unregistered_launch_deaths(
+        dispatcher, _Inventory(), state_dir=tmp_path, custody_state_dir=tmp_path,
+    ) == (LAUNCH_ID,)
+    assert json.loads(handle.read_text(encoding="utf-8"))["native_exit_reported"] is True
+    evidence = dispatcher.payloads[-1]["launches"][0]["evidence"]
+    assert evidence["native_exit_at"] == "2026-09-04T17:31:02.000000Z"
+    assert evidence["native_pid"] == 4321
+    assert evidence["registered_session_id"] == "bound-session"
+    assert report_unregistered_launch_deaths(
+        dispatcher, _Inventory(), state_dir=tmp_path, custody_state_dir=tmp_path,
+    ) == ()

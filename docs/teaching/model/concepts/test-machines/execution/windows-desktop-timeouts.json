@@ -1,0 +1,7 @@
+{
+ "id": "windows-desktop-timeouts",
+ "title": "Native Windows desktop command timeouts",
+ "status": "candidate",
+ "sources": ["docs/public/verification/test-machine-desktop.md", "packages/yoke-harness/src/yoke_harness/native_windows/desktop_job.py", "runtime/api/domain/test_native_windows_desktop_job.py"],
+ "summary": "Native Windows desktop commands run inside a Windows Job in the standard test user's interactive session. The timeout returns exit 124 and reports verified cleanup only after the Job reports zero active processes. If proof is missing, windows_desktop_cleanup_unresolved names the task and directs the reader to retain the receipt, inspect Task Scheduler history and check the test user's desktop, and reset the test machine if ownership cannot be established. A command that completes may leave its handed-off desktop app running."
+}

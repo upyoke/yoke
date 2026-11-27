@@ -152,8 +152,10 @@ class TestStepAdapter:
             rc = qa_browser_step(list(argv))
         return rc, out.getvalue(), err.getvalue()
 
-    def test_failed_step_exits_one_and_preserves_json(self):
-        result = {"success": False, "error": "assertion failed"}
+    @pytest.mark.parametrize("nested", [False, True])
+    def test_failed_step_exits_one_and_preserves_json(self, nested):
+        failure = {"success": False, "error": "page.goto: Timeout 5ms exceeded"}
+        result = {"success": True, "data": failure} if nested else failure
         with (
             patch(
                 "yoke_harness.browser_qa_daemon.ensure_daemon_running",
@@ -168,6 +170,29 @@ class TestStepAdapter:
         assert rc == 1
         assert out == json.dumps(result) + "\n"
         assert err == ""
+
+    def test_cleanup_failure_exits_one_and_preserves_completed_step(self):
+        result = {"success": True, "data": {"success": True, "matched": 1}}
+        diagnostic = "browser_daemon_stop_failed: process_stop_timeout"
+        with (
+            patch(
+                "yoke_harness.browser_qa_daemon.ensure_daemon_running",
+                return_value=None,
+            ),
+            patch("yoke_harness.browser_client.ensure_page", return_value="exploratory"),
+            patch("yoke_harness.browser_client.execute_step", return_value=result),
+            patch(
+                "yoke_harness.browser_check_profile._remove",
+                side_effect=RuntimeError(diagnostic),
+            ) as cleanup,
+        ):
+            rc, out, err = self._run(
+                "--base-url", "https://x.example", "--step-json", "{}"
+            )
+        cleanup.assert_called_once()
+        assert rc == 1
+        assert out == json.dumps(result) + "\n"
+        assert err == f"yoke qa browser step: {diagnostic}\n"
 
     def test_invalid_step_json_is_usage_error(self):
         rc, _out, err = self._run("--base-url", "https://x.example", "--step-json", "[")

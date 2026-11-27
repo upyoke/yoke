@@ -117,7 +117,12 @@ def test_runtime_uses_the_qa_installer_and_reuses_its_cache(
             modules.mkdir(parents=True)
         if argv[1:] == ["playwright", "install", "chromium"]:
             present = True
-        return subprocess.CompletedProcess(argv, 0, "ok" if present else "missing", "")
+        ready = (
+            modules.is_dir()
+            if argv[-1] == runtime.browser_setup.PLAYWRIGHT_LOAD_PROBE_JS
+            else present
+        )
+        return subprocess.CompletedProcess(argv, 0, "ok" if ready else "missing", "")
 
     monkeypatch.setattr(runtime.browser_setup.subprocess, "run", run)
     launches = []

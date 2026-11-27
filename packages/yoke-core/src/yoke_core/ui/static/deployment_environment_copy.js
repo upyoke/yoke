@@ -19,6 +19,7 @@ const FROZEN_DELIVERY_LABEL = "Frozen · releases don't deliver it";
 const DELIVERY_STATE_LABELS = {
   frozen: [() => FROZEN_DELIVERY_LABEL, FROZEN_DELIVERY_LABEL],
   live: [(env) => `✓ Live in ${env}`, "✓ Live"],
+  "in build": [(env) => `In ${env} build`, "In build"],
   deploying: [(env) => `Deploying to ${env}`, "Deploying"],
   "not deployed": [(env) => `Merged · not in ${env} yet`, "Merged · not deployed yet"],
   failed: [(env) => `✗ Failed in ${env}`, "✗ Failed"],
