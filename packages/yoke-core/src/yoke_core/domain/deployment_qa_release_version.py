@@ -186,8 +186,12 @@ def pinned_release_endpoints(
             f"deployed commit for project {project_id}, so the release it pins "
             "cannot be read; repair the run's recorded sources before starting QA"
         )
+    # The pin a commit holds is immutable, so it is shared across this
+    # operation's connections. A done gate that opens its own connection
+    # inside the dispatch transaction reuses the version the dispatch
+    # prepared rather than re-reading source while that transaction is open.
     version = shared_read(
-        conn,
+        None,
         ("pinned_release_version", int(project_id), sha, path),
         lambda: _pinned_version(conn, int(project_id), sha, path),
     )
