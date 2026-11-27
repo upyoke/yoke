@@ -33,6 +33,28 @@ def link_target(path: str | Path) -> Path:
     return Path(os.path.normpath(os.path.join(selected.absolute().parent, target)))
 
 
+def resolve_links(path: str | Path, *, limit: int = 40) -> Path:
+    """The absolute path *path* names once every link in it is replaced by its
+    recorded target, without opening anything through a link.
+
+    It answers what ``Path.resolve(strict=False)`` answers for containment
+    checks, but reads each symlink or junction with :func:`link_target`, so a
+    Windows session that may not traverse a junction (WinError 448) can still
+    tell where a path leads. More than *limit* link hops raises RuntimeError.
+    """
+    absolute = Path(os.path.abspath(Path(path).expanduser()))
+    current, pending, hops = Path(absolute.anchor), list(absolute.parts[1:]), 0
+    while pending:
+        current = current / pending.pop(0)
+        if is_link(current):
+            hops += 1
+            if hops > limit:
+                raise RuntimeError(f"link_loop: {path} has more than {limit} link hops")
+            target = link_target(current)
+            current, pending = Path(target.anchor), list(target.parts[1:]) + pending
+    return current
+
+
 def remove_link(path: str | Path) -> None:
     """Remove the link itself, preserving a directory junction's target."""
     selected = Path(path)
@@ -91,4 +113,4 @@ def link(target: str | Path, path: str | Path, *, junction: bool = True) -> str:
         raise OSError(f"link_creation_failed: {destination}; {recovery}, remove any incomplete owned copy, and retry: {exc}") from exc
 
 
-__all__ = ["link", "is_link", "link_target", "remove_link"]
+__all__ = ["link", "is_link", "link_target", "remove_link", "resolve_links"]

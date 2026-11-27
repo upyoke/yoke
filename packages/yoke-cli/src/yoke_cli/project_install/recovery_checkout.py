@@ -23,6 +23,7 @@ from yoke_cli.project_install.file_line_managed_exceptions import (
 )
 from yoke_cli.project_install.files import sha256_text
 from yoke_contracts.project_contract.file_line_policy import PROJECT_CONFIG_REL
+from yoke_contracts.platform_links import resolve_links
 from yoke_contracts.project_contract.install_bundle import SKILL_DISCOVERY_LINKS
 
 
@@ -33,7 +34,7 @@ def state(path: Path) -> str:
     except FileNotFoundError:
         return "absent"
     if skill_discovery.is_link_entry(info):
-        return "link:" + str(path.resolve())
+        return "link:" + str(resolve_links(path))
     if stat.S_ISDIR(info.st_mode):
         return "directory"
     return sha256_text(path.read_bytes().decode("utf-8"))
@@ -128,7 +129,7 @@ def plan(
     for rel in preflight["install_recovery"]["removed_paths"]:
         add(rel, None)
     for rel, destination in SKILL_DISCOVERY_LINKS.items():
-        linked = "link:" + str(((root / rel).parent / destination).resolve())
+        linked = "link:" + str(resolve_links((root / rel).parent / destination))
         expected.setdefault(rel, {state(root / rel)}).update({"absent", linked})
     for rel, planned in preflight["hook_plans"].items():
         json_state(rel, planned["payload"])

@@ -30,7 +30,7 @@ from yoke_cli.config import project_worktrees_ignore
 from yoke_contracts.project_contract.install_error import ProjectInstallError
 from yoke_cli.project_install.files import assert_resolved_targets_within, remove_empty_parents
 from yoke_contracts.platform_fs import remove_tree
-from yoke_contracts.platform_links import link
+from yoke_contracts.platform_links import link, resolve_links
 from yoke_contracts.project_contract.install_bundle import SKILL_DISCOVERY_LINKS
 
 MISSING = "missing"
@@ -71,9 +71,10 @@ def entry_state(root: Path, rel: str, records: Mapping[str, str] | None = None) 
         info = target.lstat()
     except FileNotFoundError:
         return MISSING
-    expected = (target.parent / destination).resolve()
+    # Links are read by their recorded target, never traversed (WinError 448).
+    expected = resolve_links(target.parent / destination)
     if is_link_entry(info):
-        return LINKED if target.resolve() == expected else FOREIGN
+        return LINKED if resolve_links(target) == expected else FOREIGN
     if stat.S_ISREG(info.st_mode):
         try:
             text = target.read_bytes().decode("utf-8").strip()
@@ -97,7 +98,7 @@ def _is_interrupted_copy(root: Path, rel: str, source: Path) -> bool:
         return False
     target = root / rel
     try:
-        source_rel = source.relative_to(root.resolve()).as_posix()
+        source_rel = source.relative_to(resolve_links(root)).as_posix()
         for path in target.rglob("*"):
             info = path.lstat()
             if is_link_entry(info):
@@ -143,7 +144,7 @@ def apply(root: Path, records: Mapping[str, str] | None = None) -> list[str]:
         if state == FOREIGN:
             _refuse(rel, "an unexpected discovery entry")
         target = root / rel
-        source = (target.parent / destination).resolve()
+        source = resolve_links(target.parent / destination)
         if not source.is_dir():
             raise ProjectInstallError(
                 f"skill_discovery_target_missing: {rel} points at "
