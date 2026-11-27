@@ -184,10 +184,13 @@ when an active skill binding says so.
 Ordinary `yoke items cancel ITEM --reason TEXT` refuses merged work and work
 past review. If a merged item cannot reach `done`, a caller with
 `items.write` permission on its project may use
-`yoke items cancel ITEM --abandon-merged --reason TEXT`. This records
-`cancelled`, preserves merge evidence, and stores the actor, session, prior
-status, merge timestamp and reason in `resolution_comment` in the same
-transaction. It releases item resources through the normal cancellation
+`yoke items cancel ITEM --abandon-merged --reason TEXT`. The same command
+admits a laneless no-change Dash past review: its recorded `no_changes`
+evidence with no active lane stands in for a merge. Other unmerged work
+refuses `item_not_merged`. This records `cancelled`, preserves merge or
+no-change evidence, and stores the actor, session, prior status, basis
+(`merged` or `laneless_no_change`), merge timestamp and reason in
+`resolution_comment` in the same transaction. It releases item resources through the normal cancellation
 path; it does not undo merged code or claim delivery. Already delivered
 items still refuse cancellation. If a live (`created` or `executing`) deployment
 run still lists the item, abandonment refuses with
