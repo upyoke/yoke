@@ -12,7 +12,7 @@ from yoke_harness.native_windows.mission import (
     WINDOWS_MISSION_SCRATCH_DIRECTORY, windows_stale_scratch_script,
 )
 from yoke_harness.native_windows.profile_processes import (
-    profile_process_stop_script, relaunch_desktop_apps, stop_desktop_profile_processes, stopped_processes,
+    profile_process_stop_script, relaunch_desktop_apps, stop_desktop_and_restore, stopped_processes,
 )
 from yoke_harness.native_windows.profile_links import (
     link_sweep_record, stale_link_sweep_script,
@@ -213,8 +213,8 @@ def profile_operation(control, operation, path):
         if operation == "capture" and (refused := residue_refusal(control, operation)):
             return refused
         if operation == "reset":
-            refused, desktop_stopped, targets = stop_desktop_profile_processes(
-                control, PRESERVED_DIRECTORIES
+            refused, desktop_stopped, targets, result = stop_desktop_and_restore(
+                control, PRESERVED_DIRECTORIES, lambda: control._run(script, timeout=600)
             )
             if refused:
                 return HostActionResult(
@@ -222,7 +222,8 @@ def profile_operation(control, operation, path):
                     {"operation": operation, "golden_baseline_path": path, "recovery": refused},
                     refused.split(":", 1)[0],
                 )
-        result = control._run(script, timeout=600)
+        else:
+            result = control._run(script, timeout=600)
     except ValueError as exc:
         return HostActionResult(
             False, {"recovery": str(exc)}, "windows_golden_path_unsafe"
