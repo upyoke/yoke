@@ -1,6 +1,7 @@
 """Whether a physical Test Machine may take a scoped QA plan's next turn.
 
-A failed owed reset requiring repair bars QA until a recovery reset succeeds.
+A failed owed reset requiring repair bars QA until a recovery reset succeeds
+or a later fully passing governed verify reaches the owed baseline.
 A failed verification independently bars QA until a successful ``verify`` or
 ``golden_capture``. Health is physical, like the one Test Machine queue.
 """
