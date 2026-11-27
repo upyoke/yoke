@@ -14,44 +14,70 @@ def is_link(path: str | Path) -> bool:
     return selected.is_symlink() or (os.name == "nt" and selected.is_junction())
 
 
-def link_target(path: str | Path) -> Path:
-    """The absolute path a symlink or junction names, read without traversing it.
+def _recorded_target(path: Path) -> str:
+    """The target string a symlink or junction records, read without traversing it.
 
-    Following a junction can be refused (Windows redirection trust raises
-    WinError 448 for an untrusted mount point), so the link's own record is
-    read instead. Windows reports that record in its extended form
-    (``\\\\?\\C:\\...``); the prefix is dropped so it compares with an
-    ordinary path. A relative target is joined to the link's folder lexically.
+    Windows reports a junction's record in its extended form (``\\\\?\\C:\\...``);
+    the prefix is dropped so it reads as an ordinary path.
     """
-    selected = Path(path)
-    target = os.readlink(selected)
+    target = os.readlink(path)
     if os.name == "nt":
         if target.startswith("\\\\?\\UNC\\"):
             target = "\\\\" + target[8:]
         elif target.startswith("\\\\?\\"):
             target = target[4:]
-    return Path(os.path.normpath(os.path.join(selected.absolute().parent, target)))
+    return target
+
+
+def link_target(path: str | Path) -> Path:
+    """The absolute path a symlink or junction names, read without traversing it.
+
+    Following a junction can be refused (Windows redirection trust raises
+    WinError 448 for an untrusted mount point), so the link's own record is
+    read instead. A relative record is joined to the link's folder as written;
+    use :func:`resolve_links` to compare where it finally leads.
+    """
+    selected = Path(path)
+    return selected.absolute().parent / _recorded_target(selected)
 
 
 def resolve_links(path: str | Path, *, limit: int = 40) -> Path:
-    """The absolute path *path* names once every link in it is replaced by its
-    recorded target, without opening anything through a link.
+    """Where *path* leads once every link in it is replaced by its recorded
+    target, without opening anything through a link.
 
-    It answers what ``Path.resolve(strict=False)`` answers for containment
-    checks, but reads each symlink or junction with :func:`link_target`, so a
-    Windows session that may not traverse a junction (WinError 448) can still
-    tell where a path leads. More than *limit* link hops raises RuntimeError.
+    It answers as ``Path.resolve(strict=False)`` does on each OS: POSIX takes
+    components in order, so ``..`` steps out of the directory a preceding link
+    led to; Win32 collapses ``..`` lexically before it opens a path. A Windows
+    session that may not traverse a junction (WinError 448) gets the same
+    answer. More than *limit* hops raises RuntimeError.
     """
-    absolute = Path(os.path.abspath(Path(path).expanduser()))
-    current, pending, hops = Path(absolute.anchor), list(absolute.parts[1:]), 0
+    selected = Path(path).expanduser()
+    if not selected.is_absolute():
+        selected = Path(os.getcwd()) / selected
+    if os.name == "nt":
+        selected = Path(os.path.normpath(selected))
+    current, pending, hops = Path(selected.anchor), list(selected.parts[1:]), 0
     while pending:
-        current = current / pending.pop(0)
-        if is_link(current):
-            hops += 1
-            if hops > limit:
-                raise RuntimeError(f"link_loop: {path} has more than {limit} link hops")
-            target = link_target(current)
-            current, pending = Path(target.anchor), list(target.parts[1:]) + pending
+        part = pending.pop(0)
+        if part in ("", "."):
+            continue
+        if part == "..":
+            current = current.parent
+            continue
+        candidate = current / part
+        if not is_link(candidate):
+            current = candidate
+            continue
+        hops += 1
+        if hops > limit:
+            raise RuntimeError(f"link_loop: {path} has more than {limit} link hops")
+        recorded = Path(_recorded_target(candidate))
+        if os.name == "nt":
+            recorded = Path(os.path.normpath(current / recorded))
+        if recorded.is_absolute():
+            current, pending = Path(recorded.anchor), list(recorded.parts[1:]) + pending
+        else:
+            pending = list(recorded.parts) + pending
     return current
 
 

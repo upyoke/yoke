@@ -92,7 +92,7 @@ def test_unreadable_link_refuses_with_its_recovery(tmp_path, monkeypatch):
     def denied(path):
         raise PermissionError(13, "Access is denied", os.fspath(path))
 
-    monkeypatch.setattr(links, "link_target", denied)
+    monkeypatch.setattr(links, "_recorded_target", denied)
 
     with pytest.raises(ProjectInstallError, match="cannot be resolved safely.*rerun yoke project refresh"):
         assert_resolved_targets_within(root, [".claude/skills/yoke"], context="install recovery checkout")
@@ -118,3 +118,31 @@ def test_discovery_link_state_reads_without_traversal(tmp_path, monkeypatch):
     assert skill_discovery.entry_state(root, ".claude/skills/yoke") == skill_discovery.LINKED
     assert recovery_checkout.state(link) == "link:" + str(root / ".agents" / "skills" / "yoke")
     skill_discovery.preflight(root)
+
+
+@windows_smoke
+def test_dotdot_after_a_link_answers_as_resolve_does(tmp_path, monkeypatch):
+    base = Path(os.path.realpath(tmp_path))
+    (base / "real" / "sub").mkdir(parents=True)
+    (base / "real" / "x").mkdir()
+    (base / "x").mkdir()
+    link = base / "hop"
+    _dir_link(base / "real" / "sub", link, monkeypatch)
+    expected = (link / ".." / "x").resolve(strict=False)
+    _refuse_traversal(monkeypatch)
+
+    assert links.resolve_links(link / ".." / "x") == expected
+    # POSIX follows the link before "..", Win32 collapses ".." first.
+    assert expected == (base / "x" if os.name == "nt" else base / "real" / "x")
+
+
+@pytest.mark.posix_only(reason="a relative directory symlink needs symlink privilege on Windows")
+def test_relative_record_with_dotdot_after_a_link_answers_as_resolve_does(tmp_path):
+    base = Path(os.path.realpath(tmp_path))
+    (base / "real" / "sub").mkdir(parents=True)
+    (base / "real" / "target").mkdir()
+    (base / "hop").symlink_to(base / "real" / "sub")
+    (base / "entry").symlink_to(Path("hop") / ".." / "target")
+
+    assert links.resolve_links(base / "entry") == (base / "entry").resolve()
+    assert links.resolve_links(base / "entry") == base / "real" / "target"
