@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from contextlib import contextmanager
 from typing import Any
@@ -48,6 +49,7 @@ def transfer_qa_on(
     new_id: str,
     moving: set[int],
     include_run_qa: bool = True,
+    kept_requirement_ids: frozenset[int] = frozenset(),
 ) -> None:
     """Transfer moving members' QA, open plan groups and run QA on the caller's transaction.
 
@@ -58,6 +60,8 @@ def transfer_qa_on(
     requirement/execution IDs. Historical dispositions and hashed snapshots
     are deliberately untouched. Plan ownership and pinned cases follow only
     for plans whose moved rows already ran; the successor derives the rest.
+    *kept_requirement_ids* stay where they are, with every execution whose
+    roster names one of them, so their evidence keeps its original run.
     """
     from yoke_core.domain.deployment_qa_plan_groups import group_marker, run_groups
 
@@ -74,7 +78,16 @@ def transfer_qa_on(
         adopted_groups = {g.group_id for g in groups
                           if g.open and g.plan_id in selected and not old_attached.get(g.plan_id)}
 
+    def kept(row: Mapping) -> bool:
+        if "roster_json" not in row:
+            return int(row["id"]) in kept_requirement_ids
+        roster = json.loads(row["roster_json"] or "[]")
+        return any(int(entry.get("requirement_id") or 0) in kept_requirement_ids
+                   for entry in roster)
+
     def moves(row: Mapping) -> bool:
+        if kept_requirement_ids and kept(row):
+            return False
         member = row["deployment_member_item_id"]
         if member is not None:
             return int(member) in moving
@@ -90,10 +103,11 @@ def transfer_qa_on(
         # Execution first matches result/review writes, which lock their cursor
         # before their requirements. One set read/write per table, not per case.
         for table in ("qa_plan_executions", "qa_requirements"):
+            roster = ",roster_json" if table == "qa_plan_executions" and kept_requirement_ids else ""
             rows = query_rows(
                 conn,
                 f"SELECT id,deployment_stage,deployment_member_item_id,"
-                f"execution_target_json FROM {table} "
+                f"execution_target_json{roster} FROM {table} "
                 "WHERE deployment_run_id=%s ORDER BY id FOR UPDATE",
                 (old_id,),
             )

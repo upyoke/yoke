@@ -30,7 +30,40 @@ def adopt_set_aside_qa(conn, run_id, item_ids):
                       if entry["reason"] in SET_ASIDE_REASONS and int(entry["item_id"]) in ids}
             if moving:
                 transfer_qa_on(conn, old_id=old_id, new_id=run_id,
-                               moving=moving, include_run_qa=False)
+                               moving=moving, include_run_qa=False,
+                               kept_requirement_ids=shadowed_requirements(
+                                   conn, old_id=old_id, new_id=run_id, moving=moving))
+
+
+def shadowed_requirements(conn, *, old_id, new_id, moving):
+    """Historical member cases a live same-target release already owns.
+
+    A live run on the adopting run's target (the adopting run included) that
+    holds an open case with the same stage, member, plan, case and baseline is
+    that case's current custody; the historical copy stays on its original
+    run with its evidence, so one release owns each open case identity.
+    """
+    from yoke_core.domain.runs import TERMINAL_RUN_STATUSES
+
+    rows = query_rows(
+        conn,
+        "SELECT DISTINCT old.id FROM qa_requirements old "
+        "JOIN deployment_runs adopting ON adopting.id=%s "
+        "JOIN qa_requirements live ON live.deployment_stage=old.deployment_stage "
+        "AND live.deployment_member_item_id=old.deployment_member_item_id "
+        "AND live.plan_id=old.plan_id AND live.plan_case_key=old.plan_case_key "
+        "AND COALESCE(live.host_baseline,'')=COALESCE(old.host_baseline,'') "
+        "AND live.superseded_by_requirement_id IS NULL AND live.retracted_at IS NULL "
+        "JOIN deployment_runs owner ON owner.id=live.deployment_run_id "
+        "AND owner.id<>old.deployment_run_id AND owner.project_id=adopting.project_id "
+        "AND owner.flow=adopting.flow "
+        "AND owner.target_environment_id IS NOT DISTINCT FROM adopting.target_environment_id "
+        "AND owner.status<>ALL(%s) "
+        "WHERE old.deployment_run_id=%s AND old.deployment_member_item_id=ANY(%s) "
+        "AND old.deployment_stage IS NOT NULL AND old.plan_id IS NOT NULL",
+        (new_id, sorted(TERMINAL_RUN_STATUSES), old_id, sorted(moving)),
+    )
+    return frozenset(int(row["id"]) for row in rows)
 
 
 def preserved_qa_selector(conn, run_id):
