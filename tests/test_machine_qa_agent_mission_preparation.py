@@ -64,7 +64,14 @@ def test_failure_preserves_baseline_progress_and_redacts_cause(
     def fail(*args, **kwargs):
         raise RuntimeError("permission denied private-token " + "x" * 900)
 
-    callback = fail if phase == "heartbeat" else None
+    calls = []
+
+    def checked_in_then_fail():
+        # The pre-power-on check-in succeeds; the next one fails.
+        calls.append(1)
+        return {} if len(calls) == 1 else fail()
+
+    callback = checked_in_then_fail if phase == "heartbeat" else None
     if phase == "baseline":
         execution.reach_baseline = fail
     if phase == "scratch":

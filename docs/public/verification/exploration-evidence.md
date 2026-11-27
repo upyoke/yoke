@@ -137,7 +137,9 @@ and settles the execution aborted with the abort's reason.
 Before any walk, an abort of checked-in docket preparation refuses with
 `qa_abort_restore_pending` and keeps the lease, not a hold-over. The runner
 finishes its blocking call, restores the baseline unless just proven, and its
-`mission.ready` receipt settles the abort with no walk.
+`mission.ready` receipt settles the abort with no walk. The runner checks in
+before it powers on a cloud host, so the lease and every companion lease stay
+in that custody through power-on; a cancelled or ended execution stops first.
 
 `walk-end` stores the restore receipt, releases the lease and settles the
 execution in one transaction. It owes a reset only when the receipt does not

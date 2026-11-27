@@ -208,6 +208,19 @@ def test_busy_checkin_during_mission_setup_preserves_execution() -> None:
     ]
 
 
+def _checked_in_then(error: Exception):
+    """A check-in that admits the pre-power-on check, then refuses."""
+    calls: list[int] = []
+
+    def beat():
+        calls.append(1)
+        if len(calls) > 1:
+            raise error
+        return {}
+
+    return beat
+
+
 def test_real_mission_setup_failure_keeps_terminal_reason() -> None:
     from yoke_core.domain.agent_mission_preparation import prepare_mission
 
@@ -224,8 +237,8 @@ def test_real_mission_setup_failure_keeps_terminal_reason() -> None:
             material=SimpleNamespace(secrets={})
         ),
         scratch_factory=mock.Mock(side_effect=AssertionError("scratch after failure")),
-        progress_callback=mock.Mock(
-            side_effect=qa_plan_execution.QaPlanExecutionError("setup check refused")
+        progress_callback=_checked_in_then(
+            qa_plan_execution.QaPlanExecutionError("setup check refused")
         ),
     )
     assert result["preparation"]["ok"] is False

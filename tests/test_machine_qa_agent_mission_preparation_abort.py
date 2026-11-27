@@ -3,6 +3,8 @@
 Feedback 98859: the abort reached the runner during a blocking native
 baseline call. The call must finish, the next phase boundary must stop
 preparation, and the docket must carry the declared baseline's restore.
+Feedback 98868: the runner checks in before it powers on a cloud host, so a
+cancelled or terminal execution never starts the VM.
 """
 
 from types import SimpleNamespace
@@ -55,7 +57,13 @@ def host(monkeypatch):
         material=SimpleNamespace(secrets={}),
         reach_baseline=reach,
     )
-    monkeypatch.setattr(local, "_execution", lambda *a, **k: execution)
+    def power_on(*args, **kwargs):
+        state["calls"].append("power_on")
+        if state["abort_in"] == "power_on":
+            state["abort"] = True  # The owner aborts while the VM starts.
+        return execution
+
+    monkeypatch.setattr(local, "_execution", power_on)
     monkeypatch.setattr(qa_host_package_fixture, "restore_host_packages", packages)
     state["beat"] = lambda: {"abort_requested": state["abort"]}
     return state
@@ -78,16 +86,54 @@ def test_abort_during_blocking_baseline_reuses_its_proof(monkeypatch, host):
     assert evidence["starting_state_restore"]["baseline"] == "fresh-host"
     assert evidence["abort"]["host_work_stopped"] is True
     assert host["reached"] == ["fresh-host"]  # The settled call is the restore.
-    assert host["calls"] == []  # No later phase ran after cancellation.
+    assert host["calls"] == ["power_on"]  # No later phase ran after cancellation.
 
 
-def test_abort_before_the_baseline_restores_the_declared_one(monkeypatch, host):
-    host["abort"] = True
+def test_abort_during_power_on_restores_the_declared_baseline(monkeypatch, host):
+    host["abort_in"] = "power_on"
     payload = _prepare(monkeypatch, host, _contract("fresh-host"))
-    evidence = payload["preparation"]["evidence"]
+    preparation = payload["preparation"]
+    evidence = preparation["evidence"]
+    assert preparation["error_code"] == "qa_host_abort_requested"
+    assert evidence["preparation_failure"]["phase"] == "preparation_heartbeat"
     assert evidence["baseline_outcome"]["state"] == "not_started"
     assert evidence["starting_state_restore"]["restored"] is True
     assert host["reached"] == ["fresh-host"]
+    assert host["calls"] == ["power_on"]
+
+
+def test_cancelled_custody_before_power_on_stops_untouched(monkeypatch, host):
+    host["abort"] = True
+    with pytest.raises(preparation_module.MachineQaAborted) as raised:
+        _prepare(monkeypatch, host, _contract("fresh-host"))
+    assert raised.value.host_contact_possible is False
+    assert host["calls"] == [] and host["reached"] == []
+
+
+def test_terminal_custody_before_power_on_stops_untouched(monkeypatch, host):
+    def refused():
+        raise client.MachinePlanCaseDispatchError(
+            "plan_execution_heartbeat_failed: execution is aborted"
+        )
+
+    host["beat"] = refused
+    with pytest.raises(client.MachinePlanCaseDispatchError) as raised:
+        _prepare(monkeypatch, host, _contract("fresh-host"))
+    assert raised.value.host_contact_possible is False
+    assert host["calls"] == [] and host["reached"] == []
+
+
+def test_power_on_beats_while_the_vm_starts(monkeypatch, host):
+    phases = []
+    real = preparation_module.heartbeat_during
+
+    def spy(phase, *args, **kwargs):
+        phases.append((phase, kwargs.get("propagate_abort", True)))
+        return real(phase, *args, **kwargs)
+
+    monkeypatch.setattr(preparation_module, "heartbeat_during", spy)
+    _prepare(monkeypatch, host, _contract("fresh-host"))
+    assert phases[0] == ("test_machine_power_on", False)
 
 
 def test_abort_after_package_restore_restores_the_baseline_again(monkeypatch, host):
@@ -95,7 +141,7 @@ def test_abort_after_package_restore_restores_the_baseline_again(monkeypatch, ho
     contract = _contract("fresh-host", {"host_starting_state": {"packages": []}})
     payload = _prepare(monkeypatch, host, contract)
     evidence = payload["preparation"]["evidence"]
-    assert host["calls"] == ["disk", "packages"]
+    assert host["calls"] == ["power_on", "disk", "packages"]
     assert host["reached"] == ["fresh-host", "fresh-host"]
     assert evidence["starting_state_restore"]["restored"] is True
 
@@ -103,7 +149,7 @@ def test_abort_after_package_restore_restores_the_baseline_again(monkeypatch, ho
 def test_abort_without_a_declared_baseline_records_no_restore_needed(
     monkeypatch, host
 ):
-    host["abort"] = True
+    host["abort_in"] = "power_on"
     payload = _prepare(monkeypatch, host, _contract(None))
     restore = payload["preparation"]["evidence"]["starting_state_restore"]
     assert restore == {"baseline": None, "restoration_required": False}
@@ -115,7 +161,7 @@ def test_uncancelled_preparation_is_unchanged(monkeypatch, host):
     preparation = payload["preparation"]
     assert preparation["ok"] is True
     assert "starting_state_restore" not in preparation["evidence"]
-    assert host["calls"] == ["disk", "packages"]
+    assert host["calls"] == ["power_on", "disk", "packages"]
 
 
 def test_runner_stops_after_submitting_a_cancelled_docket(monkeypatch):

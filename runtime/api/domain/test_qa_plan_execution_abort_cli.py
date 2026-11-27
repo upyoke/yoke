@@ -6,6 +6,58 @@ import json
 from unittest import mock
 
 from yoke_core.domain import qa_plan_execution_abort_cli
+from yoke_core.domain.handlers.qa_plan_execution_models import (
+    PlanExecutionStateResponse,
+)
+
+
+def _run(response: dict):
+    with (
+        mock.patch.object(
+            qa_plan_execution_abort_cli, "_call_plan_function", return_value=response
+        ),
+        mock.patch(
+            "yoke_core.api.service_client_structured_api_adapter.build_actor",
+            return_value="actor",
+        ),
+    ):
+        return qa_plan_execution_abort_cli.run(
+            ["--execution-id", "execution-1", "--reason", "operator-interrupt"]
+        )
+
+
+HOLDOVER = {
+    "claim_id": 41,
+    "test_machine": "lab-wsl",
+    "expires_at": "2026-11-27T07:20:00Z",
+}
+
+
+def test_abort_receipt_shows_kept_holdovers(capsys) -> None:
+    """Feedback 98869: the settled abort names the hosts its session still holds."""
+    declared = PlanExecutionStateResponse.model_validate(
+        {
+            "execution_id": "execution-1",
+            "state": "aborted",
+            "roster_digest": "digest",
+            "cursor_ordinal": 0,
+            "requirements": [],
+            "results": [],
+            "test_machine_holdovers": [HOLDOVER],
+        }
+    ).model_dump(mode="json")
+    assert declared["test_machine_holdovers"] == [HOLDOVER]
+    assert _run(declared) == 0
+    receipt = json.loads(capsys.readouterr().out)
+    assert receipt["test_machine_holdovers"] == [HOLDOVER]
+
+
+def test_abort_receipt_omits_absent_holdovers(capsys) -> None:
+    # Older servers send no list; an empty one keeps nothing.
+    for holdovers in ({}, {"test_machine_holdovers": []}):
+        response = {"execution_id": "execution-1", "state": "aborted", **holdovers}
+        assert _run(response) == 0
+        assert "test_machine_holdovers" not in json.loads(capsys.readouterr().out)
 
 
 def test_abort_prints_compact_receipt(capsys) -> None:
