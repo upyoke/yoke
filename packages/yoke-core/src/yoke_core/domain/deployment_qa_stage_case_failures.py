@@ -161,16 +161,17 @@ def case_failures(
     )
 
     # A live execution of this subject's target (a member's own walk, or the
-    # plan group's driver execution) already owns every case it has not
-    # passed. Asked only once a case is unpassed, and then once.
+    # plan group's driver execution) owns each unpassed case its frozen roster
+    # holds; a sibling partition's case stays runnable. Asked once per case.
     @functools.cache
-    def live():
+    def live(requirement_id: int | None = None):
         return covering_execution(
             conn,
             run_id=run_id,
             stage_name=stage_name,
             member_item_id=member_item_id,
             execution_target_digest=execution_target_digest,
+            requirement_id=requirement_id,
         )
     if not rows and shared_plan_id is None:
         from yoke_core.domain.deployment_qa_presentation_facts import (
@@ -254,17 +255,7 @@ def case_failures(
         qa_run_id
         for qa_run_id, counts in qa_artifact_counts_by_run(
             conn,
-            {
-                candidate
-                for requirement_id in graded
-                for candidate in (
-                    *(
-                        (verdicts[requirement_id][0],)
-                        if requirement_id in verdicts
-                        else ()
-                    ),
-                )
-            },
+            {verdicts[rid][0] for rid in graded if rid in verdicts},
         ).items()
         if sum(counts.values())
     }
@@ -304,7 +295,7 @@ def case_failures(
                             conn,
                             verdict=verdict,
                             review=reviewing.get(int(row["id"])),
-                            live=live(),
+                            live=live(int(row["id"])),
                             recipe=(
                                 f"yoke qa plan partitions --deployment-run-id {run_id} "
                                 f"--stage {stage_name} --plan {shared_plan_id}"

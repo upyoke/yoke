@@ -9,11 +9,13 @@ walking; its place comes from the one Test Machine queue
 
 An execution whose owning session recorded its end is not live here: its walk
 is the sweep's to settle, and its member is woken as usual. A presentation
-reads every presented run's live executions, and the queue, once.
+reads every presented run's live executions, with the requirement ids each
+froze into its roster, and the queue, once.
 """
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from typing import Any
 
@@ -27,17 +29,24 @@ WALKING_STATES = frozenset({"active", "walking"})
 AWAITING_REVIEW = "awaiting_walk_review"
 
 
+def _roster_requirements(roster_json: Any) -> frozenset[int]:
+    """The requirement ids one execution froze into its roster."""
+    return frozenset(
+        int(case["requirement_id"]) for case in json.loads(str(roster_json or "[]"))
+    )
+
+
 def _rows(conn: Any, runs: tuple[str, ...]) -> list[dict[str, Any]]:
     machine = scope_text_sql(conn, "wc.scope", "test_machine")
     markers = ",".join("%s" for _ in runs)
-    return [
+    rows = [
         dict(row)
         for row in query_rows(
             conn,
             "SELECT e.id AS execution_id, e.deployment_run_id AS run_id, "
             "e.deployment_stage AS stage, e.deployment_member_item_id AS item_id, "
             "e.execution_target_digest AS digest, e.session_id, e.state, "
-            f"{machine} AS test_machine FROM qa_plan_executions e "
+            f"e.roster_json, {machine} AS test_machine FROM qa_plan_executions e "
             "LEFT JOIN work_claims wc ON wc.id=e.test_machine_lease_id "
             f"WHERE e.deployment_run_id IN ({markers}) "
             f"AND e.state IN ({LIVE_PLAN_EXECUTION_SQL}) AND NOT EXISTS ("
@@ -46,6 +55,9 @@ def _rows(conn: Any, runs: tuple[str, ...]) -> list[dict[str, Any]]:
             runs,
         )
     ]
+    for row in rows:
+        row["requirement_ids"] = _roster_requirements(row.pop("roster_json"))
+    return rows
 
 
 def live_executions(conn: Any, run_id: str) -> list[dict[str, Any]]:
@@ -69,14 +81,17 @@ def covering_execution(
     stage_name: str,
     member_item_id: int | None,
     execution_target_digest: str,
+    requirement_id: int | None = None,
 ) -> dict[str, Any] | None:
-    """The live execution already walking this subject.
+    """The live execution already walking this subject, or this one case.
 
     A member has one subject per run and stage, and a takeover carries its
-    walk onto the successor run with the target it froze, so any live
+    walk onto the successor run with the target it froze, so a live
     execution of the member there owns its cases, whatever its digest. A
     run-level subject is one plan group per target digest, so only the
-    execution of that exact digest owns it.
+    execution of that exact digest owns it. Given a ``requirement_id``, only
+    an execution whose frozen roster holds that case owns it: a member's
+    sibling partition walks other cases, and leaves this one runnable.
     """
     return next(
         (
@@ -88,6 +103,7 @@ def covering_execution(
                 member_item_id is not None
                 or str(row["digest"] or "") == str(execution_target_digest)
             )
+            and (requirement_id is None or int(requirement_id) in row["requirement_ids"])
         ),
         None,
     )
