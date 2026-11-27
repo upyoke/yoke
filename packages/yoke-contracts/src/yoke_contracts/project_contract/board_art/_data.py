@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+from importlib.resources import files as _resource_files
+from pathlib import Path as _Path
 from typing import Dict, Tuple
+
+from yoke_contracts.platform_fs import extended_length_path as _extended_length_path
 
 
 _ART_GLYPHS: Dict[str, Tuple[str, ...]] = {
@@ -112,7 +116,6 @@ _MASTER_MAP_GLYPHS: Dict[str, Tuple[str, ...]] = {
 # package data (board_art/data/mixed_emoji_columns.txt) so this module stays under
 # the authored-file line cap. Blocks are separated by a standalone sentinel line
 # that cannot appear in the emoji data.
-from importlib.resources import files as _resource_files
 
 _MIXED_COLUMN_SEP = "@@YOKE-MIXED-COLUMN-SEP@@"
 _MIXED_COLUMN_SEP_LINE = f"\n{_MIXED_COLUMN_SEP}\n"
@@ -125,12 +128,16 @@ def _parse_mixed_emoji_columns(text: str) -> Tuple[str, ...]:
 
 
 def _load_mixed_emoji_columns() -> Tuple[str, ...]:
-    text = (
-        _resource_files("yoke_contracts.project_contract.board_art.data")
-        .joinpath("mixed_emoji_columns.txt")
-        .read_text(encoding="utf-8")
+    resource = _resource_files("yoke_contracts.project_contract.board_art.data").joinpath(
+        "mixed_emoji_columns.txt"
     )
-    return _parse_mixed_emoji_columns(text)
+    if not isinstance(resource, _Path):
+        # Zip and other non-filesystem loaders own their own reads.
+        return _parse_mixed_emoji_columns(resource.read_text(encoding="utf-8"))
+    # A Windows install under a long physical root (a SUBST alias resolves to
+    # it) puts this file past MAX_PATH; the extended-length form still opens it.
+    with open(_extended_length_path(resource), encoding="utf-8") as handle:
+        return _parse_mixed_emoji_columns(handle.read())
 
 
 MIXED_EMOJI_COLUMNS: Tuple[str, ...] = _load_mixed_emoji_columns()
