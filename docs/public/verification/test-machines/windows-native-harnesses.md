@@ -158,6 +158,9 @@ running through reset because its state lives in preserved `AppData/Local/Packag
 A failed SSH process
 discovery names the session to check. Desktop-session stops relist until clear;
 one still running at 20 seconds refuses `windows_reset_profile_process_running`.
+The SSH restore scans again before copying. If an app started a helper as it
+exited (Cursor's `inno_updater.exe`), reset stops the desktop once more and
+retries the restore once when that pass ended a process; a survivor still refuses.
 After restore, reset reopens them there and reports `profile_processes_stopped`
 and `desktop_apps_relaunched`; an app that fails to reopen is named in
 `desktop_apps_relaunch_failed` without failing reset. For a sharing or

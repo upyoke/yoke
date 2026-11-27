@@ -249,6 +249,31 @@ def stop_desktop_profile_processes(control, preserved):
     return None, stopped_processes(stopped.stdout), targets
 
 
+PROCESS_RUNNING = "windows_reset_profile_process_running:"
+
+
+def stop_desktop_and_restore(control, preserved, restore):
+    """Stop the signed-in desktop, then run the guarded SSH restore.
+
+    An app can start a helper as it exits, such as Cursor's inno_updater.exe,
+    after the desktop pass is clear. The restore's pre-copy scan refuses it
+    before copying anything. When the desktop had stopped processes, stop the
+    desktop once more; only if that pass ends a late process from its session
+    does the restore run once more. Anything else keeps the scan's refusal.
+    """
+    refused, stopped, targets = stop_desktop_profile_processes(control, preserved)
+    if refused:
+        return refused, stopped, targets, None
+    result = restore()
+    if not (stopped and result.returncode and PROCESS_RUNNING in (result.stderr or "")):
+        return None, stopped, targets, result
+    refused, late, late_targets = stop_desktop_profile_processes(control, preserved)
+    stopped, targets = stopped + late, targets + late_targets
+    if refused:
+        return refused, stopped, targets, None
+    return None, stopped, targets, restore() if late else result
+
+
 def relaunch_desktop_apps(control, targets):
     """Refresh the desktop after reset and record each unique target's result."""
     from yoke_harness.native_windows.desktop import desktop_script

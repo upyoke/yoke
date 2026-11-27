@@ -196,3 +196,62 @@ def test_reset_ends_desktop_session_processes_before_mirroring(monkeypatch, rela
     assert result.evidence["desktop_apps_relaunch_failed"] == (
         [{"target": aumid, "failure": "activation failed"}] if relaunch_fails else []
     )
+
+
+@pytest.mark.parametrize("persistent", [False, True])
+def test_reset_stops_a_late_desktop_process_once_before_retrying_restore(monkeypatch, persistent):
+    from yoke_harness.native_windows import profile_processes as processes
+
+    cursor = HOME + r"\AppData\Local\Programs\cursor\Cursor.exe"
+    updater = HOME + r"\AppData\Local\Programs\cursor\tools\inno_updater.exe"
+    refusal = processes.PROCESS_RUNNING + " test-user processes are still running: 3400 " + updater
+    calls, stops = [], [[cursor], [] if persistent else [updater]]
+
+    class _Control:
+        home = HOME
+
+        def _run(self, script, timeout=60):
+            if "uv_python_registry" in script:
+                calls.append("residue")
+                return subprocess.CompletedProcess([], 0, PRISTINE, "")
+            if "Get-YokeProfileProcesses).Count" in script:
+                calls.append("list")
+                return subprocess.CompletedProcess([], 0, processes.DISCOVERY_MARKER + "present", "")
+            calls.append("reset")
+            refused = calls.count("reset") == 1 or persistent
+            return subprocess.CompletedProcess([], 1 if refused else 0, "", refusal if refused else "")
+
+    def desktop(control, script, *, timeout=60, hidden=False):
+        if "Stop-Process" not in script:
+            calls.append("relaunch")
+            return subprocess.CompletedProcess([], 0, processes.RELAUNCHED_MARKER + json.dumps(
+                {"target": cursor, "failure": ""}), "")
+        calls.append("stop")
+        stopped = stops.pop(0)
+        targets = [{"target": cursor, "path": cursor}] if cursor in stopped else []
+        output = processes.STOPPED_MARKER + json.dumps(stopped) + "\n" + processes.TARGETS_MARKER + json.dumps(targets)
+        return subprocess.CompletedProcess([], 0, output, "")
+
+    monkeypatch.setattr("yoke_harness.native_windows.desktop.desktop_script", desktop)
+    result = baseline.profile_operation(_Control(), "reset", GOLDEN)
+    if persistent:
+        # The second desktop pass ends nothing, so the scan's refusal stands.
+        assert calls == ["list", "stop", "reset", "list", "stop"]
+        assert not result.ok and result.error_code == "windows_profile_reset_failed"
+        assert result.evidence["recovery"] == refusal
+        return
+    assert calls == ["list", "stop", "reset", "list", "stop", "reset", "residue", "relaunch"]
+    assert result.ok and result.evidence["profile_processes_stopped"] == [cursor, updater]
+    # The first pass's relaunch target survives the second, windowless pass.
+    assert result.evidence["desktop_apps_relaunched"] == [cursor]
+
+
+def test_restore_refusal_without_a_desktop_stop_is_not_retried():
+    from yoke_harness.native_windows.profile_processes import PROCESS_RUNNING, stop_desktop_and_restore
+
+    runs = []
+    refused = subprocess.CompletedProcess([], 1, "", PROCESS_RUNNING + " 7588 updater")
+    c = SimpleNamespace(home=HOME, _run=lambda _: subprocess.CompletedProcess(
+        [], 0, "YOKE_RESET_PROCESS_DISCOVERY empty", ""))
+    assert stop_desktop_and_restore(c, (), lambda: runs.append(1) or refused) == (None, [], [], refused)
+    assert runs == [1]
