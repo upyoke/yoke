@@ -27,6 +27,9 @@ from yoke_contracts.machine_config.relay_instance import (
 from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.relay_release_layout import RELAY_RELEASE_RECEIPT_NAME
 
+from yoke_contracts.platform_links import is_link, link_target
+from yoke_contracts.venv_layout import venv_console_script
+from yoke_core.tools.session_relay_links import relay_link_root
 from yoke_core.tools.session_relay_package_validate import relay_package_runnable_reason
 
 from yoke_core.domain.relay_release_path import relay_launch_path
@@ -88,24 +91,42 @@ def relay_runtime_python(state_dir: Path) -> Path:
 
 
 def relay_launch_targets_runtime(state_dir: Path) -> bool:
+    """Whether the launch link names the runtime; a link is never followed."""
     launch = relay_launch_path(state_dir)
+    runtime = relay_runtime_path(state_dir)
     try:
-        return (launch / ".yoke-runtime-target").read_text(encoding="utf-8") == str(relay_runtime_path(state_dir).resolve())
+        if is_link(launch):
+            return link_target(launch) == runtime.absolute()
+        return (launch / ".yoke-runtime-target").read_text(encoding="utf-8") == str(runtime.resolve())
     except OSError:
         return False
 
 
+def relay_active_release_root(state_dir: Path) -> Path:
+    """The release directory the active pointer names, read without following it."""
+    return relay_link_root(relay_active_release_path(state_dir))
+
+
+def relay_launch_executable_root(state_dir: Path) -> Path:
+    """The launcher file inside the directory the launch link names."""
+    return venv_console_script(relay_link_root(relay_launch_path(state_dir)), "yoke", windows_suffix=".cmd")
+
+
 def relay_release_receipt(state_dir: Path) -> dict[str, Any]:
-    """The active release receipt, read without running the release."""
-    return _read_json(relay_active_release_path(state_dir) / RELAY_RELEASE_RECEIPT_NAME)
+    """The active release receipt, read without running or following the release."""
+    try:
+        root = relay_active_release_root(state_dir)
+    except OSError:
+        return {}
+    return _read_json(root / RELAY_RELEASE_RECEIPT_NAME)
 
 
 def relay_package_executable(state_dir: Path) -> Path:
-    return relay_venv_executable(relay_active_release_path(state_dir))
+    return relay_venv_executable(relay_active_release_root(state_dir))
 
 
 def relay_package_python(state_dir: Path) -> Path:
-    return relay_venv_python(relay_active_release_path(state_dir))
+    return relay_venv_python(relay_active_release_root(state_dir))
 
 
 def release_version_from_build(build: str) -> str:
@@ -233,7 +254,7 @@ def relay_release_status(
     if package_ready:
         broken_reason = relay_package_runnable_reason(
             runtime_python,
-            relay_active_release_path(selected.state_dir),
+            relay_active_release_root(selected.state_dir),
             pinned,
             isolation_flag=PYTHON_ISOLATION_FLAG,
             runner=runner,
@@ -247,8 +268,9 @@ def relay_release_status(
                 )
     current = bool(
         package_ready
+        # The launch link names the runtime, so the runtime executable is the
+        # launch executable; checking it through the link would follow it.
         and relay_launch_targets_runtime(selected.state_dir)
-        and launch_executable.is_file()
         and runtime_executable.is_file()
         and runtime_python.is_file()
     )
@@ -307,7 +329,9 @@ __all__ = [
     "distribution_index_for_instance",
     "fetch_served_build",
     "relay_active_release_path",
+    "relay_active_release_root",
     "relay_launch_executable",
+    "relay_launch_executable_root",
     "relay_launch_path",
     "relay_launch_targets_runtime",
     "relay_package_executable",

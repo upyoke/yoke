@@ -18,7 +18,7 @@ from yoke_core.tools.session_relay_release import (
     RELAY_RELEASE_INSTALL_FAILED,
     RELAY_RELEASE_RECEIPT_NAME,
     RelayReleaseError,
-    relay_active_release_path,
+    relay_active_release_root,
     relay_release_receipt,
     write_release_json,
 )
@@ -30,7 +30,7 @@ def prune_relay_releases(state_dir: Path) -> None:
     """Prune under the install lock, after the new pin has verified."""
     releases = (state_dir / "releases").resolve()
     receipt = relay_release_receipt(state_dir)
-    current = Path(str(receipt.get("physical_root") or relay_active_release_path(state_dir).resolve(strict=True)))
+    current = Path(str(receipt.get("physical_root") or relay_active_release_root(state_dir)))
     if "physical_root" not in receipt:
         receipt["physical_root"] = str(current)
         write_release_json(current / RELAY_RELEASE_RECEIPT_NAME, receipt)
