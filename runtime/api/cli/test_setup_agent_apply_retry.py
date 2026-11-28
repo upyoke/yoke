@@ -25,6 +25,7 @@ from yoke_cli.config import (
     writer,
     yoke_token_verify,
 )
+from yoke_contracts.api_urls import HOSTED_PLATFORM_URL
 from yoke_contracts.machine_config import reader as machine_config
 
 pytest.importorskip("textual")
@@ -35,8 +36,11 @@ SLUG = "qa-retry"
 PREFIX = "QARETR"
 
 
-@pytest.fixture
-def hosted(tmp_path: Path, monkeypatch, capsys):
+# Production 006 (capture 74086): setup started with `--connect` on the hosted
+# web origin, so the resumed run met that saved selector beside its report's
+# tenant-scoped API URL.
+@pytest.fixture(params=[None, HOSTED_PLATFORM_URL], ids=["stored", "connect"])
+def hosted(request, tmp_path: Path, monkeypatch, capsys):
     fake = isolate_agent_setup(tmp_path, monkeypatch)
     monkeypatch.setattr(onboard_preflight, "preflight", _REAL_PREFLIGHT)
     writer.set_connection(
@@ -82,19 +86,27 @@ def hosted(tmp_path: Path, monkeypatch, capsys):
             )
 
     fake.effects = effects
-    return AgentDriver(capsys), fake, runs, tmp_path
+    drive = AgentDriver(capsys)
+    drive.connect = request.param
+    return drive, fake, runs, tmp_path
+
+
+def _walk_to_details(drive: AgentDriver, folder: Path) -> None:
+    """Start setup (by --connect, or reusing the stored connection) up to details."""
+    answers = ["project.mode=create-repo", "github.machine=skip", f"project.folder={folder}"]
+    if drive.connect:
+        code, lines = drive(flags=("--connect", drive.connect))
+        assert code == 0, lines[-1]
+    else:
+        answers.insert(1, "connect.saved_destination=stored")
+    for answer in answers:
+        code, lines = drive(answer)
+        assert code == 0, (answer, lines[-1])
 
 
 def _fail_apply(drive: AgentDriver, fake, tmp_path: Path) -> dict:
     folder = tmp_path / "code" / SLUG
-    drive.walk(
-        (
-            "project.mode=create-repo",
-            "connect.saved_destination=stored",
-            "github.machine=skip",
-            f"project.folder={folder}",
-        )
-    )
+    _walk_to_details(drive, folder)
     code, lines = drive(f"project.details.prefix={PREFIX}", "project.details=continue")
     assert (code, lines[-1]["key"]) == (0, "hosting.provider"), lines[-1]
     code, lines = drive("hosting.provider=skip")
@@ -102,6 +114,8 @@ def _fail_apply(drive: AgentDriver, fake, tmp_path: Path) -> dict:
     fake.fail_next = RuntimeError("replaced by the report-backed failure")
     code, lines = drive("review.confirm=apply")
     assert (code, lines[-1]["reason"]) == (1, "setup_apply_failed"), lines[-1]
+    snapshot = json.loads(Path(lines[-1]["report_path"]).read_text())["input_snapshot"]
+    assert snapshot["api_url"] == API_URL, snapshot
     return lines[-1]
 
 
@@ -172,14 +186,7 @@ def test_failure_without_a_report_keeps_the_plain_answer(hosted):
     drive, fake, _runs, tmp_path = hosted
     fake.effects = None
     folder = tmp_path / "code" / SLUG
-    drive.walk(
-        (
-            "project.mode=create-repo",
-            "connect.saved_destination=stored",
-            "github.machine=skip",
-            f"project.folder={folder}",
-        )
-    )
+    _walk_to_details(drive, folder)
     drive.walk(("project.details=continue", "hosting.provider=skip"))
     fake.fail_next = onboard_wizard.WizardApplyError("network down")
     code, lines = drive("review.confirm=apply")

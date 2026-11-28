@@ -73,13 +73,16 @@ def resolve_destination(parsed: argparse.Namespace) -> DestinationChoice:
         return DestinationChoice(error=str(exc))
     if destination_api_url:
         given_api_url = str(parsed.api_url or "").strip()
-        if given_api_url and (
-            given_api_url.rstrip("/") != destination_api_url.rstrip("/")
+        if not given_api_url:
+            parsed.api_url = destination_api_url
+        elif not onboard_destinations.matches_stored_hosted_authority(
+            destination_api_url, given_api_url
         ):
             return DestinationChoice(
                 error="--connect URL and --api-url disagree; pass just one",
             )
-        parsed.api_url = destination_api_url
+        # A hosted selector and the tenant API on its origin (a resumed
+        # run's durable URL) are one authority: keep the tenant-scoped URL.
     if destination is None and str(parsed.api_url or "").strip():
         destination = onboard_destinations.destination_for_api_url(parsed.api_url)
     if destination == onboard_destinations.DESTINATION_LOCAL:

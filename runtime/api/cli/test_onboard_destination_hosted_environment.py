@@ -157,3 +157,35 @@ def test_the_separate_environment_screen_is_retired() -> None:
 
     assert not hasattr(flow, "ENV_SELECT_ROWS")
     assert not hasattr(flow.HostedMachineConnectFlow, "_goto_hosted_env_select")
+
+
+@pytest.mark.parametrize("platform", [HOSTED_PLATFORM_URL, HOSTED_STAGE_PLATFORM_URL])
+def test_hosted_selector_keeps_the_resumed_tenant_api_url(platform) -> None:
+    # A resumed run restores its tenant API URL beside the saved --connect
+    # selector on the same origin: one authority, tenant URL kept (YOK-5780).
+    parsed = _destination_args(platform)
+    parsed.api_url = f"{platform}/api/orgs/acme"
+
+    choice = resolve_destination(parsed)
+
+    assert choice.error is None
+    assert choice.destination == DESTINATION_HOSTED
+    assert parsed.api_url == f"{platform}/api/orgs/acme"
+
+
+@pytest.mark.parametrize(
+    ("connect_url", "api_url"),
+    [
+        (HOSTED_PLATFORM_URL, f"{HOSTED_STAGE_PLATFORM_URL}/api/orgs/acme"),
+        (f"{HOSTED_PLATFORM_URL}/api/orgs/other", f"{HOSTED_PLATFORM_URL}/api/orgs/acme"),
+        (HOSTED_PLATFORM_URL, "https://api.mycompany.com"),
+        ("https://api.mycompany.com", "https://api.other.com"),
+    ],
+)
+def test_connect_url_and_a_different_authority_still_disagree(connect_url, api_url) -> None:
+    parsed = _destination_args(connect_url)
+    parsed.api_url = api_url
+
+    choice = resolve_destination(parsed)
+
+    assert choice.error == "--connect URL and --api-url disagree; pass just one"
