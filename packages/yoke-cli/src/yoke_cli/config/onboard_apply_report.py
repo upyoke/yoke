@@ -15,6 +15,8 @@ from typing import Any, Mapping
 from uuid import uuid4
 
 from yoke_cli.config import onboard_apply_snapshot, onboard_checkout_ownership
+from yoke_cli.config import onboard_apply_report_resume
+from yoke_cli.config.onboard_apply_report_resume import STATUS_DONE, STATUS_SKIPPED
 from yoke_cli.config import onboard_checklist, setup_release_marker
 from yoke_cli.config.onboard_apply_report_metadata import (
     RESUME_COMMAND,
@@ -33,8 +35,6 @@ REPORTS_DIR_NAME = "apply-reports"
 
 STATUS_PENDING = "pending"
 STATUS_RUNNING = "running"
-STATUS_DONE = "done"
-STATUS_SKIPPED = "skipped"
 STATUS_FAILED = "failed"
 # Ran without raising but did not achieve what the step named; resume reruns it.
 STATUS_INCOMPLETE = "incomplete"
@@ -60,10 +60,12 @@ class ApplyReportWriter:
     def __init__(self, path: Path, payload: dict[str, Any]) -> None:
         self.path = path
         self.payload = payload
+        # Receipts a resume carried from an earlier pass are history: no
+        # progress update, failure or late outcome ever lands on them.
         self._steps = {
             str(step["step_id"]): step
             for step in payload.get("steps", [])
-            if isinstance(step, dict)
+            if isinstance(step, dict) and not onboard_apply_report_resume.is_prior_step(step)
         }
 
     @classmethod
@@ -92,7 +94,7 @@ class ApplyReportWriter:
             for step in steps_from_preview(preview)
         ]
         if isinstance(resume_payload, Mapping):
-            steps = _merge_resume_steps(steps, resume_payload)
+            steps = onboard_apply_report_resume.merge_resume_steps(steps, resume_payload)
         payload: dict[str, Any] = {
             "schema": SCHEMA_NAME,
             "schema_version": SCHEMA_VERSION,
@@ -273,30 +275,6 @@ def _new_run_id() -> str:
     return (
         f"run-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{uuid4().hex[:8]}"
     )
-
-
-def _merge_resume_steps(
-    steps: list[dict[str, Any]],
-    resume_payload: Mapping[str, Any],
-) -> list[dict[str, Any]]:
-    prior = {
-        str(step.get("step_id")): step
-        for step in resume_payload.get("steps", [])
-        if isinstance(step, Mapping)
-    }
-    for step in steps:
-        old = prior.get(str(step.get("step_id")))
-        if not isinstance(old, Mapping):
-            continue
-        if old.get("status") not in (STATUS_DONE, STATUS_SKIPPED):
-            continue
-        if "detail" in old:
-            step["detail"] = old["detail"]
-        step["status"] = old.get("status")
-        for clock in ("started_at", "finished_at"):
-            value = old.get(clock)
-            step[clock] = None if value is None else format_instant(value)
-    return steps
 
 
 def steps_from_preview(preview: Mapping[str, Any]) -> list[StepRef]:
