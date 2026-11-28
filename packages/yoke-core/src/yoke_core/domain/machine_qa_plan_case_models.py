@@ -89,6 +89,9 @@ class AgentMissionAccessResponse(BaseModel):
     requirement_id: int
     execution: HostControlExecutionContract | None = None
     cleanup_lease: bool = False
+    #: Cleanup only: this lease already holds a verified post-cancellation
+    #: reset to the case's declared baseline, so walk-end skips its restore.
+    restore_proven: bool = False
     #: The mission's capture run, which ``walk-end --run-id`` names.
     run_id: int | None = None
     #: Set while a stopped walk keeps its host for cleanup: what it still owes.

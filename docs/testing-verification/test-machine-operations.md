@@ -67,7 +67,10 @@ or abort that mission first so its temporary state is not cleared. Once its
 cancellation is recorded, the walk's owner (or a covering steering seat) may
 run the reset to the interrupted case's declared baseline on the retained
 lease; custody and the cancellation stay, and walk-end still owes scratch
-removal and the final handback.
+removal and the final handback. That verified same-lease reset after
+cancellation is walk-end's restore proof, so walk-end removes the scratch
+without restoring again. Walk-end releases the lease only once removal is
+proven; a raised or failed teardown keeps custody until a rerun succeeds.
 
 Lease refusals name the machine and actual owner when known. A missing,
 expired or mismatched lease requires fresh admission through the declared

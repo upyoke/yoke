@@ -74,54 +74,68 @@ def validate_operation_submission(conn, *, mission, actor, **shape):
 def reset_cleanup_proven(conn, execution, baseline):
     """Every retained host needs a successful same-lease reset after cancellation."""
     from yoke_core.domain.coordination_claims import get_claim
-    from yoke_core.domain.host_control_runner import load_test_machine_contract
-    from yoke_core.domain.machine_operation_recording import (
-        recorded_test_machine_operation,
-    )
     from yoke_core.domain.qa_plan_host_leases import execution_host_leases
 
-    request = abort_request(execution)
-    if not request or not request.get("requested_at"):
-        return False
     leases = {lease.id: lease for lease in execution_host_leases(conn, execution)}
     if execution.get("test_machine_lease_id") is not None:
         lease = get_claim(conn, int(execution["test_machine_lease_id"]))
         leases[lease.id] = lease
-    if not leases:
+    return bool(leases) and all(
+        lease_reset_proven(conn, execution, lease, baseline)
+        for lease in leases.values()
+    )
+
+
+def lease_reset_proven(conn, execution, lease, baseline):
+    """A verified reset to *baseline* on this exact lease after cancellation."""
+    from yoke_core.domain.host_control_runner import load_test_machine_contract
+    from yoke_core.domain.machine_operation_recording import (
+        recorded_test_machine_operation,
+    )
+
+    request = abort_request(execution)
+    if not baseline or not request or not request.get("requested_at"):
         return False
     case = execution["roster"][int(request["ordinal"])]
-    for lease in leases.values():
-        candidate = load_test_machine_contract(
-            conn,
-            project=case["project"],
-            test_machine=lease.target.test_machine,
-        )
-        contract = _issue(
-            conn,
-            candidate,
-            lease,
-            operation="reset",
-            checks=(),
-            baselines=[baseline],
-            cases=(),
-        )
-        receipt = recorded_test_machine_operation(
-            conn,
-            test_machine=lease.target.test_machine,
-            operation="reset",
-            lease_id=lease.id,
-            contract_digest=contract.contract_digest,
-        )
-        if not receipt or receipt["status"] != "verified" or receipt.get("error_code"):
-            return False
-        if parse_instant(receipt["performed_at"]) <= parse_instant(
-            request["requested_at"]
-        ):
-            return False
-        if receipt["checks"] != [] and all(
-            check.get("name") == baseline and check.get("ok") is True
-            for check in receipt["checks"]
-        ):
-            continue
+    candidate = load_test_machine_contract(
+        conn,
+        project=case["project"],
+        test_machine=lease.target.test_machine,
+    )
+    contract = _issue(
+        conn,
+        candidate,
+        lease,
+        operation="reset",
+        checks=(),
+        baselines=[baseline],
+        cases=(),
+    )
+    receipt = recorded_test_machine_operation(
+        conn,
+        test_machine=lease.target.test_machine,
+        operation="reset",
+        lease_id=lease.id,
+        contract_digest=contract.contract_digest,
+    )
+    if not receipt or receipt["status"] != "verified" or receipt.get("error_code"):
         return False
-    return True
+    if parse_instant(receipt["performed_at"]) <= parse_instant(request["requested_at"]):
+        return False
+    return receipt["checks"] != [] and all(
+        check.get("name") == baseline and check.get("ok") is True
+        for check in receipt["checks"]
+    )
+
+
+def walk_reset_proven(conn, execution, case, lease_id):
+    """A cancelled walk already reset this case's lease to its declared baseline."""
+    from yoke_core.domain.coordination_claims import get_claim
+    from yoke_core.domain.qa_plan_execution_abort_state import mission_abort_pending
+
+    if lease_id is None or not mission_abort_pending(execution):
+        return False
+    lease = get_claim(conn, int(lease_id))
+    return lease.is_active and lease_reset_proven(
+        conn, execution, lease, case.get("host_baseline")
+    )

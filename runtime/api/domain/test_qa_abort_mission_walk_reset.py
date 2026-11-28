@@ -78,7 +78,7 @@ def test_cancelled_walk_owner_resets_baseline_and_keeps_custody(
     current = lock_plan_execution(test_db, str(execution["id"]))
     assert current["state"] == "walking"
     assert abort_request(current)["reason"] == "owner stop"
-    # The reset is not the handback: walk-end still owes its own restore proof.
+    # The reset is not the handback: walk-end still owes scratch removal.
     assert mission_walk_owed(test_db, current)
     with pytest.raises(QaPlanExecutionStateError):
         finish_plan_execution(test_db, current, state="aborted", reason="reset only")

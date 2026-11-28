@@ -133,6 +133,8 @@ def resolve_mission_contract(
         print(f"{prog}: {code}: {message}", file=sys.stderr)
         return None
     parsed.cleanup_lease = bool((response.result or {}).get("cleanup_lease"))
+    # An older server omits restore_proven; walk-end then restores as before.
+    parsed.restore_proven = bool((response.result or {}).get("restore_proven"))
     # A stopped walk keeps its host for cleanup; an older server omits this.
     if (response.result or {}).get("stop_notice"):
         print(f"{prog}: {response.result['stop_notice']}", file=sys.stderr)
