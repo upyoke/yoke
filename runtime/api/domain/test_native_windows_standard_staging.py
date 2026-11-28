@@ -63,7 +63,7 @@ def test_staging_cleans_terminal_work_and_preserves_ambiguous_execution(monkeypa
     c, calls = control(), []
 
     def stage(ssh, payload, root, diagnostic, **kwargs):
-        assert ssh[-1] == "qa@host" and "EncodedCommand" not in " ".join(ssh)
+        assert ssh[-3:] == ["-o", 'User="qa"', "host"] and "EncodedCommand" not in " ".join(ssh)
         assert all(option in ssh for option in ("ControlMaster=no", "ControlPersist=no", "ControlPath=none"))
         diagnostic["remote_directory_owned"] = True
         diagnostic["last_verified_offset"] = len(payload)
@@ -295,3 +295,16 @@ def verify_real_standard_sftp(c):
         assert absent.returncode == 0 and absent.stdout.strip() == "0"
     finally:
         c._run("Remove-Item -LiteralPath " + transport.quote(destination) + " -Force -ErrorAction SilentlyContinue")
+
+
+def verify_real_second_user_staging(key, primary_user, second_user):
+    """A second-user control stages, verifies, runs and cleans up as that user."""
+    c = transport.WindowsTransport(
+        settings={"os": "windows", "host": "127.0.0.1", "user": primary_user},
+        key_path=key, login_user=second_user,
+    )
+    assert c.windows_facts["user"].split("\\")[-1].casefold() == second_user.casefold()
+    staged = c._run("# public padding\n" * 500 + "Write-Output 'SECOND_USER_STAGED'")
+    assert staged.returncode == 0 and "SECOND_USER_STAGED" in staged.stdout, staged.stderr
+    assert staged.staging_diagnostics["cleanup"] == "verified_absent"
+    assert staged.staging_diagnostics["path"].startswith(c.home + "\\.yoke-stage-")

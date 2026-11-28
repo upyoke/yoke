@@ -166,7 +166,7 @@ def test_elevated_without_an_admin_token_refuses_by_name():
     assert "--fixture grant-admin" in error.value.recovery_hint
 
 
-def test_second_user_logs_in_with_a_separate_l_argument():
+def test_second_user_logs_in_with_a_quoted_user_option():
     transport = object.__new__(WindowsTransport)
     transport._key_path = "key"
     transport._host = "lab.example.ts.net"
@@ -175,8 +175,8 @@ def test_second_user_logs_in_with_a_separate_l_argument():
     transport.os = "windows"
     transport.login_user = "Zoë Tester"
     argv = transport._ssh_argv("Write-Output ok")
-    at = argv.index("-l")
-    assert argv[at : at + 3] == ["-l", "Zoë Tester", "lab.example.ts.net"]
+    at = argv.index('User="Zoë Tester"')
+    assert argv[at - 1 : at + 2] == ["-o", 'User="Zoë Tester"', "lab.example.ts.net"]
     assert not any("@" in value for value in argv[:-1])
 
 

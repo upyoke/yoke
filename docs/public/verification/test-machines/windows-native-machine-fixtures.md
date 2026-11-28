@@ -23,7 +23,8 @@ Exploratory walkers reach machine-wide Windows state through
   `native_windows_elevation_not_granted` without one. Without it, an admin
   token refuses `native_windows_test_user_required`, so a grant that was
   never undone fails every later command loudly.
-- `--second-user` connects as `Zoë Tester` (`ssh -l`). That user has no
+- `--second-user` connects as `Zoë Tester` (`ssh -o User="Zoë Tester"`)
+  for commands and for verified staging and its SFTP upload. That user has no
   console session, so `--second-user --gui-session` runs one S4U task; when
   Windows refuses it, the cell records the refusal.
 

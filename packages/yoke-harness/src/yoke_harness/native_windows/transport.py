@@ -57,7 +57,7 @@ class WindowsTransport(SshTestMachineTransport):
 
     def __init__(self, *, elevated=False, login_user=None, **kwargs):
         # An elevated control requires an administrator token; the second
-        # user logs in by name through `-l`, never as a `user@host` string.
+        # user logs in through connection_prefix, never as a `user@host` string.
         self.elevated = elevated
         self.login_user = login_user
         self.admin_refusal = None
@@ -105,14 +105,29 @@ class WindowsTransport(SshTestMachineTransport):
         )
         if len(encoded(wrapped)) + 80 >= 8000:
             raise RuntimeError("windows_command_too_long: use verified script staging")
-        argv = super()._ssh_argv(
+        return [
+            *self.connection_prefix(),
             "powershell.exe -NoLogo -NoProfile -NonInteractive -EncodedCommand "
-            + encoded(wrapped)
-        )
-        if self.login_user:
-            at = argv.index(f"{self._user}@{self._host}")
-            argv[at : at + 1] = ["-l", self.login_user, self._host]
-        return argv
+            + encoded(wrapped),
+        ]
+
+    def connection_prefix(self):
+        """SSH argv up to the destination, logged in as the selected Windows user.
+
+        Commands, verified staging and its SFTP upload all share this prefix,
+        so a second-user control never touches the primary user's session.
+        `-o User=` is read by both ssh and sftp (sftp's `-l` is a bandwidth
+        limit); OpenSSH's quoted value keeps spaces and non-ASCII literal.
+        """
+        login = self.login_user or self._user
+        if not login or any(c in login for c in '"\\') or not login.isprintable():
+            raise HostControlLocalError(
+                code="native_windows_login_user_invalid", phase="ssh_connection",
+                detail="The Windows SSH login name is empty or holds a quote, backslash or control character.",
+                recovery_hint="Register the test machine's Windows user by its plain account name, then retry.",
+            )
+        base = SshTestMachineTransport._ssh_argv(self, "")[:-2]
+        return [*base, "-o", f'User="{login}"', self._host]
 
     def _run(self, command, *, input_text=None, timeout=60, debug_log=None):
         # Windows OpenSSH commonly launches through cmd.exe's 8191-character
