@@ -22,6 +22,10 @@ STORE_EXTENSION = r"Microsoft.WindowsStore_22610.1401.10.0_x64__8wekyb3d8bbwe\St
 STORE_UI = r"Microsoft.WindowsStore_22610.1401.10.0_x64__8wekyb3d8bbwe\WinStore.App.exe"
 TERMINAL = r"Microsoft.WindowsTerminal_1.21.10351.0_x64__8wekyb3d8bbwe\WindowsTerminal.exe"
 POSTGRES = HOME + r"\.yoke\postgres\17.11.1\bin\postgres.exe"
+CHROMIUM = HOME + r"\.yoke\playwright-cache\yoke\chromium-1223\chrome-win64\chrome.exe"
+# A sibling whose name only extends the cache directory still reopens.
+CHROMIUM_LOOKALIKE = HOME + r"\.yoke\playwright-cache\yoke-other\chrome.exe"
+CURSOR = HOME + r"\AppData\Local\Programs\cursor\Cursor.exe"
 
 
 def _package_directory(relative):
@@ -53,6 +57,15 @@ def test_every_reset_scan_skips_windows_launched_packages(desktop):
         assert "$windowsLaunched=" + quote(processes._windows_launched_pattern()) in script
         assert script.index("$windowsLaunched=") < script.index("function Get-YokeProfileProcesses")
         assert "-match $windowsLaunched){continue}" in script
+
+
+def test_only_desktop_targets_know_the_managed_browser_cache():
+    desktop = processes.profile_process_stop_script(HOME, PRESERVED_DIRECTORIES, desktop=True)
+    cache = "$browserCache=" + quote(HOME + r"\.yoke\playwright-cache\yoke")
+    assert cache in desktop
+    assert desktop.index(cache) < desktop.index("$targets=@(")
+    ssh = processes.profile_process_stop_script(HOME, PRESERVED_DIRECTORIES)
+    assert "$browserCache" not in ssh
 
 
 def _fixture(desktop, relatives, restarts, process_session):
@@ -188,3 +201,15 @@ def test_stop_pass_refuses_at_deadline_naming_the_latest_restart(tmp_path, monke
     latest = len(records["FIXTURE_STOPS "]) + 1
     # PowerShell wraps long error lines, so compare without whitespace.
     assert f"WindowsAppsortheCodexdaemonpackage:{latest}{POSTGRES}" in "".join(result.stderr.split())
+
+
+@pytest.mark.windows_only(reason="requires Windows PowerShell")
+def test_desktop_stops_managed_chromium_but_reopens_ordinary_apps(tmp_path, monkeypatch):
+    stopped = [CHROMIUM, CHROMIUM_LOOKALIKE, CURSOR]
+    result, records = _run(tmp_path, monkeypatch, True, stopped)
+    assert result.returncode == 0, result.stderr
+    assert records["FIXTURE_STOPS "] == stopped
+    assert records[processes.STOPPED_MARKER] == stopped
+    assert records[processes.TARGETS_MARKER] == [
+        {"target": path, "path": path} for path in (CHROMIUM_LOOKALIKE, CURSOR)
+    ]

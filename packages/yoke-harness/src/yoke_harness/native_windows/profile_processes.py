@@ -5,6 +5,8 @@ import re
 import subprocess
 from pathlib import PureWindowsPath
 
+from yoke_contracts.machine_config.paths import DEFAULT_HOME_NAME
+from yoke_contracts.playwright_cache import PLAYWRIGHT_CACHE_DIRECTORY, YOKE_BROWSER_CACHE_PROJECT
 from yoke_contracts.test_machine_types import HostActionResult
 from yoke_harness.native_windows.profile_process_identity import PROCESS_IDENTITY as _PROCESS_IDENTITY
 from yoke_harness.native_windows.profile_process_stop_failure import PROCESS_RUNNING, stop_failure
@@ -65,6 +67,8 @@ if(@($stopped | Where-Object packaged).Count){
 }
 $targets=@(foreach($entry in $stopped){
  if($entry.daemon){continue}
+ # Yoke's disposable Playwright browser is stopped but never reopened.
+ if($entry.path.StartsWith($browserCache+'\',[StringComparison]::OrdinalIgnoreCase)){continue}
  try {$visible=$entry.process.MainWindowHandle -ne [IntPtr]::Zero} catch {$visible=$false}
  if(!$entry.packaged){
   if($visible){@{target=$entry.path;path=$entry.path}}
@@ -188,13 +192,17 @@ def _windows_launched_pattern():
     return f"^(?:{names})$"
 
 
+def _browser_cache(home):
+    return str(PureWindowsPath(home, DEFAULT_HOME_NAME, PLAYWRIGHT_CACHE_DIRECTORY, YOKE_BROWSER_CACHE_PROJECT))
+
+
 def profile_process_stop_script(home, preserved, *, desktop=False):
     """Stop eligible processes in this session before the mirror."""
     return (
         "$ErrorActionPreference='Stop'\n"
         + _preamble(home, preserved)
         + "$stopped=@(Get-YokeSessionProfileProcesses)\n"
-        + (_TARGETS if desktop else "")
+        + (f"$browserCache={quote(_browser_cache(home))}\n" + _TARGETS if desktop else "")
         + _STOP
         + ("" if desktop else "$alive=@($alive)+@(Get-YokeProfileProcesses)\n")
         + _REFUSE
