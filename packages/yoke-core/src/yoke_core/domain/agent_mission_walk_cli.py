@@ -15,6 +15,7 @@ import json
 import sys
 from typing import Optional
 
+from yoke_contracts.machine_qa_failures import HostControlLocalError
 from yoke_contracts.qa_mission_scratch import (
     STALE_OWNER_MARKER,
     MissionScratchIdentityError,
@@ -91,6 +92,20 @@ def run_start(args: list[str]) -> int:
     return 3
 
 
+def _host_control_refusal(exc: HostControlLocalError) -> str:
+    """Name the typed teardown failure from its safe fields only.
+
+    The exception text carries bounded host stderr and stdout; walk-end keeps
+    them out of its output and names the code, phase and exit code instead.
+    """
+    hint = exc.recovery_hint.rstrip(".") or f"repair the {exc.phase} host operation"
+    return compose_refusal(
+        f"{PROG_END}: mission_teardown_failed: {exc.code} "
+        f"(phase={exc.phase}; exit_code={exc.exit_code})",
+        recovery=f"{hint}; then rerun this walk-end",
+    )
+
+
 def run_end(args: list[str]) -> int:
     parser = argparse.ArgumentParser(
         prog=PROG_END,
@@ -130,6 +145,9 @@ def run_end(args: list[str]) -> int:
         MissionScratchUnavailableError,
     ) as exc:
         print(f"{PROG_END}: {exc}", file=sys.stderr)
+        return 2
+    except HostControlLocalError as exc:
+        print(_host_control_refusal(exc), file=sys.stderr)
         return 2
     except Exception as exc:
         print(

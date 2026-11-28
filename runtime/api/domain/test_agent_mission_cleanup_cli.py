@@ -3,6 +3,7 @@
 from types import SimpleNamespace
 
 import pytest
+from yoke_contracts.machine_qa_failures import HostControlLocalError
 
 from runtime.api.domain import (
     agent_mission_cleanup_test_support as cleanup_support,
@@ -13,7 +14,7 @@ RUN = cleanup_support.RUN
 removed_mission = cleanup_support.removed_mission
 
 
-@pytest.mark.parametrize("failure", [None, "teardown", "scratch"])
+@pytest.mark.parametrize("failure", [None, "teardown", "typed", "scratch"])
 def test_walk_end_keeps_the_cleanup_lease_on_scratch_failure(
     monkeypatch, capsys, failure, removed_mission, test_db
 ):
@@ -31,6 +32,14 @@ def test_walk_end_keeps_the_cleanup_lease_on_scratch_failure(
     def teardown(*args, **kwargs):
         if failure == "teardown":
             raise RuntimeError("private-token")
+        if failure == "typed":
+            raise HostControlLocalError(
+                code="baseline_restore_failed",
+                phase="baseline_restore",
+                detail="private-token",
+                recovery_hint="Run `yoke test-machine reset --project yoke`.",
+                stderr="private-token",
+            )
         return {
             "removed": failure != "scratch",
             "scratch_path": r"C:\Users\tester\AppData\Local\YokeQaMission\walk",
@@ -73,7 +82,7 @@ def test_walk_end_keeps_the_cleanup_lease_on_scratch_failure(
     )
     from yoke_core.domain.coordination_claims import get_claim
 
-    assert code == {None: 0, "teardown": 2, "scratch": 3}[failure]
+    assert code == {None: 0, "teardown": 2, "typed": 2, "scratch": 3}[failure]
     assert get_claim(test_db, original["lease_id"]).is_active is (failure == "scratch")
     if failure == "scratch":
         assert sent == []
@@ -90,8 +99,8 @@ def test_walk_end_keeps_the_cleanup_lease_on_scratch_failure(
     from yoke_core.domain.machine_reset_debt import reset_owed
 
     assert reset_owed(test_db, original["settings"]["resource_name"]) == (
-        "fresh-host" if failure == "teardown" else None
+        None if failure is None else "fresh-host"
     )
-    assert (finish["payload"]["restore"] is None) == (failure == "teardown")
+    assert (finish["payload"]["restore"] is None) == (failure is not None)
     output = capsys.readouterr()
     assert "private-token" not in output.out + output.err

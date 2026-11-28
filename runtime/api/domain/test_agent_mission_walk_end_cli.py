@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from yoke_contracts.machine_qa_failures import HostControlLocalError
 from yoke_harness.posix_mission_operations import (
     posix_mission_scratch_path as mission_scratch_path,
 )
@@ -112,3 +113,60 @@ def test_walk_end_names_each_thing_it_could_not_finish(monkeypatch, capsys):
 def test_walk_end_reports_a_restore_receipt_write_failure(monkeypatch, capsys):
     assert _run_walk_end(monkeypatch, _walk_result(), "not_found: run 991") == 3
     assert "starting_state_restore_unrecorded: not_found: run 991" in capsys.readouterr().err
+
+
+def _fail_walk_end(monkeypatch: Any, error: Exception) -> int:
+    monkeypatch.setattr(
+        agent_mission_walk_cli,
+        "resolve_mission_contract",
+        lambda parsed, *, prog: {"contract": "issued"},
+    )
+
+    def teardown(contract: Any, *, timeout_seconds: int) -> dict:
+        raise error
+
+    def record(**kwargs: Any) -> None:
+        raise AssertionError("a failed teardown records no restore")
+
+    monkeypatch.setattr(
+        machine_qa_mission_walk, "execute_agent_mission_walk_end", teardown
+    )
+    monkeypatch.setattr(machine_qa_mission_walk, "record_mission_restore", record)
+    return agent_mission_walk_cli.main(
+        ["end", "--item", f"ITEM-{4550}", "--execution-id", EXECUTION_ID]
+        + ["--requirement-id", "18152", "--run-id", "991"]
+    )
+
+
+def test_walk_end_names_a_typed_host_control_failure(monkeypatch, capsys):
+    error = HostControlLocalError(
+        code="baseline_restore_failed",
+        phase="baseline_restore",
+        detail="restore raised private-detail",
+        recovery_hint="Run `yoke test-machine reset --project yoke`.",
+        exit_code=7,
+        stderr="token=private-stderr",
+        stdout="private-stdout",
+    )
+
+    assert _fail_walk_end(monkeypatch, error) == 2
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err.strip() == (
+        "yoke qa mission walk-end: mission_teardown_failed: "
+        "baseline_restore_failed (phase=baseline_restore; exit_code=7). "
+        "Recovery: Run `yoke test-machine reset --project yoke`; "
+        "then rerun this walk-end."
+    )
+    assert "private" not in captured.err
+    assert "connectivity" not in captured.err
+
+
+def test_walk_end_keeps_the_generic_refusal_for_untyped_failures(
+    monkeypatch, capsys
+):
+    assert _fail_walk_end(monkeypatch, RuntimeError("private-token")) == 2
+    err = capsys.readouterr().err
+    assert "mission_teardown_failed (RuntimeError)" in err
+    assert "restore host connectivity" in err
+    assert "private" not in err
