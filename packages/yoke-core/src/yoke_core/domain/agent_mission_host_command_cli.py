@@ -207,7 +207,9 @@ def run(args: list[str]) -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description=(
             "Run one argv-shaped command through an awaiting mission's "
-            "retained Test Machine lease."
+            "retained Test Machine lease. Only ARGV is forwarded: the host "
+            "command's stdin is closed, so input piped into this command "
+            "never reaches the host."
         ),
         epilog=(
             "Parked walkers: a walk you parked on instruction stops "

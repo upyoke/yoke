@@ -36,6 +36,14 @@ def test_mission_host_command_token_routes_to_detached_adapter() -> None:
     assert rest[-2:] == ["--", "whoami"]
 
 
+def test_mission_host_command_help_says_stdin_is_not_forwarded(capsys) -> None:
+    assert qa_mission_host_command(["--help"]) == 0
+    assert "stdin is closed" in capsys.readouterr().out
+    with pytest.raises(SystemExit):
+        agent_mission_host_command_cli.run(["--help"])
+    assert "stdin is closed" in capsys.readouterr().out
+
+
 def test_mission_host_copy_token_routes_to_detached_adapter() -> None:
     resolved = resolve_tool_shaped(
         ["qa", "mission", "host-copy", "--execution-id", "exec-1", "--to", "x"]

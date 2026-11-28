@@ -139,8 +139,12 @@ records them. A display-capture failure, audit-session refusal, or OAuth that
 looks expired while its files are unchanged means the wrong session context:
 retry through `--gui-session` before you report broken credentials.
 
-Pipe a secret on stdin where the product accepts it; otherwise stage it only in
-the dispatch's owner-only scratch directory, never loose under `/tmp` or home.
+host-command forwards ARGV only and closes the host command's stdin, so
+nothing you pipe into it reaches the host. When the host already holds a
+credential at an approved host-local path, such as a signed-in harness or
+browser identity, use it there. Pipe a secret on stdin only to a command that
+reads it, such as desktop `type --text-stdin`; otherwise stage it only in the
+dispatch's owner-only scratch directory, never loose under `/tmp` or home.
 Never read a secret's content or put one in a report.
 
 For session-start proof, read and record the delivered orientation marker as
