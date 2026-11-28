@@ -217,10 +217,18 @@ def begin_operation_execution(
             select_any=False,
             **shape,
         )
-    if shape.get("baselines") and mission["state"] in {
-        "walking",
-        "awaiting_walk_review",
-    }:
+    from yoke_core.domain.qa_plan_execution_abort_state import (
+        MISSION_WALK_STATES,
+        abort_request,
+    )
+
+    # operation_mission already let a cancelled walk through only for its exact
+    # authorized baseline reset; that reset keeps custody for walk-end.
+    if (
+        shape.get("baselines")
+        and mission["state"] in MISSION_WALK_STATES
+        and abort_request(mission) is None
+    ):
         raise MachineQaProtocolError(
             "test_machine_cleanup_live_lease: you hold the lease on "
             f"{candidate.settings['resource_name']} for your awaiting mission "
