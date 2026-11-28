@@ -123,7 +123,8 @@ def name_facts(names: list[str]) -> tuple[list[str], list[list[str]]]:
     return invalid, [sorted(group) for group in groups.values() if len(group) > 1]
 
 
-def _policy_blocks(errors: list[str]) -> list[dict[str, str]]:
+def _policy_history(errors: list[str]) -> list[dict[str, str]]:
+    """Past machine-wide block events: history, never a denial of this run."""
     blocks = []
     for log, ids, policy in (
         ("Microsoft-Windows-AppLocker/EXE and DLL", "EventID=8004", "AppLocker"),
@@ -170,10 +171,12 @@ def _policy_blocks(errors: list[str]) -> list[dict[str, str]]:
                     name in file.lower()
                     for name in ("yoke", "python", "uv.exe", "postgres")
                 ):
+                    when = next((n.attrib.get("SystemTime") for n in event.iter() if n.tag.endswith("TimeCreated")), None)
                     blocks.append(
                         {
                             "policy": policy,
                             "file": file,
+                            "logged_at": when or "unknown time",
                             "evidence": f"{log}: enforced block event {data.get('eventid', 'unknown')}, record {data.get('eventrecordid', 'unknown')}; policy {data.get('policyname') or data.get('rulename') or 'see Event Viewer'}",
                         }
                     )
@@ -294,13 +297,11 @@ def collect_facts(
         errors.append(
             "Stopped WSL distributions were not started or inspected. Check `command -v yoke` inside any distro you use; keep Windows and WSL homes and machine identities separate"
         )
-    storage = []
-    for path in (selected_home,):
-        try:
-            storage.append(_storage(path, env, errors))
-        except (OSError, ValueError) as exc:
-            errors.append(f"storage {path}: {type(exc).__name__}")
-            storage.append({"path": path, "filesystem": "unknown"})
+    try:
+        storage = [_storage(selected_home, env, errors)]
+    except (OSError, ValueError) as exc:
+        errors.append(f"storage {selected_home}: {type(exc).__name__}")
+        storage = [{"path": selected_home, "filesystem": "unknown"}]
     browser = _registry(
         winreg.HKEY_CURRENT_USER,
         r"Software\Microsoft\Windows\Shell\Associations\UrlAssociations\https\UserChoice",
@@ -339,7 +340,7 @@ def collect_facts(
         "browser": bool(browser),
         "store_blocked": bool(store),
         "blocked_hosts": blocked,
-        "policy_blocks": _policy_blocks(errors),
+        "application_control_history": _policy_history(errors),
         "probe_errors": errors,
     }
 

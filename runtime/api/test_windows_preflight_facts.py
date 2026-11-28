@@ -120,10 +120,11 @@ def test_policy_events_keep_enforced_block_file_and_policy(monkeypatch):
         '<Data Name="PolicyName">Corporate policy</Data></EventData></Event>'
     )
     monkeypatch.setattr(collector, "_run", lambda *a: xml)
-    blocks = collector._policy_blocks([])
+    blocks = collector._policy_history([])
     assert len(blocks) == 2
     assert all(
         b["file"] == "C:/yoke/python.exe" and "Corporate policy" in b["evidence"]
+        and b["logged_at"] == "unknown time"
         for b in blocks
     )
 
@@ -131,14 +132,15 @@ def test_policy_events_keep_enforced_block_file_and_policy(monkeypatch):
 def test_bad_policy_log_is_not_clean_evidence(monkeypatch):
     monkeypatch.setattr(collector, "_run", lambda *a: "bad xml")
     errors = []
-    assert collector._policy_blocks(errors) == []
+    assert collector._policy_history(errors) == []
     assert len(errors) == 2
 
 
 def test_policy_userdata_keeps_unicode_file_and_event_identity(monkeypatch):
     xml = (
         '<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">'
-        "<System><EventID>8004</EventID><EventRecordID>42</EventRecordID></System>"
+        "<System><EventID>8004</EventID><EventRecordID>42</EventRecordID>"
+        '<TimeCreated SystemTime="2026-11-27T21:14:05.1234567Z"/></System>'
         '<UserData><RuleAndFileData xmlns="http://schemas.microsoft.com/schemas/event/Microsoft.Windows/1.0.0.0">'
         "<FilePath>C:/Users/José 東京/yoke/uv.exe</FilePath><RuleName>Company executable rule</RuleName>"
         "</RuleAndFileData></UserData></Event>"
@@ -150,12 +152,13 @@ def test_policy_userdata_keeps_unicode_file_and_event_identity(monkeypatch):
 
     monkeypatch.setattr(collector, "_run", run)
     errors = []
-    blocks = collector._policy_blocks(errors)
+    blocks = collector._policy_history(errors)
     assert not errors
     assert len(blocks) == 2
     assert blocks[0]["file"] == "C:/Users/José 東京/yoke/uv.exe"
     assert "8004, record 42" in blocks[0]["evidence"]
     assert "Company executable rule" in blocks[0]["evidence"]
+    assert blocks[0]["logged_at"] == "2026-11-27T21:14:05.1234567Z"
 
 
 class _Lxss:
@@ -241,7 +244,7 @@ def _windows_host(
         return ""
 
     monkeypatch.setattr(collector, "_run", run)
-    monkeypatch.setattr(collector, "_policy_blocks", lambda errors: [])
+    monkeypatch.setattr(collector, "_policy_history", lambda errors: [])
     monkeypatch.setattr(
         collector,
         "_vc_runtime",
