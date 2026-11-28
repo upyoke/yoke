@@ -89,8 +89,8 @@ def verified_payload(control, payload):
     prepare = policy["prepare"].replace("ROOT", quote(root)).replace("CHECK_DIRECTORY", policy["directory"])
     admin_staging.command(prepare)
     control._ssh_argv(admin_staging.cleanup_script(root, owned=True, payload=payload, policy=policy))
-    # Use the base connection prefix, never parse a PowerShell command as argv.
-    ssh = SshTestMachineTransport._ssh_argv(control, "")[:-1]
+    # The selected login's prefix, never parsed back out of a command argv.
+    ssh = control.connection_prefix()
     failure = None
     try:
         admin_staging.stage_script(

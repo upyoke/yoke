@@ -142,7 +142,7 @@ def test_complete_guest_provisioning_and_real_ssh_rdp_forward(monkeypatch, tmp_p
         ):
             assert receipt in output
         assert len(stages) == 4  # bootstrap, absent-user guard, setup, second user
-        # The second user logs in by name through -l, never as user@host.
+        # Independent token check; the transport's own login runs further below.
         for user, expected in ((admin, "$true"), (name, "$false"), (SECOND_USER, "$false")):
             script = (
                 "$ErrorActionPreference='Stop'; $id=[Security.Principal.WindowsIdentity]::GetCurrent(); "
@@ -182,9 +182,9 @@ def test_complete_guest_provisioning_and_real_ssh_rdp_forward(monkeypatch, tmp_p
         assert transport.windows_facts["user"].split("\\")[-1].lower() == name
         assert transport.windows_facts["build"].isdigit()
         assert transport.home.lower().endswith("\\" + name)
-        from runtime.api.domain.test_native_windows_standard_staging import verify_real_standard_sftp
-
+        from runtime.api.domain.test_native_windows_standard_staging import verify_real_second_user_staging, verify_real_standard_sftp
         verify_real_standard_sftp(transport)
+        verify_real_second_user_staging(key, name, SECOND_USER)
         from runtime.api.domain.test_native_windows_tailnet import (
             verify_real_system_tailnet_errors, verify_real_tailnet_startup_policy,
         )
