@@ -1,7 +1,6 @@
 """Every Windows SSH and SFTP step logs in as the transport's selected user."""
 
 import base64
-import shutil
 import subprocess
 
 import pytest
@@ -55,7 +54,6 @@ def test_staging_execution_and_cleanup_share_the_selected_login(monkeypatch, log
     assert "Remove-Item" in decoded(calls[-1])
 
 
-@pytest.mark.skipif(shutil.which("ssh") is None, reason="controller has no OpenSSH client")
 def test_ssh_reads_the_quoted_login_literally():
     argv = control("Zoë Tester").connection_prefix()
     at = argv.index("-o", argv.index("ControlPath=none"))
