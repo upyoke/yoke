@@ -63,7 +63,11 @@ custody, not remote shell execution. Nested `yoke test-machine` operations
 borrow the caller's active Command-plan lease, and operation submit/abort
 keeps it for the plan. A Command without a declared host remains host-free.
 An awaiting mission still cannot reset or verify its own live host: finish
-or abort that mission first so its temporary state is not cleared.
+or abort that mission first so its temporary state is not cleared. Once its
+cancellation is recorded, the walk's owner (or a covering steering seat) may
+run the reset to the interrupted case's declared baseline on the retained
+lease; custody and the cancellation stay, and walk-end still owes scratch
+removal and the final handback.
 
 Lease refusals name the machine and actual owner when known. A missing,
 expired or mismatched lease requires fresh admission through the declared
