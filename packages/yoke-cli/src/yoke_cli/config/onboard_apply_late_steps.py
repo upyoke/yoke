@@ -13,7 +13,7 @@ import json
 from pathlib import Path
 from typing import Any, Mapping
 
-from yoke_cli.config import onboard_apply_report
+from yoke_cli.config import onboard_apply_report, onboard_apply_report_resume
 
 
 def complete_report_path(
@@ -67,7 +67,7 @@ def _step_id_for_action(
     if not action:
         return None
     for raw in payload.get("steps") or []:
-        if not isinstance(raw, Mapping):
+        if not isinstance(raw, Mapping) or onboard_apply_report_resume.is_prior_step(raw):
             continue
         if raw.get("action") == action:
             return str(raw.get("step_id") or "")
