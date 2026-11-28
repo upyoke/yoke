@@ -3,7 +3,10 @@
 One read answers for a whole set of runs. The latest attempt is the canonical
 newest actual start, and an obligation a waiver, supersession, replacement,
 retraction or triage discharge settled is history rather than red. A failure
-recorded against a target the requirement no longer carries is not red.
+recorded against a target the requirement no longer carries is not red, and
+neither is detached QA a set-aside member preserved for the release that
+enrolls it next: the canonical preserved-QA selector excludes it here exactly
+as stage completion does, while its fail evidence stays on the run.
 """
 
 from __future__ import annotations
@@ -48,8 +51,15 @@ def red_blocking_requirements(
     ):
         return {}
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    removals = (
+        "(SELECT COALESCE(dr.membership_removals,'[]') FROM deployment_runs dr "
+        "WHERE dr.id=r.deployment_run_id)"
+        if _column_exists(conn, "deployment_runs", "membership_removals")
+        else "'[]'"
+    )
     rows = conn.execute(
         f"""SELECT r.id, r.deployment_run_id, r.deployment_member_item_id,
+                   r.execution_target_json, {removals} AS membership_removals,
                    qr.id AS latest_run_id, qr.verdict,
                    i.project_id, p.slug, p.public_item_prefix, i.project_sequence
               FROM qa_requirements r
@@ -64,6 +74,7 @@ def red_blocking_requirements(
     ).fetchall()
     records = [row_dict(raw) for raw in rows]
     records = [r for r in records if str(r["verdict"] or "") in RED_VERDICTS]
+    records = _current_subjects(conn, records)
     stale = stale_target_requirements(
         conn,
         {int(r["id"]): {"id": r["latest_run_id"], "verdict": r["verdict"]} for r in records},
@@ -90,6 +101,23 @@ def red_blocking_requirements(
             )
         )
     return {run_id: tuple(found) for run_id, found in grouped.items()}
+
+
+def _current_subjects(conn: Any, records: list[dict]) -> list[dict]:
+    """Drop detached QA preserved for a set-aside member, one selector per run."""
+    from yoke_core.domain.deployment_run_set_aside_qa import preserved_qa_selector
+
+    selectors: dict[str, Any] = {}
+    kept = []
+    for record in records:
+        run_id = str(record["deployment_run_id"])
+        if run_id not in selectors:
+            selectors[run_id] = preserved_qa_selector(
+                conn, run_id, recorded_removals=record["membership_removals"]
+            )
+        if not selectors[run_id](record):
+            kept.append(record)
+    return kept
 
 
 __all__ = ["RedRequirement", "red_blocking_requirements"]

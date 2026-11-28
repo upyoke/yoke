@@ -110,3 +110,62 @@ def test_fail_recaptured_on_new_target_is_red_again(test_db):
         requirement
     ]
     assert pending_stage_plans(test_db, stage, RUN) == []
+
+
+DETACHED, ENROLLED = 9771, 9772
+MEMBER_RUN = "run-detached-member-red"
+
+
+def _member_fails(conn) -> dict[int, int]:
+    """Both members' item QA failed; returns each member's requirement id."""
+    from yoke_core.domain.deployment_qa_stage_materialization import (
+        materialize_deployment_qa_stage,
+    )
+
+    stages = _stages(_plan(conn, "member-smoke"))
+    _seed_run(conn, run_id=MEMBER_RUN, stages=stages, members=(DETACHED, ENROLLED))
+    found = {}
+    for member in (DETACHED, ENROLLED):
+        materialize_deployment_qa_stage(
+            conn,
+            deployment_run_id=MEMBER_RUN,
+            deployment_stage="item-qa",
+            deployment_member_item_id=member,
+        )
+        found[member] = int(conn.execute(
+            "SELECT id FROM qa_requirements WHERE deployment_run_id=%s "
+            "AND deployment_member_item_id=%s AND blocking_mode='blocking' "
+            "ORDER BY id LIMIT 1",
+            (MEMBER_RUN, member),
+        ).fetchone()[0])
+        record_case_verdict(conn, found[member], "fail", evidence=True)
+    return found
+
+
+def test_set_aside_member_fail_is_not_a_current_red_blocker(test_db):
+    from yoke_core.domain.deployment_run_member_removal import remove_members_on
+    from yoke_core.domain.deployment_run_member_set_aside import (
+        FROZEN_SET_ASIDE_REASON,
+    )
+
+    requirements = _member_fails(test_db)
+    remove_members_on(
+        test_db, MEMBER_RUN, (DETACHED,), reason=FROZEN_SET_ASIDE_REASON, preserve_qa=True
+    )
+
+    red = red_blocking_requirements(test_db, [MEMBER_RUN])[MEMBER_RUN]
+    assert [(r.requirement_id, r.item_id) for r in red] == [
+        (requirements[ENROLLED], ENROLLED)
+    ]
+    kept = test_db.execute(
+        "SELECT verdict FROM qa_runs WHERE qa_requirement_id=%s",
+        (requirements[DETACHED],),
+    ).fetchall()
+    assert [row["verdict"] for row in kept] == ["fail"]  # history stays
+
+
+def test_enrolled_member_fail_stays_red(test_db):
+    requirements = _member_fails(test_db)
+
+    red = red_blocking_requirements(test_db, [MEMBER_RUN])[MEMBER_RUN]
+    assert sorted(r.requirement_id for r in red) == sorted(requirements.values())

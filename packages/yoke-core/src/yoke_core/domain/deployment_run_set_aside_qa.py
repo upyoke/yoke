@@ -66,16 +66,23 @@ def shadowed_requirements(conn, *, old_id, new_id, moving):
     return frozenset(int(row["id"]) for row in rows)
 
 
-def preserved_qa_selector(conn, run_id):
-    """Select detached member/group QA that still awaits enrollment."""
+def preserved_qa_selector(conn, run_id, *, recorded_removals=None):
+    """Select detached member/group QA that still awaits enrollment.
+
+    ``recorded_removals`` is the run's ``membership_removals`` column when
+    the caller already read it, so a batch reader adds no per-run read.
+    """
     from yoke_core.domain.deployment_qa_plan_groups import unattached_open_groups, group_marker
     from yoke_core.domain.deployment_qa_presentation_facts import run_facts
 
-    facts = run_facts(conn, run_id)
-    removals = (
-        parse_membership_removals(facts["membership_removals"], run_id)
-        if facts is not None else membership_removals(conn, run_id)
-    )
+    if recorded_removals is not None:
+        removals = parse_membership_removals(recorded_removals, run_id)
+    else:
+        facts = run_facts(conn, run_id)
+        removals = (
+            parse_membership_removals(facts["membership_removals"], run_id)
+            if facts is not None else membership_removals(conn, run_id)
+        )
     members = {int(e["item_id"]) for e in removals
                if e["reason"] in SET_ASIDE_REASONS}
     groups = {g.group_id for g in unattached_open_groups(conn, run_id)} if members else set()
