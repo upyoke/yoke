@@ -51,9 +51,15 @@ def red_blocking_requirements(
     ):
         return {}
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    removals = (
+        "(SELECT COALESCE(dr.membership_removals,'[]') FROM deployment_runs dr "
+        "WHERE dr.id=r.deployment_run_id)"
+        if _column_exists(conn, "deployment_runs", "membership_removals")
+        else "'[]'"
+    )
     rows = conn.execute(
         f"""SELECT r.id, r.deployment_run_id, r.deployment_member_item_id,
-                   r.execution_target_json,
+                   r.execution_target_json, {removals} AS membership_removals,
                    qr.id AS latest_run_id, qr.verdict,
                    i.project_id, p.slug, p.public_item_prefix, i.project_sequence
               FROM qa_requirements r
@@ -106,7 +112,9 @@ def _current_subjects(conn: Any, records: list[dict]) -> list[dict]:
     for record in records:
         run_id = str(record["deployment_run_id"])
         if run_id not in selectors:
-            selectors[run_id] = preserved_qa_selector(conn, run_id)
+            selectors[run_id] = preserved_qa_selector(
+                conn, run_id, recorded_removals=record["membership_removals"]
+            )
         if not selectors[run_id](record):
             kept.append(record)
     return kept
