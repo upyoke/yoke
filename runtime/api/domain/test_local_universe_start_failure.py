@@ -89,3 +89,34 @@ def test_pg_ctl_start_failure_preserves_the_denial_without_printing_it(monkeypat
     with pytest.raises(local_universe.LocalUniverseError, match="Operation not permitted"):
         local_universe.start()
     assert capsys.readouterr().err == ""
+
+
+def test_application_control_launch_denial_refuses_local_start_by_name(monkeypatch, tmp_path):
+    from yoke_core.domain import postgres_cluster_process
+
+    def denied(argv, **kw):
+        exc = OSError(None, "This program is blocked by group policy.")
+        exc.winerror = 1260  # set on every OS; only Windows fills it from the constructor
+        raise exc
+
+    monkeypatch.setattr(postgres_cluster_process.terminal_detached_process, "run", denied)
+    spec = local_universe.cluster_spec(root=tmp_path / "universe")
+    failure = postgres_cluster.start_failure(spec)
+    assert failure.tool == "initdb" and failure.returncode == 1
+    _fail_with(monkeypatch, tmp_path, failure)
+    with pytest.raises(local_universe.LocalUniverseError) as raised:
+        local_universe.start()
+    message = str(raised.value)
+    assert "windows_application_control_denied" in message
+    assert "initdb" in message and "WinError 1260" in message
+
+
+def test_other_launch_errors_still_raise(monkeypatch):
+    from yoke_core.domain import postgres_cluster_process
+
+    def missing(argv, **kw):
+        raise FileNotFoundError(2, "No such file", argv[0])
+
+    monkeypatch.setattr(postgres_cluster_process.terminal_detached_process, "run", missing)
+    with pytest.raises(FileNotFoundError):
+        postgres_cluster_process._run(["initdb"])

@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Optional
 
 from yoke_contracts import terminal_detached_process
+from yoke_contracts.windows_preflight import launch_denial
 
 _WINDOWS = os.name == "nt"
 
@@ -68,6 +69,11 @@ def _run(argv, *, env: dict | None = None, **kw) -> subprocess.CompletedProcess:
                 argv, env=selected_env, text=True, stdout=out, stderr=err,
                 timeout=kw.pop("timeout", 90), **kw,
             )
+        except OSError as exc:
+            # A launch application control denies is a named refusal, not a traceback.
+            if (denied := launch_denial(exc, str(argv[0]))) is None:
+                raise
+            return subprocess.CompletedProcess(argv, 1, "", denied)
         except subprocess.TimeoutExpired:
             return subprocess.CompletedProcess(
                 argv, 1, "", "postgres_process_timeout: helper did not exit within "

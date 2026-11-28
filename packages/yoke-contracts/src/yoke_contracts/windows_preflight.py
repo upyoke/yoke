@@ -12,6 +12,26 @@ import re
 from yoke_contracts.windows_vc_runtime import RUNTIME_DLLS, unsourced_problem
 
 
+APPLICATION_CONTROL_HINT = (
+    "Give IT this file path and policy evidence for review. If Smart App Control "
+    "blocked it, ask the publisher for a signed build; it has no per-app exception."
+)
+#: OSError.winerror values a launch gets when application control denies it:
+#: ERROR_ACCESS_DISABLED_BY_POLICY (AppLocker, Software Restriction Policies)
+#: and ERROR_SYSTEM_INTEGRITY_POLICY_VIOLATION (WDAC, Smart App Control).
+LAUNCH_DENIAL_WINERRORS = (1260, 4551)
+
+
+def launch_denial(exc: OSError, executable: str) -> str | None:
+    """The named refusal for a launch Windows application control denied, else None."""
+    if getattr(exc, "winerror", None) not in LAUNCH_DENIAL_WINERRORS:
+        return None
+    return (
+        f"windows_application_control_denied: Windows application control blocked "
+        f"{executable} (WinError {exc.winerror}: {exc.strerror}). {APPLICATION_CONTROL_HINT}"
+    )
+
+
 def issue(severity: str, code: str, message: str, hint: str = "") -> dict[str, str]:
     result = {"severity": severity, "code": code, "message": message}
     if hint:
@@ -181,13 +201,16 @@ def verdicts(facts: Mapping[str, Any], *, local: bool = False) -> list[dict[str,
             f"Required download host is unreachable: {host}.",
             "Ask IT to permit this host through the configured proxy/firewall, then rerun setup.",
         )
-    for evidence in facts.get("policy_blocks", ()):
-        policy = evidence["policy"]
+    # Machine-wide log history cannot show that this run will be denied; the
+    # launch Windows actually denies refuses with windows_application_control_denied.
+    for evidence in facts.get("application_control_history", ()):
         add(
-            "error",
-            "application_control",
-            f"{policy} blocked {evidence['file']}: {evidence['evidence']}.",
-            "Give IT this file path and policy evidence for review. If Smart App Control blocked it, ask the publisher for a signed build; it has no per-app exception.",
+            "warning",
+            "application_control_history",
+            f"Historical {evidence['policy']} block logged {evidence['logged_at']}: "
+            f"{evidence['file']}: {evidence['evidence']}. Setup continues; a launch "
+            "Windows denies now refuses with windows_application_control_denied.",
+            APPLICATION_CONTROL_HINT,
         )
     for error in facts.get("probe_errors", ()):
         add(

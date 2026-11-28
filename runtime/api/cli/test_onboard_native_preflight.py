@@ -175,3 +175,75 @@ def test_review_refuses_answer_chosen_local_without_a_vc_runtime_source(
     )
     result.destination = "hosted"
     assert onboard_preflight.preflight(result, probes=probes).problems == []
+
+
+STALE_APPLOCKER = {
+    "policy": "AppLocker",
+    "file": "%OSDRIVE%\\USERS\\QA\\APPDATA\\LOCAL\\PROGRAMS\\PYTHON\\PYTHON.EXE",
+    "logged_at": "2026-11-27T21:14:05.1234567Z",
+    "evidence": "Microsoft-Windows-AppLocker/EXE and DLL: enforced block event 8004, record 912",
+}
+UNRELATED_RECENT = {**STALE_APPLOCKER, "file": "C:\\Tools\\postgres-backup.exe", "logged_at": "2026-11-28T05:59:00Z"}
+LOG_UNAVAILABLE = "wevtutil.exe exited 15007: The specified channel could not be found."
+
+
+@pytest.mark.parametrize(
+    "parsed",
+    [
+        Namespace(config_path=None, connect_url="https://upyoke.com", agent=True),
+        Namespace(config_path=None, destination_local=True, agent=True),
+    ],
+)
+def test_application_control_history_is_shown_but_never_refuses_setup(
+    monkeypatch, capsys, parsed
+):
+    monkeypatch.delenv("YOKE_ONBOARD_DESTINATION", raising=False)
+    monkeypatch.setattr(
+        preflight,
+        "collect_facts",
+        lambda **kw: _ready_windows(
+            vc_runtime="C:/Windows/System32/vcruntime140.dll",
+            application_control_history=[STALE_APPLOCKER, UNRELATED_RECENT],
+            probe_errors=[LOG_UNAVAILABLE],
+        ),
+    )
+    assert preflight.check_setup(parsed) is True
+    captured = capsys.readouterr()
+    assert captured.out == ""  # no refusal envelope
+    assert captured.err.count("warning (windows_application_control_history)") == 2
+    assert "2026-11-27T21:14:05.1234567Z" in captured.err
+    assert "record 912" in captured.err and "postgres-backup.exe" in captured.err
+    assert "no per-app exception" in captured.err
+    assert f"warning (windows_probe_incomplete): Preflight fact unavailable: {LOG_UNAVAILABLE}" in captured.err
+
+
+def test_history_does_not_hide_another_blocking_preflight_result(monkeypatch, capsys):
+    monkeypatch.setattr(
+        preflight,
+        "collect_facts",
+        lambda **kw: _ready_windows(
+            application_control_history=[STALE_APPLOCKER],
+            invalid_names=["docs/aux.md"],
+        ),
+    )
+    parsed = Namespace(config_path=None, connect_url="https://upyoke.com", agent=True)
+    assert preflight.check_setup(parsed) is False
+    out = capsys.readouterr().out
+    assert '"state": "refused"' in out and "docs/aux.md" in out
+    assert "Historical AppLocker" not in out
+
+
+def test_status_keeps_application_control_history_visible(monkeypatch, tmp_path):
+    from yoke_cli.config import status
+    from yoke_contracts import windows_preflight_facts
+    from yoke_contracts.windows_preflight import verdicts
+
+    facts = _ready_windows(application_control_history=[STALE_APPLOCKER])
+    monkeypatch.setattr(windows_preflight_facts, "collect_facts", lambda **kw: facts)
+    monkeypatch.setattr(status, "attach_doctor", lambda result, **kw: result)
+    result = status.build_status(
+        config_path=tmp_path / "config.json", repo_root=tmp_path, check_reachability=False
+    )
+    assert result["native_preflight"]["application_control_history"] == [STALE_APPLOCKER]
+    [row] = [r for r in verdicts(facts) if r["code"] == "windows_application_control_history"]
+    assert row["severity"] == "warning" and STALE_APPLOCKER["logged_at"] in row["message"]

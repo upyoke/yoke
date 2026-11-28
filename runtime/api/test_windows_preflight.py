@@ -207,20 +207,39 @@ def test_store_and_download_host_blocks_name_recovery():
     )
 
 
-@pytest.mark.parametrize("policy", ["AppLocker", "WDAC", "Smart App Control"])
-def test_policy_blocks_show_file_and_evidence(policy):
+@pytest.mark.parametrize("policy", ["AppLocker", "WDAC / Smart App Control"])
+def test_application_control_history_is_a_timestamped_notice(policy):
     result = row(
-        "application_control",
-        policy_blocks=[
+        "application_control_history",
+        application_control_history=[
             {
                 "policy": policy,
                 "file": "C:/yoke/python.exe",
+                "logged_at": "2026-11-27T21:14:05Z",
                 "evidence": "policy enforced event 3077",
             }
         ],
     )
-    assert result["severity"] == "error" and "python.exe" in result["message"]
+    assert result["severity"] == "warning" and "python.exe" in result["message"]
+    assert "logged 2026-11-27T21:14:05Z" in result["message"]
     assert "3077" in result["message"] and "no per-app exception" in result["hint"]
+    assert not any(r["severity"] == "error" for r in verdicts(facts(
+        application_control_history=[{"policy": policy, "file": "x.exe", "logged_at": "t", "evidence": "e"}]
+    )))
+
+
+@pytest.mark.parametrize("winerror", [1260, 4551])
+def test_positive_launch_denial_is_named(winerror):
+    from yoke_contracts.windows_preflight import launch_denial
+
+    exc = OSError(None, "This program is blocked by group policy.")
+    exc.winerror = winerror  # set on every OS; only Windows fills it from the constructor
+    message = launch_denial(exc, "C:/engine/bin/initdb.exe")
+    assert message.startswith("windows_application_control_denied: ")
+    assert f"initdb.exe (WinError {winerror}" in message and "no per-app exception" in message
+    other = OSError(None, "Access is denied.")
+    other.winerror = 5
+    assert launch_denial(other, "x.exe") is None
 
 
 def test_inaccessible_probe_is_not_success():
@@ -246,4 +265,4 @@ def test_real_runner_facts_are_recorded():
     if platform.system() == "Windows":
         assert collected["build"] >= 17763
         assert collected["edition"] and collected["arch"] and collected["storage"]
-        assert isinstance(collected["policy_blocks"], list)
+        assert isinstance(collected["application_control_history"], list)
