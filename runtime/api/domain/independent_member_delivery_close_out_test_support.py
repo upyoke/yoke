@@ -150,7 +150,12 @@ def _settle(
 
 
 def _seed_final_run(
-    conn: Any, run_id: str, *, shared_qa: bool, shared_approval: bool = False
+    conn: Any,
+    run_id: str,
+    *,
+    shared_qa: bool,
+    shared_approval: bool = False,
+    stage_cases: bool = True,
 ) -> list[dict]:
     _project(conn)
     _environment(conn)
@@ -164,6 +169,9 @@ def _seed_final_run(
         _ready_member(conn, item_id, holder)
     stages = _stages(_plan(conn, f"plan-{run_id}"))
     stages[1]["target"]["environment"] = "prod"
+    if not stage_cases:
+        # Members answer item QA from their own attached plans only.
+        stages[1].pop("cases")
     if shared_approval:
         stages.insert(
             1,
