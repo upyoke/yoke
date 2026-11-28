@@ -33,14 +33,24 @@ _HOLD_EXEMPT_STATUSES = ENGINE_TERMINAL_STAGE_IDS | ENGINE_WAIT_STAGE_IDS | {"do
 
 
 def lane_head_landed_sql(item_alias: str = "i") -> str:
-    """A landing proves the recorded lane head, never an older merge stamp."""
+    """A landing proves the recorded lane head, never an older merge stamp.
+
+    Item QA can send a released item back to ``implementing`` while its lane
+    still records the landed SHA. That receipt stays in the item's landing
+    history, but it no longer describes open close-out work: a receipt only
+    counts when no root ``release`` -> ``implementing`` reopen follows it.
+    """
     return (
         "EXISTS (SELECT 1 FROM item_landings il "
         f"WHERE il.item_id={item_alias}.id AND il.candidate_sha <> '' "
         "AND il.candidate_sha=(SELECT iw.commit_sha FROM item_worktrees iw "
         f"WHERE iw.item_id={item_alias}.id "
         "AND iw.lane_role IN ('implementation','integration') "
-        "ORDER BY CASE WHEN iw.state='active' THEN 0 ELSE 1 END, iw.id DESC LIMIT 1))"
+        "ORDER BY CASE WHEN iw.state='active' THEN 0 ELSE 1 END, iw.id DESC LIMIT 1) "
+        "AND NOT EXISTS (SELECT 1 FROM item_status_transitions st "
+        f"WHERE st.item_id={item_alias}.id AND st.task_num IS NULL "
+        "AND st.from_status='release' AND st.to_status='implementing' "
+        "AND st.created_at > il.landed_at))"
     )
 
 
