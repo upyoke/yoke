@@ -93,6 +93,7 @@ def test_hook_entry_orients_outside_a_project_once(
         if sys.platform == "win32":
             monkeypatch.setenv("YOKE_EXECUTOR", "cursor-desktop")
             monkeypatch.delenv("CURSOR_INVOKED_AS", raising=False)
+            event, event_name = "beforeSubmitPrompt", "UserPromptSubmit"
         payload = {
             "hook_event_name": event,
             "session_id": "sess-c",

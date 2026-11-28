@@ -44,7 +44,7 @@ class SessionSurfaceCapability:
     wake_authority: WakeAuthority = "native"
     native_create_timeout_seconds: int | None = None
     turn_end_event: TurnEndEvent = "Stop"
-    windows_orientation_event: Literal["SessionStart"] | None = None
+    windows_orientation_event: Literal["UserPromptSubmit"] | None = None
 
     def to_json(self) -> dict[str, object]:
         payload = asdict(self)
@@ -156,7 +156,7 @@ SESSION_SURFACE_CAPABILITIES: dict[str, SessionSurfaceCapability] = {
         stop_denial_continuation="none",
         relay_stop_denial_continuation="none",
         wake_authority="operator",
-        windows_orientation_event="SessionStart",
+        windows_orientation_event="UserPromptSubmit",
     ),
 }
 
