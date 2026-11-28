@@ -22,10 +22,13 @@ class IdleHostHold(NamedTuple):
 
     It names when upkeep returns the host to the line (``qa_host_idle_hold``);
     its recovery is the steering release, so the report alarms before then.
+    A holder whose process exited between turns and can still resume
+    (``qa_owner_can_resume``) is paused, not lost: it has no recovery, and the
+    report names the pause and the same upkeep deadline instead of alarming.
     """
 
     test_machine: str
-    recovery: str
+    recovery: str | None
     idle_session: str
     idle_state: str
     idle_since: str
@@ -121,6 +124,22 @@ def test_machine_lines(rows: tuple[tuple[str, str], ...]) -> list[str]:
     return ["Test Machines: " + "; ".join(f"{name} (OS: {os})" for name, os in rows)]
 
 
+def _resumes(conn: Any, row: dict[str, Any], away: str) -> bool:
+    """Whether an exited, unparked holder resumes on its next message."""
+    from yoke_core.domain.qa_plan_execution_store import marker
+    from yoke_core.domain.session_message_types import row_dict
+    from yoke_core.domain.session_mode import session_is_parked
+    from yoke_core.domain.session_qa_resume_retention import qa_owner_can_resume
+
+    if away != "exited" or session_is_parked(row.get("mode")):
+        return False
+    session = conn.execute(
+        f"SELECT * FROM harness_sessions WHERE session_id={marker(conn)}",
+        (str(row["session_id"]),),
+    ).fetchone()
+    return session is not None and qa_owner_can_resume(conn, row_dict(session))
+
+
 def _idle_holds(conn: Any, names: set[str]) -> list[IdleHostHold]:
     """Consumed host leases whose holder is parked, exited or ended.
 
@@ -141,7 +160,9 @@ def _idle_holds(conn: Any, names: set[str]) -> list[IdleHostHold]:
         holds.append(
             IdleHostHold(
                 machine,
-                f"yoke coordination-claim release --key QA_HOST:{machine} "
+                None
+                if _resumes(conn, row, away)
+                else f"yoke coordination-claim release --key QA_HOST:{machine} "
                 f"--claim-id {row['id']} --holder-session-id {row['session_id']} "
                 '--reason "<why>"',
                 idle_session=str(row["session_id"]),
@@ -187,6 +208,11 @@ def reset_debt_lines(rows):
         + (f" (execution {row.execution_id})" if row.execution_id else "")
         + f" waits for {row.test_machine} ({row.place}) since {row.queued_at}"
         if isinstance(row, QueuedWalk)
+        else f"Test Machine {row.test_machine}: held by session {row.idle_session}, "
+        f"paused between turns since {row.idle_since}; its process exited and it "
+        "resumes on its next message. Upkeep returns the host to the queue at "
+        f"{row.returns_at} if it stays silent."
+        if isinstance(row, IdleHostHold) and row.recovery is None
         else f"Test Machine {row.test_machine}: ALARM held by {row.idle_state} session "
         f"{row.idle_session}, silent since {row.idle_since}; upkeep returns it to "
         f"the queue at {row.returns_at}. If Yoke should have handled this automatically, "
