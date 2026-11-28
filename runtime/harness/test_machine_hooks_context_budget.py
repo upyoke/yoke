@@ -11,15 +11,21 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 import uuid
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
-from yoke_contracts.hook_shell_command import hook_command_owner, hook_command_source
+from yoke_contracts.hook_shell_command import (
+    hook_command_owner,
+    hook_command_source,
+    hook_command_start_problem,
+)
 
 from yoke_cli.commands.adapters.hook_config_dedup import should_skip_config_duplicate
-from yoke_contracts.harness_machine_hooks import HARNESS_MACHINE_HOOKS, entry_commands
+from yoke_contracts.harness_machine_hooks import HARNESS_MACHINE_HOOKS
 from yoke_contracts.hook_context_compose import (
     delivered_message_ids,
     reply_is_well_formed,
@@ -37,21 +43,54 @@ from yoke_contracts.machine_hooks_render import render_user_hook_entries
 _EVALUATE = re.compile(r"yoke hook evaluate (\w+)")
 
 
-def _fired(harness_id: str, native_event: str, *, in_project: bool) -> list[str]:
-    """Commands the harness fires for one native event."""
+_BUNDLE_KEY = {
+    "claude-code": "claude_settings_hooks",
+    "codex": "codex_hooks",
+    "cursor": "cursor_hooks",
+}
+
+
+@pytest.fixture(autouse=True)
+def _yoke_on_path(monkeypatch) -> None:
+    """``yoke`` starts wherever these tests run, as it does where setup ran."""
+    from yoke_contracts import hook_shell_command as shell
+
+    monkeypatch.setattr(
+        shell,
+        "shutil",
+        SimpleNamespace(
+            which=lambda name: name if name == "yoke" else shutil.which(name)
+        ),
+    )
+
+
+def _project_hooks(harness_id: str) -> dict:
+    """The project hook map as project install writes it on this host."""
+    from yoke_cli.project_install.hook_platform import native_bundle_hooks
+
+    hooks = {
+        "claude-code": render_claude_hooks_block,
+        "codex": render_codex_hooks_block,
+        "cursor": lambda: render_cursor_hooks_block()["hooks"],
+    }[harness_id]()
+    key = _BUNDLE_KEY[harness_id]
+    return native_bundle_hooks({"hooks": {key: hooks}})["hooks"][key]
+
+
+def _handlers(entry: dict) -> list[dict]:
+    return entry.get("hooks", [entry])
+
+
+def _fired(harness_id: str, native_event: str, *, in_project: bool) -> list[dict]:
+    """Handlers the harness fires for one native event."""
     configs = [render_user_hook_entries(HARNESS_MACHINE_HOOKS[harness_id])]
     if in_project:
-        project = {
-            "claude-code": render_claude_hooks_block,
-            "codex": render_codex_hooks_block,
-            "cursor": lambda: render_cursor_hooks_block()["hooks"],
-        }[harness_id]()
-        configs.append(project)
+        configs.append(_project_hooks(harness_id))
     fired = [
-        command
+        handler
         for config in configs
         for entry in config.get(native_event, [])[:1]  # one per config; matchers differ
-        for command in entry_commands(entry)
+        for handler in _handlers(entry)
     ]
     if harness_id == "cursor":
         # Cursor also fires the imported user-level ~/.claude/settings.json.
@@ -61,9 +100,7 @@ def _fired(harness_id: str, native_event: str, *, in_project: bool) -> list[str]
             if e.native_event == native_event
         )
         claude = render_user_hook_entries(HARNESS_MACHINE_HOOKS["claude-code"])
-        fired += [
-            c for entry in claude.get(verb, [])[:1] for c in entry_commands(entry)
-        ]
+        fired += [h for entry in claude.get(verb, [])[:1] for h in _handlers(entry)]
     return fired
 
 
@@ -76,15 +113,13 @@ def _environment(harness_id: str, root: Path, owner: str) -> dict[str, str]:
 
 
 def _write_project(root: Path, harness_id: str) -> None:
+    hooks = _project_hooks(harness_id)
     if harness_id == "claude-code":
-        path, doc = (
-            root / ".claude/settings.json",
-            {"hooks": render_claude_hooks_block()},
-        )
+        path, doc = root / ".claude/settings.json", {"hooks": hooks}
     elif harness_id == "codex":
-        path, doc = root / ".codex/hooks.json", {"hooks": render_codex_hooks_block()}
+        path, doc = root / ".codex/hooks.json", {"hooks": hooks}
     else:
-        path, doc = root / ".cursor/hooks.json", render_cursor_hooks_block()
+        path, doc = root / ".cursor/hooks.json", {"version": 1, "hooks": hooks}
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(doc), encoding="utf-8")
 
@@ -101,8 +136,10 @@ def _evaluations(
         user.write_text(json.dumps({"version": 1, "hooks": entries}), encoding="utf-8")
     payload = json.dumps(payload)
     count = 0
-    for command in _fired(harness_id, native_event, in_project=in_project):
-        command = hook_command_source(command)
+    for handler in _fired(harness_id, native_event, in_project=in_project):
+        if hook_command_start_problem(handler, codex=harness_id == "codex"):
+            continue  # The harness cannot start it, so it evaluates nothing.
+        command = hook_command_source(handler.get("command", ""))
         owner = hook_command_owner(command)
         verb = _EVALUATE.search(command).group(1)
         env = _environment(harness_id, root, owner or "")

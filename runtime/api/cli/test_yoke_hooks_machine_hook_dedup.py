@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import io
 import json
+import shutil
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -43,20 +44,51 @@ def _native_windows(monkeypatch) -> None:
     )
 
 
-def _write_project(root: Path, harness_id: str) -> None:
-    """The real project render for one harness, as setup installs it."""
-    if harness_id == "claude-code":
-        path, document = (
-            root / ".claude/settings.json",
-            {"hooks": render_claude_hooks_block()},
-        )
-    elif harness_id == "codex":
-        path, document = (
-            root / ".codex/hooks.json",
-            {"hooks": render_codex_hooks_block()},
-        )
-    else:
-        path, document = root / ".cursor/hooks.json", render_cursor_hooks_block()
+@pytest.fixture(autouse=True)
+def _yoke_on_path(monkeypatch) -> None:
+    """``yoke`` starts wherever these tests run, as it does where setup ran."""
+    from yoke_contracts import hook_shell_command as shell
+
+    monkeypatch.setattr(
+        shell,
+        "shutil",
+        SimpleNamespace(
+            which=lambda name: name if name == "yoke" else shutil.which(name)
+        ),
+    )
+
+
+_BUNDLE_KEY = {
+    "claude-code": "claude_settings_hooks",
+    "codex": "codex_hooks",
+    "cursor": "cursor_hooks",
+}
+
+
+def _write_project(root: Path, harness_id: str, *, native: bool = True) -> None:
+    """The project render for one harness, as project install writes it here.
+
+    ``native`` selects this host's command form the way install does; without
+    it the file keeps the server's POSIX form, as a tracked render does.
+    """
+    from yoke_cli.project_install.hook_platform import native_bundle_hooks
+
+    hooks = {
+        "claude-code": render_claude_hooks_block,
+        "codex": render_codex_hooks_block,
+        "cursor": lambda: render_cursor_hooks_block()["hooks"],
+    }[harness_id]()
+    if native:
+        key = _BUNDLE_KEY[harness_id]
+        hooks = native_bundle_hooks({"hooks": {key: hooks}})["hooks"][key]
+    path = root / {
+        "claude-code": ".claude/settings.json",
+        "codex": ".codex/hooks.json",
+        "cursor": ".cursor/hooks.json",
+    }[harness_id]
+    document = {"hooks": hooks}
+    if harness_id == "cursor":
+        document = {"version": 1, "hooks": hooks}
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(document), encoding="utf-8")
 
@@ -134,7 +166,15 @@ def test_codex_search_stops_at_the_repository_root(tmp_path):
 def test_older_project_render_without_owner_marker_still_owns(tmp_path):
     settings = tmp_path / ".claude/settings.json"
     settings.parent.mkdir()
-    old = "/bin/sh -c 'env YOKE_ROOT=\"$PWD\" yoke hook evaluate Stop'"
+    from yoke_contracts.hook_shell_command import (
+        hook_command_for_os,
+        windows_hook_command,
+    )
+
+    old = hook_command_for_os(
+        "/bin/sh -c 'env YOKE_ROOT=\"$PWD\" yoke hook evaluate Stop'",
+        windows_hook_command("claude-code", "Stop", None),
+    )
     settings.write_text(
         json.dumps(
             {"hooks": {"Stop": [{"hooks": [{"type": "command", "command": old}]}]}}
@@ -294,7 +334,7 @@ def test_native_windows_runs_one_hook_whether_or_not_the_project_hook_starts(
     if project_startable:
         _write_windows_project(tmp_path, harness_id, verb)
     else:
-        _write_project(tmp_path, harness_id)  # The tracked /bin/sh render.
+        _write_project(tmp_path, harness_id, native=False)  # Tracked /bin/sh.
     document = json.loads(
         next((tmp_path / rel).read_text() for rel in (
             ".claude/settings.json", ".cursor/hooks.json"
