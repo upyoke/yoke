@@ -51,7 +51,9 @@ def qa_mission_host_command(args: List[str]) -> int:
     if show_delegate_help(
         args,
         QA_MISSION_HOST_COMMAND_USAGE,
-        "Requires the named immutable QA case or execution; item cases require the item work claim.",
+        "Requires the named immutable QA case or execution; item cases require the item work claim. "
+        "Forwards ARGV only: the host command's stdin is closed, so input piped into this "
+        "command never reaches the host.",
     ):
         return 0
     return run_execution_module(
