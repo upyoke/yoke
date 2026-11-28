@@ -22,8 +22,31 @@ from yoke_core.domain.qa_plan_execution_state import lock_plan_execution
 removed_mission = cleanup_support.removed_mission
 
 
+def test_finish_without_restore_receipt_keeps_custody(test_db, removed_mission):
+    """A finish with no restore receipt and no reset proof never releases."""
+    request, _, original = removed_mission
+    acquired = handle_agent_mission_access(request)
+    assert acquired.primary_success, acquired.error
+    refused = handle_agent_mission_access(
+        request.model_copy(
+            update={
+                "payload": {
+                    **request.payload,
+                    "cleanup": "finish",
+                    "lease_id": original["lease_id"],
+                    "restore": None,
+                }
+            }
+        )
+    )
+    assert not refused.primary_success
+    assert "mission_cleanup_restore_unproven" in refused.error.message
+    assert get_claim(test_db, original["lease_id"]).is_active
+    assert reset_owed(test_db, original["settings"]["resource_name"]) is None
+
+
 @pytest.mark.parametrize(
-    "restore", [None, {"restored": False}, {"restored": True, "baseline": "other"}]
+    "restore", [{"restored": False}, {"restored": True, "baseline": "other"}]
 )
 def test_unproven_finish_releases_and_records_owed_baseline(
     test_db,

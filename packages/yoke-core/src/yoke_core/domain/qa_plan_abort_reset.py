@@ -76,6 +76,9 @@ def reset_cleanup_proven(conn, execution, baseline):
     from yoke_core.domain.coordination_claims import get_claim
     from yoke_core.domain.qa_plan_host_leases import execution_host_leases
 
+    request = abort_request(execution)
+    if not request or not request.get("requested_at"):
+        return False
     leases = {lease.id: lease for lease in execution_host_leases(conn, execution)}
     if execution.get("test_machine_lease_id") is not None:
         lease = get_claim(conn, int(execution["test_machine_lease_id"]))
