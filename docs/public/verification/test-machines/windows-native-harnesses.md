@@ -168,7 +168,9 @@ The SSH restore scans again before copying. If an app started a helper as it
 exited (Cursor's `inno_updater.exe`), reset stops the desktop once more and
 retries the restore once when that pass ended a process; a survivor still refuses.
 After restore, reset reopens them there and reports `profile_processes_stopped`
-and `desktop_apps_relaunched`; an app that fails to reopen is named in
+and `desktop_apps_relaunched`. It stops a browser running from Yoke's managed
+Playwright cache (`.yoke/playwright-cache/yoke`) but never reopens it, because
+it is a disposable test browser. An app that fails to reopen is named in
 `desktop_apps_relaunch_failed` without failing reset. For a sharing or
 memory-mapped-file error under `.codex`, close Codex and retry the reset.
 Goldens hold no links (`/XJ`) and `/MIR` purges profile links the golden lacks,

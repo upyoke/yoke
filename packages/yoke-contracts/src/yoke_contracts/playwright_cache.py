@@ -8,6 +8,7 @@ from yoke_contracts.machine_config.paths import yoke_home
 
 
 YOKE_BROWSER_CACHE_PROJECT = "yoke"
+PLAYWRIGHT_CACHE_DIRECTORY = "playwright-cache"
 
 
 def resolve_playwright_cache(
@@ -15,7 +16,7 @@ def resolve_playwright_cache(
 ) -> str | None:
     """Resolve a project's machine-home cache, a lane-local cache, or no cache."""
     if project_id:
-        return str(yoke_home() / "playwright-cache" / project_id)
+        return str(yoke_home() / PLAYWRIGHT_CACHE_DIRECTORY / project_id)
     if worktree_path:
         return os.path.join(worktree_path, ".playwright-cache")
     return None
