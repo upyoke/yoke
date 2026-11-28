@@ -265,8 +265,7 @@ class WizardDefaults:
     config_path: str | None = None
     env_name: str | None = None
     api_url: str | None = None
-    # Deployment destination preset from CLI flags, the destination env
-    # override, or a resumed run. None shows the picker.
+    # Destination preset (CLI flag, env override, resumed run); None shows the picker.
     destination: str | None = None
     token: str | None = None
     token_file: str | None = None
