@@ -243,7 +243,9 @@ resources. Then run walk-end: it removes the scratch directory and restores the
 starting state. On native Windows, if the first removal fails, a successful
 restore lets walk-end retry removal once and independently check that the
 scratch is gone. Report both results and anything still present. A failed
-walk-end is a finding against this walk.
+walk-end is a finding against this walk. A stopped walk keeps its Test Machine
+until walk-end proves the scratch is gone: if teardown raises or removal fails,
+the lease stays held, so fix the named cause and rerun walk-end.
 
 ## Evidence
 

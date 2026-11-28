@@ -33,7 +33,7 @@ def _run_walk_end(
         lambda parsed, *, prog: {"contract": "issued"},
     )
 
-    def teardown(contract: Any, *, timeout_seconds: int) -> dict:
+    def teardown(contract: Any, **_kwargs: Any) -> dict:
         calls.append("teardown")
         return dict(result)
 
@@ -122,7 +122,7 @@ def _fail_walk_end(monkeypatch: Any, error: Exception) -> int:
         lambda parsed, *, prog: {"contract": "issued"},
     )
 
-    def teardown(contract: Any, *, timeout_seconds: int) -> dict:
+    def teardown(contract: Any, **_kwargs: Any) -> dict:
         raise error
 
     def record(**kwargs: Any) -> None:

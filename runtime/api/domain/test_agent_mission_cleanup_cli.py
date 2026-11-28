@@ -1,4 +1,4 @@
-"""Walk-end retains cleanup custody when scratch removal fails."""
+"""Walk-end retains cleanup custody unless scratch removal is proven."""
 
 from types import SimpleNamespace
 
@@ -15,7 +15,7 @@ removed_mission = cleanup_support.removed_mission
 
 
 @pytest.mark.parametrize("failure", [None, "teardown", "typed", "scratch"])
-def test_walk_end_keeps_the_cleanup_lease_on_scratch_failure(
+def test_walk_end_keeps_the_cleanup_lease_without_proven_removal(
     monkeypatch, capsys, failure, removed_mission, test_db
 ):
     from yoke_core.domain import agent_mission_walk_cli, machine_qa_mission_walk
@@ -83,24 +83,25 @@ def test_walk_end_keeps_the_cleanup_lease_on_scratch_failure(
     from yoke_core.domain.coordination_claims import get_claim
 
     assert code == {None: 0, "teardown": 2, "typed": 2, "scratch": 3}[failure]
-    assert get_claim(test_db, original["lease_id"]).is_active is (failure == "scratch")
-    if failure == "scratch":
-        assert sent == []
-        err = capsys.readouterr().err
-        assert "mission_scratch_not_removed" in err
-        assert "removal exited 1 (Access is denied)" in err
-        return
-
-    # An unexpected teardown exception still settles with reset debt.
-    assert [call["function_id"] for call in sent] == ["test_machine.mission.access"]
-    finish = sent[0]
-    assert finish["payload"]["cleanup"] == "finish"
-    assert finish["payload"]["lease_id"] == original["lease_id"]
     from yoke_core.domain.machine_reset_debt import reset_owed
 
-    assert reset_owed(test_db, original["settings"]["resource_name"]) == (
-        None if failure is None else "fresh-host"
-    )
-    assert (finish["payload"]["restore"] is None) == (failure is not None)
+    # Without proven scratch removal walk-end never finishes: the original
+    # lease stays and no reset debt stands in for the missing proof.
+    assert get_claim(test_db, original["lease_id"]).is_active is (failure is not None)
     output = capsys.readouterr()
     assert "private-token" not in output.out + output.err
+    if failure is not None:
+        assert sent == []
+        assert reset_owed(test_db, original["settings"]["resource_name"]) is None
+        if failure == "scratch":
+            assert "mission_scratch_not_removed" in output.err
+            assert "removal exited 1 (Access is denied)" in output.err
+        else:
+            assert "mission_teardown_failed" in output.err
+            assert "rerun this walk-end" in output.err
+        return
+    [finish] = sent
+    assert finish["payload"]["cleanup"] == "finish"
+    assert finish["payload"]["lease_id"] == original["lease_id"]
+    assert finish["payload"]["restore"] == {"restored": True, "baseline": "fresh-host"}
+    assert reset_owed(test_db, original["settings"]["resource_name"]) is None

@@ -137,7 +137,9 @@ def run_end(args: list[str]) -> int:
     try:
         _register()
         result = execute_agent_mission_walk_end(
-            contract, timeout_seconds=parsed.timeout_seconds
+            contract,
+            timeout_seconds=parsed.timeout_seconds,
+            restore_proven=getattr(parsed, "restore_proven", False),
         )
     except (
         MissionScratchIdentityError,
@@ -157,9 +159,12 @@ def run_end(args: list[str]) -> int:
         )
         return 2
     finally:
-        # A successful baseline restore cannot settle failed scratch removal.
-        if getattr(parsed, "cleanup_lease", False) and (
-            result is None or result["removed"]
+        # Only proven scratch removal may release the lease: a raised or
+        # failed teardown keeps custody, whatever the baseline restore did.
+        if (
+            getattr(parsed, "cleanup_lease", False)
+            and result is not None
+            and result["removed"]
         ):
             try:
                 cleanup_error = _finish_cleanup(parsed, contract, result)
@@ -206,7 +211,7 @@ def run_end(args: list[str]) -> int:
             "still refuses, the operator must remove that path on the host "
             "before the machine is handed to anyone else"
         )
-    if "baseline" in restore and not restore["restored"]:
+    if restore is not None and "baseline" in restore and not restore["restored"]:
         failures.append(f"starting_state_restore_failed: {restore_summary(restore)}")
     if unrecorded is not None:
         failures.append(
@@ -218,7 +223,7 @@ def run_end(args: list[str]) -> int:
     return 3 if failures else 0
 
 
-def _finish_cleanup(parsed, contract: dict, result: dict | None) -> str | None:
+def _finish_cleanup(parsed, contract: dict, result: dict) -> str | None:
     from yoke_contracts.runtime_ports.structured_dispatch import get_structured_dispatch
     build_actor = get_structured_dispatch().build_actor
     from yoke_core.domain.agent_mission_host_command_cli import _target
@@ -234,7 +239,7 @@ def _finish_cleanup(parsed, contract: dict, result: dict | None) -> str | None:
             "cleanup": "finish",
             "run_id": parsed.run_id,
             "lease_id": contract["lease_id"],
-            "restore": result[STARTING_STATE_RESTORE] if result else None,
+            "restore": result[STARTING_STATE_RESTORE],
         },
     )
     if response.success:

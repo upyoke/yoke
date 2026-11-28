@@ -44,8 +44,15 @@ def execute_agent_mission_walk_end(
     raw_contract: dict[str, Any],
     *,
     timeout_seconds: int = 60,
+    restore_proven: bool = False,
 ) -> dict[str, Any]:
-    """Remove secret staging and restore the declared starting state."""
+    """Remove secret staging and restore the declared starting state.
+
+    ``restore_proven`` means the server already holds this lease's verified
+    post-cancellation reset to the declared baseline; walk-end then removes
+    the scratch only and leaves ``starting_state_restore`` empty, so the
+    server's own proof settles cleanup instead of a second restore.
+    """
     contract = _mission_contract(raw_contract)
     execution = _execution(contract)
     scratch = {
@@ -53,13 +60,13 @@ def execute_agent_mission_walk_end(
         "timeout_seconds": timeout_seconds,
     }
     teardown = remove_mission_scratch(execution.control, **scratch)
-    restore = restore_chain_start(
+    restore = None if restore_proven else restore_chain_start(
         contract.cases[0],
         execution.reach_baseline,
         test_machine=contract.settings["resource_name"],
     )
     # Native Windows restore can stop processes holding the scratch open.
-    if not teardown["removed"] and restore["restored"] and contract.settings.get("os") == "windows":
+    if not teardown["removed"] and restore and restore["restored"] and contract.settings.get("os") == "windows":
         teardown = remove_mission_scratch(execution.control, **scratch)
     teardown[STARTING_STATE_RESTORE] = restore
     redacted = redact_machine_qa_value(
