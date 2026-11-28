@@ -5,7 +5,9 @@ import re
 import subprocess
 from pathlib import PureWindowsPath
 
+from yoke_contracts.test_machine_types import HostActionResult
 from yoke_harness.native_windows.profile_process_identity import PROCESS_IDENTITY as _PROCESS_IDENTITY
+from yoke_harness.native_windows.profile_process_stop_failure import PROCESS_RUNNING, stop_failure
 from yoke_harness.native_windows.transport import quote
 
 DISCOVERY_MARKER = "YOKE_RESET_PROCESS_DISCOVERY "
@@ -226,11 +228,12 @@ def stop_desktop_profile_processes(control, preserved):
             detail = detail or (
                 f"exit {listed.returncode}" if listed.returncode else "missing or invalid discovery receipt"
             )
-        return (
-            f"windows_reset_profile_process_listing_failed: SSH process discovery failed: {detail}. "
-            "Verify the standard test-user SSH session and rerun yoke test-machine reset",
-            [], [],
-        )
+        return HostActionResult(
+            False,
+            {"recovery": f"windows_reset_profile_process_listing_failed: SSH process discovery failed: {detail}. "
+             "Verify the standard test-user SSH session and rerun yoke test-machine reset"},
+            "windows_reset_profile_process_listing_failed",
+        ), [], []
     if answers == ["empty"]:
         return None, [], []
     home = f"$profileRoot={quote(control.home)}\n"
@@ -239,17 +242,9 @@ def stop_desktop_profile_processes(control, preserved):
         timeout=60, hidden=True,
     )
     if stopped.returncode:
-        detail = (stopped.stderr or stopped.stdout or f"exit {stopped.returncode}").strip()
-        return (
-            f"windows_reset_profile_process_running: Desktop process stop failed: {detail}. "
-            "Inspect the signed-in standard-user desktop and rerun yoke test-machine reset",
-            [], [],
-        )
+        return stop_failure(stopped), [], []
     targets = next(_records(stopped.stdout, TARGETS_MARKER), [])
     return None, stopped_processes(stopped.stdout), targets
-
-
-PROCESS_RUNNING = "windows_reset_profile_process_running:"
 
 
 def stop_desktop_and_restore(control, preserved, restore):
@@ -265,7 +260,7 @@ def stop_desktop_and_restore(control, preserved, restore):
     if refused:
         return refused, stopped, targets, None
     result = restore()
-    if not (stopped and result.returncode and PROCESS_RUNNING in (result.stderr or "")):
+    if not (stopped and result.returncode and PROCESS_RUNNING + ":" in (result.stderr or "")):
         return None, stopped, targets, result
     refused, late, late_targets = stop_desktop_profile_processes(control, preserved)
     stopped, targets = stopped + late, targets + late_targets

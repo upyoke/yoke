@@ -157,7 +157,13 @@ and `Microsoft.StartExperiencesApp`) and the Microsoft Store package
 running through reset because its state lives in preserved `AppData/Local/Packages`.
 A failed SSH process
 discovery names the session to check. Desktop-session stops relist until clear;
-one still running at 20 seconds refuses `windows_reset_profile_process_running`.
+one still running at 20 seconds refuses `windows_reset_profile_process_running`
+and names each survivor. A stop task that times out keeps
+`windows_desktop_task_timeout` and records its task, phase, cleanup outcome
+and whether cleanup was unresolved in `desktop_task`, without claiming any
+process is running; any other stop failure refuses
+`windows_reset_profile_process_stop_failed`. A failed machine retirement stays
+separate in `machine_retirement`.
 The SSH restore scans again before copying. If an app started a helper as it
 exited (Cursor's `inno_updater.exe`), reset stops the desktop once more and
 retries the restore once when that pass ended a process; a survivor still refuses.

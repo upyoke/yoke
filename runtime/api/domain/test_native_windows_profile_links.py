@@ -238,19 +238,20 @@ try {
     assert "held.exe" in result.stdout
 
 
-@pytest.mark.parametrize("phase", ["listing_failed", "running"])
+@pytest.mark.parametrize("phase", ["listing_failed", "stop_failed"])
 def test_process_stop_failure_refuses_before_mirroring(monkeypatch, phase):
     def listing(script, **kwargs):
         assert "Get-YokeProfileProcesses).Count" in script
         return subprocess.CompletedProcess([], 1, "", "Access denied ") if phase == "listing_failed" else subprocess.CompletedProcess([], 0, "YOKE_RESET_PROCESS_DISCOVERY present", "")
     def stuck(control, script, *, timeout=60, hidden=False):
-        assert phase == "running"
+        assert phase == "stop_failed"
         return subprocess.CompletedProcess([], 1, "", "Access denied ")
 
     monkeypatch.setattr("yoke_harness.native_windows.desktop.desktop_script", stuck)
     refused = baseline.profile_operation(SimpleNamespace(home=HOME, _run=listing), "reset", GOLDEN)
     assert refused.error_code == "windows_reset_profile_process_" + phase
-    assert "Access denied." in refused.evidence["recovery"]
+    # Discovery names its SSH error; a desktop stop never echoes raw output.
+    assert ("Access denied." in refused.evidence["recovery"]) == (phase == "listing_failed")
 
 
 def test_mirror_excludes_the_live_windows_data_store_and_names_copy_errors():
