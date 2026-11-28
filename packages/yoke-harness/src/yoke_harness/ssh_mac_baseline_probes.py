@@ -17,6 +17,7 @@ from yoke_harness.baseline_probe_failure_causes import (
     classify_declared_failure,
     with_reply_rejection,
 )
+from yoke_harness.baseline_probe_raised_failures import raised_failure
 from yoke_contracts.ssh_mac_full_reset_contract import GOLDEN_PROBES_SUFFIX
 from yoke_harness.ssh_mac_gui_session import classify_macos_session_context_failure
 from yoke_harness.standard_baseline_probes import (
@@ -31,13 +32,7 @@ PROBE_LIMIT = 20
 PROBE_ARGUMENT_LIMIT = 24
 PROBE_TIMEOUT_SECONDS = 120
 
-BRIDGE_CALL_RAISED_CAUSE = "bridge_call_raised"
-BRIDGE_CALL_RAISED_REASON = "the GUI-session bridge could not be called at all"
 _RECOVERY_BY_CAUSE = {
-    BRIDGE_CALL_RAISED_CAUSE: (
-        "check SSH reachability and Terminal.app control on the host, then "
-        "re-run `yoke test-machine verify`"
-    ),
     stall.BRIDGE_UNDELIVERED_CAUSE: (
         "repair the Terminal.app bridge on the host and re-run "
         "`yoke test-machine verify`; the probe never reached its program"
@@ -173,24 +168,17 @@ def run_baseline_probes(
                     list(request.argv if request else probe.argv),
                     timeout=PROBE_TIMEOUT_SECONDS,
                 )
-            except Exception:
+            except Exception as error:
+                failure = raised_failure(
+                    error, classify_gui_failures=classify_gui_failures
+                )
                 rows.append(
                     _failed_row(
-                        probe,
-                        exit_code=None,
-                        expectation_met=None,
-                        failure=_bridge_failure(
-                            BRIDGE_CALL_RAISED_CAUSE, BRIDGE_CALL_RAISED_REASON
-                        ),
+                        probe, exit_code=None, expectation_met=None, failure=failure
                     )
                 )
-                if not classify_gui_failures:
-                    rows[-1].update(
-                        cause="host_session_command_unavailable",
-                        reason="the SSH user-session command did not return",
-                        recovery="Check SSH reachability and retry the baseline probe.",
-                    )
-                if request:
+                # A typed host-control phase is the cause; the request never ran.
+                if request and "phase" not in failure:
                     rows[-1]["reason"] = (
                         f"{request.name} real request did not return. {request.recovery}"
                     )
@@ -198,6 +186,7 @@ def run_baseline_probes(
                     "probes": rows,
                     "reason": rows[-1]["reason"],
                     "recovery": rows[-1]["recovery"],
+                    **({"phase": failure["phase"]} if "phase" in failure else {}),
                 }
                 return HostActionResult(False, evidence, stall.NO_VERDICT_ERROR_CODE)
             exit_code = int(result.returncode)
