@@ -75,11 +75,16 @@ def test_cursor_dispatch_consumes_the_shared_orientation_body(
     assert body == f"shared {MAIN} at {Path('/repo')}\n"
 
 
-def test_windows_cursor_desktop_defers_session_start_context(monkeypatch):
+def test_windows_cursor_desktop_renders_session_start_context(monkeypatch):
     monkeypatch.setattr(dispatch_cursor, "sys", SimpleNamespace(platform="win32"))
-    monkeypatch.delenv("CURSOR_INVOKED_AS", raising=False)
-    record = HookContext("SessionStart", "cursor", "cursor", {"session_id": MAIN})
-    assert dispatch_cursor._render_orientation(record, "/repo", "") == ""
+    monkeypatch.setattr(
+        "yoke_core.domain.session_orientation.render_scoped_orientation",
+        lambda _payload, _root: "Root: C:\\repo\nCurrent branch: feature\n",
+    )
+    record = HookContext("SessionStart", "cursor", "cursor-desktop", {"session_id": MAIN})
+    assert dispatch_cursor._render_orientation(record, "/repo", "") == (
+        "Root: C:\\repo\nCurrent branch: feature\n"
+    )
 
 
 def test_cursor_dispatch_does_not_duplicate_client_orientation(

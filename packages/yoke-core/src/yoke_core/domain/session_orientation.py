@@ -268,7 +268,7 @@ def _orientation_for_hook(
     if resets_orientation(event_name, payload):
         reset_orientation_delivery(session_id)
     if event_name != startup_event and event_name not in (
-        session_orientation_redelivery_events(cursor=cursor)
+        session_orientation_redelivery_events(cursor=cursor, surface=surface, platform=sys.platform)
     ):
         return None
     lost_earlier = claim_orientation_attempt(session_id)
