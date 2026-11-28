@@ -273,6 +273,7 @@ class WizardDefaults:
     mode: str | None = None
     project_mode: str | None = None
     project_checkout: str | None = None
+    project_slug: str | None = None  # seeds the Project details form's Project ID
     project_clone_outcome: str | None = None
     apply: bool = False
     post_install: bool = False

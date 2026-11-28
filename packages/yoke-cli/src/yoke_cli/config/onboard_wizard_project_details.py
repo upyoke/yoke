@@ -109,7 +109,8 @@ def show(shell: Any, holders: prefixes.Holders | None) -> None:
 
     branch = shell.result.project_source_default_branch
     form_fields = fields(
-        slug=steps.slug_from_checkout(shell.result.project_checkout),
+        slug=shell._project_slug_preset
+        or steps.slug_from_checkout(shell.result.project_checkout),
         branch_from_source=branch,
         holders=holders,
     )

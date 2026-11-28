@@ -62,6 +62,27 @@ def test_checkout_and_prefix_flags_answer_project_questions(
     assert fake.applied[0]["project_public_item_prefix"] == "QNWB"
 
 
+def test_project_slug_flag_seeds_details_and_persisted_identity(
+    tmp_path, monkeypatch, capsys
+):
+    fake = isolate_agent_setup(tmp_path, monkeypatch)
+    checkout = git_checkout(tmp_path / "demo")
+    drive = AgentDriver(capsys)
+    code, lines = drive(flags=("--checkout", str(checkout), "--project-slug", "acme-qa"))
+    assert code == 0, lines
+    code, lines = drive.walk(("project.mode=local-checkout", *MACHINE_ONLY_ANSWERS[1:]))
+
+    assert lines[-1]["key"] == "project.details"
+    fields = {field["key"]: field["default"] for field in lines[-1]["fields"]}
+    assert fields["project.details.slug"] == "acme-qa"
+    _code, lines = drive.walk(
+        ("project.details=continue", "hosting.provider=skip", "review.confirm=apply")
+    )
+    assert lines[-1]["state"] == "done", lines[-1]
+    assert fake.applied[0]["project_slug"] == "acme-qa"
+    assert fake.applied[0]["project_checkout"] == str(checkout)
+
+
 @pytest.mark.parametrize("old_mode,new_mode", [
     ("create-repo", "clone-remote"), ("clone-remote", "create-repo")
 ])
