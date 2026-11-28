@@ -9,12 +9,12 @@ out of the receipt.
 
 import re
 
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.test_machine_types import HostActionResult
 from yoke_harness.native_windows.desktop_job import RECOVERY, TIMEOUT, UNRESOLVED
 
 PROCESS_RUNNING = "windows_reset_profile_process_running"
 STOP_FAILED = "windows_reset_profile_process_stop_failed"
-_RERUN = "then rerun yoke test-machine reset"
 _TASK = re.compile(r"YokeQa-[0-9a-f]{32}")
 _KNOWN = {
     "phase": ("upload", "task_start", "receipt"),
@@ -59,10 +59,10 @@ def stop_failure(result):
         return HostActionResult(
             False,
             {
-                "recovery": (
+                "recovery": compose_refusal(
                     f"{STOP_FAILED}: the desktop process stop exited {result.returncode} "
-                    "without a survivor list or a desktop task cause. Inspect the signed-in "
-                    f"standard-user desktop, {_RERUN}"
+                    "without a survivor list or a desktop task cause",
+                    recovery="inspect the signed-in standard-user desktop, then rerun yoke test-machine reset",
                 ),
                 "desktop_task": task,
             },
@@ -73,9 +73,10 @@ def stop_failure(result):
     return HostActionResult(
         False,
         {
-            "recovery": (
+            "recovery": compose_refusal(
                 f"{cause}: the desktop process stop did not finish ({facts or 'no task facts'}); "
-                f"it observed no surviving test-user process. Recovery: {RECOVERY}; {_RERUN}"
+                "it observed no surviving test-user process",
+                recovery=f"{RECOVERY}, then rerun yoke test-machine reset",
             ),
             "desktop_task": task,
         },

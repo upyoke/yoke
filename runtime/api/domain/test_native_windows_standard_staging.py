@@ -212,7 +212,8 @@ def test_reset_discovery_refuses_success_without_receipt():
 
     c = SimpleNamespace(home=r"C:\Users\qa", _run=lambda _: subprocess.CompletedProcess([], 0, "unexpected", ""))
     refusal, stopped, targets = stop_desktop_profile_processes(c, ())
-    assert "missing or invalid discovery receipt" in refusal
+    assert refusal.error_code == "windows_reset_profile_process_listing_failed"
+    assert "missing or invalid discovery receipt" in refusal.evidence["recovery"]
     assert stopped == targets == []
 
 
