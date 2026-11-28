@@ -102,8 +102,8 @@ not author a second capability matrix.
 | `launch_model_selection` | object | Accepted model knobs, exact native CLI encodings, and the resume selection mode, projected from the shared model-selection contract. |
 
 A surface may declare `windows_orientation_event` with the native Windows
-startup orientation channel. Cursor Desktop uses `UserPromptSubmit` so
-orientation can reach the first prompt even when session creation is asynchronous.
+startup orientation channel. Cursor Desktop uses `SessionStart` for startup
+context and `PostToolUse` to recover a missed orientation.
 
 Each surface value carries `minimum_version`, `inject_events`, `create`,
 `message_active`, `message_idle`, `message_stopped`,

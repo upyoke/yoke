@@ -107,19 +107,19 @@ def test_cursor_session_start_gets_shared_orientation_without_cwd(
 
 
 @pytest.mark.windows_only(reason="native drive resolution")
-def test_cursor_first_prompt_orients_the_picked_windows_project(project, monkeypatch):
+def test_cursor_session_start_orients_the_picked_windows_project(project, monkeypatch):
     monkeypatch.delenv("CURSOR_INVOKED_AS")
     monkeypatch.setattr(so, "_git_line", lambda _root, args: "main" if args[0] == "branch" else "")
     payload = json.loads(_cursor_payload(project))
     payload["workspace_roots"] = ["/" + project.as_posix()]
-    assert so.orientation_for_hook("SessionStart", json.dumps(payload), cursor=True) is None
-    payload["hook_event_name"] = "beforeSubmitPrompt"
-    out = so.orientation_for_hook("UserPromptSubmit", json.dumps(payload), cursor=True)
+    prompt = json.dumps({**payload, "hook_event_name": "beforeSubmitPrompt"})
+    assert so.orientation_for_hook("UserPromptSubmit", prompt, cursor=True) is None
+    out = so.orientation_for_hook("SessionStart", json.dumps(payload), cursor=True)
     assert out is not None
     assert f"Root: {project.resolve()}" in out
     assert "Current branch: main" in out
     so.confirm_orientation_delivery(out)
-    assert so.orientation_for_hook("UserPromptSubmit", json.dumps(payload), cursor=True) is None
+    assert so.orientation_for_hook("UserPromptSubmit", prompt, cursor=True) is None
 
 
 def test_cursor_prompt_submit_stays_silent_after_session_start(project: Path) -> None:

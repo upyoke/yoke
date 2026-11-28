@@ -74,25 +74,32 @@ def session_orientation_event(
     )
 
 
-def session_orientation_redelivery_events(*, cursor: bool = False) -> frozenset[str]:
+def session_orientation_redelivery_events(
+    *, cursor: bool = False, surface: str = "", platform: str = "",
+) -> frozenset[str]:
     """Return the recurring events that re-deliver a missed orientation block.
 
     Claude and Codex accept context on every prompt, so the prompt event
     repeats their delivery chance. Cursor's come from its surfaces' manifest
     ``inject_events``: the IDE's prompt hook orients the first chat in a new
-    window, which fires no sessionStart, and tool results repeat the chance.
+    window, which fires no sessionStart on measured non-Windows builds.
+    Native Windows Cursor Desktop uses sessionStart for startup and
+    postToolUse for repair, the documented context-bearing events.
     """
     if not cursor:
         return frozenset({SESSION_ORIENTATION_EVENT})
     from yoke_contracts.session_control.capabilities import SESSION_SURFACE_CAPABILITIES
 
-    return frozenset(
+    events = frozenset(
         event
-        for surface, capability in SESSION_SURFACE_CAPABILITIES.items()
-        if surface.startswith("cursor-")
+        for name, capability in SESSION_SURFACE_CAPABILITIES.items()
+        if name.startswith("cursor-")
         for event in capability.inject_events
         if event != SESSION_START_EVENT
     )
+    if surface == "cursor-desktop" and platform == "win32":
+        return events - {SESSION_ORIENTATION_EVENT}
+    return events
 
 
 def session_orientation_events(*, cursor: bool = False, executor: str = "") -> frozenset[str]:

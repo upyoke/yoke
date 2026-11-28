@@ -115,7 +115,7 @@
         "liveness_process_names": [],
         "wake_authority": "operator",
         "turn_end_event": "Stop",
-        "windows_orientation_event": "UserPromptSubmit"
+        "windows_orientation_event": "SessionStart"
       }
     },
     "inline_context_source": "yoke_contracts.hook_inline_context",
