@@ -10,6 +10,9 @@ from yoke_core.domain.builtin_workflow_definitions import (
 )
 from yoke_core.domain.workflow_registry import definition_digest
 from yoke_core.domain.item_landings_schema import ensure_item_landings_schema
+from yoke_core.domain.item_status_transitions import (
+    ensure_schema as ensure_item_status_transitions_schema,
+)
 from yoke_core.domain.merge_queue_landing_record_schema import (
     ensure_merge_queue_landing_record_schema,
 )
@@ -340,4 +343,5 @@ def _connection() -> sqlite3.Connection:
     conn.execute("ALTER TABLE items ADD COLUMN merged_at TEXT")
     ensure_merge_queue_landing_record_schema(conn)
     ensure_item_landings_schema(conn)
+    ensure_item_status_transitions_schema(conn)
     return conn
