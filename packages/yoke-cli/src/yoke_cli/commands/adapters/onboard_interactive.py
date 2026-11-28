@@ -78,6 +78,7 @@ def wizard_defaults(
         mode=selected_mode if (parsed.quick or parsed.advanced) else None,
         project_mode=parsed.project_mode,
         project_checkout=parsed.project_checkout,
+        project_slug=parsed.project_slug,
         project_clone_outcome=parsed.project_clone_outcome,
         apply=parsed.apply,
         post_install=parsed.post_install,

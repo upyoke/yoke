@@ -96,6 +96,7 @@ def init_setup_state(
     shell._project_mode_preset = defaults.project_mode is not None
     shell._publication_destination_preset = defaults.project_clone_outcome
     shell._project_preset_attempted = False
+    shell._project_slug_preset = defaults.project_slug
     shell._preset_dev_checkout = (
         defaults.project_checkout
         if defaults.project_mode == onboard_project.PROJECT_MODE_EDIT_YOKE_SOURCE
