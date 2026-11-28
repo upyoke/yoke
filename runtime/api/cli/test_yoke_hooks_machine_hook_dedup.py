@@ -10,109 +10,26 @@ from __future__ import annotations
 
 import io
 import json
-import shutil
 import sys
-from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
 from yoke_cli.commands.adapters.hook_config_dedup import should_skip_config_duplicate
 from yoke_cli.main import main as cli_main
-from yoke_core.domain.agents_render_hooks import (
-    render_claude_hooks_block,
-    render_codex_hooks_block,
-    render_cursor_hooks_block,
+from runtime.api.cli.machine_hook_dedup_test_support import (
+    environment as _environment,
+    payload as _payload,
+    write_project as _write_project,
+    yoke_on_path,
 )
-
-CURSOR_PAYLOAD = '{"session_id":"c-1","conversation_id":"c-1"}'
-
-
-def _native_windows(monkeypatch) -> None:
-    """Native Windows as the launchability check sees it: no ``/bin/sh``.
-
-    Only the check's own module sees ``nt``, so pathlib in this process keeps
-    its POSIX paths; ``yoke`` resolves the way ``yoke.cmd`` does on PATH.
-    """
-    from yoke_contracts import hook_shell_command as shell
-
-    monkeypatch.setattr(shell, "os", SimpleNamespace(name="nt"))
-    monkeypatch.setattr(
-        shell,
-        "shutil",
-        SimpleNamespace(which=lambda name: name if name == "yoke" else None),
-    )
 
 
 @pytest.fixture(autouse=True)
 def _yoke_on_path(monkeypatch) -> None:
-    """``yoke`` starts wherever these tests run, as it does where setup ran."""
-    from yoke_contracts import hook_shell_command as shell
-
-    monkeypatch.setattr(
-        shell,
-        "shutil",
-        SimpleNamespace(
-            which=lambda name: name if name == "yoke" else shutil.which(name)
-        ),
-    )
+    yoke_on_path(monkeypatch)
 
 
-_BUNDLE_KEY = {
-    "claude-code": "claude_settings_hooks",
-    "codex": "codex_hooks",
-    "cursor": "cursor_hooks",
-}
-
-
-def _write_project(root: Path, harness_id: str, *, native: bool = True) -> None:
-    """The project render for one harness, as project install writes it here.
-
-    ``native`` selects this host's command form the way install does; without
-    it the file keeps the server's POSIX form, as a tracked render does.
-    """
-    from yoke_cli.project_install.hook_platform import native_bundle_hooks
-
-    hooks = {
-        "claude-code": render_claude_hooks_block,
-        "codex": render_codex_hooks_block,
-        "cursor": lambda: render_cursor_hooks_block()["hooks"],
-    }[harness_id]()
-    if native:
-        key = _BUNDLE_KEY[harness_id]
-        hooks = native_bundle_hooks({"hooks": {key: hooks}})["hooks"][key]
-    path = root / {
-        "claude-code": ".claude/settings.json",
-        "codex": ".codex/hooks.json",
-        "cursor": ".cursor/hooks.json",
-    }[harness_id]
-    document = {"hooks": hooks}
-    if harness_id == "cursor":
-        document = {"version": 1, "hooks": hooks}
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(document), encoding="utf-8")
-
-
-def _environment(harness_id: str, root: Path) -> dict[str, str]:
-    owner = {
-        "claude-code": "claude-user",
-        "codex": "codex-user",
-        "cursor": "cursor-user",
-    }
-    env = {"YOKE_HOOK_CONFIG_OWNER": owner[harness_id], "HOME": str(root / "home")}
-    if harness_id == "claude-code":
-        env["CLAUDE_PROJECT_DIR"] = str(root)
-    if harness_id == "cursor":
-        env["CURSOR_PROJECT_DIR"] = str(root)
-    return env
-
-
-def _payload(harness_id: str, root: Path) -> str:
-    if harness_id == "cursor":
-        return json.dumps(
-            {"session_id": "c-1", "conversation_id": "c-1", "cwd": str(root)}
-        )
-    return json.dumps({"session_id": "s-1", "cwd": str(root)})
+CURSOR_PAYLOAD = '{"session_id":"c-1","conversation_id":"c-1"}'
 
 
 @pytest.mark.parametrize("harness_id", ("claude-code", "codex", "cursor"))
@@ -251,113 +168,3 @@ def test_skipped_claude_user_hook_prints_nothing_and_never_evaluates(
 
     assert cli_main(["hook", "evaluate", "PreToolUse"]) == 0
     assert capsys.readouterr().out == ""
-
-
-@pytest.mark.parametrize(
-    "harness,project_owner,user_owner,config_rel",
-    [
-        ("claude-code", "claude", "claude-user", ".claude/settings.json"),
-        ("cursor", "cursor-project", "cursor-user", ".cursor/hooks.json"),
-    ],
-)
-@pytest.mark.parametrize("machine_entry", [False, True])
-def test_encoded_windows_hook_ownership(
-    monkeypatch,
-    tmp_path,
-    harness,
-    project_owner,
-    user_owner,
-    config_rel,
-    machine_entry,
-):
-    from yoke_contracts.hook_shell_command import windows_hook_command
-
-    _native_windows(monkeypatch)
-    owner = user_owner if machine_entry else project_owner
-    handler = {"command": windows_hook_command(harness, "Stop", owner)}
-    if harness == "cursor":
-        document = {"version": 1, "hooks": {"stop": [handler]}}
-    else:
-        handler["type"] = "command"
-        document = {"hooks": {"Stop": [{"hooks": [handler]}]}}
-    path = tmp_path / config_rel
-    path.parent.mkdir()
-    path.write_text(json.dumps(document))
-    assert should_skip_config_duplicate(
-        "Stop",
-        _environment(harness, tmp_path),
-        _payload(harness, tmp_path),
-    ) is (not machine_entry)
-
-
-_PROJECT_OWNER = {"claude-code": "claude", "cursor": "cursor-project"}
-_NATIVE = {
-    ("claude-code", "SessionStart"): "SessionStart",
-    ("claude-code", "PostToolUse"): "PostToolUse",
-    ("cursor", "SessionStart"): "sessionStart",
-    ("cursor", "PostToolUse"): "postToolUse",
-}
-
-
-def _write_windows_project(root: Path, harness_id: str, verb: str) -> None:
-    """A project render made for native Windows: a bare startable ``yoke``."""
-    from yoke_contracts.hook_shell_command import windows_hook_command
-
-    handler = {
-        "command": windows_hook_command(harness_id, verb, _PROJECT_OWNER[harness_id])
-    }
-    native = _NATIVE[(harness_id, verb)]
-    if harness_id == "cursor":
-        path, document = (
-            root / ".cursor/hooks.json",
-            {"version": 1, "hooks": {native: [handler]}},
-        )
-    else:
-        handler["type"] = "command"
-        path = root / ".claude/settings.json"
-        document = {"hooks": {native: [{"hooks": [handler]}]}}
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(document), encoding="utf-8")
-
-
-@pytest.mark.parametrize("harness_id", ("claude-code", "cursor"))
-@pytest.mark.parametrize("verb", ("SessionStart", "PostToolUse"))
-@pytest.mark.parametrize("project_startable", (False, True))
-def test_native_windows_runs_one_hook_whether_or_not_the_project_hook_starts(
-    monkeypatch, tmp_path, harness_id, verb, project_startable
-):
-    """An unstartable ``/bin/sh`` project hook never silences the machine hook."""
-    from yoke_contracts.harness_machine_hooks import HARNESS_MACHINE_HOOKS
-    from yoke_contracts.hook_shell_command import hook_command_start_problem
-
-    _native_windows(monkeypatch)
-    if project_startable:
-        _write_windows_project(tmp_path, harness_id, verb)
-    else:
-        _write_project(tmp_path, harness_id, native=False)  # Tracked /bin/sh.
-    document = json.loads(
-        next((tmp_path / rel).read_text() for rel in (
-            ".claude/settings.json", ".cursor/hooks.json"
-        ) if (tmp_path / rel).is_file())
-    )
-    entries = document["hooks"][_NATIVE[(harness_id, verb)]]
-    handlers = [h for entry in entries for h in entry.get("hooks", [entry])]
-    project_starts = all(not hook_command_start_problem(h) for h in handlers)
-    assert project_starts is project_startable
-
-    payload = _payload(harness_id, tmp_path)
-    machine_env = _environment(harness_id, tmp_path)
-    project_env = {**machine_env, "YOKE_HOOK_CONFIG_OWNER": _PROJECT_OWNER[harness_id]}
-    machine_installed = bool(
-        HARNESS_MACHINE_HOOKS[harness_id].native_events_for(verb)
-    )
-    runs = []
-    if machine_installed and not should_skip_config_duplicate(verb, machine_env, payload):
-        runs.append("machine")
-    if project_starts and not should_skip_config_duplicate(verb, project_env, payload):
-        runs.append("project")
-    if project_startable:
-        assert runs == ["project"]
-    else:
-        # Claude installs no machine PostToolUse, so nothing else owns it.
-        assert runs == (["machine"] if machine_installed else [])
