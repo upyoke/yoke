@@ -9,7 +9,9 @@ prefix the first pass took would be refused and a new one proposed.
 from __future__ import annotations
 
 import json
+import os
 import shlex
+import sys
 from pathlib import Path
 
 import pytest
@@ -22,6 +24,7 @@ from yoke_cli.config import (
     onboard_project_create_permission,
     onboard_project_prefixes,
     onboard_wizard,
+    setup_agent_response,
     writer,
     yoke_token_verify,
 )
@@ -120,10 +123,20 @@ def _fail_apply(drive: AgentDriver, fake, tmp_path: Path) -> dict:
 
 
 def _run_printed(drive: AgentDriver, line: dict, value: str) -> tuple[int, list]:
-    """Run the line's answer_command exactly as printed, with ``value``."""
-    argv = shlex.split(line["answer_command"].replace("<value>", value))
-    assert Path(argv[0]).name == "yoke", argv
-    code = yoke_operations_cli.main(argv[1:])
+    """Run the line's answer_command exactly as printed, with ``value``.
+
+    Setup prints the resolved executable path unquoted ahead of its
+    arguments, so the helper requires that exact path as the command's head
+    (a native Windows ``...\\yoke.EXE``, or a path with spaces, survives
+    intact) and splits only the arguments by the platform's own rules:
+    POSIX shell quoting, or Windows' where a backslash is not an escape.
+    """
+    command = line["answer_command"].replace("<value>", value)
+    executable = setup_agent_response.yoke_executable()
+    assert Path(executable).stem.lower() == "yoke", executable
+    assert command.startswith(f"{executable} "), (executable, command)
+    argv = shlex.split(command[len(executable) + 1:], posix=os.name != "nt")
+    code = yoke_operations_cli.main(argv)
     out = drive._capsys.readouterr().out
     return code, [json.loads(row) for row in out.splitlines() if row]
 
@@ -197,3 +210,18 @@ def test_failure_without_a_report_keeps_the_plain_answer(hosted):
 
     assert (code, lines[-1]["state"]) == (0, "done"), lines[-1]
     assert fake.applied[-1].get("resume_run_id") is None
+
+
+def test_printed_answer_runs_from_an_executable_path_with_spaces(hosted, monkeypatch):
+    drive, fake, runs, tmp_path = hosted
+    executable = tmp_path / "Program Files" / "Yoke CLI" / "yoke"
+    executable.parent.mkdir(parents=True)
+    executable.write_text("")
+    monkeypatch.setattr(sys, "argv", [str(executable)])
+    failed = _fail_apply(drive, fake, tmp_path)
+    assert failed["answer_command"].startswith(f"{executable} setup --agent "), failed
+
+    code, lines = _run_printed(drive, failed, "retry")
+
+    assert (code, lines[-1]["state"]) == (0, "done"), lines[-1]
+    assert runs == [runs[0], runs[0]]
