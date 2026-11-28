@@ -204,7 +204,7 @@ def test_reset_stops_a_late_desktop_process_once_before_retrying_restore(monkeyp
 
     cursor = HOME + r"\AppData\Local\Programs\cursor\Cursor.exe"
     updater = HOME + r"\AppData\Local\Programs\cursor\tools\inno_updater.exe"
-    refusal = processes.PROCESS_RUNNING + " test-user processes are still running: 3400 " + updater
+    refusal = processes.PROCESS_RUNNING + ": test-user processes are still running: 3400 " + updater
     calls, stops = [], [[cursor], [] if persistent else [updater]]
 
     class _Control:

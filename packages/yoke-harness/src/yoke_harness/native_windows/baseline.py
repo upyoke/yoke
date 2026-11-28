@@ -219,8 +219,8 @@ def profile_operation(control, operation, path):
             if refused:
                 return HostActionResult(
                     False,
-                    {"operation": operation, "golden_baseline_path": path, "recovery": refused},
-                    refused.split(":", 1)[0],
+                    {"operation": operation, "golden_baseline_path": path, **refused.evidence},
+                    refused.error_code,
                 )
         else:
             result = control._run(script, timeout=600)
